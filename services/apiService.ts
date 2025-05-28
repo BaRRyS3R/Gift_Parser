@@ -118,17 +118,16 @@ class ApiService {
 
   async searchGiftsByName(searchTerm: string): Promise<ApiResponse<Gift[]>> {
     try {
-      // Use the correct filter format as shown in the working example
       const searchFilter = {
         price: { $exists: true },
         buyer: { $exists: false },
-        gift_name: searchTerm, // Use gift_name instead of name with regex
+        gift_name: searchTerm,
         asset: "TON"
       };
 
       const requestData: GiftFilterParams = {
         page: 1,
-        limit: 30, // Use the API-approved limit
+        limit: 30,
         sort: '{"message_post_time":-1,"gift_id":-1}',
         filter: JSON.stringify(searchFilter),
         ref: 0,
@@ -139,37 +138,121 @@ class ApiService {
       let allFoundGifts: Gift[] = [];
       let currentPage = 1;
       let hasMoreData = true;
+      let consecutiveEmptyPages = 0;
+      const maxConsecutiveEmptyPages = 3; // Stop after 3 consecutive empty pages
 
-      // Collect multiple pages to get more results
-      while (hasMoreData && currentPage <= 5) { // Limit to 5 pages max
+      console.log(`Starting comprehensive search for: ${searchTerm}`);
+
+      // Continue loading until no more data is available
+      while (hasMoreData && consecutiveEmptyPages < maxConsecutiveEmptyPages) {
         const searchData = { ...requestData, page: currentPage };
+
+        console.log(`Loading page ${currentPage} for ${searchTerm}...`);
+
         const response = await this.makeRequest<Gift[]>("/pageGifts", searchData);
 
-        if (!response.success || !response.data || response.data.length === 0) {
-          hasMoreData = false;
+        if (!response.success) {
+          console.error(`Page ${currentPage} failed:`, response.error);
           break;
         }
 
-        const processedGifts = this.processGiftsData(response.data);
-        allFoundGifts.push(...processedGifts);
+        if (!response.data || response.data.length === 0) {
+          consecutiveEmptyPages++;
+          console.log(`Page ${currentPage} returned no data. Empty pages: ${consecutiveEmptyPages}`);
 
-        // If we got less than the limit, we've reached the end
-        if (processedGifts.length < 30) {
-          hasMoreData = false;
+          if (consecutiveEmptyPages >= maxConsecutiveEmptyPages) {
+            hasMoreData = false;
+            break;
+          }
+        } else {
+          consecutiveEmptyPages = 0; // Reset counter when data is found
+          const processedGifts = this.processGiftsData(response.data);
+          allFoundGifts.push(...processedGifts);
+
+          console.log(`Page ${currentPage}: Found ${processedGifts.length} gifts. Total: ${allFoundGifts.length}`);
+
+          // If page returned less than the limit, we might be at the end
+          if (processedGifts.length < 30) {
+            hasMoreData = false;
+          }
         }
 
         currentPage++;
-        await this.delay(500); // Rate limiting
+
+        // Rate limiting to avoid overwhelming the API
+        await this.delay(200);
+
+        // Safety check to prevent runaway requests
+        if (currentPage > 200) {
+          console.warn('Reached maximum page limit (200) for safety');
+          break;
+        }
       }
+
+      console.log(`Search completed for ${searchTerm}. Total gifts found: ${allFoundGifts.length}`);
 
       return {
         success: true,
         data: allFoundGifts,
       };
     } catch (error) {
+      console.error('Search failed:', error);
       return {
         success: false,
         data: [],
+        error: error instanceof Error ? error.message : "Search failed",
+      };
+    }
+  }
+
+  // New method for paginated loading in the UI
+  async searchGiftsWithPagination(
+    searchTerm: string,
+    page: number = 1
+  ): Promise<ApiResponse<{ gifts: Gift[], hasMore: boolean, totalLoaded: number }>> {
+    try {
+      const searchFilter = {
+        price: { $exists: true },
+        buyer: { $exists: false },
+        gift_name: searchTerm,
+        asset: "TON"
+      };
+
+      const requestData: GiftFilterParams = {
+        page,
+        limit: 30,
+        sort: '{"message_post_time":-1,"gift_id":-1}',
+        filter: JSON.stringify(searchFilter),
+        ref: 0,
+        price_range: null,
+        user_auth: "",
+      };
+
+      const response = await this.makeRequest<Gift[]>("/pageGifts", requestData);
+
+      if (!response.success) {
+        return {
+          success: false,
+          data: { gifts: [], hasMore: false, totalLoaded: 0 },
+          error: response.error
+        };
+      }
+
+      const processedGifts = this.processGiftsData(response.data || []);
+      const hasMore = processedGifts.length === 30;
+
+      return {
+        success: true,
+        data: {
+          gifts: processedGifts,
+          hasMore,
+          totalLoaded: processedGifts.length
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: { gifts: [], hasMore: false, totalLoaded: 0 },
         error: error instanceof Error ? error.message : "Search failed",
       };
     }

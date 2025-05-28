@@ -24,7 +24,7 @@ import GiftCard from '@/components/GiftCard';
 import GiftFilters, { FilterOptions } from '@/components/GiftFilters';
 import GiftImage from '@/components/GiftImage';
 
-// Список доступных подарков
+// Available gifts list
 const AVAILABLE_GIFTS = {
   "5983471780763796287": "Santa Hat",
   "5936085638515261992": "Signet Ring",
@@ -104,6 +104,7 @@ const AVAILABLE_GIFTS = {
 };
 
 export default function HomePage() {
+  // State management
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [filteredGifts, setFilteredGifts] = useState<Gift[]>([]);
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
@@ -112,69 +113,42 @@ export default function HomePage() {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreData, setHasMoreData] = useState(true);
   const [totalFoundGifts, setTotalFoundGifts] = useState(0);
 
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
-  // Загрузка подарков по выбранному названию
-  const searchGiftsByName = useCallback(async (giftName: string, page: number = 1, append: boolean = false) => {
-    const isInitialLoad = page === 1 && !append;
-
-    if (isInitialLoad) {
-      setIsSearching(true);
-      setError(null);
-      setGifts([]);
-      setFilteredGifts([]);
-      setTotalFoundGifts(0);
-    }
+  // Comprehensive gift search function
+  const searchGiftsByName = useCallback(async (giftName: string) => {
+    setIsSearching(true);
+    setError(null);
+    setGifts([]);
+    setFilteredGifts([]);
+    setTotalFoundGifts(0);
+    setHasMoreData(true);
 
     try {
-      let response;
+      console.log(`Starting comprehensive search for: ${giftName}`);
 
-      if (page === 1 && !append) {
-        // Use the corrected search method for initial load
-        response = await apiService.searchGiftsByName(giftName);
-      } else {
-        // For pagination, use the correct filter format
-        const searchFilter = {
-          price: { $exists: true },
-          buyer: { $exists: false },
-          gift_name: giftName,
-          asset: "TON"
-        };
-
-        response = await apiService.getPageGifts({
-          page,
-          limit: 30, // Use API-approved limit
-          sort: '{"message_post_time":-1,"gift_id":-1}',
-          filter: JSON.stringify(searchFilter),
-          ref: 0,
-          price_range: null,
-          user_auth: ''
-        });
-      }
+      const response = await apiService.searchGiftsByName(giftName);
 
       if (response.success && response.data) {
-        const newGifts = response.data;
+        const allGifts = response.data;
 
-        if (newGifts.length === 0) {
+        if (allGifts.length === 0) {
+          setError(`No gifts found for "${giftName}"`);
           setHasMoreData(false);
-          if (isInitialLoad) {
-            setError(`No gifts found for "${giftName}"`);
-          }
         } else {
-          setGifts(prevGifts => append ? [...prevGifts, ...newGifts] : newGifts);
-          setFilteredGifts(prevGifts => append ? [...prevGifts, ...newGifts] : newGifts);
+          setGifts(allGifts);
+
+          const initialDisplay = allGifts.slice(0, 50);
+          setFilteredGifts(initialDisplay);
+          setTotalFoundGifts(allGifts.length);
           setLastUpdate(new Date());
 
-          if (isInitialLoad) {
-            setTotalFoundGifts(newGifts.length);
-          }
+          setHasMoreData(allGifts.length > 50);
 
-          // Check if we have more data available
-          setHasMoreData(newGifts.length === 30);
+          console.log(`Successfully loaded ${allGifts.length} gifts for ${giftName}`);
         }
       } else {
         setError(response.error || 'Failed to search gifts');
@@ -187,37 +161,57 @@ export default function HomePage() {
     }
   }, []);
 
-  // Применение фильтров
+  // Load more gifts from the already loaded set
+  const handleLoadMore = useCallback(() => {
+    if (!hasMoreData || isSearching) return;
+
+    const currentDisplayed = filteredGifts.length;
+    const remainingGifts = gifts.length - currentDisplayed;
+
+    if (remainingGifts > 0) {
+      const nextBatch = gifts.slice(currentDisplayed, currentDisplayed + 50);
+      setFilteredGifts(prevGifts => [...prevGifts, ...nextBatch]);
+
+      const newDisplayedCount = currentDisplayed + nextBatch.length;
+      setHasMoreData(newDisplayedCount < gifts.length);
+
+      console.log(`Displayed ${nextBatch.length} more gifts. Total displayed: ${newDisplayedCount}/${gifts.length}`);
+    } else {
+      setHasMoreData(false);
+    }
+  }, [gifts, filteredGifts, hasMoreData, isSearching]);
+
+  // Apply filters to the complete gift set
   const applyFilters = useCallback((filters: FilterOptions) => {
     let filtered = [...gifts];
 
-    // Фильтр по цене
+    // Price filter
     filtered = filtered.filter(gift =>
       gift.price >= filters.priceRange[0] && gift.price <= filters.priceRange[1]
     );
 
-    // Фильтр по моделям
+    // Model filter
     if (filters.modelNames.length > 0) {
       filtered = filtered.filter(gift =>
         filters.modelNames.some(model => gift.model.includes(model))
       );
     }
 
-    // Фильтр по фонам
+    // Backdrop filter
     if (filters.backdropNames.length > 0) {
       filtered = filtered.filter(gift =>
         filters.backdropNames.some(backdrop => gift.backdrop.includes(backdrop))
       );
     }
 
-    // Фильтр по символам
+    // Symbol filter
     if (filters.symbolNames.length > 0) {
       filtered = filtered.filter(gift =>
         filters.symbolNames.some(symbol => gift.symbol.includes(symbol))
       );
     }
 
-    // Сортировка
+    // Sorting
     switch (filters.sortBy) {
       case 'price_asc':
         filtered.sort((a, b) => a.price - b.price);
@@ -235,51 +229,58 @@ export default function HomePage() {
         break;
     }
 
-    setFilteredGifts(filtered);
+    const initialDisplay = filtered.slice(0, 50);
+    setFilteredGifts(initialDisplay);
+    setHasMoreData(filtered.length > 50);
+
+    console.log(`Filters applied. Showing ${initialDisplay.length} of ${filtered.length} filtered gifts`);
   }, [gifts]);
 
-  const handleGiftNameSelect = (giftName: string) => {
-    setSelectedGiftName(giftName);
-    setCurrentPage(1);
-    setHasMoreData(true);
-    searchGiftsByName(giftName, 1, false);
-  };
+  // Reset filters
+  const handleFiltersReset = useCallback(() => {
+    if (gifts.length > 0) {
+      const initialDisplay = gifts.slice(0, 50);
+      setFilteredGifts(initialDisplay);
+      setHasMoreData(gifts.length > 50);
 
-  const handleLoadMore = () => {
-    if (!isSearching && hasMoreData && selectedGiftName) {
-      searchGiftsByName(selectedGiftName, currentPage + 1, true);
-      setCurrentPage(prev => prev + 1);
+      console.log(`Filters reset. Displaying ${initialDisplay.length} of ${gifts.length} total gifts`);
     }
-  };
+  }, [gifts]);
 
+  // Handle gift name selection
+  const handleGiftNameSelect = useCallback((giftName: string) => {
+    setSelectedGiftName(giftName);
+    searchGiftsByName(giftName);
+  }, [searchGiftsByName]);
+
+  // Handle gift details modal
   const handleGiftDetails = (gift: Gift) => {
     setSelectedGift(gift);
     onOpen();
   };
 
-  const handleFiltersReset = () => {
-    setFilteredGifts(gifts);
-  };
+  // Calculate statistics
+  const calculateStatistics = useCallback(() => {
+    if (gifts.length === 0) return null;
 
-  const calculateStatistics = () => {
-    if (filteredGifts.length === 0) return null;
-
-    const totalGifts = filteredGifts.length;
-    const averagePrice = filteredGifts.reduce((sum, gift) => sum + gift.price, 0) / totalGifts;
-    const minPrice = Math.min(...filteredGifts.map(gift => gift.price));
-    const maxPrice = Math.max(...filteredGifts.map(gift => gift.price));
+    const totalGifts = gifts.length;
+    const displayedGifts = filteredGifts.length;
+    const averagePrice = gifts.reduce((sum, gift) => sum + gift.price, 0) / totalGifts;
+    const minPrice = Math.min(...gifts.map(gift => gift.price));
+    const maxPrice = Math.max(...gifts.map(gift => gift.price));
 
     return {
       totalGifts,
+      displayedGifts,
       averagePrice: averagePrice.toFixed(2),
       minPrice,
       maxPrice
     };
-  };
+  }, [gifts, filteredGifts]);
 
   const stats = calculateStatistics();
 
-  // Подготовка опций для селекта
+  // Prepare gift options for select
   const giftOptions = Object.entries(AVAILABLE_GIFTS).map(([id, name]) => ({
     key: name,
     label: name
@@ -287,14 +288,18 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6">
-      {/* Индикатор поиска */}
+      {/* Enhanced loading indicator */}
       {isSearching && (
-        <div className="fixed top-6 right-6 bg-yellow-500/90 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg z-50">
-          Поиск подарков...
+        <div className="fixed top-6 right-6 bg-blue-500/90 text-white px-6 py-3 rounded-lg text-sm font-medium shadow-lg z-50 flex items-center space-x-3">
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          <div className="flex flex-col">
+            <span>Загрузка всех доступных подарков...</span>
+            <span className="text-xs opacity-80">Это может занять несколько секунд</span>
+          </div>
         </div>
       )}
 
-      {/* Выбор подарка */}
+      {/* Gift selection card */}
       <Card className="bg-slate-800 border-slate-600">
         <CardBody className="p-6">
           <div className="space-y-4">
@@ -336,23 +341,31 @@ export default function HomePage() {
         </CardBody>
       </Card>
 
-      {/* Результаты поиска */}
+      {/* Enhanced results summary */}
       {selectedGiftName && (
         <Card className="bg-slate-800 border-slate-600">
           <CardBody className="p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-white">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white mb-2">
                   Результаты поиска: {selectedGiftName}
                 </h3>
-                <p className="text-gray-300 text-sm">
-                  {totalFoundGifts > 0 && `Найдено ${totalFoundGifts} подарков на продаже`}
-                  {filteredGifts.length !== totalFoundGifts && ` • Показано ${filteredGifts.length} после фильтрации`}
-                </p>
+                <div className="space-y-1">
+                  {totalFoundGifts > 0 && (
+                    <>
+                      <p className="text-gray-300 text-sm">
+                        Найдено {totalFoundGifts} подарков на продаже
+                      </p>
+                      <p className="text-gray-400 text-xs">
+                        Отображается {filteredGifts.length} из {totalFoundGifts} подарков
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
               {lastUpdate && (
                 <div className="text-right">
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 mb-2">
                     Обновлено: {lastUpdate.toLocaleString('ru-RU')}
                   </p>
                   <Button
@@ -371,13 +384,19 @@ export default function HomePage() {
         </Card>
       )}
 
-      {/* Статистика */}
+      {/* Enhanced comprehensive statistics */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card className="bg-slate-800 border-slate-600">
             <CardBody className="text-center p-4">
               <p className="text-2xl font-bold text-blue-400">{stats.totalGifts}</p>
-              <p className="text-sm text-gray-300">Показано подарков</p>
+              <p className="text-sm text-gray-300">Всего найдено</p>
+            </CardBody>
+          </Card>
+          <Card className="bg-slate-800 border-slate-600">
+            <CardBody className="text-center p-4">
+              <p className="text-2xl font-bold text-purple-400">{stats.displayedGifts}</p>
+              <p className="text-sm text-gray-300">Отображается</p>
             </CardBody>
           </Card>
           <Card className="bg-slate-800 border-slate-600">
@@ -388,7 +407,7 @@ export default function HomePage() {
           </Card>
           <Card className="bg-slate-800 border-slate-600">
             <CardBody className="text-center p-4">
-              <p className="text-2xl font-bold text-purple-400">{stats.minPrice}</p>
+              <p className="text-2xl font-bold text-yellow-400">{stats.minPrice}</p>
               <p className="text-sm text-gray-300">Мин. цена (TON)</p>
             </CardBody>
           </Card>
@@ -401,7 +420,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Фильтры - показываем только если есть результаты поиска */}
+      {/* Filters section */}
       {gifts.length > 0 && (
         <GiftFilters
           onFiltersChange={applyFilters}
@@ -411,7 +430,7 @@ export default function HomePage() {
         />
       )}
 
-      {/* Ошибка */}
+      {/* Error display */}
       {error && (
         <Card className="bg-red-900/20 border-red-500/20">
           <CardBody className="text-center p-6">
@@ -431,7 +450,7 @@ export default function HomePage() {
         </Card>
       )}
 
-      {/* Список подарков */}
+      {/* Gift list display */}
       {filteredGifts.length > 0 ? (
         <div className="space-y-4">
           <div className="gifts-grid">
@@ -444,36 +463,74 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Кнопка "Загрузить еще" */}
+          {/* Enhanced load more section */}
           {hasMoreData && (
-            <div className="flex justify-center mt-8">
+            <div className="flex flex-col items-center mt-8 space-y-4">
+              <div className="text-center">
+                <p className="text-gray-300 text-sm mb-2">
+                  Показано {filteredGifts.length} из {gifts.length} подарков
+                </p>
+                <div className="w-64 bg-slate-700 rounded-full h-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(filteredGifts.length / gifts.length) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
               <Button
                 color="primary"
                 variant="flat"
                 onPress={handleLoadMore}
                 isLoading={isSearching}
                 size="lg"
+                className="px-8"
               >
-                Загрузить еще подарки
+                Показать еще 50 подарков
               </Button>
             </div>
           )}
         </div>
-      ) : selectedGiftName && !isSearching && (
+      ) : selectedGiftName && !isSearching && gifts.length === 0 ? (
         <Card className="bg-slate-800 border-slate-600">
           <CardBody className="text-center py-12">
+            <div className="text-6xl mb-4">🔍</div>
             <p className="text-gray-300 text-lg">
               Подарки не найдены
             </p>
             <p className="text-gray-400 text-sm mt-2">
-              По запросу &quot;{selectedGiftName}&quot; не найдено подарков на продаже
+              По запросу "{selectedGiftName}" не найдено подарков на продаже в маркетплейсе Tonnel
             </p>
+            <Button
+              color="primary"
+              variant="flat"
+              className="mt-4"
+              onPress={() => setSelectedGiftName('')}
+            >
+              Выбрать другой подарок
+            </Button>
           </CardBody>
         </Card>
-      )}
-
-      {/* Приглашение к выбору */}
-      {!selectedGiftName && !isSearching && (
+      ) : selectedGiftName && !isSearching && filteredGifts.length === 0 && gifts.length > 0 ? (
+        <Card className="bg-slate-800 border-slate-600">
+          <CardBody className="text-center py-12">
+            <div className="text-6xl mb-4">🔽</div>
+            <p className="text-gray-300 text-lg">
+              Нет результатов после фильтрации
+            </p>
+            <p className="text-gray-400 text-sm mt-2">
+              Всего найдено {gifts.length} подарков "{selectedGiftName}", но ни один не соответствует выбранным фильтрам
+            </p>
+            <Button
+              color="secondary"
+              variant="flat"
+              className="mt-4"
+              onPress={handleFiltersReset}
+            >
+              Сбросить фильтры
+            </Button>
+          </CardBody>
+        </Card>
+      ) : !selectedGiftName && !isSearching && (
         <Card className="bg-slate-800 border-slate-600">
           <CardBody className="text-center py-12">
             <div className="text-6xl mb-4">🎁</div>
@@ -487,7 +544,7 @@ export default function HomePage() {
         </Card>
       )}
 
-      {/* Модальное окно с деталями подарка */}
+      {/* Gift details modal */}
       <Modal
         isOpen={isOpen}
         onOpenChange={onOpenChange}
