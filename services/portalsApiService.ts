@@ -149,12 +149,13 @@ class PortalsApiService {
 
             const authHeader = await this.generateAuthHeader();
 
+            // Удаляем origin из заголовков, так как он вызывает CORS проблемы
             const headers = {
                 ...this.defaultHeaders,
                 ...options.headers,
                 authorization: authHeader,
-                referer: 'https://market.portals.tg/',
-                origin: 'https://market.portals.tg'
+                referer: 'https://market.portals.tg/'
+                // origin удален намеренно
             };
 
             console.log('Финальные заголовки запроса:', {
@@ -172,7 +173,8 @@ class PortalsApiService {
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
                 ...options,
                 headers,
-                credentials: 'include'
+                // Убираем credentials для избежания CORS проблем
+                mode: 'cors' // Явно указываем режим CORS
             });
 
             console.log('Получен ответ от API:', {
