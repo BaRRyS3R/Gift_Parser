@@ -1,28 +1,10 @@
 // src/services/portalsApiService.ts
 
-import { Gift, PortalsNFT, PortalsSearchResponse, PortalsFilterParams, ApiResponse, TelegramWebAppAuth } from "@/types/gift";
+import { Gift, PortalsNFT, PortalsSearchResponse, PortalsFilterParams, ApiResponse } from "@/types/gift";
 
 class PortalsApiService {
     private baseUrl = "https://market.portals.tg/api";
     private fragmentUrl = "https://nft.fragment.com";
-
-    // Mock TMA auth data for development/testing
-    private mockTmaAuth: TelegramWebAppAuth = {
-        query_id: "AAE5oKwZAAAAADmgrBkIWrLV",
-        user: {
-            id: 430743609,
-            first_name: "Aleksandr",
-            last_name: "Andreev",
-            username: "mrmrcrowley",
-            language_code: "ru",
-            is_premium: true,
-            allows_write_to_pm: true,
-            photo_url: "https://t.me/i/userpic/320/0NNjvHRtW06W-TF6gxxV72Ut8OqQdAXV4hrUaa0h038.svg"
-        },
-        auth_date: 1748449639,
-        signature: "jP6-xJVZznhqSMnBr8eWyBw29LiE3rmT1ZHm3LQGsuAVm_CDvrw1SWtIf-3pqZwvsjwq0-vlqt_wC2_qjNkcDQ",
-        hash: "57d7f65cc768b3998e7a279ffa7ea50720d5bd6c573c781099f140b12cbf146a"
-    };
 
     private defaultHeaders = {
         accept: "application/json, text/plain, */*",
@@ -50,26 +32,14 @@ class PortalsApiService {
             // Get Telegram WebApp instance
             const webApp = (window as any).Telegram?.WebApp;
             if (!webApp) {
-                console.error('Telegram WebApp not found. Make sure the script is loaded and you are running in Telegram client.');
-                throw new Error('Telegram WebApp not available');
+                console.error('Telegram WebApp не найден. Убедитесь, что скрипт загружен и вы запускаете приложение в клиенте Telegram.');
+                throw new Error('Telegram WebApp не доступен');
             }
 
             // Initialize WebApp if not already initialized
             if (!webApp.isInitialized) {
-                console.log('Initializing Telegram WebApp...');
+                console.log('Инициализация Telegram WebApp...');
                 webApp.ready();
-            }
-
-            // Development mode - check URL parameters
-            const urlParams = new URLSearchParams(window.location.search);
-            const devInitData = urlParams.get('tgWebAppData');
-            
-            if (devInitData) {
-                console.log('Using development mode with initData from URL:', devInitData);
-                // In dev mode, assume the provided tgWebAppData is the full initData string
-                const header = `tma ${devInitData}`;
-                console.log('Generated auth header (Dev Mode):', header);
-                return header;
             }
 
             // Wait for initData to be available (with timeout)
@@ -77,21 +47,21 @@ class PortalsApiService {
             const timeout = 5000; // 5 seconds timeout
             
             while (!webApp.initData && (Date.now() - startTime < timeout)) {
-                console.log('Waiting for Telegram WebApp initData...');
+                console.log('Ожидание данных инициализации Telegram WebApp...');
                 await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
             }
 
             if (!webApp.initData) {
-                console.error('Telegram WebApp initData is not available after waiting.');
-                throw new Error('Telegram WebApp initData is not available after waiting.');
+                console.error('Данные инициализации Telegram WebApp недоступны после ожидания.');
+                throw new Error('Данные инициализации Telegram WebApp недоступны');
             }
 
             // Use the initData directly from WebApp
             const header = `tma ${webApp.initData}`;
-            console.log('Generated auth header (WebApp Mode):', header);
+            console.log('Сгенерирован заголовок авторизации:', header);
             
-            // Log WebApp state (optional, but good for debugging)
-            console.log('Telegram WebApp state:', {
+            // Log WebApp state for debugging
+            console.log('Состояние Telegram WebApp:', {
                 isInitialized: webApp.isInitialized,
                 initData: webApp.initData,
                 initDataUnsafe: webApp.initDataUnsafe,
@@ -106,7 +76,7 @@ class PortalsApiService {
 
             return header;
         } catch (error) {
-            console.error('Failed to generate TMA auth:', error);
+            console.error('Ошибка при генерации TMA auth:', error);
             throw error;
         }
     }
