@@ -96,45 +96,53 @@ export const GiftFilters: React.FC<GiftFiltersProps> = ({
 
         {/* Поиск по названию */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-400">Поиск по названию</label>
+          <label htmlFor="search-input" className="text-sm font-medium text-gray-400">
+            Поиск по названию
+          </label>
           <Input
+            id="search-input"
             placeholder="Введите название подарка"
             value={filters.searchTerm}
-            onValueChange={(value) => handleFilterUpdate('searchTerm', value)}
             variant="bordered"
             isDisabled={isLoading}
+            onValueChange={(value) => handleFilterUpdate("searchTerm", value)}
           />
         </div>
 
         {/* Диапазон цен */}
         <div className="space-y-3">
-          <label className="text-sm font-medium text-gray-400">
+          <label htmlFor="price-slider" className="text-sm font-medium text-gray-400">
             Диапазон цен: {filters.priceRange[0]} - {filters.priceRange[1]} TON
           </label>
           <Slider
+            id="price-slider"
             step={1}
             minValue={0}
             maxValue={100}
             value={filters.priceRange}
-            onChange={(value) => handleFilterUpdate('priceRange', value as [number, number])}
             className="max-w-md"
             isDisabled={isLoading}
+            onChange={(value) => handleFilterUpdate("priceRange", value as [number, number])}
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Сортировка */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-400">Сортировка</label>
+            <label htmlFor="sort-select" className="text-sm font-medium text-gray-400">
+              Сортировка
+            </label>
             <Select
+              id="sort-select"
               placeholder="Выберите способ сортировки"
               selectedKeys={[filters.sortBy]}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0] as string;
-                handleFilterUpdate('sortBy', selected);
-              }}
               variant="bordered"
               isDisabled={isLoading}
+              onSelectionChange={(keys) => {
+                const selected = Array.from(keys)[0] as string;
+
+                handleFilterUpdate("sortBy", selected);
+              }}
             >
               {sortOptions.map((option) => (
                 <SelectItem key={option.key} value={option.key}>
@@ -146,16 +154,20 @@ export const GiftFilters: React.FC<GiftFiltersProps> = ({
 
           {/* Фильтр по редкости */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-400">Редкость</label>
+            <label htmlFor="rarity-select" className="text-sm font-medium text-gray-400">
+              Редкость
+            </label>
             <Select
+              id="rarity-select"
               placeholder="Выберите редкость"
               selectedKeys={[filters.rarityFilter]}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0] as string;
-                handleFilterUpdate('rarityFilter', selected);
-              }}
               variant="bordered"
               isDisabled={isLoading}
+              onSelectionChange={(keys) => {
+                const selected = Array.from(keys)[0] as string;
+
+                handleFilterUpdate("rarityFilter", selected);
+              }}
             >
               {rarityOptions.map((option) => (
                 <SelectItem key={option.key} value={option.key}>
@@ -171,13 +183,18 @@ export const GiftFilters: React.FC<GiftFiltersProps> = ({
           <Divider />
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Только лимитированные подарки</label>
-              <p className="text-xs text-gray-400">Показывать только подарки с ограниченным тиражом</p>
+              <label htmlFor="limited-switch" className="text-sm font-medium">
+                Только лимитированные подарки
+              </label>
+              <p className="text-xs text-gray-400">
+                Показывать только подарки с ограниченным тиражом
+              </p>
             </div>
             <Switch
+              id="limited-switch"
               isSelected={filters.showLimitedOnly}
-              onValueChange={(value) => handleFilterUpdate('showLimitedOnly', value)}
               isDisabled={isLoading}
+              onValueChange={(value) => handleFilterUpdate("showLimitedOnly", value)}
             />
           </div>
         </div>
@@ -185,8 +202,8 @@ export const GiftFilters: React.FC<GiftFiltersProps> = ({
         {/* Информация о результатах */}
         <div className="bg-content2 rounded-lg p-3">
           <p className="text-sm text-gray-400">
-            Фильтры будут применены автоматически при изменении параметров.
-            Данные обновляются каждые 5 минут.
+            Фильтры будут применены автоматически при изменении параметров. Данные
+            обновляются каждые 5 минут.
           </p>
         </div>
       </CardBody>
