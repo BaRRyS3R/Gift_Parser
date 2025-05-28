@@ -1,0 +1,570 @@
+# Техническая документация: Концепция карточной игры Rounds для Telegram Mini App
+
+## Содержание
+1. Обзор проекта
+2. Концепция игры
+3. Архитектура приложения
+4. Структура базы данных
+5. Фронтенд компоненты
+6. Бэкенд сервисы
+7. Интеграция с Telegram
+8. Интеграция с блокчейном TON
+
+## 1. Обзор проекта
+
+Проект представляет собой коллекционную карточную игру в стиле Hearthstone/Gwent/Artifact, разрабатываемую в формате Telegram Mini App. Игра будет использовать современный стек технологий: Next.js для фронтенда (размещение на Vercel), Supabase для базы данных и Render.com для серверной части. На более поздних этапах разработки планируется интеграция с блокчейном TON для реализации системы NFT-карт.
+
+## 2. Концепция игры
+
+### 2.1. Основные механики
+
+**Название игры**: Rounds
+
+**Игровой процесс**:
+- Дуэльная карточная игра, где два игрока соревнуются, используя собранные колоды карт
+- Матчи разделены на раунды (отсюда название игры), где победитель определяется по принципу "лучший из трёх"
+- В каждом раунде игроки выставляют карты на игровое поле, стремясь набрать больше очков силы, чем противник
+- Ограниченный ресурс (мана/энергия), который пополняется каждый ход
+
+**Уникальные особенности**:
+- Система "позиций" на игровом поле (передняя и задняя линии)
+- Механика "погодных эффектов", влияющих на определённые позиции поля
+- "Легендарные" карты с уникальными способностями, меняющими правила игры
+- Система цепочек взаимодействий между картами для создания комбинаций
+
+### 2.2. Типы карт
+
+1. **Юниты** - основные боевые единицы с показателем силы:
+   - Бронзовые (обычные)
+   - Серебряные (редкие)
+   - Золотые (эпические)
+   - Легендарные (уникальные)
+
+2. **Заклинания** - одноразовые эффекты, оказывающие влияние на игровое поле
+
+
+3. **Герои** - самые сильные карты на поле боя
+
+### 2.3. Экономика и прогрессия
+
+- Базовые карты доступны всем игрокам
+- Новые карты открываются через:
+  - Выполнение ежедневных и еженедельных заданий
+  - Покупка цифровых бустеров
+- NFT-карты (на поздних этапах) будут представлять особую ценность и редкость
+
+## 3. Архитектура приложения
+
+### 3.1. Общая структура
+
+```
+src/
+├── app/                    # Next.js страницы и маршрутизация
+│   ├── page.tsx            # Главная страница
+│   ├── layout.tsx          # Основной макет с подключением Telegram SDK
+│   ├── globals.css         # Глобальные стили
+│   ├── providers.tsx       # Провайдеры контекста
+│   ├── not-found.tsx       # Страница 404
+│   ├── game/               # Игровые страницы
+│   ├── collection/         # Страницы коллекции карт
+│   ├── onboarding/         # Страница онбоардинга
+│   ├── profile/            # Профиль пользователя
+│   └── shop/               # Магазин и бустеры
+├── components/             # Компоненты интерфейса
+│   ├── ui/                 # Базовые UI компоненты
+│   ├── game/               # Игровые компоненты
+│   │   ├── Board/          # Игровое поле
+│   │   ├── Card/           # Компоненты карт
+│   │   ├── Hand/           # Рука игрока
+│   │   ├── Effects/        # Визуальные эффекты
+│   │   └── Animations/     # Анимации игры
+│   ├── collection/         # Компоненты коллекции
+│   ├── onboarding/         # Компоненты онбоардинга
+│   └── shared/             # Общие компоненты
+├── game/                   # Игровая логика
+│   ├── core/               # Ядро игровой механики
+│   ├── state/              # Состояние игры
+│   ├── actions/            # Игровые действия
+│   └── ai/                 # Искусственный интеллект (только для обучения игре)
+├── hooks/                  # React-хуки
+│   ├── useGame.ts          # Игровые хуки
+│   ├── useAuth.ts          # Аутентификация
+│   ├── useTelegram.ts      # Интеграция с Telegram
+│   └── useNFT.ts           # Интеграция с TON
+├── services/               # Сервисы и API
+│   ├── api.ts              # Основной API-клиент
+│   ├── ton.ts              # Сервис для работы с TON
+│   └── matchmaking.ts      # Сервис подбора соперников
+├── stores/                 # Хранилища состояния (Zustand)
+│   ├── gameStore.ts        # Хранилище игры
+│   ├── userStore.ts        # Хранилище пользователя
+│   └── collectionStore.ts  # Хранилище коллекции
+├── types/                  # Типы TypeScript
+│   ├── game.ts             # Типы игры
+│   ├── card.ts             # Типы карт
+│   ├── user.ts             # Типы пользователя
+│   └── api.ts              # Типы API
+└── utils/                  # Утилиты
+    ├── formatters.ts       # Форматирование данных
+    ├── animations.ts       # Утилиты анимаций
+    ├── supabase.ts         # Конфигурация Supabase
+    └── constants.ts        # Константы
+    
+```
+
+### 3.2. Технологический стек
+
+- **Фронтенд**: Next.js 15, React 18, TypeScript
+- **Стилизация**: Tailwind CSS, NextUI
+- **Состояние**: Zustand, Immer, XState
+- **Анимации**: Framer Motion, React-TSParticles
+- **База данных**: Supabase (PostgreSQL)
+- **Бэкенд**: Serverless функции на Render.com
+- **Реалтайм**: WebSockets (ws)
+- **P2P соединения**: PeerJS, RTCPeerConnection, Simple-Peer
+- **Блокчейн**: TON (@ton/core, @ton/crypto, @ton/ton)
+
+## 4. Структура базы данных
+
+### 4.1. Основные таблицы Supabase
+
+| table_name    | column_name          | data_type                | character_maximum_length | is_nullable | column_default     |
+| ------------- | -------------------- | ------------------------ | ------------------------ | ----------- | ------------------ |
+| cards         | id                   | uuid                     | null                     | NO          | uuid_generate_v4() |
+| cards         | name                 | text                     | null                     | NO          | null               |
+| cards         | description          | text                     | null                     | YES         | null               |
+| cards         | image_url            | text                     | null                     | YES         | null               |
+| cards         | rarity               | text                     | null                     | YES         | null               |
+| cards         | type                 | text                     | null                     | YES         | null               |
+| cards         | ability              | text                     | null                     | YES         | null               |
+| cards         | keywords             | ARRAY                    | null                     | YES         | null               |
+| cards         | position             | text                     | null                     | YES         | null               |
+| cards         | created_at           | timestamp with time zone | null                     | YES         | now()              |
+| cards         | attack               | integer                  | null                     | YES         | null               |
+| cards         | defense              | integer                  | null                     | YES         | null               |
+| cards         | strength             | integer                  | null                     | YES         | null               |
+| cards         | health               | integer                  | null                     | YES         | null               |
+| cards         | mana_cost            | integer                  | null                     | YES         | null               |
+| cards         | effect_type          | text                     | null                     | YES         | null               |
+| collections   | id                   | uuid                     | null                     | NO          | uuid_generate_v4() |
+| collections   | user_id              | uuid                     | null                     | YES         | null               |
+| collections   | card_id              | uuid                     | null                     | YES         | null               |
+| collections   | quantity             | integer                  | null                     | YES         | 1                  |
+| collections   | is_nft               | boolean                  | null                     | YES         | false              |
+| collections   | nft_address          | text                     | null                     | YES         | null               |
+| collections   | obtained_at          | timestamp with time zone | null                     | YES         | now()              |
+| daily_quests  | id                   | uuid                     | null                     | NO          | uuid_generate_v4() |
+| daily_quests  | user_id              | uuid                     | null                     | YES         | null               |
+| daily_quests  | quest_type           | text                     | null                     | NO          | null               |
+| daily_quests  | description          | text                     | null                     | NO          | null               |
+| daily_quests  | target               | integer                  | null                     | NO          | null               |
+| daily_quests  | progress             | integer                  | null                     | YES         | 0                  |
+| daily_quests  | reward_type          | text                     | null                     | NO          | null               |
+| daily_quests  | reward_amount        | integer                  | null                     | NO          | null               |
+| daily_quests  | created_at           | timestamp with time zone | null                     | YES         | now()              |
+| daily_quests  | expires_at           | timestamp with time zone | null                     | YES         | null               |
+| daily_quests  | completed            | boolean                  | null                     | YES         | false              |
+| daily_quests  | claimed              | boolean                  | null                     | YES         | false              |
+| deck_cards    | id                   | uuid                     | null                     | NO          | uuid_generate_v4() |
+| deck_cards    | deck_id              | uuid                     | null                     | YES         | null               |
+| deck_cards    | card_id              | uuid                     | null                     | YES         | null               |
+| deck_cards    | quantity             | integer                  | null                     | YES         | 1                  |
+| decks         | id                   | uuid                     | null                     | NO          | uuid_generate_v4() |
+| decks         | user_id              | uuid                     | null                     | YES         | null               |
+| decks         | name                 | text                     | null                     | YES         | null               |
+| decks         | leader_card_id       | uuid                     | null                     | YES         | null               |
+| decks         | created_at           | timestamp with time zone | null                     | YES         | now()              |
+| decks         | updated_at           | timestamp with time zone | null                     | YES         | now()              |
+| matches       | id                   | uuid                     | null                     | NO          | uuid_generate_v4() |
+| matches       | player1_id           | uuid                     | null                     | YES         | null               |
+| matches       | player2_id           | uuid                     | null                     | YES         | null               |
+| matches       | winner_id            | uuid                     | null                     | YES         | null               |
+| matches       | started_at           | timestamp with time zone | null                     | YES         | now()              |
+| matches       | ended_at             | timestamp with time zone | null                     | YES         | null               |
+| matches       | rounds_played        | integer                  | null                     | YES         | 0                  |
+| matches       | rounds_data          | jsonb                    | null                     | YES         | null               |
+| user_progress | id                   | uuid                     | null                     | NO          | uuid_generate_v4() |
+| user_progress | user_id              | uuid                     | null                     | YES         | null               |
+| user_progress | matches_played       | integer                  | null                     | YES         | 0                  |
+| user_progress | matches_won          | integer                  | null                     | YES         | 0                  |
+| user_progress | matches_lost         | integer                  | null                     | YES         | 0                  |
+| user_progress | campaign_progress    | jsonb                    | null                     | YES         | '{}'::jsonb        |
+| user_progress | achievements         | jsonb                    | null                     | YES         | '{}'::jsonb        |
+| user_progress | updated_at           | timestamp with time zone | null                     | YES         | now()              |
+| users         | id                   | uuid                     | null                     | NO          | uuid_generate_v4() |
+| users         | telegram_id          | text                     | null                     | NO          | null               |
+| users         | username             | text                     | null                     | YES         | null               |
+| users         | avatar_url           | text                     | null                     | YES         | null               |
+| users         | created_at           | timestamp with time zone | null                     | YES         | now()              |
+| users         | updated_at           | timestamp with time zone | null                     | YES         | now()              |
+| users         | exp                  | integer                  | null                     | YES         | 0                  |
+| users         | level                | integer                  | null                     | YES         | 1                  |
+| users         | coins                | integer                  | null                     | YES         | 0                  |
+| users         | premium_currency     | integer                  | null                     | YES         | 0                  |
+| users         | onboarding_completed | boolean                  | null                     | YES         | false              |
+| users         | starter_pack         | boolean                  | null                     | YES         | false              |
+
+## 5. Фронтенд компоненты
+
+### 5.1. Страницы приложения
+
+1. **Главная страница** (`src/app/page.tsx`)
+   - Вход в игру
+   - Новости и анонсы
+   - Ежедневные задания
+
+2. **Игровой процесс** (`src/app/game/[matchId]/page.tsx`)
+   - Игровое поле
+   - Интерфейс матча
+   - Система ходов
+
+3. **Коллекция** (`src/app/collection/page.tsx`)
+   - Просмотр имеющихся карт
+   - Фильтрация и сортировка
+   - Статистика коллекции
+
+4. **Редактор колод** (`src/app/decks/page.tsx`)
+   - Создание и редактирование колод
+   - Анализ колоды
+   - Рекомендации
+
+5. **Профиль** (`src/app/profile/page.tsx`)
+   - Статистика игрока
+   - Достижения
+   - История матчей
+
+6. **Магазин** (`src/app/shop/page.tsx`)
+   - Бустеры
+   - Специальные предложения
+   - NFT-карты (позднее)
+
+### 5.2. Ключевые компоненты
+
+1. **Карта** (`src/components/game/Card/Card.tsx`)
+   - Рендеринг карты с использованием CSS и NextUI
+   - Анимации через Framer Motion
+   - Интерактивность с React-use-gesture
+
+2. **Игровое поле** (`src/components/game/Board/Board.tsx`)
+   - Визуализация поля с помощью CSS Grid и Flex
+   - Зоны размещения карт с использованием drag-and-drop
+   - Эффекты поля через TSParticles
+
+3. **Рука** (`src/components/game/Hand/Hand.tsx`)
+   - Визуализация карт в руке с CSS трансформациями
+   - Механика перетаскивания с react-use-gesture
+   - Подсветка возможных действий
+
+4. **Индикатор ресурсов** (`src/components/game/ResourceMeter.tsx`)
+   - Отображение доступных ресурсов
+   - Анимации изменения через Framer Motion
+
+5. **Система эффектов** (`src/components/game/Effects/EffectSystem.tsx`)
+   - Визуализация действий карт с помощью SVG и CSS
+   - Частицы и визуальные эффекты через react-tsparticles
+
+## 6. Бэкенд сервисы
+
+### 6.1. API-эндпоинты
+
+**Аутентификация и пользователи**
+- `POST /api/auth/telegram` - Аутентификация через Telegram
+- `GET /api/users/me` - Данные текущего пользователя
+- `PATCH /api/users/me` - Обновление профиля
+
+**Карты и коллекция**
+- `GET /api/cards` - Список карт с фильтрацией
+- `GET /api/cards/:id` - Детали карты
+- `GET /api/collection` - Коллекция пользователя
+- `POST /api/collection/claim` - Получение новой карты
+
+**Колоды**
+- `GET /api/decks` - Колоды пользователя
+- `POST /api/decks` - Создание колоды
+- `PUT /api/decks/:id` - Обновление колоды
+- `DELETE /api/decks/:id` - Удаление колоды
+
+**Матчмейкинг и игровой процесс**
+- `POST /api/matchmaking/queue` - Поиск соперника
+- `GET /api/matches/:id` - Информация о матче
+- `POST /api/matches/:id/action` - Выполнение игрового действия
+- `POST /api/matches/:id/surrender` - Сдаться
+
+**NFT и TON**
+- `GET /api/nft/cards` - NFT-карты пользователя
+- `POST /api/nft/mint` - Создание NFT-карты
+- `GET /api/nft/:address` - Информация об NFT
+
+### 6.2. WebSocket события
+
+- `match:found` - Найден соперник
+- `match:start` - Начало матча
+- `match:action` - Игровое действие
+- `match:effect` - Эффект на игровом поле
+- `match:turn` - Смена хода
+- `match:round` - Смена раунда
+- `match:end` - Конец матча
+
+### 6.3. Реализация сервера WebSockets
+
+```typescript
+// server.js
+const WebSocket = require('ws');
+const { nanoid } = require('nanoid');
+
+const server = new WebSocket.Server({ port: process.env.WS_PORT || 8080 });
+
+// Хранилище активных соединений
+const clients = new Map();
+// Очередь на матчмейкинг
+const matchmakingQueue = [];
+// Активные матчи
+const activeMatches = new Map();
+
+server.on('connection', (socket) => {
+  const clientId = nanoid();
+  
+  // Добавление клиента в список
+  clients.set(clientId, { socket, userId: null });
+  
+  socket.on('message', (message) => {
+    const data = JSON.parse(message);
+    
+    switch (data.type) {
+      case 'auth':
+        clients.get(clientId).userId = data.userId;
+        break;
+      case 'queue':
+        handleMatchmaking(clientId, data.userId, data.deckId);
+        break;
+      case 'action':
+        handleGameAction(data.matchId, data.userId, data.action);
+        break;
+      // Другие типы сообщений
+    }
+  });
+  
+  socket.on('close', () => {
+    // Обработка отключения
+    handleDisconnect(clientId);
+    clients.delete(clientId);
+  });
+});
+
+// Реализация функций для обработки различных событий
+function handleMatchmaking(clientId, userId, deckId) {
+  // Логика матчмейкинга
+}
+
+function handleGameAction(matchId, userId, action) {
+  // Обработка игровых действий
+}
+
+function handleDisconnect(clientId) {
+  // Обработка отключения клиента
+}
+```
+
+## 7. Интеграция с Telegram
+
+### 7.1. Инициализация
+
+```typescript
+// src/hooks/useTelegram.ts
+import { useEffect, useState } from 'react';
+
+declare global {
+  interface Window {
+    Telegram: {
+      WebApp: {
+        initData: string;
+        initDataUnsafe: {
+          user?: {
+            id: number;
+            first_name: string;
+            last_name?: string;
+            username?: string;
+          };
+        };
+        ready: () => void;
+        expand: () => void;
+        close: () => void;
+        showPopup: (params: any) => void;
+        MainButton: {
+          show: () => void;
+          hide: () => void;
+          setText: (text: string) => void;
+          onClick: (callback: () => void) => void;
+        };
+      };
+    };
+  }
+}
+
+export const useTelegram = () => {
+  const [telegramUser, setTelegramUser] = useState<null | {
+    id: number;
+    username?: string;
+    first_name: string;
+    last_name?: string;
+  }>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      
+      if (tg.initDataUnsafe?.user) {
+        setTelegramUser(tg.initDataUnsafe.user);
+      }
+    }
+  }, []);
+
+  return { telegramUser };
+};
+```
+
+### 7.2. Подключение скрипта Telegram Mini App
+
+```typescript
+// src/app/layout.tsx
+import Script from 'next/script';
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="ru">
+      <head>
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js"
+          strategy="beforeInteractive"
+        />
+      </head>
+      <body>
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+### 7.3. Аутентификация
+
+```typescript
+// src/services/auth.ts
+import { createClient } from '@supabase/supabase-js';
+import CryptoJS from 'crypto-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+export const authenticateTelegramUser = async (initData: string) => {
+  try {
+    const response = await fetch('/api/auth/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData }),
+    });
+    
+    const data = await response.json();
+    
+    if (data.session) {
+      await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return false;
+  }
+};
+```
+
+## 8. Интеграция с блокчейном TON
+
+### 8.1. Работа с TON
+
+```typescript
+// src/services/ton.ts
+import { TonClient } from '@ton/ton';
+import { mnemonicToPrivateKey } from '@ton/crypto';
+
+let tonClient: TonClient | null = null;
+
+export const initTON = async () => {
+  if (!tonClient) {
+    tonClient = new TonClient({
+      endpoint: process.env.NEXT_PUBLIC_TON_ENDPOINT!,
+    });
+  }
+  return tonClient;
+};
+
+export const mintNFTCard = async (
+  userAddress: string,
+  cardId: string,
+  metadata: any
+) => {
+  const client = await initTON();
+  
+  // Логика создания NFT-карты
+  // ...
+
+  return { success: true, nftAddress: '...' };
+};
+
+export const getUserNFTs = async (userAddress: string) => {
+  const client = await initTON();
+  
+  // Получение NFT карт пользователя
+  // ...
+
+  return [];
+};
+```
+
+### 8.2. Структура NFT-карт
+
+```typescript
+// src/types/nft.ts
+export interface NFTCardMetadata {
+  name: string;
+  description: string;
+  image: string;
+  attributes: {
+    trait_type: string;
+    value: string | number;
+  }[];
+  card_id: string;
+  rarity: string;
+  edition: number;
+  max_editions: number;
+}
+
+export interface NFTCard {
+  address: string;
+  owner: string;
+  metadata: NFTCardMetadata;
+  mintedAt: number;
+}
+```
+
+### 8.3. Взаимодействие игры с NFT-картами
+
+Интеграция NFT-карт будет реализована на более поздних этапах разработки и обеспечит следующую функциональность:
+
+1. **Коллекционирование**: игроки смогут владеть уникальными NFT-картами, хранящимися в их кошельках TON
+2. **Торговля**: возможность продавать и обменивать карты на маркетплейсах
+3. **Уникальные свойства**: NFT-карты могут иметь специальные визуальные эффекты или уникальные способности
+4. **Ограниченные тиражи**: выпуск карт лимитированными сериями для повышения их ценности
+
+Технически это будет реализовано через смарт-контракты на блокчейне TON с использованием стандарта NFT, что обеспечит истинное владение цифровыми активами игроками.

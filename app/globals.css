@@ -1,0 +1,123 @@
+/* src/app/globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+/* Кастомные стили для карточек подарков */
+.gift-card {
+  @apply bg-content1 border border-divider rounded-lg p-4 hover:shadow-md transition-all duration-200;
+}
+
+.gift-card:hover {
+  @apply border-primary/50 shadow-lg;
+}
+
+.gift-price {
+  @apply text-primary font-bold text-lg;
+}
+
+.gift-rarity {
+  @apply text-xs px-2 py-1 rounded-full font-medium;
+}
+
+.gift-rarity-common {
+  @apply bg-gray-100 text-gray-800;
+}
+
+.gift-rarity-rare {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.gift-rarity-epic {
+  @apply bg-purple-100 text-purple-800;
+}
+
+.gift-rarity-legendary {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+/* Анимации загрузки */
+.loading-skeleton {
+  @apply animate-pulse bg-gray-200 rounded;
+}
+
+@media (prefers-color-scheme: dark) {
+  .loading-skeleton {
+    @apply bg-gray-700;
+  }
+}
+
+/* Стили для фильтров */
+.filter-section {
+  @apply bg-content1 border border-divider rounded-lg p-4 mb-6;
+}
+
+.stats-card {
+  @apply bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 rounded-lg p-4;
+}
+
+/* Адаптивная сетка */
+.gifts-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4;
+}
+
+/* Стили для индикатора обновления */
+.update-indicator {
+  @apply fixed top-4 right-4 bg-success text-white px-3 py-2 rounded-full text-sm font-medium z-50;
+}
+
+.update-indicator.updating {
+  @apply bg-warning;
+}
+
+.update-indicator.error {
+  @apply bg-danger;
+}
