@@ -24,79 +24,42 @@ export const GiftImage: React.FC<GiftImageProps> = ({
     const [useStaticFallback, setUseStaticFallback] = useState(false);
     const [currentAttempt, setCurrentAttempt] = useState(0);
 
-    const generateImageUrls = (gift: Gift) => {
+    const generateImageUrls = (gift: Gift): string[] => {
         const urls: string[] = [];
 
-        // Первый приоритет: используем modelLink из API
+        // Первый приоритет: modelLink из API (если есть)
         if (gift.modelLink && gift.modelLink.trim()) {
             urls.push(gift.modelLink.trim());
         }
 
-        // Второй приоритет: конструируем URL на основе данных подарка
-        if (gift.model && gift.name) {
-            const giftName = gift.name
-                .toLowerCase()
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            const modelDescription = gift.model;
-
-            // Формируем URL аналогично структуре Tonnel
-            const constructedUrl = `https://gifts.tonnel.network/${giftName}/${modelDescription}.tgs`;
-            urls.push(constructedUrl);
-        }
-
-        // Третий приоритет: альтернативные форматы
-        const giftNameForUrl = gift.name
+        // Второй приоритет: стандартный формат Fragment.com
+        // На основе скриншотов: https://nft.fragment.com/gift/candycane-17735.lottie.json
+        const giftNameFormatted = gift.name
             .toLowerCase()
-            .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9-]/g, '');
+            .replace(/\s+/g, '')
+            .replace(/[^a-z0-9]/g, '');
 
         const giftNum = gift.gift_num || gift.num;
 
-        urls.push(
-            `https://gifts.tonnel.network/${giftNameForUrl}/${gift.model || 'default'}.tgs`,
-            `https://gifts.tonnel.network/${giftNameForUrl}-${giftNum}.tgs`,
-            `https://nft.fragment.com/gift/${giftNameForUrl}-${giftNum}.tgs`,
-            `https://nft.fragment.com/gift/${giftNameForUrl}-${giftNum}.png`
-        );
+        if (giftNum) {
+            // Основной формат как в скриншотах
+            urls.push(`https://nft.fragment.com/gift/${giftNameFormatted}-${giftNum}.lottie.json`);
 
-        return [...new Set(urls)]; // Удаляем дубликаты
-    };
+            // Альтернативные форматы
+            urls.push(`https://nft.fragment.com/gift/${giftNameFormatted}-${giftNum}.tgs`);
 
-    const decompressTgs = async (tgsData: ArrayBuffer): Promise<any> => {
-        try {
-            // Проверяем, поддерживает ли браузер DecompressionStream
-            if (typeof DecompressionStream === 'undefined') {
-                throw new Error('DecompressionStream not supported');
-            }
+            // С пробелами как дефисы
+            const giftNameWithDashes = gift.name
+                .toLowerCase()
+                .replace(/\s+/g, '-')
+                .replace(/[^a-z0-9-]/g, '');
 
-            const decompressedStream = new Response(tgsData).body?.pipeThrough(
-                new DecompressionStream('gzip')
-            );
-
-            if (!decompressedStream) {
-                throw new Error('Failed to create decompression stream');
-            }
-
-            const response = new Response(decompressedStream);
-            const jsonText = await response.text();
-            const parsedData = JSON.parse(jsonText);
-
-            return parsedData;
-        } catch (error) {
-            console.warn('TGS decompression failed, attempting direct JSON parse:', error);
-
-            // Fallback: попытка прямого парсинга JSON (если файл не сжат)
-            try {
-                const decoder = new TextDecoder();
-                const jsonText = decoder.decode(tgsData);
-                return JSON.parse(jsonText);
-            } catch (parseError) {
-                console.error('Failed to parse TGS data:', parseError);
-                throw parseError;
-            }
+            urls.push(`https://nft.fragment.com/gift/${giftNameWithDashes}-${giftNum}.lottie.json`);
+            urls.push(`https://nft.fragment.com/gift/${giftNameWithDashes}-${giftNum}.tgs`);
         }
+
+        // Удаляем дубликаты
+        return Array.from(new Set(urls));
     };
 
     const loadAnimationFromUrl = async (url: string): Promise<any> => {
@@ -104,15 +67,25 @@ export const GiftImage: React.FC<GiftImageProps> = ({
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         try {
-            console.log(`Attempting to load animation from: ${url}`);
+            console.log(`Loading animation from: ${url}`);
 
             const response = await fetch(url, {
                 signal: controller.signal,
                 method: 'GET',
                 mode: 'cors',
                 headers: {
-                    'Accept': '*/*',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    'Accept': 'application/json, */*',
+                    'Accept-Encoding': 'gzip, deflate, br, zstd',
+                    'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+                    'Origin': window.location.origin,
+                    'Referer': window.location.href,
+                    'Sec-Ch-Ua': '"Chromium";v="134", "Not;A=Brand";v="24", "Opera";v="119"',
+                    'Sec-Ch-Ua-Mobile': '?0',
+                    'Sec-Ch-Ua-Platform': '"Windows"',
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'cross-site',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 ORP/119.0.0.0'
                 },
             });
 
@@ -123,26 +96,60 @@ export const GiftImage: React.FC<GiftImageProps> = ({
             }
 
             const contentType = response.headers.get('content-type') || '';
+            console.log(`Content-Type: ${contentType} for URL: ${url}`);
 
-            if (url.endsWith('.tgs') || contentType.includes('application/octet-stream')) {
-                // Обработка TGS файла
-                const arrayBuffer = await response.arrayBuffer();
-                const animationData = await decompressTgs(arrayBuffer);
-
-                if (!animationData || !animationData.v || !animationData.layers) {
-                    throw new Error('Invalid TGS animation data structure');
-                }
-
-                return animationData;
-            } else if (url.endsWith('.json') || contentType.includes('application/json')) {
-                // Обработка JSON файла
+            if (url.endsWith('.lottie.json') || contentType.includes('application/json')) {
+                // Обработка Lottie JSON файла
                 const animationData = await response.json();
 
-                if (!animationData || !animationData.v || !animationData.layers) {
+                if (!animationData || typeof animationData !== 'object') {
+                    throw new Error('Invalid JSON response');
+                }
+
+                if (!animationData.v || !animationData.layers) {
                     throw new Error('Invalid Lottie animation data structure');
                 }
 
                 return animationData;
+            } else if (url.endsWith('.tgs')) {
+                // Обработка TGS файла (если понадобится)
+                const arrayBuffer = await response.arrayBuffer();
+
+                // Попытка декомпрессии
+                try {
+                    if (typeof DecompressionStream !== 'undefined') {
+                        const decompressedStream = new Response(arrayBuffer).body?.pipeThrough(
+                            new DecompressionStream('gzip')
+                        );
+
+                        if (decompressedStream) {
+                            const decompressedResponse = new Response(decompressedStream);
+                            const jsonText = await decompressedResponse.text();
+                            const parsedData = JSON.parse(jsonText);
+
+                            if (parsedData && parsedData.v && parsedData.layers) {
+                                return parsedData;
+                            }
+                        }
+                    }
+                } catch (decompressionError) {
+                    console.warn('TGS decompression failed:', decompressionError);
+                }
+
+                // Fallback: попытка прямого парсинга JSON
+                try {
+                    const decoder = new TextDecoder();
+                    const jsonText = decoder.decode(arrayBuffer);
+                    const parsedData = JSON.parse(jsonText);
+
+                    if (parsedData && parsedData.v && parsedData.layers) {
+                        return parsedData;
+                    }
+                } catch (parseError) {
+                    console.warn('Direct JSON parse failed:', parseError);
+                }
+
+                throw new Error('Failed to process TGS file');
             } else {
                 throw new Error(`Unsupported content type: ${contentType}`);
             }
@@ -155,6 +162,13 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 
     const loadAnimation = async () => {
         const urls = generateImageUrls(gift);
+
+        if (urls.length === 0) {
+            console.warn(`No URLs generated for gift: ${gift.name}`);
+            setUseStaticFallback(true);
+            setIsLoading(false);
+            return;
+        }
 
         console.log(`Starting animation load for gift: ${gift.name}, trying ${urls.length} URLs`);
 
@@ -175,7 +189,7 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 
                 // Небольшая задержка между попытками
                 if (i < urls.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
             }
         }
@@ -216,26 +230,30 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 
     const [fromColor, toColor] = generateGradientColors(gift.name);
 
-    const GradientFallback = ({ showSpinner = false }: { showSpinner?: boolean }) => (
-        <div
-            className={`flex items-center justify-center bg-gradient-to-br ${fromColor} ${toColor} rounded-lg text-white shadow-lg relative ${className}`}
-            style={{ width, height }}
-        >
-            <span style={{ fontSize: Math.min(width, height) * 0.4 }}>
-                {fallbackEmoji}
-            </span>
-            {showSpinner && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
-                    <div className="flex flex-col items-center space-y-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-xs text-white opacity-80">
-                            {currentAttempt}/{generateImageUrls(gift).length}
-                        </span>
+    const GradientFallback = ({ showSpinner = false }: { showSpinner?: boolean }) => {
+        const urls = generateImageUrls(gift);
+
+        return (
+            <div
+                className={`flex items-center justify-center bg-gradient-to-br ${fromColor} ${toColor} rounded-lg text-white shadow-lg relative ${className}`}
+                style={{ width, height }}
+            >
+                <span style={{ fontSize: Math.min(width, height) * 0.4 }}>
+                    {fallbackEmoji}
+                </span>
+                {showSpinner && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
+                        <div className="flex flex-col items-center space-y-2">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-xs text-white opacity-80">
+                                {currentAttempt}/{urls.length}
+                            </span>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
-    );
+                )}
+            </div>
+        );
+    };
 
     const StaticImageFallback = () => {
         const [imgError, setImgError] = useState(false);
@@ -244,13 +262,14 @@ export const GiftImage: React.FC<GiftImageProps> = ({
             return <GradientFallback />;
         }
 
-        // Пытаемся использовать PNG версию
-        const giftNameForUrl = gift.name
+        // Пытаемся использовать PNG версию с Fragment.com
+        const giftNameFormatted = gift.name
             .toLowerCase()
-            .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9-]/g, '');
+            .replace(/\s+/g, '')
+            .replace(/[^a-z0-9]/g, '');
+
         const giftNum = gift.gift_num || gift.num;
-        const pngUrl = `https://nft.fragment.com/gift/${giftNameForUrl}-${giftNum}.png`;
+        const pngUrl = `https://nft.fragment.com/gift/${giftNameFormatted}-${giftNum}.png`;
 
         return (
             <img
@@ -309,13 +328,13 @@ export const StaticGiftImage: React.FC<GiftImageProps> = ({
     const [hasError, setHasError] = useState(false);
 
     const generateStaticImageUrl = (gift: Gift): string => {
-        const giftName = gift.name
+        const giftNameFormatted = gift.name
             .toLowerCase()
-            .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9-]/g, '');
+            .replace(/\s+/g, '')
+            .replace(/[^a-z0-9]/g, '');
 
         const giftNum = gift.gift_num || gift.num;
-        return `https://nft.fragment.com/gift/${giftName}-${giftNum}.png`;
+        return `https://nft.fragment.com/gift/${giftNameFormatted}-${giftNum}.png`;
     };
 
     const generateGradientColors = (giftName: string) => {
