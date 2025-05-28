@@ -11,15 +11,15 @@ class PortalsApiService {
         query_id: "AAE5oKwZAAAAADmgrBl6xPYF",
         user: {
             id: 430743609,
-            first_name: "Aleksanddr",
+            first_name: "Aleksandr",
             last_name: "Andreev",
             username: "mrmrcrowley",
             language_code: "ru",
             is_premium: true,
             allows_write_to_pm: true,
-            photo_url: "https://t.me/i/userpic/320/test.svg"
+            photo_url: "https://t.me/i/userpic/320/0NNjvHRtW06W-TF6gxxV72Ut8OqQdAXV4hrUaa0h038.svg"
         },
-        auth_date: Math.floor(Date.now() / 1000),
+        auth_date: 1748447546,
         signature: "7_AgvhsATkd9ZNyJwO0a30BFEBXuHPBj5CsoCrO5i081Ft-R4eLS5W7fQF5IZJYo2jYW5M3hYd46Q7_1yOzyAw",
         hash: "1f233c6f1fd54fa9a6ef5bffeb6d72cafe6e3bde8e2df135a961409cc86a3e58"
     };
