@@ -42,32 +42,31 @@ class PortalsApiService {
     // Generate TMA authorization header
     private generateAuthHeader(): string {
         try {
-            // Try to get real TMA data from Telegram Web App if available
+            // Always try to get real TMA data from Telegram Web App
             if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
                 const webApp = (window as any).Telegram.WebApp;
-                if (webApp.initData) {
-                    console.log('Using real Telegram WebApp initData:', webApp.initData);
-                    return `tma ${webApp.initData}`;
-                }
-            }
+                console.log('Telegram WebApp available:', {
+                    initData: webApp.initData,
+                    initDataUnsafe: webApp.initDataUnsafe,
+                    version: webApp.version,
+                    platform: webApp.platform
+                });
 
-            // Fallback to mock data for development
-            const tmaData = this.mockTmaAuth;
-            const mockInitData = `query_id=${tmaData.query_id}&user=${encodeURIComponent(JSON.stringify(tmaData.user))}&auth_date=${tmaData.auth_date}&signature=${tmaData.signature}&hash=${tmaData.hash}`;
-            console.log('Using mock auth data:', {
-                mockInitData,
-                fullHeader: `tma ${mockInitData}`
-            });
-            return `tma ${mockInitData}`;
+                if (webApp.initData) {
+                    const header = `tma ${webApp.initData}`;
+                    console.log('Generated auth header:', header);
+                    return header;
+                } else {
+                    console.error('Telegram WebApp initData is not available');
+                    throw new Error('Telegram WebApp initData is not available');
+                }
+            } else {
+                console.error('Telegram WebApp is not available');
+                throw new Error('Telegram WebApp is not available');
+            }
         } catch (error) {
-            console.warn('Failed to generate TMA auth, using mock data:', error);
-            const tmaData = this.mockTmaAuth;
-            const fallbackInitData = `query_id=${tmaData.query_id}&user=${encodeURIComponent(JSON.stringify(tmaData.user))}&auth_date=${tmaData.auth_date}&signature=${tmaData.signature}&hash=${tmaData.hash}`;
-            console.log('Using fallback mock auth data:', {
-                fallbackInitData,
-                fullHeader: `tma ${fallbackInitData}`
-            });
-            return `tma ${fallbackInitData}`;
+            console.error('Failed to generate TMA auth:', error);
+            throw error; // Propagate error instead of using mock data
         }
     }
 
@@ -77,6 +76,10 @@ class PortalsApiService {
     ): Promise<ApiResponse<T>> {
         try {
             const authHeader = this.generateAuthHeader();
+            console.log('Making request to Portals API:', {
+                endpoint,
+                authHeader
+            });
 
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
                 ...options,
@@ -89,10 +92,20 @@ class PortalsApiService {
 
             if (!response.ok) {
                 const errorText = await response.text();
+                console.error('Portals API error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    body: errorText,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
                 throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
             }
 
             const result = await response.json();
+            console.log('Portals API success:', {
+                endpoint,
+                result
+            });
 
             return {
                 success: true,
