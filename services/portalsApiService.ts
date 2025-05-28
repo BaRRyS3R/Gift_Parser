@@ -91,7 +91,6 @@ class TGMRKTApiService {
         "accept-language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
         "content-type": "application/json",
         origin: "https://cdn.tgmrkt.io",
-        priority: "u=1, i",
         referer: "https://cdn.tgmrkt.io/",
         "sec-ch-ua": '"Chromium";v="134", "Not:A-Brand";v="24", "Opera";v="119"',
         "sec-ch-ua-mobile": "?0",
