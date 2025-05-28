@@ -24,60 +24,20 @@ class PortalsApiService {
     // Generate TMA authorization header
     private async generateAuthHeader(): Promise<string> {
         try {
-            // Check if we're in a browser environment
+            console.log('=== Начало генерации заголовка авторизации ===');
+            
             if (typeof window === 'undefined') {
+                console.error('Ошибка: не в браузерном окружении');
                 throw new Error('Not in browser environment');
             }
 
-            // Get Telegram WebApp instance
             const webApp = (window as any).Telegram?.WebApp;
             if (!webApp) {
-                console.error('Telegram WebApp не найден. Убедитесь, что скрипт загружен и вы запускаете приложение в клиенте Telegram.');
+                console.error('Ошибка: Telegram WebApp не найден');
                 throw new Error('Telegram WebApp не доступен');
             }
 
-            // Initialize WebApp if not already initialized
-            if (!webApp.isInitialized) {
-                console.log('Инициализация Telegram WebApp...');
-                webApp.ready();
-            }
-
-            // Wait for initData to be available (with timeout)
-            const startTime = Date.now();
-            const timeout = 5000; // 5 seconds timeout
-            
-            while (!webApp.initData && (Date.now() - startTime < timeout)) {
-                console.log('Ожидание данных инициализации Telegram WebApp...');
-                await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
-            }
-
-            if (!webApp.initData) {
-                console.error('Данные инициализации Telegram WebApp недоступны после ожидания.');
-                throw new Error('Данные инициализации Telegram WebApp недоступны');
-            }
-
-            // Parse initData to get individual parameters
-            const params = new URLSearchParams(webApp.initData);
-            const queryId = params.get('query_id') || '';
-            const user = params.get('user') || '';
-            const authDate = params.get('auth_date') || '';
-            const signature = params.get('signature') || '';
-            const hash = params.get('hash') || '';
-
-            // Format auth header according to Portals API requirements
-            const authData = [
-                `query_id=${queryId}`,
-                `user=${user}`,
-                `auth_date=${authDate}`,
-                `signature=${signature}`,
-                `hash=${hash}`
-            ].filter(Boolean).join('&');
-
-            const header = `tma ${authData}`;
-            console.log('Сгенерирован заголовок авторизации:', header);
-            
-            // Log WebApp state for debugging
-            console.log('Состояние Telegram WebApp:', {
+            console.log('Состояние WebApp до инициализации:', {
                 isInitialized: webApp.isInitialized,
                 initData: webApp.initData,
                 initDataUnsafe: webApp.initDataUnsafe,
@@ -90,9 +50,72 @@ class PortalsApiService {
                 viewportStableHeight: webApp.viewportStableHeight
             });
 
+            if (!webApp.isInitialized) {
+                console.log('Инициализация Telegram WebApp...');
+                webApp.ready();
+            }
+
+            const startTime = Date.now();
+            const timeout = 5000;
+            
+            while (!webApp.initData && (Date.now() - startTime < timeout)) {
+                console.log('Ожидание данных инициализации Telegram WebApp...', {
+                    elapsedTime: Date.now() - startTime,
+                    hasInitData: !!webApp.initData,
+                    currentTime: new Date().toISOString()
+                });
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            if (!webApp.initData) {
+                console.error('Ошибка: данные инициализации недоступны после ожидания', {
+                    elapsedTime: Date.now() - startTime,
+                    isInitialized: webApp.isInitialized,
+                    currentTime: new Date().toISOString()
+                });
+                throw new Error('Данные инициализации Telegram WebApp недоступны');
+            }
+
+            console.log('Получены данные инициализации:', {
+                initData: webApp.initData,
+                initDataUnsafe: webApp.initDataUnsafe,
+                rawInitData: webApp.initData,
+                currentTime: new Date().toISOString()
+            });
+
+            const params = new URLSearchParams(webApp.initData);
+            const queryId = params.get('query_id') || '';
+            const user = JSON.stringify(webApp.initDataUnsafe?.user || {});
+            const authDate = params.get('auth_date') || '';
+            const signature = params.get('signature') || '';
+            const hash = params.get('hash') || '';
+
+            console.log('Извлеченные параметры авторизации:', {
+                queryId,
+                user,
+                authDate,
+                signature,
+                hash,
+                rawParams: Object.fromEntries(params.entries()),
+                currentTime: new Date().toISOString()
+            });
+
+            const header = `tma query_id=${queryId}&user=${user}&auth_date=${authDate}&signature=${signature}&hash=${hash}`;
+            
+            console.log('Сгенерированный заголовок авторизации:', {
+                header,
+                rawHeader: header,
+                currentTime: new Date().toISOString()
+            });
+            console.log('=== Завершение генерации заголовка авторизации ===');
+
             return header;
         } catch (error) {
-            console.error('Ошибка при генерации TMA auth:', error);
+            console.error('Ошибка при генерации TMA auth:', {
+                error,
+                stack: error instanceof Error ? error.stack : undefined,
+                currentTime: new Date().toISOString()
+            });
             throw error;
         }
     }
@@ -102,47 +125,74 @@ class PortalsApiService {
         options: RequestInit = {}
     ): Promise<ApiResponse<T>> {
         try {
-            const authHeader = await this.generateAuthHeader(); // Await the async method
-            
-            // Log the authorization header just before making the fetch request
-            console.log('DEBUG: Portals API Request Headers (Authorization):', authHeader);
-
-            console.log('Making request to Portals API:', {
+            console.log('=== Начало запроса к Portals API ===');
+            console.log('Параметры запроса:', {
                 endpoint,
-                // authHeader, // Avoid logging the full auth header in production
-                headers: {
-                    ...this.defaultHeaders,
-                    authorization: authHeader,
-                    ...options.headers,
-                }
+                method: options.method || 'GET',
+                options: {
+                    ...options,
+                    headers: options.headers
+                },
+                currentTime: new Date().toISOString()
+            });
+
+            const authHeader = await this.generateAuthHeader();
+            
+            const headers = {
+                ...options.headers,
+                ...this.defaultHeaders,
+                authorization: authHeader,
+            };
+
+            console.log('Финальные заголовки запроса:', {
+                headers,
+                rawHeaders: headers,
+                currentTime: new Date().toISOString()
+            });
+
+            console.log('Отправка запроса к:', {
+                url: `${this.baseUrl}${endpoint}`,
+                fullUrl: `${this.baseUrl}${endpoint}`,
+                currentTime: new Date().toISOString()
             });
 
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
                 ...options,
-                headers: {
-                    ...this.defaultHeaders,
-                    authorization: authHeader,
-                    ...options.headers,
-                },
+                headers,
+            });
+
+            console.log('Получен ответ от API:', {
+                status: response.status,
+                statusText: response.statusText,
+                headers: Object.fromEntries(response.headers.entries()),
+                rawHeaders: Object.fromEntries(response.headers.entries()),
+                currentTime: new Date().toISOString()
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Portals API error:', {
+                console.error('Ошибка API:', {
                     status: response.status,
                     statusText: response.statusText,
                     body: errorText,
                     headers: Object.fromEntries(response.headers.entries()),
-                    url: response.url
+                    url: response.url,
+                    rawError: errorText,
+                    currentTime: new Date().toISOString()
                 });
                 throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
             }
 
             const result = await response.json();
-            console.log('Portals API success:', {
+            console.log('Успешный ответ API:', {
                 endpoint,
-                result
+                dataSize: JSON.stringify(result).length,
+                hasData: !!result,
+                rawData: result,
+                currentTime: new Date().toISOString()
             });
+
+            console.log('=== Завершение запроса к Portals API ===');
 
             return {
                 success: true,
@@ -150,7 +200,15 @@ class PortalsApiService {
                 marketplace: 'portals'
             };
         } catch (error) {
-            console.error(`Portals API request failed for ${endpoint}:`, error);
+            console.error('Ошибка запроса к Portals API:', {
+                endpoint,
+                error: error instanceof Error ? {
+                    message: error.message,
+                    stack: error.stack,
+                    rawError: error
+                } : error,
+                currentTime: new Date().toISOString()
+            });
 
             return {
                 success: false,
