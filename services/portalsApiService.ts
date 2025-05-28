@@ -38,20 +38,23 @@ class PortalsApiService {
             }
 
             console.log('Состояние WebApp:', {
+                initData: webApp.initData,
                 initDataUnsafe: webApp.initDataUnsafe,
                 version: webApp.version,
                 platform: webApp.platform
             });
 
-            // Используем initDataUnsafe напрямую
+            // Парсим initData для получения query_id
+            const params = new URLSearchParams(webApp.initData);
+            const queryId = params.get('query_id');
+            
+            // Используем initDataUnsafe для остальных параметров
             const initData = webApp.initDataUnsafe;
             if (!initData) {
                 console.error('Ошибка: данные инициализации недоступны');
                 throw new Error('Данные инициализации Telegram WebApp недоступны');
             }
 
-            // Получаем параметры из initDataUnsafe
-            const queryId = initData.query_id;
             const user = JSON.stringify(initData.user || {});
             const authDate = initData.auth_date;
             const hash = initData.hash;
@@ -63,7 +66,8 @@ class PortalsApiService {
                     hasUser: !!user,
                     hasAuthDate: !!authDate,
                     hasHash: !!hash,
-                    rawInitData: initData
+                    rawInitData: initData,
+                    rawParams: Object.fromEntries(params.entries())
                 });
                 throw new Error('Отсутствуют необходимые параметры авторизации');
             }
@@ -73,7 +77,8 @@ class PortalsApiService {
                 user,
                 authDate,
                 hash,
-                rawInitData: initData
+                rawInitData: initData,
+                rawParams: Object.fromEntries(params.entries())
             });
 
             // Формируем заголовок в точном формате
