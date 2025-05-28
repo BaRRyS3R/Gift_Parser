@@ -131,46 +131,29 @@ export default function HomePage() {
     }
 
     try {
-      console.log(`Searching for gifts: "${giftName}", page: ${page}`);
-
-      // First, test basic API connectivity
-      if (page === 1 && !append) {
-        console.log("Testing basic API connectivity...");
-
-        // Try the basic request first to see if API is working at all
-        const basicResponse = await apiService.getPageGiftsBasic({
-          page: 1,
-          limit: 10
-        });
-
-        if (!basicResponse.success) {
-          console.error("Basic API test failed:", basicResponse.error);
-          setError(`API connection failed: ${basicResponse.error}`);
-          return;
-        }
-
-        console.log("Basic API test successful, proceeding with search...");
-      }
-
-      // Use the simplified search method
       let response;
-      if (page === 1) {
-        response = await apiService.searchGiftsByNameSimple(giftName);
-      } else {
-        // For pagination, we'll need to implement a different approach
-        // since client-side filtering doesn't support pagination well
-        response = await apiService.getPageGiftsBasic({
-          page,
-          limit: 50
-        });
 
-        if (response.success) {
-          // Filter the results client-side
-          const filteredData = response.data.filter(gift =>
-            gift.name.toLowerCase().includes(giftName.toLowerCase())
-          );
-          response.data = filteredData;
-        }
+      if (page === 1 && !append) {
+        // Use the corrected search method for initial load
+        response = await apiService.searchGiftsByName(giftName);
+      } else {
+        // For pagination, use the correct filter format
+        const searchFilter = {
+          price: { $exists: true },
+          buyer: { $exists: false },
+          gift_name: giftName,
+          asset: "TON"
+        };
+
+        response = await apiService.getPageGifts({
+          page,
+          limit: 30, // Use API-approved limit
+          sort: '{"message_post_time":-1,"gift_id":-1}',
+          filter: JSON.stringify(searchFilter),
+          ref: 0,
+          price_range: null,
+          user_auth: ''
+        });
       }
 
       if (response.success && response.data) {
@@ -178,6 +161,9 @@ export default function HomePage() {
 
         if (newGifts.length === 0) {
           setHasMoreData(false);
+          if (isInitialLoad) {
+            setError(`No gifts found for "${giftName}"`);
+          }
         } else {
           setGifts(prevGifts => append ? [...prevGifts, ...newGifts] : newGifts);
           setFilteredGifts(prevGifts => append ? [...prevGifts, ...newGifts] : newGifts);
@@ -187,8 +173,8 @@ export default function HomePage() {
             setTotalFoundGifts(newGifts.length);
           }
 
-          // For client-side filtering, we might not have reliable pagination
-          setHasMoreData(page === 1 && newGifts.length >= 50);
+          // Check if we have more data available
+          setHasMoreData(newGifts.length === 30);
         }
       } else {
         setError(response.error || 'Failed to search gifts');
