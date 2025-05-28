@@ -52,13 +52,13 @@ class PortalsApiService {
 
             // Fallback to mock data for development
             const tmaData = this.mockTmaAuth;
-            const queryString = `query_id=${tmaData.query_id}&user=${encodeURIComponent(JSON.stringify(tmaData.user))}&auth_date=${tmaData.auth_date}&signature=${tmaData.signature}&hash=${tmaData.hash}`;
-            return `tma ${queryString}`;
+            const mockInitData = `query_id=${tmaData.query_id}&user=${encodeURIComponent(JSON.stringify(tmaData.user))}&auth_date=${tmaData.auth_date}&signature=${tmaData.signature}&hash=${tmaData.hash}`;
+            return `tma ${mockInitData}`;
         } catch (error) {
             console.warn('Failed to generate TMA auth, using mock data:', error);
             const tmaData = this.mockTmaAuth;
-            const queryString = `query_id=${tmaData.query_id}&user=${encodeURIComponent(JSON.stringify(tmaData.user))}&auth_date=${tmaData.auth_date}&signature=${tmaData.signature}&hash=${tmaData.hash}`;
-            return `tma ${queryString}`;
+            const fallbackInitData = `query_id=${tmaData.query_id}&user=${encodeURIComponent(JSON.stringify(tmaData.user))}&auth_date=${tmaData.auth_date}&signature=${tmaData.signature}&hash=${tmaData.hash}`;
+            return `tma ${fallbackInitData}`;
         }
     }
 
@@ -95,7 +95,7 @@ class PortalsApiService {
 
             return {
                 success: false,
-                data: null as T,
+                data: null as unknown as T,
                 error: error instanceof Error ? error.message : "Unknown error",
                 marketplace: 'portals'
             };
