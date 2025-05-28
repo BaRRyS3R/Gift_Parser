@@ -5,6 +5,8 @@ import { Gift, PortalsNFT, PortalsSearchResponse, PortalsFilterParams, ApiRespon
 class PortalsApiService {
     private baseUrl = "https://market.portals.tg/api";
     private fragmentUrl = "https://nft.fragment.com";
+    private isAuthenticated = false;
+    private authToken: string | null = null;
 
     private defaultHeaders = {
         accept: "application/json, text/plain, */*",
@@ -21,11 +23,11 @@ class PortalsApiService {
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 OPR/119.0.0.0"
     };
 
-    // Generate TMA authorization header with fallback for missing query_id
+    // Generate TMA authorization header with proper format
     private async generateAuthHeader(): Promise<string> {
         try {
             console.log('=== Начало генерации заголовка авторизации ===');
-
+            
             if (typeof window === 'undefined') {
                 console.error('Ошибка: не в браузерном окружении');
                 throw new Error('Not in browser environment');
@@ -37,107 +39,168 @@ class PortalsApiService {
                 throw new Error('Telegram WebApp не доступен');
             }
 
-            // Подробное логирование всех доступных данных
-            console.log('Детальное состояние WebApp:', {
-                initData: webApp.initData,
-                initDataUnsafe: webApp.initDataUnsafe,
-                version: webApp.version,
-                platform: webApp.platform
-            });
-
-            // Используем initDataUnsafe для user и других параметров
+            // Получаем все данные из WebApp
             const initData = webApp.initDataUnsafe;
-            if (!initData) {
-                console.error('Ошибка: данные инициализации недоступны');
-                throw new Error('Данные инициализации Telegram WebApp недоступны');
-            }
-
-            // Извлекаем параметры из URL-encoded initData
             const rawInitData = webApp.initData;
-            console.log('Raw initData:', rawInitData);
+            
+            console.log('WebApp initData:', {
+                initData,
+                rawInitData: rawInitData.substring(0, 100) + '...'
+            });
 
+            // Парсим URL-encoded данные
             const params = new URLSearchParams(rawInitData);
-
-            // Попытка получить query_id, но если его нет - используем альтернативу
-            let queryId = params.get('query_id');
-
-            // Если query_id отсутствует, генерируем альтернативный идентификатор
-            if (!queryId) {
-                // Используем комбинацию user_id и текущего времени как альтернативу
-                const userId = initData.user?.id;
-                const timestamp = Date.now();
-                queryId = `webapp_${userId}_${timestamp}`;
-                console.log('query_id отсутствует, используем альтернативный идентификатор:', queryId);
+            
+            // Извлекаем все необходимые параметры
+            const queryId = params.get('query_id');
+            const authDate = params.get('auth_date');
+            const hash = params.get('hash');
+            const signature = params.get('signature');
+            
+            // Получаем user из initDataUnsafe или из params
+            let userStr = params.get('user');
+            if (!userStr && initData.user) {
+                userStr = encodeURIComponent(JSON.stringify(initData.user));
             }
 
-            console.log('Извлеченные параметры из URL:', {
-                queryId,
-                allParams: Object.fromEntries(params.entries())
+            console.log('Извлеченные параметры:', {
+                hasQueryId: !!queryId,
+                hasUser: !!userStr,
+                hasAuthDate: !!authDate,
+                hasHash: !!hash,
+                hasSignature: !!signature
             });
 
-            // Получаем остальные параметры
-            const user = JSON.stringify(initData.user || {});
-            const authDate = initData.auth_date || Math.floor(Date.now() / 1000);
-            const hash = initData.hash || this.generateFallbackHash(rawInitData);
+            // Проверяем наличие критически важных параметров
+            if (!queryId || !userStr || !authDate || !hash) {
+                console.warn('Отсутствуют необходимые параметры, пытаемся извлечь из initDataUnsafe');
+                
+                // Альтернативный метод извлечения данных
+                const alternativeParams = this.extractParamsFromInitDataUnsafe(initData, rawInitData);
+                
+                const finalQueryId = queryId || alternativeParams.queryId;
+                const finalUser = userStr || alternativeParams.user;
+                const finalAuthDate = authDate || alternativeParams.authDate;
+                const finalHash = hash || alternativeParams.hash;
+                const finalSignature = signature || alternativeParams.signature;
 
-            console.log('Извлеченные параметры авторизации:', {
-                queryId,
-                user,
-                authDate,
-                hash
+                if (!finalQueryId) {
+                    throw new Error('query_id не найден в данных Telegram WebApp');
+                }
+
+                // Формируем заголовок с учетом signature
+                let header = `tma query_id=${finalQueryId}&user=${finalUser}&auth_date=${finalAuthDate}`;
+                
+                if (finalSignature) {
+                    header += `&signature=${finalSignature}`;
+                }
+                
+                header += `&hash=${finalHash}`;
+                
+                console.log('Сформирован альтернативный заголовок авторизации');
+                return header;
+            }
+
+            // Формируем заголовок в точном формате из curl
+            let header = `tma query_id=${queryId}&user=${userStr}&auth_date=${authDate}`;
+            
+            if (signature) {
+                header += `&signature=${signature}`;
+            }
+            
+            header += `&hash=${hash}`;
+            
+            console.log('Сформирован заголовок авторизации:', {
+                length: header.length,
+                hasSignature: !!signature
             });
-
-            // Формируем заголовок в точном формате
-            const header = `tma query_id=${queryId}&user=${user}&auth_date=${authDate}&hash=${hash}`;
-
-            console.log('Сгенерированный заголовок авторизации:', {
-                header: header.substring(0, 50) + '...',
-                length: header.length
-            });
-
-            console.log('=== Завершение генерации заголовка авторизации ===');
 
             return header;
         } catch (error) {
-            console.error('Ошибка при генерации TMA auth:', {
-                error,
-                stack: error instanceof Error ? error.stack : undefined
-            });
-
-            // Возвращаем базовый заголовок как последний резерв
-            console.log('Используем резервный метод авторизации');
-            return this.generateFallbackAuthHeader();
+            console.error('Ошибка при генерации TMA auth:', error);
+            throw error;
         }
     }
 
-    // Генерация резервного хеша
-    private generateFallbackHash(data: string): string {
-        // Простая хеш-функция для генерации резервного хеша
+    // Альтернативный метод извлечения параметров
+    private extractParamsFromInitDataUnsafe(initData: any, rawInitData: string): any {
+        const result: any = {
+            queryId: null,
+            user: null,
+            authDate: null,
+            hash: null,
+            signature: null
+        };
+
+        // Пытаемся найти query_id в разных местах
+        if (initData.start_param) {
+            // Иногда query_id может быть в start_param
+            result.queryId = initData.start_param;
+        }
+
+        // User data
+        if (initData.user) {
+            result.user = encodeURIComponent(JSON.stringify(initData.user));
+        }
+
+        // Auth date
+        result.authDate = initData.auth_date || Math.floor(Date.now() / 1000).toString();
+
+        // Hash
+        result.hash = initData.hash || this.generateHash(rawInitData);
+
+        // Signature - может быть в разных местах
+        if (initData.signature) {
+            result.signature = initData.signature;
+        }
+
+        console.log('Альтернативное извлечение параметров:', result);
+        return result;
+    }
+
+    // Генерация хеша для резервного случая
+    private generateHash(data: string): string {
+        // Простая хеш-функция
         let hash = 0;
         for (let i = 0; i < data.length; i++) {
             const char = data.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convert to 32bit integer
+            hash = hash & hash;
         }
         return Math.abs(hash).toString(16);
     }
 
-    // Резервный метод генерации заголовка авторизации
-    private generateFallbackAuthHeader(): string {
-        const fallbackUser = {
-            id: 0,
-            first_name: "Guest",
-            language_code: "en"
-        };
+    // Выполнить аутентификацию перед основными запросами
+    private async authenticate(): Promise<boolean> {
+        try {
+            console.log('Выполняем аутентификацию на /api/users/auth');
+            
+            const authHeader = await this.generateAuthHeader();
+            
+            const response = await fetch(`${this.baseUrl}/users/auth`, {
+                method: 'GET',
+                headers: {
+                    ...this.defaultHeaders,
+                    authorization: authHeader
+                },
+                mode: 'cors'
+            });
 
-        const fallbackData = {
-            query_id: `fallback_${Date.now()}`,
-            user: JSON.stringify(fallbackUser),
-            auth_date: Math.floor(Date.now() / 1000),
-            hash: "fallback_hash"
-        };
-
-        return `tma query_id=${fallbackData.query_id}&user=${fallbackData.user}&auth_date=${fallbackData.auth_date}&hash=${fallbackData.hash}`;
+            if (response.ok) {
+                console.log('Аутентификация успешна');
+                this.isAuthenticated = true;
+                this.authToken = authHeader;
+                return true;
+            } else {
+                console.error('Ошибка аутентификации:', response.status, response.statusText);
+                const errorText = await response.text();
+                console.error('Детали ошибки:', errorText);
+                return false;
+            }
+        } catch (error) {
+            console.error('Исключение при аутентификации:', error);
+            return false;
+        }
     }
 
     private async makeRequest<T>(
@@ -146,24 +209,23 @@ class PortalsApiService {
     ): Promise<ApiResponse<T>> {
         try {
             console.log('=== Начало запроса к Portals API ===');
+            
+            // Проверяем, аутентифицированы ли мы
+            if (!this.isAuthenticated) {
+                console.log('Требуется аутентификация, выполняем...');
+                const authSuccess = await this.authenticate();
+                if (!authSuccess) {
+                    throw new Error('Не удалось выполнить аутентификацию в Portals API');
+                }
+            }
 
-            const authHeader = await this.generateAuthHeader();
-
-            // Удаляем origin из заголовков, так как он вызывает CORS проблемы
+            const authHeader = this.authToken || await this.generateAuthHeader();
+            
             const headers = {
                 ...this.defaultHeaders,
                 ...options.headers,
-                authorization: authHeader,
-                referer: 'https://market.portals.tg/'
-                // origin удален намеренно
+                authorization: authHeader
             };
-
-            console.log('Финальные заголовки запроса:', {
-                headers: {
-                    ...headers,
-                    authorization: '***' // Маскируем для логов
-                }
-            });
 
             console.log('Отправка запроса к:', {
                 url: `${this.baseUrl}${endpoint}`,
@@ -173,14 +235,12 @@ class PortalsApiService {
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
                 ...options,
                 headers,
-                // Убираем credentials для избежания CORS проблем
-                mode: 'cors' // Явно указываем режим CORS
+                mode: 'cors'
             });
 
             console.log('Получен ответ от API:', {
                 status: response.status,
-                statusText: response.statusText,
-                headers: Object.fromEntries(response.headers.entries())
+                statusText: response.statusText
             });
 
             if (!response.ok) {
@@ -188,27 +248,20 @@ class PortalsApiService {
                 console.error('Ошибка API:', {
                     status: response.status,
                     statusText: response.statusText,
-                    body: errorText,
-                    headers: Object.fromEntries(response.headers.entries()),
-                    url: response.url
+                    body: errorText
                 });
-
-                // Специальная обработка для ошибок авторизации
-                if (response.status === 401 || response.status === 403) {
-                    throw new Error(`Authorization failed: ${response.status}. The Portals API may require specific authentication that is not available in this context.`);
+                
+                // Если получили 401, сбрасываем аутентификацию
+                if (response.status === 401) {
+                    this.isAuthenticated = false;
+                    this.authToken = null;
                 }
-
+                
                 throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
             }
 
             const result = await response.json();
-            console.log('Успешный ответ API:', {
-                endpoint,
-                dataSize: JSON.stringify(result).length,
-                hasData: !!result
-            });
-
-            console.log('=== Завершение запроса к Portals API ===');
+            console.log('Успешный ответ API');
 
             return {
                 success: true,
@@ -216,13 +269,7 @@ class PortalsApiService {
                 marketplace: 'portals'
             };
         } catch (error) {
-            console.error('Ошибка запроса к Portals API:', {
-                endpoint,
-                error: error instanceof Error ? {
-                    message: error.message,
-                    stack: error.stack
-                } : error
-            });
+            console.error('Ошибка запроса к Portals API:', error);
 
             return {
                 success: false,
@@ -235,15 +282,12 @@ class PortalsApiService {
 
     // Convert Portals NFT to Gift format
     private convertPortalsNftToGift(nft: PortalsNFT): Gift {
-        // Extract gift number from name or ID
         const giftNum = this.extractGiftNumber(nft.name) || parseInt(nft.token_id) || 0;
 
-        // Extract characteristics from attributes
         const model = nft.attributes.find(attr => attr.trait_type.toLowerCase().includes('model'))?.value || '';
         const backdrop = nft.attributes.find(attr => attr.trait_type.toLowerCase().includes('backdrop'))?.value || '';
         const symbol = nft.attributes.find(attr => attr.trait_type.toLowerCase().includes('symbol'))?.value || '';
 
-        // Get price from listing info
         const price = nft.listing?.price || 0;
         const asset = nft.listing?.currency || 'TON';
 
@@ -261,8 +305,8 @@ class PortalsApiService {
             modelLink: nft.animation_url || nft.image,
             fullData: nft,
             status: nft.status,
-            seller: 0, // Not available in Portals data
-            limited: false, // Determine from attributes if available
+            seller: 0,
+            limited: false,
             auction: null,
             export_at: nft.created_at,
             bundleData: null,
@@ -297,7 +341,6 @@ class PortalsApiService {
 
             const searchParams = { ...defaultParams, ...params };
 
-            // Build query string
             const queryParams = new URLSearchParams();
             Object.entries(searchParams).forEach(([key, value]) => {
                 if (value !== undefined && value !== null) {
@@ -367,7 +410,6 @@ class PortalsApiService {
 
                 console.log(`Portals page ${pageCount + 1}: Found ${response.data.length} gifts. Total: ${allGifts.length}`);
 
-                // Check if we have more data
                 if (response.data.length < limit) {
                     hasMoreData = false;
                 }
@@ -375,7 +417,6 @@ class PortalsApiService {
                 currentOffset += limit;
                 pageCount++;
 
-                // Rate limiting
                 await this.delay(300);
             }
 
@@ -427,7 +468,7 @@ class PortalsApiService {
         }
     }
 
-    // Load gift animation from Fragment (same as Tonnel)
+    // Load gift animation from Fragment
     async loadGiftAnimation(giftName: string, giftNum: number): Promise<string | null> {
         try {
             const formattedName = giftName
@@ -461,10 +502,10 @@ class PortalsApiService {
     // Test connection to Portals API
     async testConnection(): Promise<ApiResponse<boolean>> {
         try {
-            const response = await this.makeRequest<any>('/collections');
+            const authSuccess = await this.authenticate();
             return {
-                success: response.success,
-                data: response.success,
+                success: authSuccess,
+                data: authSuccess,
                 marketplace: 'portals'
             };
         } catch (error) {
@@ -475,6 +516,13 @@ class PortalsApiService {
                 marketplace: 'portals'
             };
         }
+    }
+
+    // Reset authentication state
+    resetAuth(): void {
+        this.isAuthenticated = false;
+        this.authToken = null;
+        console.log('Состояние аутентификации сброшено');
     }
 }
 
