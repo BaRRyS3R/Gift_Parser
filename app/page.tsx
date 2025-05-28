@@ -16,109 +16,47 @@ import {
   ModalFooter,
   useDisclosure,
   Select,
-  SelectItem
+  SelectItem,
+  Switch,
+  Tabs,
+  Tab
 } from '@nextui-org/react';
-import { Gift } from '@/types/gift';
-import { apiService } from '@/services/apiService';
+import { Gift, MarketplaceType } from '@/types/gift';
+import { unifiedMarketplaceService } from '@/services/unifiedMarketplaceService';
 import GiftCard from '@/components/GiftCard';
 import GiftFilters, { FilterOptions } from '@/components/GiftFilters';
 import GiftImage from '@/components/GiftImage';
 
-// Available gifts list
-const AVAILABLE_GIFTS = {
-  "5983471780763796287": "Santa Hat",
-  "5936085638515261992": "Signet Ring",
-  "5933671725160989227": "Precious Peach",
-  "5936013938331222567": "Plush Pepe",
-  "5913442287462908725": "Spiced Wine",
-  "5915502858152706668": "Jelly Bunny",
-  "5915521180483191380": "Durov's Cap",
-  "5913517067138499193": "Perfume Bottle",
-  "5882125812596999035": "Eternal Rose",
-  "5882252952218894938": "Berry Box",
-  "5857140566201991735": "Vintage Cigar",
-  "5846226946928673709": "Magic Potion",
-  "5845776576658015084": "Kissed Frog",
-  "5825801628657124140": "Hex Pot",
-  "5825480571261813595": "Evil Eye",
-  "5841689550203650524": "Sharp Tongue",
-  "5841391256135008713": "Trapped Heart",
-  "5839038009193792264": "Skull Flower",
-  "5837059369300132790": "Scared Cat",
-  "5821261908354794038": "Spy Agaric",
-  "5783075783622787539": "Homemade Cake",
-  "5933531623327795414": "Genie Lamp",
-  "6028426950047957932": "Lunar Snake",
-  "6003643167683903930": "Party Sparkler",
-  "5933590374185435592": "Jester Hat",
-  "5821384757304362229": "Witch Hat",
-  "5915733223018594841": "Hanging Star",
-  "5915550639663874519": "Love Candle",
-  "6001538689543439169": "Cookie Heart",
-  "5782988952268964995": "Desk Calendar",
-  "6001473264306619020": "Jingle Bells",
-  "5980789805615678057": "Snow Mittens",
-  "5836780359634649414": "Voodoo Doll",
-  "5841632504448025405": "Mad Pumpkin",
-  "5825895989088617224": "Hypno Lollipop",
-  "5782984811920491178": "B-Day Candle",
-  "5935936766358847989": "Bunny Muffin",
-  "5933629604416717361": "Astral Shard",
-  "5837063436634161765": "Flying Broom",
-  "5841336413697606412": "Crystal Ball",
-  "5821205665758053411": "Eternal Candle",
-  "5936043693864651359": "Swiss Watch",
-  "5983484377902875708": "Ginger Cookie",
-  "5879737836550226478": "Mini Oscar",
-  "5170594532177215681": "Lol Pop",
-  "5843762284240831056": "Ion Gem",
-  "5936017773737018241": "Star Notepad",
-  "5868659926187901653": "Loot Bag",
-  "5868348541058942091": "Love Potion",
-  "5868220813026526561": "Toy Bear",
-  "5868503709637411929": "Diamond Ring",
-  "5167939598143193218": "Sakura Flower",
-  "5981026247860290310": "Sleigh Bell",
-  "5897593557492957738": "Top Hat",
-  "5856973938650776169": "Record Player",
-  "5983259145522906006": "Winter Wreath",
-  "5981132629905245483": "Snow Globe",
-  "5846192273657692751": "Electric Skull",
-  "6023752243218481939": "Tama Gadget",
-  "6003373314888696650": "Candy Cane",
-  "5933793770951673155": "Neko Helmet",
-  "6005659564635063386": "Jack-in-the-Box",
-  "5773668482394620318": "Easter Egg",
-  "5870661333703197240": "Bonded Ring",
-  "6023917088358269866": "Pet Snake",
-  "6023679164349940429": "Snake Box",
-  "6003767644426076664": "Xmas Stocking",
-  "6028283532500009446": "Big Year",
-  "6003735372041814769": "Holiday Drink",
-  "5859442703032386168": "Gem Signet",
-  "5897581235231785485": "Light Sword",
-  "5870784783948186838": "Restless Jar",
-  "5870720080265871962": "Nail Bracelet",
-  "5895328365971244193": "Heroic Helmet",
-  "5895544372761461960": "Bow Tie"
-};
-
 export default function HomePage() {
-  // State management
+  // Core state management
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [filteredGifts, setFilteredGifts] = useState<Gift[]>([]);
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const [selectedGiftName, setSelectedGiftName] = useState<string>('');
+  const [selectedMarketplace, setSelectedMarketplace] = useState<MarketplaceType>('tonnel');
+  const [searchAllMarketplaces, setSearchAllMarketplaces] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [hasMoreData, setHasMoreData] = useState(true);
   const [totalFoundGifts, setTotalFoundGifts] = useState(0);
+  const [marketplaceErrors, setMarketplaceErrors] = useState<Array<{ marketplace: MarketplaceType; error: string }>>([]);
+  const [marketplacesSearched, setMarketplacesSearched] = useState<MarketplaceType[]>([]);
 
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
-  // Comprehensive gift search function
+  // Get available collections based on marketplace selection
+  const getAvailableCollections = useCallback(() => {
+    if (searchAllMarketplaces) {
+      return unifiedMarketplaceService.getAllAvailableCollections();
+    } else {
+      const collections = unifiedMarketplaceService.getAvailableCollections(selectedMarketplace);
+      return Object.keys(collections).map(name => ({ name, marketplaces: [selectedMarketplace] }));
+    }
+  }, [selectedMarketplace, searchAllMarketplaces]);
+
+  // Multi-marketplace gift search function
   const searchGiftsByName = useCallback(async (giftName: string) => {
     setIsSearching(true);
     setError(null);
@@ -126,32 +64,43 @@ export default function HomePage() {
     setFilteredGifts([]);
     setTotalFoundGifts(0);
     setHasMoreData(true);
+    setMarketplaceErrors([]);
+    setMarketplacesSearched([]);
 
     try {
-      console.log(`Starting comprehensive search for: ${giftName}`);
+      console.log(`Starting search for: ${giftName} on ${searchAllMarketplaces ? 'all marketplaces' : selectedMarketplace}`);
 
-      const response = await apiService.searchGiftsByName(giftName);
-
-      if (response.success && response.data) {
-        const allGifts = response.data;
-
-        if (allGifts.length === 0) {
-          setError(`No gifts found for "${giftName}"`);
-          setHasMoreData(false);
-        } else {
-          setGifts(allGifts);
-
-          const initialDisplay = allGifts.slice(0, 50);
-          setFilteredGifts(initialDisplay);
-          setTotalFoundGifts(allGifts.length);
-          setLastUpdate(new Date());
-
-          setHasMoreData(allGifts.length > 50);
-
-          console.log(`Successfully loaded ${allGifts.length} gifts for ${giftName}`);
+      const searchResult = await unifiedMarketplaceService.searchAcrossMarketplaces({
+        giftName,
+        marketplace: selectedMarketplace,
+        options: {
+          includeAllMarketplaces: searchAllMarketplaces,
+          preferredMarketplace: selectedMarketplace
         }
+      });
+
+      setMarketplacesSearched(searchResult.marketplacesSearched);
+      setMarketplaceErrors(searchResult.errors);
+
+      if (searchResult.totalFound === 0) {
+        if (searchResult.errors.length > 0) {
+          const errorMessages = searchResult.errors.map(e => `${e.marketplace}: ${e.error}`).join('; ');
+          setError(`Search failed - ${errorMessages}`);
+        } else {
+          setError(`No gifts found for "${giftName}" on the selected marketplace(s)`);
+        }
+        setHasMoreData(false);
       } else {
-        setError(response.error || 'Failed to search gifts');
+        setGifts(searchResult.gifts);
+
+        const initialDisplay = searchResult.gifts.slice(0, 50);
+        setFilteredGifts(initialDisplay);
+        setTotalFoundGifts(searchResult.totalFound);
+        setLastUpdate(new Date());
+
+        setHasMoreData(searchResult.gifts.length > 50);
+
+        console.log(`Successfully loaded ${searchResult.totalFound} gifts for ${giftName} from ${searchResult.marketplacesSearched.join(', ')}`);
       }
     } catch (err) {
       console.error('Search error:', err);
@@ -159,7 +108,7 @@ export default function HomePage() {
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [selectedMarketplace, searchAllMarketplaces]);
 
   // Load more gifts from the already loaded set
   const handleLoadMore = useCallback(() => {
@@ -259,32 +208,43 @@ export default function HomePage() {
     onOpen();
   };
 
-  // Calculate statistics
+  // Calculate comprehensive statistics
   const calculateStatistics = useCallback(() => {
     if (gifts.length === 0) return null;
 
     const totalGifts = gifts.length;
     const displayedGifts = filteredGifts.length;
-    const averagePrice = gifts.reduce((sum, gift) => sum + gift.price, 0) / totalGifts;
-    const minPrice = Math.min(...gifts.map(gift => gift.price));
-    const maxPrice = Math.max(...gifts.map(gift => gift.price));
+    const giftsWithPrice = gifts.filter(g => g.price > 0);
+    const averagePrice = giftsWithPrice.length > 0
+      ? giftsWithPrice.reduce((sum, gift) => sum + gift.price, 0) / giftsWithPrice.length
+      : 0;
+    const minPrice = giftsWithPrice.length > 0 ? Math.min(...giftsWithPrice.map(gift => gift.price)) : 0;
+    const maxPrice = giftsWithPrice.length > 0 ? Math.max(...giftsWithPrice.map(gift => gift.price)) : 0;
+
+    // Marketplace breakdown
+    const marketplaceBreakdown = gifts.reduce((acc, gift) => {
+      acc[gift.marketplace] = (acc[gift.marketplace] || 0) + 1;
+      return acc;
+    }, {} as Record<MarketplaceType, number>);
 
     return {
       totalGifts,
       displayedGifts,
       averagePrice: averagePrice.toFixed(2),
       minPrice,
-      maxPrice
+      maxPrice,
+      marketplaceBreakdown
     };
   }, [gifts, filteredGifts]);
 
   const stats = calculateStatistics();
+  const availableCollections = getAvailableCollections();
 
   // Prepare gift options for select
-  const giftOptions = Object.entries(AVAILABLE_GIFTS).map(([id, name]) => ({
-    key: name,
-    label: name
-  })).sort((a, b) => a.label.localeCompare(b.label));
+  const giftOptions = availableCollections.map(collection => ({
+    key: collection.name,
+    label: `${collection.name} (${collection.marketplaces.join(', ')})`
+  })).sort((a, b) => a.key.localeCompare(b.key));
 
   return (
     <div className="space-y-6">
@@ -293,90 +253,162 @@ export default function HomePage() {
         <div className="fixed top-6 right-6 bg-blue-500/90 text-white px-6 py-3 rounded-lg text-sm font-medium shadow-lg z-50 flex items-center space-x-3">
           <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
           <div className="flex flex-col">
-            <span>Загрузка всех доступных подарков...</span>
+            <span>
+              {searchAllMarketplaces
+                ? 'Поиск на всех маркетплейсах...'
+                : `Поиск на ${selectedMarketplace}...`}
+            </span>
             <span className="text-xs opacity-80">Это может занять несколько секунд</span>
           </div>
         </div>
       )}
 
-      {/* Gift selection card */}
+      {/* Marketplace and gift selection card */}
       <Card className="bg-slate-800 border-slate-600">
         <CardBody className="p-6">
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold text-white mb-2">Выберите подарок для поиска</h2>
+              <h2 className="text-xl font-semibold text-white mb-2">Поиск подарков на маркетплейсах</h2>
               <p className="text-gray-300 text-sm">
-                Выберите название подарка из списка для поиска всех доступных экземпляров на маркетплейсе Tonnel
+                Выберите маркетплейс и подарок для поиска всех доступных экземпляров
               </p>
             </div>
 
-            <Select
-              placeholder="Выберите подарок для поиска"
-              className="max-w-md"
-              variant="bordered"
-              selectedKeys={selectedGiftName ? [selectedGiftName] : []}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0] as string;
-                if (selected) {
-                  handleGiftNameSelect(selected);
-                }
-              }}
-              classNames={{
-                trigger: "bg-slate-700 border-slate-600 text-white",
-                value: "text-white",
-                listbox: "bg-slate-800 text-white"
-              }}
-            >
-              {giftOptions.map((option) => (
-                <SelectItem
-                  key={option.key}
-                  value={option.key}
-                  className="text-white hover:bg-slate-700"
+            {/* Marketplace selection */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-gray-300">Маркетплейс</label>
+                <Select
+                  placeholder="Выберите маркетплейс"
+                  variant="bordered"
+                  selectedKeys={[selectedMarketplace]}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as MarketplaceType;
+                    if (selected) {
+                      setSelectedMarketplace(selected);
+                      setSelectedGiftName(''); // Reset gift selection when marketplace changes
+                    }
+                  }}
+                  classNames={{
+                    trigger: "bg-slate-700 border-slate-600 text-white",
+                    value: "text-white",
+                    listbox: "bg-slate-800 text-white"
+                  }}
                 >
-                  {option.label}
-                </SelectItem>
-              ))}
-            </Select>
+                  <SelectItem key="tonnel" value="tonnel" className="text-white hover:bg-slate-700">
+                    Tonnel Network
+                  </SelectItem>
+                  <SelectItem key="portals" value="portals" className="text-white hover:bg-slate-700">
+                    Portals Market
+                  </SelectItem>
+                </Select>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    isSelected={searchAllMarketplaces}
+                    onValueChange={setSearchAllMarketplaces}
+                    size="sm"
+                  />
+                  <span className="text-sm text-gray-300">Поиск на всех маркетплейсах</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-gray-300">Подарок</label>
+                <Select
+                  placeholder="Выберите подарок для поиска"
+                  variant="bordered"
+                  selectedKeys={selectedGiftName ? [selectedGiftName] : []}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as string;
+                    if (selected) {
+                      handleGiftNameSelect(selected);
+                    }
+                  }}
+                  classNames={{
+                    trigger: "bg-slate-700 border-slate-600 text-white",
+                    value: "text-white",
+                    listbox: "bg-slate-800 text-white"
+                  }}
+                >
+                  {giftOptions.map((option) => (
+                    <SelectItem
+                      key={option.key}
+                      value={option.key}
+                      className="text-white hover:bg-slate-700"
+                    >
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+            </div>
           </div>
         </CardBody>
       </Card>
 
-      {/* Enhanced results summary */}
+      {/* Enhanced results summary with marketplace information */}
       {selectedGiftName && (
         <Card className="bg-slate-800 border-slate-600">
           <CardBody className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  Результаты поиска: {selectedGiftName}
-                </h3>
-                <div className="space-y-1">
-                  {totalFoundGifts > 0 && (
-                    <>
-                      <p className="text-gray-300 text-sm">
-                        Найдено {totalFoundGifts} подарков на продаже
-                      </p>
-                      <p className="text-gray-400 text-xs">
-                        Отображается {filteredGifts.length} из {totalFoundGifts} подарков
-                      </p>
-                    </>
-                  )}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    Результаты поиска: {selectedGiftName}
+                  </h3>
+                  <div className="space-y-1">
+                    {totalFoundGifts > 0 && (
+                      <>
+                        <p className="text-gray-300 text-sm">
+                          Найдено {totalFoundGifts} подарков на продаже
+                        </p>
+                        <p className="text-gray-400 text-xs">
+                          Отображается {filteredGifts.length} из {totalFoundGifts} подарков
+                        </p>
+                        {marketplacesSearched.length > 0 && (
+                          <div className="flex items-center space-x-2 mt-2">
+                            <span className="text-xs text-gray-400">Маркетплейсы:</span>
+                            {marketplacesSearched.map(mp => (
+                              <Chip key={mp} size="sm" variant="flat" color="primary">
+                                {mp}
+                              </Chip>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
+                {lastUpdate && (
+                  <div className="text-right">
+                    <p className="text-xs text-gray-400 mb-2">
+                      Обновлено: {lastUpdate.toLocaleString('ru-RU')}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="flat"
+                      color="primary"
+                      onPress={() => selectedGiftName && handleGiftNameSelect(selectedGiftName)}
+                      isLoading={isSearching}
+                    >
+                      Обновить
+                    </Button>
+                  </div>
+                )}
               </div>
-              {lastUpdate && (
-                <div className="text-right">
-                  <p className="text-xs text-gray-400 mb-2">
-                    Обновлено: {lastUpdate.toLocaleString('ru-RU')}
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="flat"
-                    color="primary"
-                    onPress={() => selectedGiftName && handleGiftNameSelect(selectedGiftName)}
-                    isLoading={isSearching}
-                  >
-                    Обновить
-                  </Button>
+
+              {/* Marketplace errors */}
+              {marketplaceErrors.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-yellow-400 text-sm font-medium">Предупреждения:</p>
+                  {marketplaceErrors.map((error, index) => (
+                    <div key={index} className="bg-yellow-900/20 border border-yellow-500/20 rounded-lg p-3">
+                      <p className="text-yellow-300 text-sm">
+                        <span className="font-medium">{error.marketplace}:</span> {error.error}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -384,39 +416,58 @@ export default function HomePage() {
         </Card>
       )}
 
-      {/* Enhanced comprehensive statistics */}
+      {/* Enhanced comprehensive statistics with marketplace breakdown */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card className="bg-slate-800 border-slate-600">
-            <CardBody className="text-center p-4">
-              <p className="text-2xl font-bold text-blue-400">{stats.totalGifts}</p>
-              <p className="text-sm text-gray-300">Всего найдено</p>
-            </CardBody>
-          </Card>
-          <Card className="bg-slate-800 border-slate-600">
-            <CardBody className="text-center p-4">
-              <p className="text-2xl font-bold text-purple-400">{stats.displayedGifts}</p>
-              <p className="text-sm text-gray-300">Отображается</p>
-            </CardBody>
-          </Card>
-          <Card className="bg-slate-800 border-slate-600">
-            <CardBody className="text-center p-4">
-              <p className="text-2xl font-bold text-green-400">{stats.averagePrice}</p>
-              <p className="text-sm text-gray-300">Средняя цена (TON)</p>
-            </CardBody>
-          </Card>
-          <Card className="bg-slate-800 border-slate-600">
-            <CardBody className="text-center p-4">
-              <p className="text-2xl font-bold text-yellow-400">{stats.minPrice}</p>
-              <p className="text-sm text-gray-300">Мин. цена (TON)</p>
-            </CardBody>
-          </Card>
-          <Card className="bg-slate-800 border-slate-600">
-            <CardBody className="text-center p-4">
-              <p className="text-2xl font-bold text-red-400">{stats.maxPrice}</p>
-              <p className="text-sm text-gray-300">Макс. цена (TON)</p>
-            </CardBody>
-          </Card>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Card className="bg-slate-800 border-slate-600">
+              <CardBody className="text-center p-4">
+                <p className="text-2xl font-bold text-blue-400">{stats.totalGifts}</p>
+                <p className="text-sm text-gray-300">Всего найдено</p>
+              </CardBody>
+            </Card>
+            <Card className="bg-slate-800 border-slate-600">
+              <CardBody className="text-center p-4">
+                <p className="text-2xl font-bold text-purple-400">{stats.displayedGifts}</p>
+                <p className="text-sm text-gray-300">Отображается</p>
+              </CardBody>
+            </Card>
+            <Card className="bg-slate-800 border-slate-600">
+              <CardBody className="text-center p-4">
+                <p className="text-2xl font-bold text-green-400">{stats.averagePrice}</p>
+                <p className="text-sm text-gray-300">Средняя цена (TON)</p>
+              </CardBody>
+            </Card>
+            <Card className="bg-slate-800 border-slate-600">
+              <CardBody className="text-center p-4">
+                <p className="text-2xl font-bold text-yellow-400">{stats.minPrice}</p>
+                <p className="text-sm text-gray-300">Мин. цена (TON)</p>
+              </CardBody>
+            </Card>
+            <Card className="bg-slate-800 border-slate-600">
+              <CardBody className="text-center p-4">
+                <p className="text-2xl font-bold text-red-400">{stats.maxPrice}</p>
+                <p className="text-sm text-gray-300">Макс. цена (TON)</p>
+              </CardBody>
+            </Card>
+          </div>
+
+          {/* Marketplace breakdown */}
+          {Object.keys(stats.marketplaceBreakdown).length > 1 && (
+            <Card className="bg-slate-800 border-slate-600">
+              <CardBody className="p-4">
+                <h4 className="text-lg font-semibold text-white mb-3">Распределение по маркетплейсам</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Object.entries(stats.marketplaceBreakdown).map(([marketplace, count]) => (
+                    <div key={marketplace} className="text-center">
+                      <p className="text-xl font-bold text-cyan-400">{count}</p>
+                      <p className="text-sm text-gray-300 capitalize">{marketplace}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
+          )}
         </div>
       )}
 
@@ -456,7 +507,7 @@ export default function HomePage() {
           <div className="gifts-grid">
             {filteredGifts.map((gift) => (
               <GiftCard
-                key={`${gift.num}-${gift.message_id}`}
+                key={`${gift.marketplace}-${gift.num}-${gift.message_id}`}
                 gift={gift}
                 onViewDetails={handleGiftDetails}
               />
@@ -498,7 +549,7 @@ export default function HomePage() {
               Подарки не найдены
             </p>
             <p className="text-gray-400 text-sm mt-2">
-              По запросу &quot;{selectedGiftName}&quot; не найдено подарков на продаже в маркетплейсе Tonnel
+              По запросу &quot;{selectedGiftName}&quot; не найдено подарков на продаже на выбранных маркетплейсах
             </p>
             <Button
               color="primary"
@@ -538,13 +589,13 @@ export default function HomePage() {
               Выберите подарок для начала поиска
             </p>
             <p className="text-gray-400 text-sm mt-2">
-              Выберите название подарка из списка выше для поиска всех доступных экземпляров
+              Выберите маркетплейс и название подарка из списка выше для поиска всех доступных экземпляров
             </p>
           </CardBody>
         </Card>
       )}
 
-      {/* Gift details modal */}
+      {/* Enhanced gift details modal with marketplace information */}
       <Modal
         isOpen={isOpen}
         onOpenChange={onOpenChange}
@@ -573,9 +624,12 @@ export default function HomePage() {
                         className="shadow-md"
                         fallbackEmoji="🎁"
                       />
-                      <div>
+                      <div className="flex-1">
                         <h3 className="text-xl font-bold text-white">{selectedGift.name}</h3>
                         <p className="text-gray-400">#{selectedGift.gift_num || selectedGift.num}</p>
+                        <Chip size="sm" variant="flat" color="secondary" className="mt-1">
+                          {selectedGift.marketplace}
+                        </Chip>
                       </div>
                     </div>
 
@@ -583,13 +637,13 @@ export default function HomePage() {
                       <div>
                         <p className="text-sm text-gray-400">Цена</p>
                         <p className="text-lg font-bold text-blue-400">
-                          {selectedGift.price} {selectedGift.asset}
+                          {selectedGift.price > 0 ? `${selectedGift.price} ${selectedGift.asset}` : 'Цена не указана'}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-400">Статус</p>
                         <Chip color="success" variant="flat">
-                          {selectedGift.status === 'forsale' ? 'В продаже' : selectedGift.status}
+                          {selectedGift.status === 'forsale' || selectedGift.status === 'listed' ? 'В продаже' : selectedGift.status}
                         </Chip>
                       </div>
                     </div>
@@ -599,19 +653,23 @@ export default function HomePage() {
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-gray-400">Модель:</span>
-                          <span className="text-white">{selectedGift.model}</span>
+                          <span className="text-white">{selectedGift.model || 'Не указано'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-400">Фон:</span>
-                          <span className="text-white">{selectedGift.backdrop}</span>
+                          <span className="text-white">{selectedGift.backdrop || 'Не указано'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-400">Символ:</span>
-                          <span className="text-white">{selectedGift.symbol}</span>
+                          <span className="text-white">{selectedGift.symbol || 'Не указано'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-400">Маркетплейс:</span>
+                          <span className="text-white capitalize">{selectedGift.marketplace}</span>
                         </div>
                         {selectedGift.export_at && (
                           <div className="flex justify-between">
-                            <span className="text-gray-400">Дата экспорта:</span>
+                            <span className="text-gray-400">Дата:</span>
                             <span className="text-white">{new Date(selectedGift.export_at).toLocaleDateString('ru-RU')}</span>
                           </div>
                         )}
@@ -624,8 +682,16 @@ export default function HomePage() {
                 <Button color="danger" variant="light" onPress={onClose}>
                   Закрыть
                 </Button>
-                <Button color="primary" onPress={onClose}>
-                  Открыть в Tonnel
+                <Button
+                  color="primary"
+                  onPress={() => {
+                    if (selectedGift?.marketplaceUrl) {
+                      window.open(selectedGift.marketplaceUrl, '_blank');
+                    }
+                    onClose();
+                  }}
+                >
+                  Открыть на маркетплейсе
                 </Button>
               </ModalFooter>
             </>

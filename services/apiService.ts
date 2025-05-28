@@ -80,6 +80,9 @@ class ApiService {
       auction: item.auction || null,
       export_at: item.export_at || "",
       bundleData: item.bundleData || null,
+      marketplace: 'tonnel' as const,
+      marketplaceId: item.id || '',
+      marketplaceUrl: item.url || ''
     }));
   }
 
