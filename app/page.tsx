@@ -131,16 +131,33 @@ export default function HomePage() {
     }
 
     try {
-      // Используем существующий API метод с фильтром по названию
-      const response = await apiService.getPageGifts({
-        page,
-        limit: 50,
-        sort: 'price_asc',
-        filter: giftName, // Используем filter для поиска по названию
-        ref: 0,
-        price_range: [0, 10000],
-        user_auth: ''
-      });
+      // Используем правильный метод API с корректным фильтром
+      let response;
+
+      if (page === 1 && !append) {
+        // Для первой страницы используем метод searchGiftsByName
+        response = await apiService.searchGiftsByName(giftName);
+      } else {
+        // Для последующих страниц формируем правильный фильтр
+        const searchFilter = {
+          $and: [
+            { price: { $exists: true } },
+            { buyer: { $exists: false } },
+            { asset: "TON" },
+            { name: { $regex: giftName, $options: "i" } },
+          ],
+        };
+
+        response = await apiService.getPageGifts({
+          page,
+          limit: 50,
+          sort: '{"message_post_time":-1,"gift_id":-1}',
+          filter: JSON.stringify(searchFilter), // Правильно сформированный JSON-фильтр
+          ref: 0,
+          price_range: null,
+          user_auth: ''
+        });
+      }
 
       if (response.success && response.data) {
         const newGifts = response.data;
