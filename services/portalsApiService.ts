@@ -40,7 +40,7 @@ class PortalsApiService {
     };
 
     // Generate TMA authorization header
-    private generateAuthHeader(): string {
+    private async generateAuthHeader(): Promise<string> {
         try {
             // Check if we're in a browser environment
             if (typeof window === 'undefined') {
@@ -66,10 +66,31 @@ class PortalsApiService {
             
             if (devInitData) {
                 console.log('Using development mode with initData from URL:', devInitData);
-                return `tma ${devInitData}`;
+                // In dev mode, assume the provided tgWebAppData is the full initData string
+                const header = `tma ${devInitData}`;
+                console.log('Generated auth header (Dev Mode):', header);
+                return header;
             }
 
-            // Log WebApp state
+            // Wait for initData to be available (with timeout)
+            const startTime = Date.now();
+            const timeout = 5000; // 5 seconds timeout
+            
+            while (!webApp.initData && (Date.now() - startTime < timeout)) {
+                console.log('Waiting for Telegram WebApp initData...');
+                await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+            }
+
+            if (!webApp.initData) {
+                console.error('Telegram WebApp initData is not available after waiting.');
+                throw new Error('Telegram WebApp initData is not available after waiting.');
+            }
+
+            // Use the initData directly from WebApp
+            const header = `tma ${webApp.initData}`;
+            console.log('Generated auth header (WebApp Mode):', header);
+            
+            // Log WebApp state (optional, but good for debugging)
             console.log('Telegram WebApp state:', {
                 isInitialized: webApp.isInitialized,
                 initData: webApp.initData,
@@ -83,26 +104,6 @@ class PortalsApiService {
                 viewportStableHeight: webApp.viewportStableHeight
             });
 
-            if (!webApp.initData) {
-                console.error('Telegram WebApp initData is not available');
-                throw new Error('Telegram WebApp initData is not available');
-            }
-
-            // Parse and validate initData
-            try {
-                const initDataParams = new URLSearchParams(webApp.initData);
-                console.log('Parsed initData parameters:', {
-                    query_id: initDataParams.get('query_id'),
-                    user: initDataParams.get('user'),
-                    auth_date: initDataParams.get('auth_date'),
-                    hash: initDataParams.get('hash')
-                });
-            } catch (error) {
-                console.warn('Failed to parse initData:', error);
-            }
-
-            const header = `tma ${webApp.initData}`;
-            console.log('Generated auth header:', header);
             return header;
         } catch (error) {
             console.error('Failed to generate TMA auth:', error);
@@ -115,10 +116,14 @@ class PortalsApiService {
         options: RequestInit = {}
     ): Promise<ApiResponse<T>> {
         try {
-            const authHeader = this.generateAuthHeader();
+            const authHeader = await this.generateAuthHeader(); // Await the async method
+            
+            // Log the authorization header just before making the fetch request
+            console.log('DEBUG: Portals API Request Headers (Authorization):', authHeader);
+
             console.log('Making request to Portals API:', {
                 endpoint,
-                authHeader,
+                // authHeader, // Avoid logging the full auth header in production
                 headers: {
                     ...this.defaultHeaders,
                     authorization: authHeader,
