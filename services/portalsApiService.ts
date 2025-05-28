@@ -37,11 +37,41 @@ class PortalsApiService {
                 throw new Error('Telegram WebApp не доступен');
             }
 
-            console.log('Состояние WebApp:', {
+            // Подробное логирование всех доступных данных
+            console.log('Детальное состояние WebApp:', {
                 initData: webApp.initData,
                 initDataUnsafe: webApp.initDataUnsafe,
                 version: webApp.version,
-                platform: webApp.platform
+                platform: webApp.platform,
+                isExpanded: webApp.isExpanded,
+                viewportHeight: webApp.viewportHeight,
+                viewportStableHeight: webApp.viewportStableHeight,
+                colorScheme: webApp.colorScheme,
+                themeParams: webApp.themeParams,
+                headerColor: webApp.headerColor,
+                backgroundColor: webApp.backgroundColor,
+                isClosingConfirmationEnabled: webApp.isClosingConfirmationEnabled,
+                BackButton: webApp.BackButton,
+                MainButton: webApp.MainButton,
+                HapticFeedback: webApp.HapticFeedback,
+                isVersionAtLeast: webApp.isVersionAtLeast,
+                onEvent: webApp.onEvent,
+                offEvent: webApp.offEvent,
+                sendData: webApp.sendData,
+                openLink: webApp.openLink,
+                openTelegramLink: webApp.openTelegramLink,
+                openInvoice: webApp.openInvoice,
+                showPopup: webApp.showPopup,
+                showAlert: webApp.showAlert,
+                showConfirm: webApp.showConfirm,
+                ready: webApp.ready,
+                expand: webApp.expand,
+                close: webApp.close,
+                enableClosingConfirmation: webApp.enableClosingConfirmation,
+                disableClosingConfirmation: webApp.disableClosingConfirmation,
+                setHeaderColor: webApp.setHeaderColor,
+                setBackgroundColor: webApp.setBackgroundColor,
+                setClosingBehavior: webApp.setClosingBehavior
             });
 
             // Используем initDataUnsafe
@@ -51,11 +81,29 @@ class PortalsApiService {
                 throw new Error('Данные инициализации Telegram WebApp недоступны');
             }
 
+            // Подробное логирование initDataUnsafe
+            console.log('Детальное состояние initDataUnsafe:', {
+                query_id: initData.query_id,
+                user: initData.user,
+                auth_date: initData.auth_date,
+                hash: initData.hash,
+                start_param: initData.start_param,
+                chat_instance: initData.chat_instance,
+                chat_type: initData.chat_type,
+                auth_date_raw: initData.auth_date_raw,
+                hash_raw: initData.hash_raw,
+                query_id_raw: initData.query_id_raw,
+                start_param_raw: initData.start_param_raw,
+                user_raw: initData.user_raw,
+                chat_instance_raw: initData.chat_instance_raw,
+                chat_type_raw: initData.chat_type_raw
+            });
+
             // Получаем все параметры из initDataUnsafe
-            const queryId = initData.start_param || initData.query_id;
-            const user = JSON.stringify(initData.user || {});
-            const authDate = initData.auth_date;
-            const hash = initData.hash;
+            const queryId = initData.query_id || initData.query_id_raw;
+            const user = JSON.stringify(initData.user || initData.user_raw || {});
+            const authDate = initData.auth_date || initData.auth_date_raw;
+            const hash = initData.hash || initData.hash_raw;
 
             // Проверяем наличие всех необходимых параметров
             if (!queryId || !user || !authDate || !hash) {
@@ -66,7 +114,11 @@ class PortalsApiService {
                     hasHash: !!hash,
                     rawInitData: initData,
                     startParam: initData.start_param,
-                    queryId: initData.query_id
+                    queryId: initData.query_id,
+                    queryIdRaw: initData.query_id_raw,
+                    userRaw: initData.user_raw,
+                    authDateRaw: initData.auth_date_raw,
+                    hashRaw: initData.hash_raw
                 });
                 throw new Error('Отсутствуют необходимые параметры авторизации');
             }
