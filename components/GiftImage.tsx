@@ -20,95 +20,146 @@ export const GiftImage: React.FC<GiftImageProps> = ({
     fallbackEmoji = '🎁'
 }) => {
     const [isLoading, setIsLoading] = useState(true);
-    const [hasError, setHasError] = useState(false);
     const [animationData, setAnimationData] = useState<any>(null);
     const [useStaticFallback, setUseStaticFallback] = useState(false);
+    const [currentAttempt, setCurrentAttempt] = useState(0);
 
-    // Формирование URL для Lottie анимации с использованием прокси
-    const generateLottieUrl = (gift: Gift): string => {
+    // Список альтернативных прокси-сервисов и прямых URL
+    const getImageUrls = (gift: Gift) => {
         const giftName = gift.name
             .toLowerCase()
             .replace(/\s+/g, '-')
             .replace(/[^a-z0-9-]/g, '');
 
         const giftNum = gift.gift_num || gift.num;
-        const originalUrl = `https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`;
 
-        // Используем CORS прокси для обхода блокировки
-        return `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`;
+        return {
+            // Прямые URL без прокси (попробуем сначала)
+            direct: {
+                tgs: `https://nft.fragment.com/gift/${giftName}-${giftNum}.tgs`,
+                lottie: `https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`,
+                png: `https://nft.fragment.com/gift/${giftName}-${giftNum}.png`,
+                webp: `https://nft.fragment.com/gift/${giftName}-${giftNum}.webp`
+            },
+            // Альтернативные прокси (если прямые URL не работают)
+            proxied: {
+                tgs: [
+                    `https://corsproxy.io/?${encodeURIComponent(`https://nft.fragment.com/gift/${giftName}-${giftNum}.tgs`)}`,
+                    `https://cors-anywhere.herokuapp.com/https://nft.fragment.com/gift/${giftName}-${giftNum}.tgs`,
+                    `https://api.codetabs.com/v1/proxy?quest=https://nft.fragment.com/gift/${giftName}-${giftNum}.tgs`
+                ],
+                lottie: [
+                    `https://corsproxy.io/?${encodeURIComponent(`https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`)}`,
+                    `https://cors-anywhere.herokuapp.com/https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`,
+                    `https://api.codetabs.com/v1/proxy?quest=https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`
+                ]
+            }
+        };
     };
 
-    // Альтернативные URL для статических изображений
-    const generateStaticImageUrl = (gift: Gift): string => {
-        const giftName = gift.name
-            .toLowerCase()
-            .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9-]/g, '');
+    // Функция для разархивирования TGS файла
+    const decompressTgs = async (tgsData: ArrayBuffer): Promise<any> => {
+        try {
+            // TGS файлы - это gzip-сжатые JSON файлы
+            const decompressedStream = new Response(tgsData).body?.pipeThrough(
+                new DecompressionStream('gzip')
+            );
 
-        const giftNum = gift.gift_num || gift.num;
+            if (!decompressedStream) {
+                throw new Error('Failed to create decompression stream');
+            }
 
-        // Пробуем разные возможные форматы
-        const possibleUrls = [
-            `https://nft.fragment.com/gift/${giftName}-${giftNum}.png`,
-            `https://nft.fragment.com/gift/${giftName}-${giftNum}.jpg`,
-            `https://nft.fragment.com/gift/${giftName}-${giftNum}.webp`,
+            const response = new Response(decompressedStream);
+            const jsonText = await response.text();
+            return JSON.parse(jsonText);
+        } catch (error) {
+            console.warn('Failed to decompress TGS file:', error);
+            throw error;
+        }
+    };
+
+    // Загрузка анимации с множественными попытками
+    const loadAnimation = async () => {
+        const urls = getImageUrls(gift);
+        const allAttempts = [
+            // Сначала пробуем прямой TGS
+            { type: 'tgs', url: urls.direct.tgs, direct: true },
+            // Затем прямой Lottie JSON
+            { type: 'lottie', url: urls.direct.lottie, direct: true },
+            // Затем прокси для TGS
+            ...urls.proxied.tgs.map(url => ({ type: 'tgs', url, direct: false })),
+            // И прокси для Lottie JSON
+            ...urls.proxied.lottie.map(url => ({ type: 'lottie', url, direct: false }))
         ];
 
-        return possibleUrls[0]; // Возвращаем первый как основной
-    };
+        for (let i = 0; i < allAttempts.length; i++) {
+            const attempt = allAttempts[i];
+            setCurrentAttempt(i + 1);
 
-    const loadLottieAnimation = async () => {
-        try {
-            setIsLoading(true);
-            setHasError(false);
-            setAnimationData(null);
+            try {
+                console.log(`Attempting to load ${attempt.type} from ${attempt.direct ? 'direct' : 'proxy'}: ${attempt.url}`);
 
-            const lottieUrl = generateLottieUrl(gift);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-            // Устанавливаем таймаут для запроса
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд
+                const response = await fetch(attempt.url, {
+                    signal: controller.signal,
+                    method: 'GET',
+                    mode: attempt.direct ? 'cors' : 'cors',
+                    headers: {
+                        'Accept': attempt.type === 'tgs' ? 'application/octet-stream' : 'application/json',
+                    },
+                });
 
-            const response = await fetch(lottieUrl, {
-                signal: controller.signal,
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                },
-            });
+                clearTimeout(timeoutId);
 
-            clearTimeout(timeoutId);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                let animationData;
+
+                if (attempt.type === 'tgs') {
+                    // Обработка TGS файла
+                    const arrayBuffer = await response.arrayBuffer();
+                    animationData = await decompressTgs(arrayBuffer);
+                } else {
+                    // Обработка Lottie JSON
+                    animationData = await response.json();
+                }
+
+                // Проверяем валидность данных Lottie
+                if (!animationData || !animationData.v || !animationData.layers) {
+                    throw new Error('Invalid animation data');
+                }
+
+                console.log(`Successfully loaded animation from ${attempt.url}`);
+                setAnimationData(animationData);
+                setIsLoading(false);
+                return;
+
+            } catch (error) {
+                console.warn(`Failed to load from ${attempt.url}:`, error);
+
+                // Если это последняя попытка, переходим к статическому fallback
+                if (i === allAttempts.length - 1) {
+                    console.log('All animation loading attempts failed, using static fallback');
+                    setUseStaticFallback(true);
+                    setIsLoading(false);
+                }
             }
-
-            const data = await response.json();
-
-            // Проверяем, что данные валидны для Lottie
-            if (!data || !data.v || !data.layers) {
-                throw new Error('Invalid Lottie animation data');
-            }
-
-            setAnimationData(data);
-            setIsLoading(false);
-        } catch (error) {
-            console.warn('Failed to load Lottie animation, falling back to static image:', error);
-            setUseStaticFallback(true);
-            setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        // Небольшая задержка для предотвращения множественных запросов
         const timeoutId = setTimeout(() => {
-            loadLottieAnimation();
+            loadAnimation();
         }, 100);
 
         return () => clearTimeout(timeoutId);
     }, [gift.name, gift.num, gift.gift_num]);
 
-    // Генерация цвета фона на основе названия подарка
+    // Генерация градиентных цветов
     const generateGradientColors = (giftName: string) => {
         const colors = [
             ['from-purple-500', 'to-pink-500'],
@@ -127,8 +178,8 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 
     const [fromColor, toColor] = generateGradientColors(gift.name);
 
-    // Компонент с эмодзи и градиентом
-    const FallbackImage = ({ showSpinner = false }: { showSpinner?: boolean }) => (
+    // Fallback с эмодзи и градиентом
+    const GradientFallback = ({ showSpinner = false }: { showSpinner?: boolean }) => (
         <div
             className={`flex items-center justify-center bg-gradient-to-br ${fromColor} ${toColor} rounded-lg text-white shadow-lg relative ${className}`}
             style={{ width, height }}
@@ -138,7 +189,12 @@ export const GiftImage: React.FC<GiftImageProps> = ({
             </span>
             {showSpinner && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="flex flex-col items-center space-y-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-xs text-white opacity-80">
+                            {currentAttempt}/8
+                        </span>
+                    </div>
                 </div>
             )}
         </div>
@@ -147,14 +203,15 @@ export const GiftImage: React.FC<GiftImageProps> = ({
     // Статическое изображение как fallback
     const StaticImageFallback = () => {
         const [imgError, setImgError] = useState(false);
+        const urls = getImageUrls(gift);
 
         if (imgError) {
-            return <FallbackImage />;
+            return <GradientFallback />;
         }
 
         return (
             <img
-                src={generateStaticImageUrl(gift)}
+                src={urls.direct.png}
                 alt={gift.name}
                 className={`object-cover rounded-lg shadow-lg ${className}`}
                 style={{ width, height }}
@@ -164,19 +221,17 @@ export const GiftImage: React.FC<GiftImageProps> = ({
         );
     };
 
-    // Если загрузка в процессе
+    // Отображение состояний
     if (isLoading) {
-        return <FallbackImage showSpinner={true} />;
+        return <GradientFallback showSpinner={true} />;
     }
 
-    // Если нужно использовать статический fallback
     if (useStaticFallback) {
         return <StaticImageFallback />;
     }
 
-    // Если есть ошибка или нет данных анимации
-    if (hasError || !animationData) {
-        return <FallbackImage />;
+    if (!animationData) {
+        return <GradientFallback />;
     }
 
     // Отображение Lottie анимации
@@ -193,9 +248,6 @@ export const GiftImage: React.FC<GiftImageProps> = ({
                     width: '100%',
                     height: '100%'
                 }}
-                onLoadedData={() => {
-                    setIsLoading(false);
-                }}
                 onError={(error) => {
                     console.warn('Lottie playback error:', error);
                     setUseStaticFallback(true);
@@ -208,7 +260,7 @@ export const GiftImage: React.FC<GiftImageProps> = ({
     );
 };
 
-// Упрощенный компонент для статических изображений
+// Упрощенный компонент только для статических изображений
 export const StaticGiftImage: React.FC<GiftImageProps> = ({
     gift,
     width = 96,
