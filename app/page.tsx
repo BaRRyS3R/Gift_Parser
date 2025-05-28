@@ -450,7 +450,7 @@ export default function HomePage() {
               Подарки не найдены
             </p>
             <p className="text-gray-400 text-sm mt-2">
-              По запросу "{selectedGiftName}" не найдено подарков на продаже
+              По запросу &quot;{selectedGiftName}&quot; не найдено подарков на продаже
             </p>
           </CardBody>
         </Card>
