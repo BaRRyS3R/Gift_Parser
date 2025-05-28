@@ -37,66 +37,33 @@ class PortalsApiService {
                 throw new Error('Telegram WebApp не доступен');
             }
 
-            console.log('Состояние WebApp до инициализации:', {
-                isInitialized: webApp.isInitialized,
-                initData: webApp.initData,
+            console.log('Состояние WebApp:', {
                 initDataUnsafe: webApp.initDataUnsafe,
                 version: webApp.version,
                 platform: webApp.platform
             });
 
-            // Инициализируем WebApp
-            if (!webApp.isInitialized) {
-                console.log('Инициализация Telegram WebApp...');
-                webApp.ready();
-                
-                // Ждем инициализации с таймаутом
-                const startTime = Date.now();
-                const timeout = 5000; // 5 секунд таймаут
-                
-                while (!webApp.isInitialized && (Date.now() - startTime < timeout)) {
-                    console.log('Ожидание инициализации...', {
-                        elapsedTime: Date.now() - startTime,
-                        isInitialized: webApp.isInitialized
-                    });
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-
-                if (!webApp.isInitialized) {
-                    console.error('Таймаут инициализации WebApp');
-                    throw new Error('Таймаут инициализации WebApp');
-                }
-            }
-
-            console.log('WebApp инициализирован:', {
-                isInitialized: webApp.isInitialized,
-                initData: webApp.initData,
-                initDataUnsafe: webApp.initDataUnsafe
-            });
-
-            // Проверяем наличие данных инициализации
-            if (!webApp.initData) {
+            // Используем initDataUnsafe напрямую
+            const initData = webApp.initDataUnsafe;
+            if (!initData) {
                 console.error('Ошибка: данные инициализации недоступны');
                 throw new Error('Данные инициализации Telegram WebApp недоступны');
             }
 
-            // Парсим данные инициализации
-            const params = new URLSearchParams(webApp.initData);
-            const queryId = params.get('query_id');
-            const user = params.get('user');
-            const authDate = params.get('auth_date');
-            const signature = params.get('signature');
-            const hash = params.get('hash');
+            // Получаем параметры из initDataUnsafe
+            const queryId = initData.query_id;
+            const user = JSON.stringify(initData.user || {});
+            const authDate = initData.auth_date;
+            const hash = initData.hash;
 
             // Проверяем наличие всех необходимых параметров
-            if (!queryId || !user || !authDate || !signature || !hash) {
+            if (!queryId || !user || !authDate || !hash) {
                 console.error('Отсутствуют необходимые параметры авторизации:', {
                     hasQueryId: !!queryId,
                     hasUser: !!user,
                     hasAuthDate: !!authDate,
-                    hasSignature: !!signature,
                     hasHash: !!hash,
-                    rawParams: Object.fromEntries(params.entries())
+                    rawInitData: initData
                 });
                 throw new Error('Отсутствуют необходимые параметры авторизации');
             }
@@ -105,13 +72,12 @@ class PortalsApiService {
                 queryId,
                 user,
                 authDate,
-                signature,
                 hash,
-                rawParams: Object.fromEntries(params.entries())
+                rawInitData: initData
             });
 
             // Формируем заголовок в точном формате
-            const header = `tma query_id=${queryId}&user=${user}&auth_date=${authDate}&signature=${signature}&hash=${hash}`;
+            const header = `tma query_id=${queryId}&user=${user}&auth_date=${authDate}&hash=${hash}`;
             
             console.log('Сгенерированный заголовок авторизации:', {
                 header,
