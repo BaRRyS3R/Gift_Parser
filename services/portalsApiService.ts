@@ -56,7 +56,17 @@ class PortalsApiService {
 
             // Initialize WebApp if not already initialized
             if (!webApp.isInitialized) {
+                console.log('Initializing Telegram WebApp...');
                 webApp.ready();
+            }
+
+            // Development mode - check URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const devInitData = urlParams.get('tgWebAppData');
+            
+            if (devInitData) {
+                console.log('Using development mode with initData from URL:', devInitData);
+                return `tma ${devInitData}`;
             }
 
             // Log WebApp state
@@ -67,12 +77,28 @@ class PortalsApiService {
                 version: webApp.version,
                 platform: webApp.platform,
                 colorScheme: webApp.colorScheme,
-                themeParams: webApp.themeParams
+                themeParams: webApp.themeParams,
+                isExpanded: webApp.isExpanded,
+                viewportHeight: webApp.viewportHeight,
+                viewportStableHeight: webApp.viewportStableHeight
             });
 
             if (!webApp.initData) {
                 console.error('Telegram WebApp initData is not available');
                 throw new Error('Telegram WebApp initData is not available');
+            }
+
+            // Parse and validate initData
+            try {
+                const initDataParams = new URLSearchParams(webApp.initData);
+                console.log('Parsed initData parameters:', {
+                    query_id: initDataParams.get('query_id'),
+                    user: initDataParams.get('user'),
+                    auth_date: initDataParams.get('auth_date'),
+                    hash: initDataParams.get('hash')
+                });
+            } catch (error) {
+                console.warn('Failed to parse initData:', error);
             }
 
             const header = `tma ${webApp.initData}`;
@@ -92,7 +118,12 @@ class PortalsApiService {
             const authHeader = this.generateAuthHeader();
             console.log('Making request to Portals API:', {
                 endpoint,
-                authHeader
+                authHeader,
+                headers: {
+                    ...this.defaultHeaders,
+                    authorization: authHeader,
+                    ...options.headers,
+                }
             });
 
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -110,7 +141,8 @@ class PortalsApiService {
                     status: response.status,
                     statusText: response.statusText,
                     body: errorText,
-                    headers: Object.fromEntries(response.headers.entries())
+                    headers: Object.fromEntries(response.headers.entries()),
+                    url: response.url
                 });
                 throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
             }
