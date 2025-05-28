@@ -91,6 +91,7 @@ class TGMRKTApiService {
         "accept-language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
         "content-type": "application/json",
         origin: "https://cdn.tgmrkt.io",
+        priority: "u=1, i",
         referer: "https://cdn.tgmrkt.io/",
         "sec-ch-ua": '"Chromium";v="134", "Not:A-Brand";v="24", "Opera";v="119"',
         "sec-ch-ua-mobile": "?0",
@@ -147,8 +148,8 @@ class TGMRKTApiService {
             const photoUrl = webApp?.initDataUnsafe?.user?.photo_url || null;
 
             const requestBody: TGMRKTAuthRequest = {
-                data: authData,
-                photo: photoUrl,
+                data: "query_id=AAE5oKwZAAAAADmgrBnaaXe6&user=%7B%22id%22%3A430743609%2C%22first_name%22%3A%22Aleksandr%22%2C%22last_name%22%3A%22Andreev%22%2C%22username%22%3A%22mrmrcrowley%22%2C%22language_code%22%3A%22ru%22%2C%22is_premium%22%3Atrue%2C%22allows_write_to_pm%22%3Atrue%2C%22photo_url%22%3A%22https%3A%5C%2F%5C%2Ft.me%5C%2Fi%5C%2Fuserpic%5C%2F320%5C%2F0NNjvHRtW06W-TF6gxxV72Ut8OqQdAXV4hrUaa0h038.svg%22%7D&auth_date=1748459717&signature=DrZNGPzM0rtF-o-h86fedmHCpla1fRQTv3o7mvd_tqhHSSwCiDPgPUZ8HCArWW17qm-4-ag4EYUwGhRZPvL7DA&hash=fdd785384e7a562eaa675109888bb2697fe543064084a224079b7b42108b69c7",
+                photo: "https://t.me/i/userpic/320/0NNjvHRtW06W-TF6gxxV72Ut8OqQdAXV4hrUaa0h038.svg",
                 appId: null
             };
 
