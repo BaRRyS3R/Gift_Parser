@@ -50,7 +50,7 @@ export default function RootLayout({
                 <div className="flex items-center justify-between text-sm text-gray-400">
                   <div>© 2025 Telegram Gifts Aggregator</div>
                   <div className="flex items-center space-x-4">
-                    <span>Источники: Tonnel Network</span>
+                    <span>Источники: Tonnel Network, MRKT</span>
                     <span>•</span>
                     <span>Обновление каждые 5 минут</span>
                   </div>

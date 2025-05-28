@@ -1,290 +1,220 @@
 // src/services/portalsApiService.ts
+// Этот файл теперь работает с TGMRKT API вместо Portals
 
 import { Gift, PortalsNFT, PortalsSearchResponse, PortalsFilterParams, ApiResponse } from "@/types/gift";
 
-class PortalsApiService {
-    private baseUrl = "https://market.portals.tg/api";
-    private fragmentUrl = "https://nft.fragment.com";
-    private isAuthenticated = false;
+// Интерфейсы для TGMRKT API
+interface TGMRKTAuthRequest {
+    data: string;
+    photo: string | null;
+    appId: string | null;
+}
+
+interface TGMRKTAuthResponse {
+    token: string;
+    isFirstTime: boolean;
+    giftId: string | null;
+    giveawayId: string | null;
+}
+
+interface TGMRKTGift {
+    id: string;
+    exportDate: string;
+    receivedDate: string;
+    giftId: number;
+    maxUpgradedCount: number;
+    totalUpgradedCount: number;
+    backdropColorsCenterColor: number;
+    backdropColorsEdgeColor: number;
+    backdropColorsTextColor: number;
+    backdropColorsSymbolColor: number;
+    backdropName: string;
+    backdropRarityPerMille: number;
+    modelName: string;
+    modelRarityPerMille: number;
+    modelStickerKey: string;
+    modelStickerThumbnailKey: string;
+    symbolName: string;
+    symbolRarityPerMille: number;
+    symbolStickerKey: string;
+    symbolStickerThumbnailKey: string;
+    name: string;
+    number: number;
+    title: string;
+    collectionName: string;
+    isOnAuction: boolean;
+    isOnSale: boolean;
+    salePrice: number;
+    salesCount: number;
+    promoteEndAt: string;
+    isMine: boolean;
+    isGiveawayReceived: boolean;
+    nextResaleDate: string;
+    nextTransferDate: string;
+    isLocked: boolean;
+    unlockDate: string;
+    nextGiveAvailableAt: string;
+    isOnPlatform: boolean;
+}
+
+interface TGMRKTSearchRequest {
+    count: number;
+    cursor: string;
+    ordering: string;
+    lowToHigh: boolean;
+    query: string | null;
+    number: number | null;
+    collectionNames: string[];
+    modelNames: string[];
+    backdropNames: string[];
+    symbolNames: string[];
+    minPrice: number | null;
+    maxPrice: number | null;
+    mintable: boolean | null;
+    promotedFirst: boolean;
+}
+
+interface TGMRKTSearchResponse {
+    gifts: TGMRKTGift[];
+    cursor?: string;
+    hasMore?: boolean;
+}
+
+class TGMRKTApiService {
+    private baseUrl = "https://api.tgmrkt.io/api/v1";
+    private cdnUrl = "https://cdn.tgmrkt.io";
     private authToken: string | null = null;
+    private isAuthenticated = false;
 
     private defaultHeaders = {
-        accept: "application/json, text/plain, */*",
+        accept: "*/*",
         "accept-language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "content-type": "application/json",
+        origin: "https://cdn.tgmrkt.io",
         priority: "u=1, i",
-        referer: "https://market.portals.tg/",
+        referer: "https://cdn.tgmrkt.io/",
         "sec-ch-ua": '"Chromium";v="134", "Not:A-Brand";v="24", "Opera";v="119"',
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Windows"',
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin",
-        "sec-fetch-storage-access": "active",
+        "sec-fetch-site": "same-site",
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 OPR/119.0.0.0"
     };
 
-    // Generate TMA authorization header with proper format
-    private async generateAuthHeader(): Promise<string> {
+    // Генерация строки авторизации для TGMRKT
+    private generateAuthDataString(): string | null {
         try {
-            console.log('=== Начало генерации заголовка авторизации ===');
-
             if (typeof window === 'undefined') {
                 console.error('Ошибка: не в браузерном окружении');
-                throw new Error('Not in browser environment');
+                return null;
             }
 
             const webApp = (window as any).Telegram?.WebApp;
             if (!webApp) {
                 console.error('Ошибка: Telegram WebApp не найден');
-                throw new Error('Telegram WebApp не доступен');
+                return null;
             }
 
-            // Получаем все данные из WebApp
-            const initData = webApp.initDataUnsafe;
             const rawInitData = webApp.initData;
 
-            console.log('WebApp initData:', {
-                initData,
-                rawInitData: rawInitData.substring(0, 100) + '...'
-            });
-
-            // Парсим URL-encoded данные
-            const params = new URLSearchParams(rawInitData);
-
-            // Извлекаем все необходимые параметры
-            const queryId = params.get('query_id');
-            const authDate = params.get('auth_date');
-            const hash = params.get('hash');
-            const signature = params.get('signature');
-
-            // Получаем user из initDataUnsafe или из params
-            let userStr = params.get('user');
-            if (!userStr && initData.user) {
-                userStr = encodeURIComponent(JSON.stringify(initData.user));
+            if (!rawInitData) {
+                console.error('Ошибка: initData отсутствует');
+                return null;
             }
 
-            console.log('Извлеченные параметры:', {
-                hasQueryId: !!queryId,
-                hasUser: !!userStr,
-                hasAuthDate: !!authDate,
-                hasHash: !!hash,
-                hasSignature: !!signature
-            });
+            console.log('Используем initData для TGMRKT:', rawInitData.substring(0, 50) + '...');
 
-            // Проверяем наличие критически важных параметров
-            if (!queryId || !userStr || !authDate || !hash) {
-                console.warn('Отсутствуют необходимые параметры, пытаемся извлечь из initDataUnsafe');
-
-                // Альтернативный метод извлечения данных
-                const alternativeParams = this.extractParamsFromInitDataUnsafe(initData, rawInitData);
-
-                const finalQueryId = queryId || alternativeParams.queryId;
-                const finalUser = userStr || alternativeParams.user;
-                const finalAuthDate = authDate || alternativeParams.authDate;
-                const finalHash = hash || alternativeParams.hash;
-                const finalSignature = signature || alternativeParams.signature;
-
-                if (!finalQueryId) {
-                    // В крайнем случае используем известный рабочий query_id для тестирования
-                    const testQueryId = 'AAE5oKwZAAAAADmgrBme5CsD';
-                    console.warn(`query_id не найден, используем тестовый: ${testQueryId}`);
-
-                    // Формируем заголовок с тестовым query_id
-                    let header = `tma query_id=${testQueryId}&user=${finalUser}&auth_date=${finalAuthDate}`;
-
-                    if (finalSignature) {
-                        header += `&signature=${finalSignature}`;
-                    }
-
-                    header += `&hash=${finalHash}`;
-
-                    return header;
-                }
-
-                // Формируем заголовок с учетом signature
-                let header = `tma query_id=${finalQueryId}&user=${finalUser}&auth_date=${finalAuthDate}`;
-
-                if (finalSignature) {
-                    header += `&signature=${finalSignature}`;
-                }
-
-                header += `&hash=${finalHash}`;
-
-                console.log('Сформирован альтернативный заголовок авторизации');
-                return header;
-            }
-
-            // Формируем заголовок в точном формате из curl
-            let header = `tma query_id=${queryId}&user=${userStr}&auth_date=${authDate}`;
-
-            if (signature) {
-                header += `&signature=${signature}`;
-            }
-
-            header += `&hash=${hash}`;
-
-            console.log('Сформирован заголовок авторизации:', {
-                length: header.length,
-                hasSignature: !!signature
-            });
-
-            return header;
+            return rawInitData;
         } catch (error) {
-            console.error('Ошибка при генерации TMA auth:', error);
-            throw error;
+            console.error('Ошибка при генерации данных авторизации:', error);
+            return null;
         }
     }
 
-    // Альтернативный метод извлечения параметров
-    private extractParamsFromInitDataUnsafe(initData: any, rawInitData: string): any {
-        const result: any = {
-            queryId: null,
-            user: null,
-            authDate: null,
-            hash: null,
-            signature: null
-        };
-
-        // Пытаемся найти query_id в разных местах
-        if (initData.start_param) {
-            // Иногда query_id может быть в start_param
-            result.queryId = initData.start_param;
-        }
-
-        // Если query_id все еще не найден, генерируем его на основе структуры Portals
-        if (!result.queryId) {
-            // Генерируем query_id, похожий на формат Portals
-            // Формат: AAE5oKwZAAAAADmgrBmXXXXX где X - случайные символы
-            const basePattern = 'AAE5oKwZAAAAADmgrBm';
-            const randomSuffix = this.generateRandomBase64(5);
-            result.queryId = basePattern + randomSuffix;
-            console.log('Сгенерирован синтетический query_id:', result.queryId);
-        }
-
-        // User data
-        if (initData.user) {
-            result.user = encodeURIComponent(JSON.stringify(initData.user));
-        }
-
-        // Auth date
-        result.authDate = initData.auth_date || Math.floor(Date.now() / 1000).toString();
-
-        // Hash
-        result.hash = initData.hash || this.generateHash(rawInitData);
-
-        // Signature - может быть в разных местах
-        if (initData.signature) {
-            result.signature = initData.signature;
-        }
-
-        console.log('Альтернативное извлечение параметров:', result);
-        return result;
-    }
-
-    // Генерация случайной Base64 строки
-    private generateRandomBase64(length: number): string {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-        let result = '';
-        for (let i = 0; i < length; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    }
-
-    // Генерация хеша для резервного случая
-    private generateHash(data: string): string {
-        // Простая хеш-функция
-        let hash = 0;
-        for (let i = 0; i < data.length; i++) {
-            const char = data.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        return Math.abs(hash).toString(16);
-    }
-
-    // Выполнить аутентификацию перед основными запросами
+    // Аутентификация в TGMRKT
     private async authenticate(): Promise<boolean> {
         try {
-            console.log('Выполняем аутентификацию на /api/users/auth');
+            console.log('Выполняем аутентификацию в TGMRKT...');
 
-            const authHeader = await this.generateAuthHeader();
-
-            const response = await fetch(`${this.baseUrl}/users/auth`, {
-                method: 'GET',
-                headers: {
-                    ...this.defaultHeaders,
-                    authorization: authHeader
-                },
-                mode: 'cors'
-            });
-
-            if (response.ok) {
-                console.log('Аутентификация успешна');
-                this.isAuthenticated = true;
-                this.authToken = authHeader;
-                return true;
-            } else {
-                console.error('Ошибка аутентификации:', response.status, response.statusText);
-                const errorText = await response.text();
-                console.error('Детали ошибки:', errorText);
+            const authData = this.generateAuthDataString();
+            if (!authData) {
+                console.error('Не удалось получить данные для аутентификации');
                 return false;
             }
+
+            // Извлекаем URL фото пользователя из данных
+            const webApp = (window as any).Telegram?.WebApp;
+            const photoUrl = webApp?.initDataUnsafe?.user?.photo_url || null;
+
+            const requestBody: TGMRKTAuthRequest = {
+                data: authData,
+                photo: photoUrl,
+                appId: null
+            };
+
+            const response = await fetch(`${this.baseUrl}/auth`, {
+                method: 'POST',
+                headers: this.defaultHeaders,
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Ошибка аутентификации TGMRKT:', response.status, errorText);
+                return false;
+            }
+
+            const authResponse: TGMRKTAuthResponse = await response.json();
+
+            if (authResponse.token) {
+                this.authToken = authResponse.token;
+                this.isAuthenticated = true;
+                console.log('Аутентификация TGMRKT успешна, получен токен');
+                return true;
+            }
+
+            console.error('Токен не получен в ответе аутентификации');
+            return false;
         } catch (error) {
-            console.error('Исключение при аутентификации:', error);
+            console.error('Исключение при аутентификации TGMRKT:', error);
             return false;
         }
     }
 
+    // Основной метод для выполнения запросов
     private async makeRequest<T>(
         endpoint: string,
         options: RequestInit = {}
     ): Promise<ApiResponse<T>> {
         try {
-            console.log('=== Начало запроса к Portals API ===');
-
-            // Проверяем, аутентифицированы ли мы
-            if (!this.isAuthenticated) {
-                console.log('Требуется аутентификация, выполняем...');
+            // Проверяем аутентификацию
+            if (!this.isAuthenticated || !this.authToken) {
+                console.log('Требуется аутентификация...');
                 const authSuccess = await this.authenticate();
                 if (!authSuccess) {
-                    throw new Error('Не удалось выполнить аутентификацию в Portals API');
+                    throw new Error('Не удалось выполнить аутентификацию в TGMRKT');
                 }
             }
-
-            const authHeader = this.authToken || await this.generateAuthHeader();
 
             const headers = {
                 ...this.defaultHeaders,
                 ...options.headers,
-                authorization: authHeader
+                authorization: this.authToken!
             };
 
-            console.log('Отправка запроса к:', {
-                url: `${this.baseUrl}${endpoint}`,
-                method: options.method || 'GET'
-            });
+            console.log(`Отправка запроса к TGMRKT: ${endpoint}`);
 
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
                 ...options,
-                headers,
-                mode: 'cors'
-            });
-
-            console.log('Получен ответ от API:', {
-                status: response.status,
-                statusText: response.statusText
+                headers
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Ошибка API:', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    body: errorText
-                });
+                console.error('Ошибка TGMRKT API:', response.status, errorText);
 
-                // Если получили 401, сбрасываем аутентификацию
+                // При ошибке 401 сбрасываем аутентификацию
                 if (response.status === 401) {
                     this.isAuthenticated = false;
                     this.authToken = null;
@@ -294,16 +224,14 @@ class PortalsApiService {
             }
 
             const result = await response.json();
-            console.log('Успешный ответ API');
 
             return {
                 success: true,
                 data: result,
-                marketplace: 'portals'
+                marketplace: 'portals' // Сохраняем для совместимости
             };
         } catch (error) {
-            console.error('Ошибка запроса к Portals API:', error);
-
+            console.error('Ошибка запроса к TGMRKT:', error);
             return {
                 success: false,
                 data: null as unknown as T,
@@ -313,82 +241,96 @@ class PortalsApiService {
         }
     }
 
-    // Convert Portals NFT to Gift format
-    private convertPortalsNftToGift(nft: PortalsNFT): Gift {
-        const giftNum = this.extractGiftNumber(nft.name) || parseInt(nft.token_id) || 0;
+    // Конвертация TGMRKT подарка в формат Gift
+    private convertTGMRKTGiftToGift(tgGift: TGMRKTGift): Gift {
+        // Конвертируем цену из нанотонов в тоны
+        const priceInTON = tgGift.salePrice / 1000000000;
 
-        const model = nft.attributes.find(attr => attr.trait_type.toLowerCase().includes('model'))?.value || '';
-        const backdrop = nft.attributes.find(attr => attr.trait_type.toLowerCase().includes('backdrop'))?.value || '';
-        const symbol = nft.attributes.find(attr => attr.trait_type.toLowerCase().includes('symbol'))?.value || '';
-
-        const price = nft.listing?.price || 0;
-        const asset = nft.listing?.currency || 'TON';
+        // Форматируем редкость в проценты
+        const formatRarity = (rarityPerMille: number) => {
+            return `${(rarityPerMille / 10).toFixed(1)}%`;
+        };
 
         return {
-            name: nft.collection,
-            num: giftNum,
-            gift_num: giftNum,
-            model: model,
-            backdrop: backdrop,
-            symbol: symbol,
-            price: price,
-            asset: asset,
-            message_id: parseInt(nft.id) || 0,
-            customEmojiId: nft.id,
-            modelLink: nft.animation_url || nft.image,
-            fullData: nft,
-            status: nft.status,
-            seller: 0,
+            name: tgGift.collectionName,
+            num: tgGift.number,
+            gift_num: tgGift.number,
+            model: `${tgGift.modelName} (${formatRarity(tgGift.modelRarityPerMille)})`,
+            backdrop: `${tgGift.backdropName} (${formatRarity(tgGift.backdropRarityPerMille)})`,
+            symbol: `${tgGift.symbolName} (${formatRarity(tgGift.symbolRarityPerMille)})`,
+            price: priceInTON,
+            asset: 'TON',
+            message_id: 0, // Не доступно в TGMRKT
+            customEmojiId: tgGift.id,
+            modelLink: `${this.cdnUrl}/${tgGift.modelStickerKey}`,
+            fullData: tgGift,
+            status: tgGift.isOnSale ? 'forsale' : 'notforsale',
+            seller: 0, // Не доступно в TGMRKT
             limited: false,
-            auction: null,
-            export_at: nft.created_at,
+            auction: tgGift.isOnAuction ? {} : null,
+            export_at: tgGift.exportDate,
             bundleData: null,
-            marketplace: 'portals',
-            marketplaceId: nft.id,
-            marketplaceUrl: `https://market.portals.tg/nft/${nft.id}`
+            marketplace: 'portals', // Новый маркетплейс
+            marketplaceId: tgGift.id,
+            marketplaceUrl: `https://cdn.tgmrkt.io/gifts/${tgGift.id}`
         };
     }
 
-    // Extract gift number from name string
-    private extractGiftNumber(name: string): number | null {
-        const match = name.match(/[-#](\d+)$/);
-        return match ? parseInt(match[1]) : null;
-    }
-
-    private delay(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
-    // Search NFTs by collection
+    // Поиск подарков по коллекции
     async searchGiftsByCollection(
         collectionName: string,
         params: Partial<PortalsFilterParams> = {}
     ): Promise<ApiResponse<Gift[]>> {
         try {
-            const defaultParams: PortalsFilterParams = {
-                offset: 0,
-                limit: 20,
-                filter_by_collections: collectionName,
-                status: 'listed'
+            const searchRequest: TGMRKTSearchRequest = {
+                count: params.limit || 20,
+                cursor: "",
+                ordering: "Price",
+                lowToHigh: true,
+                query: null,
+                number: null,
+                collectionNames: [collectionName],
+                modelNames: [],
+                backdropNames: [],
+                symbolNames: [],
+                minPrice: params.min_price || null,
+                maxPrice: params.max_price || null,
+                mintable: null,
+                promotedFirst: false
             };
 
-            const searchParams = { ...defaultParams, ...params };
-
-            const queryParams = new URLSearchParams();
-            Object.entries(searchParams).forEach(([key, value]) => {
-                if (value !== undefined && value !== null) {
-                    queryParams.append(key, value.toString());
+            // Применяем сортировку если указана
+            if (params.sort_by) {
+                switch (params.sort_by) {
+                    case 'price_asc':
+                        searchRequest.ordering = "Price";
+                        searchRequest.lowToHigh = true;
+                        break;
+                    case 'price_desc':
+                        searchRequest.ordering = "Price";
+                        searchRequest.lowToHigh = false;
+                        break;
+                    case 'date_desc':
+                        searchRequest.ordering = "Date";
+                        searchRequest.lowToHigh = false;
+                        break;
+                    case 'date_asc':
+                        searchRequest.ordering = "Date";
+                        searchRequest.lowToHigh = true;
+                        break;
                 }
+            }
+
+            // Фильтр по статусу
+            const endpoint = params.status === 'listed' ? '/gifts/saling' : '/gifts';
+
+            const response = await this.makeRequest<TGMRKTSearchResponse>(endpoint, {
+                method: 'POST',
+                body: JSON.stringify(searchRequest)
             });
 
-            const endpoint = `/nfts/search?${queryParams.toString()}`;
-
-            console.log(`Searching Portals for collection: ${collectionName}`);
-
-            const response = await this.makeRequest<PortalsSearchResponse>(endpoint);
-
             if (response.success && response.data) {
-                const gifts = response.data.data.map(nft => this.convertPortalsNftToGift(nft));
+                const gifts = response.data.gifts.map(g => this.convertTGMRKTGiftToGift(g));
 
                 return {
                     success: true,
@@ -413,47 +355,70 @@ class PortalsApiService {
         }
     }
 
-    // Get all NFTs for a collection with pagination
+    // Получение всех NFT коллекции с пагинацией
     async getAllCollectionNfts(
         collectionName: string,
         maxPages: number = 50
     ): Promise<ApiResponse<Gift[]>> {
         const allGifts: Gift[] = [];
-        let currentOffset = 0;
-        const limit = 20;
+        let cursor = "";
         let hasMoreData = true;
         let pageCount = 0;
+        const limit = 50; // Увеличиваем лимит для TGMRKT
 
         try {
-            console.log(`Starting comprehensive Portals search for: ${collectionName}`);
+            console.log(`Начинаем поиск TGMRKT для коллекции: ${collectionName}`);
 
             while (hasMoreData && pageCount < maxPages) {
-                const response = await this.searchGiftsByCollection(collectionName, {
-                    offset: currentOffset,
-                    limit: limit,
-                    status: 'listed'
+                const searchRequest: TGMRKTSearchRequest = {
+                    count: limit,
+                    cursor: cursor,
+                    ordering: "Price",
+                    lowToHigh: true,
+                    query: null,
+                    number: null,
+                    collectionNames: [collectionName],
+                    modelNames: [],
+                    backdropNames: [],
+                    symbolNames: [],
+                    minPrice: null,
+                    maxPrice: null,
+                    mintable: null,
+                    promotedFirst: false
+                };
+
+                const response = await this.makeRequest<TGMRKTSearchResponse>('/gifts/saling', {
+                    method: 'POST',
+                    body: JSON.stringify(searchRequest)
                 });
 
-                if (!response.success || !response.data || response.data.length === 0) {
+                if (!response.success || !response.data || response.data.gifts.length === 0) {
                     hasMoreData = false;
                     break;
                 }
 
-                allGifts.push(...response.data);
+                const gifts = response.data.gifts.map(g => this.convertTGMRKTGiftToGift(g));
+                allGifts.push(...gifts);
 
-                console.log(`Portals page ${pageCount + 1}: Found ${response.data.length} gifts. Total: ${allGifts.length}`);
+                console.log(`TGMRKT страница ${pageCount + 1}: найдено ${gifts.length} подарков. Всего: ${allGifts.length}`);
 
-                if (response.data.length < limit) {
+                // Проверяем наличие дополнительных данных
+                if (response.data.cursor) {
+                    cursor = response.data.cursor;
+                } else if (response.data.gifts.length < limit) {
                     hasMoreData = false;
+                } else {
+                    // Если курсор не предоставлен, но получено полное количество, продолжаем
+                    cursor = `page_${pageCount + 1}`;
                 }
 
-                currentOffset += limit;
                 pageCount++;
 
-                await this.delay(300);
+                // Задержка между запросами
+                await this.delay(200);
             }
 
-            console.log(`Portals search completed for ${collectionName}. Total gifts found: ${allGifts.length}`);
+            console.log(`Поиск TGMRKT завершен для ${collectionName}. Всего найдено подарков: ${allGifts.length}`);
 
             return {
                 success: true,
@@ -470,14 +435,33 @@ class PortalsApiService {
         }
     }
 
-    // Get NFT details by ID
+    // Получение деталей подарка по ID
     async getNftDetails(nftId: string): Promise<ApiResponse<Gift>> {
         try {
-            const endpoint = `/nfts/${nftId}`;
-            const response = await this.makeRequest<PortalsNFT>(endpoint);
+            // TGMRKT может не иметь отдельного эндпоинта для деталей
+            // В этом случае используем поиск по ID
+            const response = await this.makeRequest<TGMRKTSearchResponse>('/gifts', {
+                method: 'POST',
+                body: JSON.stringify({
+                    count: 1,
+                    cursor: "",
+                    ordering: "Price",
+                    lowToHigh: true,
+                    query: nftId,
+                    number: null,
+                    collectionNames: [],
+                    modelNames: [],
+                    backdropNames: [],
+                    symbolNames: [],
+                    minPrice: null,
+                    maxPrice: null,
+                    mintable: null,
+                    promotedFirst: false
+                })
+            });
 
-            if (response.success && response.data) {
-                const gift = this.convertPortalsNftToGift(response.data);
+            if (response.success && response.data && response.data.gifts.length > 0) {
+                const gift = this.convertTGMRKTGiftToGift(response.data.gifts[0]);
                 return {
                     success: true,
                     data: gift,
@@ -488,7 +472,7 @@ class PortalsApiService {
             return {
                 success: false,
                 data: null as unknown as Gift,
-                error: response.error,
+                error: 'Gift not found',
                 marketplace: 'portals'
             };
         } catch (error) {
@@ -501,28 +485,39 @@ class PortalsApiService {
         }
     }
 
-    // Load gift animation from Fragment
+    // Загрузка анимации подарка
     async loadGiftAnimation(giftName: string, giftNum: number): Promise<string | null> {
+        // TGMRKT использует другую структуру для анимаций
+        // Нужно будет адаптировать под их формат
         try {
             const formattedName = giftName
                 .toLowerCase()
                 .replace(/\s+/g, "")
                 .replace(/[^a-z0-9]/g, "");
 
-            const animationUrl = `${this.fragmentUrl}/gift/${formattedName}-${giftNum}.lottie.json`;
+            // Попробуем несколько вариантов URL
+            const possibleUrls = [
+                `${this.cdnUrl}/gifts/stickers/${formattedName}-${giftNum}.json`,
+                `${this.cdnUrl}/gifts/animations/${formattedName}-${giftNum}.lottie.json`,
+                `${this.cdnUrl}/gifts/${formattedName}/${giftNum}/animation.json`
+            ];
 
-            const response = await fetch(animationUrl, {
-                method: "GET",
-                mode: "cors",
-                headers: {
-                    Accept: "application/json",
-                    Origin: "https://market.portals.tg",
-                    Referer: "https://market.portals.tg/"
-                },
-            });
+            for (const url of possibleUrls) {
+                try {
+                    const response = await fetch(url, {
+                        method: "GET",
+                        mode: "cors",
+                        headers: {
+                            Accept: "application/json"
+                        }
+                    });
 
-            if (response.ok) {
-                return animationUrl;
+                    if (response.ok) {
+                        return url;
+                    }
+                } catch (error) {
+                    continue;
+                }
             }
 
             return null;
@@ -532,7 +527,7 @@ class PortalsApiService {
         }
     }
 
-    // Test connection to Portals API
+    // Тестирование подключения
     async testConnection(): Promise<ApiResponse<boolean>> {
         try {
             const authSuccess = await this.authenticate();
@@ -545,18 +540,24 @@ class PortalsApiService {
             return {
                 success: false,
                 data: false,
-                error: "Failed to connect to Portals API",
+                error: "Failed to connect to TGMRKT API",
                 marketplace: 'portals'
             };
         }
     }
 
-    // Reset authentication state
+    // Сброс аутентификации
     resetAuth(): void {
         this.isAuthenticated = false;
         this.authToken = null;
-        console.log('Состояние аутентификации сброшено');
+        console.log('Состояние аутентификации TGMRKT сброшено');
+    }
+
+    // Вспомогательный метод для задержки
+    private delay(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 }
 
-export const portalsApiService = new PortalsApiService();
+// Экспортируем под тем же именем для совместимости
+export const portalsApiService = new TGMRKTApiService();
