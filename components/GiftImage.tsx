@@ -24,43 +24,53 @@ export const GiftImage: React.FC<GiftImageProps> = ({
     const [useStaticFallback, setUseStaticFallback] = useState(false);
     const [currentAttempt, setCurrentAttempt] = useState(0);
 
-    // Список альтернативных прокси-сервисов и прямых URL
-    const getImageUrls = (gift: Gift) => {
-        const giftName = gift.name
+    const generateImageUrls = (gift: Gift) => {
+        const urls: string[] = [];
+
+        // Первый приоритет: используем modelLink из API
+        if (gift.modelLink && gift.modelLink.trim()) {
+            urls.push(gift.modelLink.trim());
+        }
+
+        // Второй приоритет: конструируем URL на основе данных подарка
+        if (gift.model && gift.name) {
+            const giftName = gift.name
+                .toLowerCase()
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            const modelDescription = gift.model;
+
+            // Формируем URL аналогично структуре Tonnel
+            const constructedUrl = `https://gifts.tonnel.network/${giftName}/${modelDescription}.tgs`;
+            urls.push(constructedUrl);
+        }
+
+        // Третий приоритет: альтернативные форматы
+        const giftNameForUrl = gift.name
             .toLowerCase()
             .replace(/\s+/g, '-')
             .replace(/[^a-z0-9-]/g, '');
 
         const giftNum = gift.gift_num || gift.num;
 
-        return {
-            // Прямые URL без прокси (попробуем сначала)
-            direct: {
-                tgs: `https://nft.fragment.com/gift/${giftName}-${giftNum}.tgs`,
-                lottie: `https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`,
-                png: `https://nft.fragment.com/gift/${giftName}-${giftNum}.png`,
-                webp: `https://nft.fragment.com/gift/${giftName}-${giftNum}.webp`
-            },
-            // Альтернативные прокси (если прямые URL не работают)
-            proxied: {
-                tgs: [
-                    `https://corsproxy.io/?${encodeURIComponent(`https://nft.fragment.com/gift/${giftName}-${giftNum}.tgs`)}`,
-                    `https://cors-anywhere.herokuapp.com/https://nft.fragment.com/gift/${giftName}-${giftNum}.tgs`,
-                    `https://api.codetabs.com/v1/proxy?quest=https://nft.fragment.com/gift/${giftName}-${giftNum}.tgs`
-                ],
-                lottie: [
-                    `https://corsproxy.io/?${encodeURIComponent(`https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`)}`,
-                    `https://cors-anywhere.herokuapp.com/https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`,
-                    `https://api.codetabs.com/v1/proxy?quest=https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`
-                ]
-            }
-        };
+        urls.push(
+            `https://gifts.tonnel.network/${giftNameForUrl}/${gift.model || 'default'}.tgs`,
+            `https://gifts.tonnel.network/${giftNameForUrl}-${giftNum}.tgs`,
+            `https://nft.fragment.com/gift/${giftNameForUrl}-${giftNum}.tgs`,
+            `https://nft.fragment.com/gift/${giftNameForUrl}-${giftNum}.png`
+        );
+
+        return [...new Set(urls)]; // Удаляем дубликаты
     };
 
-    // Функция для разархивирования TGS файла
     const decompressTgs = async (tgsData: ArrayBuffer): Promise<any> => {
         try {
-            // TGS файлы - это gzip-сжатые JSON файлы
+            // Проверяем, поддерживает ли браузер DecompressionStream
+            if (typeof DecompressionStream === 'undefined') {
+                throw new Error('DecompressionStream not supported');
+            }
+
             const decompressedStream = new Response(tgsData).body?.pipeThrough(
                 new DecompressionStream('gzip')
             );
@@ -71,95 +81,123 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 
             const response = new Response(decompressedStream);
             const jsonText = await response.text();
-            return JSON.parse(jsonText);
+            const parsedData = JSON.parse(jsonText);
+
+            return parsedData;
         } catch (error) {
-            console.warn('Failed to decompress TGS file:', error);
+            console.warn('TGS decompression failed, attempting direct JSON parse:', error);
+
+            // Fallback: попытка прямого парсинга JSON (если файл не сжат)
+            try {
+                const decoder = new TextDecoder();
+                const jsonText = decoder.decode(tgsData);
+                return JSON.parse(jsonText);
+            } catch (parseError) {
+                console.error('Failed to parse TGS data:', parseError);
+                throw parseError;
+            }
+        }
+    };
+
+    const loadAnimationFromUrl = async (url: string): Promise<any> => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        try {
+            console.log(`Attempting to load animation from: ${url}`);
+
+            const response = await fetch(url, {
+                signal: controller.signal,
+                method: 'GET',
+                mode: 'cors',
+                headers: {
+                    'Accept': '*/*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const contentType = response.headers.get('content-type') || '';
+
+            if (url.endsWith('.tgs') || contentType.includes('application/octet-stream')) {
+                // Обработка TGS файла
+                const arrayBuffer = await response.arrayBuffer();
+                const animationData = await decompressTgs(arrayBuffer);
+
+                if (!animationData || !animationData.v || !animationData.layers) {
+                    throw new Error('Invalid TGS animation data structure');
+                }
+
+                return animationData;
+            } else if (url.endsWith('.json') || contentType.includes('application/json')) {
+                // Обработка JSON файла
+                const animationData = await response.json();
+
+                if (!animationData || !animationData.v || !animationData.layers) {
+                    throw new Error('Invalid Lottie animation data structure');
+                }
+
+                return animationData;
+            } else {
+                throw new Error(`Unsupported content type: ${contentType}`);
+            }
+
+        } catch (error) {
+            clearTimeout(timeoutId);
             throw error;
         }
     };
 
-    // Загрузка анимации с множественными попытками
     const loadAnimation = async () => {
-        const urls = getImageUrls(gift);
-        const allAttempts = [
-            // Сначала пробуем прямой TGS
-            { type: 'tgs', url: urls.direct.tgs, direct: true },
-            // Затем прямой Lottie JSON
-            { type: 'lottie', url: urls.direct.lottie, direct: true },
-            // Затем прокси для TGS
-            ...urls.proxied.tgs.map(url => ({ type: 'tgs', url, direct: false })),
-            // И прокси для Lottie JSON
-            ...urls.proxied.lottie.map(url => ({ type: 'lottie', url, direct: false }))
-        ];
+        const urls = generateImageUrls(gift);
 
-        for (let i = 0; i < allAttempts.length; i++) {
-            const attempt = allAttempts[i];
+        console.log(`Starting animation load for gift: ${gift.name}, trying ${urls.length} URLs`);
+
+        for (let i = 0; i < urls.length; i++) {
+            const url = urls[i];
             setCurrentAttempt(i + 1);
 
             try {
-                console.log(`Attempting to load ${attempt.type} from ${attempt.direct ? 'direct' : 'proxy'}: ${attempt.url}`);
+                const animationData = await loadAnimationFromUrl(url);
 
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-                const response = await fetch(attempt.url, {
-                    signal: controller.signal,
-                    method: 'GET',
-                    mode: attempt.direct ? 'cors' : 'cors',
-                    headers: {
-                        'Accept': attempt.type === 'tgs' ? 'application/octet-stream' : 'application/json',
-                    },
-                });
-
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                let animationData;
-
-                if (attempt.type === 'tgs') {
-                    // Обработка TGS файла
-                    const arrayBuffer = await response.arrayBuffer();
-                    animationData = await decompressTgs(arrayBuffer);
-                } else {
-                    // Обработка Lottie JSON
-                    animationData = await response.json();
-                }
-
-                // Проверяем валидность данных Lottie
-                if (!animationData || !animationData.v || !animationData.layers) {
-                    throw new Error('Invalid animation data');
-                }
-
-                console.log(`Successfully loaded animation from ${attempt.url}`);
+                console.log(`Successfully loaded animation from: ${url}`);
                 setAnimationData(animationData);
                 setIsLoading(false);
                 return;
 
             } catch (error) {
-                console.warn(`Failed to load from ${attempt.url}:`, error);
+                console.warn(`Failed to load from ${url}:`, error);
 
-                // Если это последняя попытка, переходим к статическому fallback
-                if (i === allAttempts.length - 1) {
-                    console.log('All animation loading attempts failed, using static fallback');
-                    setUseStaticFallback(true);
-                    setIsLoading(false);
+                // Небольшая задержка между попытками
+                if (i < urls.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
         }
+
+        console.log(`All animation loading attempts failed for gift: ${gift.name}, using static fallback`);
+        setUseStaticFallback(true);
+        setIsLoading(false);
     };
 
     useEffect(() => {
+        setIsLoading(true);
+        setAnimationData(null);
+        setUseStaticFallback(false);
+        setCurrentAttempt(0);
+
         const timeoutId = setTimeout(() => {
             loadAnimation();
         }, 100);
 
         return () => clearTimeout(timeoutId);
-    }, [gift.name, gift.num, gift.gift_num]);
+    }, [gift.name, gift.num, gift.gift_num, gift.modelLink]);
 
-    // Генерация градиентных цветов
     const generateGradientColors = (giftName: string) => {
         const colors = [
             ['from-purple-500', 'to-pink-500'],
@@ -178,7 +216,6 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 
     const [fromColor, toColor] = generateGradientColors(gift.name);
 
-    // Fallback с эмодзи и градиентом
     const GradientFallback = ({ showSpinner = false }: { showSpinner?: boolean }) => (
         <div
             className={`flex items-center justify-center bg-gradient-to-br ${fromColor} ${toColor} rounded-lg text-white shadow-lg relative ${className}`}
@@ -192,7 +229,7 @@ export const GiftImage: React.FC<GiftImageProps> = ({
                     <div className="flex flex-col items-center space-y-2">
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-xs text-white opacity-80">
-                            {currentAttempt}/8
+                            {currentAttempt}/{generateImageUrls(gift).length}
                         </span>
                     </div>
                 </div>
@@ -200,18 +237,24 @@ export const GiftImage: React.FC<GiftImageProps> = ({
         </div>
     );
 
-    // Статическое изображение как fallback
     const StaticImageFallback = () => {
         const [imgError, setImgError] = useState(false);
-        const urls = getImageUrls(gift);
 
         if (imgError) {
             return <GradientFallback />;
         }
 
+        // Пытаемся использовать PNG версию
+        const giftNameForUrl = gift.name
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
+        const giftNum = gift.gift_num || gift.num;
+        const pngUrl = `https://nft.fragment.com/gift/${giftNameForUrl}-${giftNum}.png`;
+
         return (
             <img
-                src={urls.direct.png}
+                src={pngUrl}
                 alt={gift.name}
                 className={`object-cover rounded-lg shadow-lg ${className}`}
                 style={{ width, height }}
@@ -221,7 +264,6 @@ export const GiftImage: React.FC<GiftImageProps> = ({
         );
     };
 
-    // Отображение состояний
     if (isLoading) {
         return <GradientFallback showSpinner={true} />;
     }
@@ -234,7 +276,6 @@ export const GiftImage: React.FC<GiftImageProps> = ({
         return <GradientFallback />;
     }
 
-    // Отображение Lottie анимации
     return (
         <div
             className={`relative overflow-hidden rounded-lg shadow-lg ${className}`}
@@ -253,14 +294,11 @@ export const GiftImage: React.FC<GiftImageProps> = ({
                     setUseStaticFallback(true);
                 }}
             />
-
-            {/* Hover эффект */}
             <div className="absolute inset-0 bg-transparent hover:bg-black hover:bg-opacity-10 transition-all duration-200 rounded-lg" />
         </div>
     );
 };
 
-// Упрощенный компонент только для статических изображений
 export const StaticGiftImage: React.FC<GiftImageProps> = ({
     gift,
     width = 96,
