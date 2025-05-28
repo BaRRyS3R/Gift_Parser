@@ -19,7 +19,6 @@
   box-sizing: border-box;
   padding: 0;
   margin: 0;
-  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 
 html,
@@ -42,81 +41,97 @@ a {
   text-decoration: none;
 }
 
-/* Улучшенные стили для карточек подарков с высоким контрастом */
+/* Стили для карточек подарков */
 .gift-card {
-  @apply bg-slate-900/95 border border-slate-600/50 rounded-xl p-4 hover:shadow-xl transition-all duration-300 backdrop-blur-sm;
   background: rgba(15, 23, 42, 0.95);
   border: 1px solid rgba(71, 85, 105, 0.4);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
 }
 
 .gift-card:hover {
-  @apply border-blue-400/60 shadow-2xl scale-[1.02];
   background: rgba(15, 23, 42, 1);
+  border-color: rgba(59, 130, 246, 0.6);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6),
     0 0 0 1px rgba(59, 130, 246, 0.4);
+  transform: scale(1.02);
 }
 
-/* Улучшенная типографика с высоким контрастом */
 .gift-card h3 {
-  @apply text-slate-50 font-semibold text-lg leading-tight;
-  color: rgb(248, 250, 252) !important;
+  color: rgb(248, 250, 252);
+  font-weight: 600;
+  font-size: 1.125rem;
+  line-height: 1.25;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .gift-card p {
-  @apply text-slate-300;
-  color: rgb(203, 213, 225) !important;
+  color: rgb(203, 213, 225);
 }
 
 .gift-card .text-gray-400,
 .gift-card .text-gray-500 {
-  @apply text-slate-400;
-  color: rgb(148, 163, 184) !important;
+  color: rgb(148, 163, 184);
   font-weight: 500;
 }
 
 .gift-card .text-small {
-  @apply text-slate-300 font-medium;
-  color: rgb(203, 213, 225) !important;
+  color: rgb(203, 213, 225);
+  font-weight: 500;
 }
 
-/* Улучшенные стили для цены */
+/* Стили для цены */
 .gift-price {
-  @apply text-blue-300 font-bold text-xl;
-  color: rgb(147, 197, 253) !important;
+  color: rgb(147, 197, 253);
+  font-weight: 700;
+  font-size: 1.25rem;
   text-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
 }
 
-/* Улучшенные стили для редкости */
+/* Стили для редкости */
 .gift-rarity {
-  @apply text-xs px-3 py-1 rounded-full font-semibold shadow-sm;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .gift-rarity-common {
-  @apply bg-slate-600/80 text-slate-100 border border-slate-500/30;
+  background-color: rgba(71, 85, 105, 0.8);
+  color: rgb(241, 245, 249);
+  border: 1px solid rgba(100, 116, 139, 0.3);
 }
 
 .gift-rarity-rare {
-  @apply bg-blue-600/80 text-blue-100 border border-blue-500/30;
+  background-color: rgba(37, 99, 235, 0.8);
+  color: rgb(239, 246, 255);
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .gift-rarity-epic {
-  @apply bg-purple-600/80 text-purple-100 border border-purple-500/30;
+  background-color: rgba(147, 51, 234, 0.8);
+  color: rgb(250, 245, 255);
+  border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
 .gift-rarity-legendary {
-  @apply bg-yellow-600/80 text-yellow-100 border border-yellow-500/30;
+  background-color: rgba(202, 138, 4, 0.8);
+  color: rgb(254, 252, 232);
+  border: 1px solid rgba(234, 179, 8, 0.3);
 }
 
-/* Улучшенные анимации загрузки */
+/* Анимации загрузки */
 .loading-skeleton {
-  @apply animate-pulse bg-slate-700/50 rounded-lg;
+  animation: loading-shimmer 2s infinite;
   background: linear-gradient(90deg,
       rgba(51, 65, 85, 0.5) 25%,
       rgba(71, 85, 105, 0.8) 50%,
       rgba(51, 65, 85, 0.5) 75%);
   background-size: 200% 100%;
-  animation: loading-shimmer 2s infinite;
+  border-radius: 0.5rem;
 }
 
 @keyframes loading-shimmer {
@@ -129,49 +144,95 @@ a {
   }
 }
 
-/* Улучшенные стили для секции фильтров */
+/* Секция фильтров */
 .filter-section {
-  @apply bg-slate-900/98 border border-slate-600/40 rounded-xl p-6 mb-8 shadow-xl backdrop-blur-sm;
   background: rgba(15, 23, 42, 0.98);
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(4px);
 }
 
 .filter-section h2 {
-  @apply text-slate-50 font-bold text-xl;
-  color: rgb(248, 250, 252) !important;
+  color: rgb(248, 250, 252);
+  font-weight: 700;
+  font-size: 1.25rem;
 }
 
 .filter-section label {
-  @apply text-slate-200 font-semibold;
-  color: rgb(226, 232, 240) !important;
+  color: rgb(226, 232, 240);
+  font-weight: 600;
 }
 
-/* Улучшенные стили для карточек статистики */
+/* Карточки статистики */
 .stats-card {
-  @apply bg-gradient-to-br from-slate-900/95 to-slate-800/95 border border-slate-600/40 rounded-xl p-4 shadow-lg backdrop-blur-sm;
   background: linear-gradient(135deg,
       rgba(15, 23, 42, 0.95) 0%,
       rgba(30, 41, 59, 0.95) 100%);
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(4px);
 }
 
 .stats-card p:first-child {
-  @apply text-blue-300 font-bold text-2xl;
-  color: rgb(147, 197, 253) !important;
+  color: rgb(147, 197, 253);
+  font-weight: 700;
+  font-size: 1.5rem;
   text-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
 }
 
 .stats-card p:last-child {
-  @apply text-slate-300 font-medium;
-  color: rgb(203, 213, 225) !important;
+  color: rgb(203, 213, 225);
+  font-weight: 500;
 }
 
-/* Адаптивная сетка с улучшенными отступами */
+/* Сетка подарков */
 .gifts-grid {
-  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6;
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1.5rem;
 }
 
-/* Улучшенные стили для индикатора обновления */
+@media (min-width: 640px) {
+  .gifts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .gifts-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .gifts-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .gifts-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* Индикатор обновления */
 .update-indicator {
-  @apply fixed top-6 right-6 px-4 py-3 rounded-full text-sm font-semibold z-50 shadow-lg backdrop-blur-sm;
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  z-index: 50;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(4px);
   background: rgba(34, 197, 94, 0.9);
   color: rgb(255, 255, 255);
   border: 1px solid rgba(34, 197, 94, 0.3);
@@ -187,133 +248,138 @@ a {
   border-color: rgba(239, 68, 68, 0.3);
 }
 
-/* Улучшенные стили для текста с высоким контрастом */
+/* Улучшенные цвета текста */
 .text-white {
-  color: rgb(248, 250, 252) !important;
+  color: rgb(248, 250, 252);
 }
 
 .text-gray-400 {
-  @apply text-slate-400 font-medium;
-  color: rgb(148, 163, 184) !important;
+  color: rgb(148, 163, 184);
+  font-weight: 500;
 }
 
 .text-gray-500 {
-  @apply text-slate-500 font-medium;
-  color: rgb(100, 116, 139) !important;
+  color: rgb(100, 116, 139);
+  font-weight: 500;
 }
 
 .text-gray-300 {
-  @apply text-slate-300 font-medium;
-  color: rgb(203, 213, 225) !important;
+  color: rgb(203, 213, 225);
+  font-weight: 500;
 }
 
-/* Стили для NextUI компонентов в темной теме с улучшенным контрастом */
+/* Компоненты NextUI */
 .nextui-card {
-  @apply bg-slate-900/90 border-slate-600/40;
+  background-color: rgba(30, 41, 59, 0.9);
+  border-color: rgba(71, 85, 105, 0.4);
 }
 
 .nextui-input-wrapper {
-  @apply bg-slate-800/90 border-slate-600/50;
-  background: rgba(30, 41, 59, 0.9) !important;
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(71, 85, 105, 0.5);
 }
 
 .nextui-input {
-  @apply text-slate-100;
-  color: rgb(241, 245, 249) !important;
+  color: rgb(241, 245, 249);
 }
 
 .nextui-select-trigger {
-  @apply bg-slate-800/90 border-slate-600/50 text-slate-100;
-  background: rgba(30, 41, 59, 0.9) !important;
-  color: rgb(241, 245, 249) !important;
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(71, 85, 105, 0.5);
+  color: rgb(241, 245, 249);
 }
 
 .nextui-select-value {
-  @apply text-slate-100;
-  color: rgb(241, 245, 249) !important;
+  color: rgb(241, 245, 249);
 }
 
 .nextui-button {
-  @apply font-semibold shadow-lg;
+  font-weight: 600;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .nextui-button[data-color="primary"] {
-  @apply bg-blue-600 hover:bg-blue-500 text-white;
-  background: rgb(37, 99, 235) !important;
-  color: rgb(255, 255, 255) !important;
+  background: rgb(37, 99, 235);
+  color: rgb(255, 255, 255);
 }
 
 .nextui-button[data-color="primary"]:hover {
-  background: rgb(59, 130, 246) !important;
+  background: rgb(59, 130, 246);
 }
 
-/* Улучшенные стили для модального окна */
+/* Модальное окно */
 .nextui-modal-content {
-  @apply bg-slate-900/98 border-slate-600/40 backdrop-blur-sm;
-  background: rgba(15, 23, 42, 0.98) !important;
+  background: rgba(15, 23, 42, 0.98);
+  border-color: rgba(71, 85, 105, 0.4);
+  backdrop-filter: blur(4px);
 }
 
 .nextui-modal-header {
-  @apply text-slate-50 border-slate-600/40;
-  color: rgb(248, 250, 252) !important;
+  color: rgb(248, 250, 252);
+  border-color: rgba(71, 85, 105, 0.4);
 }
 
 .nextui-modal-body {
-  @apply text-slate-200;
-  color: rgb(226, 232, 240) !important;
+  color: rgb(226, 232, 240);
 }
 
 .nextui-modal-body h3 {
-  @apply text-slate-50 font-bold;
-  color: rgb(248, 250, 252) !important;
+  color: rgb(248, 250, 252);
+  font-weight: 700;
 }
 
 .nextui-modal-body h4 {
-  @apply text-slate-100 font-semibold;
-  color: rgb(241, 245, 249) !important;
+  color: rgb(241, 245, 249);
+  font-weight: 600;
 }
 
 .nextui-modal-body span {
-  @apply text-slate-300;
-  color: rgb(203, 213, 225) !important;
+  color: rgb(203, 213, 225);
 }
 
-/* Улучшенные чипы (теги) с высоким контрастом */
+/* Чипы */
 .nextui-chip {
-  @apply font-semibold shadow-sm;
+  font-weight: 600;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .nextui-chip[data-color="default"] {
-  @apply bg-slate-700/80 text-slate-100 border border-slate-600/40;
-  color: rgb(241, 245, 249) !important;
+  background-color: rgba(51, 65, 85, 0.8);
+  color: rgb(241, 245, 249);
+  border: 1px solid rgba(71, 85, 105, 0.4);
 }
 
 .nextui-chip[data-color="primary"] {
-  @apply bg-blue-600/80 text-blue-50 border border-blue-500/40;
-  color: rgb(239, 246, 255) !important;
+  background-color: rgba(37, 99, 235, 0.8);
+  color: rgb(239, 246, 255);
+  border: 1px solid rgba(59, 130, 246, 0.4);
 }
 
 .nextui-chip[data-color="secondary"] {
-  @apply bg-purple-600/80 text-purple-50 border border-purple-500/40;
-  color: rgb(250, 245, 255) !important;
+  background-color: rgba(147, 51, 234, 0.8);
+  color: rgb(250, 245, 255);
+  border: 1px solid rgba(168, 85, 247, 0.4);
 }
 
 .nextui-chip[data-color="success"] {
-  @apply bg-green-600/80 text-green-50 border border-green-500/40;
-  color: rgb(240, 253, 244) !important;
+  background-color: rgba(34, 197, 94, 0.8);
+  color: rgb(240, 253, 244);
+  border: 1px solid rgba(34, 197, 94, 0.4);
 }
 
 .nextui-chip[data-color="warning"] {
-  @apply bg-yellow-600/80 text-yellow-50 border border-yellow-500/40;
-  color: rgb(254, 252, 232) !important;
+  background-color: rgba(202, 138, 4, 0.8);
+  color: rgb(254, 252, 232);
+  border: 1px solid rgba(234, 179, 8, 0.4);
 }
 
 .nextui-chip[data-color="danger"] {
-  @apply bg-red-600/80 text-red-50 border border-red-500/40;
-  color: rgb(254, 242, 242) !important;
+  background-color: rgba(239, 68, 68, 0.8);
+  color: rgb(254, 242, 242);
+  border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
-/* Стили для скроллбара */
+/* Скроллбар */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -332,30 +398,43 @@ a {
   background: rgba(71, 85, 105, 0.8);
 }
 
-/* Улучшенные эффекты для интерактивных элементов */
+/* Эффекты для интерактивных элементов */
 .interactive-hover {
-  @apply transition-all duration-200 ease-in-out;
+  transition: all 0.2s ease-in-out;
 }
 
 .interactive-hover:hover {
-  @apply transform translate-y-[-1px] shadow-lg;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-/* Стили для highlight эффектов */
+/* Highlight эффекты */
 .highlight-primary {
-  @apply bg-blue-500/20 text-blue-300 px-2 py-1 rounded-md;
+  background-color: rgba(59, 130, 246, 0.2);
+  color: rgb(147, 197, 253);
+  padding: 0.5rem;
+  border-radius: 0.375rem;
 }
 
 .highlight-success {
-  @apply bg-green-500/20 text-green-300 px-2 py-1 rounded-md;
+  background-color: rgba(34, 197, 94, 0.2);
+  color: rgb(134, 239, 172);
+  padding: 0.5rem;
+  border-radius: 0.375rem;
 }
 
 .highlight-warning {
-  @apply bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-md;
+  background-color: rgba(234, 179, 8, 0.2);
+  color: rgb(253, 224, 71);
+  padding: 0.5rem;
+  border-radius: 0.375rem;
 }
 
 .highlight-danger {
-  @apply bg-red-500/20 text-red-300 px-2 py-1 rounded-md;
+  background-color: rgba(239, 68, 68, 0.2);
+  color: rgb(252, 165, 165);
+  padding: 0.5rem;
+  border-radius: 0.375rem;
 }
 
 /* Анимации появления */
@@ -387,51 +466,57 @@ a {
   animation-delay: 0.3s;
 }
 
-/* Специальные стили для повышения читаемости в модальных окнах */
+/* Стили для модальных окон */
 .modal-characteristic-row {
-  @apply flex justify-between items-center py-1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
 }
 
 .modal-characteristic-row span:first-child {
-  @apply text-slate-400 font-medium text-sm;
-  color: rgb(148, 163, 184) !important;
+  color: rgb(148, 163, 184);
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 
 .modal-characteristic-row span:last-child {
-  @apply text-slate-200 font-semibold;
-  color: rgb(226, 232, 240) !important;
-}
-
-/* Улучшенные градиенты для fallback изображений */
-.gift-fallback-gradient {
-  background: linear-gradient(135deg, var(--from-color), var(--to-color));
-  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.3);
+  color: rgb(226, 232, 240);
+  font-weight: 600;
 }
 
 /* Медиа-запросы для адаптивности */
 @media (max-width: 768px) {
   .gifts-grid {
-    @apply grid-cols-1 sm:grid-cols-2 gap-4;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 1rem;
   }
 
   .filter-section {
-    @apply p-4 mb-6;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
   }
 
   .stats-card {
-    @apply p-3;
+    padding: 0.75rem;
   }
 
   .gift-card h3 {
-    @apply text-base;
+    font-size: 1rem;
   }
 
   .gift-price {
-    @apply text-lg;
+    font-size: 1.125rem;
   }
 
   .stats-card p:first-child {
-    @apply text-xl;
+    font-size: 1.25rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .gifts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -441,12 +526,13 @@ a {
   .update-indicator,
   .filter-section,
   button {
-    display: none !important;
+    display: none;
   }
 
   .gift-card {
-    @apply border border-gray-300 shadow-none;
-    background: white !important;
-    color: black !important;
+    border: 1px solid rgb(209, 213, 219);
+    box-shadow: none;
+    background: rgb(255, 255, 255);
+    color: rgb(0, 0, 0);
   }
 }
