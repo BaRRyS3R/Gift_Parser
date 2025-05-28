@@ -305,7 +305,7 @@ export default function HomePage() {
         <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4">
           <p className="text-sm text-primary">
             Показаны результаты поиска по всему маркетплейсу.
-            Нажмите "Сбросить" для возврата к обычному просмотру.
+            Нажмите &quot;Сбросить&quot; для возврата к обычному просмотру.
           </p>
         </div>
       )}
