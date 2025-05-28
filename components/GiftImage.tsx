@@ -1,6 +1,7 @@
 // src/components/GiftImage.tsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import Lottie from 'lottie-react';
 import { Gift } from '@/types/gift';
 
 interface GiftImageProps {
@@ -20,8 +21,7 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
-    const [lottieData, setLottieData] = useState<any>(null);
-    const animationRef = useRef<any>(null);
+    const [animationData, setAnimationData] = useState<any>(null);
 
     // Формирование URL для Lottie анимации
     const generateLottieUrl = (gift: Gift): string => {
@@ -40,6 +40,7 @@ export const GiftImage: React.FC<GiftImageProps> = ({
         try {
             setIsLoading(true);
             setHasError(false);
+            setAnimationData(null);
 
             const lottieUrl = generateLottieUrl(gift);
 
@@ -51,35 +52,14 @@ export const GiftImage: React.FC<GiftImageProps> = ({
             }
 
             const data = await response.json();
-            setLottieData(data);
 
-            // Загружаем библиотеку lottie-web динамически
-            if (typeof window !== 'undefined') {
-                const lottie = await import('lottie-web');
-
-                if (animationRef.current) {
-                    // Очищаем предыдущую анимацию
-                    lottie.default.destroy();
-
-                    // Создаем новую анимацию
-                    const animation = lottie.default.loadAnimation({
-                        container: animationRef.current,
-                        renderer: 'svg',
-                        loop: true,
-                        autoplay: true,
-                        animationData: data
-                    });
-
-                    // Обработка завершения загрузки
-                    animation.addEventListener('complete', () => {
-                        setIsLoading(false);
-                    });
-
-                    animation.addEventListener('data_ready', () => {
-                        setIsLoading(false);
-                    });
-                }
+            // Проверяем, что данные валидны для Lottie
+            if (!data || !data.v || !data.layers) {
+                throw new Error('Invalid Lottie animation data');
             }
+
+            setAnimationData(data);
+            setIsLoading(false);
         } catch (error) {
             console.error('Error loading gift animation:', error);
             setHasError(true);
@@ -89,15 +69,6 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 
     useEffect(() => {
         loadLottieAnimation();
-
-        // Cleanup функция
-        return () => {
-            if (typeof window !== 'undefined') {
-                import('lottie-web').then(lottie => {
-                    lottie.default.destroy();
-                });
-            }
-        };
     }, [gift.name, gift.num, gift.gift_num]);
 
     // Fallback компонент для случаев ошибки или отсутствия анимации
@@ -125,7 +96,7 @@ export const GiftImage: React.FC<GiftImageProps> = ({
         </div>
     );
 
-    if (hasError) {
+    if (hasError || !animationData) {
         return <FallbackImage />;
     }
 
@@ -138,10 +109,21 @@ export const GiftImage: React.FC<GiftImageProps> = ({
             className={`relative overflow-hidden rounded-lg ${className}`}
             style={{ width, height }}
         >
-            <div
-                ref={animationRef}
-                className="w-full h-full"
-                style={{ width: '100%', height: '100%' }}
+            <Lottie
+                animationData={animationData}
+                loop={true}
+                autoplay={true}
+                style={{
+                    width: '100%',
+                    height: '100%'
+                }}
+                onLoadedData={() => {
+                    setIsLoading(false);
+                }}
+                onError={(error) => {
+                    console.error('Lottie playback error:', error);
+                    setHasError(true);
+                }}
             />
 
             {/* Overlay для интерактивности, если необходимо */}
