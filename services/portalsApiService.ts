@@ -8,7 +8,7 @@ class PortalsApiService {
 
     // Mock TMA auth data for development/testing
     private mockTmaAuth: TelegramWebAppAuth = {
-        query_id: "AAE5oKwZAAAAADmgrBl6xPYF",
+        query_id: "AAE5oKwZAAAAADmgrBkIWrLV",
         user: {
             id: 430743609,
             first_name: "Aleksandr",
@@ -19,9 +19,9 @@ class PortalsApiService {
             allows_write_to_pm: true,
             photo_url: "https://t.me/i/userpic/320/0NNjvHRtW06W-TF6gxxV72Ut8OqQdAXV4hrUaa0h038.svg"
         },
-        auth_date: 1748447546,
-        signature: "7_AgvhsATkd9ZNyJwO0a30BFEBXuHPBj5CsoCrO5i081Ft-R4eLS5W7fQF5IZJYo2jYW5M3hYd46Q7_1yOzyAw",
-        hash: "1f233c6f1fd54fa9a6ef5bffeb6d72cafe6e3bde8e2df135a961409cc86a3e58"
+        auth_date: 1748449639,
+        signature: "jP6-xJVZznhqSMnBr8eWyBw29LiE3rmT1ZHm3LQGsuAVm_CDvrw1SWtIf-3pqZwvsjwq0-vlqt_wC2_qjNkcDQ",
+        hash: "57d7f65cc768b3998e7a279ffa7ea50720d5bd6c573c781099f140b12cbf146a"
     };
 
     private defaultHeaders = {
@@ -46,6 +46,7 @@ class PortalsApiService {
             if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
                 const webApp = (window as any).Telegram.WebApp;
                 if (webApp.initData) {
+                    console.log('Using real Telegram WebApp initData:', webApp.initData);
                     return `tma ${webApp.initData}`;
                 }
             }
@@ -53,11 +54,19 @@ class PortalsApiService {
             // Fallback to mock data for development
             const tmaData = this.mockTmaAuth;
             const mockInitData = `query_id=${tmaData.query_id}&user=${encodeURIComponent(JSON.stringify(tmaData.user))}&auth_date=${tmaData.auth_date}&signature=${tmaData.signature}&hash=${tmaData.hash}`;
+            console.log('Using mock auth data:', {
+                mockInitData,
+                fullHeader: `tma ${mockInitData}`
+            });
             return `tma ${mockInitData}`;
         } catch (error) {
             console.warn('Failed to generate TMA auth, using mock data:', error);
             const tmaData = this.mockTmaAuth;
             const fallbackInitData = `query_id=${tmaData.query_id}&user=${encodeURIComponent(JSON.stringify(tmaData.user))}&auth_date=${tmaData.auth_date}&signature=${tmaData.signature}&hash=${tmaData.hash}`;
+            console.log('Using fallback mock auth data:', {
+                fallbackInitData,
+                fullHeader: `tma ${fallbackInitData}`
+            });
             return `tma ${fallbackInitData}`;
         }
     }
