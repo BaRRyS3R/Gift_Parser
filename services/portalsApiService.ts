@@ -45,33 +45,40 @@ class PortalsApiService {
                 platform: webApp.platform
             });
 
-            // Ждем инициализации WebApp
+            // Инициализируем WebApp
             if (!webApp.isInitialized) {
-                console.log('Ожидание инициализации Telegram WebApp...');
-                await new Promise<void>((resolve) => {
-                    const checkInitialization = () => {
-                        if (webApp.isInitialized) {
-                            console.log('WebApp инициализирован');
-                            resolve();
-                        } else {
-                            setTimeout(checkInitialization, 100);
-                        }
-                    };
-                    checkInitialization();
-                });
+                console.log('Инициализация Telegram WebApp...');
+                webApp.ready();
+                
+                // Ждем инициализации с таймаутом
+                const startTime = Date.now();
+                const timeout = 5000; // 5 секунд таймаут
+                
+                while (!webApp.isInitialized && (Date.now() - startTime < timeout)) {
+                    console.log('Ожидание инициализации...', {
+                        elapsedTime: Date.now() - startTime,
+                        isInitialized: webApp.isInitialized
+                    });
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                if (!webApp.isInitialized) {
+                    console.error('Таймаут инициализации WebApp');
+                    throw new Error('Таймаут инициализации WebApp');
+                }
             }
 
-            // Дополнительная проверка на наличие данных
+            console.log('WebApp инициализирован:', {
+                isInitialized: webApp.isInitialized,
+                initData: webApp.initData,
+                initDataUnsafe: webApp.initDataUnsafe
+            });
+
+            // Проверяем наличие данных инициализации
             if (!webApp.initData) {
                 console.error('Ошибка: данные инициализации недоступны');
                 throw new Error('Данные инициализации Telegram WebApp недоступны');
             }
-
-            console.log('Получены данные инициализации:', {
-                initData: webApp.initData,
-                initDataUnsafe: webApp.initDataUnsafe,
-                rawInitData: webApp.initData
-            });
 
             // Парсим данные инициализации
             const params = new URLSearchParams(webApp.initData);
@@ -88,7 +95,8 @@ class PortalsApiService {
                     hasUser: !!user,
                     hasAuthDate: !!authDate,
                     hasSignature: !!signature,
-                    hasHash: !!hash
+                    hasHash: !!hash,
+                    rawParams: Object.fromEntries(params.entries())
                 });
                 throw new Error('Отсутствуют необходимые параметры авторизации');
             }
