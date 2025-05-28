@@ -42,31 +42,45 @@ class PortalsApiService {
     // Generate TMA authorization header
     private generateAuthHeader(): string {
         try {
-            // Always try to get real TMA data from Telegram Web App
-            if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
-                const webApp = (window as any).Telegram.WebApp;
-                console.log('Telegram WebApp available:', {
-                    initData: webApp.initData,
-                    initDataUnsafe: webApp.initDataUnsafe,
-                    version: webApp.version,
-                    platform: webApp.platform
-                });
-
-                if (webApp.initData) {
-                    const header = `tma ${webApp.initData}`;
-                    console.log('Generated auth header:', header);
-                    return header;
-                } else {
-                    console.error('Telegram WebApp initData is not available');
-                    throw new Error('Telegram WebApp initData is not available');
-                }
-            } else {
-                console.error('Telegram WebApp is not available');
-                throw new Error('Telegram WebApp is not available');
+            // Check if we're in a browser environment
+            if (typeof window === 'undefined') {
+                throw new Error('Not in browser environment');
             }
+
+            // Get Telegram WebApp instance
+            const webApp = (window as any).Telegram?.WebApp;
+            if (!webApp) {
+                console.error('Telegram WebApp not found. Make sure the script is loaded and you are running in Telegram client.');
+                throw new Error('Telegram WebApp not available');
+            }
+
+            // Initialize WebApp if not already initialized
+            if (!webApp.isInitialized) {
+                webApp.ready();
+            }
+
+            // Log WebApp state
+            console.log('Telegram WebApp state:', {
+                isInitialized: webApp.isInitialized,
+                initData: webApp.initData,
+                initDataUnsafe: webApp.initDataUnsafe,
+                version: webApp.version,
+                platform: webApp.platform,
+                colorScheme: webApp.colorScheme,
+                themeParams: webApp.themeParams
+            });
+
+            if (!webApp.initData) {
+                console.error('Telegram WebApp initData is not available');
+                throw new Error('Telegram WebApp initData is not available');
+            }
+
+            const header = `tma ${webApp.initData}`;
+            console.log('Generated auth header:', header);
+            return header;
         } catch (error) {
             console.error('Failed to generate TMA auth:', error);
-            throw error; // Propagate error instead of using mock data
+            throw error;
         }
     }
 
