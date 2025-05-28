@@ -1,8 +1,9 @@
 // src/components/GiftCard.tsx
 
 import React from 'react';
-import { Card, CardBody, CardFooter, Chip, Button, Image } from '@nextui-org/react';
+import { Card, CardBody, CardFooter, Chip, Button } from '@nextui-org/react';
 import { Gift } from '@/types/gift';
+import GiftImage from '@/components/GiftImage';
 
 interface GiftCardProps {
   gift: Gift;
@@ -12,7 +13,7 @@ interface GiftCardProps {
 export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
   const getRarityColor = (rarity: string): "default" | "primary" | "secondary" | "success" | "warning" | "danger" => {
     const rarityPercentage = parseFloat(rarity.match(/\d+\.?\d*/)?.[0] || '0');
-    
+
     if (rarityPercentage < 1) return 'danger';
     if (rarityPercentage < 5) return 'warning';
     if (rarityPercentage < 15) return 'secondary';
@@ -30,55 +31,68 @@ export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
       <CardBody className="p-4">
         <div className="flex flex-col items-center space-y-3">
           {/* Изображение подарка */}
-          <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white text-3xl">
-            {gift.customEmojiId ? (
-              <div className="emoji-container">
-                🎁
-              </div>
-            ) : (
-              <span>🎁</span>
-            )}
-          </div>
+          <GiftImage
+            gift={gift}
+            width={96}
+            height={96}
+            className="shadow-md"
+            fallbackEmoji="🎁"
+          />
 
           {/* Название подарка */}
           <div className="text-center">
             <h3 className="font-semibold text-lg line-clamp-2">{gift.name}</h3>
-            <p className="text-small text-gray-500">#{gift.num}</p>
+            <p className="text-small text-gray-500">#{gift.gift_num || gift.num}</p>
           </div>
 
           {/* Характеристики */}
           <div className="w-full space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-small text-gray-400">Модель:</span>
-              <Chip 
-                size="sm" 
-                color={getRarityColor(gift.model)}
-                variant="flat"
-              >
-                {extractRarityPercentage(gift.model)}
-              </Chip>
+              <div className="flex flex-col items-end">
+                <span className="text-small font-medium">
+                  {gift.model.split(' (')[0]}
+                </span>
+                <Chip
+                  size="sm"
+                  color={getRarityColor(gift.model)}
+                  variant="flat"
+                >
+                  {extractRarityPercentage(gift.model)}
+                </Chip>
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-small text-gray-400">Фон:</span>
-              <Chip 
-                size="sm" 
-                color={getRarityColor(gift.backdrop)}
-                variant="flat"
-              >
-                {extractRarityPercentage(gift.backdrop)}
-              </Chip>
+              <div className="flex flex-col items-end">
+                <span className="text-small font-medium">
+                  {gift.backdrop.split(' (')[0]}
+                </span>
+                <Chip
+                  size="sm"
+                  color={getRarityColor(gift.backdrop)}
+                  variant="flat"
+                >
+                  {extractRarityPercentage(gift.backdrop)}
+                </Chip>
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-small text-gray-400">Символ:</span>
-              <Chip 
-                size="sm" 
-                color={getRarityColor(gift.symbol)}
-                variant="flat"
-              >
-                {extractRarityPercentage(gift.symbol)}
-              </Chip>
+              <div className="flex flex-col items-end">
+                <span className="text-small font-medium">
+                  {gift.symbol.split(' (')[0]}
+                </span>
+                <Chip
+                  size="sm"
+                  color={getRarityColor(gift.symbol)}
+                  variant="flat"
+                >
+                  {extractRarityPercentage(gift.symbol)}
+                </Chip>
+              </div>
             </div>
           </div>
 
@@ -108,7 +122,7 @@ export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
               </span>
             )}
           </div>
-          
+
           {onViewDetails && (
             <Button
               color="primary"

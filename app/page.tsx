@@ -3,11 +3,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Card, 
-  CardBody, 
-  Spinner, 
-  Button, 
+import {
+  Card,
+  CardBody,
+  Spinner,
+  Button,
   Chip,
   Modal,
   ModalContent,
@@ -20,6 +20,7 @@ import { Gift } from '@/types/gift';
 import { apiService } from '@/services/apiService';
 import GiftCard from '@/components/GiftCard';
 import GiftFilters, { FilterOptions } from '@/components/GiftFilters';
+import GiftImage from '@/components/GiftImage';
 
 export default function HomePage() {
   const [gifts, setGifts] = useState<Gift[]>([]);
@@ -27,17 +28,19 @@ export default function HomePage() {
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreData, setHasMoreData] = useState(true);
-  
+  const [searchMode, setSearchMode] = useState(false);
+
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
   // Загрузка данных о подарках
   const loadGifts = useCallback(async (page: number = 1, append: boolean = false) => {
     const isInitialLoad = page === 1 && !append;
-    
+
     if (isInitialLoad) {
       setIsLoading(true);
       setError(null);
@@ -46,14 +49,14 @@ export default function HomePage() {
     }
 
     try {
-      const response = await apiService.getPageGifts({ 
-        page, 
-        limit: 30 
+      const response = await apiService.getPageGifts({
+        page,
+        limit: 30
       });
 
       if (response.success && response.data) {
         const newGifts = response.data;
-        
+
         if (newGifts.length === 0) {
           setHasMoreData(false);
         } else {
@@ -76,28 +79,44 @@ export default function HomePage() {
   const applyFilters = useCallback((filters: FilterOptions) => {
     let filtered = [...gifts];
 
-    // Поиск по названию
-    if (filters.searchTerm) {
-      filtered = filtered.filter(gift =>
-        gift.name.toLowerCase().includes(filters.searchTerm.toLowerCase())
-      );
-    }
-
     // Фильтр по цене
     filtered = filtered.filter(gift =>
       gift.price >= filters.priceRange[0] && gift.price <= filters.priceRange[1]
     );
 
-    // Фильтр по лимитированности
-    if (filters.showLimitedOnly) {
-      filtered = filtered.filter(gift => gift.limited);
+    // Фильтр по названиям подарков
+    if (filters.giftNames.length > 0) {
+      filtered = filtered.filter(gift =>
+        filters.giftNames.includes(gift.name)
+      );
+    }
+
+    // Фильтр по моделям
+    if (filters.modelNames.length > 0) {
+      filtered = filtered.filter(gift =>
+        filters.modelNames.some(model => gift.model.includes(model))
+      );
+    }
+
+    // Фильтр по фонам
+    if (filters.backdropNames.length > 0) {
+      filtered = filtered.filter(gift =>
+        filters.backdropNames.some(backdrop => gift.backdrop.includes(backdrop))
+      );
+    }
+
+    // Фильтр по символам
+    if (filters.symbolNames.length > 0) {
+      filtered = filtered.filter(gift =>
+        filters.symbolNames.some(symbol => gift.symbol.includes(symbol))
+      );
     }
 
     // Фильтр по редкости
     if (filters.rarityFilter !== 'all') {
       filtered = filtered.filter(gift => {
         const modelRarity = parseFloat(gift.model.match(/\d+\.?\d*/)?.[0] || '100');
-        
+
         switch (filters.rarityFilter) {
           case 'legendary': return modelRarity < 1;
           case 'epic': return modelRarity >= 1 && modelRarity < 5;
@@ -122,6 +141,20 @@ export default function HomePage() {
         break;
       case 'date_asc':
         filtered.sort((a, b) => new Date(a.export_at).getTime() - new Date(b.export_at).getTime());
+        break;
+      case 'rarity_asc':
+        filtered.sort((a, b) => {
+          const aRarity = parseFloat(a.model.match(/\d+\.?\d*/)?.[0] || '100');
+          const bRarity = parseFloat(b.model.match(/\d+\.?\d*/)?.[0] || '100');
+          return bRarity - aRarity; // Чем больше процент, тем менее редкий
+        });
+        break;
+      case 'rarity_desc':
+        filtered.sort((a, b) => {
+          const aRarity = parseFloat(a.model.match(/\d+\.?\d*/)?.[0] || '100');
+          const bRarity = parseFloat(b.model.match(/\d+\.?\d*/)?.[0] || '100');
+          return aRarity - bRarity; // Чем меньше процент, тем более редкий
+        });
         break;
       default:
         break;
@@ -161,8 +194,38 @@ export default function HomePage() {
     onOpen();
   };
 
+  const handleGlobalSearch = async (searchTerm: string) => {
+    setIsSearching(true);
+    setSearchMode(true);
+    setError(null);
+
+    try {
+      const response = await apiService.searchGiftsByName(searchTerm);
+
+      if (response.success && response.data) {
+        setGifts(response.data);
+        setFilteredGifts(response.data);
+        setLastUpdate(new Date());
+      } else {
+        setError(response.error || 'Ошибка при поиске подарков');
+      }
+    } catch (err) {
+      setError('Произошла ошибка при поиске');
+      console.error('Error searching gifts:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleFiltersReset = () => {
-    setFilteredGifts(gifts);
+    if (searchMode) {
+      // Если мы в режиме поиска, загружаем обычные данные
+      setSearchMode(false);
+      loadGifts();
+    } else {
+      // Просто сбрасываем фильтры
+      setFilteredGifts(gifts);
+    }
   };
 
   const calculateStatistics = () => {
@@ -170,16 +233,26 @@ export default function HomePage() {
 
     const totalGifts = filteredGifts.length;
     const averagePrice = filteredGifts.reduce((sum, gift) => sum + gift.price, 0) / totalGifts;
-    const limitedCount = filteredGifts.filter(gift => gift.limited).length;
     const minPrice = Math.min(...filteredGifts.map(gift => gift.price));
     const maxPrice = Math.max(...filteredGifts.map(gift => gift.price));
+
+    // Подсчет по редкости
+    const rarityStats = filteredGifts.reduce((acc, gift) => {
+      const modelRarity = parseFloat(gift.model.match(/\d+\.?\d*/)?.[0] || '100');
+      if (modelRarity < 1) acc.legendary++;
+      else if (modelRarity < 5) acc.epic++;
+      else if (modelRarity < 15) acc.rare++;
+      else if (modelRarity < 30) acc.uncommon++;
+      else acc.common++;
+      return acc;
+    }, { legendary: 0, epic: 0, rare: 0, uncommon: 0, common: 0 });
 
     return {
       totalGifts,
       averagePrice: averagePrice.toFixed(2),
-      limitedCount,
       minPrice,
-      maxPrice
+      maxPrice,
+      rarityStats
     };
   };
 
@@ -221,9 +294,25 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Индикатор поиска */}
+      {isSearching && (
+        <div className="update-indicator updating">
+          Поиск по маркетплейсу...
+        </div>
+      )}
+
+      {searchMode && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4">
+          <p className="text-sm text-primary">
+            Показаны результаты поиска по всему маркетплейсу.
+            Нажмите "Сбросить" для возврата к обычному просмотру.
+          </p>
+        </div>
+      )}
+
       {/* Статистика */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="stats-card">
             <CardBody className="text-center">
               <p className="text-2xl font-bold text-primary">{stats.totalGifts}</p>
@@ -234,12 +323,6 @@ export default function HomePage() {
             <CardBody className="text-center">
               <p className="text-2xl font-bold text-success">{stats.averagePrice}</p>
               <p className="text-sm text-gray-400">Средняя цена (TON)</p>
-            </CardBody>
-          </Card>
-          <Card className="stats-card">
-            <CardBody className="text-center">
-              <p className="text-2xl font-bold text-warning">{stats.limitedCount}</p>
-              <p className="text-sm text-gray-400">Лимитированных</p>
             </CardBody>
           </Card>
           <Card className="stats-card">
@@ -257,11 +340,49 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Дополнительная статистика по редкости */}
+      {stats?.rarityStats && (
+        <div className="grid grid-cols-5 gap-2">
+          <Card className="stats-card">
+            <CardBody className="text-center p-3">
+              <p className="text-lg font-bold text-yellow-500">{stats.rarityStats.legendary}</p>
+              <p className="text-xs text-gray-400">Легендарных</p>
+            </CardBody>
+          </Card>
+          <Card className="stats-card">
+            <CardBody className="text-center p-3">
+              <p className="text-lg font-bold text-purple-500">{stats.rarityStats.epic}</p>
+              <p className="text-xs text-gray-400">Эпических</p>
+            </CardBody>
+          </Card>
+          <Card className="stats-card">
+            <CardBody className="text-center p-3">
+              <p className="text-lg font-bold text-blue-500">{stats.rarityStats.rare}</p>
+              <p className="text-xs text-gray-400">Редких</p>
+            </CardBody>
+          </Card>
+          <Card className="stats-card">
+            <CardBody className="text-center p-3">
+              <p className="text-lg font-bold text-green-500">{stats.rarityStats.uncommon}</p>
+              <p className="text-xs text-gray-400">Необычных</p>
+            </CardBody>
+          </Card>
+          <Card className="stats-card">
+            <CardBody className="text-center p-3">
+              <p className="text-lg font-bold text-gray-500">{stats.rarityStats.common}</p>
+              <p className="text-xs text-gray-400">Обычных</p>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
       {/* Фильтры */}
       <GiftFilters
         onFiltersChange={applyFilters}
         onReset={handleFiltersReset}
-        isLoading={isUpdating}
+        onSearch={handleGlobalSearch}
+        gifts={gifts}
+        isLoading={isUpdating || isSearching}
       />
 
       {/* Информация о последнем обновлении */}
@@ -339,12 +460,16 @@ export default function HomePage() {
                 {selectedGift && (
                   <div className="space-y-4">
                     <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white text-2xl">
-                        🎁
-                      </div>
+                      <GiftImage
+                        gift={selectedGift}
+                        width={64}
+                        height={64}
+                        className="shadow-md"
+                        fallbackEmoji="🎁"
+                      />
                       <div>
                         <h3 className="text-xl font-bold">{selectedGift.name}</h3>
-                        <p className="text-gray-400">#{selectedGift.num}</p>
+                        <p className="text-gray-400">#{selectedGift.gift_num || selectedGift.num}</p>
                       </div>
                     </div>
 

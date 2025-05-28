@@ -3,6 +3,7 @@
 export interface Gift {
   name: string;
   num: number;
+  gift_num?: number;
   model: string;
   backdrop: string;
   symbol: string;
