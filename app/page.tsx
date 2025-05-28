@@ -277,8 +277,9 @@ export default function HomePage() {
             {/* Marketplace selection */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-300">Маркетплейс</label>
+                <label htmlFor="marketplace-select" className="text-sm font-medium text-gray-300">Маркетплейс</label>
                 <Select
+                  id="marketplace-select"
                   placeholder="Выберите маркетплейс"
                   variant="bordered"
                   selectedKeys={[selectedMarketplace]}
@@ -305,17 +306,19 @@ export default function HomePage() {
 
                 <div className="flex items-center space-x-2">
                   <Switch
+                    id="search-all-marketplaces"
                     isSelected={searchAllMarketplaces}
                     onValueChange={setSearchAllMarketplaces}
                     size="sm"
                   />
-                  <span className="text-sm text-gray-300">Поиск на всех маркетплейсах</span>
+                  <label htmlFor="search-all-marketplaces" className="text-sm text-gray-300">Поиск на всех маркетплейсах</label>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-300">Подарок</label>
+                <label htmlFor="gift-select" className="text-sm font-medium text-gray-300">Подарок</label>
                 <Select
+                  id="gift-select"
                   placeholder="Выберите подарок для поиска"
                   variant="bordered"
                   selectedKeys={selectedGiftName ? [selectedGiftName] : []}
