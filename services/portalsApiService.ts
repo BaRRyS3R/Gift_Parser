@@ -56,8 +56,24 @@ class PortalsApiService {
                 throw new Error('Данные инициализации Telegram WebApp недоступны');
             }
 
-            // Use the initData directly from WebApp
-            const header = `tma ${webApp.initData}`;
+            // Parse initData to get individual parameters
+            const params = new URLSearchParams(webApp.initData);
+            const queryId = params.get('query_id') || '';
+            const user = params.get('user') || '';
+            const authDate = params.get('auth_date') || '';
+            const signature = params.get('signature') || '';
+            const hash = params.get('hash') || '';
+
+            // Format auth header according to Portals API requirements
+            const authData = [
+                `query_id=${queryId}`,
+                `user=${user}`,
+                `auth_date=${authDate}`,
+                `signature=${signature}`,
+                `hash=${hash}`
+            ].filter(Boolean).join('&');
+
+            const header = `tma ${authData}`;
             console.log('Сгенерирован заголовок авторизации:', header);
             
             // Log WebApp state for debugging
