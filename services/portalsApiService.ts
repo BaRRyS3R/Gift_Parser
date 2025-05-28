@@ -42,53 +42,56 @@ class PortalsApiService {
                 initData: webApp.initData,
                 initDataUnsafe: webApp.initDataUnsafe,
                 version: webApp.version,
-                platform: webApp.platform,
-                colorScheme: webApp.colorScheme,
-                themeParams: webApp.themeParams,
-                isExpanded: webApp.isExpanded,
-                viewportHeight: webApp.viewportHeight,
-                viewportStableHeight: webApp.viewportStableHeight
+                platform: webApp.platform
             });
 
+            // Ждем инициализации WebApp
             if (!webApp.isInitialized) {
-                console.log('Инициализация Telegram WebApp...');
-                webApp.ready();
-            }
-
-            const startTime = Date.now();
-            const timeout = 5000;
-            
-            while (!webApp.initData && (Date.now() - startTime < timeout)) {
-                console.log('Ожидание данных инициализации Telegram WebApp...', {
-                    elapsedTime: Date.now() - startTime,
-                    hasInitData: !!webApp.initData,
-                    currentTime: new Date().toISOString()
+                console.log('Ожидание инициализации Telegram WebApp...');
+                await new Promise<void>((resolve) => {
+                    const checkInitialization = () => {
+                        if (webApp.isInitialized) {
+                            console.log('WebApp инициализирован');
+                            resolve();
+                        } else {
+                            setTimeout(checkInitialization, 100);
+                        }
+                    };
+                    checkInitialization();
                 });
-                await new Promise(resolve => setTimeout(resolve, 100));
             }
 
+            // Дополнительная проверка на наличие данных
             if (!webApp.initData) {
-                console.error('Ошибка: данные инициализации недоступны после ожидания', {
-                    elapsedTime: Date.now() - startTime,
-                    isInitialized: webApp.isInitialized,
-                    currentTime: new Date().toISOString()
-                });
+                console.error('Ошибка: данные инициализации недоступны');
                 throw new Error('Данные инициализации Telegram WebApp недоступны');
             }
 
             console.log('Получены данные инициализации:', {
                 initData: webApp.initData,
                 initDataUnsafe: webApp.initDataUnsafe,
-                rawInitData: webApp.initData,
-                currentTime: new Date().toISOString()
+                rawInitData: webApp.initData
             });
 
+            // Парсим данные инициализации
             const params = new URLSearchParams(webApp.initData);
-            const queryId = params.get('query_id') || '';
-            const user = JSON.stringify(webApp.initDataUnsafe?.user || {});
-            const authDate = params.get('auth_date') || '';
-            const signature = params.get('signature') || '';
-            const hash = params.get('hash') || '';
+            const queryId = params.get('query_id');
+            const user = params.get('user');
+            const authDate = params.get('auth_date');
+            const signature = params.get('signature');
+            const hash = params.get('hash');
+
+            // Проверяем наличие всех необходимых параметров
+            if (!queryId || !user || !authDate || !signature || !hash) {
+                console.error('Отсутствуют необходимые параметры авторизации:', {
+                    hasQueryId: !!queryId,
+                    hasUser: !!user,
+                    hasAuthDate: !!authDate,
+                    hasSignature: !!signature,
+                    hasHash: !!hash
+                });
+                throw new Error('Отсутствуют необходимые параметры авторизации');
+            }
 
             console.log('Извлеченные параметры авторизации:', {
                 queryId,
@@ -96,25 +99,24 @@ class PortalsApiService {
                 authDate,
                 signature,
                 hash,
-                rawParams: Object.fromEntries(params.entries()),
-                currentTime: new Date().toISOString()
+                rawParams: Object.fromEntries(params.entries())
             });
 
+            // Формируем заголовок в точном формате
             const header = `tma query_id=${queryId}&user=${user}&auth_date=${authDate}&signature=${signature}&hash=${hash}`;
             
             console.log('Сгенерированный заголовок авторизации:', {
                 header,
-                rawHeader: header,
-                currentTime: new Date().toISOString()
+                rawHeader: header
             });
+
             console.log('=== Завершение генерации заголовка авторизации ===');
 
             return header;
         } catch (error) {
             console.error('Ошибка при генерации TMA auth:', {
                 error,
-                stack: error instanceof Error ? error.stack : undefined,
-                currentTime: new Date().toISOString()
+                stack: error instanceof Error ? error.stack : undefined
             });
             throw error;
         }
@@ -126,47 +128,39 @@ class PortalsApiService {
     ): Promise<ApiResponse<T>> {
         try {
             console.log('=== Начало запроса к Portals API ===');
-            console.log('Параметры запроса:', {
-                endpoint,
-                method: options.method || 'GET',
-                options: {
-                    ...options,
-                    headers: options.headers
-                },
-                currentTime: new Date().toISOString()
-            });
-
+            
             const authHeader = await this.generateAuthHeader();
             
             const headers = {
-                ...options.headers,
                 ...this.defaultHeaders,
+                ...options.headers,
                 authorization: authHeader,
+                referer: 'https://market.portals.tg/',
+                origin: 'https://market.portals.tg'
             };
 
             console.log('Финальные заголовки запроса:', {
-                headers,
-                rawHeaders: headers,
-                currentTime: new Date().toISOString()
+                headers: {
+                    ...headers,
+                    authorization: '***' // Маскируем для логов
+                }
             });
 
             console.log('Отправка запроса к:', {
                 url: `${this.baseUrl}${endpoint}`,
-                fullUrl: `${this.baseUrl}${endpoint}`,
-                currentTime: new Date().toISOString()
+                method: options.method || 'GET'
             });
 
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
                 ...options,
                 headers,
+                credentials: 'include'
             });
 
             console.log('Получен ответ от API:', {
                 status: response.status,
                 statusText: response.statusText,
-                headers: Object.fromEntries(response.headers.entries()),
-                rawHeaders: Object.fromEntries(response.headers.entries()),
-                currentTime: new Date().toISOString()
+                headers: Object.fromEntries(response.headers.entries())
             });
 
             if (!response.ok) {
@@ -176,9 +170,7 @@ class PortalsApiService {
                     statusText: response.statusText,
                     body: errorText,
                     headers: Object.fromEntries(response.headers.entries()),
-                    url: response.url,
-                    rawError: errorText,
-                    currentTime: new Date().toISOString()
+                    url: response.url
                 });
                 throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
             }
@@ -187,9 +179,7 @@ class PortalsApiService {
             console.log('Успешный ответ API:', {
                 endpoint,
                 dataSize: JSON.stringify(result).length,
-                hasData: !!result,
-                rawData: result,
-                currentTime: new Date().toISOString()
+                hasData: !!result
             });
 
             console.log('=== Завершение запроса к Portals API ===');
@@ -204,10 +194,8 @@ class PortalsApiService {
                 endpoint,
                 error: error instanceof Error ? {
                     message: error.message,
-                    stack: error.stack,
-                    rawError: error
-                } : error,
-                currentTime: new Date().toISOString()
+                    stack: error.stack
+                } : error
             });
 
             return {
