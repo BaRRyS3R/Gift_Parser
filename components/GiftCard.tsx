@@ -1,9 +1,10 @@
 // src/components/GiftCard.tsx
 
-import React from 'react';
-import { Card, CardBody, CardFooter, Chip, Button } from '@nextui-org/react';
-import { Gift } from '@/types/gift';
-import GiftImage from '@/components/GiftImage';
+import React from "react";
+import { Card, CardBody, CardFooter, Chip, Button } from "@nextui-org/react";
+
+import { Gift } from "@/types/gift";
+import GiftImage from "@/components/GiftImage";
 
 interface GiftCardProps {
   gift: Gift;
@@ -12,12 +13,13 @@ interface GiftCardProps {
 
 export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
   const extractMainName = (text: string): string => {
-    return text.split(' (')[0].trim();
+    return text.split(" (")[0].trim();
   };
 
   const extractRarityPercentage = (text: string): string => {
     const match = text.match(/\(([^)]+)\)/);
-    return match ? match[1] : '';
+
+    return match ? match[1] : "";
   };
 
   return (
@@ -26,17 +28,21 @@ export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
         <div className="flex flex-col items-center space-y-3">
           {/* Изображение подарка */}
           <GiftImage
-            gift={gift}
-            width={96}
-            height={96}
             className="shadow-md"
             fallbackEmoji="🎁"
+            gift={gift}
+            height={96}
+            width={96}
           />
 
           {/* Название подарка */}
           <div className="text-center">
-            <h3 className="font-semibold text-lg text-white line-clamp-2">{gift.name}</h3>
-            <p className="text-sm text-gray-400">#{gift.gift_num || gift.num}</p>
+            <h3 className="font-semibold text-lg text-white line-clamp-2">
+              {gift.name}
+            </h3>
+            <p className="text-sm text-gray-400">
+              #{gift.gift_num || gift.num}
+            </p>
           </div>
 
           {/* Характеристики */}
@@ -86,8 +92,8 @@ export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
 
           {/* Статус */}
           <div className="flex items-center justify-center">
-            <Chip size="sm" color="success" variant="flat">
-              {gift.status === 'forsale' ? 'В продаже' : gift.status}
+            <Chip color="success" size="sm" variant="flat">
+              {gift.status === "forsale" ? "В продаже" : gift.status}
             </Chip>
           </div>
         </div>
@@ -101,18 +107,18 @@ export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
             </span>
             {gift.export_at && (
               <span className="text-xs text-gray-500">
-                {new Date(gift.export_at).toLocaleDateString('ru-RU')}
+                {new Date(gift.export_at).toLocaleDateString("ru-RU")}
               </span>
             )}
           </div>
 
           {onViewDetails && (
             <Button
-              color="primary"
-              variant="flat"
-              size="sm"
-              onPress={() => onViewDetails(gift)}
               className="bg-blue-600 hover:bg-blue-700 text-white"
+              color="primary"
+              size="sm"
+              variant="flat"
+              onPress={() => onViewDetails(gift)}
             >
               Подробнее
             </Button>
