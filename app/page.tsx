@@ -131,32 +131,46 @@ export default function HomePage() {
     }
 
     try {
-      // Используем правильный метод API с корректным фильтром
-      let response;
+      console.log(`Searching for gifts: "${giftName}", page: ${page}`);
 
+      // First, test basic API connectivity
       if (page === 1 && !append) {
-        // Для первой страницы используем метод searchGiftsByName
-        response = await apiService.searchGiftsByName(giftName);
-      } else {
-        // Для последующих страниц формируем правильный фильтр
-        const searchFilter = {
-          $and: [
-            { price: { $exists: true } },
-            { buyer: { $exists: false } },
-            { asset: "TON" },
-            { name: { $regex: giftName, $options: "i" } },
-          ],
-        };
+        console.log("Testing basic API connectivity...");
 
-        response = await apiService.getPageGifts({
-          page,
-          limit: 50,
-          sort: '{"message_post_time":-1,"gift_id":-1}',
-          filter: JSON.stringify(searchFilter), // Правильно сформированный JSON-фильтр
-          ref: 0,
-          price_range: null,
-          user_auth: ''
+        // Try the basic request first to see if API is working at all
+        const basicResponse = await apiService.getPageGiftsBasic({
+          page: 1,
+          limit: 10
         });
+
+        if (!basicResponse.success) {
+          console.error("Basic API test failed:", basicResponse.error);
+          setError(`API connection failed: ${basicResponse.error}`);
+          return;
+        }
+
+        console.log("Basic API test successful, proceeding with search...");
+      }
+
+      // Use the simplified search method
+      let response;
+      if (page === 1) {
+        response = await apiService.searchGiftsByNameSimple(giftName);
+      } else {
+        // For pagination, we'll need to implement a different approach
+        // since client-side filtering doesn't support pagination well
+        response = await apiService.getPageGiftsBasic({
+          page,
+          limit: 50
+        });
+
+        if (response.success) {
+          // Filter the results client-side
+          const filteredData = response.data.filter(gift =>
+            gift.name.toLowerCase().includes(giftName.toLowerCase())
+          );
+          response.data = filteredData;
+        }
       }
 
       if (response.success && response.data) {
@@ -169,20 +183,19 @@ export default function HomePage() {
           setFilteredGifts(prevGifts => append ? [...prevGifts, ...newGifts] : newGifts);
           setLastUpdate(new Date());
 
-          // Устанавливаем количество найденных подарков
           if (isInitialLoad) {
             setTotalFoundGifts(newGifts.length);
           }
 
-          // Проверяем наличие дополнительных данных
-          setHasMoreData(newGifts.length === 50);
+          // For client-side filtering, we might not have reliable pagination
+          setHasMoreData(page === 1 && newGifts.length >= 50);
         }
       } else {
-        setError(response.error || 'Ошибка при поиске подарков');
+        setError(response.error || 'Failed to search gifts');
       }
     } catch (err) {
-      setError('Произошла ошибка при поиске подарков');
-      console.error('Error searching gifts:', err);
+      console.error('Search error:', err);
+      setError('An error occurred while searching for gifts');
     } finally {
       setIsSearching(false);
     }
