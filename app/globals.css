@@ -19,6 +19,7 @@
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 
 html,
@@ -41,24 +42,49 @@ a {
   text-decoration: none;
 }
 
-/* Улучшенные стили для карточек подарков */
+/* Улучшенные стили для карточек подарков с высоким контрастом */
 .gift-card {
-  @apply bg-slate-800/90 border border-slate-600/50 rounded-xl p-4 hover:shadow-xl transition-all duration-300 backdrop-blur-sm;
-  background: rgba(30, 41, 59, 0.95);
-  border: 1px solid rgba(71, 85, 105, 0.3);
+  @apply bg-slate-900/95 border border-slate-600/50 rounded-xl p-4 hover:shadow-xl transition-all duration-300 backdrop-blur-sm;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(71, 85, 105, 0.4);
 }
 
 .gift-card:hover {
   @apply border-blue-400/60 shadow-2xl scale-[1.02];
-  background: rgba(30, 41, 59, 1);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(59, 130, 246, 0.3);
+  background: rgba(15, 23, 42, 1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(59, 130, 246, 0.4);
 }
 
+/* Улучшенная типографика с высоким контрастом */
+.gift-card h3 {
+  @apply text-slate-50 font-semibold text-lg leading-tight;
+  color: rgb(248, 250, 252) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.gift-card p {
+  @apply text-slate-300;
+  color: rgb(203, 213, 225) !important;
+}
+
+.gift-card .text-gray-400,
+.gift-card .text-gray-500 {
+  @apply text-slate-400;
+  color: rgb(148, 163, 184) !important;
+  font-weight: 500;
+}
+
+.gift-card .text-small {
+  @apply text-slate-300 font-medium;
+  color: rgb(203, 213, 225) !important;
+}
+
+/* Улучшенные стили для цены */
 .gift-price {
-  @apply text-blue-400 font-bold text-lg;
-  color: rgb(96, 165, 250);
-  text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+  @apply text-blue-300 font-bold text-xl;
+  color: rgb(147, 197, 253) !important;
+  text-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
 }
 
 /* Улучшенные стили для редкости */
@@ -105,37 +131,37 @@ a {
 
 /* Улучшенные стили для секции фильтров */
 .filter-section {
-  @apply bg-slate-800/95 border border-slate-600/40 rounded-xl p-6 mb-8 shadow-xl backdrop-blur-sm;
-  background: rgba(30, 41, 59, 0.95);
+  @apply bg-slate-900/98 border border-slate-600/40 rounded-xl p-6 mb-8 shadow-xl backdrop-blur-sm;
+  background: rgba(15, 23, 42, 0.98);
 }
 
 .filter-section h2 {
-  @apply text-slate-100 font-bold text-xl;
-  color: rgb(248, 250, 252);
+  @apply text-slate-50 font-bold text-xl;
+  color: rgb(248, 250, 252) !important;
 }
 
 .filter-section label {
-  @apply text-slate-200 font-medium;
-  color: rgb(226, 232, 240);
+  @apply text-slate-200 font-semibold;
+  color: rgb(226, 232, 240) !important;
 }
 
 /* Улучшенные стили для карточек статистики */
 .stats-card {
-  @apply bg-gradient-to-br from-slate-800/90 to-slate-700/90 border border-slate-600/40 rounded-xl p-4 shadow-lg backdrop-blur-sm;
+  @apply bg-gradient-to-br from-slate-900/95 to-slate-800/95 border border-slate-600/40 rounded-xl p-4 shadow-lg backdrop-blur-sm;
   background: linear-gradient(135deg,
-      rgba(30, 41, 59, 0.9) 0%,
-      rgba(51, 65, 85, 0.9) 100%);
+      rgba(15, 23, 42, 0.95) 0%,
+      rgba(30, 41, 59, 0.95) 100%);
 }
 
 .stats-card p:first-child {
-  @apply text-blue-400 font-bold;
-  color: rgb(96, 165, 250);
-  text-shadow: 0 0 8px rgba(96, 165, 250, 0.2);
+  @apply text-blue-300 font-bold text-2xl;
+  color: rgb(147, 197, 253) !important;
+  text-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
 }
 
 .stats-card p:last-child {
-  @apply text-slate-300;
-  color: rgb(203, 213, 225);
+  @apply text-slate-300 font-medium;
+  color: rgb(203, 213, 225) !important;
 }
 
 /* Адаптивная сетка с улучшенными отступами */
@@ -161,55 +187,130 @@ a {
   border-color: rgba(239, 68, 68, 0.3);
 }
 
-/* Улучшенные стили для текста */
+/* Улучшенные стили для текста с высоким контрастом */
+.text-white {
+  color: rgb(248, 250, 252) !important;
+}
+
 .text-gray-400 {
-  @apply text-slate-400;
+  @apply text-slate-400 font-medium;
   color: rgb(148, 163, 184) !important;
 }
 
 .text-gray-500 {
-  @apply text-slate-500;
+  @apply text-slate-500 font-medium;
   color: rgb(100, 116, 139) !important;
 }
 
 .text-gray-300 {
-  @apply text-slate-300;
+  @apply text-slate-300 font-medium;
   color: rgb(203, 213, 225) !important;
 }
 
-/* Стили для NextUI компонентов в темной теме */
+/* Стили для NextUI компонентов в темной теме с улучшенным контрастом */
 .nextui-card {
-  @apply bg-slate-800/90 border-slate-600/40;
+  @apply bg-slate-900/90 border-slate-600/40;
+}
+
+.nextui-input-wrapper {
+  @apply bg-slate-800/90 border-slate-600/50;
+  background: rgba(30, 41, 59, 0.9) !important;
 }
 
 .nextui-input {
-  @apply bg-slate-700/50 border-slate-600/40 text-slate-100;
+  @apply text-slate-100;
+  color: rgb(241, 245, 249) !important;
 }
 
-.nextui-select {
-  @apply bg-slate-700/50 border-slate-600/40 text-slate-100;
+.nextui-select-trigger {
+  @apply bg-slate-800/90 border-slate-600/50 text-slate-100;
+  background: rgba(30, 41, 59, 0.9) !important;
+  color: rgb(241, 245, 249) !important;
+}
+
+.nextui-select-value {
+  @apply text-slate-100;
+  color: rgb(241, 245, 249) !important;
 }
 
 .nextui-button {
   @apply font-semibold shadow-lg;
 }
 
+.nextui-button[data-color="primary"] {
+  @apply bg-blue-600 hover:bg-blue-500 text-white;
+  background: rgb(37, 99, 235) !important;
+  color: rgb(255, 255, 255) !important;
+}
+
+.nextui-button[data-color="primary"]:hover {
+  background: rgb(59, 130, 246) !important;
+}
+
 /* Улучшенные стили для модального окна */
 .nextui-modal-content {
-  @apply bg-slate-800/95 border-slate-600/40 backdrop-blur-sm;
+  @apply bg-slate-900/98 border-slate-600/40 backdrop-blur-sm;
+  background: rgba(15, 23, 42, 0.98) !important;
 }
 
 .nextui-modal-header {
-  @apply text-slate-100 border-slate-600/40;
+  @apply text-slate-50 border-slate-600/40;
+  color: rgb(248, 250, 252) !important;
 }
 
 .nextui-modal-body {
   @apply text-slate-200;
+  color: rgb(226, 232, 240) !important;
 }
 
-/* Улучшенные чипы (теги) */
+.nextui-modal-body h3 {
+  @apply text-slate-50 font-bold;
+  color: rgb(248, 250, 252) !important;
+}
+
+.nextui-modal-body h4 {
+  @apply text-slate-100 font-semibold;
+  color: rgb(241, 245, 249) !important;
+}
+
+.nextui-modal-body span {
+  @apply text-slate-300;
+  color: rgb(203, 213, 225) !important;
+}
+
+/* Улучшенные чипы (теги) с высоким контрастом */
 .nextui-chip {
-  @apply font-medium shadow-sm;
+  @apply font-semibold shadow-sm;
+}
+
+.nextui-chip[data-color="default"] {
+  @apply bg-slate-700/80 text-slate-100 border border-slate-600/40;
+  color: rgb(241, 245, 249) !important;
+}
+
+.nextui-chip[data-color="primary"] {
+  @apply bg-blue-600/80 text-blue-50 border border-blue-500/40;
+  color: rgb(239, 246, 255) !important;
+}
+
+.nextui-chip[data-color="secondary"] {
+  @apply bg-purple-600/80 text-purple-50 border border-purple-500/40;
+  color: rgb(250, 245, 255) !important;
+}
+
+.nextui-chip[data-color="success"] {
+  @apply bg-green-600/80 text-green-50 border border-green-500/40;
+  color: rgb(240, 253, 244) !important;
+}
+
+.nextui-chip[data-color="warning"] {
+  @apply bg-yellow-600/80 text-yellow-50 border border-yellow-500/40;
+  color: rgb(254, 252, 232) !important;
+}
+
+.nextui-chip[data-color="danger"] {
+  @apply bg-red-600/80 text-red-50 border border-red-500/40;
+  color: rgb(254, 242, 242) !important;
 }
 
 /* Стили для скроллбара */
@@ -237,7 +338,7 @@ a {
 }
 
 .interactive-hover:hover {
-  @apply transform translate-y-[-2px] shadow-lg;
+  @apply transform translate-y-[-1px] shadow-lg;
 }
 
 /* Стили для highlight эффектов */
@@ -286,6 +387,27 @@ a {
   animation-delay: 0.3s;
 }
 
+/* Специальные стили для повышения читаемости в модальных окнах */
+.modal-characteristic-row {
+  @apply flex justify-between items-center py-1;
+}
+
+.modal-characteristic-row span:first-child {
+  @apply text-slate-400 font-medium text-sm;
+  color: rgb(148, 163, 184) !important;
+}
+
+.modal-characteristic-row span:last-child {
+  @apply text-slate-200 font-semibold;
+  color: rgb(226, 232, 240) !important;
+}
+
+/* Улучшенные градиенты для fallback изображений */
+.gift-fallback-gradient {
+  background: linear-gradient(135deg, var(--from-color), var(--to-color));
+  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.3);
+}
+
 /* Медиа-запросы для адаптивности */
 @media (max-width: 768px) {
   .gifts-grid {
@@ -298,6 +420,18 @@ a {
 
   .stats-card {
     @apply p-3;
+  }
+
+  .gift-card h3 {
+    @apply text-base;
+  }
+
+  .gift-price {
+    @apply text-lg;
+  }
+
+  .stats-card p:first-child {
+    @apply text-xl;
   }
 }
 
