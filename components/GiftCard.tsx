@@ -11,23 +11,17 @@ interface GiftCardProps {
 }
 
 export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
-  const getRarityColor = (rarity: string): "default" | "primary" | "secondary" | "success" | "warning" | "danger" => {
-    const rarityPercentage = parseFloat(rarity.match(/\d+\.?\d*/)?.[0] || '0');
-
-    if (rarityPercentage < 1) return 'danger';
-    if (rarityPercentage < 5) return 'warning';
-    if (rarityPercentage < 15) return 'secondary';
-    if (rarityPercentage < 30) return 'primary';
-    return 'default';
+  const extractMainName = (text: string): string => {
+    return text.split(' (')[0].trim();
   };
 
   const extractRarityPercentage = (text: string): string => {
     const match = text.match(/\(([^)]+)\)/);
-    return match ? match[1] : text;
+    return match ? match[1] : '';
   };
 
   return (
-    <Card className="gift-card w-full">
+    <Card className="bg-slate-800 border-slate-600 hover:bg-slate-750 transition-all duration-200 hover:border-slate-500 hover:shadow-lg">
       <CardBody className="p-4">
         <div className="flex flex-col items-center space-y-3">
           {/* Изображение подарка */}
@@ -41,68 +35,57 @@ export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
 
           {/* Название подарка */}
           <div className="text-center">
-            <h3 className="font-semibold text-lg line-clamp-2">{gift.name}</h3>
-            <p className="text-small text-gray-500">#{gift.gift_num || gift.num}</p>
+            <h3 className="font-semibold text-lg text-white line-clamp-2">{gift.name}</h3>
+            <p className="text-sm text-gray-400">#{gift.gift_num || gift.num}</p>
           </div>
 
           {/* Характеристики */}
           <div className="w-full space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-small text-gray-400">Модель:</span>
+              <span className="text-sm text-gray-400">Модель:</span>
               <div className="flex flex-col items-end">
-                <span className="text-small font-medium">
-                  {gift.model.split(' (')[0]}
+                <span className="text-sm font-medium text-white">
+                  {extractMainName(gift.model)}
                 </span>
-                <Chip
-                  size="sm"
-                  color={getRarityColor(gift.model)}
-                  variant="flat"
-                >
-                  {extractRarityPercentage(gift.model)}
-                </Chip>
+                {extractRarityPercentage(gift.model) && (
+                  <span className="text-xs text-gray-500">
+                    {extractRarityPercentage(gift.model)}
+                  </span>
+                )}
               </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-small text-gray-400">Фон:</span>
+              <span className="text-sm text-gray-400">Фон:</span>
               <div className="flex flex-col items-end">
-                <span className="text-small font-medium">
-                  {gift.backdrop.split(' (')[0]}
+                <span className="text-sm font-medium text-white">
+                  {extractMainName(gift.backdrop)}
                 </span>
-                <Chip
-                  size="sm"
-                  color={getRarityColor(gift.backdrop)}
-                  variant="flat"
-                >
-                  {extractRarityPercentage(gift.backdrop)}
-                </Chip>
+                {extractRarityPercentage(gift.backdrop) && (
+                  <span className="text-xs text-gray-500">
+                    {extractRarityPercentage(gift.backdrop)}
+                  </span>
+                )}
               </div>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-small text-gray-400">Символ:</span>
+              <span className="text-sm text-gray-400">Символ:</span>
               <div className="flex flex-col items-end">
-                <span className="text-small font-medium">
-                  {gift.symbol.split(' (')[0]}
+                <span className="text-sm font-medium text-white">
+                  {extractMainName(gift.symbol)}
                 </span>
-                <Chip
-                  size="sm"
-                  color={getRarityColor(gift.symbol)}
-                  variant="flat"
-                >
-                  {extractRarityPercentage(gift.symbol)}
-                </Chip>
+                {extractRarityPercentage(gift.symbol) && (
+                  <span className="text-xs text-gray-500">
+                    {extractRarityPercentage(gift.symbol)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Статус и лимитированность */}
-          <div className="flex items-center space-x-2">
-            {gift.limited && (
-              <Chip size="sm" color="warning" variant="flat">
-                Лимитированный
-              </Chip>
-            )}
+          {/* Статус */}
+          <div className="flex items-center justify-center">
             <Chip size="sm" color="success" variant="flat">
               {gift.status === 'forsale' ? 'В продаже' : gift.status}
             </Chip>
@@ -113,11 +96,11 @@ export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
       <CardFooter className="pt-0 pb-4 px-4">
         <div className="w-full flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="gift-price text-2xl font-bold">
+            <span className="text-2xl font-bold text-blue-400">
               {gift.price.toLocaleString()} {gift.asset}
             </span>
             {gift.export_at && (
-              <span className="text-tiny text-gray-400">
+              <span className="text-xs text-gray-500">
                 {new Date(gift.export_at).toLocaleDateString('ru-RU')}
               </span>
             )}
@@ -129,6 +112,7 @@ export const GiftCard: React.FC<GiftCardProps> = ({ gift, onViewDetails }) => {
               variant="flat"
               size="sm"
               onPress={() => onViewDetails(gift)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               Подробнее
             </Button>
