@@ -498,7 +498,7 @@ export default function HomePage() {
               Подарки не найдены
             </p>
             <p className="text-gray-400 text-sm mt-2">
-              По запросу "{selectedGiftName}" не найдено подарков на продаже в маркетплейсе Tonnel
+              По запросу &quot;{selectedGiftName}&quot; не найдено подарков на продаже в маркетплейсе Tonnel
             </p>
             <Button
               color="primary"
@@ -518,7 +518,7 @@ export default function HomePage() {
               Нет результатов после фильтрации
             </p>
             <p className="text-gray-400 text-sm mt-2">
-              Всего найдено {gifts.length} подарков "{selectedGiftName}", но ни один не соответствует выбранным фильтрам
+              Всего найдено {gifts.length} подарков &quot;{selectedGiftName}&quot;, но ни один не соответствует выбранным фильтрам
             </p>
             <Button
               color="secondary"
