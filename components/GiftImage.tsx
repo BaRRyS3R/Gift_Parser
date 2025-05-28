@@ -22,10 +22,24 @@ export const GiftImage: React.FC<GiftImageProps> = ({
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const [animationData, setAnimationData] = useState<any>(null);
+    const [useStaticFallback, setUseStaticFallback] = useState(false);
 
-    // Формирование URL для Lottie анимации
+    // Формирование URL для Lottie анимации с использованием прокси
     const generateLottieUrl = (gift: Gift): string => {
-        // Преобразуем название подарка в формат URL
+        const giftName = gift.name
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
+
+        const giftNum = gift.gift_num || gift.num;
+        const originalUrl = `https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`;
+
+        // Используем CORS прокси для обхода блокировки
+        return `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`;
+    };
+
+    // Альтернативные URL для статических изображений
+    const generateStaticImageUrl = (gift: Gift): string => {
         const giftName = gift.name
             .toLowerCase()
             .replace(/\s+/g, '-')
@@ -33,7 +47,14 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 
         const giftNum = gift.gift_num || gift.num;
 
-        return `https://nft.fragment.com/gift/${giftName}-${giftNum}.lottie.json`;
+        // Пробуем разные возможные форматы
+        const possibleUrls = [
+            `https://nft.fragment.com/gift/${giftName}-${giftNum}.png`,
+            `https://nft.fragment.com/gift/${giftName}-${giftNum}.jpg`,
+            `https://nft.fragment.com/gift/${giftName}-${giftNum}.webp`,
+        ];
+
+        return possibleUrls[0]; // Возвращаем первый как основной
     };
 
     const loadLottieAnimation = async () => {
@@ -44,11 +65,22 @@ export const GiftImage: React.FC<GiftImageProps> = ({
 
             const lottieUrl = generateLottieUrl(gift);
 
-            // Загружаем Lottie данные
-            const response = await fetch(lottieUrl);
+            // Устанавливаем таймаут для запроса
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд
+
+            const response = await fetch(lottieUrl, {
+                signal: controller.signal,
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                },
+            });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
-                throw new Error(`Failed to load animation: ${response.status}`);
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
@@ -61,52 +93,96 @@ export const GiftImage: React.FC<GiftImageProps> = ({
             setAnimationData(data);
             setIsLoading(false);
         } catch (error) {
-            console.error('Error loading gift animation:', error);
-            setHasError(true);
+            console.warn('Failed to load Lottie animation, falling back to static image:', error);
+            setUseStaticFallback(true);
             setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        loadLottieAnimation();
+        // Небольшая задержка для предотвращения множественных запросов
+        const timeoutId = setTimeout(() => {
+            loadLottieAnimation();
+        }, 100);
+
+        return () => clearTimeout(timeoutId);
     }, [gift.name, gift.num, gift.gift_num]);
 
-    // Fallback компонент для случаев ошибки или отсутствия анимации
-    const FallbackImage = () => (
+    // Генерация цвета фона на основе названия подарка
+    const generateGradientColors = (giftName: string) => {
+        const colors = [
+            ['from-purple-500', 'to-pink-500'],
+            ['from-blue-500', 'to-cyan-500'],
+            ['from-green-500', 'to-teal-500'],
+            ['from-red-500', 'to-orange-500'],
+            ['from-indigo-500', 'to-purple-500'],
+            ['from-yellow-500', 'to-red-500'],
+            ['from-pink-500', 'to-rose-500'],
+            ['from-cyan-500', 'to-blue-500'],
+        ];
+
+        const hash = giftName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        return colors[hash % colors.length];
+    };
+
+    const [fromColor, toColor] = generateGradientColors(gift.name);
+
+    // Компонент с эмодзи и градиентом
+    const FallbackImage = ({ showSpinner = false }: { showSpinner?: boolean }) => (
         <div
-            className={`flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg text-white ${className}`}
+            className={`flex items-center justify-center bg-gradient-to-br ${fromColor} ${toColor} rounded-lg text-white shadow-lg relative ${className}`}
             style={{ width, height }}
         >
             <span style={{ fontSize: Math.min(width, height) * 0.4 }}>
                 {fallbackEmoji}
             </span>
+            {showSpinner && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+            )}
         </div>
     );
 
-    // Компонент загрузки
-    const LoadingComponent = () => (
-        <div
-            className={`flex items-center justify-center bg-gray-200 rounded-lg animate-pulse ${className}`}
-            style={{ width, height }}
-        >
-            <div className="flex flex-col items-center space-y-2">
-                <div className="w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-xs text-gray-500">Загрузка...</span>
-            </div>
-        </div>
-    );
+    // Статическое изображение как fallback
+    const StaticImageFallback = () => {
+        const [imgError, setImgError] = useState(false);
 
+        if (imgError) {
+            return <FallbackImage />;
+        }
+
+        return (
+            <img
+                src={generateStaticImageUrl(gift)}
+                alt={gift.name}
+                className={`object-cover rounded-lg shadow-lg ${className}`}
+                style={{ width, height }}
+                onError={() => setImgError(true)}
+                loading="lazy"
+            />
+        );
+    };
+
+    // Если загрузка в процессе
+    if (isLoading) {
+        return <FallbackImage showSpinner={true} />;
+    }
+
+    // Если нужно использовать статический fallback
+    if (useStaticFallback) {
+        return <StaticImageFallback />;
+    }
+
+    // Если есть ошибка или нет данных анимации
     if (hasError || !animationData) {
         return <FallbackImage />;
     }
 
-    if (isLoading) {
-        return <LoadingComponent />;
-    }
-
+    // Отображение Lottie анимации
     return (
         <div
-            className={`relative overflow-hidden rounded-lg ${className}`}
+            className={`relative overflow-hidden rounded-lg shadow-lg ${className}`}
             style={{ width, height }}
         >
             <Lottie
@@ -121,18 +197,18 @@ export const GiftImage: React.FC<GiftImageProps> = ({
                     setIsLoading(false);
                 }}
                 onError={(error) => {
-                    console.error('Lottie playback error:', error);
-                    setHasError(true);
+                    console.warn('Lottie playback error:', error);
+                    setUseStaticFallback(true);
                 }}
             />
 
-            {/* Overlay для интерактивности, если необходимо */}
+            {/* Hover эффект */}
             <div className="absolute inset-0 bg-transparent hover:bg-black hover:bg-opacity-10 transition-all duration-200 rounded-lg" />
         </div>
     );
 };
 
-// Упрощенный компонент для статических изображений (если нужен fallback)
+// Упрощенный компонент для статических изображений
 export const StaticGiftImage: React.FC<GiftImageProps> = ({
     gift,
     width = 96,
@@ -143,23 +219,34 @@ export const StaticGiftImage: React.FC<GiftImageProps> = ({
     const [hasError, setHasError] = useState(false);
 
     const generateStaticImageUrl = (gift: Gift): string => {
-        // Можно добавить логику для получения статических изображений
-        // если Fragment предоставляет их в другом формате
         const giftName = gift.name
             .toLowerCase()
             .replace(/\s+/g, '-')
             .replace(/[^a-z0-9-]/g, '');
 
         const giftNum = gift.gift_num || gift.num;
-
-        // Предполагаемый URL для статических изображений
         return `https://nft.fragment.com/gift/${giftName}-${giftNum}.png`;
     };
 
+    const generateGradientColors = (giftName: string) => {
+        const colors = [
+            ['from-purple-500', 'to-pink-500'],
+            ['from-blue-500', 'to-cyan-500'],
+            ['from-green-500', 'to-teal-500'],
+            ['from-red-500', 'to-orange-500'],
+            ['from-indigo-500', 'to-purple-500'],
+        ];
+
+        const hash = giftName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        return colors[hash % colors.length];
+    };
+
     if (hasError) {
+        const [fromColor, toColor] = generateGradientColors(gift.name);
+
         return (
             <div
-                className={`flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg text-white ${className}`}
+                className={`flex items-center justify-center bg-gradient-to-br ${fromColor} ${toColor} rounded-lg text-white shadow-lg ${className}`}
                 style={{ width, height }}
             >
                 <span style={{ fontSize: Math.min(width, height) * 0.4 }}>
@@ -173,7 +260,7 @@ export const StaticGiftImage: React.FC<GiftImageProps> = ({
         <img
             src={generateStaticImageUrl(gift)}
             alt={gift.name}
-            className={`object-cover rounded-lg ${className}`}
+            className={`object-cover rounded-lg shadow-lg ${className}`}
             style={{ width, height }}
             onError={() => setHasError(true)}
             loading="lazy"

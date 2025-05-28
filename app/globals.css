@@ -5,17 +5,14 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 17, 24, 39;
+  --background-end-rgb: 31, 41, 55;
+  --card-background: 30, 41, 59;
+  --border-color: 71, 85, 105;
+  --text-primary: 248, 250, 252;
+  --text-secondary: 203, 213, 225;
+  --text-muted: 148, 163, 184;
 }
 
 * {
@@ -28,16 +25,15 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
+  background: linear-gradient(135deg,
+      rgb(var(--background-start-rgb)) 0%,
+      rgb(var(--background-end-rgb)) 100%);
+  color: rgb(var(--text-primary));
+  font-feature-settings: 'rlig' 1, 'calt' 1;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  min-height: 100vh;
 }
 
 a {
@@ -45,79 +41,278 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-}
-
-/* Кастомные стили для карточек подарков */
+/* Улучшенные стили для карточек подарков */
 .gift-card {
-  @apply bg-content1 border border-divider rounded-lg p-4 hover:shadow-md transition-all duration-200;
+  @apply bg-slate-800/90 border border-slate-600/50 rounded-xl p-4 hover:shadow-xl transition-all duration-300 backdrop-blur-sm;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(71, 85, 105, 0.3);
 }
 
 .gift-card:hover {
-  @apply border-primary/50 shadow-lg;
+  @apply border-blue-400/60 shadow-2xl scale-[1.02];
+  background: rgba(30, 41, 59, 1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(59, 130, 246, 0.3);
 }
 
 .gift-price {
-  @apply text-primary font-bold text-lg;
+  @apply text-blue-400 font-bold text-lg;
+  color: rgb(96, 165, 250);
+  text-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
 }
 
+/* Улучшенные стили для редкости */
 .gift-rarity {
-  @apply text-xs px-2 py-1 rounded-full font-medium;
+  @apply text-xs px-3 py-1 rounded-full font-semibold shadow-sm;
 }
 
 .gift-rarity-common {
-  @apply bg-gray-100 text-gray-800;
+  @apply bg-slate-600/80 text-slate-100 border border-slate-500/30;
 }
 
 .gift-rarity-rare {
-  @apply bg-blue-100 text-blue-800;
+  @apply bg-blue-600/80 text-blue-100 border border-blue-500/30;
 }
 
 .gift-rarity-epic {
-  @apply bg-purple-100 text-purple-800;
+  @apply bg-purple-600/80 text-purple-100 border border-purple-500/30;
 }
 
 .gift-rarity-legendary {
-  @apply bg-yellow-100 text-yellow-800;
+  @apply bg-yellow-600/80 text-yellow-100 border border-yellow-500/30;
 }
 
-/* Анимации загрузки */
+/* Улучшенные анимации загрузки */
 .loading-skeleton {
-  @apply animate-pulse bg-gray-200 rounded;
+  @apply animate-pulse bg-slate-700/50 rounded-lg;
+  background: linear-gradient(90deg,
+      rgba(51, 65, 85, 0.5) 25%,
+      rgba(71, 85, 105, 0.8) 50%,
+      rgba(51, 65, 85, 0.5) 75%);
+  background-size: 200% 100%;
+  animation: loading-shimmer 2s infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  .loading-skeleton {
-    @apply bg-gray-700;
+@keyframes loading-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
   }
 }
 
-/* Стили для фильтров */
+/* Улучшенные стили для секции фильтров */
 .filter-section {
-  @apply bg-content1 border border-divider rounded-lg p-4 mb-6;
+  @apply bg-slate-800/95 border border-slate-600/40 rounded-xl p-6 mb-8 shadow-xl backdrop-blur-sm;
+  background: rgba(30, 41, 59, 0.95);
 }
 
+.filter-section h2 {
+  @apply text-slate-100 font-bold text-xl;
+  color: rgb(248, 250, 252);
+}
+
+.filter-section label {
+  @apply text-slate-200 font-medium;
+  color: rgb(226, 232, 240);
+}
+
+/* Улучшенные стили для карточек статистики */
 .stats-card {
-  @apply bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 rounded-lg p-4;
+  @apply bg-gradient-to-br from-slate-800/90 to-slate-700/90 border border-slate-600/40 rounded-xl p-4 shadow-lg backdrop-blur-sm;
+  background: linear-gradient(135deg,
+      rgba(30, 41, 59, 0.9) 0%,
+      rgba(51, 65, 85, 0.9) 100%);
 }
 
-/* Адаптивная сетка */
+.stats-card p:first-child {
+  @apply text-blue-400 font-bold;
+  color: rgb(96, 165, 250);
+  text-shadow: 0 0 8px rgba(96, 165, 250, 0.2);
+}
+
+.stats-card p:last-child {
+  @apply text-slate-300;
+  color: rgb(203, 213, 225);
+}
+
+/* Адаптивная сетка с улучшенными отступами */
 .gifts-grid {
-  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4;
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6;
 }
 
-/* Стили для индикатора обновления */
+/* Улучшенные стили для индикатора обновления */
 .update-indicator {
-  @apply fixed top-4 right-4 bg-success text-white px-3 py-2 rounded-full text-sm font-medium z-50;
+  @apply fixed top-6 right-6 px-4 py-3 rounded-full text-sm font-semibold z-50 shadow-lg backdrop-blur-sm;
+  background: rgba(34, 197, 94, 0.9);
+  color: rgb(255, 255, 255);
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .update-indicator.updating {
-  @apply bg-warning;
+  background: rgba(251, 191, 36, 0.9);
+  border-color: rgba(251, 191, 36, 0.3);
 }
 
 .update-indicator.error {
-  @apply bg-danger;
+  background: rgba(239, 68, 68, 0.9);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Улучшенные стили для текста */
+.text-gray-400 {
+  @apply text-slate-400;
+  color: rgb(148, 163, 184) !important;
+}
+
+.text-gray-500 {
+  @apply text-slate-500;
+  color: rgb(100, 116, 139) !important;
+}
+
+.text-gray-300 {
+  @apply text-slate-300;
+  color: rgb(203, 213, 225) !important;
+}
+
+/* Стили для NextUI компонентов в темной теме */
+.nextui-card {
+  @apply bg-slate-800/90 border-slate-600/40;
+}
+
+.nextui-input {
+  @apply bg-slate-700/50 border-slate-600/40 text-slate-100;
+}
+
+.nextui-select {
+  @apply bg-slate-700/50 border-slate-600/40 text-slate-100;
+}
+
+.nextui-button {
+  @apply font-semibold shadow-lg;
+}
+
+/* Улучшенные стили для модального окна */
+.nextui-modal-content {
+  @apply bg-slate-800/95 border-slate-600/40 backdrop-blur-sm;
+}
+
+.nextui-modal-header {
+  @apply text-slate-100 border-slate-600/40;
+}
+
+.nextui-modal-body {
+  @apply text-slate-200;
+}
+
+/* Улучшенные чипы (теги) */
+.nextui-chip {
+  @apply font-medium shadow-sm;
+}
+
+/* Стили для скроллбара */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(51, 65, 85, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.6);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 85, 105, 0.8);
+}
+
+/* Улучшенные эффекты для интерактивных элементов */
+.interactive-hover {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+.interactive-hover:hover {
+  @apply transform translate-y-[-2px] shadow-lg;
+}
+
+/* Стили для highlight эффектов */
+.highlight-primary {
+  @apply bg-blue-500/20 text-blue-300 px-2 py-1 rounded-md;
+}
+
+.highlight-success {
+  @apply bg-green-500/20 text-green-300 px-2 py-1 rounded-md;
+}
+
+.highlight-warning {
+  @apply bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-md;
+}
+
+.highlight-danger {
+  @apply bg-red-500/20 text-red-300 px-2 py-1 rounded-md;
+}
+
+/* Анимации появления */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.fade-in-delay-1 {
+  animation-delay: 0.1s;
+}
+
+.fade-in-delay-2 {
+  animation-delay: 0.2s;
+}
+
+.fade-in-delay-3 {
+  animation-delay: 0.3s;
+}
+
+/* Медиа-запросы для адаптивности */
+@media (max-width: 768px) {
+  .gifts-grid {
+    @apply grid-cols-1 sm:grid-cols-2 gap-4;
+  }
+
+  .filter-section {
+    @apply p-4 mb-6;
+  }
+
+  .stats-card {
+    @apply p-3;
+  }
+}
+
+/* Стили для печати */
+@media print {
+
+  .update-indicator,
+  .filter-section,
+  button {
+    display: none !important;
+  }
+
+  .gift-card {
+    @apply border border-gray-300 shadow-none;
+    background: white !important;
+    color: black !important;
+  }
 }
