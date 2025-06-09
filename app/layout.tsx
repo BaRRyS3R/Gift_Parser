@@ -22,13 +22,6 @@ export default function RootLayout({
     return (
         <html lang="en" className="dark">
             <head>
-                <link
-                    rel="preload"
-                    href="/fonts/bpdots-diamond.otf"
-                    as="font"
-                    type="font/otf"
-                    crossOrigin="anonymous"
-                />
                 <Script
                     src="https://telegram.org/js/telegram-web-app.js"
                     strategy="beforeInteractive"
