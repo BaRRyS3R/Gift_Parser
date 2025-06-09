@@ -11,6 +11,22 @@ export default function IntroPage() {
     const videoRef = useRef<HTMLVideoElement>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [loadProgress, setLoadProgress] = useState(0)
+    const [fontLoaded, setFontLoaded] = useState(false)
+
+    useEffect(() => {
+        // Check if font is loaded
+        if ('fonts' in document) {
+            document.fonts.load('1rem "BPDots Diamond"').then(() => {
+                setFontLoaded(true)
+            }).catch(() => {
+                // Fallback if font loading fails
+                setFontLoaded(true)
+            })
+        } else {
+            // Fallback for browsers that don't support Font Loading API
+            setTimeout(() => setFontLoaded(true), 1000)
+        }
+    }, [])
 
     useEffect(() => {
         const video = videoRef.current
@@ -67,7 +83,7 @@ export default function IntroPage() {
     return (
         <div className="relative w-full h-screen bg-black overflow-hidden">
             {/* Loading overlay */}
-            {isLoading && (
+            {(isLoading || !fontLoaded) && (
                 <div className="loader-container">
                     <Spinner
                         size="lg"
@@ -89,6 +105,7 @@ export default function IntroPage() {
 
             {/* Video container */}
             <div className="video-container">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
                     ref={videoRef}
                     className="video-player"

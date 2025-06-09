@@ -29,7 +29,7 @@ export default function MainPage() {
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
             <div className="text-center">
-                <h1 className="text-4xl font-bold mb-8 font-bpdots">
+                <h1 className="text-4xl font-bold mb-8">
                     something
                 </h1>
 
