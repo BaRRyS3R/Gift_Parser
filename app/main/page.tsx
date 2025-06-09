@@ -47,11 +47,11 @@ export default function MainPage() {
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden">
             {/* Video background */}
-            <div className="fixed top-0 left-0 w-full h-full -z-10">
+            <div className="fixed top-0 left-0 w-full h-full bg-red-500">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
                     ref={videoRef}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover min-w-full min-h-full"
                     playsInline
                     muted
                     loop
