@@ -3,10 +3,13 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function MainPage() {
+    const router = useRouter()
     const [username, setUsername] = useState<string>('')
     const [isLoading, setIsLoading] = useState(true)
+    const [isTransitioning, setIsTransitioning] = useState(false)
     const videoRef = useRef<HTMLVideoElement>(null)
 
     useEffect(() => {
@@ -44,8 +47,17 @@ export default function MainPage() {
         }
     }, [])
 
+    const handleStartGame = () => {
+        setIsTransitioning(true)
+
+        // Wait for fade out animation to complete before navigation
+        setTimeout(() => {
+            router.push('/game')
+        }, 500)
+    }
+
     return (
-        <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden">
+        <div className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden transition-opacity duration-500 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
             {/* Video background */}
             <div
                 className="fixed top-0 left-0 w-full h-full"
@@ -66,7 +78,7 @@ export default function MainPage() {
                 </video>
             </div>
 
-            <div className="text-center z-10">
+            <div className="text-center z-10 space-y-8">
                 <h1 className="text-4xl font-bold mb-8 font-bpdots">
                     something
                 </h1>
@@ -74,9 +86,26 @@ export default function MainPage() {
                 {isLoading ? (
                     <p className="text-lg text-gray-400 font-bpdots">Loading user data...</p>
                 ) : (
-                    <p className="text-xl text-gray-300 font-bpdots">
-                        Welc0me, /•{username}•/
-                    </p>
+                    <div className="space-y-8">
+                        <p className="text-xl text-gray-300 font-bpdots">
+                            Welc0me, /•{username}•/
+                        </p>
+
+                        {/* Game Button */}
+                        <div className="flex flex-col items-center space-y-4">
+                            <button
+                                onClick={handleStartGame}
+                                disabled={isTransitioning}
+                                className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-lg font-bpdots text-lg hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Start Reaction Game
+                            </button>
+
+                            <p className="text-sm text-gray-500 font-bpdots max-w-xs">
+                                Test your reflexes in our fast-paced reaction game
+                            </p>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
