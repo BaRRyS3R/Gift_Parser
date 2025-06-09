@@ -34,9 +34,18 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
         id: 'legendary',
         name: 'Legendary',
         circleCount: 16,
-        minActivationTime: 200,
+        minActivationTime: 1000,
         maxActivationTime: 1500,
         maxSimultaneousCircles: 4,
+        circleActiveTime: 1500
+    },
+    [GameDifficulty.OMG]: {
+        id: 'legendary',
+        name: 'Legendary',
+        circleCount: 32,
+        minActivationTime: 200,
+        maxActivationTime: 1500,
+        maxSimultaneousCircles: 8,
         circleActiveTime: 1000
     }
 }
@@ -87,6 +96,8 @@ export const getGridDimensions = (circleCount: number) => {
             return { cols: 4, rows: 3 }
         case 16:
             return { cols: 4, rows: 4 }
+        case 32:
+            return { cols: 8, rows: 8 }
         default:
             return { cols: 2, rows: 2 }
     }

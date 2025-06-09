@@ -10,9 +10,9 @@ interface DifficultySelectorProps {
     selectedDifficulty: GameDifficulty | null
 }
 
-export default function DifficultySelector({ 
-    onSelectDifficulty, 
-    selectedDifficulty 
+export default function DifficultySelector({
+    onSelectDifficulty,
+    selectedDifficulty
 }: DifficultySelectorProps) {
     const difficulties = Object.values(GameDifficulty)
 
@@ -38,8 +38,10 @@ export default function DifficultySelector({
             case GameDifficulty.MEDIUM:
                 return 'bg-yellow-400/20 border-yellow-400 text-yellow-400'
             case GameDifficulty.HARD:
-                return 'bg-orange-400/20 border-orange-400 text-orange-400'
+                return 'bg-blue-400/20 border-blue-400 text-blue-400'
             case GameDifficulty.LEGENDARY:
+                return 'bg-orange-400/20 border-orange-400 text-orange-400'
+            case GameDifficulty.OMG:
                 return 'bg-red-400/20 border-red-400 text-red-400'
             default:
                 return 'bg-white/20 border-white text-white'
@@ -61,8 +63,8 @@ export default function DifficultySelector({
                 {difficulties.map((difficulty) => {
                     const config = GAME_CONFIGS[difficulty]
                     const isSelected = selectedDifficulty === difficulty
-                    const colorClass = isSelected 
-                        ? getSelectedColor(difficulty) 
+                    const colorClass = isSelected
+                        ? getSelectedColor(difficulty)
                         : getDifficultyColor(difficulty)
 
                     return (
@@ -84,10 +86,10 @@ export default function DifficultySelector({
                                         {config.circleCount} circles
                                     </div>
                                 </div>
-                                
+
                                 <div className="text-xs opacity-70 space-y-1">
                                     <div>
-                                        Activation time: {config.minActivationTime/1000}-{config.maxActivationTime/1000}s
+                                        Activation time: {config.minActivationTime / 1000}-{config.maxActivationTime / 1000}s
                                     </div>
                                     {config.maxSimultaneousCircles > 1 && (
                                         <div>

@@ -30,7 +30,8 @@ export enum GameDifficulty {
     EASY = 'easy',
     MEDIUM = 'medium',
     HARD = 'hard',
-    LEGENDARY = 'legendary'
+    LEGENDARY = 'legendary',
+    OMG = 'ohmygosh'
 }
 
 export enum GameState {
