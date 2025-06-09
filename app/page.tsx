@@ -105,6 +105,7 @@ export default function IntroPage() {
 
             {/* Video container */}
             <div className="video-container">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
                     ref={videoRef}
                     className="video-player"
