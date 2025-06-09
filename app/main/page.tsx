@@ -30,7 +30,7 @@ export default function MainPage() {
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
             <PixelBackground />
-            <div className="text-center">
+            <div className="text-center z-10">
                 <h1 className="text-4xl font-bold mb-8 font-bpdots">
                     something
                 </h1>
