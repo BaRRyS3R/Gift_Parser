@@ -14,8 +14,18 @@ export default function IntroPage() {
     const [fontLoaded, setFontLoaded] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [isReady, setIsReady] = useState(false)
+    const [isPlaying, setIsPlaying] = useState(false)
 
     useEffect(() => {
+        // Register service worker for video caching
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then((registration) => {
+                console.log('ServiceWorker registration successful');
+            }).catch((err) => {
+                console.error('ServiceWorker registration failed:', err);
+            });
+        }
+
         // Check if font is loaded
         if ('fonts' in document) {
             document.fonts.load('1rem "BPDots Diamond"').then(() => {
@@ -93,6 +103,7 @@ export default function IntroPage() {
         try {
             video.currentTime = 0
             await video.play()
+            setIsPlaying(true)
             setError(null)
         } catch (err) {
             console.error('Video play error:', err)
@@ -129,11 +140,11 @@ export default function IntroPage() {
             )}
 
             {/* Start button */}
-            {isReady && !error && !isLoading && (
+            {isReady && !error && !isLoading && !isPlaying && (
                 <div className="loader-container">
                     <button 
                         onClick={handleStart}
-                        className="px-8 py-4 bg-white text-black rounded-lg font-bpdots text-xl hover:bg-gray-200 transition-colors"
+                        className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-lg font-bpdots text-xl hover:bg-white/10 transition-colors"
                     >
                         -init-/
                     </button>
@@ -141,7 +152,7 @@ export default function IntroPage() {
             )}
 
             {/* Video container */}
-            <div className="video-container">
+            <div className={`video-container ${isPlaying ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}>
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
                     ref={videoRef}
