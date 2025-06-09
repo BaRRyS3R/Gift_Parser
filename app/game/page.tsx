@@ -23,6 +23,10 @@ export default function GamePage() {
     const [gameActive, setGameActive] = useState(true)
     const [currentActiveCircle, setCurrentActiveCircle] = useState<number | null>(null)
     const [gameStarted, setGameStarted] = useState(false)
+    const [isStartingAnimation, setIsStartingAnimation] = useState(false)
+    const [showTopBar, setShowTopBar] = useState(false)
+    const [showCenterCircle, setShowCenterCircle] = useState(false)
+    const [showGameCircles, setShowGameCircles] = useState(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     const deactivateCurrentCircle = useCallback(() => {
@@ -82,9 +86,9 @@ export default function GamePage() {
     }, [gameActive, scheduleNextCircle])
 
     useEffect(() => {
-        if (!gameActive || !gameStarted) return
+        if (!gameActive || !gameStarted || isStartingAnimation || !showGameCircles) return
 
-        // Start first circle after a brief delay
+        // Start first circle after animation completes
         const initialTimeout = setTimeout(() => {
             activateRandomCircle()
         }, 1000)
@@ -95,7 +99,7 @@ export default function GamePage() {
                 clearTimeout(timeoutRef.current)
             }
         }
-    }, [gameActive, gameStarted, activateRandomCircle])
+    }, [gameActive, gameStarted, isStartingAnimation, showGameCircles, activateRandomCircle])
 
     const handleCircleClick = (circleId: number) => {
         const circle = circles[circleId]
@@ -132,16 +136,46 @@ export default function GamePage() {
         }
     }
 
-    const handleStartGame = () => {
+    const startGameAnimation = async () => {
+        setIsStartingAnimation(true)
         setGameStarted(true)
         setScore(0)
         setCurrentActiveCircle(null)
         setCircles(prev => prev.map(c => ({ ...c, isActive: false, isAnimating: false })))
+
+        // Step 1: Show top bar
+        setTimeout(() => {
+            setShowTopBar(true)
+        }, 300)
+
+        // Step 2: Show center circle
+        setTimeout(() => {
+            setShowCenterCircle(true)
+        }, 800)
+
+        // Step 3: Show game circles flying out
+        setTimeout(() => {
+            setShowGameCircles(true)
+        }, 1300)
+
+        // Step 4: Hide center circle and start game
+        setTimeout(() => {
+            setShowCenterCircle(false)
+            setIsStartingAnimation(false)
+        }, 2000)
+    }
+
+    const handleStartGame = () => {
+        startGameAnimation()
     }
 
     const handleEndGame = () => {
         setGameActive(false)
         setGameStarted(false)
+        setIsStartingAnimation(false)
+        setShowTopBar(false)
+        setShowCenterCircle(false)
+        setShowGameCircles(false)
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current)
             timeoutRef.current = null
@@ -151,13 +185,6 @@ export default function GamePage() {
 
     return (
         <div className="min-h-screen bg-black flex flex-col text-white relative overflow-hidden">
-            {/* Subtle background pattern */}
-            <div className="absolute inset-0 opacity-5">
-                <div className="absolute top-1/4 left-1/4 w-32 h-32 border border-white rounded-full"></div>
-                <div className="absolute top-3/4 right-1/4 w-24 h-24 border border-white rounded-full"></div>
-                <div className="absolute bottom-1/4 left-1/3 w-16 h-16 border border-white rounded-full"></div>
-            </div>
-
             {!gameStarted ? (
                 // Start screen
                 <div className="flex-1 flex items-center justify-center p-8">
@@ -195,7 +222,8 @@ export default function GamePage() {
                 // Game screen
                 <>
                     {/* Top bar with score and end game button */}
-                    <div className="flex items-center justify-between px-6 py-4 pt-12 z-10">
+                    <div className={`flex items-center justify-between px-6 py-4 pt-20 z-10 transition-all duration-500 ${showTopBar ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform -translate-y-4'
+                        }`}>
                         <div className={`text-2xl font-bpdots transition-colors duration-300 ${score >= 0 ? 'text-white' : 'text-red-400'
                             }`}>
                             Score: {score >= 0 ? '+' : ''}{score}
@@ -212,28 +240,39 @@ export default function GamePage() {
                     </div>
 
                     {/* Game area */}
-                    <div className="flex-1 flex items-center justify-center p-8">
-                        <div className="w-full max-w-md mx-auto z-10">
+                    <div className="flex-1 flex items-center justify-center p-8 relative">
+                        {/* Center circle for animation */}
+                        <div className={`absolute w-16 h-16 border-2 border-white rounded-full z-20 transition-all duration-500 ${showCenterCircle ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
+                            }`} />
+
+                        <div className="w-full max-w-md mx-auto z-10 relative">
                             {/* Game Grid */}
                             <div className="grid grid-cols-2 gap-8 justify-items-center">
-                                {circles.map((circle) => (
+                                {circles.map((circle, index) => (
                                     <button
                                         key={circle.id}
                                         onClick={() => handleCircleClick(circle.id)}
                                         className={`
                                             w-28 h-28 sm:w-32 sm:h-32 rounded-full border-2 border-white/60
-                                            transition-all duration-300 ease-in-out relative
+                                            transition-all duration-700 ease-out relative
+                                            ${showGameCircles
+                                                ? 'opacity-100 transform translate-x-0 translate-y-0'
+                                                : 'opacity-0 transform translate-x-0 translate-y-0 scale-0'
+                                            }
                                             ${circle.isActive && !circle.isAnimating
                                                 ? 'bg-white shadow-lg shadow-white/50 border-white scale-110'
                                                 : 'bg-transparent hover:border-white hover:scale-105'
                                             }
                                             ${circle.isAnimating
                                                 ? 'opacity-0 scale-75'
-                                                : 'opacity-100'
+                                                : ''
                                             }
                                             active:scale-95 hover:shadow-md hover:shadow-white/30
                                         `}
-                                        disabled={!gameActive}
+                                        style={{
+                                            transitionDelay: showGameCircles ? `${index * 150}ms` : '0ms'
+                                        }}
+                                        disabled={!gameActive || isStartingAnimation}
                                     >
                                         {/* Pulse effect for active circles */}
                                         {circle.isActive && !circle.isAnimating && (
