@@ -85,21 +85,13 @@ export default function IntroPage() {
             {/* Loading overlay */}
             {(isLoading || !fontLoaded) && (
                 <div className="loader-container">
-                    <Spinner
-                        size="lg"
-                        color="white"
-                        classNames={{
-                            circle1: "border-b-white",
-                            circle2: "border-b-white/30"
-                        }}
-                    />
                     <div className="progress-bar">
                         <div
                             className="progress-bar-fill"
                             style={{ width: `${loadProgress}%` }}
                         />
                     </div>
-                    <p className="text-white mt-4 text-sm">Loading... {Math.round(loadProgress)}%</p>
+                    <p className="text-white mt-4 text-sm font-bpdots">Loading... {Math.round(loadProgress)}%</p>
                 </div>
             )}
 

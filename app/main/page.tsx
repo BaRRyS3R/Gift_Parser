@@ -3,6 +3,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import PixelBackground from '../../components/PixelBackground'
 
 export default function MainPage() {
     const [username, setUsername] = useState<string>('')
@@ -28,6 +29,7 @@ export default function MainPage() {
 
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
+            <PixelBackground />
             <div className="text-center">
                 <h1 className="text-4xl font-bold mb-8 font-bpdots">
                     something
