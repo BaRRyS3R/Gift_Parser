@@ -25,12 +25,12 @@
     ],
     "paths": {
       "@/*": [
-        "./src/*"
+        "./*"
       ]
     },
     "typeRoots": [
       "./node_modules/@types",
-      "./src/types"
+      "./types"
     ]
   },
   "include": [
@@ -38,7 +38,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "src/types/**/*.d.ts"
+    "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules"

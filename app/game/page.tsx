@@ -2,300 +2,88 @@
 
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-
-interface Circle {
-    id: number
-    isActive: boolean
-    isAnimating: boolean
-}
+import { GameDifficulty } from '@/types/game'
+import DifficultySelector from '@/components/DifficultySelector'
+import GameManager from '@/components/GameManager'
 
 export default function GamePage() {
     const router = useRouter()
-    const [circles, setCircles] = useState<Circle[]>([
-        { id: 0, isActive: false, isAnimating: false },
-        { id: 1, isActive: false, isAnimating: false },
-        { id: 2, isActive: false, isAnimating: false },
-        { id: 3, isActive: false, isAnimating: false }
-    ])
-    const [score, setScore] = useState(0)
-    const [gameActive, setGameActive] = useState(true)
-    const [currentActiveCircle, setCurrentActiveCircle] = useState<number | null>(null)
+    const [selectedDifficulty, setSelectedDifficulty] = useState<GameDifficulty | null>(null)
     const [gameStarted, setGameStarted] = useState(false)
-    const [isStartingAnimation, setIsStartingAnimation] = useState(false)
-    const [showTopBar, setShowTopBar] = useState(false)
-    const [showGameCircles, setShowGameCircles] = useState(false)
-    const [isEndingGame, setIsEndingGame] = useState(false)
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-    const deactivateCurrentCircle = useCallback(() => {
-        if (currentActiveCircle !== null) {
-            setCircles(prev => prev.map(circle =>
-                circle.id === currentActiveCircle
-                    ? { ...circle, isActive: false, isAnimating: false }
-                    : circle
-            ))
-            setCurrentActiveCircle(null)
-        }
-    }, [currentActiveCircle])
-
-    const scheduleNextCircle = useCallback(() => {
-        if (!gameActive) return
-
-        setTimeout(() => {
-            activateRandomCircle()
-        }, 500)
-    }, [gameActive])
-
-    const activateRandomCircle = useCallback(() => {
-        if (!gameActive) return
-
-        // Clear any existing timeout
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current)
-            timeoutRef.current = null
-        }
-
-        // Activate new random circle
-        const randomIndex = Math.floor(Math.random() * 4)
-        setCurrentActiveCircle(randomIndex)
-
-        setCircles(prev => prev.map(circle =>
-            circle.id === randomIndex
-                ? { ...circle, isActive: true, isAnimating: false }
-                : { ...circle, isActive: false, isAnimating: false }
-        ))
-
-        // Set timeout for auto-deactivation after 2 seconds
-        timeoutRef.current = setTimeout(() => {
-            // Circle timed out - penalize player
-            setScore(prev => prev - 1)
-
-            // Deactivate the circle
-            setCircles(prev => prev.map(circle =>
-                circle.id === randomIndex
-                    ? { ...circle, isActive: false, isAnimating: false }
-                    : circle
-            ))
-            setCurrentActiveCircle(null)
-
-            // Schedule next circle
-            scheduleNextCircle()
-        }, 2000)
-    }, [gameActive, scheduleNextCircle])
-
-    useEffect(() => {
-        if (!gameActive || !gameStarted || isStartingAnimation || !showGameCircles) return
-
-        // Start first circle after animation completes
-        const initialTimeout = setTimeout(() => {
-            activateRandomCircle()
-        }, 1000)
-
-        return () => {
-            clearTimeout(initialTimeout)
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current)
-            }
-        }
-    }, [gameActive, gameStarted, isStartingAnimation, showGameCircles, activateRandomCircle])
-
-    const handleCircleClick = (circleId: number) => {
-        const circle = circles[circleId]
-
-        if (circle.isActive && !circle.isAnimating && circleId === currentActiveCircle) {
-            // Clear the timeout since player clicked in time
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current)
-                timeoutRef.current = null
-            }
-
-            // Player hit the active circle - award point
-            setScore(prev => prev + 1)
-
-            // Start fade out animation
-            setCircles(prev => prev.map(c =>
-                c.id === circleId
-                    ? { ...c, isAnimating: true }
-                    : c
-            ))
-
-            // Complete deactivation after animation and start next round
-            setTimeout(() => {
-                setCircles(prev => prev.map(c =>
-                    c.id === circleId
-                        ? { ...c, isActive: false, isAnimating: false }
-                        : c
-                ))
-                setCurrentActiveCircle(null)
-
-                // Schedule next circle
-                scheduleNextCircle()
-            }, 300)
-        } else if (!circle.isActive && !circle.isAnimating && !isStartingAnimation) {
-            // Player clicked inactive circle - penalize
-            setScore(prev => prev - 1)
-        }
-    }
-
-    const startGameAnimation = async () => {
-        setIsStartingAnimation(true)
-        setGameStarted(true)
-        setScore(0)
-        setCurrentActiveCircle(null)
-        setCircles(prev => prev.map(c => ({ ...c, isActive: false, isAnimating: false })))
-
-        // Ensure elements start hidden
-        setShowTopBar(false)
-        setShowGameCircles(false)
-
-        // Step 1: Show top bar with delay
-        setTimeout(() => {
-            setShowTopBar(true)
-        }, 500)
-
-        // Step 2: Show game circles sequentially
-        setTimeout(() => {
-            setShowGameCircles(true)
-        }, 1000)
-
-        // Step 3: Start game
-        setTimeout(() => {
-            setIsStartingAnimation(false)
-        }, 1800)
+    const handleSelectDifficulty = (difficulty: GameDifficulty) => {
+        setSelectedDifficulty(difficulty)
     }
 
     const handleStartGame = () => {
-        startGameAnimation()
+        if (!selectedDifficulty) return
+        setGameStarted(true)
     }
 
-    const handleEndGame = () => {
-        setIsEndingGame(true)
-        setGameActive(false)
+    const handleBackToMenu = () => {
+        router.push('/main')
+    }
 
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current)
-            timeoutRef.current = null
-        }
+    const handleBackToDifficultySelection = () => {
+        setGameStarted(false)
+        setSelectedDifficulty(null)
+    }
 
-        // Wait for fade out animation before navigating
-        setTimeout(() => {
-            router.push('/main')
-        }, 500)
+    if (gameStarted && selectedDifficulty) {
+        return (
+            <GameManager
+                difficulty={selectedDifficulty}
+                onBackToMenu={handleBackToDifficultySelection}
+            />
+        )
     }
 
     return (
-        <div className="min-h-screen bg-black flex flex-col text-white relative overflow-hidden">
-            {!gameStarted ? (
-                // Start screen
-                <div className="flex-1 flex items-center justify-center p-8">
-                    <div className="text-center z-10 space-y-8 animate-fade-in">
-                        <div className="space-y-4">
-                            <h1 className="text-5xl font-bold font-bpdots tracking-wider">
-                                REACTION
-                            </h1>
-                            <h2 className="text-2xl font-bpdots text-gray-300">
-                                /•GAME•/
-                            </h2>
+        <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-6">
+            <div className="w-full max-w-md space-y-8 animate-fade-in">
+                {!selectedDifficulty ? (
+                    <>
+                        <DifficultySelector
+                            onSelectDifficulty={handleSelectDifficulty}
+                            selectedDifficulty={selectedDifficulty}
+                        />
+
+                        <div className="flex justify-center">
+                            <button
+                                onClick={handleBackToMenu}
+                                className="px-6 py-3 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300"
+                            >
+                                BACK 2 MENU
+                            </button>
                         </div>
+                    </>
+                ) : (
+                    <div className="space-y-6">
+                        <DifficultySelector
+                            onSelectDifficulty={handleSelectDifficulty}
+                            selectedDifficulty={selectedDifficulty}
+                        />
 
-                        <div className="space-y-6 max-w-md">
-                            <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-3">
-                                <h3 className="text-lg font-bpdots text-white">•HOW TO PLAY•</h3>
-                                <div className="space-y-2 text-sm font-bpdots text-gray-300">
-                                    <p>/ Click the glowing circles as fast as you can</p>
-                                    <p>/ Each hit gives you +1 point</p>
-                                    <p>/ Each miss costs you -1 point</p>
-                                    <p>/ You have 2 seconds per circle</p>
-                                </div>
-                            </div>
-
+                        <div className="space-y-4">
                             <button
                                 onClick={handleStartGame}
-                                className="px-12 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bpdots text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-white/20"
+                                className="w-full px-8 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bpdots text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95"
                             >
-                                • START GAME
+                                /START GAME
+                            </button>
+
+                            <button
+                                onClick={handleBackToMenu}
+                                className="w-full px-6 py-3 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300"
+                            >
+                                BACK 2 MENU
                             </button>
                         </div>
                     </div>
-                </div>
-            ) : (
-                // Game screen
-                <div className={`w-full h-full transition-opacity duration-500 ${isEndingGame ? 'opacity-0' : 'opacity-100'}`}>
-                    {/* Top bar with score and end game button - ИСПРАВЛЕНО: показывается только когда showTopBar true */}
-                    {showTopBar && (
-                        <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
-                            <div className={`text-2xl font-bpdots transition-colors duration-300 ${score >= 0 ? 'text-white' : 'text-red-400'
-                                }`}>
-                                Score: {score >= 0 ? '+' : ''}{score}
-                            </div>
-
-                            <div className="text-white/40 text-2xl font-bpdots">|</div>
-
-                            <button
-                                onClick={handleEndGame}
-                                className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
-                                disabled={isEndingGame}
-                            >
-                                •END GAME•
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Game area */}
-                    {gameStarted && (
-                        <div className="flex-1 flex items-center justify-center p-8 relative">
-                            <div className="w-full max-w-md mx-auto z-10 relative">
-                                {/* Game Grid */}
-                                <div className="grid grid-cols-2 gap-8 justify-items-center">
-                                    {circles.map((circle, index) => (
-                                        <button
-                                            key={circle.id}
-                                            onClick={() => handleCircleClick(circle.id)}
-                                            className={`
-                                                w-28 h-28 sm:w-32 sm:h-32 rounded-full border-2 border-white/60
-                                                transition-all duration-700 ease-out relative
-                                                ${showGameCircles
-                                                    ? 'opacity-100 transform translate-x-0 translate-y-0'
-                                                    : 'opacity-0 transform translate-x-0 translate-y-0 scale-0'
-                                                }
-                                                ${circle.isActive && !circle.isAnimating
-                                                    ? 'bg-white shadow-lg shadow-white/50 border-white scale-110'
-                                                    : 'bg-transparent hover:border-white hover:scale-105'
-                                                }
-                                                ${circle.isAnimating
-                                                    ? 'opacity-0 scale-75 transition-all duration-300'
-                                                    : ''
-                                                }
-                                                active:scale-95 hover:shadow-md hover:shadow-white/30
-                                            `}
-                                            style={{
-                                                transitionDelay: showGameCircles ? `${index * 150}ms` : '0ms',
-                                                // Instant background change for active state
-                                                transition: circle.isActive && !circle.isAnimating
-                                                    ? 'transform 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s ease-out'
-                                                    : 'all 0.7s ease-out'
-                                            }}
-                                            disabled={!gameActive || isStartingAnimation || isEndingGame}
-                                        >
-                                            {/* Pulse effect for active circles - appears after fill */}
-                                            {circle.isActive && !circle.isAnimating && (
-                                                <div
-                                                    className="absolute inset-0 rounded-full border-2 border-white opacity-50"
-                                                    style={{
-                                                        animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite'
-                                                    }}
-                                                />
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
+                )}
+            </div>
         </div>
     )
 }
