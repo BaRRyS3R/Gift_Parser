@@ -26,6 +26,7 @@ export default function GamePage() {
     const [isStartingAnimation, setIsStartingAnimation] = useState(false)
     const [showTopBar, setShowTopBar] = useState(false)
     const [showGameCircles, setShowGameCircles] = useState(false)
+    const [isEndingGame, setIsEndingGame] = useState(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     const deactivateCurrentCircle = useCallback(() => {
@@ -132,6 +133,9 @@ export default function GamePage() {
                 // Schedule next circle
                 scheduleNextCircle()
             }, 300)
+        } else if (!circle.isActive && !circle.isAnimating && !isStartingAnimation) {
+            // Player clicked inactive circle - penalize
+            setScore(prev => prev - 1)
         }
     }
 
@@ -163,16 +167,18 @@ export default function GamePage() {
     }
 
     const handleEndGame = () => {
+        setIsEndingGame(true)
         setGameActive(false)
-        setGameStarted(false)
-        setIsStartingAnimation(false)
-        setShowTopBar(false)
-        setShowGameCircles(false)
+
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current)
             timeoutRef.current = null
         }
-        router.push('/main')
+
+        // Wait for fade out animation before navigating
+        setTimeout(() => {
+            router.push('/main')
+        }, 500)
     }
 
     return (
@@ -212,7 +218,7 @@ export default function GamePage() {
                 </div>
             ) : (
                 // Game screen
-                <>
+                <div className={`w-full h-full transition-opacity duration-500 ${isEndingGame ? 'opacity-0' : 'opacity-100'}`}>
                     {/* Top bar with score and end game button */}
                     <div className={`flex items-center justify-between px-6 py-4 pt-20 z-10 transition-opacity duration-500 ${showTopBar ? 'opacity-100' : 'opacity-0'
                         }`}>
@@ -226,6 +232,7 @@ export default function GamePage() {
                         <button
                             onClick={handleEndGame}
                             className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
+                            disabled={isEndingGame}
                         >
                             END GAME
                         </button>
@@ -258,20 +265,29 @@ export default function GamePage() {
                                             active:scale-95 hover:shadow-md hover:shadow-white/30
                                         `}
                                         style={{
-                                            transitionDelay: showGameCircles ? `${index * 150}ms` : '0ms'
+                                            transitionDelay: showGameCircles ? `${index * 150}ms` : '0ms',
+                                            // Instant background change for active state
+                                            transition: circle.isActive && !circle.isAnimating
+                                                ? 'transform 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s ease-out'
+                                                : 'all 0.7s ease-out'
                                         }}
-                                        disabled={!gameActive || isStartingAnimation}
+                                        disabled={!gameActive || isStartingAnimation || isEndingGame}
                                     >
-                                        {/* Pulse effect for active circles */}
+                                        {/* Pulse effect for active circles - appears after fill */}
                                         {circle.isActive && !circle.isAnimating && (
-                                            <div className="absolute inset-0 rounded-full border-2 border-white animate-ping opacity-50" />
+                                            <div
+                                                className="absolute inset-0 rounded-full border-2 border-white opacity-50"
+                                                style={{
+                                                    animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite'
+                                                }}
+                                            />
                                         )}
                                     </button>
                                 ))}
                             </div>
                         </div>
                     </div>
-                </>
+                </div>
             )}
         </div>
     )
