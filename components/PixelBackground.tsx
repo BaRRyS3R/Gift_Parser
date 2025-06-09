@@ -20,13 +20,13 @@ const PixelBackground = () => {
         resizeCanvas()
         window.addEventListener('resize', resizeCanvas)
 
-        // Pixel size
-        const pixelSize = 20
+        // Pixel size and grid
+        const pixelSize = 15
         const cols = Math.floor(canvas.width / pixelSize)
         const rows = Math.floor(canvas.height / pixelSize)
 
-        // Create pixel array
-        const pixels: { x: number; y: number; color: string }[] = []
+        // Create pixel array with more vibrant colors
+        const pixels: { x: number; y: number; color: string; speed: number }[] = []
         for (let i = 0; i < cols * rows; i++) {
             const x = (i % cols) * pixelSize
             const y = Math.floor(i / cols) * pixelSize
@@ -34,7 +34,8 @@ const PixelBackground = () => {
             pixels.push({
                 x,
                 y,
-                color: `hsl(${hue}, 50%, 50%)`
+                color: `hsl(${hue}, 70%, 60%)`,
+                speed: 0.5 + Math.random() * 0.5
             })
         }
 
@@ -45,9 +46,9 @@ const PixelBackground = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height)
 
             pixels.forEach((pixel) => {
-                const offset = Math.sin(frame * 0.01 + pixel.x * 0.01) * 5
+                const offset = Math.sin(frame * 0.02 * pixel.speed + pixel.x * 0.02) * 8
                 ctx.fillStyle = pixel.color
-                ctx.fillRect(pixel.x, pixel.y + offset, pixelSize - 1, pixelSize - 1)
+                ctx.fillRect(pixel.x, pixel.y + offset, pixelSize - 2, pixelSize - 2)
             })
 
             requestAnimationFrame(animate)
@@ -63,7 +64,7 @@ const PixelBackground = () => {
         <canvas
             ref={canvasRef}
             className="fixed top-0 left-0 w-full h-full -z-10"
-            style={{ opacity: 0.3 }}
+            style={{ opacity: 0.4 }}
         />
     )
 }
