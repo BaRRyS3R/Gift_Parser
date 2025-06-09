@@ -50,7 +50,8 @@ export default function MainPage() {
             <div 
                 className="fixed top-0 left-0 w-full h-full"
                 style={{ 
-                    filter: 'brightness(0.6) blur(2px)'
+                    filter: 'brightness(0.6) blur(2px)',
+                    zIndex: -1
                 }}
             >
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
