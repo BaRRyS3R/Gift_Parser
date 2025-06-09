@@ -19,16 +19,15 @@ export default function MainPage() {
     const targetText = 'something'
     const animationSteps = [
         '|',
-        '||',
-        '|s|',
-        '|so|',
-        '|som|',
-        '|some|',
-        '|somet|',
-        '|someth|',
-        '|somethi|',
-        '|somethin|',
-        '|something|',
+        's|',
+        'so-',
+        'som|',
+        'some=/',
+        'somet|',
+        'someth|',
+        'somethi///',
+        'somethin¿',
+        'something?',
         'something'
     ]
 

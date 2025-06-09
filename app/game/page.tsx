@@ -200,10 +200,10 @@ export default function GamePage() {
                             <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-3">
                                 <h3 className="text-lg font-bpdots text-white">HOW TO PLAY</h3>
                                 <div className="space-y-2 text-sm font-bpdots text-gray-300">
-                                    <p>• Click the glowing circles as fast as you can</p>
-                                    <p>• Each hit gives you +1 point</p>
-                                    <p>• Each miss costs you -1 point</p>
-                                    <p>• You have 2 seconds per circle</p>
+                                    <p>/ Click the glowing circles as fast as you can /</p>
+                                    <p>/ Each hit gives you +1 point /</p>
+                                    <p>/ Each miss costs you -1 point /</p>
+                                    <p>/ You have 2 seconds per circle /</p>
                                 </div>
                             </div>
 
@@ -211,7 +211,7 @@ export default function GamePage() {
                                 onClick={handleStartGame}
                                 className="px-12 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bpdots text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-white/20"
                             >
-                                START GAME
+                                /START GAME/
                             </button>
                         </div>
                     </div>
@@ -220,73 +220,77 @@ export default function GamePage() {
                 // Game screen
                 <div className={`w-full h-full transition-opacity duration-500 ${isEndingGame ? 'opacity-0' : 'opacity-100'}`}>
                     {/* Top bar with score and end game button */}
-                    <div className={`flex items-center justify-between px-6 py-4 pt-20 z-10 transition-opacity duration-500 ${showTopBar ? 'opacity-100' : 'opacity-0'
-                        }`}>
-                        <div className={`text-2xl font-bpdots transition-colors duration-300 ${score >= 0 ? 'text-white' : 'text-red-400'
+                    {gameStarted && (
+                        <div className={`flex items-center justify-between px-6 py-4 pt-20 z-10 transition-opacity duration-500 ${showTopBar ? 'opacity-100' : 'opacity-0'
                             }`}>
-                            Score: {score >= 0 ? '+' : ''}{score}
+                            <div className={`text-2xl font-bpdots transition-colors duration-300 ${score >= 0 ? 'text-white' : 'text-red-400'
+                                }`}>
+                                Score: {score >= 0 ? '+' : ''}{score}
+                            </div>
+
+                            <div className="text-white/40 text-2xl font-bpdots">|</div>
+
+                            <button
+                                onClick={handleEndGame}
+                                className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
+                                disabled={isEndingGame}
+                            >
+                                END GAME
+                            </button>
                         </div>
-
-                        <div className="text-white/40 text-2xl font-bpdots">|</div>
-
-                        <button
-                            onClick={handleEndGame}
-                            className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
-                            disabled={isEndingGame}
-                        >
-                            END GAME
-                        </button>
-                    </div>
+                    )}
 
                     {/* Game area */}
-                    <div className="flex-1 flex items-center justify-center p-8 relative">
-                        <div className="w-full max-w-md mx-auto z-10 relative">
-                            {/* Game Grid */}
-                            <div className="grid grid-cols-2 gap-8 justify-items-center">
-                                {circles.map((circle, index) => (
-                                    <button
-                                        key={circle.id}
-                                        onClick={() => handleCircleClick(circle.id)}
-                                        className={`
-                                            w-28 h-28 sm:w-32 sm:h-32 rounded-full border-2 border-white/60
-                                            transition-all duration-700 ease-out relative
-                                            ${showGameCircles
-                                                ? 'opacity-100 transform translate-x-0 translate-y-0'
-                                                : 'opacity-0 transform translate-x-0 translate-y-0 scale-0'
-                                            }
-                                            ${circle.isActive && !circle.isAnimating
-                                                ? 'bg-white shadow-lg shadow-white/50 border-white scale-110'
-                                                : 'bg-transparent hover:border-white hover:scale-105'
-                                            }
-                                            ${circle.isAnimating
-                                                ? 'opacity-0 scale-75 transition-all duration-300'
-                                                : ''
-                                            }
-                                            active:scale-95 hover:shadow-md hover:shadow-white/30
-                                        `}
-                                        style={{
-                                            transitionDelay: showGameCircles ? `${index * 150}ms` : '0ms',
-                                            // Instant background change for active state
-                                            transition: circle.isActive && !circle.isAnimating
-                                                ? 'transform 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s ease-out'
-                                                : 'all 0.7s ease-out'
-                                        }}
-                                        disabled={!gameActive || isStartingAnimation || isEndingGame}
-                                    >
-                                        {/* Pulse effect for active circles - appears after fill */}
-                                        {circle.isActive && !circle.isAnimating && (
-                                            <div
-                                                className="absolute inset-0 rounded-full border-2 border-white opacity-50"
-                                                style={{
-                                                    animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite'
-                                                }}
-                                            />
-                                        )}
-                                    </button>
-                                ))}
+                    {gameStarted && (
+                        <div className="flex-1 flex items-center justify-center p-8 relative">
+                            <div className="w-full max-w-md mx-auto z-10 relative">
+                                {/* Game Grid */}
+                                <div className="grid grid-cols-2 gap-8 justify-items-center">
+                                    {circles.map((circle, index) => (
+                                        <button
+                                            key={circle.id}
+                                            onClick={() => handleCircleClick(circle.id)}
+                                            className={`
+                                                w-28 h-28 sm:w-32 sm:h-32 rounded-full border-2 border-white/60
+                                                transition-all duration-700 ease-out relative
+                                                ${showGameCircles
+                                                    ? 'opacity-100 transform translate-x-0 translate-y-0'
+                                                    : 'opacity-0 transform translate-x-0 translate-y-0 scale-0'
+                                                }
+                                                ${circle.isActive && !circle.isAnimating
+                                                    ? 'bg-white shadow-lg shadow-white/50 border-white scale-110'
+                                                    : 'bg-transparent hover:border-white hover:scale-105'
+                                                }
+                                                ${circle.isAnimating
+                                                    ? 'opacity-0 scale-75 transition-all duration-300'
+                                                    : ''
+                                                }
+                                                active:scale-95 hover:shadow-md hover:shadow-white/30
+                                            `}
+                                            style={{
+                                                transitionDelay: showGameCircles ? `${index * 150}ms` : '0ms',
+                                                // Instant background change for active state
+                                                transition: circle.isActive && !circle.isAnimating
+                                                    ? 'transform 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s ease-out'
+                                                    : 'all 0.7s ease-out'
+                                            }}
+                                            disabled={!gameActive || isStartingAnimation || isEndingGame}
+                                        >
+                                            {/* Pulse effect for active circles - appears after fill */}
+                                            {circle.isActive && !circle.isAnimating && (
+                                                <div
+                                                    className="absolute inset-0 rounded-full border-2 border-white opacity-50"
+                                                    style={{
+                                                        animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite'
+                                                    }}
+                                                />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
         </div>
