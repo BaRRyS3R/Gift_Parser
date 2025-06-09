@@ -13,6 +13,7 @@ export default function IntroPage() {
     const [loadProgress, setLoadProgress] = useState(0)
     const [fontLoaded, setFontLoaded] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [isReady, setIsReady] = useState(false)
 
     useEffect(() => {
         // Check if font is loaded
@@ -34,23 +35,7 @@ export default function IntroPage() {
         // Handle video metadata loaded
         const handleLoadedMetadata = () => {
             video.volume = 1
-            // Try to play with sound
-            const playPromise = video.play()
-            
-            if (playPromise !== undefined) {
-                playPromise.catch((err) => {
-                    console.error('Initial play error:', err)
-                    // If autoplay fails, try to play muted first
-                    video.muted = true
-                    video.play().then(() => {
-                        // Once playing, unmute
-                        video.muted = false
-                    }).catch((err) => {
-                        console.error('Muted play error:', err)
-                        setError('Failed to play video. Please try again.')
-                    })
-                })
-            }
+            setIsReady(true)
         }
 
         // Handle video progress loading
@@ -101,7 +86,7 @@ export default function IntroPage() {
         }
     }, [router])
 
-    const handleRetry = async () => {
+    const handleStart = async () => {
         const video = videoRef.current
         if (!video) return
 
@@ -135,10 +120,22 @@ export default function IntroPage() {
                 <div className="loader-container">
                     <p className="text-white text-center font-bpdots">{error}</p>
                     <button 
-                        onClick={handleRetry}
+                        onClick={handleStart}
                         className="mt-4 px-4 py-2 bg-white text-black rounded font-bpdots"
                     >
                         Retry
+                    </button>
+                </div>
+            )}
+
+            {/* Start button */}
+            {isReady && !error && !isLoading && (
+                <div className="loader-container">
+                    <button 
+                        onClick={handleStart}
+                        className="px-8 py-4 bg-white text-black rounded-lg font-bpdots text-xl hover:bg-gray-200 transition-colors"
+                    >
+                        -init-/
                     </button>
                 </div>
             )}
@@ -151,7 +148,6 @@ export default function IntroPage() {
                     className="video-player"
                     playsInline
                     preload="auto"
-                    autoPlay
                 >
                     <source src="/videos/intro.mp4" type="video/mp4" />
                     Your browser does not support the video tag.
