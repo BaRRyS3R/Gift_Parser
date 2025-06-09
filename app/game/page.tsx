@@ -146,20 +146,24 @@ export default function GamePage() {
         setCurrentActiveCircle(null)
         setCircles(prev => prev.map(c => ({ ...c, isActive: false, isAnimating: false })))
 
-        // Step 1: Show top bar
+        // Ensure top bar starts hidden
+        setShowTopBar(false)
+        setShowGameCircles(false)
+
+        // Step 1: Show top bar with delay
         setTimeout(() => {
             setShowTopBar(true)
-        }, 300)
+        }, 500)
 
         // Step 2: Show game circles sequentially
         setTimeout(() => {
             setShowGameCircles(true)
-        }, 800)
+        }, 1000)
 
         // Step 3: Start game
         setTimeout(() => {
             setIsStartingAnimation(false)
-        }, 1600)
+        }, 1800)
     }
 
     const handleStartGame = () => {
@@ -198,12 +202,12 @@ export default function GamePage() {
 
                         <div className="space-y-6 max-w-md">
                             <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-3">
-                                <h3 className="text-lg font-bpdots text-white">HOW TO PLAY</h3>
+                                <h3 className="text-lg font-bpdots text-white">•HOW TO PLAY•</h3>
                                 <div className="space-y-2 text-sm font-bpdots text-gray-300">
-                                    <p>/ Click the glowing circles as fast as you can /</p>
-                                    <p>/ Each hit gives you +1 point /</p>
-                                    <p>/ Each miss costs you -1 point /</p>
-                                    <p>/ You have 2 seconds per circle /</p>
+                                    <p>/ Click the glowing circles as fast as you can</p>
+                                    <p>/ Each hit gives you +1 point</p>
+                                    <p>/ Each miss costs you -1 point</p>
+                                    <p>/ You have 2 seconds per circle</p>
                                 </div>
                             </div>
 
@@ -211,7 +215,7 @@ export default function GamePage() {
                                 onClick={handleStartGame}
                                 className="px-12 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bpdots text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-white/20"
                             >
-                                /START GAME/
+                                • START GAME
                             </button>
                         </div>
                     </div>
@@ -235,7 +239,7 @@ export default function GamePage() {
                                 className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
                                 disabled={isEndingGame}
                             >
-                                END GAME
+                                •END GAME•
                             </button>
                         </div>
                     )}
