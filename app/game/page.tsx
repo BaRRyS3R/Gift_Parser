@@ -43,46 +43,34 @@ export default function GamePage() {
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-6">
             <div className="w-full max-w-md space-y-8 animate-fade-in">
-                {!selectedDifficulty ? (
-                    <>
-                        <DifficultySelector
-                            onSelectDifficulty={handleSelectDifficulty}
-                            selectedDifficulty={selectedDifficulty}
-                        />
+                <DifficultySelector
+                    onSelectDifficulty={handleSelectDifficulty}
+                    selectedDifficulty={selectedDifficulty}
+                />
 
-                        <div className="flex justify-center">
-                            <button
-                                onClick={handleBackToMenu}
-                                className="px-6 py-3 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300"
-                            >
-                                BACK 2 MENU
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    <div className="space-y-6">
-                        <DifficultySelector
-                            onSelectDifficulty={handleSelectDifficulty}
-                            selectedDifficulty={selectedDifficulty}
-                        />
+                <div className="space-y-4">
+                    <button
+                        onClick={handleStartGame}
+                        disabled={!selectedDifficulty}
+                        className={`
+                            w-full px-8 py-4 border-2 rounded-xl font-bpdots text-xl 
+                            transition-all duration-300 
+                            ${selectedDifficulty
+                                ? 'bg-transparent border-white text-white hover:bg-white/10 hover:scale-105 active:scale-95 cursor-pointer'
+                                : 'bg-transparent border-white/30 text-white/30 cursor-not-allowed'
+                            }
+                        `}
+                    >
+                        /START GAME
+                    </button>
 
-                        <div className="space-y-4">
-                            <button
-                                onClick={handleStartGame}
-                                className="w-full px-8 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bpdots text-xl hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95"
-                            >
-                                /START GAME
-                            </button>
-
-                            <button
-                                onClick={handleBackToMenu}
-                                className="w-full px-6 py-3 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300"
-                            >
-                                BACK 2 MENU
-                            </button>
-                        </div>
-                    </div>
-                )}
+                    <button
+                        onClick={handleBackToMenu}
+                        className="w-full px-6 py-3 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300"
+                    >
+                        BACK 2 MENU
+                    </button>
+                </div>
             </div>
         </div>
     )

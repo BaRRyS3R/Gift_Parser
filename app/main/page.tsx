@@ -114,10 +114,10 @@ export default function MainPage() {
 
     return (
         <div className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-                ? 'opacity-0 scale-95 transition-all duration-700 ease-in'
-                : pageLoaded
-                    ? 'opacity-100 scale-100 transition-all duration-1000 ease-out'
-                    : 'opacity-0 scale-100 transition-all duration-1000 ease-out'
+            ? 'opacity-0 transition-opacity duration-700 ease-in'
+            : pageLoaded
+                ? 'opacity-100 transition-opacity duration-1000 ease-out'
+                : 'opacity-0 transition-opacity duration-1000 ease-out'
             }`}>
             {/* Video background */}
             <div
@@ -183,15 +183,6 @@ export default function MainPage() {
                         </div>
                     </div>
                 )}
-            </div>
-
-            {/* Subtle animated elements */}
-            <div className={`absolute inset-0 transition-opacity duration-1000 ${pageLoaded ? 'opacity-100' : 'opacity-0'}`}>
-                {/* Floating circles */}
-                <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white/20 rounded-full animate-pulse" style={{ animationDelay: '0s', animationDuration: '3s' }}></div>
-                <div className="absolute top-3/4 right-1/4 w-1 h-1 bg-white/30 rounded-full animate-pulse" style={{ animationDelay: '1s', animationDuration: '4s' }}></div>
-                <div className="absolute bottom-1/4 left-1/3 w-1.5 h-1.5 bg-white/25 rounded-full animate-pulse" style={{ animationDelay: '2s', animationDuration: '5s' }}></div>
-                <div className="absolute top-1/2 right-1/6 w-1 h-1 bg-white/20 rounded-full animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '3.5s' }}></div>
             </div>
         </div>
     )

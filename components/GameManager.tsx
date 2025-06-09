@@ -86,9 +86,9 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const activateRandomCircles = useCallback(() => {
         if (gameState !== GameState.PLAYING) return
 
-        const availableCircleIds = circles
-            .filter(circle => !circle.isActive)
-            .map(circle => circle.id)
+        // Получаем доступные кружки (неактивные)
+        const availableCircleIds = Array.from({ length: config.circleCount }, (_, i) => i)
+            .filter(id => !activeCircleIds.includes(id))
 
         if (availableCircleIds.length === 0) {
             // Планируем следующую активацию
@@ -98,11 +98,16 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             return
         }
 
-        const newActiveIds = getRandomCircleIds(
-            config.circleCount,
-            config.maxSimultaneousCircles,
-            activeCircleIds
-        ).filter(id => availableCircleIds.includes(id))
+        // Выбираем случайные кружки для активации
+        const maxCirclesToActivate = Math.min(config.maxSimultaneousCircles, availableCircleIds.length)
+        const circlesToActivate = Math.floor(Math.random() * maxCirclesToActivate) + 1
+
+        const newActiveIds: number[] = []
+        for (let i = 0; i < circlesToActivate; i++) {
+            const randomIndex = Math.floor(Math.random() * availableCircleIds.length)
+            const circleId = availableCircleIds.splice(randomIndex, 1)[0]
+            newActiveIds.push(circleId)
+        }
 
         if (newActiveIds.length === 0) {
             nextCircleTimeoutRef.current = setTimeout(() => {
@@ -146,7 +151,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         nextCircleTimeoutRef.current = setTimeout(() => {
             activateRandomCircles()
         }, getRandomActivationDelay(config))
-    }, [gameState, circles, activeCircleIds, config, deactivateCircle])
+    }, [gameState, config, activeCircleIds, deactivateCircle])
 
     // Обработка нажатия на кружок
     const handleCircleClick = useCallback((circleId: number) => {
@@ -217,8 +222,10 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 })
             }, 1000)
 
-            // Запускаем активацию кружков
-            activateRandomCircles()
+            // Запускаем первую активацию кружков
+            setTimeout(() => {
+                activateRandomCircles()
+            }, 100)
         }, 1500)
     }, [config.circleCount, activateRandomCircles])
 
@@ -248,7 +255,11 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
     // Автоматический запуск игры при монтировании
     useEffect(() => {
-        startGame()
+        const timer = setTimeout(() => {
+            startGame()
+        }, 100)
+
+        return () => clearTimeout(timer)
     }, []) // Убираем startGame из зависимостей для избежания бесконечного цикла
 
     if (gameState === GameState.FINISHED) {
@@ -293,7 +304,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                         onClick={onBackToMenu}
                         className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
                     >
-                        • END GAME
+                        • END
                     </button>
                 </div>
             )}

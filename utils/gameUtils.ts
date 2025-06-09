@@ -5,7 +5,7 @@ import { GameConfig, GameDifficulty, Circle } from '@/types/game'
 export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
     [GameDifficulty.EASY]: {
         id: 'easy',
-        name: 'Легкий',
+        name: 'Easy',
         circleCount: 4,
         minActivationTime: 1000,
         maxActivationTime: 3000,
@@ -14,7 +14,7 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
     },
     [GameDifficulty.MEDIUM]: {
         id: 'medium',
-        name: 'Средний',
+        name: 'Medium',
         circleCount: 8,
         minActivationTime: 1000,
         maxActivationTime: 3000,
@@ -23,7 +23,7 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
     },
     [GameDifficulty.HARD]: {
         id: 'hard',
-        name: 'Сложный',
+        name: 'Hard',
         circleCount: 12,
         minActivationTime: 500,
         maxActivationTime: 2000,
@@ -32,7 +32,7 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
     },
     [GameDifficulty.LEGENDARY]: {
         id: 'legendary',
-        name: 'Легендарный',
+        name: 'Legendary',
         circleCount: 16,
         minActivationTime: 200,
         maxActivationTime: 1500,

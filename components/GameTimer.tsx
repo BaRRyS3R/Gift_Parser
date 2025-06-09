@@ -11,7 +11,8 @@ interface GameTimerProps {
 }
 
 export default function GameTimer({ timeLeft, totalTime, isActive }: GameTimerProps) {
-    const progress = ((totalTime - timeLeft) / totalTime) * 100
+    // Progress should decrease from 100% to 0%
+    const progress = (timeLeft / totalTime) * 100
     const isLowTime = timeLeft <= 10
 
     return (
@@ -24,7 +25,7 @@ export default function GameTimer({ timeLeft, totalTime, isActive }: GameTimerPr
                 {formatTime(timeLeft)}
             </div>
 
-            {/* Прогресс-бар времени */}
+            {/* Прогресс-бар времени - убывает с 100% до 0% */}
             <div className="w-32 h-1 bg-white/20 rounded-full overflow-hidden">
                 <div
                     className={`

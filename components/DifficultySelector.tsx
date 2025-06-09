@@ -87,7 +87,7 @@ export default function DifficultySelector({
                                 
                                 <div className="text-xs opacity-70 space-y-1">
                                     <div>
-                                        Activation time: {config.minActivationTime/1000}-{config.maxActivationTime/1000}с
+                                        Activation time: {config.minActivationTime/1000}-{config.maxActivationTime/1000}s
                                     </div>
                                     {config.maxSimultaneousCircles > 1 && (
                                         <div>
