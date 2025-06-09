@@ -25,7 +25,6 @@ export default function GamePage() {
     const [gameStarted, setGameStarted] = useState(false)
     const [isStartingAnimation, setIsStartingAnimation] = useState(false)
     const [showTopBar, setShowTopBar] = useState(false)
-    const [showCenterCircle, setShowCenterCircle] = useState(false)
     const [showGameCircles, setShowGameCircles] = useState(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -148,21 +147,15 @@ export default function GamePage() {
             setShowTopBar(true)
         }, 300)
 
-        // Step 2: Show center circle
-        setTimeout(() => {
-            setShowCenterCircle(true)
-        }, 800)
-
-        // Step 3: Show game circles flying out
+        // Step 2: Show game circles sequentially
         setTimeout(() => {
             setShowGameCircles(true)
-        }, 1300)
+        }, 800)
 
-        // Step 4: Hide center circle and start game
+        // Step 3: Start game
         setTimeout(() => {
-            setShowCenterCircle(false)
             setIsStartingAnimation(false)
-        }, 2000)
+        }, 1600)
     }
 
     const handleStartGame = () => {
@@ -174,7 +167,6 @@ export default function GamePage() {
         setGameStarted(false)
         setIsStartingAnimation(false)
         setShowTopBar(false)
-        setShowCenterCircle(false)
         setShowGameCircles(false)
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current)
@@ -222,7 +214,7 @@ export default function GamePage() {
                 // Game screen
                 <>
                     {/* Top bar with score and end game button */}
-                    <div className={`flex items-center justify-between px-6 py-4 pt-20 z-10 transition-all duration-500 ${showTopBar ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform -translate-y-4'
+                    <div className={`flex items-center justify-between px-6 py-4 pt-20 z-10 transition-opacity duration-500 ${showTopBar ? 'opacity-100' : 'opacity-0'
                         }`}>
                         <div className={`text-2xl font-bpdots transition-colors duration-300 ${score >= 0 ? 'text-white' : 'text-red-400'
                             }`}>
@@ -241,10 +233,6 @@ export default function GamePage() {
 
                     {/* Game area */}
                     <div className="flex-1 flex items-center justify-center p-8 relative">
-                        {/* Center circle for animation */}
-                        <div className={`absolute w-16 h-16 border-2 border-white rounded-full z-20 transition-all duration-500 ${showCenterCircle ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
-                            }`} />
-
                         <div className="w-full max-w-md mx-auto z-10 relative">
                             {/* Game Grid */}
                             <div className="grid grid-cols-2 gap-8 justify-items-center">
@@ -264,7 +252,7 @@ export default function GamePage() {
                                                 : 'bg-transparent hover:border-white hover:scale-105'
                                             }
                                             ${circle.isAnimating
-                                                ? 'opacity-0 scale-75'
+                                                ? 'opacity-0 scale-75 transition-all duration-300'
                                                 : ''
                                             }
                                             active:scale-95 hover:shadow-md hover:shadow-white/30
