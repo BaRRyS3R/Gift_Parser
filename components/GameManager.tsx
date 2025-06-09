@@ -33,7 +33,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const [gameState, setGameState] = useState<GameState>(GameState.NOT_STARTED)
     const [timeLeft, setTimeLeft] = useState(GAME_DURATION)
     const [showCircles, setShowCircles] = useState(false)
-    const [activeCircleIds, setActiveCircleIds] = useState<Set<number>>(new Set())
 
     const [stats, setStats] = useState<GameStats>({
         score: 0,
@@ -46,6 +45,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const gameTimerRef = useRef<NodeJS.Timeout | null>(null)
     const circleTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map())
     const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const activeCirclesRef = useRef<Set<number>>(new Set())
 
     // Очистка всех таймеров
     const clearAllTimeouts = useCallback(() => {
@@ -63,11 +63,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
     // Деактивация кружка
     const deactivateCircle = useCallback((circleId: number) => {
-        setActiveCircleIds(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(circleId)
-            return newSet
-        })
+        activeCirclesRef.current.delete(circleId)
 
         setCircles(prev => prev.map(circle =>
             circle.id === circleId
@@ -84,13 +80,19 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
     // Активация случайных кружков
     const activateRandomCircles = useCallback(() => {
+        if (gameState !== GameState.PLAYING) return
+
+        // Получаем текущие активные круги из ref
+        const currentActiveIds = activeCirclesRef.current
+
         // Получаем ID неактивных кружков
         const inactiveIds = Array.from({ length: config.circleCount }, (_, i) => i)
-            .filter(id => !activeCircleIds.has(id))
+            .filter(id => !currentActiveIds.has(id))
 
         if (inactiveIds.length === 0) {
+            // Если все круги активны, планируем следующую попытку
             activationTimeoutRef.current = setTimeout(
-                activateRandomCircles,
+                () => activateRandomCircles(),
                 getRandomActivationDelay(config)
             )
             return
@@ -106,14 +108,10 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         console.log('Activating circles:', selectedIds)
 
-        // Обновляем состояние активных кружков
-        setActiveCircleIds(prev => {
-            const newSet = new Set(prev)
-            selectedIds.forEach(id => newSet.add(id))
-            return newSet
-        })
+        // Добавляем в активные
+        selectedIds.forEach(id => activeCirclesRef.current.add(id))
 
-        // Активируем выбранные кружки
+        // Активируем выбранные кружки в UI
         setCircles(prev => prev.map(circle =>
             selectedIds.includes(circle.id)
                 ? { ...circle, isActive: true, isAnimating: false }
@@ -143,10 +141,10 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         // Планируем следующую активацию
         activationTimeoutRef.current = setTimeout(
-            activateRandomCircles,
+            () => activateRandomCircles(),
             getRandomActivationDelay(config)
         )
-    }, [config, activeCircleIds, deactivateCircle])
+    }, [config, deactivateCircle, gameState])
 
     // Обработка нажатия на кружок
     const handleCircleClick = useCallback((circleId: number) => {
@@ -181,117 +179,86 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }
     }, [gameState, circles, deactivateCircle])
 
-    // Эффект для запуска игры
-    useEffect(() => {
-        let startTimer: NodeJS.Timeout
+    // Запуск игры
+    const startGame = useCallback(() => {
+        console.log('Starting game...')
+        clearAllTimeouts()
+        activeCirclesRef.current.clear()
 
-        const initializeGame = () => {
-            console.log('Initializing game...')
-            setGameState(GameState.STARTING)
-            setTimeLeft(GAME_DURATION)
-            setActiveCircleIds(new Set())
-            setStats({
-                score: 0,
-                correctHits: 0,
-                wrongHits: 0,
-                missedCircles: 0,
-                totalCircles: 0
-            })
-            setCircles(createCircleGrid(config.circleCount))
+        setGameState(GameState.STARTING)
+        setTimeLeft(GAME_DURATION)
+        setStats({
+            score: 0,
+            correctHits: 0,
+            wrongHits: 0,
+            missedCircles: 0,
+            totalCircles: 0
+        })
+        setCircles(createCircleGrid(config.circleCount))
 
-            // Показать кружки
+        // Показать кружки
+        setTimeout(() => {
+            setShowCircles(true)
+        }, 500)
+
+        // Запустить игру
+        setTimeout(() => {
+            console.log('Starting game mechanics')
+            setGameState(GameState.PLAYING)
+
+            // Запустить основной таймер игры
+            gameTimerRef.current = setInterval(() => {
+                setTimeLeft(prevTime => {
+                    console.log('Timer tick, time left:', prevTime - 1)
+                    if (prevTime <= 1) {
+                        console.log('Game finished by timer')
+                        setGameState(GameState.FINISHED)
+                        return 0
+                    }
+                    return prevTime - 1
+                })
+            }, 1000)
+
+            // Запустить активацию кружков с небольшой задержкой
             setTimeout(() => {
-                setShowCircles(true)
+                console.log('Starting circle activations')
+                activateRandomCircles()
             }, 500)
 
-            // Запустить игру
-            setTimeout(() => {
-                console.log('Starting game timer and mechanics')
-                setGameState(GameState.PLAYING)
+        }, 1500)
+    }, [config.circleCount, clearAllTimeouts, activateRandomCircles])
 
-                // Запустить основной таймер игры
-                gameTimerRef.current = setInterval(() => {
-                    setTimeLeft(prevTime => {
-                        console.log('Timer tick, time left:', prevTime - 1)
-                        if (prevTime <= 1) {
-                            console.log('Game finished by timer')
-                            setGameState(GameState.FINISHED)
-                            return 0
-                        }
-                        return prevTime - 1
-                    })
-                }, 1000)
-
-                // Запустить активацию кружков
-                activationTimeoutRef.current = setTimeout(() => {
-                    console.log('Starting circle activations')
-                    activateRandomCircles()
-                }, 1000)
-
-            }, 1500)
-        }
-
-        startTimer = setTimeout(initializeGame, 100)
+    // Инициализация игры при монтировании
+    useEffect(() => {
+        startGame()
 
         return () => {
-            clearTimeout(startTimer)
             clearAllTimeouts()
         }
-    }, [config.circleCount, activateRandomCircles, clearAllTimeouts])
+    }, []) // Убираем зависимости для предотвращения повторных вызовов
 
-    // Эффект для завершения игры
+    // Эффект для отслеживания изменения gameState
     useEffect(() => {
-        if (gameState === GameState.FINISHED) {
-            console.log('Game state changed to FINISHED, clearing all timeouts')
+        if (gameState === GameState.PLAYING) {
+            // Убеждаемся, что активация запущена
+            if (!activationTimeoutRef.current) {
+                console.log('Restarting circle activations')
+                activateRandomCircles()
+            }
+        } else if (gameState === GameState.FINISHED) {
+            console.log('Game finished, clearing all timeouts')
             clearAllTimeouts()
         }
-    }, [gameState, clearAllTimeouts])
+    }, [gameState, activateRandomCircles, clearAllTimeouts])
 
     // Перезапуск игры
     const restartGame = useCallback(() => {
         console.log('Restarting game...')
-        clearAllTimeouts()
         setShowCircles(false)
-        setGameState(GameState.NOT_STARTED)
-
         setTimeout(() => {
-            setGameState(GameState.STARTING)
-            setTimeLeft(GAME_DURATION)
-            setActiveCircleIds(new Set())
-            setStats({
-                score: 0,
-                correctHits: 0,
-                wrongHits: 0,
-                missedCircles: 0,
-                totalCircles: 0
-            })
-            setCircles(createCircleGrid(config.circleCount))
-
-            setTimeout(() => {
-                setShowCircles(true)
-            }, 500)
-
-            setTimeout(() => {
-                console.log('Restart: Starting game mechanics')
-                setGameState(GameState.PLAYING)
-
-                gameTimerRef.current = setInterval(() => {
-                    setTimeLeft(prevTime => {
-                        if (prevTime <= 1) {
-                            setGameState(GameState.FINISHED)
-                            return 0
-                        }
-                        return prevTime - 1
-                    })
-                }, 1000)
-
-                activationTimeoutRef.current = setTimeout(() => {
-                    activateRandomCircles()
-                }, 1000)
-
-            }, 1500)
+            startGame()
         }, 300)
-    }, [config.circleCount, activateRandomCircles, clearAllTimeouts])
+    }, [startGame])
 
     // Показ результатов
     if (gameState === GameState.FINISHED) {
