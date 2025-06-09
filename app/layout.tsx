@@ -1,65 +1,37 @@
 // src/app/layout.tsx
 
-import type { Metadata } from "next";
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import Script from 'next/script'
+import { Providers } from './providers'
 
-import { Inter } from "next/font/google";
-import { NextUIProvider } from "@nextui-org/react";
-import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "Telegram Gifts Aggregator",
-  description: "Агрегатор подарков Telegram из различных маркетплейсов",
-  viewport: "width=device-width, initial-scale=1.0",
-};
+  title: 'Telegram Mini App',
+  description: 'Telegram Mini App with Next.js',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
-    <html lang="ru">
+    <html lang="en" className="dark">
       <head>
-        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js"
+          strategy="beforeInteractive"
+        />
       </head>
       <body className={inter.className}>
-        <NextUIProvider>
-          <div className="dark text-foreground bg-background min-h-screen">
-            <header className="border-b border-divider">
-              <div className="container mx-auto px-4 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                      🎁
-                    </div>
-                    <h1 className="text-xl font-bold">
-                      Telegram Gifts Aggregator
-                    </h1>
-                  </div>
-                  <div className="text-sm text-gray-400">
-                    Мониторинг подарков в реальном времени
-                  </div>
-                </div>
-              </div>
-            </header>
-            <main className="container mx-auto px-4 py-6">{children}</main>
-            <footer className="border-t border-divider mt-12">
-              <div className="container mx-auto px-4 py-6">
-                <div className="flex items-center justify-between text-sm text-gray-400">
-                  <div>© 2025 Telegram Gifts Aggregator</div>
-                  <div className="flex items-center space-x-4">
-                    <span>Источники: Tonnel Network, MRKT</span>
-                    <span>•</span>
-                    <span>Обновление каждые 5 минут</span>
-                  </div>
-                </div>
-              </div>
-            </footer>
-          </div>
-        </NextUIProvider>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
-  );
+  )
 }
