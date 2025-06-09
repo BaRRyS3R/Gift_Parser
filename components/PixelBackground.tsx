@@ -21,21 +21,23 @@ const PixelBackground = () => {
         window.addEventListener('resize', resizeCanvas)
 
         // Pixel size and grid
-        const pixelSize = 15
+        const pixelSize = 8
         const cols = Math.floor(canvas.width / pixelSize)
         const rows = Math.floor(canvas.height / pixelSize)
 
         // Create pixel array with more vibrant colors
-        const pixels: { x: number; y: number; color: string; speed: number }[] = []
+        const pixels: { x: number; y: number; color: string; speed: number; size: number }[] = []
         for (let i = 0; i < cols * rows; i++) {
             const x = (i % cols) * pixelSize
             const y = Math.floor(i / cols) * pixelSize
             const hue = Math.random() * 360
+            const size = pixelSize - Math.random() * 2
             pixels.push({
                 x,
                 y,
-                color: `hsl(${hue}, 70%, 60%)`,
-                speed: 0.5 + Math.random() * 0.5
+                color: `hsl(${hue}, 80%, 60%)`,
+                speed: 0.2 + Math.random() * 0.3,
+                size
             })
         }
 
@@ -46,9 +48,14 @@ const PixelBackground = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height)
 
             pixels.forEach((pixel) => {
-                const offset = Math.sin(frame * 0.02 * pixel.speed + pixel.x * 0.02) * 8
+                const offset = Math.sin(frame * 0.01 * pixel.speed + pixel.x * 0.01) * 4
                 ctx.fillStyle = pixel.color
-                ctx.fillRect(pixel.x, pixel.y + offset, pixelSize - 2, pixelSize - 2)
+                ctx.fillRect(
+                    pixel.x + (pixelSize - pixel.size) / 2,
+                    pixel.y + offset + (pixelSize - pixel.size) / 2,
+                    pixel.size,
+                    pixel.size
+                )
             })
 
             requestAnimationFrame(animate)
@@ -65,7 +72,7 @@ const PixelBackground = () => {
             ref={canvasRef}
             className="fixed top-0 left-0 w-full h-full pointer-events-none"
             style={{ 
-                opacity: 0.4,
+                opacity: 0.6,
                 zIndex: 0,
                 mixBlendMode: 'screen'
             }}
