@@ -19,13 +19,15 @@ export default function DifficultySelector({
     const getDifficultyColor = (difficulty: GameDifficulty): string => {
         switch (difficulty) {
             case GameDifficulty.EASY:
-                return 'border-green-400 hover:bg-green-400/10 text-green-400'
+                return 'bg-green-400/20 border-green-400 text-green-400'
             case GameDifficulty.MEDIUM:
-                return 'border-yellow-400 hover:bg-yellow-400/10 text-yellow-400'
+                return 'bg-yellow-400/20 border-yellow-400 text-yellow-400'
             case GameDifficulty.HARD:
-                return 'border-orange-400 hover:bg-orange-400/10 text-orange-400'
+                return 'bg-blue-400/20 border-blue-400 text-blue-400'
             case GameDifficulty.LEGENDARY:
-                return 'border-red-400 hover:bg-red-400/10 text-red-400'
+                return 'bg-orange-400/20 border-orange-400 text-orange-400'
+            case GameDifficulty.OMG:
+                return 'bg-red-400/20 border-red-400 text-red-400'
             default:
                 return 'border-white hover:bg-white/10 text-white'
         }

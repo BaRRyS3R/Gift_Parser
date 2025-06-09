@@ -199,7 +199,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         // Показать кружки
         setTimeout(() => {
             setShowCircles(true)
-        }, 500)
+        }, 50)
 
         // Запустить игру
         setTimeout(() => {
