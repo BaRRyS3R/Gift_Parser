@@ -1,16 +1,19 @@
 const CACHE_NAME = 'video-cache-v1';
-const VIDEO_URL = '/videos/intro.mp4';
+const VIDEOS = [
+    '/videos/intro.mp4',
+    '/videos/mainbg.mp4'
+];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            return cache.add(VIDEO_URL);
+            return Promise.all(VIDEOS.map(url => cache.add(url)));
         })
     );
 });
 
 self.addEventListener('fetch', (event) => {
-    if (event.request.url.includes(VIDEO_URL)) {
+    if (VIDEOS.some(url => event.request.url.includes(url))) {
         event.respondWith(
             caches.match(event.request).then((response) => {
                 return response || fetch(event.request).then((response) => {

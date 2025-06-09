@@ -2,12 +2,12 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
-import PixelBackground from '../../components/PixelBackground'
+import { useEffect, useState, useRef } from 'react'
 
 export default function MainPage() {
     const [username, setUsername] = useState<string>('')
     const [isLoading, setIsLoading] = useState(true)
+    const videoRef = useRef<HTMLVideoElement>(null)
 
     useEffect(() => {
         // Get Telegram user data
@@ -27,9 +27,40 @@ export default function MainPage() {
         }
     }, [])
 
+    useEffect(() => {
+        const video = videoRef.current
+        if (!video) return
+
+        // Start playing when metadata is loaded
+        const handleLoadedMetadata = () => {
+            video.play().catch(console.error)
+        }
+
+        video.addEventListener('loadedmetadata', handleLoadedMetadata)
+        video.load()
+
+        return () => {
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+        }
+    }, [])
+
     return (
-        <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
-            <PixelBackground />
+        <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden">
+            {/* Video background */}
+            <div className="fixed top-0 left-0 w-full h-full -z-10">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    playsInline
+                    muted
+                    loop
+                    autoPlay
+                >
+                    <source src="/videos/mainbg.mp4" type="video/mp4" />
+                </video>
+            </div>
+
             <div className="text-center z-10">
                 <h1 className="text-4xl font-bold mb-8 font-bpdots">
                     something
