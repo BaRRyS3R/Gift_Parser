@@ -39,9 +39,9 @@ export default function MainPage() {
             const user = tg.initDataUnsafe?.user
 
             if (user) {
-                setUsername(user.username || user.first_name || 'unkn0wn pers0n')
+                setUsername(user.username || user.first_name || 'User')
             } else {
-                setUsername('unkn0wn person')
+                setUsername('Guest')
             }
 
             setIsLoading(false)
@@ -90,14 +90,14 @@ export default function MainPage() {
                     // Show welcome message after title animation
                     setTimeout(() => {
                         setShowWelcome(true)
-                    }, 500)
+                    }, 200)
 
                     // Show game button after welcome message
                     setTimeout(() => {
                         setShowGameButton(true)
-                    }, 1000)
+                    }, 300)
                 }
-            }, 150)
+            }, 50)
 
             return () => clearInterval(titleInterval)
         }, 800)
@@ -110,12 +110,16 @@ export default function MainPage() {
 
         setTimeout(() => {
             router.push('/game')
-        }, 500)
+        }, 800)
     }
 
     return (
-        <div className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden transition-all duration-1000 ${pageLoaded ? 'opacity-100' : 'opacity-0'
-            } ${isTransitioning ? 'opacity-0 scale-95' : ''}`}>
+        <div className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+                ? 'opacity-0 scale-95 transition-all duration-700 ease-in'
+                : pageLoaded
+                    ? 'opacity-100 scale-100 transition-all duration-1000 ease-out'
+                    : 'opacity-0 scale-100 transition-all duration-1000 ease-out'
+            }`}>
             {/* Video background */}
             <div
                 className="fixed top-0 left-0 w-full h-full"
