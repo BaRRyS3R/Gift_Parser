@@ -12,6 +12,7 @@ export default function IntroPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [loadProgress, setLoadProgress] = useState(0)
     const [fontLoaded, setFontLoaded] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         // Check if font is loaded
@@ -34,8 +35,12 @@ export default function IntroPage() {
 
         // Handle video metadata loaded
         const handleLoadedMetadata = () => {
-            // Start playing when metadata is loaded
-            video.play().catch(console.error)
+            // Set volume to 1 (full volume)
+            video.volume = 1
+            video.play().catch((err) => {
+                console.error('Video play error:', err)
+                setError('Failed to play video. Please try again.')
+            })
         }
 
         // Handle video progress loading
@@ -53,7 +58,10 @@ export default function IntroPage() {
         // Handle when video can play through
         const handleCanPlayThrough = () => {
             setIsLoading(false)
-            video.play().catch(console.error)
+            video.play().catch((err) => {
+                console.error('Video play error:', err)
+                setError('Failed to play video. Please try again.')
+            })
         }
 
         // Handle video end
@@ -62,11 +70,18 @@ export default function IntroPage() {
             router.push('/main')
         }
 
+        // Handle video errors
+        const handleError = (e: Event) => {
+            console.error('Video error:', e)
+            setError('Failed to load video. Please try again.')
+        }
+
         // Add event listeners
         video.addEventListener('loadedmetadata', handleLoadedMetadata)
         video.addEventListener('progress', handleProgress)
         video.addEventListener('canplaythrough', handleCanPlayThrough)
         video.addEventListener('ended', handleEnded)
+        video.addEventListener('error', handleError)
 
         // Force load the video
         video.load()
@@ -77,6 +92,7 @@ export default function IntroPage() {
             video.removeEventListener('progress', handleProgress)
             video.removeEventListener('canplaythrough', handleCanPlayThrough)
             video.removeEventListener('ended', handleEnded)
+            video.removeEventListener('error', handleError)
         }
     }, [router])
 
@@ -95,6 +111,19 @@ export default function IntroPage() {
                 </div>
             )}
 
+            {/* Error message */}
+            {error && (
+                <div className="loader-container">
+                    <p className="text-white text-center font-bpdots">{error}</p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="mt-4 px-4 py-2 bg-white text-black rounded font-bpdots"
+                    >
+                        Retry
+                    </button>
+                </div>
+            )}
+
             {/* Video container */}
             <div className="video-container">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -103,6 +132,7 @@ export default function IntroPage() {
                     className="video-player"
                     playsInline
                     preload="auto"
+                    autoPlay
                 >
                     <source src="/videos/intro.mp4" type="video/mp4" />
                     Your browser does not support the video tag.
