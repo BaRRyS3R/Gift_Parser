@@ -29,15 +29,15 @@ export default function MainPage() {
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
             <div className="text-center">
-                <h1 className="text-4xl font-bold mb-8">
+                <h1 className="text-4xl font-bold mb-8 font-bpdots">
                     something
                 </h1>
 
                 {isLoading ? (
-                    <p className="text-lg text-gray-400">Loading user data...</p>
+                    <p className="text-lg text-gray-400 font-bpdots">Loading user data...</p>
                 ) : (
-                    <p className="text-xl text-gray-300">
-                        Welcome, <span className="font-semibold">{username}</span>
+                    <p className="text-xl text-gray-300 font-bpdots">
+                        Welc0me, /•{username}•/
                     </p>
                 )}
             </div>
