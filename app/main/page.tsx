@@ -47,11 +47,10 @@ export default function MainPage() {
     return (
         <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden">
             {/* Video background */}
-            <div 
-                className="fixed top-0 left-0 w-full h-full"
-                style={{ 
-                    filter: 'brightness(0.6) blur(2px)',
-                    zIndex: -1
+            <div
+                className="fixed top-0 left-0 w-full h-full -z-10"
+                style={{
+                    filter: 'brightness(0.6) blur(2px)'
                 }}
             >
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
