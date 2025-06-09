@@ -34,7 +34,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const [gameState, setGameState] = useState<GameState>(GameState.NOT_STARTED)
     const [timeLeft, setTimeLeft] = useState(GAME_DURATION)
     const [showCircles, setShowCircles] = useState(false)
-    const [activeCircleIds, setActiveCircleIds] = useState<number[]>([])
 
     const [stats, setStats] = useState<GameStats>({
         score: 0,
@@ -47,6 +46,12 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const gameTimerRef = useRef<NodeJS.Timeout | null>(null)
     const circleTimeoutRefs = useRef<Map<number, NodeJS.Timeout>>(new Map())
     const nextCircleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const gameStateRef = useRef<GameState>(GameState.NOT_STARTED)
+
+    // Обновляем ref при изменении gameState
+    useEffect(() => {
+        gameStateRef.current = gameState
+    }, [gameState])
 
     // Очистка всех таймеров
     const clearAllTimeouts = useCallback(() => {
@@ -72,8 +77,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 : circle
         ))
 
-        setActiveCircleIds(prev => prev.filter(id => id !== circleId))
-
         // Очищаем таймер для этого кружка
         const timeout = circleTimeoutRefs.current.get(circleId)
         if (timeout) {
@@ -84,113 +87,112 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
     // Активация случайных кружков
     const activateRandomCircles = useCallback(() => {
-        if (gameState !== GameState.PLAYING) return
+        // Проверяем текущее состояние игры через ref
+        if (gameStateRef.current !== GameState.PLAYING) {
+            return
+        }
 
-        // Получаем доступные кружки (неактивные)
-        const availableCircleIds = Array.from({ length: config.circleCount }, (_, i) => i)
-            .filter(id => !activeCircleIds.includes(id))
+        // Получаем текущее состояние кружков
+        setCircles(currentCircles => {
+            // Находим неактивные кружки
+            const inactiveCircles = currentCircles.filter(circle => !circle.isActive)
 
-        if (availableCircleIds.length === 0) {
+            if (inactiveCircles.length === 0) {
+                // Если нет доступных кружков, планируем следующую попытку
+                nextCircleTimeoutRef.current = setTimeout(() => {
+                    activateRandomCircles()
+                }, getRandomActivationDelay(config))
+                return currentCircles
+            }
+
+            // Определяем количество кружков для активации
+            const maxToActivate = Math.min(config.maxSimultaneousCircles, inactiveCircles.length)
+            const numToActivate = Math.floor(Math.random() * maxToActivate) + 1
+
+            // Выбираем случайные кружки
+            const selectedCircles = [...inactiveCircles]
+                .sort(() => Math.random() - 0.5)
+                .slice(0, numToActivate)
+
+            const selectedIds = selectedCircles.map(circle => circle.id)
+
+            // Обновляем статистику
+            setStats(prev => ({
+                ...prev,
+                totalCircles: prev.totalCircles + selectedIds.length
+            }))
+
+            // Устанавливаем таймеры для автоматической деактивации
+            selectedIds.forEach(circleId => {
+                const timeout = setTimeout(() => {
+                    // Кружок не был нажат - засчитываем промах
+                    setStats(prev => ({
+                        ...prev,
+                        score: prev.score - 1,
+                        missedCircles: prev.missedCircles + 1
+                    }))
+                    deactivateCircle(circleId)
+                }, config.circleActiveTime)
+
+                circleTimeoutRefs.current.set(circleId, timeout)
+            })
+
             // Планируем следующую активацию
             nextCircleTimeoutRef.current = setTimeout(() => {
                 activateRandomCircles()
             }, getRandomActivationDelay(config))
-            return
-        }
 
-        // Выбираем случайные кружки для активации
-        const maxCirclesToActivate = Math.min(config.maxSimultaneousCircles, availableCircleIds.length)
-        const circlesToActivate = Math.floor(Math.random() * maxCirclesToActivate) + 1
-
-        const newActiveIds: number[] = []
-        for (let i = 0; i < circlesToActivate; i++) {
-            const randomIndex = Math.floor(Math.random() * availableCircleIds.length)
-            const circleId = availableCircleIds.splice(randomIndex, 1)[0]
-            newActiveIds.push(circleId)
-        }
-
-        if (newActiveIds.length === 0) {
-            nextCircleTimeoutRef.current = setTimeout(() => {
-                activateRandomCircles()
-            }, getRandomActivationDelay(config))
-            return
-        }
-
-        // Активируем выбранные кружки
-        setCircles(prev => prev.map(circle =>
-            newActiveIds.includes(circle.id)
-                ? { ...circle, isActive: true, isAnimating: false }
-                : circle
-        ))
-
-        setActiveCircleIds(prev => [...prev, ...newActiveIds])
-
-        // Увеличиваем общее количество появившихся кружков
-        setStats(prev => ({
-            ...prev,
-            totalCircles: prev.totalCircles + newActiveIds.length
-        }))
-
-        // Устанавливаем таймеры для автоматической деактивации
-        newActiveIds.forEach(circleId => {
-            const timeout = setTimeout(() => {
-                // Кружок не был нажат вовремя - считаем пропуском
-                setStats(prev => ({
-                    ...prev,
-                    score: prev.score - 1,
-                    missedCircles: prev.missedCircles + 1
-                }))
-
-                deactivateCircle(circleId)
-            }, config.circleActiveTime)
-
-            circleTimeoutRefs.current.set(circleId, timeout)
+            // Возвращаем обновленное состояние кружков
+            return currentCircles.map(circle =>
+                selectedIds.includes(circle.id)
+                    ? { ...circle, isActive: true, isAnimating: false }
+                    : circle
+            )
         })
-
-        // Планируем следующую активацию
-        nextCircleTimeoutRef.current = setTimeout(() => {
-            activateRandomCircles()
-        }, getRandomActivationDelay(config))
-    }, [gameState, config, activeCircleIds, deactivateCircle])
+    }, [config, deactivateCircle])
 
     // Обработка нажатия на кружок
     const handleCircleClick = useCallback((circleId: number) => {
         if (gameState !== GameState.PLAYING) return
 
-        const circle = circles.find(c => c.id === circleId)
-        if (!circle) return
+        setCircles(prevCircles => {
+            const circle = prevCircles.find(c => c.id === circleId)
+            if (!circle) return prevCircles
 
-        if (circle.isActive && !circle.isAnimating) {
-            // Попадание по активному кружку
-            setStats(prev => ({
-                ...prev,
-                score: prev.score + 1,
-                correctHits: prev.correctHits + 1
-            }))
+            if (circle.isActive && !circle.isAnimating) {
+                // Правильное нажатие
+                setStats(prev => ({
+                    ...prev,
+                    score: prev.score + 1,
+                    correctHits: prev.correctHits + 1
+                }))
 
-            // Анимация исчезновения
-            setCircles(prev => prev.map(c =>
-                c.id === circleId
-                    ? { ...c, isAnimating: true }
-                    : c
-            ))
+                // Запускаем анимацию исчезновения
+                setTimeout(() => {
+                    deactivateCircle(circleId)
+                }, 300)
 
-            // Завершаем деактивацию после анимации
-            setTimeout(() => {
-                deactivateCircle(circleId)
-            }, 300)
-        } else if (!circle.isActive && !circle.isAnimating) {
-            // Нажатие на неактивный кружок - штраф
-            setStats(prev => ({
-                ...prev,
-                score: prev.score - 1,
-                wrongHits: prev.wrongHits + 1
-            }))
-        }
-    }, [gameState, circles, deactivateCircle])
+                return prevCircles.map(c =>
+                    c.id === circleId
+                        ? { ...c, isAnimating: true }
+                        : c
+                )
+            } else if (!circle.isActive && !circle.isAnimating) {
+                // Неправильное нажатие - штраф
+                setStats(prev => ({
+                    ...prev,
+                    score: prev.score - 1,
+                    wrongHits: prev.wrongHits + 1
+                }))
+            }
+
+            return prevCircles
+        })
+    }, [gameState, deactivateCircle])
 
     // Запуск игры
     const startGame = useCallback(() => {
+        console.log('Starting game...')
         setGameState(GameState.STARTING)
         setTimeLeft(GAME_DURATION)
         setStats({
@@ -201,17 +203,18 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             totalCircles: 0
         })
         setCircles(createCircleGrid(config.circleCount))
-        setActiveCircleIds([])
 
-        // Анимация появления элементов
+        // Анимация появления кружков
         setTimeout(() => {
             setShowCircles(true)
         }, 500)
 
+        // Запуск игрового процесса
         setTimeout(() => {
+            console.log('Game starting - setting state to PLAYING')
             setGameState(GameState.PLAYING)
 
-            // Запускаем игровой таймер
+            // Запуск таймера игры
             gameTimerRef.current = setInterval(() => {
                 setTimeLeft(prev => {
                     if (prev <= 1) {
@@ -222,10 +225,11 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 })
             }, 1000)
 
-            // Запускаем первую активацию кружков
+            // Запуск активации кружков
+            console.log('Starting circle activation...')
             setTimeout(() => {
                 activateRandomCircles()
-            }, 100)
+            }, 500)
         }, 1500)
     }, [config.circleCount, activateRandomCircles])
 
@@ -233,15 +237,15 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const restartGame = useCallback(() => {
         clearAllTimeouts()
         setShowCircles(false)
-
         setTimeout(() => {
             startGame()
         }, 300)
     }, [startGame, clearAllTimeouts])
 
-    // Завершение игры при окончании времени
+    // Завершение игры
     useEffect(() => {
         if (gameState === GameState.FINISHED) {
+            console.log('Game finished, clearing timeouts')
             clearAllTimeouts()
         }
     }, [gameState, clearAllTimeouts])
@@ -253,14 +257,14 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }
     }, [clearAllTimeouts])
 
-    // Автоматический запуск игры при монтировании
+    // Автоматический запуск игры
     useEffect(() => {
         const timer = setTimeout(() => {
             startGame()
         }, 100)
 
         return () => clearTimeout(timer)
-    }, []) // Убираем startGame из зависимостей для избежания бесконечного цикла
+    }, [startGame])
 
     if (gameState === GameState.FINISHED) {
         const result: GameResult = {
@@ -289,8 +293,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             {/* Верхняя панель */}
             {(gameState === GameState.STARTING || gameState === GameState.PLAYING) && (
                 <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
-                    <div className={`text-2xl font-bpdots transition-colors duration-300 ${stats.score >= 0 ? 'text-white' : 'text-red-400'
-                        }`}>
+                    <div className={`text-2xl font-bpdots transition-colors duration-300 ${stats.score >= 0 ? 'text-white' : 'text-red-400'}`}>
                         Score: {stats.score >= 0 ? '+' : ''}{stats.score}
                     </div>
 
