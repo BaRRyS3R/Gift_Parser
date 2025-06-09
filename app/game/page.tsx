@@ -225,7 +225,7 @@ export default function GamePage() {
                 <div className={`w-full h-full transition-opacity duration-500 ${isEndingGame ? 'opacity-0' : 'opacity-100'}`}>
                     {/* Top bar with score and end game button - ИСПРАВЛЕНО: показывается только когда showTopBar true */}
                     {showTopBar && (
-                        <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 opacity-0 animate-fade-in">
+                        <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
                             <div className={`text-2xl font-bpdots transition-colors duration-300 ${score >= 0 ? 'text-white' : 'text-red-400'
                                 }`}>
                                 Score: {score >= 0 ? '+' : ''}{score}
@@ -296,24 +296,6 @@ export default function GamePage() {
                     )}
                 </div>
             )}
-
-            {/* Добавляем CSS анимацию в стиль компонента */}
-            <style jsx>{`
-                @keyframes fade-in {
-                    from {
-                        opacity: 0;
-                        transform: translateY(10px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                
-                .animate-fade-in {
-                    animation: fade-in 0.5s ease-out forwards;
-                }
-            `}</style>
         </div>
     )
 }
