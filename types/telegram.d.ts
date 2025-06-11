@@ -36,7 +36,7 @@ interface TelegramWebApp {
   };
   version: string;
   platform: string;
-  colorScheme: 'light' | 'dark';
+  colorScheme: "light" | "dark";
   themeParams: {
     bg_color?: string;
     text_color?: string;
@@ -84,8 +84,10 @@ interface TelegramWebApp {
     }) => void;
   };
   HapticFeedback: {
-    impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
-    notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+    impactOccurred: (
+      style: "light" | "medium" | "heavy" | "rigid" | "soft",
+    ) => void;
+    notificationOccurred: (type: "error" | "success" | "warning") => void;
     selectionChanged: () => void;
   };
   close: () => void;
@@ -101,24 +103,37 @@ interface TelegramWebApp {
   openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
   openTelegramLink: (url: string) => void;
   openInvoice: (url: string, callback?: (status: string) => void) => void;
-  showPopup: (params: {
-    title?: string;
-    message: string;
-    buttons?: Array<{
-      id?: string;
-      type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive';
-      text?: string;
-    }>;
-  }, callback?: (button_id: string) => void) => void;
+  showPopup: (
+    params: {
+      title?: string;
+      message: string;
+      buttons?: Array<{
+        id?: string;
+        type?: "default" | "ok" | "close" | "cancel" | "destructive";
+        text?: string;
+      }>;
+    },
+    callback?: (button_id: string) => void,
+  ) => void;
   showAlert: (message: string, callback?: () => void) => void;
-  showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void;
-  showScanQrPopup: (params: {
-    text?: string;
-  }, callback?: (text: string) => boolean | void) => void;
+  showConfirm: (
+    message: string,
+    callback?: (confirmed: boolean) => void,
+  ) => void;
+  showScanQrPopup: (
+    params: {
+      text?: string;
+    },
+    callback?: (text: string) => boolean | void,
+  ) => void;
   closeScanQrPopup: () => void;
   requestWriteAccess: (callback?: (granted: boolean) => void) => void;
   requestContact: (callback?: (sent: boolean) => void) => void;
-  invokeCustomMethod: (method: string, params: any, callback?: (error: string | null, result?: any) => void) => void;
+  invokeCustomMethod: (
+    method: string,
+    params: any,
+    callback?: (error: string | null, result?: any) => void,
+  ) => void;
 }
 
 interface Window {
@@ -127,6 +142,6 @@ interface Window {
   };
 }
 
-declare module '@twa-dev/sdk' {
+declare module "@twa-dev/sdk" {
   export default TelegramWebApp;
 }
