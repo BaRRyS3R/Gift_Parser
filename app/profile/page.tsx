@@ -8,7 +8,6 @@ import { useUser } from '@/hooks/useUser'
 import { userService, type GameResultDB } from '@/lib/supabase'
 import { GameDifficulty } from '@/types/game'
 import { GAME_CONFIGS } from '@/utils/gameUtils'
-import BottomNav from '@/components/Navigation/BottomNav'
 import { Spinner } from '@nextui-org/react'
 
 interface UserRankings {
@@ -377,8 +376,6 @@ export default function ProfilePage() {
                     </div>
                 )}
             </div>
-
-            <BottomNav />
         </div>
     )
 }

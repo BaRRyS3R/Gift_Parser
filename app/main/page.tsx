@@ -4,7 +4,6 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import BottomNav from '@/components/Navigation/BottomNav'
 
 export default function MainPage() {
   const router = useRouter()
@@ -194,9 +193,6 @@ export default function MainPage() {
           </div>
         )}
       </div>
-
-      {/* Навигационное меню */}
-      <BottomNav />
     </div>
   )
 }

@@ -20,7 +20,7 @@ interface AuthState {
 export default function IntroPage() {
     const router = useRouter()
     const videoRef = useRef<HTMLVideoElement>(null)
-    const { refreshUser, updateUser } = useUser() // Используем контекст
+    const { refreshUser, updateUser, setTelegramUser } = useUser() // Используем контекст
 
     // Флаги для предотвращения повторных операций
     const authInitializedRef = useRef<boolean>(false)
@@ -181,6 +181,9 @@ export default function IntroPage() {
             }
 
             setAuthState(prev => ({ ...prev, telegramUser }))
+
+            // Устанавливаем telegram пользователя в контекст
+            setTelegramUser(telegramUser)
 
             console.log('Проверяем существование пользователя в БД...')
             const existingUser = await checkUserExists(telegramUser)

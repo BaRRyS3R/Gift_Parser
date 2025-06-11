@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { GameDifficulty } from "@/types/game";
 import DifficultySelector from "@/components/DifficultySelector";
 import GameManager from "@/components/GameManager";
-import BottomNav from "@/components/Navigation/BottomNav";
 
 export default function GamePage() {
   const router = useRouter();
@@ -75,9 +74,6 @@ export default function GamePage() {
           </button>
         </div>
       </div>
-
-      {/* Навигационное меню */}
-      <BottomNav />
     </div>
   );
 }

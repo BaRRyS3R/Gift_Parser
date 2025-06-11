@@ -7,7 +7,6 @@ import { Crown, Medal, Award, Star, Trophy, TrendingUp } from 'lucide-react'
 import { userService, type LeaderboardEntry, type DifficultyLeaderboard } from '@/lib/supabase'
 import { GameDifficulty, GAME_CONFIGS } from '@/utils/gameUtils'
 import { useUser } from '@/hooks/useUser'
-import BottomNav from '@/components/Navigation/BottomNav'
 import { Spinner } from '@nextui-org/react'
 
 type LeaderboardType = 'overall' | GameDifficulty
@@ -157,8 +156,8 @@ export default function LeaderboardPage() {
                 {/* Stats */}
                 <div className="text-right space-y-1">
                     <div className={`text-lg font-bold font-bpdots ${score >= 25 ? 'text-green-400' :
-                            score >= 15 ? 'text-yellow-400' :
-                                score >= 0 ? 'text-white' : 'text-red-400'
+                        score >= 15 ? 'text-yellow-400' :
+                            score >= 0 ? 'text-white' : 'text-red-400'
                         }`}>
                         {score >= 0 ? '+' : ''}{score}
                     </div>
@@ -320,8 +319,6 @@ export default function LeaderboardPage() {
                     </div>
                 )}
             </div>
-
-            <BottomNav />
         </div>
     )
 }
