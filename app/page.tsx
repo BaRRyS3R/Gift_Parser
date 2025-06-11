@@ -34,6 +34,14 @@ export default function IntroPage() {
         needsRegistration: false
     })
 
+    // Ref для хранения актуального состояния авторизации
+    const authStateRef = useRef<AuthState>(authState)
+
+    // Обновляем ref при изменении состояния
+    useEffect(() => {
+        authStateRef.current = authState
+    }, [authState])
+
     // Состояние видео (как в оригинале)
     const [isLoading, setIsLoading] = useState(true)
     const [loadProgress, setLoadProgress] = useState(0)
@@ -243,17 +251,21 @@ export default function IntroPage() {
 
         const handleEnded = () => {
             console.log('Видео завершено')
-            console.log('Состояние авторизации:', {
-                telegramUser: !!authState.telegramUser,
-                user: !!authState.user,
-                isRegistering: authState.isRegistering,
-                needsRegistration: authState.needsRegistration
+
+            // Используем актуальное состояние из ref
+            const currentAuthState = authStateRef.current
+
+            console.log('Актуальное состояние авторизации:', {
+                telegramUser: !!currentAuthState.telegramUser,
+                user: !!currentAuthState.user,
+                isRegistering: currentAuthState.isRegistering,
+                needsRegistration: currentAuthState.needsRegistration
             })
 
             // Выполняем регистрацию пользователя после окончания видео
-            if (authState.telegramUser && !authState.user && !authState.isRegistering) {
+            if (currentAuthState.telegramUser && !currentAuthState.user && !currentAuthState.isRegistering) {
                 console.log('Начинаем регистрацию после видео')
-                registerUser(authState.telegramUser)
+                registerUser(currentAuthState.telegramUser)
                     .then(() => {
                         console.log('Регистрация успешна, перенаправляем на main')
                         // После успешной регистрации перенаправляем на main
@@ -268,12 +280,13 @@ export default function IntroPage() {
                             router.push('/main')
                         }, 2000)
                     })
-            } else if (authState.user) {
+            } else if (currentAuthState.user) {
                 console.log('Пользователь уже зарегистрирован, перенаправляем на main')
                 // Если пользователь уже зарегистрирован, просто перенаправляем
                 router.push('/main')
             } else {
-                console.log('Условия для регистрации не выполнены')
+                console.log('Условия для регистрации не выполнены, принудительно перенаправляем')
+                console.log('Детали состояния:', currentAuthState)
                 // Принудительно перенаправляем, если что-то пошло не так
                 setTimeout(() => {
                     router.push('/main')
