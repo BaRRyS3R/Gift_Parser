@@ -99,9 +99,9 @@ export const userService = {
             .from("users")
             .select("*")
             .eq("telegram_id", telegramId)
-            .single();
+            .maybeSingle();
 
-        if (error && error.code !== "PGRST116") {
+        if (error) {
             console.error("Error finding user:", error);
             throw error;
         }

@@ -74,12 +74,29 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       console.log('useUser - Waiting for DB to be ready...')
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      console.log('useUser - Fetching user from DB:', tgUser.id)
-      const dbUser = await userService.findByTelegramId(tgUser.id);
-      console.log('useUser - DB User:', dbUser)
+      // Пробуем найти пользователя несколько раз
+      let attempts = 0;
+      let dbUser: User | null = null;
+      
+      while (attempts < 3 && !dbUser) {
+        console.log(`useUser - Attempt ${attempts + 1} to fetch user from DB:`, tgUser.id)
+        dbUser = await userService.findByTelegramId(tgUser.id);
+        console.log('useUser - DB User:', dbUser)
+        
+        if (!dbUser) {
+          attempts++;
+          if (attempts < 3) {
+            console.log('useUser - User not found, waiting before next attempt...')
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
 
       if (dbUser) {
+        console.log('useUser - User found, updating context')
         setUser(dbUser);
+      } else {
+        console.log('useUser - User not found after all attempts')
       }
     } catch (err) {
       console.error("useUser - Error updating user data:", err);
