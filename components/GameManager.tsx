@@ -27,7 +27,7 @@ interface GameManagerProps {
   onBackToMenu: () => void;
 }
 
-const GAME_DURATION = 30; // 30 секунд
+const GAME_DURATION = 30;
 
 export default function GameManager({
   difficulty,
@@ -44,6 +44,10 @@ export default function GameManager({
   const [showCircles, setShowCircles] = useState(false);
   const [isSavingResult, setIsSavingResult] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [gameResult, setGameResult] = useState<GameResult | null>(null);
+
+  // Флаг для предотвращения множественного сохранения
+  const resultSavedRef = useRef<boolean>(false);
 
   const [stats, setStats] = useState<GameStats>({
     score: 0,
@@ -58,7 +62,6 @@ export default function GameManager({
   const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const activeCirclesRef = useRef<Set<number>>(new Set());
 
-  // Очистка всех таймеров
   const clearAllTimeouts = useCallback(() => {
     if (gameTimerRef.current) {
       clearInterval(gameTimerRef.current);
@@ -72,7 +75,6 @@ export default function GameManager({
     circleTimeoutsRef.current.clear();
   }, []);
 
-  // Деактивация кружка
   const deactivateCircle = useCallback((circleId: number) => {
     activeCirclesRef.current.delete(circleId);
 
@@ -92,7 +94,6 @@ export default function GameManager({
     }
   }, []);
 
-  // Активация случайных кружков
   const activateRandomCircles = useCallback(() => {
     if (gameState !== GameState.PLAYING) return;
 
@@ -157,7 +158,6 @@ export default function GameManager({
     );
   }, [config, deactivateCircle, gameState]);
 
-  // Обработка нажатия на кружок
   const handleCircleClick = useCallback(
     (circleId: number) => {
       if (gameState !== GameState.PLAYING) return;
@@ -193,9 +193,15 @@ export default function GameManager({
     [gameState, circles, deactivateCircle],
   );
 
-  // Сохранение результата игры
+  // Сохранение результата игры - вызывается только один раз
   const handleGameFinish = useCallback(
     async (finalStats: GameStats) => {
+      if (resultSavedRef.current) {
+        return; // Предотвращаем повторное сохранение
+      }
+
+      resultSavedRef.current = true;
+
       const result: GameResult = {
         difficulty,
         score: finalStats.score,
@@ -213,32 +219,33 @@ export default function GameManager({
         duration: GAME_DURATION,
       };
 
+      setGameResult(result);
       setIsSavingResult(true);
       setSaveError(null);
 
       try {
         await saveGameResult(result);
+        console.log("Результат игры успешно сохранен");
       } catch (error) {
         console.error("Ошибка при сохранении результата игры:", error);
         setSaveError("Ошибка при сохранении результата игры");
       } finally {
         setIsSavingResult(false);
       }
-
-      return result;
     },
     [difficulty, saveGameResult],
   );
 
-  // Запуск игры
   const startGame = useCallback(() => {
     clearAllTimeouts();
     activeCirclesRef.current.clear();
+    resultSavedRef.current = false; // Сброс флага при новой игре
 
     setGameState(GameState.STARTING);
     setTimeLeft(GAME_DURATION);
     setIsSavingResult(false);
     setSaveError(null);
+    setGameResult(null);
     setStats({
       score: 0,
       correctHits: 0,
@@ -273,6 +280,26 @@ export default function GameManager({
     }, 1500);
   }, [config.circleCount, clearAllTimeouts, activateRandomCircles]);
 
+  // Эффект для обработки завершения игры - без stats в зависимостях
+  useEffect(() => {
+    if (gameState === GameState.FINISHED && !resultSavedRef.current) {
+      clearAllTimeouts();
+      // Используем текущее состояние stats через замыкание
+      setStats((currentStats) => {
+        handleGameFinish(currentStats);
+
+        return currentStats;
+      });
+    }
+  }, [gameState, clearAllTimeouts, handleGameFinish]);
+
+  // Эффект для управления активацией кругов
+  useEffect(() => {
+    if (gameState === GameState.PLAYING && !activationTimeoutRef.current) {
+      activateRandomCircles();
+    }
+  }, [gameState, activateRandomCircles]);
+
   // Инициализация игры при монтировании
   useEffect(() => {
     startGame();
@@ -280,28 +307,8 @@ export default function GameManager({
     return () => {
       clearAllTimeouts();
     };
-  }, []);
+  }, [startGame, clearAllTimeouts]);
 
-  // Эффект для отслеживания изменения gameState
-  useEffect(() => {
-    if (gameState === GameState.PLAYING) {
-      if (!activationTimeoutRef.current) {
-        activateRandomCircles();
-      }
-    } else if (gameState === GameState.FINISHED) {
-      clearAllTimeouts();
-      // Сохраняем результат игры
-      handleGameFinish(stats);
-    }
-  }, [
-    gameState,
-    activateRandomCircles,
-    clearAllTimeouts,
-    handleGameFinish,
-    stats,
-  ]);
-
-  // Перезапуск игры
   const restartGame = useCallback(() => {
     setShowCircles(false);
     setTimeout(() => {
@@ -309,49 +316,20 @@ export default function GameManager({
     }, 300);
   }, [startGame]);
 
-  // Обработка результатов игры
-  const [gameResult, setGameResult] = useState<GameResult | null>(null);
-
-  useEffect(() => {
-    if (gameState === GameState.FINISHED && !gameResult) {
-      const result: GameResult = {
-        difficulty,
-        score: stats.score,
-        correctHits: stats.correctHits,
-        wrongHits: stats.wrongHits,
-        missedCircles: stats.missedCircles,
-        accuracy:
-          stats.correctHits + stats.wrongHits > 0
-            ? Math.round(
-                (stats.correctHits / (stats.correctHits + stats.wrongHits)) *
-                  100,
-              )
-            : 0,
-        duration: GAME_DURATION,
-      };
-
-      setGameResult(result);
-    }
-  }, [gameState, stats, gameResult, difficulty]);
-
-  // Показ результатов
   if (gameState === GameState.FINISHED && gameResult) {
     return (
-      <div className="relative">
-        <GameResults
-          isSaving={isSavingResult}
-          result={gameResult}
-          saveError={saveError}
-          onBackToMenu={onBackToMenu}
-          onPlayAgain={restartGame}
-        />
-      </div>
+      <GameResults
+        isSaving={isSavingResult}
+        result={gameResult}
+        saveError={saveError}
+        onBackToMenu={onBackToMenu}
+        onPlayAgain={restartGame}
+      />
     );
   }
 
   return (
     <div className="min-h-screen bg-black flex flex-col text-white">
-      {/* Панель управления */}
       {(gameState === GameState.STARTING ||
         gameState === GameState.PLAYING) && (
         <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
@@ -379,7 +357,6 @@ export default function GameManager({
         </div>
       )}
 
-      {/* Игровое поле */}
       <div className="flex-1 flex items-center justify-center">
         <GameGrid
           circles={circles}

@@ -115,12 +115,13 @@ export default function MainPage() {
 
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
           ? "opacity-0 transition-opacity duration-700 ease-in"
           : pageLoaded
             ? "opacity-100 transition-opacity duration-1000 ease-out"
             : "opacity-0 transition-opacity duration-1000 ease-out"
-        }`}
+      }`}
     >
       {/* Video background */}
       <div
@@ -131,26 +132,26 @@ export default function MainPage() {
       >
         <video
           ref={videoRef}
-          className="w-full h-full object-cover min-w-full min-h-full"
-          playsInline
-          muted
-          loop
           autoPlay
+          loop
+          muted
+          playsInline
           aria-label="Фоновое видео главной страницы"
+          className="w-full h-full object-cover min-w-full min-h-full"
         >
           <source src="/videos/mainbg.mp4" type="video/mp4" />
           <track
-            kind="captions"
-            srcLang="en"
-            src="/captions/empty.vtt"
             default
+            kind="captions"
             label="English captions"
+            src="/captions/empty.vtt"
+            srcLang="en"
           />
           <track
             kind="captions"
-            srcLang="ru"
-            src="/captions/empty-ru.vtt"
             label="Русские субтитры"
+            src="/captions/empty-ru.vtt"
+            srcLang="ru"
           />
         </video>
       </div>
@@ -174,10 +175,11 @@ export default function MainPage() {
           <div className="space-y-8">
             {/* Welcome message */}
             <div
-              className={`transition-all duration-700 ${showWelcome
+              className={`transition-all duration-700 ${
+                showWelcome
                   ? "opacity-100 transform translate-y-0"
                   : "opacity-0 transform translate-y-4"
-                }`}
+              }`}
             >
               <p className="text-xl text-gray-300 font-bpdots">
                 Welc0me, /•{username}•/
@@ -186,10 +188,11 @@ export default function MainPage() {
 
             {/* Game button section */}
             <div
-              className={`transition-all duration-700 ${showGameButton
+              className={`transition-all duration-700 ${
+                showGameButton
                   ? "opacity-100 transform translate-y-0"
                   : "opacity-0 transform translate-y-4"
-                }`}
+              }`}
             >
               <div className="flex flex-col items-center space-y-6">
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 max-w-sm">
