@@ -23,25 +23,25 @@ export default function MainPage() {
   const animationSteps = [
     '|',
     's|',
-    'so-',
-    'som|',
-    'some=/',
-    'somet|',
-    'someth|',
-    'somethi///',
-    'somethin¿',
-    'something?',
-    'something'
+    's0-',
+    's0m|',
+    's0me=/',
+    's0met|',
+    's0meth|',
+    's0methi///',
+    's0methin¿',
+    's0mething?',
+    's0mething'
   ]
 
   const gameFeatures = [
-    { icon: Zap, title: 'FAST REFLEXES', desc: 'Test your reaction speed in milliseconds' },
-    { icon: Target, title: 'PRECISION TRAINING', desc: 'Improve your accuracy with every click' },
-    { icon: Trophy, title: 'GLOBAL COMPETITION', desc: 'Compete with players worldwide' },
-    { icon: Activity, title: '5 DIFFICULTY MODES', desc: 'From beginner to legendary challenges' },
-    { icon: Clock, title: '30 SECOND ROUNDS', desc: 'Quick intense gameplay sessions' },
-    { icon: Users, title: 'LEADERBOARDS', desc: 'Track your progress and rankings' },
-    { icon: Award, title: 'ACHIEVEMENTS', desc: 'Unlock rewards as you improve' }
+    { icon: Zap, title: 'R34CT10N SPE3D', desc: 'T3ST Y0UR R3FL3X3S 1N M1LL1S3C0NDS' },
+    { icon: Target, title: 'PR3C1S10N TR41N1NG', desc: '1MPR0V3 Y0UR 4CCUR4CY W1TH 3V3RY CL1CK' },
+    { icon: Trophy, title: 'GL0B4L C0MP3T1T10N', desc: 'C0MP3T3 W1TH PL4Y3RS W0RLDW1D3' },
+    { icon: Activity, title: '7 D1FF1CULTY M0D3S', desc: 'FR0M N00B T0 R4G3 M0D3 CH4LL3NG3S' },
+    { icon: Clock, title: '30 S3C0ND R0UNDS', desc: 'QU1CK 1NT3NS3 G4M3PL4Y S3SS10NS' },
+    { icon: Users, title: 'L34D3RB04RDS', desc: 'TR4CK Y0UR PR0GR3SS 4ND R4NK1NGS' },
+    { icon: Award, title: '4CH13V3M3NTS', desc: 'UNL0CK R3W4RDS 4S Y0U 1MPR0V3' }
   ]
 
   useEffect(() => {
@@ -100,7 +100,6 @@ export default function MainPage() {
     return () => clearTimeout(titleAnimationTimer)
   }, [pageLoaded])
 
-  // Feature rotation effect
   useEffect(() => {
     if (!showFeatures) return
 
@@ -118,7 +117,7 @@ export default function MainPage() {
     }, 800)
   }
 
-  const username = user?.first_name || 'Player'
+  const username = user?.first_name || 'unkn0wn'
 
   return (
     <div className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden pb-20 ${isTransitioning
@@ -128,7 +127,6 @@ export default function MainPage() {
         : 'opacity-0 transition-opacity duration-1000 ease-out'
       }`}>
 
-      {/* Фоновое видео */}
       <div
         className="fixed top-0 left-0 w-full h-full z-0"
         style={{
@@ -148,35 +146,31 @@ export default function MainPage() {
         </video>
       </div>
 
-      {/* Overlay */}
       <div className="absolute inset-0 bg-black/40 z-10"></div>
 
       <div className="text-center z-20 space-y-8 max-w-lg mx-auto px-4">
-        {/* Анимированный заголовок */}
         <div className="mb-8">
           <h1 className="text-4xl sm:text-5xl font-bold font-bpdots tracking-wider min-h-[60px] flex items-center justify-center text-white">
             {titleText}
           </h1>
         </div>
 
-        {/* Приветственное сообщение */}
         <div className={`transition-all duration-1000 transform ${showWelcome ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
           }`}>
           <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl p-6 hover:bg-white/8 transition-all duration-500 hover:scale-105 hover:border-white/20">
             {userLoading ? (
               <div className="flex items-center justify-center space-x-3">
                 <div className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin"></div>
-                <span className="text-lg text-white/80 font-bpdots">Loading...</span>
+                <span className="text-lg text-white/80 font-bpdots">L04D1NG...</span>
               </div>
             ) : (
               <p className="text-xl text-white font-bpdots">
-                Welcome back, <span className="font-bold text-white">{username}</span>
+                H3Y Y0, <span className="font-bold text-white">{username}</span>
               </p>
             )}
           </div>
         </div>
 
-        {/* Кнопка START GAME */}
         <div className={`transition-all duration-1000 transform ${showButton ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
           }`}>
           <div className="relative group">
@@ -188,25 +182,23 @@ export default function MainPage() {
             >
               <div className="flex items-center justify-center space-x-3">
                 <Play size={24} className="text-white fill-current" />
-                <span>{isTransitioning ? 'LOADING...' : 'START GAME'}</span>
+                <span>{isTransitioning ? 'L04D1NG///' : 'ST4RT G4M3'}</span>
               </div>
             </button>
           </div>
         </div>
 
-        {/* Описание игры */}
         <div className={`transition-all duration-1000 transform ${showDescription ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
           }`}>
           <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl p-6 hover:bg-white/8 transition-all duration-500 hover:scale-105 hover:border-white/20">
-            <h3 className="text-lg font-bpdots text-white font-bold mb-3">REACTION SPEED TEST</h3>
+            <h3 className="text-lg font-bpdots text-white font-bold mb-3">R34CT10N SP33D T3ST</h3>
             <p className="text-white/80 font-bpdots text-sm leading-relaxed">
-              Challenge your reflexes in an intense circle-clicking game. React quickly to glowing targets,
-              improve your accuracy, and climb the global leaderboard in this neural speed training experience.
+              CH4LL3NG3 Y0UR R3FL3X3S 1N 4N 1NT3NS3 C1RCL3-CL1CK1NG G4M3. R34CT QU1CKLY T0 GL0W1NG T4RG3TS,
+              1MPR0V3 Y0UR 4CCUR4CY, 4ND CL1MB TH3 GL0B4L L34D3RB04RD 1N TH1S N3UR4L SP33D TR41N1NG 3XP3R13NC3.
             </p>
           </div>
         </div>
 
-        {/* Фишки игры с анимацией смены */}
         <div className={`transition-all duration-1000 transform ${showFeatures ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'
           }`}>
           <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl p-6 hover:bg-white/8 transition-all duration-500 hover:scale-105 hover:border-white/20">
@@ -227,7 +219,6 @@ export default function MainPage() {
               </div>
             </div>
 
-            {/* Индикаторы текущей фишки */}
             <div className="flex justify-center space-x-1 mt-4">
               {gameFeatures.map((_, index) => (
                 <div
@@ -241,7 +232,6 @@ export default function MainPage() {
         </div>
       </div>
 
-      {/* Декоративные элементы */}
       <div className="absolute top-8 left-8 w-8 h-8 border-l border-t border-white/20 rounded-tl-lg z-20"></div>
       <div className="absolute top-8 right-8 w-8 h-8 border-r border-t border-white/20 rounded-tr-lg z-20"></div>
       <div className="absolute bottom-24 left-8 w-8 h-8 border-l border-b border-white/20 rounded-bl-lg z-20"></div>

@@ -39,6 +39,16 @@ export interface User {
     legendary_best_score: number;
     omg_games: number;
     omg_best_score: number;
+    nightmare_games: number;
+    nightmare_best_score: number;
+    impossible_games: number;
+    impossible_best_score: number;
+
+    // Новые расширенные метрики
+    total_decoy_hits?: number;
+    total_fast_hits?: number;
+    best_reaction_time?: number;
+    max_adaptive_level?: number;
 
     last_played_at?: string;
     is_active: boolean;
@@ -54,6 +64,11 @@ export interface GameResultDB {
     missed_circles: number;
     accuracy: number;
     duration: number;
+    // Новые поля для расширенной статистики
+    decoy_hits?: number;
+    fast_hits?: number;
+    average_reaction_time?: number;
+    adaptive_level?: number;
     created_at: string;
 }
 
@@ -143,14 +158,14 @@ export const userService = {
         const difficultyField = `${gameResult.difficulty}_games`;
         const difficultyBestField = `${gameResult.difficulty}_best_score`;
 
-        const updates = {
+        // Подготовка базовых обновлений
+        const updates: any = {
             total_games: user.total_games + 1,
             total_score: user.total_score + gameResult.score,
             best_score: Math.max(user.best_score, gameResult.score),
             total_correct_hits: user.total_correct_hits + gameResult.correctHits,
             total_wrong_hits: user.total_wrong_hits + gameResult.wrongHits,
-            total_missed_circles:
-                user.total_missed_circles + gameResult.missedCircles,
+            total_missed_circles: user.total_missed_circles + gameResult.missedCircles,
             best_accuracy: Math.max(user.best_accuracy, gameResult.accuracy),
             [difficultyField]: (user as any)[difficultyField] + 1,
             [difficultyBestField]: Math.max(
@@ -159,6 +174,28 @@ export const userService = {
             ),
             last_played_at: new Date().toISOString(),
         };
+
+        // Добавление новых расширенных метрик
+        if (gameResult.decoyHits !== undefined) {
+            updates.total_decoy_hits = (user.total_decoy_hits || 0) + gameResult.decoyHits;
+        }
+
+        if (gameResult.fastHits !== undefined) {
+            updates.total_fast_hits = (user.total_fast_hits || 0) + gameResult.fastHits;
+        }
+
+        if (gameResult.averageReactionTime !== undefined && gameResult.averageReactionTime > 0) {
+            if (!user.best_reaction_time || gameResult.averageReactionTime < user.best_reaction_time) {
+                updates.best_reaction_time = gameResult.averageReactionTime;
+            }
+        }
+
+        if (gameResult.adaptiveLevel !== undefined) {
+            updates.max_adaptive_level = Math.max(
+                user.max_adaptive_level || 0,
+                gameResult.adaptiveLevel
+            );
+        }
 
         const { error } = await supabase
             .from("users")
@@ -177,7 +214,7 @@ export const userService = {
 
         if (!user) throw new Error("User not found");
 
-        const resultData = {
+        const resultData: any = {
             user_id: user.id,
             difficulty: gameResult.difficulty,
             score: gameResult.score,
@@ -187,6 +224,23 @@ export const userService = {
             accuracy: gameResult.accuracy,
             duration: gameResult.duration,
         };
+
+        // Добавление новых полей
+        if (gameResult.decoyHits !== undefined) {
+            resultData.decoy_hits = gameResult.decoyHits;
+        }
+
+        if (gameResult.fastHits !== undefined) {
+            resultData.fast_hits = gameResult.fastHits;
+        }
+
+        if (gameResult.averageReactionTime !== undefined) {
+            resultData.average_reaction_time = gameResult.averageReactionTime;
+        }
+
+        if (gameResult.adaptiveLevel !== undefined) {
+            resultData.adaptive_level = gameResult.adaptiveLevel;
+        }
 
         const { error } = await supabase.from("game_results").insert(resultData);
 

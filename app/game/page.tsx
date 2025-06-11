@@ -63,14 +63,14 @@ export default function GamePage() {
             disabled={!selectedDifficulty}
             onClick={handleStartGame}
           >
-            /START GAME
+            /AGATIN???
           </button>
 
           <button
             className="w-full px-6 py-3 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300"
             onClick={handleBackToMenu}
           >
-            BACK 2 MENU
+            Back 2 Menu\\\
           </button>
         </div>
       </div>
