@@ -55,33 +55,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     };
   }, []);
 
-  const findUserWithRetry = async (telegramId: number, maxRetries = 3): Promise<User | null> => {
-    let retries = 0;
-    let lastError: Error | null = null;
-
-    while (retries < maxRetries) {
-      try {
-        const dbUser = await userService.findByTelegramId(telegramId);
-        if (dbUser) {
-          return dbUser;
-        }
-        
-        // Если пользователь не найден, ждем перед следующей попыткой
-        await new Promise(resolve => setTimeout(resolve, 2000 * (retries + 1)));
-        retries++;
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error('Unknown error');
-        console.error(`Attempt ${retries + 1} failed:`, err);
-        retries++;
-      }
-    }
-
-    if (lastError) {
-      throw lastError;
-    }
-    return null;
-  };
-
   const refreshUser = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
@@ -95,13 +68,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       setTelegramUser(tgUser);
 
-      // Пытаемся найти пользователя с повторными попытками
-      const dbUser = await findUserWithRetry(tgUser.id);
-      
-      if (!dbUser) {
-        throw new Error("Не удалось найти данные пользователя после нескольких попыток");
-      }
-
+      // Добавляем небольшую задержку перед поиском пользователя
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const dbUser = await userService.findByTelegramId(tgUser.id);
       setUser(dbUser);
     } catch (err) {
       console.error("Ошибка при обновлении данных пользователя:", err);
