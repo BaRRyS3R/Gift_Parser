@@ -54,7 +54,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const activeCirclesRef = useRef<Set<number>>(new Set())
 
-    // ЕДИНСТВЕННОЕ ДОБАВЛЕНИЕ - флаг для предотвращения множественного сохранения
+    // Флаг для предотвращения множественного сохранения
     const gameSavedRef = useRef<boolean>(false)
 
     // Очистка всех таймеров
@@ -69,6 +69,25 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }
         circleTimeoutsRef.current.forEach(timeout => clearTimeout(timeout))
         circleTimeoutsRef.current.clear()
+    }, [])
+
+    // Функция для вызова haptic feedback
+    const triggerHapticFeedback = useCallback((type: 'success' | 'error' | 'impact') => {
+        if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
+            const haptic = window.Telegram.WebApp.HapticFeedback
+
+            switch (type) {
+                case 'success':
+                    haptic.notificationOccurred('success')
+                    break
+                case 'error':
+                    haptic.notificationOccurred('error')
+                    break
+                case 'impact':
+                    haptic.impactOccurred('light')
+                    break
+            }
+        }
     }, [])
 
     // Деактивация кружка
@@ -178,6 +197,10 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         if (circle.isActive && !circle.isAnimating) {
             console.log('Correct hit on circle:', circleId)
+
+            // Haptic feedback для успешного попадания
+            triggerHapticFeedback('success')
+
             setStats(prev => ({
                 ...prev,
                 score: prev.score + 1,
@@ -194,20 +217,24 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         } else if (!circle.isActive && !circle.isAnimating) {
             console.log('Wrong click on circle:', circleId)
+
+            // Haptic feedback для неправильного нажатия
+            triggerHapticFeedback('error')
+
             setStats(prev => ({
                 ...prev,
                 score: prev.score - 1,
                 wrongHits: prev.wrongHits + 1
             }))
         }
-    }, [gameState, circles, deactivateCircle])
+    }, [gameState, circles, deactivateCircle, triggerHapticFeedback])
 
     // Запуск игры
     const startGame = useCallback(() => {
         console.log('Starting game...')
         clearAllTimeouts()
         activeCirclesRef.current.clear()
-        gameSavedRef.current = false // ДОБАВЛЕНО: сброс флага сохранения
+        gameSavedRef.current = false // Сброс флага сохранения
 
         setGameState(GameState.STARTING)
         setTimeLeft(GAME_DURATION)
@@ -262,7 +289,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         return () => {
             clearAllTimeouts()
         }
-    }, []) // ВАЖНО: пустой массив зависимостей!
+    }, []) // Пустой массив зависимостей
 
     // Эффект для отслеживания изменения gameState
     useEffect(() => {
@@ -276,7 +303,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             console.log('Game finished, clearing all timeouts')
             clearAllTimeouts()
 
-            // ИЗМЕНЕНО: сохраняем результат только один раз с отображением состояния
+            // Сохраняем результат только один раз с отображением состояния
             if (!gameSavedRef.current) {
                 gameSavedRef.current = true
                 setIsSavingResult(true)
@@ -311,7 +338,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     })
             }
         }
-    }, [gameState]) // ИСПРАВЛЕНО: убраны лишние зависимости
+    }, [gameState]) // Убраны лишние зависимости
 
     // Перезапуск игры
     const restartGame = useCallback(() => {
