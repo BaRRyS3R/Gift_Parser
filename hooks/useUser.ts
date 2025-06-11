@@ -57,10 +57,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   const refreshUser = useCallback(async (): Promise<void> => {
     try {
+      console.log('useUser - Starting refreshUser')
       setIsLoading(true);
       setError(null);
 
       const tgUser = getTelegramUser();
+      console.log('useUser - Telegram User:', tgUser)
 
       if (!tgUser) {
         throw new Error("Данные пользователя Telegram недоступны");
@@ -69,14 +71,27 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setTelegramUser(tgUser);
 
       // Даем время на то, чтобы данные стали доступны в БД
+      console.log('useUser - Waiting for DB to be ready...')
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log('useUser - Fetching user from DB:', tgUser.id)
       const dbUser = await userService.findByTelegramId(tgUser.id);
-      setUser(dbUser);
+      console.log('useUser - DB User:', dbUser)
+
+      if (!dbUser) {
+        console.log('useUser - User not found in DB, trying to create...')
+        const newUser = await userService.create(tgUser);
+        console.log('useUser - Created new user:', newUser)
+        setUser(newUser);
+      } else {
+        setUser(dbUser);
+      }
     } catch (err) {
-      console.error("Ошибка при обновлении данных пользователя:", err);
+      console.error("useUser - Error updating user data:", err);
       setError(err instanceof Error ? err.message : "Неизвестная ошибка");
     } finally {
       setIsLoading(false);
+      console.log('useUser - refreshUser completed')
     }
   }, [getTelegramUser]);
 
@@ -98,6 +113,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   );
 
   useEffect(() => {
+    console.log('useUser - Initial effect triggered')
     refreshUser();
   }, [refreshUser]);
 
