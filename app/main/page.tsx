@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Play, Zap, Trophy, Target, Activity, Clock, Users, Award } from 'lucide-react'
 import { useUser } from '@/hooks/useUser'
