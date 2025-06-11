@@ -68,8 +68,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       setTelegramUser(tgUser);
 
-      // Добавляем небольшую задержку перед поиском пользователя
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Даем время на то, чтобы данные стали доступны в БД
+      await new Promise(resolve => setTimeout(resolve, 2000));
       const dbUser = await userService.findByTelegramId(tgUser.id);
       setUser(dbUser);
     } catch (err) {
