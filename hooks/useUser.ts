@@ -116,7 +116,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   );
 };
 
-export const useUser = (): UserContextType => {
+export function useUser(): UserContextType {
   const context = useContext(UserContext);
 
   if (context === undefined) {
@@ -124,4 +124,4 @@ export const useUser = (): UserContextType => {
   }
 
   return context;
-};
+}

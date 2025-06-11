@@ -51,3 +51,9 @@ export interface GameResult {
   accuracy: number;
   duration: number;
 }
+
+export interface Achievement {
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+    name: string;
+    desc: string;
+}

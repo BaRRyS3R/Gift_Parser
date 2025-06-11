@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { GameDifficulty } from "@/types/game";
 import DifficultySelector from "@/components/DifficultySelector";
 import GameManager from "@/components/GameManager";
+import BottomNav from "@/components/Navigation/BottomNav";
 
 export default function GamePage() {
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function GamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-6">
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white p-6 pb-24">
       <div className="w-full max-w-md space-y-8 animate-fade-in">
         <DifficultySelector
           selectedDifficulty={selectedDifficulty}
@@ -55,11 +56,10 @@ export default function GamePage() {
             className={`
                             w-full px-8 py-4 border-2 rounded-xl font-bpdots text-xl 
                             transition-all duration-300 
-                            ${
-                              selectedDifficulty
-                                ? "bg-transparent border-white text-white hover:bg-white/10 hover:scale-105 active:scale-95 cursor-pointer"
-                                : "bg-transparent border-white/30 text-white/30 cursor-not-allowed"
-                            }
+                            ${selectedDifficulty
+                ? "bg-transparent border-white text-white hover:bg-white/10 hover:scale-105 active:scale-95 cursor-pointer"
+                : "bg-transparent border-white/30 text-white/30 cursor-not-allowed"
+              }
                         `}
             disabled={!selectedDifficulty}
             onClick={handleStartGame}
@@ -75,6 +75,9 @@ export default function GamePage() {
           </button>
         </div>
       </div>
+
+      {/* Навигационное меню */}
+      <BottomNav />
     </div>
   );
 }

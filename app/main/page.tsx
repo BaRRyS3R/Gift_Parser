@@ -4,6 +4,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import BottomNav from '@/components/Navigation/BottomNav'
 
 export default function MainPage() {
   const router = useRouter()
@@ -119,7 +120,7 @@ export default function MainPage() {
   }
 
   return (
-    <div className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+    <div className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden pb-24 ${isTransitioning
       ? 'opacity-0 transition-opacity duration-700 ease-in'
       : pageLoaded
         ? 'opacity-100 transition-opacity duration-1000 ease-out'
@@ -193,6 +194,9 @@ export default function MainPage() {
           </div>
         )}
       </div>
+
+      {/* Навигационное меню */}
+      <BottomNav />
     </div>
   )
 }

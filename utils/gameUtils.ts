@@ -2,6 +2,8 @@
 
 import { GameConfig, GameDifficulty, Circle } from "@/types/game";
 
+export { GameDifficulty };
+
 export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
   [GameDifficulty.EASY]: {
     id: "easy",
@@ -48,7 +50,7 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
     maxSimultaneousCircles: 8,
     circleActiveTime: 1000,
   },
-};
+} as const;
 
 export const getRandomActivationDelay = (config: GameConfig): number => {
   return (
