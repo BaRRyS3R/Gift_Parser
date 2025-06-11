@@ -48,7 +48,7 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
     minActivationTime: 200,
     maxActivationTime: 1500,
     maxSimultaneousCircles: 8,
-    circleActiveTime: 1000,
+    circleActiveTime: 2000,
   },
 } as const;
 
