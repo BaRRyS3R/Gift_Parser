@@ -182,17 +182,30 @@ export default function IntroPage() {
                 return
             }
 
+            // Показываем видео контейнер
             setContentState(prev => ({ ...prev, isPlaying: true }))
 
-            // Запускаем видео
+            // Настройка видео для воспроизведения со звуком
             video.currentTime = 0
-            await video.play()
+            video.muted = false // Включаем звук для воспроизведения
+            video.volume = 1.0 // Устанавливаем полную громкость
 
-            // Регистрируем пользователя параллельно
+            // Воспроизведение видео со звуком после пользовательского действия
+            try {
+                await video.play()
+                console.log('Видео с аудио успешно запущено')
+            } catch (playError) {
+                console.error('Ошибка воспроизведения видео:', playError)
+                // При ошибке воспроизведения переходим к быстрой регистрации
+                await handleQuickInit()
+                return
+            }
+
+            // Параллельно выполняем регистрацию пользователя
             await registerUser(authState.telegramUser)
 
         } catch (error) {
-            console.error('Ошибка при воспроизведении видео или регистрации:', error)
+            console.error('Ошибка при инициализации с видео:', error)
             await handleQuickInit()
         }
     }
@@ -237,7 +250,9 @@ export default function IntroPage() {
         if (!video) return
 
         const handleLoadedMetadata = () => {
-            video.volume = 1
+            // Настройка видео для воспроизведения со звуком после пользовательского действия
+            video.volume = 1.0 // Полная громкость для воспроизведения
+            video.muted = false // Звук включен по умолчанию
             setContentState(prev => ({ ...prev, isReady: true }))
         }
 
@@ -257,16 +272,20 @@ export default function IntroPage() {
         }
 
         const handleEnded = () => {
-            // Перенаправляем только если пользователь уже зарегистрирован
+            // Перенаправление после завершения видео при наличии зарегистрированного пользователя
             if (authState.user) {
                 router.push('/main')
             }
         }
 
         const handleError = (e: Event) => {
-            console.error('Ошибка видео:', e)
+            console.error('Ошибка загрузки видео:', e)
             setContentState(prev => ({ ...prev, videoError: true, isLoading: false }))
         }
+
+        // Конфигурация видео элемента для кроссплатформенной совместимости
+        video.setAttribute('playsinline', 'true')
+        video.setAttribute('webkit-playsinline', 'true')
 
         video.addEventListener('loadedmetadata', handleLoadedMetadata)
         video.addEventListener('progress', handleProgress)

@@ -44,6 +44,11 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         totalCircles: 0
     })
 
+    // Состояния для отображения процесса сохранения
+    const [isSavingResult, setIsSavingResult] = useState(false)
+    const [saveError, setSaveError] = useState<string | null>(null)
+    const [saveSuccess, setSaveSuccess] = useState(false)
+
     const gameTimerRef = useRef<NodeJS.Timeout | null>(null)
     const circleTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map())
     const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -206,6 +211,9 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         setGameState(GameState.STARTING)
         setTimeLeft(GAME_DURATION)
+        setIsSavingResult(false)
+        setSaveError(null)
+        setSaveSuccess(false)
         setStats({
             score: 0,
             correctHits: 0,
@@ -268,9 +276,12 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             console.log('Game finished, clearing all timeouts')
             clearAllTimeouts()
 
-            // ИЗМЕНЕНО: сохраняем результат только один раз
+            // ИЗМЕНЕНО: сохраняем результат только один раз с отображением состояния
             if (!gameSavedRef.current) {
                 gameSavedRef.current = true
+                setIsSavingResult(true)
+                setSaveError(null)
+                setSaveSuccess(false)
 
                 const result: GameResult = {
                     difficulty,
@@ -284,9 +295,20 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     duration: GAME_DURATION
                 }
 
-                saveGameResult(result).catch(error => {
-                    console.error('Error saving game result:', error)
-                })
+                saveGameResult(result)
+                    .then(() => {
+                        console.log('Game result saved successfully')
+                        setSaveSuccess(true)
+                        setSaveError(null)
+                    })
+                    .catch(error => {
+                        console.error('Error saving game result:', error)
+                        setSaveError('Ошибка при сохранении результата в базу данных')
+                        setSaveSuccess(false)
+                    })
+                    .finally(() => {
+                        setIsSavingResult(false)
+                    })
             }
         }
     }, [gameState]) // ИСПРАВЛЕНО: убраны лишние зависимости
@@ -319,6 +341,9 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 result={result}
                 onPlayAgain={restartGame}
                 onBackToMenu={onBackToMenu}
+                isSaving={isSavingResult}
+                saveError={saveError}
+                saveSuccess={saveSuccess}
             />
         )
     }
