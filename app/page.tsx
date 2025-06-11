@@ -360,15 +360,27 @@ export default function IntroPage() {
             <div
                 className={`video-container ${contentState.isPlaying ? "opacity-100" : "opacity-0"} transition-opacity duration-500`}
             >
-                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-
                 <video
                     ref={videoRef}
-                    playsInline
                     className="video-player"
+                    playsInline
                     preload="auto"
+                    aria-label="Вступительное видео приложения"
                 >
                     <source src="/videos/intro.mp4" type="video/mp4" />
+                    <track
+                        kind="captions"
+                        srcLang="en"
+                        src="/captions/empty.vtt"
+                        default
+                        label="English captions"
+                    />
+                    <track
+                        kind="captions"
+                        srcLang="ru"
+                        src="/captions/empty-ru.vtt"
+                        label="Русские субтитры"
+                    />
                     Ваш браузер не поддерживает воспроизведение видео.
                 </video>
             </div>
