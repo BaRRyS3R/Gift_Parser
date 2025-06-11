@@ -19,6 +19,7 @@ interface UserContextType {
   error: string | null;
   refreshUser: () => Promise<void>;
   saveGameResult: (gameResult: any) => Promise<void>;
+  updateUser: (userData: User) => void; // Добавляем метод для прямого обновления пользователя
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -55,6 +56,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     };
   }, []);
 
+  // Метод для прямого обновления пользователя в контексте
+  const updateUser = useCallback((userData: User) => {
+    console.log('useUser - Updating user data directly:', userData);
+    setUser(userData);
+    setError(null);
+  }, []);
+
   const refreshUser = useCallback(async (): Promise<void> => {
     try {
       console.log('useUser - Starting refreshUser')
@@ -72,22 +80,22 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       // Даем время на то, чтобы данные стали доступны в БД
       console.log('useUser - Waiting for DB to be ready...')
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Уменьшаем время ожидания
       
       // Пробуем найти пользователя несколько раз
       let attempts = 0;
       let dbUser: User | null = null;
       
-      while (attempts < 3 && !dbUser) {
+      while (attempts < 5 && !dbUser) { // Увеличиваем количество попыток
         console.log(`useUser - Attempt ${attempts + 1} to fetch user from DB:`, tgUser.id)
         dbUser = await userService.findByTelegramId(tgUser.id);
         console.log('useUser - DB User:', dbUser)
         
         if (!dbUser) {
           attempts++;
-          if (attempts < 3) {
+          if (attempts < 5) {
             console.log('useUser - User not found, waiting before next attempt...')
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 500)); // Уменьшаем время между попытками
           }
         }
       }
@@ -97,6 +105,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setUser(dbUser);
       } else {
         console.log('useUser - User not found after all attempts')
+        // Не устанавливаем ошибку, так как это может быть новый пользователь
       }
     } catch (err) {
       console.error("useUser - Error updating user data:", err);
@@ -136,6 +145,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     error,
     refreshUser,
     saveGameResult,
+    updateUser, // Добавляем в контекст
   };
 
   return React.createElement(

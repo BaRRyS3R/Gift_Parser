@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Spinner } from '@nextui-org/react'
 import { userService, type TelegramUser, type User } from '@/lib/supabase'
+import { useUser } from '@/hooks/useUser'
 
 interface AuthState {
     isChecking: boolean
@@ -19,6 +20,7 @@ interface AuthState {
 export default function IntroPage() {
     const router = useRouter()
     const videoRef = useRef<HTMLVideoElement>(null)
+    const { refreshUser, updateUser } = useUser() // Используем контекст
 
     // Флаги для предотвращения повторных операций
     const authInitializedRef = useRef<boolean>(false)
@@ -42,7 +44,7 @@ export default function IntroPage() {
         authStateRef.current = authState
     }, [authState])
 
-    // Состояние видео (как в оригинале)
+    // Состояние видео
     const [isLoading, setIsLoading] = useState(true)
     const [loadProgress, setLoadProgress] = useState(0)
     const [fontLoaded, setFontLoaded] = useState(false)
@@ -127,14 +129,21 @@ export default function IntroPage() {
                 error: null
             }))
 
+            console.log('Создаем нового пользователя в БД...')
             const newUser = await userService.create(telegramUser)
+            console.log('Пользователь успешно создан:', newUser)
 
+            // Обновляем локальное состояние
             setAuthState(prev => ({
                 ...prev,
                 user: newUser,
                 isRegistering: false,
                 needsRegistration: false
             }))
+
+            // КРИТИЧНО: Обновляем контекст приложения
+            console.log('Обновляем контекст пользователя...')
+            updateUser(newUser)
 
             return newUser
         } catch (error) {
@@ -148,7 +157,7 @@ export default function IntroPage() {
         } finally {
             registrationInProgressRef.current = false
         }
-    }, [])
+    }, [updateUser])
 
     const initializeAuth = useCallback(async () => {
         if (authInitializedRef.current) return
@@ -178,13 +187,16 @@ export default function IntroPage() {
             console.log('Результат проверки пользователя:', existingUser)
 
             if (existingUser) {
-                console.log('Пользователь найден в базе данных, перенаправляем на /main')
+                console.log('Пользователь найден в базе данных, обновляем контекст и перенаправляем на /main')
                 setAuthState(prev => ({
                     ...prev,
                     user: existingUser,
                     isChecking: false,
                     needsRegistration: false
                 }))
+
+                // Обновляем контекст для существующего пользователя
+                updateUser(existingUser)
 
                 setTimeout(() => {
                     router.push('/main')
@@ -205,9 +217,9 @@ export default function IntroPage() {
                 error: `Ошибка подключения к базе данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`
             }))
         }
-    }, [getTelegramUser, checkUserExists, router])
+    }, [getTelegramUser, checkUserExists, router, updateUser])
 
-    // Инициализация Service Worker и шрифта (как в оригинале)
+    // Инициализация Service Worker и шрифта
     useEffect(() => {
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
@@ -224,7 +236,7 @@ export default function IntroPage() {
         }
     }, [])
 
-    // Инициализация видео (как в оригинале)
+    // Инициализация видео
     useEffect(() => {
         const video = videoRef.current
         if (!video) return
@@ -266,8 +278,9 @@ export default function IntroPage() {
             if (currentAuthState.telegramUser && !currentAuthState.user && !currentAuthState.isRegistering) {
                 console.log('Начинаем регистрацию после видео')
                 registerUser(currentAuthState.telegramUser)
-                    .then(() => {
-                        console.log('Регистрация успешна, перенаправляем на main')
+                    .then((registeredUser) => {
+                        console.log('Регистрация успешна, пользователь:', registeredUser)
+                        console.log('Перенаправляем на main через 1 секунду')
                         // После успешной регистрации перенаправляем на main
                         setTimeout(() => {
                             router.push('/main')
@@ -275,9 +288,13 @@ export default function IntroPage() {
                     })
                     .catch(error => {
                         console.error('Ошибка регистрации после видео:', error)
-                        // Даже при ошибке регистрации перенаправляем на main
+                        // Даже при ошибке регистрации пытаемся обновить контекст
                         setTimeout(() => {
-                            router.push('/main')
+                            refreshUser().then(() => {
+                                router.push('/main')
+                            }).catch(() => {
+                                router.push('/main')
+                            })
                         }, 2000)
                     })
             } else if (currentAuthState.user) {
@@ -287,9 +304,13 @@ export default function IntroPage() {
             } else {
                 console.log('Условия для регистрации не выполнены, принудительно перенаправляем')
                 console.log('Детали состояния:', currentAuthState)
-                // Принудительно перенаправляем, если что-то пошло не так
+                // Принудительно обновляем контекст и перенаправляем
                 setTimeout(() => {
-                    router.push('/main')
+                    refreshUser().then(() => {
+                        router.push('/main')
+                    }).catch(() => {
+                        router.push('/main')
+                    })
                 }, 1000)
             }
         }
@@ -314,7 +335,7 @@ export default function IntroPage() {
             video.removeEventListener('ended', handleEnded)
             video.removeEventListener('error', handleError)
         }
-    }, [router, authState.user])
+    }, [router, registerUser, refreshUser])
 
     // Инициализация авторизации
     useEffect(() => {
@@ -323,7 +344,7 @@ export default function IntroPage() {
         }
     }, [initializeAuth])
 
-    // Функция запуска видео (оригинальная логика без регистрации)
+    // Функция запуска видео
     const handleStart = async () => {
         const video = videoRef.current
         if (!video) return
@@ -346,7 +367,8 @@ export default function IntroPage() {
         }
 
         try {
-            await registerUser(authState.telegramUser)
+            const registeredUser = await registerUser(authState.telegramUser)
+            console.log('Быстрая регистрация успешна:', registeredUser)
             setTimeout(() => {
                 router.push('/main')
             }, 1000)
@@ -430,7 +452,7 @@ export default function IntroPage() {
                                 </p>
                             </div>
 
-                            {/* Кнопка init (как в оригинале) */}
+                            {/* Кнопка init */}
                             {isReady && !isLoading && (
                                 <div className="space-y-4">
                                     <button
@@ -455,7 +477,7 @@ export default function IntroPage() {
                 </div>
             )}
 
-            {/* Видео контейнер (как в оригинале) */}
+            {/* Видео контейнер */}
             <div className={`video-container ${isPlaying ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}>
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
