@@ -202,10 +202,20 @@ export default function IntroPage() {
         }
 
         const handleEnded = () => {
+            console.log('Видео завершено')
+            console.log('Состояние авторизации:', {
+                telegramUser: !!authState.telegramUser,
+                user: !!authState.user,
+                isRegistering: authState.isRegistering,
+                needsRegistration: authState.needsRegistration
+            })
+
             // Выполняем регистрацию пользователя после окончания видео
             if (authState.telegramUser && !authState.user && !authState.isRegistering) {
+                console.log('Начинаем регистрацию после видео')
                 registerUser(authState.telegramUser)
                     .then(() => {
+                        console.log('Регистрация успешна, перенаправляем на main')
                         // После успешной регистрации перенаправляем на main
                         setTimeout(() => {
                             router.push('/main')
@@ -219,8 +229,15 @@ export default function IntroPage() {
                         }, 2000)
                     })
             } else if (authState.user) {
+                console.log('Пользователь уже зарегистрирован, перенаправляем на main')
                 // Если пользователь уже зарегистрирован, просто перенаправляем
                 router.push('/main')
+            } else {
+                console.log('Условия для регистрации не выполнены')
+                // Принудительно перенаправляем, если что-то пошло не так
+                setTimeout(() => {
+                    router.push('/main')
+                }, 1000)
             }
         }
 
