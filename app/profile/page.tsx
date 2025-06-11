@@ -41,7 +41,7 @@ export default function ProfilePage() {
                 setIsLoadingData(true)
 
                 const [history, overallRank, easyRank, mediumRank, hardRank, legendaryRank, omgRank] = await Promise.all([
-                    userService.getGameHistory(telegramUser.id, 20),
+                    userService.getGameHistory(telegramUser.id, 15),
                     userService.getUserRanking(telegramUser.id),
                     userService.getUserDifficultyRanking(telegramUser.id, 'easy'),
                     userService.getUserDifficultyRanking(telegramUser.id, 'medium'),
@@ -71,28 +71,6 @@ export default function ProfilePage() {
         }
     }, [telegramUser, userLoading])
 
-    const getDifficultyColor = (difficulty: GameDifficulty) => {
-        switch (difficulty) {
-            case GameDifficulty.EASY: return 'text-green-400'
-            case GameDifficulty.MEDIUM: return 'text-yellow-400'
-            case GameDifficulty.HARD: return 'text-blue-400'
-            case GameDifficulty.LEGENDARY: return 'text-orange-400'
-            case GameDifficulty.OMG: return 'text-red-400'
-            default: return 'text-white'
-        }
-    }
-
-    const getDifficultyGradient = (difficulty: GameDifficulty) => {
-        switch (difficulty) {
-            case GameDifficulty.EASY: return 'from-green-400/10 to-green-600/5'
-            case GameDifficulty.MEDIUM: return 'from-yellow-400/10 to-yellow-600/5'
-            case GameDifficulty.HARD: return 'from-blue-400/10 to-blue-600/5'
-            case GameDifficulty.LEGENDARY: return 'from-orange-400/10 to-orange-600/5'
-            case GameDifficulty.OMG: return 'from-red-400/10 to-red-600/5'
-            default: return 'from-white/10 to-white/5'
-        }
-    }
-
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             month: 'short',
@@ -107,39 +85,31 @@ export default function ProfilePage() {
 
         const achievements = []
 
-        if (user.total_games >= 10) achievements.push({ icon: Target, name: 'Veteran', desc: '10+ games played', color: 'text-purple-400' })
-        if (user.total_games >= 50) achievements.push({ icon: Medal, name: 'Expert', desc: '50+ games played', color: 'text-blue-400' })
-        if (user.total_games >= 100) achievements.push({ icon: Award, name: 'Master', desc: '100+ games played', color: 'text-orange-400' })
-        if (user.best_score >= 25) achievements.push({ icon: Star, name: 'High Scorer', desc: '25+ best score', color: 'text-yellow-400' })
-        if (user.best_accuracy >= 90) achievements.push({ icon: Zap, name: 'Sharpshooter', desc: '90%+ accuracy', color: 'text-green-400' })
-        if (rankings.overall && rankings.overall <= 10) achievements.push({ icon: Trophy, name: 'Top 10', desc: 'Top 10 player', color: 'text-red-400' })
+        if (user.total_games >= 10) achievements.push({ icon: Target, name: 'Veteran', desc: '10+ games played' })
+        if (user.total_games >= 50) achievements.push({ icon: Medal, name: 'Expert', desc: '50+ games played' })
+        if (user.total_games >= 100) achievements.push({ icon: Award, name: 'Master', desc: '100+ games played' })
+        if (user.best_score >= 25) achievements.push({ icon: Star, name: 'High Scorer', desc: '25+ best score' })
+        if (user.best_accuracy >= 90) achievements.push({ icon: Zap, name: 'Sharpshooter', desc: '90%+ accuracy' })
+        if (rankings.overall && rankings.overall <= 10) achievements.push({ icon: Trophy, name: 'Top 10', desc: 'Top 10 player' })
 
         return achievements
     }
 
     const getProfileLevel = () => {
         const totalGames = user?.total_games || 0
-        if (totalGames >= 100) return { level: 'MASTER', color: 'text-red-400', bg: 'bg-red-400/20' }
-        if (totalGames >= 50) return { level: 'EXPERT', color: 'text-orange-400', bg: 'bg-orange-400/20' }
-        if (totalGames >= 20) return { level: 'VETERAN', color: 'text-blue-400', bg: 'bg-blue-400/20' }
-        if (totalGames >= 10) return { level: 'SKILLED', color: 'text-green-400', bg: 'bg-green-400/20' }
-        return { level: 'ROOKIE', color: 'text-gray-400', bg: 'bg-gray-400/20' }
+        if (totalGames >= 100) return { level: 'MASTER', color: 'text-white' }
+        if (totalGames >= 50) return { level: 'EXPERT', color: 'text-white' }
+        if (totalGames >= 20) return { level: 'VETERAN', color: 'text-white' }
+        if (totalGames >= 10) return { level: 'SKILLED', color: 'text-white' }
+        return { level: 'ROOKIE', color: 'text-white/60' }
     }
 
     if (userLoading || isLoadingData) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
-                    <div className="relative">
-                        <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto"></div>
-                        <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-blue-400 rounded-full animate-spin mx-auto" style={{ animationDelay: '0.1s' }}></div>
-                    </div>
-                    <p className="text-white font-bpdots text-lg">Loading profile...</p>
-                    <div className="flex space-x-1 justify-center">
-                        <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
-                        <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                        <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                    </div>
+                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto"></div>
+                    <p className="text-white font-bpdots">Loading profile...</p>
                 </div>
             </div>
         )
@@ -149,11 +119,8 @@ export default function ProfilePage() {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
-                    <div className="w-20 h-20 bg-gradient-to-br from-red-400/20 to-red-600/10 rounded-full flex items-center justify-center mx-auto">
-                        <User size={32} className="text-red-400" />
-                    </div>
-                    <p className="text-white font-bpdots text-xl">Profile not found</p>
-                    <p className="text-white/60 font-bpdots text-sm">Please try again later</p>
+                    <User size={32} className="text-white/60 mx-auto" />
+                    <p className="text-white font-bpdots">Profile not found</p>
                 </div>
             </div>
         )
@@ -162,42 +129,37 @@ export default function ProfilePage() {
     const profileLevel = getProfileLevel()
 
     return (
-        <div className="min-h-screen bg-black text-white pb-24 relative overflow-hidden">
-            {/* Background Effects */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-green-500/5"></div>
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 via-purple-400 to-green-400"></div>
-
+        <div className="min-h-screen bg-black text-white pb-20 px-4 pt-12">
             {/* Header */}
-            <div className="relative pt-16 pb-8 px-6">
-                <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 space-y-6 animate-fade-in shadow-2xl">
+            <div className="mb-6">
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
                     {/* User Info */}
-                    <div className="flex items-center space-x-6">
+                    <div className="flex items-center space-x-4 mb-4">
                         <div className="relative">
-                            <div className="w-20 h-20 bg-gradient-to-br from-blue-400/30 to-purple-400/30 rounded-2xl flex items-center justify-center shadow-lg">
-                                <User size={32} className="text-white" />
+                            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                                <User size={20} className="text-white" />
                             </div>
-                            <div className={`absolute -bottom-2 -right-2 ${profileLevel.bg} ${profileLevel.color} px-2 py-1 rounded-lg text-xs font-bpdots font-bold`}>
+                            <div className="absolute -bottom-1 -right-1 bg-white/20 px-1 py-0.5 rounded text-xs font-bpdots font-bold">
                                 {profileLevel.level}
                             </div>
                         </div>
                         <div className="flex-1">
-                            <h1 className="text-2xl font-bold font-bpdots bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
+                            <h1 className="text-lg font-bold font-bpdots text-white">
                                 {user.first_name} {user.last_name || ''}
                             </h1>
                             {user.username && (
-                                <p className="text-white/60 font-bpdots text-sm">@{user.username}</p>
+                                <p className="text-white/60 font-bpdots text-xs">@{user.username}</p>
                             )}
-                            <div className="flex items-center space-x-3 mt-2">
+                            <div className="flex items-center space-x-2 mt-1">
                                 {user.is_premium && (
-                                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-yellow-400/20 to-yellow-600/20 border border-yellow-400/30 text-yellow-400 text-xs font-bpdots font-bold">
-                                        <Star size={12} className="mr-1" />
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-white/20 text-white text-xs font-bpdots">
+                                        <Star size={10} className="mr-1" />
                                         PREMIUM
                                     </span>
                                 )}
                                 {rankings.overall && (
-                                    <span className="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-blue-400/20 to-blue-600/20 border border-blue-400/30 text-blue-400 text-xs font-bpdots font-bold">
-                                        <Trophy size={12} className="mr-1" />
-                                        #{rankings.overall} GLOBAL
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-white/20 text-white text-xs font-bpdots">
+                                        #{rankings.overall}
                                     </span>
                                 )}
                             </div>
@@ -205,26 +167,20 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Quick Stats Grid */}
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center p-4 bg-gradient-to-br from-white/10 to-white/5 rounded-xl border border-white/10">
-                            <div className="flex items-center justify-center mb-2">
-                                <Activity size={16} className="text-white/60" />
-                            </div>
-                            <div className="text-2xl font-bold font-bpdots text-white">{user.total_games}</div>
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="text-center p-2 bg-white/10 rounded-lg">
+                            <Activity size={12} className="text-white/60 mx-auto mb-1" />
+                            <div className="text-lg font-bold font-bpdots text-white">{user.total_games}</div>
                             <div className="text-xs font-bpdots text-white/60">GAMES</div>
                         </div>
-                        <div className="text-center p-4 bg-gradient-to-br from-green-400/20 to-green-600/10 rounded-xl border border-green-400/20">
-                            <div className="flex items-center justify-center mb-2">
-                                <Target size={16} className="text-green-400" />
-                            </div>
-                            <div className="text-2xl font-bold font-bpdots text-green-400">{user.best_score}</div>
-                            <div className="text-xs font-bpdots text-white/60">BEST SCORE</div>
+                        <div className="text-center p-2 bg-white/10 rounded-lg">
+                            <Target size={12} className="text-white/60 mx-auto mb-1" />
+                            <div className="text-lg font-bold font-bpdots text-white">{user.best_score}</div>
+                            <div className="text-xs font-bpdots text-white/60">BEST</div>
                         </div>
-                        <div className="text-center p-4 bg-gradient-to-br from-blue-400/20 to-blue-600/10 rounded-xl border border-blue-400/20">
-                            <div className="flex items-center justify-center mb-2">
-                                <Zap size={16} className="text-blue-400" />
-                            </div>
-                            <div className="text-2xl font-bold font-bpdots text-blue-400">{user.best_accuracy}%</div>
+                        <div className="text-center p-2 bg-white/10 rounded-lg">
+                            <Zap size={12} className="text-white/60 mx-auto mb-1" />
+                            <div className="text-lg font-bold font-bpdots text-white">{user.best_accuracy}%</div>
                             <div className="text-xs font-bpdots text-white/60">ACCURACY</div>
                         </div>
                     </div>
@@ -232,18 +188,18 @@ export default function ProfilePage() {
             </div>
 
             {/* Tabs */}
-            <div className="px-6 mb-6">
-                <div className="bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-2">
+            <div className="mb-4">
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-1">
                     <div className="flex">
                         {(['stats', 'history', 'achievements'] as const).map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={`
-                  flex-1 py-3 px-4 rounded-xl font-bpdots text-sm font-bold transition-all duration-300
+                  flex-1 py-2 px-3 rounded-lg font-bpdots text-sm font-bold transition-all duration-300
                   ${activeTab === tab
-                                        ? 'bg-gradient-to-r from-white/20 to-white/10 text-white shadow-lg transform scale-105'
-                                        : 'text-white/60 hover:text-white/80 hover:bg-white/5'
+                                        ? 'bg-white/20 text-white'
+                                        : 'text-white/60 hover:text-white/80'
                                     }
                 `}
                             >
@@ -255,45 +211,45 @@ export default function ProfilePage() {
             </div>
 
             {/* Tab Content */}
-            <div className="px-6 space-y-6">
+            <div className="space-y-4">
                 {activeTab === 'stats' && (
-                    <div className="space-y-6 animate-fade-in">
+                    <div className="space-y-4 animate-fade-in">
                         {/* Overall Stats */}
-                        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
-                            <div className="flex items-center space-x-3 mb-6">
-                                <BarChart3 size={24} className="text-blue-400" />
-                                <h3 className="text-xl font-bpdots text-white font-bold">OVERALL STATISTICS</h3>
+                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <BarChart3 size={16} className="text-white/80" />
+                                <h3 className="text-sm font-bpdots text-white font-bold">OVERALL STATISTICS</h3>
                             </div>
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
-                                        <span className="text-white/80 font-bpdots text-sm">Total Score</span>
-                                        <span className="text-white font-bpdots font-bold">{user.total_score}</span>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                                        <span className="text-white/80 font-bpdots text-xs">Total Score</span>
+                                        <span className="text-white font-bpdots text-sm font-bold">{user.total_score}</span>
                                     </div>
-                                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-400/10 to-green-600/5 rounded-xl border border-green-400/20">
-                                        <span className="text-white/80 font-bpdots text-sm">Correct Hits</span>
-                                        <span className="text-green-400 font-bpdots font-bold">{user.total_correct_hits}</span>
+                                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                                        <span className="text-white/80 font-bpdots text-xs">Correct</span>
+                                        <span className="text-white font-bpdots text-sm font-bold">{user.total_correct_hits}</span>
                                     </div>
-                                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-red-400/10 to-red-600/5 rounded-xl border border-red-400/20">
-                                        <span className="text-white/80 font-bpdots text-sm">Wrong Hits</span>
-                                        <span className="text-red-400 font-bpdots font-bold">{user.total_wrong_hits}</span>
+                                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                                        <span className="text-white/80 font-bpdots text-xs">Wrong</span>
+                                        <span className="text-white font-bpdots text-sm font-bold">{user.total_wrong_hits}</span>
                                     </div>
                                 </div>
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-orange-400/10 to-orange-600/5 rounded-xl border border-orange-400/20">
-                                        <span className="text-white/80 font-bpdots text-sm">Missed</span>
-                                        <span className="text-orange-400 font-bpdots font-bold">{user.total_missed_circles}</span>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                                        <span className="text-white/80 font-bpdots text-xs">Missed</span>
+                                        <span className="text-white font-bpdots text-sm font-bold">{user.total_missed_circles}</span>
                                     </div>
-                                    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-purple-400/10 to-purple-600/5 rounded-xl border border-purple-400/20">
-                                        <span className="text-white/80 font-bpdots text-sm">Avg Score</span>
-                                        <span className="text-purple-400 font-bpdots font-bold">
+                                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                                        <span className="text-white/80 font-bpdots text-xs">Avg Score</span>
+                                        <span className="text-white font-bpdots text-sm font-bold">
                                             {user.total_games > 0 ? Math.round(user.total_score / user.total_games) : 0}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
-                                        <span className="text-white/80 font-bpdots text-sm">Last Played</span>
+                                    <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
+                                        <span className="text-white/80 font-bpdots text-xs">Last Played</span>
                                         <span className="text-white/80 font-bpdots text-xs">
-                                            {user.last_played_at ? formatDate(user.last_played_at) : 'Never'}
+                                            {user.last_played_at ? formatDate(user.last_played_at).split(',')[0] : 'Never'}
                                         </span>
                                     </div>
                                 </div>
@@ -301,12 +257,12 @@ export default function ProfilePage() {
                         </div>
 
                         {/* Difficulty Stats */}
-                        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
-                            <div className="flex items-center space-x-3 mb-6">
-                                <Trophy size={24} className="text-yellow-400" />
-                                <h3 className="text-xl font-bpdots text-white font-bold">DIFFICULTY BREAKDOWN</h3>
+                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <Trophy size={16} className="text-white/80" />
+                                <h3 className="text-sm font-bpdots text-white font-bold">DIFFICULTY BREAKDOWN</h3>
                             </div>
-                            <div className="space-y-4">
+                            <div className="space-y-2">
                                 {Object.values(GameDifficulty).map((difficulty) => {
                                     const gamesCount = (user as any)[`${difficulty}_games`]
                                     const bestScore = (user as any)[`${difficulty}_best_score`]
@@ -315,19 +271,19 @@ export default function ProfilePage() {
                                     if (gamesCount === 0) return null
 
                                     return (
-                                        <div key={difficulty} className={`flex items-center justify-between p-4 bg-gradient-to-r ${getDifficultyGradient(difficulty)} rounded-xl border border-white/10 hover:scale-105 transition-transform duration-300`}>
+                                        <div key={difficulty} className="flex items-center justify-between p-2 bg-white/10 rounded-lg">
                                             <div>
-                                                <div className={`font-bpdots font-bold ${getDifficultyColor(difficulty)}`}>
+                                                <div className="font-bpdots font-bold text-white text-sm">
                                                     {GAME_CONFIGS[difficulty].name}
                                                 </div>
                                                 <div className="text-xs text-white/60 font-bpdots">
-                                                    {gamesCount} games played
+                                                    {gamesCount} games
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-white font-bpdots font-bold">Best: {bestScore}</div>
+                                                <div className="text-white font-bpdots font-bold text-sm">Best: {bestScore}</div>
                                                 {ranking && (
-                                                    <div className="text-xs text-yellow-400 font-bpdots font-bold">
+                                                    <div className="text-xs text-white/60 font-bpdots">
                                                         Rank #{ranking}
                                                     </div>
                                                 )}
@@ -341,24 +297,23 @@ export default function ProfilePage() {
                 )}
 
                 {activeTab === 'history' && (
-                    <div className="space-y-6 animate-fade-in">
-                        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
-                            <div className="flex items-center space-x-3 mb-6">
-                                <Calendar size={24} className="text-green-400" />
-                                <h3 className="text-xl font-bpdots text-white font-bold">RECENT GAMES</h3>
+                    <div className="space-y-4 animate-fade-in">
+                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <Calendar size={16} className="text-white/80" />
+                                <h3 className="text-sm font-bpdots text-white font-bold">RECENT GAMES</h3>
                             </div>
                             {gameHistory.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <Clock size={48} className="text-white/40 mx-auto mb-4" />
-                                    <p className="text-white/60 font-bpdots text-lg">No games played yet</p>
-                                    <p className="text-white/40 font-bpdots text-sm mt-2">Start playing to see your game history!</p>
+                                <div className="text-center py-6">
+                                    <Clock size={24} className="text-white/40 mx-auto mb-2" />
+                                    <p className="text-white/60 font-bpdots text-sm">No games played yet</p>
                                 </div>
                             ) : (
-                                <div className="space-y-3">
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
                                     {gameHistory.map((game) => (
-                                        <div key={game.id} className={`flex items-center justify-between p-4 bg-gradient-to-r ${getDifficultyGradient(game.difficulty as GameDifficulty)} rounded-xl border border-white/10 hover:scale-105 transition-transform duration-300`}>
+                                        <div key={game.id} className="flex items-center justify-between p-2 bg-white/10 rounded-lg">
                                             <div>
-                                                <div className={`font-bpdots font-bold ${getDifficultyColor(game.difficulty as GameDifficulty)}`}>
+                                                <div className="font-bpdots font-bold text-white text-sm">
                                                     {GAME_CONFIGS[game.difficulty as GameDifficulty]?.name || game.difficulty}
                                                 </div>
                                                 <div className="text-xs text-white/60 font-bpdots">
@@ -366,11 +321,11 @@ export default function ProfilePage() {
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <div className={`font-bpdots font-bold ${game.score >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                <div className="font-bpdots font-bold text-sm text-white">
                                                     {game.score >= 0 ? '+' : ''}{game.score}
                                                 </div>
                                                 <div className="text-xs text-white/60 font-bpdots">
-                                                    {game.accuracy}% accuracy
+                                                    {game.accuracy}% acc
                                                 </div>
                                             </div>
                                         </div>
@@ -382,35 +337,35 @@ export default function ProfilePage() {
                 )}
 
                 {activeTab === 'achievements' && (
-                    <div className="space-y-6 animate-fade-in">
-                        <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
-                            <div className="flex items-center space-x-3 mb-6">
-                                <Award size={24} className="text-purple-400" />
-                                <h3 className="text-xl font-bpdots text-white font-bold">ACHIEVEMENTS</h3>
+                    <div className="space-y-4 animate-fade-in">
+                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <Award size={16} className="text-white/80" />
+                                <h3 className="text-sm font-bpdots text-white font-bold">ACHIEVEMENTS</h3>
                             </div>
-                            <div className="grid grid-cols-1 gap-4">
+                            <div className="space-y-2">
                                 {getAchievements().map((achievement, index) => {
                                     const Icon = achievement.icon
                                     return (
-                                        <div key={index} className="flex items-center space-x-4 p-4 bg-gradient-to-r from-white/10 to-white/5 rounded-xl border border-white/10 hover:scale-105 transition-transform duration-300">
-                                            <div className={`w-12 h-12 bg-gradient-to-br from-yellow-400/30 to-yellow-600/20 rounded-xl flex items-center justify-center ${achievement.color}`}>
-                                                <Icon size={24} />
+                                        <div key={index} className="flex items-center space-x-3 p-2 bg-white/10 rounded-lg">
+                                            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                                                <Icon size={16} className="text-white" />
                                             </div>
                                             <div className="flex-1">
-                                                <div className="font-bpdots text-white font-bold">{achievement.name}</div>
+                                                <div className="font-bpdots text-white font-bold text-sm">{achievement.name}</div>
                                                 <div className="text-xs text-white/60 font-bpdots">{achievement.desc}</div>
                                             </div>
-                                            <div className="w-8 h-8 bg-gradient-to-br from-green-400/30 to-green-600/20 rounded-full flex items-center justify-center">
-                                                <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                                            <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center">
+                                                <div className="w-2 h-2 bg-white rounded-full"></div>
                                             </div>
                                         </div>
                                     )
                                 })}
                                 {getAchievements().length === 0 && (
-                                    <div className="text-center py-12">
-                                        <Star size={48} className="text-white/40 mx-auto mb-4" />
-                                        <p className="text-white/60 font-bpdots text-lg">No achievements unlocked</p>
-                                        <p className="text-white/40 font-bpdots text-sm mt-2">Play more games to unlock achievements!</p>
+                                    <div className="text-center py-6">
+                                        <Star size={24} className="text-white/40 mx-auto mb-2" />
+                                        <p className="text-white/60 font-bpdots text-sm">No achievements unlocked</p>
+                                        <p className="text-white/40 font-bpdots text-xs mt-1">Play more games to unlock achievements!</p>
                                     </div>
                                 )}
                             </div>
