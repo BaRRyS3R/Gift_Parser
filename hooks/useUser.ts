@@ -19,7 +19,8 @@ interface UserContextType {
   error: string | null;
   refreshUser: () => Promise<void>;
   saveGameResult: (gameResult: any) => Promise<void>;
-  updateUser: (userData: User) => void; // Добавляем метод для прямого обновления пользователя
+  updateUser: (userData: User) => void;
+  setTelegramUser: (userData: TelegramUser) => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -30,30 +31,15 @@ interface UserProviderProps {
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
+  const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const getTelegramUser = useCallback((): TelegramUser | null => {
-    if (typeof window === "undefined" || !window.Telegram?.WebApp) {
-      return null;
-    }
-
-    const tg = window.Telegram.WebApp;
-    const telegramUserData = tg.initDataUnsafe?.user;
-
-    if (!telegramUserData || !telegramUserData.id) {
-      return null;
-    }
-
-    return {
-      id: telegramUserData.id,
-      first_name: telegramUserData.first_name,
-      last_name: telegramUserData.last_name,
-      username: telegramUserData.username,
-      language_code: telegramUserData.language_code,
-      is_premium: telegramUserData.is_premium,
-    };
+  // Метод для установки Telegram пользователя в контекст
+  const setTelegramUserData = useCallback((tgUserData: TelegramUser) => {
+    console.log('useUser - Setting telegram user data:', tgUserData);
+    setTelegramUserState(tgUserData);
+    setIsLoading(false);
   }, []);
 
   // Метод для прямого обновления пользователя в контексте
@@ -61,43 +47,39 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     console.log('useUser - Updating user data directly:', userData);
     setUser(userData);
     setError(null);
+    setIsLoading(false);
   }, []);
 
   const refreshUser = useCallback(async (): Promise<void> => {
+    if (!telegramUser) {
+      console.log('useUser - No telegram user available for refresh');
+      return;
+    }
+
     try {
-      console.log('useUser - Starting refreshUser')
+      console.log('useUser - Refreshing user data for:', telegramUser.id);
       setIsLoading(true);
       setError(null);
 
-      const tgUser = getTelegramUser();
-      console.log('useUser - Telegram User:', tgUser)
-
-      if (!tgUser) {
-        throw new Error("Данные пользователя Telegram недоступны");
-      }
-
-      setTelegramUser(tgUser);
-
       // Однократная попытка поиска пользователя в БД
-      console.log('useUser - Fetching user from DB:', tgUser.id)
-      const dbUser = await userService.findByTelegramId(tgUser.id);
-      console.log('useUser - DB User:', dbUser)
+      const dbUser = await userService.findByTelegramId(telegramUser.id);
+      console.log('useUser - DB User:', dbUser);
 
       if (dbUser) {
-        console.log('useUser - User found, updating context')
+        console.log('useUser - User found, updating context');
         setUser(dbUser);
       } else {
-        console.log('useUser - User not found in database')
-        // Не устанавливаем ошибку, так как это может быть новый пользователь
+        console.log('useUser - User not found in database');
+        setUser(null);
       }
     } catch (err) {
       console.error("useUser - Error updating user data:", err);
       setError(err instanceof Error ? err.message : "Неизвестная ошибка");
     } finally {
       setIsLoading(false);
-      console.log('useUser - refreshUser completed')
+      console.log('useUser - refreshUser completed');
     }
-  }, [getTelegramUser]);
+  }, [telegramUser]);
 
   const saveGameResult = useCallback(
     async (gameResult: any): Promise<void> => {
@@ -116,11 +98,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     [telegramUser, refreshUser],
   );
 
-  useEffect(() => {
-    console.log('useUser - Initial effect triggered')
-    refreshUser();
-  }, [refreshUser]);
-
   const contextValue: UserContextType = {
     user,
     telegramUser,
@@ -128,7 +105,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     error,
     refreshUser,
     saveGameResult,
-    updateUser, // Добавляем в контекст
+    updateUser,
+    setTelegramUser: setTelegramUserData,
   };
 
   return React.createElement(
