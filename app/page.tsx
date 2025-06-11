@@ -202,8 +202,24 @@ export default function IntroPage() {
         }
 
         const handleEnded = () => {
-            // Перенаправляем на main только если пользователь зарегистрирован
-            if (authState.user) {
+            // Выполняем регистрацию пользователя после окончания видео
+            if (authState.telegramUser && !authState.user && !authState.isRegistering) {
+                registerUser(authState.telegramUser)
+                    .then(() => {
+                        // После успешной регистрации перенаправляем на main
+                        setTimeout(() => {
+                            router.push('/main')
+                        }, 1000)
+                    })
+                    .catch(error => {
+                        console.error('Ошибка регистрации после видео:', error)
+                        // Даже при ошибке регистрации перенаправляем на main
+                        setTimeout(() => {
+                            router.push('/main')
+                        }, 2000)
+                    })
+            } else if (authState.user) {
+                // Если пользователь уже зарегистрирован, просто перенаправляем
                 router.push('/main')
             }
         }
@@ -237,7 +253,7 @@ export default function IntroPage() {
         }
     }, [initializeAuth])
 
-    // Функция запуска видео с регистрацией (оригинальная логика + регистрация)
+    // Функция запуска видео (оригинальная логика без регистрации)
     const handleStart = async () => {
         const video = videoRef.current
         if (!video) return
@@ -247,13 +263,6 @@ export default function IntroPage() {
             await video.play()
             setIsPlaying(true)
             setVideoError(null)
-
-            // Регистрируем пользователя параллельно с воспроизведением видео
-            if (authState.telegramUser && !authState.user) {
-                registerUser(authState.telegramUser).catch(error => {
-                    console.error('Ошибка регистрации во время видео:', error)
-                })
-            }
         } catch (err) {
             console.error('Video play error:', err)
             setVideoError('Failed to play video. Please try again.')
