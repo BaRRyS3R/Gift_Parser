@@ -36,15 +36,26 @@ export default function ProfilePage() {
 
     useEffect(() => {
         const loadProfileData = async () => {
-            if (!telegramUser?.id) return
+            console.log('Profile Page - Starting to load data')
+            console.log('Telegram User:', telegramUser)
+            console.log('User from context:', user)
+            console.log('User Loading state:', userLoading)
+
+            if (!telegramUser?.id) {
+                console.log('No Telegram User ID available')
+                return
+            }
 
             try {
                 setIsLoadingData(true)
+                console.log('Fetching game history for user:', telegramUser.id)
 
                 // Загружаем историю игр
                 const history = await userService.getGameHistory(telegramUser.id, 20)
+                console.log('Game history loaded:', history)
                 setGameHistory(history)
 
+                console.log('Fetching rankings for user:', telegramUser.id)
                 // Загружаем рейтинги
                 const [overallRank, easyRank, mediumRank, hardRank, legendaryRank, omgRank] = await Promise.all([
                     userService.getUserRanking(telegramUser.id),
@@ -54,6 +65,15 @@ export default function ProfilePage() {
                     userService.getUserDifficultyRanking(telegramUser.id, 'legendary'),
                     userService.getUserDifficultyRanking(telegramUser.id, 'omg'),
                 ])
+
+                console.log('Rankings loaded:', {
+                    overall: overallRank,
+                    easy: easyRank,
+                    medium: mediumRank,
+                    hard: hardRank,
+                    legendary: legendaryRank,
+                    omg: omgRank
+                })
 
                 setRankings({
                     overall: overallRank,
@@ -67,11 +87,18 @@ export default function ProfilePage() {
                 console.error('Error loading profile data:', error)
             } finally {
                 setIsLoadingData(false)
+                console.log('Profile data loading completed')
             }
         }
 
         if (telegramUser && !userLoading) {
+            console.log('Profile Page - Effect triggered with telegramUser and !userLoading')
             loadProfileData()
+        } else {
+            console.log('Profile Page - Effect not triggered because:', {
+                hasTelegramUser: !!telegramUser,
+                userLoading
+            })
         }
     }, [telegramUser, userLoading])
 
