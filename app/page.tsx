@@ -24,6 +24,7 @@ export default function IntroPage() {
     const authInitializedRef = useRef<boolean>(false)
     const registrationInProgressRef = useRef<boolean>(false)
 
+    // Состояние авторизации
     const [authState, setAuthState] = useState<AuthState>({
         isChecking: true,
         isRegistering: false,
@@ -33,14 +34,13 @@ export default function IntroPage() {
         needsRegistration: false
     })
 
-    const [contentState, setContentState] = useState({
-        isLoading: true,
-        loadProgress: 0,
-        fontLoaded: false,
-        isReady: false,
-        isPlaying: false,
-        videoError: false
-    })
+    // Состояние видео (как в оригинале)
+    const [isLoading, setIsLoading] = useState(true)
+    const [loadProgress, setLoadProgress] = useState(0)
+    const [fontLoaded, setFontLoaded] = useState(false)
+    const [videoError, setVideoError] = useState<string | null>(null)
+    const [isReady, setIsReady] = useState(false)
+    const [isPlaying, setIsPlaying] = useState(false)
 
     const getTelegramUser = useCallback((): TelegramUser | null => {
         if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
@@ -66,8 +66,7 @@ export default function IntroPage() {
 
     const checkUserExists = useCallback(async (telegramUser: TelegramUser): Promise<User | null> => {
         try {
-            const existingUser = await userService.findByTelegramId(telegramUser.id)
-            return existingUser
+            return await userService.findByTelegramId(telegramUser.id)
         } catch (error) {
             console.error('Ошибка при проверке пользователя:', error)
             throw error
@@ -88,9 +87,7 @@ export default function IntroPage() {
                 error: null
             }))
 
-            console.log('Начинаем регистрацию пользователя:', telegramUser.id)
             const newUser = await userService.create(telegramUser)
-            console.log('Пользователь успешно зарегистрирован:', newUser.id)
 
             setAuthState(prev => ({
                 ...prev,
@@ -114,15 +111,11 @@ export default function IntroPage() {
     }, [])
 
     const initializeAuth = useCallback(async () => {
-        if (authInitializedRef.current) {
-            return
-        }
+        if (authInitializedRef.current) return
 
         authInitializedRef.current = true
 
         try {
-            console.log('Инициализация авторизации...')
-
             const telegramUser = getTelegramUser()
 
             if (!telegramUser) {
@@ -134,13 +127,11 @@ export default function IntroPage() {
                 return
             }
 
-            console.log('Данные Telegram пользователя получены:', telegramUser.id)
             setAuthState(prev => ({ ...prev, telegramUser }))
 
             const existingUser = await checkUserExists(telegramUser)
 
             if (existingUser) {
-                console.log('Пользователь найден в базе данных:', existingUser.id)
                 setAuthState(prev => ({
                     ...prev,
                     user: existingUser,
@@ -148,12 +139,10 @@ export default function IntroPage() {
                     needsRegistration: false
                 }))
 
-                // Небольшая задержка перед перенаправлением для плавности
                 setTimeout(() => {
                     router.push('/main')
                 }, 500)
             } else {
-                console.log('Пользователь не найден, требуется регистрация')
                 setAuthState(prev => ({
                     ...prev,
                     isChecking: false,
@@ -170,64 +159,7 @@ export default function IntroPage() {
         }
     }, [getTelegramUser, checkUserExists, router])
 
-    const handleInitWithVideo = async () => {
-        if (!authState.telegramUser || authState.isRegistering || registrationInProgressRef.current) {
-            return
-        }
-
-        try {
-            const video = videoRef.current
-            if (!video || contentState.videoError) {
-                await handleQuickInit()
-                return
-            }
-
-            // Показываем видео контейнер
-            setContentState(prev => ({ ...prev, isPlaying: true }))
-
-            // Настройка видео для воспроизведения со звуком
-            video.currentTime = 0
-            video.muted = false // Включаем звук для воспроизведения
-            video.volume = 1.0 // Устанавливаем полную громкость
-
-            // Воспроизведение видео со звуком после пользовательского действия
-            try {
-                await video.play()
-                console.log('Видео с аудио успешно запущено')
-            } catch (playError) {
-                console.error('Ошибка воспроизведения видео:', playError)
-                // При ошибке воспроизведения переходим к быстрой регистрации
-                await handleQuickInit()
-                return
-            }
-
-            // Параллельно выполняем регистрацию пользователя
-            await registerUser(authState.telegramUser)
-
-        } catch (error) {
-            console.error('Ошибка при инициализации с видео:', error)
-            await handleQuickInit()
-        }
-    }
-
-    const handleQuickInit = async () => {
-        if (!authState.telegramUser || authState.isRegistering || registrationInProgressRef.current) {
-            return
-        }
-
-        try {
-            await registerUser(authState.telegramUser)
-
-            // Небольшая задержка перед перенаправлением
-            setTimeout(() => {
-                router.push('/main')
-            }, 1000)
-        } catch (error) {
-            console.error('Ошибка быстрой регистрации:', error)
-        }
-    }
-
-    // Service Worker инициализация
+    // Инициализация Service Worker и шрифта (как в оригинале)
     useEffect(() => {
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
@@ -237,23 +169,21 @@ export default function IntroPage() {
 
         if ('fonts' in document) {
             document.fonts.load('1rem "BPDots Diamond"')
-                .then(() => setContentState(prev => ({ ...prev, fontLoaded: true })))
-                .catch(() => setContentState(prev => ({ ...prev, fontLoaded: true })))
+                .then(() => setFontLoaded(true))
+                .catch(() => setFontLoaded(true))
         } else {
-            setTimeout(() => setContentState(prev => ({ ...prev, fontLoaded: true })), 1000)
+            setTimeout(() => setFontLoaded(true), 1000)
         }
     }, [])
 
-    // Видео инициализация
+    // Инициализация видео (как в оригинале)
     useEffect(() => {
         const video = videoRef.current
         if (!video) return
 
         const handleLoadedMetadata = () => {
-            // Настройка видео для воспроизведения со звуком после пользовательского действия
-            video.volume = 1.0 // Полная громкость для воспроизведения
-            video.muted = false // Звук включен по умолчанию
-            setContentState(prev => ({ ...prev, isReady: true }))
+            video.volume = 1
+            setIsReady(true)
         }
 
         const handleProgress = () => {
@@ -262,30 +192,26 @@ export default function IntroPage() {
                 const duration = video.duration
                 if (duration > 0) {
                     const progress = (bufferedEnd / duration) * 100
-                    setContentState(prev => ({ ...prev, loadProgress: progress }))
+                    setLoadProgress(progress)
                 }
             }
         }
 
         const handleCanPlayThrough = () => {
-            setContentState(prev => ({ ...prev, isLoading: false }))
+            setIsLoading(false)
         }
 
         const handleEnded = () => {
-            // Перенаправление после завершения видео при наличии зарегистрированного пользователя
+            // Перенаправляем на main только если пользователь зарегистрирован
             if (authState.user) {
                 router.push('/main')
             }
         }
 
         const handleError = (e: Event) => {
-            console.error('Ошибка загрузки видео:', e)
-            setContentState(prev => ({ ...prev, videoError: true, isLoading: false }))
+            console.error('Video error:', e)
+            setVideoError('Failed to load video. Please try again.')
         }
-
-        // Конфигурация видео элемента для кроссплатформенной совместимости
-        video.setAttribute('playsinline', 'true')
-        video.setAttribute('webkit-playsinline', 'true')
 
         video.addEventListener('loadedmetadata', handleLoadedMetadata)
         video.addEventListener('progress', handleProgress)
@@ -304,16 +230,53 @@ export default function IntroPage() {
         }
     }, [router, authState.user])
 
-    // Однократная инициализация авторизации
+    // Инициализация авторизации
     useEffect(() => {
         if (!authInitializedRef.current) {
             initializeAuth()
         }
     }, [initializeAuth])
 
-    const isInitialLoading = authState.isChecking ||
-        (contentState.isLoading && !contentState.videoError) ||
-        !contentState.fontLoaded
+    // Функция запуска видео с регистрацией (оригинальная логика + регистрация)
+    const handleStart = async () => {
+        const video = videoRef.current
+        if (!video) return
+
+        try {
+            video.currentTime = 0
+            await video.play()
+            setIsPlaying(true)
+            setVideoError(null)
+
+            // Регистрируем пользователя параллельно с воспроизведением видео
+            if (authState.telegramUser && !authState.user) {
+                registerUser(authState.telegramUser).catch(error => {
+                    console.error('Ошибка регистрации во время видео:', error)
+                })
+            }
+        } catch (err) {
+            console.error('Video play error:', err)
+            setVideoError('Failed to play video. Please try again.')
+        }
+    }
+
+    // Быстрая регистрация без видео
+    const handleQuickInit = async () => {
+        if (!authState.telegramUser || authState.isRegistering || registrationInProgressRef.current) {
+            return
+        }
+
+        try {
+            await registerUser(authState.telegramUser)
+            setTimeout(() => {
+                router.push('/main')
+            }, 1000)
+        } catch (error) {
+            console.error('Ошибка быстрой регистрации:', error)
+        }
+    }
+
+    const isInitialLoading = authState.isChecking || (isLoading && !videoError) || !fontLoaded
 
     return (
         <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -323,16 +286,16 @@ export default function IntroPage() {
                     <div className="progress-bar">
                         <div
                             className="progress-bar-fill"
-                            style={{ width: `${contentState.loadProgress}%` }}
+                            style={{ width: `${loadProgress}%` }}
                         />
                     </div>
                     <p className="text-white mt-4 text-sm font-bpdots">
-                        {authState.isChecking ? 'Проверка пользователя...' : `Загрузка... ${Math.round(contentState.loadProgress)}%`}
+                        {authState.isChecking ? 'Проверка пользователя...' : `Загрузка... ${Math.round(loadProgress)}%`}
                     </p>
                 </div>
             )}
 
-            {/* Экран ошибки */}
+            {/* Экран ошибки авторизации */}
             {authState.error && !isInitialLoading && (
                 <div className="loader-container">
                     <p className="text-white text-center font-bpdots mb-4">{authState.error}</p>
@@ -350,8 +313,27 @@ export default function IntroPage() {
                 </div>
             )}
 
+            {/* Экран ошибки видео */}
+            {videoError && !isInitialLoading && !authState.error && (
+                <div className="loader-container">
+                    <p className="text-white text-center font-bpdots mb-4">{videoError}</p>
+                    <button
+                        onClick={handleStart}
+                        className="px-4 py-2 bg-white text-black rounded font-bpdots mb-4"
+                    >
+                        Повторить
+                    </button>
+                    <button
+                        onClick={handleQuickInit}
+                        className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg font-bpdots text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
+                    >
+                        Продолжить без видео
+                    </button>
+                </div>
+            )}
+
             {/* Экран регистрации */}
-            {authState.needsRegistration && !authState.isChecking && !authState.error && authState.telegramUser && (
+            {authState.needsRegistration && !authState.isChecking && !authState.error && !videoError && (
                 <div className="loader-container">
                     {authState.isRegistering ? (
                         <div className="text-center">
@@ -365,45 +347,46 @@ export default function IntroPage() {
                                     Добро пожаловать!
                                 </h1>
                                 <p className="text-gray-400 font-bpdots">
-                                    {authState.telegramUser.first_name}, выберите способ входа
+                                    {authState.telegramUser?.first_name}, выберите способ входа
                                 </p>
                             </div>
 
-                            <div className="space-y-4">
-                                <button
-                                    onClick={handleInitWithVideo}
-                                    disabled={contentState.videoError || authState.isRegistering}
-                                    className="block px-8 py-4 bg-transparent border-2 border-white text-white rounded-lg font-bpdots text-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    -init-/
-                                </button>
+                            {/* Кнопка init (как в оригинале) */}
+                            {isReady && !isLoading && !isPlaying && (
+                                <div className="space-y-4">
+                                    <button
+                                        onClick={handleStart}
+                                        disabled={authState.isRegistering}
+                                        className="block px-8 py-4 bg-transparent border-2 border-white text-white rounded-lg font-bpdots text-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        -init-/
+                                    </button>
 
-                                <button
-                                    onClick={handleQuickInit}
-                                    disabled={authState.isRegistering}
-                                    className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg font-bpdots text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Быстрый вход (для слабых устройств)
-                                </button>
-                            </div>
+                                    <button
+                                        onClick={handleQuickInit}
+                                        disabled={authState.isRegistering}
+                                        className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg font-bpdots text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Быстрый вход (для слабых устройств)
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Видео контейнер */}
-            <div className={`video-container ${contentState.isPlaying ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}>
+            {/* Видео контейнер (как в оригинале) */}
+            <div className={`video-container ${isPlaying ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}>
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
                     ref={videoRef}
                     className="video-player"
                     playsInline
-                    muted
                     preload="auto"
-                    aria-label="Вступительное видео приложения"
                 >
                     <source src="/videos/intro.mp4" type="video/mp4" />
-                    Ваш браузер не поддерживает воспроизведение видео.
+                    Your browser does not support the video tag.
                 </video>
             </div>
         </div>
