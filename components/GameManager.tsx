@@ -15,6 +15,7 @@ import {
     createCircleGrid,
     getRandomActivationDelay
 } from '@/utils/gameUtils'
+import { useUser } from '@/hooks/useUser'
 import GameGrid from './GameGrid'
 import GameTimer from './GameTimer'
 import GameResults from './GameResults'
@@ -28,11 +29,14 @@ const GAME_DURATION = 30 // 30 секунд
 
 export default function GameManager({ difficulty, onBackToMenu }: GameManagerProps) {
     const config = GAME_CONFIGS[difficulty]
+    const { saveGameResult } = useUser()
 
     const [circles, setCircles] = useState<Circle[]>(() => createCircleGrid(config.circleCount))
     const [gameState, setGameState] = useState<GameState>(GameState.NOT_STARTED)
     const [timeLeft, setTimeLeft] = useState(GAME_DURATION)
     const [showCircles, setShowCircles] = useState(false)
+    const [isSavingResult, setIsSavingResult] = useState(false)
+    const [saveError, setSaveError] = useState<string | null>(null)
 
     const [stats, setStats] = useState<GameStats>({
         score: 0,
@@ -82,15 +86,11 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const activateRandomCircles = useCallback(() => {
         if (gameState !== GameState.PLAYING) return
 
-        // Получаем текущие активные круги из ref
         const currentActiveIds = activeCirclesRef.current
-
-        // Получаем ID неактивных кружков
         const inactiveIds = Array.from({ length: config.circleCount }, (_, i) => i)
             .filter(id => !currentActiveIds.has(id))
 
         if (inactiveIds.length === 0) {
-            // Если все круги активны, планируем следующую попытку
             activationTimeoutRef.current = setTimeout(
                 () => activateRandomCircles(),
                 getRandomActivationDelay(config)
@@ -98,36 +98,27 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             return
         }
 
-        // Определяем количество кружков для активации
         const maxToActivate = Math.min(config.maxSimultaneousCircles, inactiveIds.length)
         const numToActivate = Math.max(1, Math.floor(Math.random() * maxToActivate) + 1)
 
-        // Выбираем случайные кружки
         const shuffled = [...inactiveIds].sort(() => Math.random() - 0.5)
         const selectedIds = shuffled.slice(0, numToActivate)
 
-        console.log('Activating circles:', selectedIds)
-
-        // Добавляем в активные
         selectedIds.forEach(id => activeCirclesRef.current.add(id))
 
-        // Активируем выбранные кружки в UI
         setCircles(prev => prev.map(circle =>
             selectedIds.includes(circle.id)
                 ? { ...circle, isActive: true, isAnimating: false }
                 : circle
         ))
 
-        // Обновляем статистику
         setStats(prev => ({
             ...prev,
             totalCircles: prev.totalCircles + selectedIds.length
         }))
 
-        // Устанавливаем таймеры автоматической деактивации
         selectedIds.forEach(circleId => {
             const timeout = setTimeout(() => {
-                console.log('Auto-deactivating circle:', circleId)
                 setStats(prev => ({
                     ...prev,
                     score: prev.score - 1,
@@ -139,7 +130,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             circleTimeoutsRef.current.set(circleId, timeout)
         })
 
-        // Планируем следующую активацию
         activationTimeoutRef.current = setTimeout(
             () => activateRandomCircles(),
             getRandomActivationDelay(config)
@@ -154,7 +144,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         if (!circle) return
 
         if (circle.isActive && !circle.isAnimating) {
-            console.log('Correct hit on circle:', circleId)
             setStats(prev => ({
                 ...prev,
                 score: prev.score + 1,
@@ -170,7 +159,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             }, 300)
 
         } else if (!circle.isActive && !circle.isAnimating) {
-            console.log('Wrong click on circle:', circleId)
             setStats(prev => ({
                 ...prev,
                 score: prev.score - 1,
@@ -179,14 +167,44 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }
     }, [gameState, circles, deactivateCircle])
 
+    // Сохранение результата игры
+    const handleGameFinish = useCallback(async (finalStats: GameStats) => {
+        const result: GameResult = {
+            difficulty,
+            score: finalStats.score,
+            correctHits: finalStats.correctHits,
+            wrongHits: finalStats.wrongHits,
+            missedCircles: finalStats.missedCircles,
+            accuracy: finalStats.correctHits + finalStats.wrongHits > 0
+                ? Math.round((finalStats.correctHits / (finalStats.correctHits + finalStats.wrongHits)) * 100)
+                : 0,
+            duration: GAME_DURATION
+        }
+
+        setIsSavingResult(true)
+        setSaveError(null)
+
+        try {
+            await saveGameResult(result)
+        } catch (error) {
+            console.error('Ошибка при сохранении результата игры:', error)
+            setSaveError('Ошибка при сохранении результата игры')
+        } finally {
+            setIsSavingResult(false)
+        }
+
+        return result
+    }, [difficulty, saveGameResult])
+
     // Запуск игры
     const startGame = useCallback(() => {
-        console.log('Starting game...')
         clearAllTimeouts()
         activeCirclesRef.current.clear()
 
         setGameState(GameState.STARTING)
         setTimeLeft(GAME_DURATION)
+        setIsSavingResult(false)
+        setSaveError(null)
         setStats({
             score: 0,
             correctHits: 0,
@@ -196,22 +214,16 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         })
         setCircles(createCircleGrid(config.circleCount))
 
-        // Показать кружки
         setTimeout(() => {
             setShowCircles(true)
         }, 50)
 
-        // Запустить игру
         setTimeout(() => {
-            console.log('Starting game mechanics')
             setGameState(GameState.PLAYING)
 
-            // Запустить основной таймер игры
             gameTimerRef.current = setInterval(() => {
                 setTimeLeft(prevTime => {
-                    console.log('Timer tick, time left:', prevTime - 1)
                     if (prevTime <= 1) {
-                        console.log('Game finished by timer')
                         setGameState(GameState.FINISHED)
                         return 0
                     }
@@ -219,9 +231,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 })
             }, 1000)
 
-            // Запустить активацию кружков с небольшой задержкой
             setTimeout(() => {
-                console.log('Starting circle activations')
                 activateRandomCircles()
             }, 500)
 
@@ -231,55 +241,64 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     // Инициализация игры при монтировании
     useEffect(() => {
         startGame()
-
         return () => {
             clearAllTimeouts()
         }
-    }, []) // Убираем зависимости для предотвращения повторных вызовов
+    }, [])
 
     // Эффект для отслеживания изменения gameState
     useEffect(() => {
         if (gameState === GameState.PLAYING) {
-            // Убеждаемся, что активация запущена
             if (!activationTimeoutRef.current) {
-                console.log('Restarting circle activations')
                 activateRandomCircles()
             }
         } else if (gameState === GameState.FINISHED) {
-            console.log('Game finished, clearing all timeouts')
             clearAllTimeouts()
+            // Сохраняем результат игры
+            handleGameFinish(stats)
         }
-    }, [gameState, activateRandomCircles, clearAllTimeouts])
+    }, [gameState, activateRandomCircles, clearAllTimeouts, handleGameFinish, stats])
 
     // Перезапуск игры
     const restartGame = useCallback(() => {
-        console.log('Restarting game...')
         setShowCircles(false)
         setTimeout(() => {
             startGame()
         }, 300)
     }, [startGame])
 
-    // Показ результатов
-    if (gameState === GameState.FINISHED) {
-        const result: GameResult = {
-            difficulty,
-            score: stats.score,
-            correctHits: stats.correctHits,
-            wrongHits: stats.wrongHits,
-            missedCircles: stats.missedCircles,
-            accuracy: stats.correctHits + stats.wrongHits > 0
-                ? Math.round((stats.correctHits / (stats.correctHits + stats.wrongHits)) * 100)
-                : 0,
-            duration: GAME_DURATION
-        }
+    // Обработка результатов игры
+    const [gameResult, setGameResult] = useState<GameResult | null>(null)
 
+    useEffect(() => {
+        if (gameState === GameState.FINISHED && !gameResult) {
+            const result: GameResult = {
+                difficulty,
+                score: stats.score,
+                correctHits: stats.correctHits,
+                wrongHits: stats.wrongHits,
+                missedCircles: stats.missedCircles,
+                accuracy: stats.correctHits + stats.wrongHits > 0
+                    ? Math.round((stats.correctHits / (stats.correctHits + stats.wrongHits)) * 100)
+                    : 0,
+                duration: GAME_DURATION
+            }
+            setGameResult(result)
+        }
+    }, [gameState, stats, gameResult, difficulty])
+
+    // Показ результатов
+    if (gameState === GameState.FINISHED && gameResult) {
         return (
-            <GameResults
-                result={result}
-                onPlayAgain={restartGame}
-                onBackToMenu={onBackToMenu}
-            />
+            <div className="relative">
+                <GameResults
+                    result={gameResult}
+                    onPlayAgain={restartGame}
+                    onBackToMenu={onBackToMenu}
+                    isSaving={isSavingResult}
+                    saveError={saveError}
+                />
+            </div>
         )
     }
 

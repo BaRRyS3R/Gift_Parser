@@ -4,14 +4,23 @@
 
 import { GameResult, GameDifficulty } from '../types/game'
 import { GAME_CONFIGS, calculateAccuracy } from '../utils/gameUtils'
+import { Spinner } from '@nextui-org/react'
 
 interface GameResultsProps {
     result: GameResult
     onPlayAgain: () => void
     onBackToMenu: () => void
+    isSaving?: boolean
+    saveError?: string | null
 }
 
-export default function GameResults({ result, onPlayAgain, onBackToMenu }: GameResultsProps) {
+export default function GameResults({
+    result,
+    onPlayAgain,
+    onBackToMenu,
+    isSaving = false,
+    saveError = null
+}: GameResultsProps) {
     const config = GAME_CONFIGS[result.difficulty]
     const totalClicks = result.correctHits + result.wrongHits
     const accuracy = calculateAccuracy(result.correctHits, totalClicks)
@@ -31,7 +40,7 @@ export default function GameResults({ result, onPlayAgain, onBackToMenu }: GameR
     }
 
     const getRating = () => {
-        const avgScore = (result.score / 30) * 10 // Нормализуем для 30 секунд
+        const avgScore = (result.score / 30) * 10
         if (avgScore >= 8 && accuracy >= 90) return { text: 'Amazing', color: 'text-green-400' }
         if (avgScore >= 6 && accuracy >= 80) return { text: 'Perfect', color: 'text-yellow-400' }
         if (avgScore >= 4 && accuracy >= 70) return { text: 'Good', color: 'text-blue-400' }
@@ -53,6 +62,31 @@ export default function GameResults({ result, onPlayAgain, onBackToMenu }: GameR
                         Mode: {config.name}
                     </p>
                 </div>
+
+                {/* Состояние сохранения */}
+                {(isSaving || saveError) && (
+                    <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
+                        {isSaving && (
+                            <div className="flex items-center justify-center space-x-3">
+                                <Spinner size="sm" color="white" />
+                                <span className="text-white font-bpdots text-sm">
+                                    Сохранение результата...
+                                </span>
+                            </div>
+                        )}
+
+                        {saveError && (
+                            <div className="text-center">
+                                <div className="text-red-400 font-bpdots text-sm mb-2">
+                                    {saveError}
+                                </div>
+                                <div className="text-gray-400 font-bpdots text-xs">
+                                    Результат не был сохранен в базе данных
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Основная статистика */}
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-6">
@@ -107,14 +141,16 @@ export default function GameResults({ result, onPlayAgain, onBackToMenu }: GameR
                 <div className="space-y-4">
                     <button
                         onClick={onPlayAgain}
-                        className="w-full px-6 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bpdots text-lg hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95"
+                        disabled={isSaving}
+                        className="w-full px-6 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bpdots text-lg hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
                         AGAIN?
                     </button>
 
                     <button
                         onClick={onBackToMenu}
-                        className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
+                        disabled={isSaving}
+                        className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
                         BACK 2 MENU
                     </button>
