@@ -3,7 +3,7 @@
 'use client'
 
 import { GameResult, GameDifficulty } from '../types/game'
-import { GAME_CONFIGS, calculateAccuracy } from '../utils/gameUtils'
+import { GAME_CONFIGS, calculateAccuracy, getAdaptiveLevelDescription } from '../utils/gameUtils'
 import { Spinner } from '@nextui-org/react'
 
 interface GameResultsProps {
@@ -24,30 +24,53 @@ export default function GameResults({
     saveSuccess = false
 }: GameResultsProps) {
     const config = GAME_CONFIGS[result.difficulty]
-    const totalClicks = result.correctHits + result.wrongHits
+    const totalClicks = result.correctHits + result.wrongHits + result.decoyHits
     const accuracy = calculateAccuracy(result.correctHits, totalClicks)
 
     const getScoreColor = () => {
-        if (result.score >= 20) return 'text-green-400'
-        if (result.score >= 10) return 'text-yellow-400'
+        if (result.score >= 30) return 'text-green-400'
+        if (result.score >= 20) return 'text-yellow-400'
+        if (result.score >= 10) return 'text-blue-400'
         if (result.score >= 0) return 'text-white'
         return 'text-red-400'
     }
 
     const getAccuracyColor = () => {
-        if (accuracy >= 90) return 'text-green-400'
-        if (accuracy >= 70) return 'text-yellow-400'
-        if (accuracy >= 50) return 'text-white'
+        if (accuracy >= 95) return 'text-green-400'
+        if (accuracy >= 90) return 'text-yellow-400'
+        if (accuracy >= 80) return 'text-blue-400'
+        if (accuracy >= 70) return 'text-white'
         return 'text-red-400'
     }
 
     const getRating = () => {
-        const avgScore = (result.score / 30) * 10
-        if (avgScore >= 8 && accuracy >= 90) return { text: 'Amazing', color: 'text-green-400' }
-        if (avgScore >= 6 && accuracy >= 80) return { text: 'Perfect', color: 'text-yellow-400' }
-        if (avgScore >= 4 && accuracy >= 70) return { text: 'Good', color: 'text-blue-400' }
-        if (avgScore >= 2 && accuracy >= 50) return { text: 'N0T BAD', color: 'text-white' }
-        return { text: 'How about a little practice?', color: 'text-red-400' }
+        const scorePerSecond = result.score / 30
+        const hasGoodAccuracy = accuracy >= 85
+        const hasFastReaction = result.averageReactionTime <= 200
+
+        if (scorePerSecond >= 1.5 && hasGoodAccuracy && hasFastReaction) {
+            return { text: 'LEGENDARY PERFORMANCE', color: 'text-yellow-400' }
+        }
+        if (scorePerSecond >= 1.2 && hasGoodAccuracy) {
+            return { text: 'EXCEPTIONAL SKILL', color: 'text-green-400' }
+        }
+        if (scorePerSecond >= 0.8 && accuracy >= 75) {
+            return { text: 'STRONG EXECUTION', color: 'text-blue-400' }
+        }
+        if (scorePerSecond >= 0.5 && accuracy >= 60) {
+            return { text: 'SOLID PERFORMANCE', color: 'text-white' }
+        }
+        if (scorePerSecond >= 0.2) {
+            return { text: 'DEVELOPING SKILLS', color: 'text-orange-400' }
+        }
+        return { text: 'PRACTICE RECOMMENDED', color: 'text-red-400' }
+    }
+
+    const getReactionTimeColor = () => {
+        if (result.averageReactionTime <= 150) return 'text-green-400'
+        if (result.averageReactionTime <= 200) return 'text-yellow-400'
+        if (result.averageReactionTime <= 300) return 'text-white'
+        return 'text-red-400'
     }
 
     const rating = getRating()
@@ -55,24 +78,27 @@ export default function GameResults({
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-6">
             <div className="w-full max-w-md space-y-8 animate-fade-in">
-                {/* Заголовок */}
                 <div className="text-center space-y-2">
                     <h1 className="text-4xl font-bold font-bpdots text-white">
-                        RESULT
+                        PERFORMANCE ANALYSIS
                     </h1>
                     <p className="text-lg font-bpdots text-gray-400">
-                        Mode: {config.name}
+                        {config.name} Difficulty Mode
                     </p>
+                    {result.adaptiveLevel > 0 && (
+                        <p className="text-sm font-bpdots text-yellow-400">
+                            Adaptive Level: {getAdaptiveLevelDescription(result.adaptiveLevel)}
+                        </p>
+                    )}
                 </div>
 
-                {/* Состояние сохранения */}
                 {(isSaving || saveError || saveSuccess) && (
                     <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                         {isSaving && (
                             <div className="flex items-center justify-center space-x-3">
                                 <Spinner size="sm" color="white" />
                                 <span className="text-white font-bpdots text-sm">
-                                    Сохранение результата в базу данных...
+                                    Processing result submission to database system
                                 </span>
                             </div>
                         )}
@@ -80,10 +106,10 @@ export default function GameResults({
                         {saveSuccess && !isSaving && (
                             <div className="text-center">
                                 <div className="text-green-400 font-bpdots text-sm mb-2">
-                                    ✓ Результат успешно сохранен в базу данных
+                                    ✓ Performance data successfully recorded in database
                                 </div>
                                 <div className="text-gray-400 font-bpdots text-xs">
-                                    Ваша статистика обновлена
+                                    Statistical metrics have been updated accordingly
                                 </div>
                             </div>
                         )}
@@ -94,41 +120,37 @@ export default function GameResults({
                                     ✗ {saveError}
                                 </div>
                                 <div className="text-gray-400 font-bpdots text-xs">
-                                    Результат игры не был сохранен в базе данных
+                                    Session data was not persisted to database
                                 </div>
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Основная статистика */}
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-6">
-                    {/* Итоговая оценка */}
                     <div className="text-center">
                         <div className={`text-2xl font-bold font-bpdots ${rating.color}`}>
                             {rating.text}
                         </div>
                     </div>
 
-                    {/* Очки */}
                     <div className="text-center space-y-1">
-                        <div className="text-sm font-bpdots text-gray-400">SCORE</div>
+                        <div className="text-sm font-bpdots text-gray-400">FINAL SCORE</div>
                         <div className={`text-3xl font-bold font-bpdots ${getScoreColor()}`}>
                             {result.score >= 0 ? '+' : ''}{result.score}
                         </div>
                     </div>
 
-                    {/* Детальная статистика */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="text-center space-y-1">
-                            <div className="text-xs font-bpdots text-gray-400">CORRECT</div>
+                            <div className="text-xs font-bpdots text-gray-400">SUCCESSFUL</div>
                             <div className="text-xl font-bold font-bpdots text-green-400">
                                 {result.correctHits}
                             </div>
                         </div>
 
                         <div className="text-center space-y-1">
-                            <div className="text-xs font-bpdots text-gray-400">WRONG</div>
+                            <div className="text-xs font-bpdots text-gray-400">INCORRECT</div>
                             <div className="text-xl font-bold font-bpdots text-red-400">
                                 {result.wrongHits}
                             </div>
@@ -142,22 +164,57 @@ export default function GameResults({
                         </div>
 
                         <div className="text-center space-y-1">
-                            <div className="text-xs font-bpdots text-gray-400">ACCURACY</div>
+                            <div className="text-xs font-bpdots text-gray-400">PRECISION</div>
                             <div className={`text-xl font-bold font-bpdots ${getAccuracyColor()}`}>
                                 {accuracy}%
                             </div>
                         </div>
                     </div>
+
+                    {(result.decoyHits > 0 || result.fastHits > 0 || result.averageReactionTime > 0) && (
+                        <div className="border-t border-white/10 pt-4">
+                            <div className="text-center mb-3">
+                                <div className="text-sm font-bpdots text-gray-400">ADVANCED METRICS</div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                {result.decoyHits > 0 && (
+                                    <div className="text-center space-y-1">
+                                        <div className="text-xs font-bpdots text-gray-400">DECOY HITS</div>
+                                        <div className="text-lg font-bold font-bpdots text-red-400">
+                                            {result.decoyHits}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {result.fastHits > 0 && (
+                                    <div className="text-center space-y-1">
+                                        <div className="text-xs font-bpdots text-gray-400">FAST BONUS</div>
+                                        <div className="text-lg font-bold font-bpdots text-yellow-400">
+                                            {result.fastHits}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {result.averageReactionTime > 0 && (
+                                    <div className="text-center space-y-1 col-span-2">
+                                        <div className="text-xs font-bpdots text-gray-400">AVG RESPONSE TIME</div>
+                                        <div className={`text-lg font-bold font-bpdots ${getReactionTimeColor()}`}>
+                                            {result.averageReactionTime}ms
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Кнопки действий */}
                 <div className="space-y-4">
                     <button
                         onClick={onPlayAgain}
                         disabled={isSaving}
                         className="w-full px-6 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bpdots text-lg hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
-                        AGAIN?
+                        RETRY SESSION
                     </button>
 
                     <button
@@ -165,7 +222,7 @@ export default function GameResults({
                         disabled={isSaving}
                         className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
-                        BACK 2 MENU
+                        RETURN TO MENU
                     </button>
                 </div>
             </div>

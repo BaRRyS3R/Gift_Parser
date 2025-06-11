@@ -8,12 +8,22 @@ import {
     GameStats,
     GameDifficulty,
     GameState,
-    GameResult
+    GameResult,
+    AdaptiveState,
+    ClickTiming
 } from '@/types/game'
 import {
     GAME_CONFIGS,
     createCircleGrid,
-    getRandomActivationDelay
+    getRandomActivationDelay,
+    calculateProgressiveWrongPenalty,
+    calculateDecoyPenalty,
+    calculateFastClickBonus,
+    updateAdaptiveState,
+    shouldCreateDecoy,
+    getAdjustedCircleActiveTime,
+    calculateScoreMultiplier,
+    getAdaptiveLevelDescription
 } from '@/utils/gameUtils'
 import { useUser } from '@/hooks/useUser'
 import GameGrid from './GameGrid'
@@ -25,7 +35,7 @@ interface GameManagerProps {
     onBackToMenu: () => void
 }
 
-const GAME_DURATION = 30 // 30 секунд
+const GAME_DURATION = 30
 
 export default function GameManager({ difficulty, onBackToMenu }: GameManagerProps) {
     const config = GAME_CONFIGS[difficulty]
@@ -41,10 +51,22 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         correctHits: 0,
         wrongHits: 0,
         missedCircles: 0,
-        totalCircles: 0
+        totalCircles: 0,
+        decoyHits: 0,
+        consecutiveHits: 0,
+        consecutiveMisses: 0,
+        fastHits: 0,
+        totalReactionTime: 0,
+        hitCount: 0
     })
 
-    // Состояния для отображения процесса сохранения
+    const [adaptiveState, setAdaptiveState] = useState<AdaptiveState>({
+        level: 0,
+        activationSpeedMultiplier: 1,
+        simultaneousMultiplier: 1,
+        activeTimeMultiplier: 1
+    })
+
     const [isSavingResult, setIsSavingResult] = useState(false)
     const [saveError, setSaveError] = useState<string | null>(null)
     const [saveSuccess, setSaveSuccess] = useState(false)
@@ -53,11 +75,9 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const circleTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map())
     const activationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const activeCirclesRef = useRef<Set<number>>(new Set())
-
-    // Флаг для предотвращения множественного сохранения
+    const circleActivationTimesRef = useRef<Map<number, number>>(new Map())
     const gameSavedRef = useRef<boolean>(false)
 
-    // Очистка всех таймеров
     const clearAllTimeouts = useCallback(() => {
         if (gameTimerRef.current) {
             clearInterval(gameTimerRef.current)
@@ -71,7 +91,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         circleTimeoutsRef.current.clear()
     }, [])
 
-    // Функция для вызова haptic feedback
     const triggerHapticFeedback = useCallback((type: 'success' | 'error' | 'impact') => {
         if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
             const haptic = window.Telegram.WebApp.HapticFeedback
@@ -90,13 +109,13 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }
     }, [])
 
-    // Деактивация кружка
     const deactivateCircle = useCallback((circleId: number) => {
         activeCirclesRef.current.delete(circleId)
+        circleActivationTimesRef.current.delete(circleId)
 
         setCircles(prev => prev.map(circle =>
             circle.id === circleId
-                ? { ...circle, isActive: false, isAnimating: false }
+                ? { ...circle, isActive: false, isAnimating: false, isDecoy: false }
                 : circle
         ))
 
@@ -107,105 +126,183 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }
     }, [])
 
-    // Активация случайных кружков
     const activateRandomCircles = useCallback(() => {
         if (gameState !== GameState.PLAYING) return
 
-        // Получаем текущие активные круги из ref
         const currentActiveIds = activeCirclesRef.current
         const currentActiveCount = currentActiveIds.size
 
-        // Проверяем, есть ли свободные слоты для активации
-        const availableSlots = config.maxSimultaneousCircles - currentActiveCount
+        let maxSimultaneous = config.maxSimultaneousCircles
+        if (config.adaptiveScaling) {
+            maxSimultaneous = Math.ceil(maxSimultaneous * adaptiveState.simultaneousMultiplier)
+        }
+
+        const availableSlots = maxSimultaneous - currentActiveCount
 
         if (availableSlots <= 0) {
-            // Все слоты заняты, планируем следующую попытку
             activationTimeoutRef.current = setTimeout(
                 () => activateRandomCircles(),
-                getRandomActivationDelay(config)
+                getRandomActivationDelay(config, adaptiveState)
             )
             return
         }
 
-        // Получаем ID неактивных кружков
         const inactiveIds = Array.from({ length: config.circleCount }, (_, i) => i)
             .filter(id => !currentActiveIds.has(id))
 
         if (inactiveIds.length === 0) {
-            // Если все круги активны, планируем следующую попытку
             activationTimeoutRef.current = setTimeout(
                 () => activateRandomCircles(),
-                getRandomActivationDelay(config)
+                getRandomActivationDelay(config, adaptiveState)
             )
             return
         }
 
-        // Определяем количество кружков для активации (не больше доступных слотов)
         const maxToActivate = Math.min(availableSlots, inactiveIds.length)
         const numToActivate = Math.min(maxToActivate, Math.max(1, Math.floor(Math.random() * maxToActivate) + 1))
 
-        // Выбираем случайные кружки
         const shuffled = [...inactiveIds].sort(() => Math.random() - 0.5)
         const selectedIds = shuffled.slice(0, numToActivate)
 
         console.log('Activating circles:', selectedIds)
 
-        // Добавляем в активные
-        selectedIds.forEach(id => activeCirclesRef.current.add(id))
+        selectedIds.forEach(id => {
+            activeCirclesRef.current.add(id)
+            circleActivationTimesRef.current.set(id, Date.now())
+        })
 
-        // Активируем выбранные кружки в UI
-        setCircles(prev => prev.map(circle =>
-            selectedIds.includes(circle.id)
-                ? { ...circle, isActive: true, isAnimating: false }
-                : circle
-        ))
+        const activationResults = selectedIds.map(id => {
+            const isDecoy = shouldCreateDecoy(config.decoyProbability)
+            return { id, isDecoy }
+        })
 
-        // Обновляем статистику
-        setStats(prev => ({
-            ...prev,
-            totalCircles: prev.totalCircles + selectedIds.length
+        setCircles(prev => prev.map(circle => {
+            const activationResult = activationResults.find(result => result.id === circle.id)
+            if (activationResult) {
+                return {
+                    ...circle,
+                    isActive: true,
+                    isAnimating: false,
+                    isDecoy: activationResult.isDecoy
+                }
+            }
+            return circle
         }))
 
-        // Устанавливаем таймеры автоматической деактивации
+        const regularCircles = activationResults.filter(result => !result.isDecoy)
+        setStats(prev => ({
+            ...prev,
+            totalCircles: prev.totalCircles + regularCircles.length
+        }))
+
         selectedIds.forEach(circleId => {
+            const circleResult = activationResults.find(result => result.id === circleId)
+            const activeTime = getAdjustedCircleActiveTime(config.circleActiveTime, adaptiveState)
+
             const timeout = setTimeout(() => {
                 console.log('Auto-deactivating circle:', circleId)
-                setStats(prev => ({
-                    ...prev,
-                    score: prev.score - 1,
-                    missedCircles: prev.missedCircles + 1
-                }))
+
+                if (!circleResult?.isDecoy) {
+                    setStats(prev => {
+                        const penalty = calculateProgressiveWrongPenalty(prev.consecutiveMisses)
+                        const newAdaptive = updateAdaptiveState(
+                            adaptiveState,
+                            0,
+                            prev.consecutiveMisses + 1
+                        )
+
+                        setAdaptiveState(newAdaptive)
+
+                        return {
+                            ...prev,
+                            score: prev.score - penalty,
+                            missedCircles: prev.missedCircles + 1,
+                            consecutiveHits: 0,
+                            consecutiveMisses: prev.consecutiveMisses + 1
+                        }
+                    })
+                }
+
                 deactivateCircle(circleId)
-            }, config.circleActiveTime)
+            }, activeTime)
 
             circleTimeoutsRef.current.set(circleId, timeout)
         })
 
-        // Планируем следующую активацию
         activationTimeoutRef.current = setTimeout(
             () => activateRandomCircles(),
-            getRandomActivationDelay(config)
+            getRandomActivationDelay(config, adaptiveState)
         )
-    }, [config, deactivateCircle, gameState])
+    }, [config, deactivateCircle, gameState, adaptiveState])
 
-    // Обработка нажатия на кружок
     const handleCircleClick = useCallback((circleId: number) => {
         if (gameState !== GameState.PLAYING) return
 
         const circle = circles.find(c => c.id === circleId)
         if (!circle) return
 
+        const clickTime = Date.now()
+        const activationTime = circleActivationTimesRef.current.get(circleId)
+
         if (circle.isActive && !circle.isAnimating) {
-            console.log('Correct hit on circle:', circleId)
+            if (circle.isDecoy) {
+                console.log('Decoy hit on circle:', circleId)
+                triggerHapticFeedback('error')
 
-            // Haptic feedback для успешного попадания
-            triggerHapticFeedback('success')
+                setStats(prev => {
+                    const penalty = calculateDecoyPenalty(prev.consecutiveMisses)
+                    const newAdaptive = updateAdaptiveState(
+                        adaptiveState,
+                        0,
+                        prev.consecutiveMisses + 1
+                    )
 
-            setStats(prev => ({
-                ...prev,
-                score: prev.score + 1,
-                correctHits: prev.correctHits + 1
-            }))
+                    setAdaptiveState(newAdaptive)
+
+                    return {
+                        ...prev,
+                        score: prev.score - penalty,
+                        decoyHits: prev.decoyHits + 1,
+                        consecutiveHits: 0,
+                        consecutiveMisses: prev.consecutiveMisses + 1
+                    }
+                })
+            } else {
+                console.log('Correct hit on circle:', circleId)
+                triggerHapticFeedback('success')
+
+                let reactionTime = 0
+                let fastBonus = 0
+
+                if (activationTime) {
+                    reactionTime = clickTime - activationTime
+                    fastBonus = calculateFastClickBonus(reactionTime, config.fastClickThreshold)
+                }
+
+                setStats(prev => {
+                    const scoreMultiplier = calculateScoreMultiplier(prev.consecutiveHits + 1)
+                    const baseScore = Math.floor(1 * scoreMultiplier) + fastBonus
+
+                    const newAdaptive = updateAdaptiveState(
+                        adaptiveState,
+                        prev.consecutiveHits + 1,
+                        0
+                    )
+
+                    setAdaptiveState(newAdaptive)
+
+                    return {
+                        ...prev,
+                        score: prev.score + baseScore,
+                        correctHits: prev.correctHits + 1,
+                        consecutiveHits: prev.consecutiveHits + 1,
+                        consecutiveMisses: 0,
+                        fastHits: prev.fastHits + (fastBonus > 0 ? 1 : 0),
+                        totalReactionTime: prev.totalReactionTime + reactionTime,
+                        hitCount: prev.hitCount + 1
+                    }
+                })
+            }
 
             setCircles(prev => prev.map(c =>
                 c.id === circleId ? { ...c, isAnimating: true } : c
@@ -217,24 +314,35 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         } else if (!circle.isActive && !circle.isAnimating) {
             console.log('Wrong click on circle:', circleId)
-
-            // Haptic feedback для неправильного нажатия
             triggerHapticFeedback('error')
 
-            setStats(prev => ({
-                ...prev,
-                score: prev.score - 1,
-                wrongHits: prev.wrongHits + 1
-            }))
-        }
-    }, [gameState, circles, deactivateCircle, triggerHapticFeedback])
+            setStats(prev => {
+                const penalty = calculateProgressiveWrongPenalty(prev.consecutiveMisses)
+                const newAdaptive = updateAdaptiveState(
+                    adaptiveState,
+                    0,
+                    prev.consecutiveMisses + 1
+                )
 
-    // Запуск игры
+                setAdaptiveState(newAdaptive)
+
+                return {
+                    ...prev,
+                    score: prev.score - penalty,
+                    wrongHits: prev.wrongHits + 1,
+                    consecutiveHits: 0,
+                    consecutiveMisses: prev.consecutiveMisses + 1
+                }
+            })
+        }
+    }, [gameState, circles, deactivateCircle, triggerHapticFeedback, config, adaptiveState])
+
     const startGame = useCallback(() => {
         console.log('Starting game...')
         clearAllTimeouts()
         activeCirclesRef.current.clear()
-        gameSavedRef.current = false // Сброс флага сохранения
+        circleActivationTimesRef.current.clear()
+        gameSavedRef.current = false
 
         setGameState(GameState.STARTING)
         setTimeLeft(GAME_DURATION)
@@ -246,21 +354,30 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             correctHits: 0,
             wrongHits: 0,
             missedCircles: 0,
-            totalCircles: 0
+            totalCircles: 0,
+            decoyHits: 0,
+            consecutiveHits: 0,
+            consecutiveMisses: 0,
+            fastHits: 0,
+            totalReactionTime: 0,
+            hitCount: 0
+        })
+        setAdaptiveState({
+            level: 0,
+            activationSpeedMultiplier: 1,
+            simultaneousMultiplier: 1,
+            activeTimeMultiplier: 1
         })
         setCircles(createCircleGrid(config.circleCount))
 
-        // Показать кружки
         setTimeout(() => {
             setShowCircles(true)
         }, 50)
 
-        // Запустить игру
         setTimeout(() => {
             console.log('Starting game mechanics')
             setGameState(GameState.PLAYING)
 
-            // Запустить основной таймер игры
             gameTimerRef.current = setInterval(() => {
                 setTimeLeft(prevTime => {
                     console.log('Timer tick, time left:', prevTime - 1)
@@ -273,7 +390,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 })
             }, 1000)
 
-            // Запустить активацию кружков с небольшой задержкой
             setTimeout(() => {
                 console.log('Starting circle activations')
                 activateRandomCircles()
@@ -282,19 +398,15 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }, 1500)
     }, [config.circleCount, clearAllTimeouts, activateRandomCircles])
 
-    // Инициализация игры при монтировании
     useEffect(() => {
         startGame()
-
         return () => {
             clearAllTimeouts()
         }
-    }, []) // Пустой массив зависимостей
+    }, [])
 
-    // Эффект для отслеживания изменения gameState
     useEffect(() => {
         if (gameState === GameState.PLAYING) {
-            // Убеждаемся, что активация запущена
             if (!activationTimeoutRef.current) {
                 console.log('Restarting circle activations')
                 activateRandomCircles()
@@ -303,12 +415,15 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             console.log('Game finished, clearing all timeouts')
             clearAllTimeouts()
 
-            // Сохраняем результат только один раз с отображением состояния
             if (!gameSavedRef.current) {
                 gameSavedRef.current = true
                 setIsSavingResult(true)
                 setSaveError(null)
                 setSaveSuccess(false)
+
+                const averageReactionTime = stats.hitCount > 0
+                    ? Math.round(stats.totalReactionTime / stats.hitCount)
+                    : 0
 
                 const result: GameResult = {
                     difficulty,
@@ -316,10 +431,14 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     correctHits: stats.correctHits,
                     wrongHits: stats.wrongHits,
                     missedCircles: stats.missedCircles,
-                    accuracy: stats.correctHits + stats.wrongHits > 0
-                        ? Math.round((stats.correctHits / (stats.correctHits + stats.wrongHits)) * 100)
+                    decoyHits: stats.decoyHits,
+                    accuracy: stats.correctHits + stats.wrongHits + stats.decoyHits > 0
+                        ? Math.round((stats.correctHits / (stats.correctHits + stats.wrongHits + stats.decoyHits)) * 100)
                         : 0,
-                    duration: GAME_DURATION
+                    duration: GAME_DURATION,
+                    fastHits: stats.fastHits,
+                    averageReactionTime,
+                    adaptiveLevel: adaptiveState.level
                 }
 
                 saveGameResult(result)
@@ -338,9 +457,8 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     })
             }
         }
-    }, [gameState]) // Убраны лишние зависимости
+    }, [gameState])
 
-    // Перезапуск игры
     const restartGame = useCallback(() => {
         console.log('Restarting game...')
         setShowCircles(false)
@@ -349,18 +467,25 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }, 300)
     }, [startGame])
 
-    // Показ результатов
     if (gameState === GameState.FINISHED) {
+        const averageReactionTime = stats.hitCount > 0
+            ? Math.round(stats.totalReactionTime / stats.hitCount)
+            : 0
+
         const result: GameResult = {
             difficulty,
             score: stats.score,
             correctHits: stats.correctHits,
             wrongHits: stats.wrongHits,
             missedCircles: stats.missedCircles,
-            accuracy: stats.correctHits + stats.wrongHits > 0
-                ? Math.round((stats.correctHits / (stats.correctHits + stats.wrongHits)) * 100)
+            decoyHits: stats.decoyHits,
+            accuracy: stats.correctHits + stats.wrongHits + stats.decoyHits > 0
+                ? Math.round((stats.correctHits / (stats.correctHits + stats.wrongHits + stats.decoyHits)) * 100)
                 : 0,
-            duration: GAME_DURATION
+            duration: GAME_DURATION,
+            fastHits: stats.fastHits,
+            averageReactionTime,
+            adaptiveLevel: adaptiveState.level
         }
 
         return (
@@ -377,19 +502,32 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
-            {/* Панель управления */}
             {(gameState === GameState.STARTING || gameState === GameState.PLAYING) && (
                 <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
-                    <div className={`text-2xl font-bpdots transition-colors duration-300 ${stats.score >= 0 ? 'text-white' : 'text-red-400'
-                        }`}>
-                        Score: {stats.score >= 0 ? '+' : ''}{stats.score}
+                    <div className="flex flex-col items-center">
+                        <div className={`text-2xl font-bpdots transition-colors duration-300 ${stats.score >= 0 ? 'text-white' : 'text-red-400'
+                            }`}>
+                            Score: {stats.score >= 0 ? '+' : ''}{stats.score}
+                        </div>
+                        {stats.consecutiveHits > 0 && (
+                            <div className="text-xs font-bpdots text-green-400">
+                                {stats.consecutiveHits} streak
+                            </div>
+                        )}
                     </div>
 
-                    <GameTimer
-                        timeLeft={timeLeft}
-                        totalTime={GAME_DURATION}
-                        isActive={gameState === GameState.PLAYING}
-                    />
+                    <div className="flex flex-col items-center">
+                        <GameTimer
+                            timeLeft={timeLeft}
+                            totalTime={GAME_DURATION}
+                            isActive={gameState === GameState.PLAYING}
+                        />
+                        {config.adaptiveScaling && (
+                            <div className="text-xs font-bpdots text-yellow-400 mt-1">
+                                {getAdaptiveLevelDescription(adaptiveState.level)}
+                            </div>
+                        )}
+                    </div>
 
                     <button
                         onClick={onBackToMenu}
@@ -400,7 +538,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 </div>
             )}
 
-            {/* Игровое поле */}
             <div className="flex-1 flex items-center justify-center">
                 <GameGrid
                     circles={circles}
