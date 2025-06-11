@@ -21,7 +21,7 @@ interface UserRankings {
 }
 
 export default function ProfilePage() {
-    const { user, telegramUser, isLoading: userLoading, refreshUser } = useUser()
+    const { user, telegramUser, isLoading: userLoading } = useUser()
     const [gameHistory, setGameHistory] = useState<GameResultDB[]>([])
     const [rankings, setRankings] = useState<UserRankings>({
         overall: null,
@@ -40,9 +40,6 @@ export default function ProfilePage() {
 
             try {
                 setIsLoadingData(true)
-
-                // Обновляем данные пользователя
-                await refreshUser()
 
                 // Загружаем историю игр
                 const history = await userService.getGameHistory(telegramUser.id, 20)
@@ -76,7 +73,7 @@ export default function ProfilePage() {
         if (telegramUser && !userLoading) {
             loadProfileData()
         }
-    }, [telegramUser, userLoading, refreshUser])
+    }, [telegramUser, userLoading])
 
     const getDifficultyColor = (difficulty: GameDifficulty) => {
         switch (difficulty) {
