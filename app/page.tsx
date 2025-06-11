@@ -43,14 +43,46 @@ export default function IntroPage() {
     const [isPlaying, setIsPlaying] = useState(false)
 
     const getTelegramUser = useCallback((): TelegramUser | null => {
-        if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
+        if (typeof window === 'undefined') {
+            return null
+        }
+
+        // Проверяем наличие Telegram WebApp API
+        if (!window.Telegram?.WebApp) {
+            console.log('Telegram WebApp API недоступен')
+            // Для тестирования вне Telegram возвращаем тестового пользователя
+            if (process.env.NODE_ENV === 'development') {
+                console.log('Возвращаем тестового пользователя для разработки')
+                return {
+                    id: 430743609,
+                    first_name: 'Test User',
+                    last_name: 'Developer',
+                    username: 'testuser',
+                    language_code: 'en',
+                    is_premium: false
+                }
+            }
             return null
         }
 
         const tg = window.Telegram.WebApp
         const user = tg.initDataUnsafe?.user
 
+        console.log('Данные Telegram пользователя:', user)
+
         if (!user || !user.id) {
+            console.log('Пользователь Telegram не найден или некорректен')
+            // Для тестирования возвращаем тестового пользователя
+            if (process.env.NODE_ENV === 'development') {
+                return {
+                    id: 430743609,
+                    first_name: 'Test User',
+                    last_name: 'Developer',
+                    username: 'testuser',
+                    language_code: 'en',
+                    is_premium: false
+                }
+            }
             return null
         }
 
@@ -116,9 +148,13 @@ export default function IntroPage() {
         authInitializedRef.current = true
 
         try {
+            console.log('Инициализация авторизации...')
+
             const telegramUser = getTelegramUser()
+            console.log('Полученный пользователь Telegram:', telegramUser)
 
             if (!telegramUser) {
+                console.error('Данные пользователя Telegram недоступны')
                 setAuthState(prev => ({
                     ...prev,
                     isChecking: false,
@@ -129,9 +165,12 @@ export default function IntroPage() {
 
             setAuthState(prev => ({ ...prev, telegramUser }))
 
+            console.log('Проверяем существование пользователя в БД...')
             const existingUser = await checkUserExists(telegramUser)
+            console.log('Результат проверки пользователя:', existingUser)
 
             if (existingUser) {
+                console.log('Пользователь найден в базе данных, перенаправляем на /main')
                 setAuthState(prev => ({
                     ...prev,
                     user: existingUser,
@@ -143,6 +182,7 @@ export default function IntroPage() {
                     router.push('/main')
                 }, 500)
             } else {
+                console.log('Пользователь не найден в БД, требуется регистрация')
                 setAuthState(prev => ({
                     ...prev,
                     isChecking: false,
@@ -150,11 +190,11 @@ export default function IntroPage() {
                 }))
             }
         } catch (error) {
-            console.error('Ошибка инициализации:', error)
+            console.error('Ошибка инициализации авторизации:', error)
             setAuthState(prev => ({
                 ...prev,
                 isChecking: false,
-                error: 'Ошибка подключения к базе данных'
+                error: `Ошибка подключения к базе данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`
             }))
         }
     }, [getTelegramUser, checkUserExists, router])
