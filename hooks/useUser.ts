@@ -78,12 +78,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const dbUser = await userService.findByTelegramId(tgUser.id);
       console.log('useUser - DB User:', dbUser)
 
-      if (!dbUser) {
-        console.log('useUser - User not found in DB, trying to create...')
-        const newUser = await userService.create(tgUser);
-        console.log('useUser - Created new user:', newUser)
-        setUser(newUser);
-      } else {
+      if (dbUser) {
         setUser(dbUser);
       }
     } catch (err) {
