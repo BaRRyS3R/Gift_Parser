@@ -342,7 +342,7 @@ export default function IntroPage() {
             )}
 
             {/* Экран регистрации */}
-            {authState.needsRegistration && !authState.isChecking && !authState.error && !videoError && (
+            {authState.needsRegistration && !authState.isChecking && !authState.error && !videoError && !isPlaying && (
                 <div className="loader-container">
                     {authState.isRegistering ? (
                         <div className="text-center">
@@ -361,7 +361,7 @@ export default function IntroPage() {
                             </div>
 
                             {/* Кнопка init (как в оригинале) */}
-                            {isReady && !isLoading && !isPlaying && (
+                            {isReady && !isLoading && (
                                 <div className="space-y-4">
                                     <button
                                         onClick={handleStart}
