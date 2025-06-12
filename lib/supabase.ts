@@ -150,7 +150,7 @@ export const userService = {
     },
 
     // Обновление статистики пользователя после игры
-    async updateGameStats(telegramId: number, gameResult: any): Promise<void> {
+    async updateGameStats(telegramId: number, gameResult: GameResultDB): Promise<void> {
         const user = await this.findByTelegramId(telegramId);
 
         if (!user) throw new Error("User not found");
@@ -159,13 +159,13 @@ export const userService = {
         const difficultyBestField = `${gameResult.difficulty}_best_score`;
 
         // Подготовка базовых обновлений
-        const updates: any = {
+        const updates: Partial<User> = {
             total_games: user.total_games + 1,
             total_score: user.total_score + gameResult.score,
             best_score: Math.max(user.best_score, gameResult.score),
-            total_correct_hits: user.total_correct_hits + gameResult.correctHits,
-            total_wrong_hits: user.total_wrong_hits + gameResult.wrongHits,
-            total_missed_circles: user.total_missed_circles + gameResult.missedCircles,
+            total_correct_hits: user.total_correct_hits + gameResult.correct_hits,
+            total_wrong_hits: user.total_wrong_hits + gameResult.wrong_hits,
+            total_missed_circles: user.total_missed_circles + gameResult.missed_circles,
             best_accuracy: Math.max(user.best_accuracy, gameResult.accuracy),
             [difficultyField]: (user as any)[difficultyField] + 1,
             [difficultyBestField]: Math.max(
@@ -176,24 +176,24 @@ export const userService = {
         };
 
         // Добавление новых расширенных метрик
-        if (gameResult.decoyHits !== undefined) {
-            updates.total_decoy_hits = (user.total_decoy_hits || 0) + gameResult.decoyHits;
+        if (gameResult.decoy_hits !== undefined) {
+            updates.total_decoy_hits = (user.total_decoy_hits || 0) + gameResult.decoy_hits;
         }
 
-        if (gameResult.fastHits !== undefined) {
-            updates.total_fast_hits = (user.total_fast_hits || 0) + gameResult.fastHits;
+        if (gameResult.fast_hits !== undefined) {
+            updates.total_fast_hits = (user.total_fast_hits || 0) + gameResult.fast_hits;
         }
 
-        if (gameResult.averageReactionTime !== undefined && gameResult.averageReactionTime > 0) {
-            if (!user.best_reaction_time || gameResult.averageReactionTime < user.best_reaction_time) {
-                updates.best_reaction_time = gameResult.averageReactionTime;
+        if (gameResult.average_reaction_time !== undefined && gameResult.average_reaction_time > 0) {
+            if (!user.best_reaction_time || gameResult.average_reaction_time < user.best_reaction_time) {
+                updates.best_reaction_time = gameResult.average_reaction_time;
             }
         }
 
-        if (gameResult.adaptiveLevel !== undefined) {
+        if (gameResult.adaptive_level !== undefined) {
             updates.max_adaptive_level = Math.max(
                 user.max_adaptive_level || 0,
-                gameResult.adaptiveLevel
+                gameResult.adaptive_level
             );
         }
 
@@ -209,47 +209,32 @@ export const userService = {
     },
 
     // Сохранение результата игры
-    async saveGameResult(telegramId: number, gameResult: any): Promise<void> {
+    async saveGameResult(telegramId: number, gameResult: GameResultDB): Promise<void> {
         const user = await this.findByTelegramId(telegramId);
 
         if (!user) throw new Error("User not found");
 
-        // Базовые поля, которые точно есть в БД
-        const resultData: any = {
-            user_id: user.id,
-            difficulty: gameResult.difficulty,
-            score: gameResult.score,
-            correct_hits: gameResult.correctHits,
-            wrong_hits: gameResult.wrongHits,
-            missed_circles: gameResult.missedCircles,
-            accuracy: gameResult.accuracy,
-            duration: gameResult.duration,
-        };
+        // Сохраняем результат игры
+        const { error: resultError } = await supabase
+            .from("game_results")
+            .insert({
+                user_id: user.id,
+                difficulty: gameResult.difficulty,
+                score: gameResult.score,
+                correct_hits: gameResult.correct_hits,
+                wrong_hits: gameResult.wrong_hits,
+                missed_circles: gameResult.missed_circles,
+                accuracy: gameResult.accuracy,
+                duration: gameResult.duration,
+                decoy_hits: gameResult.decoy_hits,
+                fast_hits: gameResult.fast_hits,
+                average_reaction_time: gameResult.average_reaction_time,
+                adaptive_level: gameResult.adaptive_level
+            });
 
-        // Добавляем дополнительные поля только если они определены
-        if (gameResult.decoyHits !== undefined) {
-            resultData.decoy_hits = gameResult.decoyHits;
-        }
-
-        if (gameResult.fastHits !== undefined) {
-            resultData.fast_hits = gameResult.fastHits;
-        }
-
-        if (gameResult.averageReactionTime !== undefined) {
-            resultData.average_reaction_time = gameResult.averageReactionTime;
-        }
-
-        if (gameResult.adaptiveLevel !== undefined) {
-            resultData.adaptive_level = gameResult.adaptiveLevel;
-        }
-
-        console.log('Saving game result with data:', resultData);
-
-        const { error } = await supabase.from("game_results").insert(resultData);
-
-        if (error) {
-            console.error("Error saving game result:", error);
-            throw error;
+        if (resultError) {
+            console.error("Error saving game result:", resultError);
+            throw resultError;
         }
 
         // Обновляем статистику пользователя

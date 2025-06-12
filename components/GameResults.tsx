@@ -72,7 +72,7 @@ export default function GameResults({
     }
 
     const getSarcasticComment = () => {
-        const scorePerSecond = result.effectivenesss || (result.score / result.duration)
+        const scorePerSecond = result.effectiveness || (result.score / result.duration)
         const hasGoodAccuracy = accuracy >= 85
         const hasFastReaction = result.averageReactionTime <= 200
         const hasSlowReaction = result.averageReactionTime >= 400
@@ -291,7 +291,7 @@ export default function GameResults({
     }
 
     const getPerformanceEmoji = () => {
-        const scorePerSecond = result.effectivenesss || (result.score / result.duration)
+        const scorePerSecond = result.effectiveness || (result.score / result.duration)
         const hasGoodAccuracy = accuracy >= 85
         const hasFastReaction = result.averageReactionTime <= 200
 
@@ -334,7 +334,7 @@ export default function GameResults({
     }
 
     const getRating = () => {
-        const scorePerSecond = result.effectivenesss || (result.score / result.duration)
+        const scorePerSecond = result.effectiveness || (result.score / result.duration)
         const hasGoodAccuracy = accuracy >= 85
         const hasFastReaction = result.averageReactionTime <= 200
         const hasGoodCombo = result.maxCombo >= 15
@@ -495,7 +495,7 @@ export default function GameResults({
                             {result.score >= 0 ? '+' : ''}{result.score}
                         </div>
                         <div className="text-xs font-bpdots text-white/60">
-                            {(result.effectivenesss || (result.score / result.duration)).toFixed(1)} pts/sec
+                            {(result.effectiveness || (result.score / result.duration)).toFixed(1)} pts/sec
                         </div>
                     </div>
 

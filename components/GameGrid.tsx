@@ -2,7 +2,7 @@
 
 "use client";
 
-import { Circle } from "../types/game";
+import { Circle, GameEffect, PowerUpType } from "../types/game";
 import { getGridDimensions } from "../utils/gameUtils";
 
 interface GameGridProps {
@@ -10,8 +10,8 @@ interface GameGridProps {
   onCircleClick: (circleId: number) => void;
   isGameActive: boolean;
   showCircles: boolean;
-  effects?: string[]; // Active visual effects
-  isPowerUpActive?: (type: string) => boolean; // Check if power-up is active
+  effects?: GameEffect[]; // Active visual effects
+  isPowerUpActive?: (type: PowerUpType) => boolean; // Check if power-up is active
 }
 
 export default function GameGrid({
@@ -79,17 +79,17 @@ export default function GameGrid({
     }
 
     // Slow time effect
-    if (isPowerUpActive('SLOW_TIME')) {
+    if (isPowerUpActive(PowerUpType.SLOW_TIME)) {
       effectClasses += " transition-all duration-1000";
     }
 
     // Freeze effect
-    if (isPowerUpActive('FREEZE')) {
+    if (isPowerUpActive(PowerUpType.FREEZE)) {
       effectClasses += " animate-pulse";
     }
 
     // Vision power-up (show future circles)
-    if (isPowerUpActive('VISION') && !circle.isActive) {
+    if (isPowerUpActive(PowerUpType.VISION) && !circle.isActive) {
       effectClasses += " border-blue-300 border-opacity-50";
     }
 
@@ -132,7 +132,7 @@ export default function GameGrid({
         transitionDelay: showCircles ? `${circle.id * 50}ms` : "0ms",
         transition: circle.isActive && !circle.isAnimating
           ? "transform 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s ease-out"
-          : isPowerUpActive('SLOW_TIME')
+          : isPowerUpActive(PowerUpType.SLOW_TIME)
             ? "all 1000ms ease-out"
             : "all 0.7s ease-out",
         transform: transform || undefined,
@@ -185,7 +185,7 @@ export default function GameGrid({
     }
 
     // Power-up indicators
-    if (isPowerUpActive('MAGNET')) {
+    if (isPowerUpActive(PowerUpType.MAGNET)) {
       effects.push(
         <div
           key="magnet-effect"
@@ -195,29 +195,55 @@ export default function GameGrid({
       );
     }
 
-    if (isPowerUpActive('DOUBLE_SCORE')) {
+    if (isPowerUpActive(PowerUpType.DOUBLE_SCORE)) {
       effects.push(
         <div
-          key="double-score"
-          className="absolute -top-2 -right-2 text-xs text-yellow-400 font-bold animate-bounce"
-        >
-          2x
-        </div>
+          key="double-score-effect"
+          className="absolute -inset-1 border-2 border-yellow-400 border-opacity-75 rounded-full animate-pulse"
+        />
       );
     }
 
-    if (isPowerUpActive('MULTI_HIT')) {
+    if (isPowerUpActive(PowerUpType.MULTI_HIT)) {
       effects.push(
         <div
-          key="multi-hit"
-          className="absolute -top-2 -right-2 text-xs text-red-400 font-bold animate-pulse"
-        >
-          3x
-        </div>
+          key="multi-hit-effect"
+          className="absolute -inset-1 border-2 border-purple-400 border-opacity-75 rounded-full animate-pulse"
+        />
       );
     }
 
-    return effects.length > 0 ? effects : null;
+    // Visual effects
+    if (effects?.includes(GameEffect.EARTHQUAKE)) {
+      effects.push(
+        <div
+          key="earthquake-effect"
+          className="absolute inset-0 bg-red-500 bg-opacity-20 rounded-full animate-pulse"
+        />
+      );
+    }
+
+    if (effects?.includes(GameEffect.TORNADO)) {
+      effects.push(
+        <div
+          key="tornado-effect"
+          className="absolute inset-0 bg-blue-500 bg-opacity-20 rounded-full animate-spin"
+          style={{ animationDuration: '2s' }}
+        />
+      );
+    }
+
+    // Freeze effect overlay
+    if (isPowerUpActive(PowerUpType.FREEZE)) {
+      effects.push(
+        <div
+          key="freeze-effect"
+          className="absolute inset-0 bg-blue-500 bg-opacity-30 rounded-full animate-pulse"
+        />
+      );
+    }
+
+    return effects;
   };
 
   const renderGridOverlay = () => {
