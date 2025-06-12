@@ -439,7 +439,7 @@ export default function IntroPage(): JSX.Element {
 
             {/* Экран регистрации */}
             {authState.needsRegistration && !authState.isChecking && !authState.error && !videoError && !isPlaying && (
-                <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="min-h-screen bg-black flex items-center justify-center p-6 fixed inset-0 z-50">
                     <div className="w-full max-w-md space-y-8">
                         {authState.isRegistering ? (
                             <div className="text-center">
@@ -464,23 +464,32 @@ export default function IntroPage(): JSX.Element {
                                     </p>
                                 </div>
 
+                                {/* Debug info - временно для отладки */}
+                                <div className="text-xs text-white/50 font-bpdots mb-4 bg-red-500/20 p-2 rounded">
+                                    Debug: isReady={isReady.toString()}, isLoading={isLoading.toString()},
+                                    isRegistering={authState.isRegistering.toString()},
+                                    hasUser={!!authState.telegramUser}
+                                </div>
+
                                 {/* Buttons */}
                                 <div className="space-y-6">
                                     {/* Main Button - With Intro */}
                                     <div className="space-y-3">
                                         <button
-                                            onClick={handleStart}
-                                            disabled={authState.isRegistering || !isReady}
-                                            className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl font-bpdots text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            onClick={() => {
+                                                console.log('INITIALIZE button clicked!');
+                                                handleStart();
+                                            }}
+                                            disabled={authState.isRegistering}
+                                            className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl font-bpdots text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            style={{ pointerEvents: 'auto', zIndex: 100 }}
                                         >
                                             <div className="flex items-center justify-center space-x-4">
                                                 <div className="relative">
                                                     <Play size={24} className="text-white group-hover:translate-x-1 transition-transform duration-300" />
                                                     <Wifi size={16} className="absolute -top-2 -right-2 text-white/60" />
                                                 </div>
-                                                <span className="tracking-wider">
-                                                    {!isReady ? 'LOADING...' : 'INITIALIZE'}
-                                                </span>
+                                                <span className="tracking-wider">INITIALIZE</span>
                                             </div>
 
                                             {/* Glow effect */}
@@ -510,9 +519,13 @@ export default function IntroPage(): JSX.Element {
                                     {/* Alternative Button - Quick Mode */}
                                     <div className="space-y-3">
                                         <button
-                                            onClick={handleQuickInit}
+                                            onClick={() => {
+                                                console.log('QUICK START button clicked!');
+                                                handleQuickInit();
+                                            }}
                                             disabled={authState.isRegistering}
-                                            className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            style={{ pointerEvents: 'auto', zIndex: 100 }}
                                         >
                                             <div className="flex items-center justify-center space-x-3">
                                                 <div className="relative">
