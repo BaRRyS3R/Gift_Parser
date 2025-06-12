@@ -10,7 +10,7 @@ import React, {
   createContext,
 } from "react";
 
-import { userService, type User, type TelegramUser, type GameResultDB } from "@/lib/supabase";
+import { userService, type User, type TelegramUser } from "@/lib/supabase";
 
 interface UserContextType {
   user: User | null;
@@ -18,7 +18,7 @@ interface UserContextType {
   isLoading: boolean;
   error: string | null;
   refreshUser: () => Promise<void>;
-  saveGameResult: (gameResult: GameResultDB) => Promise<void>;
+  saveGameResult: (gameResult: any) => Promise<void>;
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 }
@@ -82,7 +82,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [telegramUser]);
 
   const saveGameResult = useCallback(
-    async (gameResult: GameResultDB): Promise<void> => {
+    async (gameResult: any): Promise<void> => {
       if (!telegramUser) {
         throw new Error("Пользователь Telegram не найден");
       }
