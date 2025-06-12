@@ -465,74 +465,74 @@ export default function IntroPage(): JSX.Element {
                                 </div>
 
                                 {/* Buttons */}
-                                {isReady && !isLoading && (
-                                    <div className="space-y-6">
-                                        {/* Main Button - With Intro */}
-                                        <div className="space-y-3">
-                                            <button
-                                                onClick={handleStart}
-                                                disabled={authState.isRegistering}
-                                                className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl font-bpdots text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <div className="flex items-center justify-center space-x-4">
-                                                    <div className="relative">
-                                                        <Play size={24} className="text-white group-hover:translate-x-1 transition-transform duration-300" />
-                                                        <Wifi size={16} className="absolute -top-2 -right-2 text-white/60" />
-                                                    </div>
-                                                    <span className="tracking-wider">INITIALIZE</span>
+                                <div className="space-y-6">
+                                    {/* Main Button - With Intro */}
+                                    <div className="space-y-3">
+                                        <button
+                                            onClick={handleStart}
+                                            disabled={authState.isRegistering || !isReady}
+                                            className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl font-bpdots text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <div className="flex items-center justify-center space-x-4">
+                                                <div className="relative">
+                                                    <Play size={24} className="text-white group-hover:translate-x-1 transition-transform duration-300" />
+                                                    <Wifi size={16} className="absolute -top-2 -right-2 text-white/60" />
                                                 </div>
-
-                                                {/* Glow effect */}
-                                                <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-                                            </button>
-
-                                            <div className="text-center space-y-1">
-                                                <p className="text-white/60 font-bpdots text-sm">
-                                                    Full experience with intro video
-                                                </p>
-                                                <p className="text-white/40 font-bpdots text-xs">
-                                                    Recommended for first-time users
-                                                </p>
+                                                <span className="tracking-wider">
+                                                    {!isReady ? 'LOADING...' : 'INITIALIZE'}
+                                                </span>
                                             </div>
-                                        </div>
 
-                                        {/* Divider */}
-                                        <div className="relative">
-                                            <div className="absolute inset-0 flex items-center">
-                                                <div className="w-full border-t border-white/20"></div>
-                                            </div>
-                                            <div className="relative flex justify-center">
-                                                <span className="bg-black px-4 text-white/40 font-bpdots text-xs uppercase">or</span>
-                                            </div>
-                                        </div>
+                                            {/* Glow effect */}
+                                            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                                        </button>
 
-                                        {/* Alternative Button - Quick Mode */}
-                                        <div className="space-y-3">
-                                            <button
-                                                onClick={handleQuickInit}
-                                                disabled={authState.isRegistering}
-                                                className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <div className="flex items-center justify-center space-x-3">
-                                                    <div className="relative">
-                                                        <Zap size={20} className="text-white/70 group-hover:text-white transition-colors duration-300" />
-                                                        <WifiOff size={12} className="absolute -top-1 -right-1 text-white/50" />
-                                                    </div>
-                                                    <span>QUICK START</span>
-                                                </div>
-                                            </button>
-
-                                            <div className="text-center space-y-1">
-                                                <p className="text-white/50 font-bpdots text-sm">
-                                                    Skip intro • Potato mode
-                                                </p>
-                                                <p className="text-white/30 font-bpdots text-xs">
-                                                    For slow connections & impatient users 🥔
-                                                </p>
-                                            </div>
+                                        <div className="text-center space-y-1">
+                                            <p className="text-white/60 font-bpdots text-sm">
+                                                Full experience with intro video
+                                            </p>
+                                            <p className="text-white/40 font-bpdots text-xs">
+                                                Recommended for first-time users
+                                            </p>
                                         </div>
                                     </div>
-                                )}
+
+                                    {/* Divider */}
+                                    <div className="relative">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-white/20"></div>
+                                        </div>
+                                        <div className="relative flex justify-center">
+                                            <span className="bg-black px-4 text-white/40 font-bpdots text-xs uppercase">or</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Alternative Button - Quick Mode */}
+                                    <div className="space-y-3">
+                                        <button
+                                            onClick={handleQuickInit}
+                                            disabled={authState.isRegistering}
+                                            className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <div className="flex items-center justify-center space-x-3">
+                                                <div className="relative">
+                                                    <Zap size={20} className="text-white/70 group-hover:text-white transition-colors duration-300" />
+                                                    <WifiOff size={12} className="absolute -top-1 -right-1 text-white/50" />
+                                                </div>
+                                                <span>QUICK START</span>
+                                            </div>
+                                        </button>
+
+                                        <div className="text-center space-y-1">
+                                            <p className="text-white/50 font-bpdots text-sm">
+                                                Skip intro • Potato mode
+                                            </p>
+                                            <p className="text-white/30 font-bpdots text-xs">
+                                                For slow connections & impatient users 🥔
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
