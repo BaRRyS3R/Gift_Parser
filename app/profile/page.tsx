@@ -93,34 +93,34 @@ export default function ProfilePage() {
 
         const achievements = []
 
-        if (user.total_games >= 10) achievements.push({ icon: Target, name: 'V3T3R4N', desc: '10+ G4M3S PL4Y3D' })
-        if (user.total_games >= 50) achievements.push({ icon: Medal, name: '3XP3RT', desc: '50+ G4M3S PL4Y3D' })
-        if (user.total_games >= 100) achievements.push({ icon: Award, name: 'M4ST3R', desc: '100+ G4M3S PL4Y3D' })
-        if (user.best_score >= 25) achievements.push({ icon: Star, name: 'H1GH SC0R3R', desc: '25+ B3ST SC0R3' })
-        if (user.best_accuracy >= 90) achievements.push({ icon: Zap, name: 'SH4RPSH00T3R', desc: '90%+ 4CCUR4CY' })
-        if (rankings.overall && rankings.overall <= 10) achievements.push({ icon: Trophy, name: 'T0P 10', desc: 'T0P 10 PL4Y3R' })
+        if (user.total_games >= 10) achievements.push({ icon: Target, name: 'VETERAN', desc: '10+ GAMES PLAYED' })
+        if (user.total_games >= 50) achievements.push({ icon: Medal, name: 'EXPERT', desc: '50+ GAMES PLAYED' })
+        if (user.total_games >= 100) achievements.push({ icon: Award, name: 'MASTER', desc: '100+ GAMES PLAYED' })
+        if (user.best_score >= 25) achievements.push({ icon: Star, name: 'HIGH SCORER', desc: '25+ BEST SCORE' })
+        if (user.best_accuracy >= 90) achievements.push({ icon: Zap, name: 'SHARPSHOOTER', desc: '90%+ ACCURACY' })
+        if (rankings.overall && rankings.overall <= 10) achievements.push({ icon: Trophy, name: 'TOP 10', desc: 'TOP 10 PLAYER' })
 
         return achievements
     }
 
     const getProfileLevel = () => {
         const totalGames = user?.total_games || 0
-        if (totalGames >= 100) return { level: 'M4ST3R', color: 'text-white' }
-        if (totalGames >= 50) return { level: '3XP3RT', color: 'text-white' }
-        if (totalGames >= 20) return { level: 'V3T3R4N', color: 'text-white' }
-        if (totalGames >= 10) return { level: 'SK1LL3D', color: 'text-white' }
-        return { level: 'R00K13', color: 'text-white/60' }
+        if (totalGames >= 100) return { level: 'MASTER', color: 'text-white' }
+        if (totalGames >= 50) return { level: 'EXPERT', color: 'text-white' }
+        if (totalGames >= 20) return { level: 'VETERAN', color: 'text-white' }
+        if (totalGames >= 10) return { level: 'SKILLED', color: 'text-white' }
+        return { level: 'ROOKIE', color: 'text-white/60' }
     }
 
     const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
         switch (difficulty) {
-            case GameDifficulty.EASY: return 'N00B'
-            case GameDifficulty.MEDIUM: return 'C4SU4L'
-            case GameDifficulty.HARD: return 'PR0'
-            case GameDifficulty.LEGENDARY: return 'L3G3ND'
-            case GameDifficulty.OMG: return '0MG'
-            case GameDifficulty.NIGHTMARE: return 'N1GHT|M4RE'
-            case GameDifficulty.IMPOSSIBLE: return 'R4GE M0DE'
+            case GameDifficulty.EASY: return 'NOOB'
+            case GameDifficulty.MEDIUM: return 'CASUAL'
+            case GameDifficulty.HARD: return 'PRO'
+            case GameDifficulty.LEGENDARY: return 'LEGEND'
+            case GameDifficulty.OMG: return 'OMG'
+            case GameDifficulty.NIGHTMARE: return 'NIGHTMARE'
+            case GameDifficulty.IMPOSSIBLE: return 'RAGE MODE'
         }
     }
 
@@ -129,7 +129,7 @@ export default function ProfilePage() {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto"></div>
-                    <p className="text-white font-bpdots">L04D1NG PR0F1L3...</p>
+                    <p className="text-white font-bpdots">LOADING PROFILE...</p>
                 </div>
             </div>
         )
@@ -140,7 +140,7 @@ export default function ProfilePage() {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <User size={32} className="text-white/60 mx-auto" />
-                    <p className="text-white font-bpdots">PR0F1L3 N0T F0UND</p>
+                    <p className="text-white font-bpdots">PROFILE NOT FOUND</p>
                 </div>
             </div>
         )
@@ -172,7 +172,7 @@ export default function ProfilePage() {
                                 {user.is_premium && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded bg-white/20 text-white text-xs font-bpdots">
                                         <Star size={10} className="mr-1" />
-                                        PR3M1UM
+                                        PREMIUM
                                     </span>
                                 )}
                                 {rankings.overall && (
@@ -188,17 +188,17 @@ export default function ProfilePage() {
                         <div className="text-center p-2 bg-white/10 rounded-lg">
                             <Activity size={12} className="text-white/60 mx-auto mb-1" />
                             <div className="text-lg font-bold font-bpdots text-white">{user.total_games}</div>
-                            <div className="text-xs font-bpdots text-white/60">G4M3S</div>
+                            <div className="text-xs font-bpdots text-white/60">GAMES</div>
                         </div>
                         <div className="text-center p-2 bg-white/10 rounded-lg">
                             <Target size={12} className="text-white/60 mx-auto mb-1" />
                             <div className="text-lg font-bold font-bpdots text-white">{user.best_score}</div>
-                            <div className="text-xs font-bpdots text-white/60">B3ST</div>
+                            <div className="text-xs font-bpdots text-white/60">BEST</div>
                         </div>
                         <div className="text-center p-2 bg-white/10 rounded-lg">
                             <Zap size={12} className="text-white/60 mx-auto mb-1" />
                             <div className="text-lg font-bold font-bpdots text-white">{user.best_accuracy}%</div>
-                            <div className="text-xs font-bpdots text-white/60">4CCUR4CY</div>
+                            <div className="text-xs font-bpdots text-white/60">ACCURACY</div>
                         </div>
                     </div>
                 </div>
@@ -219,7 +219,7 @@ export default function ProfilePage() {
                                     }
                 `}
                             >
-                                {tab === 'stats' ? 'ST4TS' : tab === 'history' ? 'H1ST0RY' : '4CH13V3M3NTS'}
+                                {tab === 'stats' ? 'STATS' : tab === 'history' ? 'HISTORY' : 'ACHIEVEMENTS'}
                             </button>
                         ))}
                     </div>
@@ -232,38 +232,38 @@ export default function ProfilePage() {
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <BarChart3 size={16} className="text-white/80" />
-                                <h3 className="text-sm font-bpdots text-white font-bold">0V3R4LL ST4T1ST1CS</h3>
+                                <h3 className="text-sm font-bpdots text-white font-bold">OVERALL STATISTICS</h3>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
-                                        <span className="text-white/80 font-bpdots text-xs">T0T4L SC0R3</span>
+                                        <span className="text-white/80 font-bpdots text-xs">TOTAL SCORE</span>
                                         <span className="text-white font-bpdots text-sm font-bold">{user.total_score}</span>
                                     </div>
                                     <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
-                                        <span className="text-white/80 font-bpdots text-xs">C0RR3CT</span>
+                                        <span className="text-white/80 font-bpdots text-xs">CORRECT</span>
                                         <span className="text-white font-bpdots text-sm font-bold">{user.total_correct_hits}</span>
                                     </div>
                                     <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
-                                        <span className="text-white/80 font-bpdots text-xs">WR0NG</span>
+                                        <span className="text-white/80 font-bpdots text-xs">WRONG</span>
                                         <span className="text-white font-bpdots text-sm font-bold">{user.total_wrong_hits}</span>
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
-                                        <span className="text-white/80 font-bpdots text-xs">M1SS3D</span>
+                                        <span className="text-white/80 font-bpdots text-xs">MISSED</span>
                                         <span className="text-white font-bpdots text-sm font-bold">{user.total_missed_circles}</span>
                                     </div>
                                     <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
-                                        <span className="text-white/80 font-bpdots text-xs">4VG SC0R3</span>
+                                        <span className="text-white/80 font-bpdots text-xs">AVG SCORE</span>
                                         <span className="text-white font-bpdots text-sm font-bold">
                                             {user.total_games > 0 ? Math.round(user.total_score / user.total_games) : 0}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center p-2 bg-white/10 rounded-lg">
-                                        <span className="text-white/80 font-bpdots text-xs">L4ST PL4Y3D</span>
+                                        <span className="text-white/80 font-bpdots text-xs">LAST PLAYED</span>
                                         <span className="text-white/80 font-bpdots text-xs">
-                                            {user.last_played_at ? formatDate(user.last_played_at).split(',')[0] : 'N3V3R'}
+                                            {user.last_played_at ? formatDate(user.last_played_at).split(',')[0] : 'NEVER'}
                                         </span>
                                     </div>
                                 </div>
@@ -273,7 +273,7 @@ export default function ProfilePage() {
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Trophy size={16} className="text-white/80" />
-                                <h3 className="text-sm font-bpdots text-white font-bold">D1FF1CULTY BR34KD0WN</h3>
+                                <h3 className="text-sm font-bpdots text-white font-bold">DIFFICULTY BREAKDOWN</h3>
                             </div>
                             <div className="space-y-2">
                                 {Object.values(GameDifficulty).map((difficulty) => {
@@ -290,14 +290,14 @@ export default function ProfilePage() {
                                                     {getDifficultyDisplayName(difficulty)}
                                                 </div>
                                                 <div className="text-xs text-white/60 font-bpdots">
-                                                    {gamesCount} G4M3S
+                                                    {gamesCount} GAMES
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-white font-bpdots font-bold text-sm">B3ST: {bestScore}</div>
+                                                <div className="text-white font-bpdots font-bold text-sm">BEST: {bestScore}</div>
                                                 {ranking && (
                                                     <div className="text-xs text-white/60 font-bpdots">
-                                                        R4NK #{ranking}
+                                                        RANK #{ranking}
                                                     </div>
                                                 )}
                                             </div>
@@ -314,12 +314,12 @@ export default function ProfilePage() {
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Calendar size={16} className="text-white/80" />
-                                <h3 className="text-sm font-bpdots text-white font-bold">R3C3NT G4M3S</h3>
+                                <h3 className="text-sm font-bpdots text-white font-bold">RECENT GAMES</h3>
                             </div>
                             {gameHistory.length === 0 ? (
                                 <div className="text-center py-6">
                                     <Clock size={24} className="text-white/40 mx-auto mb-2" />
-                                    <p className="text-white/60 font-bpdots text-sm">N0 G4M3S PL4Y3D Y3T</p>
+                                    <p className="text-white/60 font-bpdots text-sm">NO GAMES PLAYED YET</p>
                                 </div>
                             ) : (
                                 <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -338,7 +338,7 @@ export default function ProfilePage() {
                                                     {game.score >= 0 ? '+' : ''}{game.score}
                                                 </div>
                                                 <div className="text-xs text-white/60 font-bpdots">
-                                                    {game.accuracy}% 4CC
+                                                    {game.accuracy}% ACC
                                                 </div>
                                             </div>
                                         </div>
@@ -354,7 +354,7 @@ export default function ProfilePage() {
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Award size={16} className="text-white/80" />
-                                <h3 className="text-sm font-bpdots text-white font-bold">4CH13V3M3NTS</h3>
+                                <h3 className="text-sm font-bpdots text-white font-bold">ACHIEVEMENTS</h3>
                             </div>
                             <div className="space-y-2">
                                 {getAchievements().map((achievement, index) => {
@@ -377,8 +377,8 @@ export default function ProfilePage() {
                                 {getAchievements().length === 0 && (
                                     <div className="text-center py-6">
                                         <Star size={24} className="text-white/40 mx-auto mb-2" />
-                                        <p className="text-white/60 font-bpdots text-sm">N0 4CH13V3M3NTS UNL0CK3D</p>
-                                        <p className="text-white/40 font-bpdots text-xs mt-1">PL4Y M0R3 G4M3S T0 UNL0CK 4CH13V3M3NTS!</p>
+                                        <p className="text-white/60 font-bpdots text-sm">NO ACHIEVEMENTS UNLOCKED</p>
+                                        <p className="text-white/40 font-bpdots text-xs mt-1">PLAY MORE GAMES TO UNLOCK ACHIEVEMENTS!</p>
                                     </div>
                                 )}
                             </div>

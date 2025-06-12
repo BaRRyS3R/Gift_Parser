@@ -1,498 +1,226 @@
-// src/app/page.tsx
+// src/components/DifficultySelector.tsx
 
-'use client'
+"use client";
 
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Spinner } from '@nextui-org/react'
-import { userService, type TelegramUser, type User } from '@/lib/supabase'
-import { useUser } from '@/hooks/useUser'
+import { GameDifficulty } from "../types/game";
+import { GAME_CONFIGS } from "../utils/gameUtils";
+import {
+    Shield,
+    Zap,
+    Target,
+    Crown,
+    Flame,
+    Skull,
+    Swords
+} from "lucide-react";
 
-interface AuthState {
-    isChecking: boolean
-    isRegistering: boolean
-    user: User | null
-    telegramUser: TelegramUser | null
-    error: string | null
-    needsRegistration: boolean
+interface DifficultySelectorProps {
+    onSelectDifficulty: (difficulty: GameDifficulty) => void;
+    selectedDifficulty: GameDifficulty | null;
 }
 
-export default function IntroPage() {
-    const router = useRouter()
-    const videoRef = useRef<HTMLVideoElement>(null)
-    const { refreshUser, updateUser, setTelegramUser } = useUser() // Используем контекст
+export default function DifficultySelector({
+    onSelectDifficulty,
+    selectedDifficulty,
+}: DifficultySelectorProps) {
+    const difficulties = Object.values(GameDifficulty);
 
-    // Флаги для предотвращения повторных операций
-    const authInitializedRef = useRef<boolean>(false)
-    const registrationInProgressRef = useRef<boolean>(false)
-
-    // Состояние авторизации
-    const [authState, setAuthState] = useState<AuthState>({
-        isChecking: true,
-        isRegistering: false,
-        user: null,
-        telegramUser: null,
-        error: null,
-        needsRegistration: false
-    })
-
-    // Ref для хранения актуального состояния авторизации
-    const authStateRef = useRef<AuthState>(authState)
-
-    // Обновляем ref при изменении состояния
-    useEffect(() => {
-        authStateRef.current = authState
-    }, [authState])
-
-    // Состояние видео
-    const [isLoading, setIsLoading] = useState(true)
-    const [loadProgress, setLoadProgress] = useState(0)
-    const [fontLoaded, setFontLoaded] = useState(false)
-    const [videoError, setVideoError] = useState<string | null>(null)
-    const [isReady, setIsReady] = useState(false)
-    const [isPlaying, setIsPlaying] = useState(false)
-
-    const getTelegramUser = useCallback((): TelegramUser | null => {
-        if (typeof window === 'undefined') {
-            return null
+    const getDifficultyIcon = (difficulty: GameDifficulty) => {
+        switch (difficulty) {
+            case GameDifficulty.EASY: return Shield;
+            case GameDifficulty.MEDIUM: return Target;
+            case GameDifficulty.HARD: return Zap;
+            case GameDifficulty.LEGENDARY: return Crown;
+            case GameDifficulty.OMG: return Flame;
+            case GameDifficulty.NIGHTMARE: return Skull;
+            case GameDifficulty.IMPOSSIBLE: return Swords;
+            default: return Shield;
         }
+    };
 
-        // Проверяем наличие Telegram WebApp API
-        if (!window.Telegram?.WebApp) {
-            console.log('Telegram WebApp API недоступен')
-            // Для тестирования вне Telegram возвращаем тестового пользователя
-            if (process.env.NODE_ENV === 'development') {
-                console.log('Возвращаем тестового пользователя для разработки')
-                return {
-                    id: 430743609,
-                    first_name: 'Test User',
-                    last_name: 'Developer',
-                    username: 'testuser',
-                    language_code: 'en',
-                    is_premium: false
-                }
-            }
-            return null
+    const getDifficultyLevel = (difficulty: GameDifficulty): number => {
+        switch (difficulty) {
+            case GameDifficulty.EASY: return 1;
+            case GameDifficulty.MEDIUM: return 2;
+            case GameDifficulty.HARD: return 3;
+            case GameDifficulty.LEGENDARY: return 4;
+            case GameDifficulty.OMG: return 5;
+            case GameDifficulty.NIGHTMARE: return 6;
+            case GameDifficulty.IMPOSSIBLE: return 7;
+            default: return 1;
         }
+    };
 
-        const tg = window.Telegram.WebApp
-        const user = tg.initDataUnsafe?.user
-
-        console.log('Данные Telegram пользователя:', user)
-
-        if (!user || !user.id) {
-            console.log('Пользователь Telegram не найден или некорректен')
-            // Для тестирования возвращаем тестового пользователя
-            if (process.env.NODE_ENV === 'development') {
-                return {
-                    id: 430743609,
-                    first_name: 'Test User',
-                    last_name: 'Developer',
-                    username: 'testuser',
-                    language_code: 'en',
-                    is_premium: false
-                }
-            }
-            return null
+    const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
+        switch (difficulty) {
+            case GameDifficulty.EASY: return 'NOOB'
+            case GameDifficulty.MEDIUM: return 'CASUAL'
+            case GameDifficulty.HARD: return 'PRO'
+            case GameDifficulty.LEGENDARY: return 'LEGEND'
+            case GameDifficulty.OMG: return 'OMG'
+            case GameDifficulty.NIGHTMARE: return 'NIGHTMARE'
+            case GameDifficulty.IMPOSSIBLE: return 'RAGE MODE'
         }
+    };
 
-        return {
-            id: user.id,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            username: user.username,
-            language_code: user.language_code,
-            is_premium: user.is_premium
+    const getDifficultyDescription = (difficulty: GameDifficulty): string => {
+        switch (difficulty) {
+            case GameDifficulty.EASY:
+                return "Perfect for beginners";
+            case GameDifficulty.MEDIUM:
+                return "Moderate challenge";
+            case GameDifficulty.HARD:
+                return "Advanced mechanics";
+            case GameDifficulty.LEGENDARY:
+                return "Expert-level play";
+            case GameDifficulty.OMG:
+                return "Extreme intensity";
+            case GameDifficulty.NIGHTMARE:
+                return "Maximum complexity";
+            case GameDifficulty.IMPOSSIBLE:
+                return "Ultimate challenge";
         }
-    }, [])
+    };
 
-    const checkUserExists = useCallback(async (telegramUser: TelegramUser): Promise<User | null> => {
-        try {
-            return await userService.findByTelegramId(telegramUser.id)
-        } catch (error) {
-            console.error('Ошибка при проверке пользователя:', error)
-            throw error
-        }
-    }, [])
-
-    const registerUser = useCallback(async (telegramUser: TelegramUser): Promise<User> => {
-        if (registrationInProgressRef.current) {
-            throw new Error('Регистрация уже в процессе')
-        }
-
-        try {
-            registrationInProgressRef.current = true
-
-            setAuthState(prev => ({
-                ...prev,
-                isRegistering: true,
-                error: null
-            }))
-
-            console.log('Создаем нового пользователя в БД...')
-            const newUser = await userService.create(telegramUser)
-            console.log('Пользователь успешно создан:', newUser)
-
-            // Обновляем локальное состояние
-            setAuthState(prev => ({
-                ...prev,
-                user: newUser,
-                isRegistering: false,
-                needsRegistration: false
-            }))
-
-            // КРИТИЧНО: Обновляем контекст приложения
-            console.log('Обновляем контекст пользователя...')
-            updateUser(newUser)
-
-            return newUser
-        } catch (error) {
-            console.error('Ошибка при регистрации:', error)
-            setAuthState(prev => ({
-                ...prev,
-                isRegistering: false,
-                error: 'Ошибка при регистрации пользователя'
-            }))
-            throw error
-        } finally {
-            registrationInProgressRef.current = false
-        }
-    }, [updateUser])
-
-    const initializeAuth = useCallback(async () => {
-        if (authInitializedRef.current) return
-
-        authInitializedRef.current = true
-
-        try {
-            console.log('Инициализация авторизации...')
-
-            const telegramUser = getTelegramUser()
-            console.log('Полученный пользователь Telegram:', telegramUser)
-
-            if (!telegramUser) {
-                console.error('Данные пользователя Telegram недоступны')
-                setAuthState(prev => ({
-                    ...prev,
-                    isChecking: false,
-                    error: 'Данные пользователя Telegram недоступны'
-                }))
-                return
-            }
-
-            setAuthState(prev => ({ ...prev, telegramUser }))
-
-            // Устанавливаем telegram пользователя в контекст
-            setTelegramUser(telegramUser)
-
-            console.log('Проверяем существование пользователя в БД...')
-            const existingUser = await checkUserExists(telegramUser)
-            console.log('Результат проверки пользователя:', existingUser)
-
-            if (existingUser) {
-                console.log('Пользователь найден в базе данных, обновляем контекст и перенаправляем на /main')
-                setAuthState(prev => ({
-                    ...prev,
-                    user: existingUser,
-                    isChecking: false,
-                    needsRegistration: false
-                }))
-
-                // Обновляем контекст для существующего пользователя
-                updateUser(existingUser)
-
-                setTimeout(() => {
-                    router.push('/main')
-                }, 500)
-            } else {
-                console.log('Пользователь не найден в БД, требуется регистрация')
-                setAuthState(prev => ({
-                    ...prev,
-                    isChecking: false,
-                    needsRegistration: true
-                }))
-            }
-        } catch (error) {
-            console.error('Ошибка инициализации авторизации:', error)
-            setAuthState(prev => ({
-                ...prev,
-                isChecking: false,
-                error: `Ошибка подключения к базе данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`
-            }))
-        }
-    }, [getTelegramUser, checkUserExists, router, updateUser])
-
-    // Инициализация Service Worker и шрифта
-    useEffect(() => {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(registration => console.log('ServiceWorker зарегистрирован'))
-                .catch(err => console.error('ServiceWorker регистрация не удалась:', err))
-        }
-
-        if ('fonts' in document) {
-            document.fonts.load('1rem "BPDots Diamond"')
-                .then(() => setFontLoaded(true))
-                .catch(() => setFontLoaded(true))
-        } else {
-            setTimeout(() => setFontLoaded(true), 1000)
-        }
-    }, [])
-
-    // Инициализация видео
-    useEffect(() => {
-        const video = videoRef.current
-        if (!video) return
-
-        const handleLoadedMetadata = () => {
-            video.volume = 1
-            setIsReady(true)
-        }
-
-        const handleProgress = () => {
-            if (video.buffered.length > 0) {
-                const bufferedEnd = video.buffered.end(video.buffered.length - 1)
-                const duration = video.duration
-                if (duration > 0) {
-                    const progress = (bufferedEnd / duration) * 100
-                    setLoadProgress(progress)
-                }
-            }
-        }
-
-        const handleCanPlayThrough = () => {
-            setIsLoading(false)
-        }
-
-        const handleEnded = () => {
-            console.log('Видео завершено')
-
-            // Используем актуальное состояние из ref
-            const currentAuthState = authStateRef.current
-
-            console.log('Актуальное состояние авторизации:', {
-                telegramUser: !!currentAuthState.telegramUser,
-                user: !!currentAuthState.user,
-                isRegistering: currentAuthState.isRegistering,
-                needsRegistration: currentAuthState.needsRegistration
-            })
-
-            // Выполняем регистрацию пользователя после окончания видео
-            if (currentAuthState.telegramUser && !currentAuthState.user && !currentAuthState.isRegistering) {
-                console.log('Начинаем регистрацию после видео')
-                registerUser(currentAuthState.telegramUser)
-                    .then((registeredUser) => {
-                        console.log('Регистрация успешна, пользователь:', registeredUser)
-                        console.log('Перенаправляем на main через 1 секунду')
-                        // После успешной регистрации перенаправляем на main
-                        setTimeout(() => {
-                            router.push('/main')
-                        }, 1000)
-                    })
-                    .catch(error => {
-                        console.error('Ошибка регистрации после видео:', error)
-                        // Даже при ошибке регистрации пытаемся обновить контекст
-                        setTimeout(() => {
-                            refreshUser().then(() => {
-                                router.push('/main')
-                            }).catch(() => {
-                                router.push('/main')
-                            })
-                        }, 2000)
-                    })
-            } else if (currentAuthState.user) {
-                console.log('Пользователь уже зарегистрирован, перенаправляем на main')
-                // Если пользователь уже зарегистрирован, просто перенаправляем
-                router.push('/main')
-            } else {
-                console.log('Условия для регистрации не выполнены, принудительно перенаправляем')
-                console.log('Детали состояния:', currentAuthState)
-                // Принудительно обновляем контекст и перенаправляем
-                setTimeout(() => {
-                    refreshUser().then(() => {
-                        router.push('/main')
-                    }).catch(() => {
-                        router.push('/main')
-                    })
-                }, 1000)
-            }
-        }
-
-        const handleError = (e: Event) => {
-            console.error('Video error:', e)
-            setVideoError('Failed to load video. Please try again.')
-        }
-
-        video.addEventListener('loadedmetadata', handleLoadedMetadata)
-        video.addEventListener('progress', handleProgress)
-        video.addEventListener('canplaythrough', handleCanPlayThrough)
-        video.addEventListener('ended', handleEnded)
-        video.addEventListener('error', handleError)
-
-        video.load()
-
-        return () => {
-            video.removeEventListener('loadedmetadata', handleLoadedMetadata)
-            video.removeEventListener('progress', handleProgress)
-            video.removeEventListener('canplaythrough', handleCanPlayThrough)
-            video.removeEventListener('ended', handleEnded)
-            video.removeEventListener('error', handleError)
-        }
-    }, [router, registerUser, refreshUser])
-
-    // Инициализация авторизации
-    useEffect(() => {
-        if (!authInitializedRef.current) {
-            initializeAuth()
-        }
-    }, [initializeAuth])
-
-    // Функция запуска видео
-    const handleStart = async () => {
-        const video = videoRef.current
-        if (!video) return
-
-        try {
-            video.currentTime = 0
-            await video.play()
-            setIsPlaying(true)
-            setVideoError(null)
-        } catch (err) {
-            console.error('Video play error:', err)
-            setVideoError('Failed to play video. Please try again.')
-        }
-    }
-
-    // Быстрая регистрация без видео
-    const handleQuickInit = async () => {
-        if (!authState.telegramUser || authState.isRegistering || registrationInProgressRef.current) {
-            return
-        }
-
-        try {
-            const registeredUser = await registerUser(authState.telegramUser)
-            console.log('Быстрая регистрация успешна:', registeredUser)
-            setTimeout(() => {
-                router.push('/main')
-            }, 1000)
-        } catch (error) {
-            console.error('Ошибка быстрой регистрации:', error)
-        }
-    }
-
-    const isInitialLoading = authState.isChecking || (isLoading && !videoError) || !fontLoaded
+    const renderDifficultyBar = (level: number) => {
+        return (
+            <div className="flex space-x-1">
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                    <div
+                        key={i}
+                        className={`w-2 h-1 rounded-full transition-all duration-300 ${i <= level ? 'bg-white' : 'bg-white/20'
+                            }`}
+                    />
+                ))}
+            </div>
+        );
+    };
 
     return (
-        <div className="relative w-full h-screen bg-black overflow-hidden">
-            {/* Экран загрузки */}
-            {isInitialLoading && (
-                <div className="loader-container">
-                    <div className="progress-bar">
-                        <div
-                            className="progress-bar-fill"
-                            style={{ width: `${loadProgress}%` }}
-                        />
-                    </div>
-                    <p className="text-white mt-4 text-sm font-bpdots">
-                        {authState.isChecking ? 'Проверка пользователя...' : `Загрузка... ${Math.round(loadProgress)}%`}
-                    </p>
+        <div className="space-y-8">
+            {/* Header */}
+            <div className="text-center space-y-4">
+                <div className="relative">
+                    <h2 className="text-4xl font-bold font-bpdots text-white tracking-wider">
+                        SELECT MODE
+                    </h2>
+                    <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent"></div>
                 </div>
-            )}
+                <p className="text-white/60 font-bpdots text-sm uppercase tracking-widest">
+                    Choose your challenge level
+                </p>
+            </div>
 
-            {/* Экран ошибки авторизации */}
-            {authState.error && !isInitialLoading && (
-                <div className="loader-container">
-                    <p className="text-white text-center font-bpdots mb-4">{authState.error}</p>
-                    <button
-                        onClick={() => {
-                            authInitializedRef.current = false
-                            registrationInProgressRef.current = false
-                            setAuthState(prev => ({ ...prev, error: null, isChecking: true }))
-                            initializeAuth()
-                        }}
-                        className="px-4 py-2 bg-white text-black rounded font-bpdots"
-                    >
-                        Повторить
-                    </button>
-                </div>
-            )}
+            {/* Difficulty Cards Grid */}
+            <div className="grid grid-cols-1 gap-4 max-h-[500px] overflow-y-auto scrollbar-hide">
+                {difficulties.map((difficulty, index) => {
+                    const config = GAME_CONFIGS[difficulty];
+                    const isSelected = selectedDifficulty === difficulty;
+                    const Icon = getDifficultyIcon(difficulty);
+                    const level = getDifficultyLevel(difficulty);
 
-            {/* Экран ошибки видео */}
-            {videoError && !isInitialLoading && !authState.error && (
-                <div className="loader-container">
-                    <p className="text-white text-center font-bpdots mb-4">{videoError}</p>
-                    <button
-                        onClick={handleStart}
-                        className="px-4 py-2 bg-white text-black rounded font-bpdots mb-4"
-                    >
-                        Повторить
-                    </button>
-                    <button
-                        onClick={handleQuickInit}
-                        className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg font-bpdots text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
-                    >
-                        Продолжить без видео
-                    </button>
-                </div>
-            )}
-
-            {/* Экран регистрации */}
-            {authState.needsRegistration && !authState.isChecking && !authState.error && !videoError && !isPlaying && (
-                <div className="loader-container">
-                    {authState.isRegistering ? (
-                        <div className="text-center">
-                            <Spinner size="lg" color="white" />
-                            <p className="text-white mt-4 font-bpdots">Регистрация...</p>
-                        </div>
-                    ) : (
-                        <div className="text-center space-y-6">
-                            <div className="mb-8">
-                                <h1 className="text-3xl font-bold font-bpdots text-white mb-2">
-                                    Добро пожаловать!
-                                </h1>
-                                <p className="text-gray-400 font-bpdots">
-                                    {authState.telegramUser?.first_name}, выберите способ входа
-                                </p>
+                    return (
+                        <button
+                            key={difficulty}
+                            className={`
+                group relative w-full p-6 border rounded-2xl font-bpdots 
+                transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]
+                backdrop-blur-sm overflow-hidden
+                ${isSelected
+                                    ? 'bg-white/15 border-white/60 shadow-lg shadow-white/10'
+                                    : 'bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/40'
+                                }
+              `}
+                            onClick={() => onSelectDifficulty(difficulty)}
+                            style={{
+                                animationDelay: `${index * 100}ms`
+                            }}
+                        >
+                            {/* Background Pattern */}
+                            <div className="absolute inset-0 opacity-5">
+                                <div className="absolute top-0 right-0 w-32 h-32 border border-white/20 rounded-full transform translate-x-16 -translate-y-16"></div>
+                                <div className="absolute bottom-0 left-0 w-24 h-24 border border-white/10 rounded-full transform -translate-x-12 translate-y-12"></div>
                             </div>
 
-                            {/* Кнопка init */}
-                            {isReady && !isLoading && (
-                                <div className="space-y-4">
-                                    <button
-                                        onClick={handleStart}
-                                        disabled={authState.isRegistering}
-                                        className="block px-8 py-4 bg-transparent border-2 border-white text-white rounded-lg font-bpdots text-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        -init-/
-                                    </button>
+                            {/* Main Content */}
+                            <div className="relative z-10 space-y-4">
 
-                                    <button
-                                        onClick={handleQuickInit}
-                                        disabled={authState.isRegistering}
-                                        className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg font-bpdots text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Быстрый вход (для слабых устройств)
-                                    </button>
+                                {/* Header Row */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-4">
+                                        <div className={`
+                      w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
+                      ${isSelected ? 'bg-white/20 shadow-lg' : 'bg-white/10 group-hover:bg-white/15'}
+                    `}>
+                                            <Icon size={24} className="text-white" />
+                                        </div>
+
+                                        <div className="text-left">
+                                            <h3 className="text-xl font-bold text-white tracking-wide">
+                                                {getDifficultyDisplayName(difficulty)}
+                                            </h3>
+                                            <p className="text-white/60 text-sm">
+                                                {getDifficultyDescription(difficulty)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Difficulty Level Indicator */}
+                                    <div className="text-right space-y-2">
+                                        <div className="text-xs text-white/40 uppercase tracking-wider">
+                                            Level
+                                        </div>
+                                        {renderDifficultyBar(level)}
+                                    </div>
                                 </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
 
-            {/* Видео контейнер */}
-            <div className={`video-container ${isPlaying ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}>
-                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <video
-                    ref={videoRef}
-                    className="video-player"
-                    playsInline
-                    preload="auto"
-                >
-                    <source src="/videos/intro.mp4" type="video/mp4" />
-                    Your browser does not support the video tag.
-                </video>
+                                {/* Stats Row */}
+                                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
+                                    <div className="text-center">
+                                        <div className="text-lg font-bold text-white">{config.circleCount}</div>
+                                        <div className="text-xs text-white/50 uppercase tracking-wider">Targets</div>
+                                    </div>
+
+                                    <div className="text-center">
+                                        <div className="text-lg font-bold text-white">{config.maxSimultaneousCircles}</div>
+                                        <div className="text-xs text-white/50 uppercase tracking-wider">Active</div>
+                                    </div>
+
+                                    <div className="text-center">
+                                        <div className="text-lg font-bold text-white">{config.circleActiveTime}ms</div>
+                                        <div className="text-xs text-white/50 uppercase tracking-wider">Duration</div>
+                                    </div>
+                                </div>
+
+                                {/* Special Features */}
+                                {(config.decoyProbability > 0 || config.adaptiveScaling) && (
+                                    <div className="flex flex-wrap gap-2 pt-2">
+                                        {config.decoyProbability > 0 && (
+                                            <span className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/70 border border-white/20">
+                                                Decoy: {Math.round(config.decoyProbability * 100)}%
+                                            </span>
+                                        )}
+                                        {config.adaptiveScaling && (
+                                            <span className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/70 border border-white/20">
+                                                Adaptive
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Selection Indicator */}
+                            {isSelected && (
+                                <div className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full shadow-lg animate-pulse"></div>
+                            )}
+
+                            {/* Hover Effect Lines */}
+                            <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        </button>
+                    );
+                })}
             </div>
         </div>
-    )
+    );
 }

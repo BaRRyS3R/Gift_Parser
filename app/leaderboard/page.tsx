@@ -45,7 +45,7 @@ export default function LeaderboardPage() {
                 setDifficultyLeaderboards(difficultyLeaderboardsObj)
             } catch (err) {
                 console.error('Error loading leaderboards:', err)
-                setError('ERR0R: F41LED T0 L0AD RANK1NG D4TA')
+                setError('ERROR: FAILED TO LOAD RANKING DATA')
             } finally {
                 setIsLoading(false)
             }
@@ -77,25 +77,25 @@ export default function LeaderboardPage() {
     }
 
     const formatLastPlayed = (dateString?: string) => {
-        if (!dateString) return 'N3V3R'
+        if (!dateString) return 'NEVER'
         const date = new Date(dateString)
         const now = new Date()
         const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
 
-        if (diffInHours < 1) return 'N0W'
+        if (diffInHours < 1) return 'NOW'
         if (diffInHours < 24) return `${diffInHours}h`
         return `${Math.floor(diffInHours / 24)}d`
     }
 
     const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
         switch (difficulty) {
-            case GameDifficulty.EASY: return 'N00B'
-            case GameDifficulty.MEDIUM: return 'C4SU4L'
-            case GameDifficulty.HARD: return 'PR0'
-            case GameDifficulty.LEGENDARY: return 'L3G3ND'
-            case GameDifficulty.OMG: return '0MG'
-            case GameDifficulty.NIGHTMARE: return 'N1GHT|M4RE'
-            case GameDifficulty.IMPOSSIBLE: return 'R4GE M0DE'
+            case GameDifficulty.EASY: return 'NOOB'
+            case GameDifficulty.MEDIUM: return 'CASUAL'
+            case GameDifficulty.HARD: return 'PRO'
+            case GameDifficulty.LEGENDARY: return 'LEGEND'
+            case GameDifficulty.OMG: return 'OMG'
+            case GameDifficulty.NIGHTMARE: return 'NIGHTMARE'
+            case GameDifficulty.IMPOSSIBLE: return 'RAGE MODE'
         }
     }
 
@@ -141,7 +141,7 @@ export default function LeaderboardPage() {
                         )}
                         {isCurrentUser(entry.telegram_id) && (
                             <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded font-bpdots">
-                                Y0U
+                                YOU
                             </span>
                         )}
                     </div>
@@ -176,7 +176,7 @@ export default function LeaderboardPage() {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto"></div>
-                    <p className="text-white font-bpdots">L0AD1NG RANK1NG D4TA...</p>
+                    <p className="text-white font-bpdots">LOADING RANKING DATA...</p>
                 </div>
             </div>
         )
@@ -192,7 +192,7 @@ export default function LeaderboardPage() {
                         onClick={() => window.location.reload()}
                         className="px-4 py-2 bg-white/20 text-white rounded-lg font-bpdots hover:bg-white/30 transition-colors"
                     >
-                        R3TRY
+                        RETRY
                     </button>
                 </div>
             </div>
@@ -212,7 +212,7 @@ export default function LeaderboardPage() {
                         <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
                             <Trophy size={20} className="text-white" />
                         </div>
-                        <h1 className="text-2xl font-bold font-bpdots text-white">RANK1NG SY5T3M</h1>
+                        <h1 className="text-2xl font-bold font-bpdots text-white">RANKING SYSTEM</h1>
                     </div>
 
                     {currentLeaderboard.length > 0 && (
@@ -220,7 +220,7 @@ export default function LeaderboardPage() {
                             <div className="flex items-center space-x-1">
                                 <Users size={14} className="text-white/60" />
                                 <span className="text-white font-bpdots font-bold">{currentLeaderboard.length}</span>
-                                <span className="text-white/60 font-bpdots">US3RS</span>
+                                <span className="text-white/60 font-bpdots">USERS</span>
                             </div>
                             <div className="w-px h-4 bg-white/20"></div>
                             <div className="flex items-center space-x-1">
@@ -231,7 +231,7 @@ export default function LeaderboardPage() {
                                         : (currentLeaderboard[0] as DifficultyLeaderboard).difficulty_best_score)
                                         : '0'}
                                 </span>
-                                <span className="text-white/60 font-bpdots">T0P</span>
+                                <span className="text-white/60 font-bpdots">TOP</span>
                             </div>
                         </div>
                     )}
@@ -254,7 +254,7 @@ export default function LeaderboardPage() {
                         >
                             <div className="flex items-center space-x-1">
                                 <Trophy size={12} />
-                                <span>0V3R4LL</span>
+                                <span>OVERALL</span>
                             </div>
                         </button>
                         {Object.values(GameDifficulty).map((difficulty) => (
@@ -281,9 +281,9 @@ export default function LeaderboardPage() {
                 {currentLeaderboard.length === 0 ? (
                     <div className="text-center py-8 bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg">
                         <TrendingUp size={32} className="text-white/40 mx-auto mb-3" />
-                        <p className="text-white/60 font-bpdots font-bold">N0 PL4Y3RS Y3T</p>
+                        <p className="text-white/60 font-bpdots font-bold">NO PLAYERS YET</p>
                         <p className="text-white/40 font-bpdots text-sm mt-1">
-                            B3 TH3 F1RST T0 PL4Y!
+                            BE THE FIRST TO PLAY!
                         </p>
                     </div>
                 ) : (
@@ -293,7 +293,7 @@ export default function LeaderboardPage() {
                             <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-4 mb-3">
                                 <div className="flex items-center space-x-2 mb-3">
                                     <Crown size={16} className="text-white/80" />
-                                    <h3 className="text-sm font-bpdots text-white font-bold">T0P PL4Y3RS</h3>
+                                    <h3 className="text-sm font-bpdots text-white font-bold">TOP PLAYERS</h3>
                                 </div>
                                 <div className="space-y-2">
                                     {currentLeaderboard.slice(0, 3).map((entry, index) =>
@@ -308,7 +308,7 @@ export default function LeaderboardPage() {
                             <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-4">
                                 <div className="flex items-center space-x-2 mb-3">
                                     <Users size={16} className="text-white/80" />
-                                    <h3 className="text-sm font-bpdots text-white font-bold">4LL PL4Y3RS</h3>
+                                    <h3 className="text-sm font-bpdots text-white font-bold">ALL PLAYERS</h3>
                                 </div>
                                 <div className="space-y-2 max-h-80 overflow-y-auto">
                                     {currentLeaderboard.slice(3).map((entry, index) =>
@@ -323,7 +323,7 @@ export default function LeaderboardPage() {
                             <div className="bg-white/15 backdrop-blur-xl border border-white/25 rounded-lg p-4">
                                 <h4 className="text-sm font-bpdots text-white mb-3 text-center font-bold flex items-center justify-center space-x-2">
                                     <Target size={14} />
-                                    <span>Y0UR P0S1T10N</span>
+                                    <span>YOUR POSITION</span>
                                 </h4>
                                 {(() => {
                                     const userPosition = currentLeaderboard.findIndex(entry =>
@@ -337,7 +337,7 @@ export default function LeaderboardPage() {
                                         <div className="text-center py-4">
                                             <Activity size={20} className="text-white/60 mx-auto mb-2" />
                                             <p className="text-white/60 font-bpdots text-sm font-bold">
-                                                PL4Y G4M3S T0 S33 Y0UR R4NK1NG!
+                                                PLAY GAMES TO SEE YOUR RANKING!
                                             </p>
                                         </div>
                                     )

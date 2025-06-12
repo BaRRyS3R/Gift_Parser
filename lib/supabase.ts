@@ -214,6 +214,7 @@ export const userService = {
 
         if (!user) throw new Error("User not found");
 
+        // Базовые поля, которые точно есть в БД
         const resultData: any = {
             user_id: user.id,
             difficulty: gameResult.difficulty,
@@ -225,7 +226,7 @@ export const userService = {
             duration: gameResult.duration,
         };
 
-        // Добавление новых полей
+        // Добавляем дополнительные поля только если они определены
         if (gameResult.decoyHits !== undefined) {
             resultData.decoy_hits = gameResult.decoyHits;
         }
@@ -241,6 +242,8 @@ export const userService = {
         if (gameResult.adaptiveLevel !== undefined) {
             resultData.adaptive_level = gameResult.adaptiveLevel;
         }
+
+        console.log('Saving game result with data:', resultData);
 
         const { error } = await supabase.from("game_results").insert(resultData);
 

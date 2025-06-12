@@ -449,7 +449,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     })
                     .catch(error => {
                         console.error('Error saving game result:', error)
-                        setSaveError('Ошибка при сохранении результата в базу данных')
+                        setSaveError('Error saving result to database')
                         setSaveSuccess(false)
                     })
                     .finally(() => {

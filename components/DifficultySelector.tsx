@@ -4,6 +4,15 @@
 
 import { GameDifficulty } from "../types/game";
 import { GAME_CONFIGS } from "../utils/gameUtils";
+import {
+  Shield,
+  Zap,
+  Target,
+  Crown,
+  Flame,
+  Skull,
+  Swords
+} from "lucide-react";
 
 interface DifficultySelectorProps {
   onSelectDifficulty: (difficulty: GameDifficulty) => void;
@@ -16,157 +25,198 @@ export default function DifficultySelector({
 }: DifficultySelectorProps) {
   const difficulties = Object.values(GameDifficulty);
 
-  const getDifficultyColor = (difficulty: GameDifficulty): string => {
+  const getDifficultyIcon = (difficulty: GameDifficulty) => {
     switch (difficulty) {
-      case GameDifficulty.EASY:
-        return "bg-green-500/10 border-green-500/40 text-green-300/80";
-      case GameDifficulty.MEDIUM:
-        return "bg-amber-500/10 border-amber-500/40 text-amber-300/80";
-      case GameDifficulty.HARD:
-        return "bg-blue-500/10 border-blue-500/40 text-blue-300/80";
-      case GameDifficulty.LEGENDARY:
-        return "bg-orange-500/10 border-orange-500/40 text-orange-300/80";
-      case GameDifficulty.OMG:
-        return "bg-red-500/10 border-red-500/40 text-red-300/80";
-      case GameDifficulty.NIGHTMARE:
-        return "bg-purple-500/10 border-purple-500/40 text-purple-300/80";
-      case GameDifficulty.IMPOSSIBLE:
-        return "bg-white/10 border-white/40 text-white/80";
-      default:
-        return "border-white/40 hover:bg-white/5 text-white/80";
+      case GameDifficulty.EASY: return Shield;
+      case GameDifficulty.MEDIUM: return Target;
+      case GameDifficulty.HARD: return Zap;
+      case GameDifficulty.LEGENDARY: return Crown;
+      case GameDifficulty.OMG: return Flame;
+      case GameDifficulty.NIGHTMARE: return Skull;
+      case GameDifficulty.IMPOSSIBLE: return Swords;
+      default: return Shield;
     }
   };
 
-  const getSelectedColor = (difficulty: GameDifficulty): string => {
+  const getDifficultyLevel = (difficulty: GameDifficulty): number => {
     switch (difficulty) {
-      case GameDifficulty.EASY:
-        return "bg-green-500/20 border-green-400/60 text-green-200";
-      case GameDifficulty.MEDIUM:
-        return "bg-amber-500/20 border-amber-400/60 text-amber-200";
-      case GameDifficulty.HARD:
-        return "bg-blue-500/20 border-blue-400/60 text-blue-200";
-      case GameDifficulty.LEGENDARY:
-        return "bg-orange-500/20 border-orange-400/60 text-orange-200";
-      case GameDifficulty.OMG:
-        return "bg-red-500/20 border-red-400/60 text-red-200";
-      case GameDifficulty.NIGHTMARE:
-        return "bg-purple-500/20 border-purple-400/60 text-purple-200";
-      case GameDifficulty.IMPOSSIBLE:
-        return "bg-white/20 border-white/60 text-white";
-      default:
-        return "bg-white/15 border-white/50 text-white";
+      case GameDifficulty.EASY: return 1;
+      case GameDifficulty.MEDIUM: return 2;
+      case GameDifficulty.HARD: return 3;
+      case GameDifficulty.LEGENDARY: return 4;
+      case GameDifficulty.OMG: return 5;
+      case GameDifficulty.NIGHTMARE: return 6;
+      case GameDifficulty.IMPOSSIBLE: return 7;
+      default: return 1;
     }
   };
 
   const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
     switch (difficulty) {
-      case GameDifficulty.EASY: return 'N00B M0D3'
-      case GameDifficulty.MEDIUM: return 'C4SU4L M0D3'
-      case GameDifficulty.HARD: return 'PR0 M0D3'
-      case GameDifficulty.LEGENDARY: return 'L3G3ND M0D3'
-      case GameDifficulty.OMG: return '0MG M0D3'
-      case GameDifficulty.NIGHTMARE: return 'N1GHT|M4RE'
-      case GameDifficulty.IMPOSSIBLE: return 'R4GE M0DE'
+      case GameDifficulty.EASY: return 'NOOB'
+      case GameDifficulty.MEDIUM: return 'CASUAL'
+      case GameDifficulty.HARD: return 'PRO'
+      case GameDifficulty.LEGENDARY: return 'LEGEND'
+      case GameDifficulty.OMG: return 'OMG'
+      case GameDifficulty.NIGHTMARE: return 'NIGHTMARE'
+      case GameDifficulty.IMPOSSIBLE: return 'RAGE MODE'
     }
   };
 
   const getDifficultyDescription = (difficulty: GameDifficulty): string => {
     switch (difficulty) {
       case GameDifficulty.EASY:
-        return "FUND4M3NT4L SK1LL D3V3L0PM3NT";
+        return "Perfect for beginners";
       case GameDifficulty.MEDIUM:
-        return "1NT3RM3D14T3 CH4LL3NG3 W1TH D3C0Y 3L3M3NTS";
+        return "Moderate challenge";
       case GameDifficulty.HARD:
-        return "4DV4NC3D M3CH4N1CS W1TH 4D4PT1V3 SC4L1NG";
+        return "Advanced mechanics";
       case GameDifficulty.LEGENDARY:
-        return "3XP3RT-L3V3L MULT1-T4RG3T 3NG4G3M3NT";
+        return "Expert-level play";
       case GameDifficulty.OMG:
-        return "3XTR3M3 SP33D 4ND PR3C1S10N R3QU1R3M3NTS";
+        return "Extreme intensity";
       case GameDifficulty.NIGHTMARE:
-        return "M4X1MUM C0MPL3X1TY W1TH FULL M3CH4N1CS";
+        return "Maximum complexity";
       case GameDifficulty.IMPOSSIBLE:
-        return "ULT1M4T3 T3ST 0F R34CT10N C4P4B1L1T13S";
+        return "Ultimate challenge";
     }
   };
 
-  const getFeatureList = (difficulty: GameDifficulty): string[] => {
-    const config = GAME_CONFIGS[difficulty];
-    const features: string[] = [];
-
-    features.push(`${config.circleCount} T4RG3T 3L3M3NTS`);
-    features.push(`${config.minActivationTime / 1000}-${config.maxActivationTime / 1000}S 1NT3RV4LS`);
-
-    if (config.maxSimultaneousCircles > 1) {
-      features.push(`UP T0 ${config.maxSimultaneousCircles} S1MULT4N30US`);
-    }
-
-    if (config.decoyProbability > 0) {
-      features.push(`${Math.round(config.decoyProbability * 100)}% D3C0Y PR0B4B1L1TY`);
-    }
-
-    if (config.adaptiveScaling) {
-      features.push("DYN4M1C D1FF1CULTY 4DJU5TM3NT");
-    }
-
-    if (config.fastClickThreshold < 300) {
-      features.push(`${config.fastClickThreshold}MS SP33D B0NUS THR3SH0LD`);
-    }
-
-    return features;
+  const renderDifficultyBar = (level: number) => {
+    return (
+      <div className="flex space-x-1">
+        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <div
+            key={i}
+            className={`w-2 h-1 rounded-full transition-all duration-300 ${i <= level ? 'bg-white' : 'bg-white/20'
+              }`}
+          />
+        ))}
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold font-bpdots text-white">
-          S3L3CT D1FF1CULTY
-        </h2>
-        <p className="text-gray-400 font-bpdots text-sm">
-          CH00S3 TR41N1NG 1NT3NS1TY L3V3L F0R S3SS10N P4R4M3T3RS
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="text-center space-y-4">
+        <div className="relative">
+          <h2 className="text-4xl font-bold font-bpdots text-white tracking-wider">
+            SELECT MODE
+          </h2>
+          <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent"></div>
+        </div>
+        <p className="text-white/60 font-bpdots text-sm uppercase tracking-widest">
+          Choose your challenge level
         </p>
       </div>
 
-      <div className="space-y-3 max-h-96 overflow-y-auto">
-        {difficulties.map((difficulty) => {
+      {/* Difficulty Cards Grid */}
+      <div className="grid grid-cols-1 gap-4 max-h-[500px] overflow-y-auto scrollbar-hide">
+        {difficulties.map((difficulty, index) => {
           const config = GAME_CONFIGS[difficulty];
           const isSelected = selectedDifficulty === difficulty;
-          const colorClass = isSelected
-            ? getSelectedColor(difficulty)
-            : getDifficultyColor(difficulty);
-          const features = getFeatureList(difficulty);
+          const Icon = getDifficultyIcon(difficulty);
+          const level = getDifficultyLevel(difficulty);
 
           return (
             <button
               key={difficulty}
               className={`
-                w-full p-4 border rounded-xl font-bpdots 
-                transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]
-                backdrop-blur-sm hover:backdrop-blur-md
-                ${colorClass}
+                group relative w-full p-6 border rounded-2xl font-bpdots 
+                transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]
+                backdrop-blur-sm overflow-hidden
+                ${isSelected
+                  ? 'bg-white/15 border-white/60 shadow-lg shadow-white/10'
+                  : 'bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/40'
+                }
               `}
               onClick={() => onSelectDifficulty(difficulty)}
+              style={{
+                animationDelay: `${index * 100}ms`
+              }}
             >
-              <div className="text-left space-y-3">
+              {/* Background Pattern */}
+              <div className="absolute inset-0 opacity-5">
+                <div className="absolute top-0 right-0 w-32 h-32 border border-white/20 rounded-full transform translate-x-16 -translate-y-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 border border-white/10 rounded-full transform -translate-x-12 translate-y-12"></div>
+              </div>
+
+              {/* Main Content */}
+              <div className="relative z-10 space-y-4">
+
+                {/* Header Row */}
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold">{getDifficultyDisplayName(difficulty)}</h3>
-                  <div className="text-sm opacity-70">
-                    {config.circleActiveTime}MS 4CT1V3 DUR4T10N
+                  <div className="flex items-center space-x-4">
+                    <div className={`
+                      w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
+                      ${isSelected ? 'bg-white/20 shadow-lg' : 'bg-white/10 group-hover:bg-white/15'}
+                    `}>
+                      <Icon size={24} className="text-white" />
+                    </div>
+
+                    <div className="text-left">
+                      <h3 className="text-xl font-bold text-white tracking-wide">
+                        {getDifficultyDisplayName(difficulty)}
+                      </h3>
+                      <p className="text-white/60 text-sm">
+                        {getDifficultyDescription(difficulty)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Difficulty Level Indicator */}
+                  <div className="text-right space-y-2">
+                    <div className="text-xs text-white/40 uppercase tracking-wider">
+                      Level
+                    </div>
+                    {renderDifficultyBar(level)}
                   </div>
                 </div>
 
-                <div className="text-xs opacity-80">
-                  {getDifficultyDescription(difficulty)}
+                {/* Stats Row */}
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-white">{config.circleCount}</div>
+                    <div className="text-xs text-white/50 uppercase tracking-wider">Targets</div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-white">{config.maxSimultaneousCircles}</div>
+                    <div className="text-xs text-white/50 uppercase tracking-wider">Active</div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-white">{config.circleActiveTime}ms</div>
+                    <div className="text-xs text-white/50 uppercase tracking-wider">Duration</div>
+                  </div>
                 </div>
 
-                <div className="text-xs opacity-60 space-y-1">
-                  {features.map((feature, index) => (
-                    <div key={index} className="flex items-center">
-                      <span className="w-1 h-1 bg-current rounded-full mr-2 flex-shrink-0"></span>
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
+                {/* Special Features */}
+                {(config.decoyProbability > 0 || config.adaptiveScaling) && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {config.decoyProbability > 0 && (
+                      <span className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/70 border border-white/20">
+                        Decoy: {Math.round(config.decoyProbability * 100)}%
+                      </span>
+                    )}
+                    {config.adaptiveScaling && (
+                      <span className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/70 border border-white/20">
+                        Adaptive
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Selection Indicator */}
+              {isSelected && (
+                <div className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full shadow-lg animate-pulse"></div>
+              )}
+
+              {/* Hover Effect Lines */}
+              <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           );
         })}
