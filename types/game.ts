@@ -179,7 +179,7 @@ export interface GameResult {
   perfectStreak: number;
   speedDemons: number;
   consistencyRating: number; // Рейтинг стабильности (0-100)
-  effectivenesss: number; // Эффективность (очки за секунду)
+  effectiveness: number; // Эффективность (очки за секунду)
   powerUpsUsed: number;
   memorySequencesCompleted?: number;
   sequencesCompleted?: number;
@@ -215,7 +215,7 @@ export interface MemorySequence {
 
 export interface GameSession {
   mode: GameMode;
-  difficulty: GameDifficulty;
+  difficulty: GameDifficulty | GameMode;
   startTime: number;
   activePowerUps: PowerUp[];
   effects: GameEffect[];

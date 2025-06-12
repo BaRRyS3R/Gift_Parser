@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { GameDifficulty, GameMode } from "@/types/game";
+import { GameDifficulty, GameMode, GameEffect } from "@/types/game";
 import { GAME_CONFIGS } from "@/utils/gameUtils";
 import DifficultySelector from "@/components/DifficultySelector";
 import GameManager from "@/components/GameManager";
@@ -34,7 +34,11 @@ export default function GamePage() {
   };
 
   // Get config for selected mode
-  const selectedConfig = selectedDifficulty ? GAME_CONFIGS[selectedDifficulty] : null;
+  const selectedConfig = selectedDifficulty 
+    ? (Object.values(GameDifficulty).includes(selectedDifficulty as GameDifficulty)
+        ? GAME_CONFIGS[selectedDifficulty as GameDifficulty]
+        : GAME_CONFIGS[selectedDifficulty as GameMode])
+    : null;
 
   if (gameStarted && selectedDifficulty) {
     return (
@@ -239,10 +243,10 @@ export default function GamePage() {
                 {selectedConfig.isReverseMode && (
                   <p>• Avoid the white circles - miss on purpose!</p>
                 )}
-                {selectedConfig.effectsEnabled?.includes('earthquake') && (
+                {selectedConfig.effectsEnabled?.includes(GameEffect.EARTHQUAKE) && (
                   <p>• Predict circle movement during shakes</p>
                 )}
-                {selectedConfig.effectsEnabled?.includes('tornado') && (
+                {selectedConfig.effectsEnabled?.includes(GameEffect.TORNADO) && (
                   <p>• Follow the rotation pattern to track circles</p>
                 )}
                 {selectedConfig.powerUpsEnabled && selectedConfig.powerUpsEnabled.length > 0 && (

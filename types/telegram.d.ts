@@ -84,10 +84,8 @@ interface TelegramWebApp {
     }) => void;
   };
   HapticFeedback: {
-    impactOccurred: (
-      style: "light" | "medium" | "heavy" | "rigid" | "soft",
-    ) => void;
-    notificationOccurred: (type: "error" | "success" | "warning") => void;
+    notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+    impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
     selectionChanged: () => void;
   };
   close: () => void;

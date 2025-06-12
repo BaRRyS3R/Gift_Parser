@@ -92,7 +92,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     // Game session data
     const [gameSession, setGameSession] = useState<GameSession>({
         mode: config.gameMode,
-        difficulty: difficulty as GameDifficulty,
+        difficulty: difficulty,
         startTime: Date.now(),
         activePowerUps: [],
         effects: config.effectsEnabled || [],
@@ -799,7 +799,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         // Reset game session
         setGameSession({
             mode: config.gameMode,
-            difficulty: difficulty as GameDifficulty,
+            difficulty: difficulty,
             startTime: Date.now(),
             activePowerUps: [],
             effects: config.effectsEnabled || [],
@@ -861,7 +861,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     : 0
 
                 const gameResult: GameResult = {
-                    difficulty: difficulty as GameDifficulty,
+                    difficulty: difficulty,
                     mode: config.gameMode,
                     score: stats.score,
                     correctHits: stats.correctHits,
@@ -926,7 +926,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             : 0
 
         const result: GameResult = {
-            difficulty: difficulty as GameDifficulty,
+            difficulty: difficulty,
             mode: config.gameMode,
             score: stats.score,
             correctHits: stats.correctHits,
