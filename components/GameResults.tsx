@@ -263,7 +263,7 @@ export default function GameResults({
                             {rating.text}
                         </div>
                         <div className="text-white/80 font-bpdots text-sm italic">
-                            "{sarcasticComment}"
+                            &ldquo;{sarcasticComment}&ldquo;
                         </div>
                     </div>
                 </div>
