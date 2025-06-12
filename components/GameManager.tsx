@@ -1108,8 +1108,12 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 <GameGrid
                     circles={circles}
                     onCircleClick={handleCircleClick}
-                    isGameActive={gameState === GameState.PLAYING || gameState === GameState.MEMORY_RECALL || gameState === GameState.SEQUENCE_INPUT}
-                    showCircles={showCircles}
+                    effects={gameSession.effects}
+                    isPowerUpActive={(type) => gameSession.activePowerUps.some(powerUp => powerUp.type === type)}
+                    config={{
+                        effectsEnabled: config.effectsEnabled,
+                        powerUpsEnabled: config.powerUpsEnabled
+                    }}
                 />
             </div>
         </div>

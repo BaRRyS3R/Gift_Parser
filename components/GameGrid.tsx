@@ -2,35 +2,39 @@
 
 "use client";
 
-import { Circle, GameEffect, PowerUpType } from "../types/game";
-import { getGridDimensions } from "../utils/gameUtils";
+import React, { useEffect, useRef, useState } from 'react';
+import { GameEffect, PowerUpType, type Circle } from '@/types/game';
+import { getGridDimensions } from '@/utils/gameUtils';
 
 interface GameGridProps {
   circles: Circle[];
-  onCircleClick: (circleId: number) => void;
-  isGameActive: boolean;
-  showCircles: boolean;
-  effects?: GameEffect[]; // Active visual effects
-  isPowerUpActive?: (type: PowerUpType) => boolean; // Check if power-up is active
+  onCircleClick: (id: number) => void;
+  effects: GameEffect[];
+  isPowerUpActive: (type: PowerUpType) => boolean;
+  config: {
+    effectsEnabled?: GameEffect[];
+    powerUpsEnabled?: PowerUpType[];
+  };
+  isGameActive?: boolean;
+  showCircles?: boolean;
 }
 
-export default function GameGrid({
-  circles,
-  onCircleClick,
-  isGameActive,
-  showCircles,
-  effects = [],
-  isPowerUpActive = () => false,
+export default function GameGrid({ 
+  circles, 
+  onCircleClick, 
+  effects, 
+  isPowerUpActive, 
+  config,
+  isGameActive = true,
+  showCircles = true
 }: GameGridProps) {
   const { cols, rows } = getGridDimensions(circles.length);
 
   const getCircleSize = () => {
-    if (circles.length <= 4) return "w-24 h-24 sm:w-28 sm:h-28";
-    if (circles.length <= 8) return "w-20 h-20 sm:w-24 sm:h-24";
-    if (circles.length <= 12) return "w-16 h-16 sm:w-20 sm:h-20";
-    if (circles.length <= 40) return "w-16 h-16 sm:w-20 sm:h-20";
-    if (circles.length <= 60) return "w-12 h-12 sm:w-14 sm:h-14";
-    return "w-10 h-10 sm:w-12 sm:h-12";
+    const minSize = 40;
+    const maxSize = 80;
+    const baseSize = Math.min(window.innerWidth / (cols * 2), window.innerHeight / (rows * 2));
+    return Math.max(minSize, Math.min(maxSize, baseSize));
   };
 
   const getGapSize = () => {
@@ -137,7 +141,7 @@ export default function GameGrid({
             : "all 0.7s ease-out",
         transform: transform || undefined,
       },
-      onClick: () => onCircleClick(circle.id)
+      onClick: () => isGameActive && onCircleClick(circle.id)
     };
   };
 
@@ -214,7 +218,7 @@ export default function GameGrid({
     }
 
     // Visual effects
-    if (effects?.includes(GameEffect.EARTHQUAKE)) {
+    if (effects.includes(GameEffect.EARTHQUAKE)) {
       effects.push(
         <div
           key="earthquake-effect"
@@ -223,7 +227,7 @@ export default function GameGrid({
       );
     }
 
-    if (effects?.includes(GameEffect.TORNADO)) {
+    if (effects.includes(GameEffect.TORNADO)) {
       effects.push(
         <div
           key="tornado-effect"
@@ -321,60 +325,79 @@ export default function GameGrid({
     return overlays.length > 0 ? overlays : null;
   };
 
-  return (
-    <div className="flex items-center justify-center min-h-[400px] p-4 relative">
-      {/* Grid overlays for effects */}
-      {renderGridOverlay()}
-
+  // Visual effects
+  const visualEffects: React.ReactNode[] = [];
+  
+  if (effects.includes(GameEffect.EARTHQUAKE)) {
+    visualEffects.push(
       <div
-        className={`grid justify-items-center items-center ${getGapSize()} relative z-10`}
+        key="earthquake-effect"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          gridTemplateColumns: `repeat(${cols}, 1fr)`,
-          gridTemplateRows: `repeat(${rows}, 1fr)`,
+          animation: 'earthquake 0.5s infinite',
         }}
-      >
-        {circles.map((circle) => (
-          <button
-            key={circle.id}
-            className={`${getCircleStyles(circle)} disabled:cursor-not-allowed relative`}
-            {...getInteractionProps(circle)}
-          >
-            {/* Pulse effect for active circles */}
-            {renderPulseEffect(circle)}
+      />
+    );
+  }
 
-            {/* Special effects and indicators */}
-            {renderSpecialEffects(circle)}
+  if (effects.includes(GameEffect.TORNADO)) {
+    visualEffects.push(
+      <div
+        key="tornado-effect"
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          animation: 'tornado 2s infinite linear',
+        }}
+      />
+    );
+  }
 
-            {/* Circle content based on state */}
-            {circle.isActive && !circle.isAnimating && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                {circle.isDecoy ? (
-                  <span className="text-white text-xl font-bold">✗</span>
-                ) : (
-                  <span className="text-black text-xl font-bold">•</span>
-                )}
-              </div>
-            )}
-          </button>
-        ))}
-      </div>
+  return (
+    <div className="relative w-full h-full">
+      {/* Game circles */}
+      {circles.map((circle) => (
+        <div
+          key={circle.id}
+          className={`
+            absolute rounded-full cursor-pointer transition-all duration-300
+            ${circle.isActive && showCircles ? 'opacity-100' : 'opacity-0'}
+            ${circle.isDecoy ? 'bg-red-500' : 'bg-white'}
+            ${isPowerUpActive(PowerUpType.FREEZE) ? 'freeze-effect' : ''}
+            ${isPowerUpActive(PowerUpType.SLOW_TIME) ? 'slow-time-effect' : ''}
+            ${isPowerUpActive(PowerUpType.SHIELD) ? 'shield-effect' : ''}
+            ${isPowerUpActive(PowerUpType.VISION) ? 'vision-effect' : ''}
+          `}
+          style={{
+            width: getCircleSize(),
+            height: getCircleSize(),
+            left: `${circle.x}%`,
+            top: `${circle.y}%`,
+            transform: `translate(-50%, -50%) ${circle.rotationAngle ? `rotate(${circle.rotationAngle}deg)` : ''}`,
+            ...(circle.shakeOffset && {
+              transform: `translate(calc(-50% + ${circle.shakeOffset.x}px), calc(-50% + ${circle.shakeOffset.y}px))`,
+            }),
+          }}
+          onClick={() => isGameActive && onCircleClick(circle.id)}
+        />
+      ))}
 
-      {/* Global effect indicators */}
-      {isPowerUpActive('SHIELD') && (
-        <div className="absolute top-4 left-4 bg-blue-500 bg-opacity-20 backdrop-blur-sm rounded-lg px-3 py-1 border border-blue-400">
-          <span className="text-blue-300 font-bold text-sm">🛡️ SHIELD ACTIVE</span>
+      {/* Visual effects */}
+      {visualEffects}
+
+      {/* Mode info */}
+      {config.effectsEnabled && config.effectsEnabled.length > 0 && (
+        <div className="bg-orange-500/20 border border-orange-400/50 rounded-lg p-2">
+          <div className="text-orange-300 font-bpdots text-xs font-bold text-center">
+            🌪️ EFFECTS: {config.effectsEnabled.map(effect => effect.toString().toUpperCase()).join(', ')}
+          </div>
         </div>
       )}
 
-      {isPowerUpActive('VISION') && (
-        <div className="absolute top-4 right-4 bg-purple-500 bg-opacity-20 backdrop-blur-sm rounded-lg px-3 py-1 border border-purple-400">
-          <span className="text-purple-300 font-bold text-sm">👁️ FUTURE SIGHT</span>
-        </div>
-      )}
-
-      {effects.includes('chaos') && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-500 bg-opacity-20 backdrop-blur-sm rounded-lg px-3 py-1 border border-red-400">
-          <span className="text-red-300 font-bold text-sm animate-pulse">💀 CHAOS MODE</span>
+      {config.powerUpsEnabled && config.powerUpsEnabled.length > 0 && (
+        <div className="bg-cyan-500/20 border border-cyan-400/50 rounded-lg p-2">
+          <div className="text-cyan-300 font-bpdots text-xs font-bold text-center">
+            ⚡ POWER-UPS: {config.powerUpsEnabled.map(powerUp => powerUp.toString().toUpperCase()).join(', ')}
+          </div>
         </div>
       )}
     </div>
