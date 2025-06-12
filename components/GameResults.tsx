@@ -2,9 +2,30 @@
 
 'use client'
 
-import { GameResult, GameDifficulty } from '../types/game'
+import { GameResult, GameDifficulty, GameMode, SkillLevel } from '../types/game'
 import { GAME_CONFIGS, calculateAccuracy, getAdaptiveLevelDescription } from '../utils/gameUtils'
 import { Spinner } from '@nextui-org/react'
+import {
+    Trophy,
+    Target,
+    Zap,
+    Clock,
+    TrendingUp,
+    Star,
+    Award,
+    RotateCcw,
+    Crosshair,
+    AlertTriangle,
+    Sparkles,
+    CheckCircle,
+    XCircle,
+    Circle,
+    TimerIcon,
+    Gauge,
+    Brain,
+    Activity,
+    FlameIcon
+} from 'lucide-react'
 
 interface GameResultsProps {
     result: GameResult
@@ -27,181 +48,167 @@ export default function GameResults({
     const totalClicks = result.correctHits + result.wrongHits + result.decoyHits
     const accuracy = calculateAccuracy(result.correctHits, totalClicks)
 
-    const getSarcasticComment = () => {
-        const scorePerSecond = result.score / 30
-        const hasGoodAccuracy = accuracy >= 85
-        const hasFastReaction = result.averageReactionTime <= 200
-        const hasSlowReaction = result.averageReactionTime >= 400
-        const hasTerribleAccuracy = accuracy < 40
-        const hasManyDecoys = result.decoyHits >= 5
-        const hasManyMisses = result.missedCircles >= 10
+    const getGameModeIcon = () => {
+        switch (result.gameMode) {
+            case GameMode.REVERSE: return RotateCcw
+            case GameMode.PRECISION: return Crosshair
+            case GameMode.REVERSE_PRECISION: return AlertTriangle
+            default: return Target
+        }
+    }
 
-        // Legendary performance
-        if (scorePerSecond >= 1.5 && hasGoodAccuracy && hasFastReaction) {
-            const legendary = [
-                "Holy moly! Are you even human? 🤖",
-                "Someone's been drinking their coffee! ☕",
-                "Excuse me, this is a reaction test, not a speedrun! 🏃‍♂️",
-                "Did you just break the laws of physics? 🚀",
-                "Your reflexes are faster than my WiFi! 📶",
-                "Are you sure you're not a robot? Suspicious... 🤔",
-                "NASA wants to know your location 🛰️"
-            ]
-            return legendary[Math.floor(Math.random() * legendary.length)]
+    const getGameModeColor = () => {
+        switch (result.gameMode) {
+            case GameMode.REVERSE: return 'text-purple-400'
+            case GameMode.PRECISION: return 'text-red-400'
+            case GameMode.REVERSE_PRECISION: return 'text-orange-400'
+            default: return 'text-white'
+        }
+    }
+
+    const getGameModeDescription = () => {
+        switch (result.gameMode) {
+            case GameMode.REVERSE: return 'Reverse Scoring Mode'
+            case GameMode.PRECISION: return 'Precision Challenge Mode'
+            case GameMode.REVERSE_PRECISION: return 'Ultimate Challenge Mode'
+            default: return 'Standard Mode'
+        }
+    }
+
+    const getSkillLevelIcon = (level: SkillLevel) => {
+        switch (level) {
+            case SkillLevel.LEGENDARY: return Trophy
+            case SkillLevel.MASTER: return Award
+            case SkillLevel.EXPERT: return Star
+            case SkillLevel.ADVANCED: return TrendingUp
+            case SkillLevel.INTERMEDIATE: return Target
+            case SkillLevel.NOVICE: return Activity
+            default: return Circle
+        }
+    }
+
+    const getSkillLevelColor = (level: SkillLevel) => {
+        switch (level) {
+            case SkillLevel.LEGENDARY: return 'text-yellow-400'
+            case SkillLevel.MASTER: return 'text-purple-400'
+            case SkillLevel.EXPERT: return 'text-blue-400'
+            case SkillLevel.ADVANCED: return 'text-green-400'
+            case SkillLevel.INTERMEDIATE: return 'text-white'
+            case SkillLevel.NOVICE: return 'text-gray-400'
+            default: return 'text-gray-500'
+        }
+    }
+
+    const getPerformanceComment = () => {
+        const { gameMode, efficiencyRating, skillLevel, survivalTime } = result
+
+        // Специальные комментарии для Precision Mode
+        if (gameMode === GameMode.PRECISION) {
+            if (result.precisionMisses > 0) {
+                const failureComments = [
+                    `Survived ${survivalTime.toFixed(1)} seconds before the inevitable failure! 💥`,
+                    `Precision lasted ${survivalTime.toFixed(1)}s... then reality hit! 🎯`,
+                    `${survivalTime.toFixed(1)} seconds of perfection, then chaos! ⚡`,
+                    `Your precision streak ended at ${survivalTime.toFixed(1)}s. Almost had it! 🔥`,
+                    `Made it ${survivalTime.toFixed(1)} seconds in the danger zone! 💀`
+                ]
+                return failureComments[Math.floor(Math.random() * failureComments.length)]
+            } else {
+                const successComments = [
+                    "Flawless precision execution! You're a legend! 🏆",
+                    "Perfect run in Precision Mode! Absolutely incredible! ✨",
+                    "Zero mistakes, pure excellence! 🎯",
+                    "Precision mastery achieved! Legendary performance! 👑"
+                ]
+                return successComments[Math.floor(Math.random() * successComments.length)]
+            }
         }
 
-        // Excellent performance
-        if (scorePerSecond >= 1.2 && hasGoodAccuracy) {
-            const excellent = [
-                "Impressive! Your fingers have ninja training! 🥷",
-                "Someone's been practicing... or using cheats? 😏",
-                "Your reactions are sharper than my humor! ⚡",
-                "Not bad, not bad... I'm almost impressed! 👏",
-                "Did you sell your soul for these reflexes? 😈",
-                "Your mouse is probably crying from overwork! 🖱️💦"
-            ]
-            return excellent[Math.floor(Math.random() * excellent.length)]
+        // Специальные комментарии для Reverse Mode
+        if (gameMode === GameMode.REVERSE) {
+            if (result.score > 20) {
+                const highScoreComments = [
+                    "Reverse psychology mastered! Your brain is built different! 🧠",
+                    "Embrace the chaos! Outstanding reverse performance! 🔄",
+                    "You've turned failure into success! Brilliant! ⚡",
+                    "Reverse mode specialist! The confusion is real! 🌀"
+                ]
+                return highScoreComments[Math.floor(Math.random() * highScoreComments.length)]
+            } else {
+                const lowScoreComments = [
+                    "Reverse mode got you twisted! That's normal! 🔄",
+                    "Your brain is still adjusting to the backwards world! 🧠",
+                    "Reverse thinking takes practice! Keep trying! 💪",
+                    "The reverse mindset is challenging everyone! 🌀"
+                ]
+                return lowScoreComments[Math.floor(Math.random() * lowScoreComments.length)]
+            }
         }
 
-        // Good performance
-        if (scorePerSecond >= 0.8 && accuracy >= 75) {
-            const good = [
-                "Pretty solid! You're getting the hang of it! 👍",
-                "Nice work! Your brain cells are functioning! 🧠",
-                "Respectable performance, human! 🎯",
-                "You're like a decent Wi-Fi connection - reliable! 📡",
-                "Not terrible! Progress is progress! 📈",
-                "Your reflexes are officially above potato level! 🥔➡️🚀"
-            ]
-            return good[Math.floor(Math.random() * good.length)]
+        // Комментарии по эффективности для обычного режима
+        if (efficiencyRating >= 90) {
+            return "Godlike efficiency! Are you even human? 🤖"
+        } else if (efficiencyRating >= 80) {
+            return "Exceptional performance! You're in the top tier! 🏆"
+        } else if (efficiencyRating >= 70) {
+            return "Solid execution! You're getting really good! 🎯"
+        } else if (efficiencyRating >= 60) {
+            return "Decent performance! Keep up the practice! 💪"
+        } else if (efficiencyRating >= 50) {
+            return "Room for improvement, but you're getting there! 📈"
+        } else {
+            return "Everyone starts somewhere! Keep practicing! 🌱"
         }
-
-        // Average performance
-        if (scorePerSecond >= 0.5 && accuracy >= 60) {
-            const average = [
-                "Meh... it's something, I guess? 🤷‍♂️",
-                "You're perfectly average! Congratulations? 📊",
-                "Your performance is as exciting as watching paint dry 🎨",
-                "Well, at least you tried... sort of 💪",
-                "You're the human equivalent of room temperature 🌡️",
-                "Achievement unlocked: 'Participated' 🏅",
-                "Your reflexes are... existing. That's good! ✅"
-            ]
-            return average[Math.floor(Math.random() * average.length)]
-        }
-
-        // Poor performance with specific issues
-        if (hasManyDecoys) {
-            const decoyComments = [
-                "Stop clicking the red ones! They're not your friends! ❌",
-                "Red = bad. It's not rocket science! 🚫",
-                "Are you colorblind or just rebellious? 🌈",
-                "The red circles are laughing at you! 😂",
-                "Decoy circles: 1, You: 0 🎭",
-                "Maybe try glasses? The red ones are obvious! 👓"
-            ]
-            return decoyComments[Math.floor(Math.random() * decoyComments.length)]
-        }
-
-        if (hasTerribleAccuracy) {
-            const accuracyComments = [
-                "Are you playing blindfolded? 😵",
-                "Your accuracy is lower than my expectations! 📉",
-                "Did you forget how clicking works? 🖱️❓",
-                "Maybe try aiming... just a suggestion! 🎯",
-                "Your accuracy makes stormtroopers look skilled! 🎭",
-                "Are you clicking with your elbows? 💪❓",
-                "I've seen better aim from a drunk penguin! 🐧🍺"
-            ]
-            return accuracyComments[Math.floor(Math.random() * accuracyComments.length)]
-        }
-
-        if (hasSlowReaction) {
-            const slowComments = [
-                "Are you reacting or just thinking really hard? 🤔💭",
-                "Your reaction time suggests you're part sloth! 🦥",
-                "Did you pause for a coffee break between clicks? ☕",
-                "Faster reactions have been observed in glaciers! 🧊",
-                "Are you using Internet Explorer to click? 🌐💤",
-                "Your reflexes are sponsored by 'Loading...' ⏳",
-                "I've seen paint dry faster than your reactions! 🎨"
-            ]
-            return slowComments[Math.floor(Math.random() * slowComments.length)]
-        }
-
-        if (hasManyMisses) {
-            const missComments = [
-                "The circles were right there! RIGHT THERE! 👆",
-                "You missed more circles than a drunk dart player! 🎯🍺",
-                "Were you playing peek-a-boo with the targets? 👻",
-                "The circles are filing a missing persons report! 📋",
-                "You let more circles escape than a broken zoo! 🦁💨",
-                "Missing circles is not the objective! Just saying... 🤦‍♂️"
-            ]
-            return missComments[Math.floor(Math.random() * missComments.length)]
-        }
-
-        // General poor performance
-        if (scorePerSecond >= 0.2) {
-            const poor = [
-                "Well... that happened. Moving on! 🚶‍♂️",
-                "Your performance is questionable at best! 🤨",
-                "Are you sure you're awake? 😴",
-                "Maybe stick to slower games... like chess? ♟️",
-                "Your reflexes need a vacation... or training! 🏋️‍♂️",
-                "Did you forget you were playing a game? 🎮❓",
-                "Your mouse is probably confused! 🖱️😵",
-                "Practice makes perfect... you need a LOT of practice! 📚"
-            ]
-            return poor[Math.floor(Math.random() * poor.length)]
-        }
-
-        // Terrible performance
-        const terrible = [
-            "Oof... just... oof. 😬",
-            "Did you even try? Like, at all? 🤷‍♂️",
-            "Your performance is so bad, it's almost artistic! 🎨💔",
-            "I'm not angry, just... disappointed. 😞",
-            "Maybe gaming isn't your calling? 🎮❌",
-            "Your reflexes are in witness protection! 🕵️‍♂️",
-            "Even my grandmother would do better! (She's 90) 👵",
-            "Are you playing with your feet? 🦶",
-            "This is painful to watch... for me! 😵",
-            "Have you considered a career in... literally anything else? 💼",
-            "Your performance broke my scoring system! 💻💥",
-            "I've seen better coordination from a headless chicken! 🐔",
-            "This is why aliens don't visit us... 👽🛸"
-        ]
-        return terrible[Math.floor(Math.random() * terrible.length)]
     }
 
     const getPerformanceEmoji = () => {
-        const scorePerSecond = result.score / 30
-        const hasGoodAccuracy = accuracy >= 85
-        const hasFastReaction = result.averageReactionTime <= 200
+        const { gameMode, efficiencyRating, precisionMisses } = result
 
-        if (scorePerSecond >= 1.5 && hasGoodAccuracy && hasFastReaction) return "🏆"
-        if (scorePerSecond >= 1.2 && hasGoodAccuracy) return "🥇"
-        if (scorePerSecond >= 0.8 && accuracy >= 75) return "🥈"
-        if (scorePerSecond >= 0.5 && accuracy >= 60) return "🥉"
-        if (scorePerSecond >= 0.2) return "💩"
-        return "🗑️"
+        if (gameMode === GameMode.PRECISION && precisionMisses > 0) return "💥"
+        if (gameMode === GameMode.PRECISION && precisionMisses === 0) return "🏆"
+        if (gameMode === GameMode.REVERSE && result.score > 20) return "🧠"
+        if (gameMode === GameMode.REVERSE) return "🔄"
+
+        if (efficiencyRating >= 90) return "🤖"
+        if (efficiencyRating >= 80) return "🏆"
+        if (efficiencyRating >= 70) return "🎯"
+        if (efficiencyRating >= 60) return "💪"
+        if (efficiencyRating >= 50) return "📈"
+        return "🌱"
     }
 
     const getScoreColor = () => {
-        if (result.score >= 30) return 'text-green-400'
-        if (result.score >= 20) return 'text-yellow-400'
-        if (result.score >= 10) return 'text-blue-400'
-        if (result.score >= 0) return 'text-white'
-        return 'text-red-400'
+        if (result.gameMode === GameMode.REVERSE) {
+            // В reverse mode больше очков = лучше
+            if (result.score >= 30) return 'text-purple-400'
+            if (result.score >= 20) return 'text-purple-300'
+            if (result.score >= 10) return 'text-white'
+            return 'text-gray-400'
+        } else {
+            // В обычном режиме
+            if (result.score >= 30) return 'text-green-400'
+            if (result.score >= 20) return 'text-yellow-400'
+            if (result.score >= 10) return 'text-blue-400'
+            if (result.score >= 0) return 'text-white'
+            return 'text-red-400'
+        }
     }
 
     const getAccuracyColor = () => {
-        if (accuracy >= 95) return 'text-green-400'
-        if (accuracy >= 90) return 'text-yellow-400'
-        if (accuracy >= 80) return 'text-blue-400'
-        if (accuracy >= 70) return 'text-white'
-        return 'text-red-400'
+        if (result.gameMode === GameMode.REVERSE) {
+            // В reverse mode низкая точность = хорошо
+            if (accuracy <= 30) return 'text-purple-400'
+            if (accuracy <= 50) return 'text-purple-300'
+            if (accuracy <= 70) return 'text-white'
+            return 'text-gray-400'
+        } else {
+            // В обычном режиме
+            if (accuracy >= 95) return 'text-green-400'
+            if (accuracy >= 90) return 'text-yellow-400'
+            if (accuracy >= 80) return 'text-blue-400'
+            if (accuracy >= 70) return 'text-white'
+            return 'text-red-400'
+        }
     }
 
     const getReactionTimeColor = () => {
@@ -211,70 +218,56 @@ export default function GameResults({
         return 'text-red-400'
     }
 
-    const getRating = () => {
-        const scorePerSecond = result.score / 30
-        const hasGoodAccuracy = accuracy >= 85
-        const hasFastReaction = result.averageReactionTime <= 200
-
-        if (scorePerSecond >= 1.5 && hasGoodAccuracy && hasFastReaction) {
-            return { text: 'LEGENDARY PERFORMANCE', color: 'text-yellow-400' }
-        }
-        if (scorePerSecond >= 1.2 && hasGoodAccuracy) {
-            return { text: 'EXCEPTIONAL SKILL', color: 'text-green-400' }
-        }
-        if (scorePerSecond >= 0.8 && accuracy >= 75) {
-            return { text: 'STRONG EXECUTION', color: 'text-blue-400' }
-        }
-        if (scorePerSecond >= 0.5 && accuracy >= 60) {
-            return { text: 'ADEQUATE PERFORMANCE', color: 'text-white' }
-        }
-        if (scorePerSecond >= 0.2) {
-            return { text: 'NEEDS IMPROVEMENT', color: 'text-orange-400' }
-        }
-        return { text: 'CRITICAL FAILURE', color: 'text-red-400' }
-    }
-
-    const rating = getRating()
-    const sarcasticComment = getSarcasticComment()
+    const performanceComment = getPerformanceComment()
     const performanceEmoji = getPerformanceEmoji()
+    const GameModeIcon = getGameModeIcon()
+    const SkillIcon = getSkillLevelIcon(result.skillLevel)
 
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-6">
-            <div className="w-full max-w-md space-y-8 animate-fade-in">
-                <div className="text-center space-y-2">
+            <div className="w-full max-w-md space-y-6 animate-fade-in">
+
+                {/* Header Section */}
+                <div className="text-center space-y-3">
                     <div className="text-6xl mb-4">{performanceEmoji}</div>
                     <h1 className="text-4xl font-bold font-bpdots text-white">
-                        GAME OVER
+                        {result.gameMode === GameMode.PRECISION && result.precisionMisses > 0 ? 'PRECISION FAILED' : 'GAME OVER'}
                     </h1>
-                    <p className="text-lg font-bpdots text-gray-400">
-                        {config.name} Difficulty Mode
-                    </p>
-                    {result.adaptiveLevel > 0 && (
-                        <p className="text-sm font-bpdots text-yellow-400">
-                            Adaptive Level: {getAdaptiveLevelDescription(result.adaptiveLevel)}
-                        </p>
-                    )}
+
+                    {/* Game Mode Indicator */}
+                    <div className={`flex items-center justify-center space-x-2 ${getGameModeColor()}`}>
+                        <GameModeIcon size={16} />
+                        <span className="text-sm font-bpdots uppercase tracking-wider">
+                            {getGameModeDescription()}
+                        </span>
+                    </div>
+
+                    {/* Skill Level */}
+                    <div className={`flex items-center justify-center space-x-2 ${getSkillLevelColor(result.skillLevel)}`}>
+                        <SkillIcon size={16} />
+                        <span className="text-sm font-bpdots uppercase tracking-wider">
+                            {result.skillLevel} LEVEL
+                        </span>
+                    </div>
                 </div>
 
-                {/* Sarcastic Comment */}
+                {/* Performance Comment */}
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                     <div className="text-center">
-                        <div className={`text-xl font-bold font-bpdots ${rating.color} mb-2`}>
-                            {rating.text}
-                        </div>
                         <div className="text-white/80 font-bpdots text-sm italic">
-                            &ldquo;{sarcasticComment}&ldquo;
+                            "{performanceComment}"
                         </div>
                     </div>
                 </div>
 
+                {/* Save Status */}
                 {(isSaving || saveError || saveSuccess) && (
                     <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                         {isSaving && (
                             <div className="flex items-center justify-center space-x-3">
                                 <Spinner size="sm" color="white" />
                                 <span className="text-white font-bpdots text-sm">
-                                    Uploading your shame to the database...
+                                    Saving results...
                                 </span>
                             </div>
                         )}
@@ -282,10 +275,7 @@ export default function GameResults({
                         {saveSuccess && !isSaving && (
                             <div className="text-center">
                                 <div className="text-green-400 font-bpdots text-sm mb-2">
-                                    ✓ Results successfully saved (unfortunately)
-                                </div>
-                                <div className="text-gray-400 font-bpdots text-xs">
-                                    Your performance is now permanently recorded
+                                    ✓ Results saved successfully
                                 </div>
                             </div>
                         )}
@@ -293,98 +283,202 @@ export default function GameResults({
                         {saveError && !isSaving && (
                             <div className="text-center">
                                 <div className="text-red-400 font-bpdots text-sm mb-2">
-                                    ✗ Database refused to save these results
-                                </div>
-                                <div className="text-gray-400 font-bpdots text-xs">
-                                    Even the database has standards
+                                    ✗ Failed to save results
                                 </div>
                             </div>
                         )}
                     </div>
                 )}
 
+                {/* Main Statistics */}
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-6">
-                    <div className="text-center space-y-1">
-                        <div className="text-sm font-bpdots text-gray-400">FINAL SCORE</div>
-                        <div className={`text-3xl font-bold font-bpdots ${getScoreColor()}`}>
+
+                    {/* Score Section */}
+                    <div className="text-center space-y-2">
+                        <div className="flex items-center justify-center space-x-2">
+                            <Trophy size={20} className="text-white/60" />
+                            <div className="text-sm font-bpdots text-gray-400">FINAL SCORE</div>
+                        </div>
+                        <div className={`text-4xl font-bold font-bpdots ${getScoreColor()}`}>
                             {result.score >= 0 ? '+' : ''}{result.score}
+                        </div>
+                        <div className="flex items-center justify-center space-x-4 text-sm">
+                            <div className="flex items-center space-x-1">
+                                <Gauge size={14} className="text-white/60" />
+                                <span className="text-white/80 font-bpdots">
+                                    {result.efficiencyRating}% Efficiency
+                                </span>
+                            </div>
                         </div>
                     </div>
 
+                    {/* Core Stats Grid */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="text-center space-y-1">
-                            <div className="text-xs font-bpdots text-gray-400">SUCCESSFUL</div>
+                        <div className="text-center space-y-1 p-3 bg-white/5 rounded-lg">
+                            <div className="flex items-center justify-center space-x-1">
+                                <CheckCircle size={14} className="text-green-400" />
+                                <div className="text-xs font-bpdots text-gray-400">SUCCESS</div>
+                            </div>
                             <div className="text-xl font-bold font-bpdots text-green-400">
                                 {result.correctHits}
                             </div>
                         </div>
 
-                        <div className="text-center space-y-1">
-                            <div className="text-xs font-bpdots text-gray-400">FAILED</div>
+                        <div className="text-center space-y-1 p-3 bg-white/5 rounded-lg">
+                            <div className="flex items-center justify-center space-x-1">
+                                <XCircle size={14} className="text-red-400" />
+                                <div className="text-xs font-bpdots text-gray-400">FAILED</div>
+                            </div>
                             <div className="text-xl font-bold font-bpdots text-red-400">
                                 {result.wrongHits}
                             </div>
                         </div>
 
-                        <div className="text-center space-y-1">
-                            <div className="text-xs font-bpdots text-gray-400">IGNORED</div>
+                        <div className="text-center space-y-1 p-3 bg-white/5 rounded-lg">
+                            <div className="flex items-center justify-center space-x-1">
+                                <Circle size={14} className="text-orange-400" />
+                                <div className="text-xs font-bpdots text-gray-400">MISSED</div>
+                            </div>
                             <div className="text-xl font-bold font-bpdots text-orange-400">
                                 {result.missedCircles}
                             </div>
                         </div>
 
-                        <div className="text-center space-y-1">
-                            <div className="text-xs font-bpdots text-gray-400">ACCURACY</div>
+                        <div className="text-center space-y-1 p-3 bg-white/5 rounded-lg">
+                            <div className="flex items-center justify-center space-x-1">
+                                <Target size={14} className="text-white/60" />
+                                <div className="text-xs font-bpdots text-gray-400">ACCURACY</div>
+                            </div>
                             <div className={`text-xl font-bold font-bpdots ${getAccuracyColor()}`}>
                                 {accuracy}%
                             </div>
                         </div>
                     </div>
 
-                    {(result.decoyHits > 0 || result.fastHits > 0 || result.averageReactionTime > 0) && (
-                        <div className="border-t border-white/10 pt-4">
-                            <div className="text-center mb-3">
-                                <div className="text-sm font-bpdots text-gray-400">DETAILED ANALYSIS</div>
+                    {/* Extended Statistics */}
+                    <div className="border-t border-white/10 pt-4">
+                        <div className="text-center mb-3">
+                            <div className="text-sm font-bpdots text-gray-400 flex items-center justify-center space-x-2">
+                                <Brain size={14} />
+                                <span>PERFORMANCE ANALYSIS</span>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                {result.decoyHits > 0 && (
-                                    <div className="text-center space-y-1">
-                                        <div className="text-xs font-bpdots text-gray-400">FELL FOR DECOYS</div>
-                                        <div className="text-lg font-bold font-bpdots text-red-400">
-                                            {result.decoyHits}
-                                        </div>
-                                    </div>
-                                )}
+                        </div>
 
-                                {result.fastHits > 0 && (
-                                    <div className="text-center space-y-1">
-                                        <div className="text-xs font-bpdots text-gray-400">SPEED BONUS</div>
-                                        <div className="text-lg font-bold font-bpdots text-yellow-400">
-                                            {result.fastHits}
-                                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* Reaction Time */}
+                            {result.averageReactionTime > 0 && (
+                                <div className="text-center space-y-1 p-2 bg-white/5 rounded-lg">
+                                    <div className="text-xs font-bpdots text-gray-400 flex items-center justify-center space-x-1">
+                                        <Clock size={12} />
+                                        <span>REACTION</span>
                                     </div>
-                                )}
+                                    <div className={`text-lg font-bold font-bpdots ${getReactionTimeColor()}`}>
+                                        {result.averageReactionTime}ms
+                                    </div>
+                                </div>
+                            )}
 
-                                {result.averageReactionTime > 0 && (
-                                    <div className="text-center space-y-1 col-span-2">
-                                        <div className="text-xs font-bpdots text-gray-400">REACTION TIME</div>
-                                        <div className={`text-lg font-bold font-bpdots ${getReactionTimeColor()}`}>
-                                            {result.averageReactionTime}ms
-                                        </div>
+                            {/* Longest Streak */}
+                            {result.longestStreak > 0 && (
+                                <div className="text-center space-y-1 p-2 bg-white/5 rounded-lg">
+                                    <div className="text-xs font-bpdots text-gray-400 flex items-center justify-center space-x-1">
+                                        <FlameIcon size={12} />
+                                        <span>STREAK</span>
                                     </div>
-                                )}
+                                    <div className="text-lg font-bold font-bpdots text-yellow-400">
+                                        {result.longestStreak}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Speed Bonus */}
+                            {result.fastHits > 0 && (
+                                <div className="text-center space-y-1 p-2 bg-white/5 rounded-lg">
+                                    <div className="text-xs font-bpdots text-gray-400 flex items-center justify-center space-x-1">
+                                        <Zap size={12} />
+                                        <span>SPEED</span>
+                                    </div>
+                                    <div className="text-lg font-bold font-bpdots text-yellow-400">
+                                        {result.fastHits}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Perfect Runs */}
+                            {result.perfectRuns > 0 && (
+                                <div className="text-center space-y-1 p-2 bg-white/5 rounded-lg">
+                                    <div className="text-xs font-bpdots text-gray-400 flex items-center justify-center space-x-1">
+                                        <Sparkles size={12} />
+                                        <span>PERFECT</span>
+                                    </div>
+                                    <div className="text-lg font-bold font-bpdots text-green-400">
+                                        {result.perfectRuns}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Survival Time for Precision Mode */}
+                            {result.gameMode === GameMode.PRECISION && (
+                                <div className="text-center space-y-1 p-2 bg-white/5 rounded-lg col-span-2">
+                                    <div className="text-xs font-bpdots text-gray-400 flex items-center justify-center space-x-1">
+                                        <TimerIcon size={12} />
+                                        <span>SURVIVAL TIME</span>
+                                    </div>
+                                    <div className="text-lg font-bold font-bpdots text-red-400">
+                                        {result.survivalTime.toFixed(1)}s
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Multi-touch Events */}
+                            {result.multiTouchEvents > 0 && (
+                                <div className="text-center space-y-1 p-2 bg-white/5 rounded-lg">
+                                    <div className="text-xs font-bpdots text-gray-400 flex items-center justify-center space-x-1">
+                                        <Activity size={12} />
+                                        <span>MULTI</span>
+                                    </div>
+                                    <div className="text-lg font-bold font-bpdots text-blue-400">
+                                        {result.multiTouchEvents}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Decoy Hits */}
+                            {result.decoyHits > 0 && (
+                                <div className="text-center space-y-1 p-2 bg-white/5 rounded-lg">
+                                    <div className="text-xs font-bpdots text-gray-400 flex items-center justify-center space-x-1">
+                                        <AlertTriangle size={12} />
+                                        <span>DECOYS</span>
+                                    </div>
+                                    <div className="text-lg font-bold font-bpdots text-red-400">
+                                        {result.decoyHits}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Adaptive Level */}
+                    {result.adaptiveLevel > 0 && (
+                        <div className="border-t border-white/10 pt-4">
+                            <div className="text-center">
+                                <div className="text-xs font-bpdots text-gray-400 mb-2">ADAPTIVE LEVEL REACHED</div>
+                                <div className="text-lg font-bold font-bpdots text-yellow-400">
+                                    {getAdaptiveLevelDescription(result.adaptiveLevel)}
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
 
+                {/* Action Buttons */}
                 <div className="space-y-4">
                     <button
                         onClick={onPlayAgain}
                         disabled={isSaving}
                         className="w-full px-6 py-4 bg-transparent border-2 border-white text-white rounded-xl font-bpdots text-lg hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
-                        TRY TO REDEEM YOURSELF
+                        PLAY AGAIN
                     </button>
 
                     <button
@@ -392,7 +486,7 @@ export default function GameResults({
                         disabled={isSaving}
                         className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
-                        RETREAT TO MENU
+                        BACK TO MENU
                     </button>
                 </div>
             </div>
