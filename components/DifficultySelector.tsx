@@ -123,12 +123,12 @@ export default function DifficultySelector({
             <button
               key={difficulty}
               className={`
-                group relative w-full p-6 border rounded-2xl font-bpdots 
+                group relative w-full p-6 rounded-2xl font-bpdots 
                 transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]
                 backdrop-blur-sm overflow-hidden
                 ${isSelected
-                  ? 'bg-white/15 border-white/60 shadow-lg shadow-white/10'
-                  : 'bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/40'
+                  ? 'bg-white/15 shadow-lg shadow-white/10'
+                  : 'bg-white/5 hover:bg-white/10'
                 }
               `}
               onClick={() => onSelectDifficulty(difficulty)}
@@ -150,13 +150,14 @@ export default function DifficultySelector({
                   <div className="flex items-center space-x-4">
                     <div className={`
                       w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
-                      ${isSelected ? 'bg-white/20 shadow-lg' : 'bg-white/10 group-hover:bg-white/15'}
+                      ${isSelected ? 'bg-white/20 shadow-lg scale-110' : 'bg-white/10 group-hover:bg-white/15'}
                     `}>
                       <Icon size={24} className="text-white" />
                     </div>
 
                     <div className="text-left">
-                      <h3 className="text-xl font-bold text-white tracking-wide">
+                      <h3 className={`text-xl font-bold tracking-wide transition-all duration-300 ${isSelected ? 'text-white scale-105' : 'text-white'
+                        }`}>
                         {getDifficultyDisplayName(difficulty)}
                       </h3>
                       <p className="text-white/60 text-sm">
@@ -196,12 +197,12 @@ export default function DifficultySelector({
                 {(config.decoyProbability > 0 || config.adaptiveScaling) && (
                   <div className="flex flex-wrap gap-2 pt-2">
                     {config.decoyProbability > 0 && (
-                      <span className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/70 border border-white/20">
+                      <span className="px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
                         Decoy: {Math.round(config.decoyProbability * 100)}%
                       </span>
                     )}
                     {config.adaptiveScaling && (
-                      <span className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/70 border border-white/20">
+                      <span className="px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
                         Adaptive
                       </span>
                     )}
@@ -211,12 +212,17 @@ export default function DifficultySelector({
 
               {/* Selection Indicator */}
               {isSelected && (
-                <div className="absolute top-4 right-4 w-3 h-3 bg-white rounded-full shadow-lg animate-pulse"></div>
+                <>
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-white/10 via-white/5 to-white/10 pointer-events-none"></div>
+                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-12 bg-white rounded-r-full"></div>
+                </>
               )}
 
               {/* Hover Effect Lines */}
               <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="absolute left-0 top-0 w-px h-full bg-gradient-to-b from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="absolute right-0 top-0 w-px h-full bg-gradient-to-b from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </button>
           );
         })}

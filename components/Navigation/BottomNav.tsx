@@ -3,13 +3,13 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Trophy, User } from 'lucide-react'
+import { Gamepad2, Trophy, User } from 'lucide-react'
 
 const navItems = [
   {
     name: 'Home',
     path: '/main',
-    icon: Home
+    icon: Gamepad2
   },
   {
     name: 'Leaderboard',
@@ -41,10 +41,11 @@ export default function BottomNav() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm border-t border-white/5">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm border-t border-white/5"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {/* Контейнер с правильной центровкой */}
       <div className="w-full max-w-lg mx-auto px-4">
-        <div className="flex items-center justify-around h-20">
+        <div className="flex items-center justify-around h-16">
           {navItems.map((item) => {
             const active = isActive(item.path)
             const Icon = item.icon
@@ -54,7 +55,7 @@ export default function BottomNav() {
                 key={item.name}
                 onClick={() => handleNavigation(item.path)}
                 className={`
-                  flex flex-col items-center justify-center space-y-1 p-2 rounded-lg
+                  flex flex-col items-center justify-center p-3 rounded-lg
                   transition-all duration-300 ease-out group min-w-0 flex-1
                   ${active
                     ? 'text-white scale-110'
@@ -67,28 +68,13 @@ export default function BottomNav() {
                   ${active ? 'transform -translate-y-1' : 'group-hover:transform group-hover:-translate-y-0.5'}
                 `}>
                   <Icon
-                    size={20}
+                    size={24}
                     className={`
                       transition-all duration-300
                       ${active ? 'stroke-2' : 'stroke-1.5 group-hover:stroke-2'}
                     `}
                   />
-
-                  {/* Активный индикатор */}
-                  {active && (
-                    <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white/50 rounded-full animate-pulse" />
-                  )}
                 </div>
-
-                <span className={`
-                  text-xs font-bpdots font-medium transition-all duration-300 truncate
-                  ${active
-                    ? 'text-white'
-                    : 'text-white/60 group-hover:text-white/80'
-                  }
-                `}>
-                  {item.name}
-                </span>
 
                 {/* Подсветка при наведении */}
                 <div className={`

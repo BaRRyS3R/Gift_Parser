@@ -13,7 +13,9 @@ export default function MainPage() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [pageLoaded, setPageLoaded] = useState(false)
   const [titleText, setTitleText] = useState('|')
-  const [showContent, setShowContent] = useState(false)
+  const [showButton, setShowButton] = useState(false)
+  const [showGreeting, setShowGreeting] = useState(false)
+  const [greetingText, setGreetingText] = useState('')
   const videoRef = useRef<HTMLVideoElement>(null)
 
   const animationSteps = [
@@ -29,6 +31,9 @@ export default function MainPage() {
     'something?',
     'something'
   ]
+
+  const username = user?.first_name || 'unknown'
+  const fullGreeting = `Hello, ${username}`
 
   useEffect(() => {
     const video = videoRef.current
@@ -72,7 +77,10 @@ export default function MainPage() {
           currentStep++
         } else {
           clearInterval(titleInterval)
-          setTimeout(() => setShowContent(true), 400)
+          // После завершения анимации заголовка показываем кнопку
+          setTimeout(() => setShowButton(true), 300)
+          // Затем показываем приветствие
+          setTimeout(() => setShowGreeting(true), 600)
         }
       }, 80)
 
@@ -82,14 +90,29 @@ export default function MainPage() {
     return () => clearTimeout(titleAnimationTimer)
   }, [pageLoaded])
 
+  // Анимация печатания приветствия
+  useEffect(() => {
+    if (!showGreeting || userLoading) return
+
+    let currentChar = 0
+    const typingInterval = setInterval(() => {
+      if (currentChar <= fullGreeting.length) {
+        setGreetingText(fullGreeting.slice(0, currentChar))
+        currentChar++
+      } else {
+        clearInterval(typingInterval)
+      }
+    }, 60)
+
+    return () => clearInterval(typingInterval)
+  }, [showGreeting, fullGreeting, userLoading])
+
   const handleStartGame = () => {
     setIsTransitioning(true)
     setTimeout(() => {
       router.push('/game')
     }, 600)
   }
-
-  const username = user?.first_name || 'unknown'
 
   return (
     <div className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
@@ -130,46 +153,23 @@ export default function MainPage() {
         <div className="absolute bottom-1/4 right-1/4 w-2 h-2 bg-white/15 rotate-45"></div>
       </div>
 
-      {/* Main Content */}
-      <div className="text-center z-20 space-y-12 max-w-2xl mx-auto px-8">
+      {/* Main Content - Centered */}
+      <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center">
 
         {/* Title Section */}
-        <div className="space-y-8">
-          <div className="relative">
-            <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white min-h-[120px] flex items-center justify-center">
-              {titleText}
-            </h1>
+        <div className="relative">
+          <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
+            {titleText}
+          </h1>
 
-            {/* Decorative lines around title */}
-            <div className="absolute left-0 top-1/2 w-16 h-px bg-gradient-to-r from-transparent to-white/40 transform -translate-y-1/2 -translate-x-20"></div>
-            <div className="absolute right-0 top-1/2 w-16 h-px bg-gradient-to-l from-transparent to-white/40 transform -translate-y-1/2 translate-x-20"></div>
-          </div>
-
-          {/* User Greeting */}
-          <div className={`transition-all duration-1000 transform ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-            }`}>
-            <div className="inline-block relative">
-              <div className="absolute inset-0 bg-white/5 blur-xl"></div>
-              <div className="relative backdrop-blur-sm border border-white/20 rounded-lg px-6 py-3">
-                {userLoading ? (
-                  <div className="flex items-center space-x-3">
-                    <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse"></div>
-                    <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                    <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                  </div>
-                ) : (
-                  <p className="text-sm font-bpdots text-white/80 uppercase tracking-wider">
-                    Hello, <span className="text-white font-bold">{username}</span>
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
+          {/* Decorative lines around title */}
+          <div className="absolute left-0 top-1/2 w-16 h-px bg-gradient-to-r from-transparent to-white/40 transform -translate-y-1/2 -translate-x-20"></div>
+          <div className="absolute right-0 top-1/2 w-16 h-px bg-gradient-to-l from-transparent to-white/40 transform -translate-y-1/2 translate-x-20"></div>
         </div>
 
         {/* Action Button */}
-        <div className={`transition-all duration-1000 transform ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`} style={{ transitionDelay: showContent ? '0.3s' : '0s' }}>
+        <div className={`transition-all duration-1000 transform ${showButton ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          }`}>
           <div className="relative group">
 
             {/* Button Glow Effect */}
@@ -194,6 +194,23 @@ export default function MainPage() {
             </button>
           </div>
         </div>
+
+        {/* User Greeting - Simple Text */}
+        <div className={`transition-all duration-1000 transform ${showGreeting ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          }`}>
+          {userLoading ? (
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse"></div>
+              <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+            </div>
+          ) : (
+            <p className="text-xl font-bpdots text-white/80 tracking-wider">
+              {greetingText}
+              {greetingText.length < fullGreeting.length && <span className="animate-pulse">|</span>}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Corner Frame Elements */}
@@ -201,10 +218,6 @@ export default function MainPage() {
       <div className="absolute top-8 right-8 w-12 h-12 border-r-2 border-t-2 border-white/20 z-20"></div>
       <div className="absolute bottom-24 left-8 w-12 h-12 border-l-2 border-b-2 border-white/20 z-20"></div>
       <div className="absolute bottom-24 right-8 w-12 h-12 border-r-2 border-b-2 border-white/20 z-20"></div>
-
-      {/* Subtle animated elements */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 border border-white/5 rounded-full animate-pulse z-10" style={{ animationDuration: '4s' }}></div>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-white/3 rounded-full animate-pulse z-10" style={{ animationDuration: '6s', animationDelay: '1s' }}></div>
     </div>
   )
 }

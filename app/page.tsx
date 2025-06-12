@@ -464,22 +464,12 @@ export default function IntroPage(): JSX.Element {
                                     </p>
                                 </div>
 
-                                {/* Debug info - временно для отладки */}
-                                <div className="text-xs text-white/50 font-bpdots mb-4 bg-red-500/20 p-2 rounded">
-                                    Debug: isReady={isReady.toString()}, isLoading={isLoading.toString()},
-                                    isRegistering={authState.isRegistering.toString()},
-                                    hasUser={!!authState.telegramUser}
-                                </div>
-
                                 {/* Buttons */}
                                 <div className="space-y-6">
                                     {/* Main Button - With Intro */}
                                     <div className="space-y-3">
                                         <button
-                                            onClick={() => {
-                                                console.log('INITIALIZE button clicked!');
-                                                handleStart();
-                                            }}
+                                            onClick={handleStart}
                                             disabled={authState.isRegistering}
                                             className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl font-bpdots text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             style={{ pointerEvents: 'auto', zIndex: 100 }}
@@ -519,10 +509,7 @@ export default function IntroPage(): JSX.Element {
                                     {/* Alternative Button - Quick Mode */}
                                     <div className="space-y-3">
                                         <button
-                                            onClick={() => {
-                                                console.log('QUICK START button clicked!');
-                                                handleQuickInit();
-                                            }}
+                                            onClick={handleQuickInit}
                                             disabled={authState.isRegistering}
                                             className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             style={{ pointerEvents: 'auto', zIndex: 100 }}
