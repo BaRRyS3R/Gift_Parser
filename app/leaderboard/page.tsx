@@ -1,29 +1,24 @@
-// src/app/leaderboard/page.tsx
+// src/app/leaderboard/page.tsx - Enhanced with Precision Mode Support
 
 'use client'
 
 import { useState, useEffect } from 'react'
-import {
-    Crown, Medal, Award, Star, Trophy, TrendingUp, Users, Zap, Target, Activity,
-    RotateCcw, Crosshair, AlertTriangle, Brain, Gauge, FlameIcon, Clock, Sparkles
-} from 'lucide-react'
-import { userService, type LeaderboardEntry, type DifficultyLeaderboard, type ModeLeaderboard } from '@/lib/supabase'
-import { GameDifficulty, GameMode, SkillLevel } from '@/types/game'
-import { GAME_CONFIGS } from '@/utils/gameUtils'
+import { Crown, Medal, Award, Star, Trophy, TrendingUp, Users, Zap, Target, Activity, Clock, Crosshair, AlertTriangle } from 'lucide-react'
+import { userService, type LeaderboardEntry, type DifficultyLeaderboard, type PrecisionLeaderboard } from '@/lib/supabase'
+import { GameDifficulty, GAME_CONFIGS } from '@/utils/gameUtils'
 import { useUser } from '@/hooks/useUser'
 import { Spinner } from '@nextui-org/react'
+import { formatPrecisionTime } from '@/utils/gameUtils'
 
-type LeaderboardType = 'overall' | 'efficiency' | 'skill' | GameDifficulty | GameMode
+type LeaderboardType = 'overall' | 'precision' | GameDifficulty
 
 export default function LeaderboardPage() {
     const { user } = useUser()
     const [activeTab, setActiveTab] = useState<LeaderboardType>('overall')
     const [overallLeaderboard, setOverallLeaderboard] = useState<LeaderboardEntry[]>([])
+    const [precisionLeaderboard, setPrecisionLeaderboard] = useState<PrecisionLeaderboard[]>([])
     const [difficultyLeaderboards, setDifficultyLeaderboards] = useState<{
         [key in GameDifficulty]?: DifficultyLeaderboard[]
-    }>({})
-    const [modeLeaderboards, setModeLeaderboards] = useState<{
-        [key in GameMode]?: ModeLeaderboard[]
     }>({})
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -34,41 +29,30 @@ export default function LeaderboardPage() {
                 setIsLoading(true)
                 setError(null)
 
-                // Загружаем общий лидерборд
-                const overall = await userService.getLeaderboard(50)
-                setOverallLeaderboard(overall)
+                const [overall, precision] = await Promise.all([
+                    userService.getLeaderboard(50),
+                    userService.getPrecisionLeaderboard(50)
+                ])
 
-                // Загружаем лидерборды по сложности
-                const difficulties = Object.values(GameDifficulty)
+                setOverallLeaderboard(overall)
+                setPrecisionLeaderboard(precision)
+
+                const standardDifficulties = Object.values(GameDifficulty).filter(d => d !== GameDifficulty.PRECISION)
                 const difficultyBoards = await Promise.all(
-                    difficulties.map(difficulty =>
+                    standardDifficulties.map(difficulty =>
                         userService.getDifficultyLeaderboard(difficulty, 30)
                     )
                 )
 
                 const difficultyLeaderboardsObj: { [key in GameDifficulty]?: DifficultyLeaderboard[] } = {}
-                difficulties.forEach((difficulty, index) => {
+                standardDifficulties.forEach((difficulty, index) => {
                     difficultyLeaderboardsObj[difficulty] = difficultyBoards[index]
                 })
+
                 setDifficultyLeaderboards(difficultyLeaderboardsObj)
-
-                // Загружаем лидерборды по режимам
-                const modes = Object.values(GameMode)
-                const modeBoards = await Promise.all(
-                    modes.map(mode =>
-                        userService.getModeLeaderboard(mode, 30)
-                    )
-                )
-
-                const modeLeaderboardsObj: { [key in GameMode]?: ModeLeaderboard[] } = {}
-                modes.forEach((mode, index) => {
-                    modeLeaderboardsObj[mode] = modeBoards[index]
-                })
-                setModeLeaderboards(modeLeaderboardsObj)
-
             } catch (err) {
                 console.error('Error loading leaderboards:', err)
-                setError('ERROR: FAILED TO LOAD RANKING DATA')
+                setError('FAILED TO LOAD RANKING DATA')
             } finally {
                 setIsLoading(false)
             }
@@ -81,16 +65,16 @@ export default function LeaderboardPage() {
         switch (position) {
             case 1: return <Crown size={18} className="text-yellow-400" />
             case 2: return <Medal size={18} className="text-gray-300" />
-            case 3: return <Award size={18} className="text-orange-400" />
+            case 3: return <Award size={18} className="text-amber-600" />
             default: return <span className="text-white/60 font-bpdots text-sm font-bold">#{position}</span>
         }
     }
 
     const getRankBg = (position: number) => {
         switch (position) {
-            case 1: return 'bg-yellow-500/20 border-yellow-400/40 shadow-lg shadow-yellow-500/20'
-            case 2: return 'bg-gray-500/20 border-gray-400/40 shadow-lg shadow-gray-500/20'
-            case 3: return 'bg-orange-500/20 border-orange-400/40 shadow-lg shadow-orange-500/20'
+            case 1: return 'bg-yellow-500/20 border-yellow-400/40'
+            case 2: return 'bg-gray-400/20 border-gray-300/40'
+            case 3: return 'bg-amber-600/20 border-amber-500/40'
             default: return 'bg-white/5 border-white/20'
         }
     }
@@ -110,144 +94,63 @@ export default function LeaderboardPage() {
         return `${Math.floor(diffInHours / 24)}d`
     }
 
-    const getSkillLevelColor = (level?: SkillLevel) => {
-        switch (level) {
-            case SkillLevel.LEGENDARY: return 'text-yellow-400'
-            case SkillLevel.MASTER: return 'text-purple-400'
-            case SkillLevel.EXPERT: return 'text-blue-400'
-            case SkillLevel.ADVANCED: return 'text-green-400'
-            case SkillLevel.INTERMEDIATE: return 'text-white'
-            case SkillLevel.NOVICE: return 'text-gray-400'
-            default: return 'text-gray-500'
-        }
-    }
-
-    const getTabIcon = (tab: LeaderboardType) => {
-        switch (tab) {
-            case 'overall': return Trophy
-            case 'efficiency': return Gauge
-            case 'skill': return Brain
-            case GameMode.NORMAL: return Target
-            case GameMode.REVERSE: return RotateCcw
-            case GameMode.PRECISION: return Crosshair
-            case GameMode.REVERSE_PRECISION: return AlertTriangle
-            default: return Target
-        }
-    }
-
-    const getTabColor = (tab: LeaderboardType) => {
-        switch (tab) {
-            case GameMode.REVERSE: return 'text-purple-400'
-            case GameMode.PRECISION: return 'text-red-400'
-            case GameMode.REVERSE_PRECISION: return 'text-orange-400'
-            case 'efficiency': return 'text-green-400'
-            case 'skill': return 'text-blue-400'
-            default: return 'text-white'
-        }
-    }
-
     const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
         switch (difficulty) {
-            case GameDifficulty.EASY: return 'EASY'
-            case GameDifficulty.MEDIUM: return 'MEDIUM'
-            case GameDifficulty.HARD: return 'HARD'
-            case GameDifficulty.LEGENDARY: return 'LEGENDARY'
+            case GameDifficulty.EASY: return 'NOOB'
+            case GameDifficulty.MEDIUM: return 'CASUAL'
+            case GameDifficulty.HARD: return 'PRO'
+            case GameDifficulty.LEGENDARY: return 'LEGEND'
             case GameDifficulty.OMG: return 'OMG'
             case GameDifficulty.NIGHTMARE: return 'NIGHTMARE'
-            case GameDifficulty.IMPOSSIBLE: return 'IMPOSSIBLE'
-            case GameDifficulty.REVERSE_EASY: return 'REV EASY'
-            case GameDifficulty.REVERSE_MEDIUM: return 'REV MED'
-            case GameDifficulty.REVERSE_HARD: return 'REV HARD'
-            case GameDifficulty.CHAOS_REVERSE: return 'CHAOS'
-            case GameDifficulty.PRECISION_EASY: return 'PREC EASY'
-            case GameDifficulty.PRECISION_MEDIUM: return 'PREC MED'
-            case GameDifficulty.PRECISION_HARD: return 'PREC HARD'
-            case GameDifficulty.ULTIMATE_PRECISION: return 'ULTIMATE'
+            case GameDifficulty.IMPOSSIBLE: return 'RAGE MODE'
+            case GameDifficulty.PRECISION: return 'PRECISION'
         }
     }
 
-    const getModeDisplayName = (mode: GameMode): string => {
-        switch (mode) {
-            case GameMode.NORMAL: return 'STANDARD'
-            case GameMode.REVERSE: return 'REVERSE'
-            case GameMode.PRECISION: return 'PRECISION'
-            case GameMode.REVERSE_PRECISION: return 'HYBRID'
-        }
-    }
-
-    const renderLeaderboardEntry = (
-        entry: LeaderboardEntry | DifficultyLeaderboard | ModeLeaderboard,
+    const renderStandardLeaderboardEntry = (
+        entry: LeaderboardEntry | DifficultyLeaderboard,
         position: number,
-        type: 'overall' | 'difficulty' | 'mode' | 'efficiency' | 'skill' = 'overall'
+        isOverall: boolean = true
     ) => {
-        let score = 0
-        let games = 0
-        let accuracy = 0
-        let efficiency = 0
-        let skillLevel: SkillLevel | undefined
+        const score = isOverall
+            ? (entry as LeaderboardEntry).best_score
+            : (entry as DifficultyLeaderboard).difficulty_best_score
 
-        if (type === 'overall') {
-            const e = entry as LeaderboardEntry
-            score = e.best_score
-            games = e.total_games
-            accuracy = e.best_accuracy
-            efficiency = e.best_efficiency_rating || 0
-            skillLevel = e.highest_skill_level
-        } else if (type === 'difficulty') {
-            const e = entry as DifficultyLeaderboard
-            score = e.difficulty_best_score
-            games = e.difficulty_games
-        } else if (type === 'mode') {
-            const e = entry as ModeLeaderboard
-            score = e.mode_best_score
-            games = e.mode_games
-            efficiency = e.mode_best_efficiency || 0
-        } else if (type === 'efficiency') {
-            const e = entry as LeaderboardEntry
-            score = e.best_efficiency_rating || 0
-            games = e.total_games
-            accuracy = e.best_accuracy
-        } else if (type === 'skill') {
-            const e = entry as LeaderboardEntry
-            score = e.best_score // For display purposes
-            games = e.total_games
-            accuracy = e.best_accuracy
-            skillLevel = e.highest_skill_level
-        }
+        const games = isOverall
+            ? (entry as LeaderboardEntry).total_games
+            : (entry as DifficultyLeaderboard).difficulty_games
+
+        const accuracy = isOverall ? (entry as LeaderboardEntry).best_accuracy : null
 
         return (
             <div
                 key={entry.id}
                 className={`
-                    flex items-center space-x-3 p-4 rounded-xl border transition-all duration-300 backdrop-blur-xl
+                    flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
                     ${getRankBg(position)}
                     ${isCurrentUser(entry.telegram_id)
-                        ? 'ring-2 ring-white/40 bg-white/15'
+                        ? 'ring-1 ring-white/40 bg-white/15'
                         : 'hover:bg-white/10'
                     }
                 `}
             >
-                <div className="flex items-center justify-center w-10">
+                <div className="flex items-center justify-center w-8">
                     {getRankIcon(position)}
                 </div>
 
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                        <h3 className={`font-bpdots font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? 'text-white' : 'text-white/90'
-                            }`}>
+                        <h3 className={`font-bpdots font-bold truncate text-sm ${
+                            isCurrentUser(entry.telegram_id) ? 'text-white' : 'text-white/90'
+                        }`}>
                             {entry.first_name} {entry.last_name || ''}
                         </h3>
                         {entry.is_premium && (
                             <Star size={12} className="text-yellow-400 flex-shrink-0" />
                         )}
                         {isCurrentUser(entry.telegram_id) && (
-                            <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-bpdots">
+                            <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded font-bpdots">
                                 YOU
-                            </span>
-                        )}
-                        {skillLevel && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full bg-white/20 font-bpdots ${getSkillLevelColor(skillLevel)}`}>
-                                {skillLevel.charAt(0).toUpperCase()}
                             </span>
                         )}
                     </div>
@@ -258,25 +161,85 @@ export default function LeaderboardPage() {
 
                 <div className="text-right space-y-1">
                     <div className="text-lg font-bold font-bpdots text-white">
-                        {type === 'efficiency' ? `${score}%` : (score >= 0 ? '+' : '')}{type === 'efficiency' ? '' : score}
+                        {score >= 0 ? '+' : ''}{score}
                     </div>
-                    <div className="flex items-center space-x-3 text-xs text-white/60 font-bpdots">
+                    <div className="flex items-center space-x-2 text-xs text-white/60 font-bpdots">
                         <div className="flex items-center space-x-1">
                             <Activity size={10} />
                             <span>{games}</span>
                         </div>
-                        {type === 'overall' && accuracy > 0 && (
+                        {accuracy !== null && (
                             <div className="flex items-center space-x-1">
                                 <Target size={10} />
                                 <span>{accuracy}%</span>
                             </div>
                         )}
-                        {efficiency > 0 && type !== 'efficiency' && (
-                            <div className="flex items-center space-x-1">
-                                <Gauge size={10} />
-                                <span>{efficiency}E</span>
-                            </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    const renderPrecisionLeaderboardEntry = (entry: PrecisionLeaderboard, position: number) => {
+        return (
+            <div
+                key={entry.id}
+                className={`
+                    flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
+                    ${position <= 3 
+                        ? 'bg-red-500/20 border-red-400/40' 
+                        : 'bg-red-500/10 border-red-400/30'
+                    }
+                    ${isCurrentUser(entry.telegram_id)
+                        ? 'ring-1 ring-red-400/60 bg-red-500/25'
+                        : 'hover:bg-red-500/15'
+                    }
+                `}
+            >
+                <div className="flex items-center justify-center w-8">
+                    {position <= 3 ? getRankIcon(position) : (
+                        <span className="text-red-300/80 font-bpdots text-sm font-bold">#{position}</span>
+                    )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2">
+                        <h3 className={`font-bpdots font-bold truncate text-sm ${
+                            isCurrentUser(entry.telegram_id) ? 'text-red-200' : 'text-red-300'
+                        }`}>
+                            {entry.first_name} {entry.last_name || ''}
+                        </h3>
+                        {entry.is_premium && (
+                            <Star size={12} className="text-yellow-400 flex-shrink-0" />
                         )}
+                        {isCurrentUser(entry.telegram_id) && (
+                            <span className="text-xs bg-red-500/30 text-red-200 px-2 py-0.5 rounded font-bpdots border border-red-400/30">
+                                YOU
+                            </span>
+                        )}
+                    </div>
+                    {entry.username && (
+                        <p className="text-xs text-red-300/60 font-bpdots truncate">@{entry.username}</p>
+                    )}
+                </div>
+
+                <div className="text-right space-y-1">
+                    <div className="text-lg font-bold font-bpdots text-red-300">
+                        {formatPrecisionTime(entry.best_survival_time)}
+                    </div>
+                    <div className="flex items-center space-x-2 text-xs text-red-400/80 font-bpdots">
+                        <div className="flex items-center space-x-1">
+                            <Zap size={10} />
+                            <span>L{entry.max_intensity}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                            <Target size={10} />
+                            <span>{entry.best_streak}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                            <Activity size={10} />
+                            <span>{entry.total_precision_games}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -312,81 +275,70 @@ export default function LeaderboardPage() {
     }
 
     const getCurrentLeaderboard = () => {
-        switch (activeTab) {
-            case 'overall':
-                return overallLeaderboard
-            case 'efficiency':
-                return [...overallLeaderboard].sort((a, b) => (b.best_efficiency_rating || 0) - (a.best_efficiency_rating || 0))
-            case 'skill':
-                const skillOrder = {
-                    [SkillLevel.LEGENDARY]: 7,
-                    [SkillLevel.MASTER]: 6,
-                    [SkillLevel.EXPERT]: 5,
-                    [SkillLevel.ADVANCED]: 4,
-                    [SkillLevel.INTERMEDIATE]: 3,
-                    [SkillLevel.NOVICE]: 2,
-                    [SkillLevel.BEGINNER]: 1
-                }
-                return [...overallLeaderboard].sort((a, b) => {
-                    const aLevel = skillOrder[a.highest_skill_level as SkillLevel] || 0
-                    const bLevel = skillOrder[b.highest_skill_level as SkillLevel] || 0
-                    if (aLevel !== bLevel) return bLevel - aLevel
-                    return b.best_score - a.best_score
-                })
-            default:
-                if (Object.values(GameDifficulty).includes(activeTab as GameDifficulty)) {
-                    return difficultyLeaderboards[activeTab as GameDifficulty] || []
-                }
-                if (Object.values(GameMode).includes(activeTab as GameMode)) {
-                    return modeLeaderboards[activeTab as GameMode] || []
-                }
-                return []
-        }
+        if (activeTab === 'overall') return overallLeaderboard
+        if (activeTab === 'precision') return precisionLeaderboard
+        return difficultyLeaderboards[activeTab] || []
     }
 
     const currentLeaderboard = getCurrentLeaderboard()
-    const getLeaderboardType = (): 'overall' | 'difficulty' | 'mode' | 'efficiency' | 'skill' => {
-        if (activeTab === 'efficiency') return 'efficiency'
-        if (activeTab === 'skill') return 'skill'
-        if (Object.values(GameDifficulty).includes(activeTab as GameDifficulty)) return 'difficulty'
-        if (Object.values(GameMode).includes(activeTab as GameMode)) return 'mode'
-        return 'overall'
-    }
+    const isPrecisionTab = activeTab === 'precision'
 
     return (
         <div className="min-h-screen bg-black text-white pb-20 px-4 pt-12">
             {/* Header */}
-            <div className="mb-6">
-                <div className="text-center space-y-4">
+            <div className="mb-4">
+                <div className="text-center space-y-3">
                     <div className="flex items-center justify-center space-x-3">
-                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                            <Trophy size={24} className="text-white" />
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                            isPrecisionTab ? 'bg-red-500/20 border border-red-400/30' : 'bg-white/20'
+                        }`}>
+                            {isPrecisionTab ? (
+                                <Crosshair size={20} className="text-red-400" />
+                            ) : (
+                                <Trophy size={20} className="text-white" />
+                            )}
                         </div>
-                        <h1 className="text-3xl font-bold font-bpdots text-white">LEADERBOARDS</h1>
+                        <h1 className={`text-2xl font-bold font-bpdots ${
+                            isPrecisionTab ? 'text-red-300' : 'text-white'
+                        }`}>
+                            {isPrecisionTab ? 'PRECISION RANKINGS' : 'RANKING SYSTEM'}
+                        </h1>
                     </div>
 
                     {currentLeaderboard.length > 0 && (
-                        <div className="flex items-center justify-center space-x-6 bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 text-sm">
-                            <div className="flex items-center space-x-2">
-                                <Users size={16} className="text-white/60" />
-                                <span className="text-white font-bpdots font-bold">{currentLeaderboard.length}</span>
-                                <span className="text-white/60 font-bpdots">PLAYERS</span>
-                            </div>
-                            <div className="w-px h-4 bg-white/20"></div>
-                            <div className="flex items-center space-x-2">
-                                <Zap size={16} className="text-white/60" />
-                                <span className="text-white font-bpdots font-bold">
-                                    {currentLeaderboard[0] ?
-                                        (getLeaderboardType() === 'difficulty' ?
-                                            (currentLeaderboard[0] as DifficultyLeaderboard).difficulty_best_score :
-                                            getLeaderboardType() === 'mode' ?
-                                                (currentLeaderboard[0] as ModeLeaderboard).mode_best_score :
-                                                getLeaderboardType() === 'efficiency' ?
-                                                    `${(currentLeaderboard[0] as LeaderboardEntry).best_efficiency_rating || 0}%` :
-                                                    (currentLeaderboard[0] as LeaderboardEntry).best_score)
-                                        : '0'}
+                        <div className={`flex items-center justify-center space-x-4 backdrop-blur-xl border rounded-lg p-2 text-sm ${
+                            isPrecisionTab 
+                                ? 'bg-red-500/10 border-red-400/30' 
+                                : 'bg-white/10 border-white/20'
+                        }`}>
+                            <div className="flex items-center space-x-1">
+                                <Users size={14} className={isPrecisionTab ? 'text-red-400/80' : 'text-white/60'} />
+                                <span className={`font-bpdots font-bold ${isPrecisionTab ? 'text-red-300' : 'text-white'}`}>
+                                    {currentLeaderboard.length}
                                 </span>
-                                <span className="text-white/60 font-bpdots">TOP SCORE</span>
+                                <span className={`font-bpdots ${isPrecisionTab ? 'text-red-400/80' : 'text-white/60'}`}>
+                                    USERS
+                                </span>
+                            </div>
+                            <div className={`w-px h-4 ${isPrecisionTab ? 'bg-red-400/30' : 'bg-white/20'}`}></div>
+                            <div className="flex items-center space-x-1">
+                                {isPrecisionTab ? (
+                                    <Clock size={14} className="text-red-400/80" />
+                                ) : (
+                                    <Zap size={14} className="text-white/60" />
+                                )}
+                                <span className={`font-bpdots font-bold ${isPrecisionTab ? 'text-red-300' : 'text-white'}`}>
+                                    {currentLeaderboard[0] ? (
+                                        isPrecisionTab
+                                            ? formatPrecisionTime((currentLeaderboard[0] as PrecisionLeaderboard).best_survival_time)
+                                            : (activeTab === 'overall'
+                                                ? (currentLeaderboard[0] as LeaderboardEntry).best_score
+                                                : (currentLeaderboard[0] as DifficultyLeaderboard).difficulty_best_score)
+                                    ) : '0'}
+                                </span>
+                                <span className={`font-bpdots ${isPrecisionTab ? 'text-red-400/80' : 'text-white/60'}`}>
+                                    {isPrecisionTab ? 'BEST' : 'TOP'}
+                                </span>
                             </div>
                         </div>
                     )}
@@ -394,58 +346,42 @@ export default function LeaderboardPage() {
             </div>
 
             {/* Tabs */}
-            <div className="mb-6">
-                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-1">
+            <div className="mb-4">
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1">
                     <div className="flex overflow-x-auto scrollbar-hide space-x-1">
+                        <button
+                            onClick={() => setActiveTab('overall')}
+                            className={`
+                                flex-shrink-0 px-3 py-2 rounded-lg font-bpdots text-xs font-bold transition-all duration-300
+                                ${activeTab === 'overall'
+                                    ? 'bg-white/20 text-white'
+                                    : 'text-white/60 hover:text-white/80'
+                                }
+                            `}
+                        >
+                            <div className="flex items-center space-x-1">
+                                <Trophy size={12} />
+                                <span>OVERALL</span>
+                            </div>
+                        </button>
+                        
+                        <button
+                            onClick={() => setActiveTab('precision')}
+                            className={`
+                                flex-shrink-0 px-3 py-2 rounded-lg font-bpdots text-xs font-bold transition-all duration-300
+                                ${activeTab === 'precision'
+                                    ? 'bg-red-500/20 text-red-300 border border-red-400/30'
+                                    : 'text-red-400/60 hover:text-red-400/80'
+                                }
+                            `}
+                        >
+                            <div className="flex items-center space-x-1">
+                                <Crosshair size={12} />
+                                <span>PRECISION</span>
+                            </div>
+                        </button>
 
-                        {/* Main tabs */}
-                        {['overall', 'efficiency', 'skill'].map((tab) => {
-                            const Icon = getTabIcon(tab as LeaderboardType)
-                            return (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab as LeaderboardType)}
-                                    className={`
-                                        flex-shrink-0 px-3 py-2 rounded-lg font-bpdots text-xs font-bold transition-all duration-300 flex items-center space-x-1
-                                        ${activeTab === tab
-                                            ? 'bg-white/20 text-white'
-                                            : 'text-white/60 hover:text-white/80'
-                                        }
-                                    `}
-                                >
-                                    <Icon size={12} className={getTabColor(tab as LeaderboardType)} />
-                                    <span>{tab.toUpperCase()}</span>
-                                </button>
-                            )
-                        })}
-
-                        <div className="flex-shrink-0 w-px h-6 bg-white/20 my-1"></div>
-
-                        {/* Mode tabs */}
-                        {Object.values(GameMode).map((mode) => {
-                            const Icon = getTabIcon(mode)
-                            return (
-                                <button
-                                    key={mode}
-                                    onClick={() => setActiveTab(mode)}
-                                    className={`
-                                        flex-shrink-0 px-3 py-2 rounded-lg font-bpdots text-xs font-bold transition-all duration-300 flex items-center space-x-1
-                                        ${activeTab === mode
-                                            ? 'bg-white/20 text-white'
-                                            : 'text-white/60 hover:text-white/80'
-                                        }
-                                    `}
-                                >
-                                    <Icon size={12} className={getTabColor(mode)} />
-                                    <span>{getModeDisplayName(mode)}</span>
-                                </button>
-                            )
-                        })}
-
-                        <div className="flex-shrink-0 w-px h-6 bg-white/20 my-1"></div>
-
-                        {/* Difficulty tabs */}
-                        {Object.values(GameDifficulty).slice(0, 7).map((difficulty) => (
+                        {Object.values(GameDifficulty).filter(d => d !== GameDifficulty.PRECISION).map((difficulty) => (
                             <button
                                 key={difficulty}
                                 onClick={() => setActiveTab(difficulty)}
@@ -465,52 +401,88 @@ export default function LeaderboardPage() {
             </div>
 
             {/* Leaderboard Content */}
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {currentLeaderboard.length === 0 ? (
-                    <div className="text-center py-12 bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl">
-                        <TrendingUp size={48} className="text-white/40 mx-auto mb-4" />
-                        <p className="text-white/60 font-bpdots font-bold text-lg">NO PLAYERS YET</p>
-                        <p className="text-white/40 font-bpdots text-sm mt-2">
-                            BE THE FIRST TO PLAY THIS MODE!
+                    <div className={`text-center py-8 backdrop-blur-xl border rounded-lg ${
+                        isPrecisionTab 
+                            ? 'bg-red-500/10 border-red-400/30' 
+                            : 'bg-white/10 border-white/20'
+                    }`}>
+                        {isPrecisionTab ? (
+                            <AlertTriangle size={32} className="text-red-400/60 mx-auto mb-3" />
+                        ) : (
+                            <TrendingUp size={32} className="text-white/40 mx-auto mb-3" />
+                        )}
+                        <p className={`font-bpdots font-bold ${isPrecisionTab ? 'text-red-300/80' : 'text-white/60'}`}>
+                            {isPrecisionTab ? 'NO PRECISION WARRIORS YET' : 'NO PLAYERS YET'}
+                        </p>
+                        <p className={`font-bpdots text-sm mt-1 ${isPrecisionTab ? 'text-red-400/60' : 'text-white/40'}`}>
+                            {isPrecisionTab ? 'DARE TO BE THE FIRST!' : 'BE THE FIRST TO PLAY!'}
                         </p>
                     </div>
                 ) : (
                     <div className="animate-fade-in">
-                        {/* Top 3 Podium */}
+                        {/* Top 3 Section */}
                         {currentLeaderboard.slice(0, 3).length > 0 && (
-                            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 mb-4">
-                                <div className="flex items-center space-x-2 mb-4">
-                                    <Crown size={18} className="text-yellow-400" />
-                                    <h3 className="text-lg font-bpdots text-white font-bold">HALL OF FAME</h3>
+                            <div className={`backdrop-blur-xl border rounded-lg p-4 mb-3 ${
+                                isPrecisionTab 
+                                    ? 'bg-red-500/10 border-red-400/30' 
+                                    : 'bg-white/10 border-white/20'
+                            }`}>
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <Crown size={16} className={isPrecisionTab ? 'text-red-400' : 'text-white/80'} />
+                                    <h3 className={`text-sm font-bpdots font-bold ${
+                                        isPrecisionTab ? 'text-red-300' : 'text-white'
+                                    }`}>
+                                        {isPrecisionTab ? 'PRECISION ELITE' : 'TOP PLAYERS'}
+                                    </h3>
                                 </div>
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     {currentLeaderboard.slice(0, 3).map((entry, index) =>
-                                        renderLeaderboardEntry(entry, index + 1, getLeaderboardType())
+                                        isPrecisionTab
+                                            ? renderPrecisionLeaderboardEntry(entry as PrecisionLeaderboard, index + 1)
+                                            : renderStandardLeaderboardEntry(entry as LeaderboardEntry, index + 1, activeTab === 'overall')
                                     )}
                                 </div>
                             </div>
                         )}
 
-                        {/* All Players */}
+                        {/* All Players Section */}
                         {currentLeaderboard.length > 3 && (
-                            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6">
-                                <div className="flex items-center space-x-2 mb-4">
-                                    <Users size={18} className="text-white/80" />
-                                    <h3 className="text-lg font-bpdots text-white font-bold">ALL PLAYERS</h3>
+                            <div className={`backdrop-blur-xl border rounded-lg p-4 ${
+                                isPrecisionTab 
+                                    ? 'bg-red-500/10 border-red-400/30' 
+                                    : 'bg-white/10 border-white/20'
+                            }`}>
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <Users size={16} className={isPrecisionTab ? 'text-red-400' : 'text-white/80'} />
+                                    <h3 className={`text-sm font-bpdots font-bold ${
+                                        isPrecisionTab ? 'text-red-300' : 'text-white'
+                                    }`}>
+                                        {isPrecisionTab ? 'ALL PRECISION PLAYERS' : 'ALL PLAYERS'}
+                                    </h3>
                                 </div>
-                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                <div className="space-y-2 max-h-80 overflow-y-auto">
                                     {currentLeaderboard.slice(3).map((entry, index) =>
-                                        renderLeaderboardEntry(entry, index + 4, getLeaderboardType())
+                                        isPrecisionTab
+                                            ? renderPrecisionLeaderboardEntry(entry as PrecisionLeaderboard, index + 4)
+                                            : renderStandardLeaderboardEntry(entry as LeaderboardEntry, index + 4, activeTab === 'overall')
                                     )}
                                 </div>
                             </div>
                         )}
 
-                        {/* User Position */}
+                        {/* User Position Section */}
                         {user && currentLeaderboard.length > 10 && (
-                            <div className="bg-white/15 backdrop-blur-xl border border-white/25 rounded-xl p-6">
-                                <h4 className="text-lg font-bpdots text-white mb-4 text-center font-bold flex items-center justify-center space-x-2">
-                                    <Target size={16} />
+                            <div className={`backdrop-blur-xl border rounded-lg p-4 ${
+                                isPrecisionTab 
+                                    ? 'bg-red-500/15 border-red-400/40' 
+                                    : 'bg-white/15 border-white/25'
+                            }`}>
+                                <h4 className={`text-sm font-bpdots font-bold mb-3 text-center flex items-center justify-center space-x-2 ${
+                                    isPrecisionTab ? 'text-red-300' : 'text-white'
+                                }`}>
+                                    <Target size={14} />
                                     <span>YOUR POSITION</span>
                                 </h4>
                                 {(() => {
@@ -519,16 +491,24 @@ export default function LeaderboardPage() {
                                     )
                                     if (userPosition !== -1 && userPosition >= 10) {
                                         const userEntry = currentLeaderboard[userPosition]
-                                        return renderLeaderboardEntry(userEntry, userPosition + 1, getLeaderboardType())
+                                        return isPrecisionTab
+                                            ? renderPrecisionLeaderboardEntry(userEntry as PrecisionLeaderboard, userPosition + 1)
+                                            : renderStandardLeaderboardEntry(userEntry as LeaderboardEntry, userPosition + 1, activeTab === 'overall')
                                     }
                                     return (
-                                        <div className="text-center py-8">
-                                            <Activity size={32} className="text-white/60 mx-auto mb-4" />
-                                            <p className="text-white/60 font-bpdots text-lg font-bold">
-                                                NOT RANKED YET
-                                            </p>
-                                            <p className="text-white/40 font-bpdots text-sm mt-2">
-                                                Play games in this category to see your ranking!
+                                        <div className="text-center py-4">
+                                            {isPrecisionTab ? (
+                                                <Crosshair size={20} className="text-red-400/60 mx-auto mb-2" />
+                                            ) : (
+                                                <Activity size={20} className="text-white/60 mx-auto mb-2" />
+                                            )}
+                                            <p className={`font-bpdots text-sm font-bold ${
+                                                isPrecisionTab ? 'text-red-300/80' : 'text-white/60'
+                                            }`}>
+                                                {isPrecisionTab 
+                                                    ? 'SURVIVE PRECISION MODE TO SEE YOUR RANKING!'
+                                                    : 'PLAY GAMES TO SEE YOUR RANKING!'
+                                                }
                                             </p>
                                         </div>
                                     )
