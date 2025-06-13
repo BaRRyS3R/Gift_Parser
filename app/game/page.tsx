@@ -1,18 +1,17 @@
-// src/app/game/page.tsx
+// src/app/game/page.tsx - ОБНОВЛЕН для использования новых компонентов
 
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
 import { GameDifficulty } from "@/types/game";
-import DifficultySelector from "@/components/DifficultySelector";
-import GameManager from "@/components/GameManager";
+
+// Импорт новых компонентов
+import { DifficultySelector, GameManager } from "@/components/Game";
 
 export default function GamePage() {
   const router = useRouter();
-  const [selectedDifficulty, setSelectedDifficulty] =
-    useState<GameDifficulty | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<GameDifficulty | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
 
   const handleSelectDifficulty = (difficulty: GameDifficulty) => {
@@ -53,13 +52,13 @@ export default function GamePage() {
         <div className="space-y-4">
           <button
             className={`
-                            w-full px-8 py-4 border-2 rounded-xl font-bpdots text-xl 
-                            transition-all duration-300 
-                            ${selectedDifficulty
+              w-full px-8 py-4 border-2 rounded-xl font-bpdots text-xl 
+              transition-all duration-300 
+              ${selectedDifficulty
                 ? "bg-transparent border-white text-white hover:bg-white/10 hover:scale-105 active:scale-95 cursor-pointer"
                 : "bg-transparent border-white/30 text-white/30 cursor-not-allowed"
               }
-                        `}
+            `}
             disabled={!selectedDifficulty}
             onClick={handleStartGame}
           >
