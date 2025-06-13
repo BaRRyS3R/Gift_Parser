@@ -422,7 +422,7 @@ export default function ProfilePage() {
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto"></div>
                     <p className="text-white font-bpdots">LOADING YOUR DIGITAL SHAME...</p>
-                    <p className="text-white/60 font-bpdots text-sm">This might take a while... there's a lot of disappointment to process</p>
+                    <p className="text-white/60 font-bpdots text-sm">This might take a while... there&apos;s a lot of disappointment to process</p>
                 </div>
             </div>
         )
@@ -459,10 +459,10 @@ export default function ProfilePage() {
                         </div>
                         <div className="flex-1">
                             <h1 className="text-lg font-bold font-bpdots text-white">
-                                {user.first_name} {user.last_name || ''} "The Digital Martyr"
+                                {user.first_name} {user.last_name || ''} &quot;The Digital Martyr&quot;
                             </h1>
                             {user.username && (
-                                <p className="text-white/60 font-bpdots text-xs">@{user.username} (aka "The Eternal Victim")</p>
+                                <p className="text-white/60 font-bpdots text-xs">@{user.username} (aka &quot;The Eternal Victim&quot;)</p>
                             )}
                             <div className="flex items-center space-x-2 mt-1">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bpdots ${profileLevel.color} bg-black/30`}>
@@ -481,7 +481,7 @@ export default function ProfilePage() {
                                 )}
                             </div>
                             <p className="text-white/40 font-bpdots text-xs mt-1 italic">
-                                "{profileLevel.description}"
+                                &quot;{profileLevel.description}&quot;
                             </p>
                         </div>
                     </div>
@@ -575,7 +575,7 @@ export default function ProfilePage() {
                                     <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-3">
                                         <h4 className="font-bpdots text-red-300 font-bold mb-2">🏆 Special Recognition:</h4>
                                         <p className="text-red-200 font-bpdots text-sm">
-                                            You click wrong more than right! That's not just bad luck, that's a legitimate talent!
+                                            You click wrong more than right! That&apos;s not just bad luck, that&apos;s a legitimate talent!
                                             Have you considered a career in reverse psychology? 🎯💀
                                         </p>
                                     </div>
@@ -662,7 +662,7 @@ export default function ProfilePage() {
                                     <div className="text-center py-6">
                                         <Skull size={24} className="text-white/40 mx-auto mb-2" />
                                         <p className="text-white/60 font-bpdots text-sm">NO ACHIEVEMENTS UNLOCKED</p>
-                                        <p className="text-white/40 font-bpdots text-xs mt-1">You haven't even failed enough to get failure achievements! That's... impressive? 💀</p>
+                                        <p className="text-white/40 font-bpdots text-xs mt-1">You haven&apos;t even failed enough to get failure achievements! That&apos;s... impressive? 💀</p>
                                     </div>
                                 )}
                             </div>
@@ -783,12 +783,12 @@ export default function ProfilePage() {
                                     <Shield size={24} className="text-green-400 mx-auto mb-2" />
                                     <p className="text-green-300 font-bpdots text-sm">SMART HUMAN DETECTED</p>
                                     <p className="text-green-400/60 font-bpdots text-xs mt-1">
-                                        You've wisely avoided the precision torture chamber!
+                                        You&apos;ve wisely avoided the precision torture chamber!
                                         Your mental health thanks you! 🧠💚
                                     </p>
                                     <div className="bg-green-500/20 border border-green-400/30 rounded-lg p-3 mt-4">
                                         <p className="text-green-300/80 font-bpdots text-xs italic">
-                                            💡 Life Tip: Keep avoiding it. There's nothing good waiting for you there.
+                                            💡 Life Tip: Keep avoiding it. There&apos;s nothing good waiting for you there.
                                         </p>
                                     </div>
                                 </div>
@@ -873,7 +873,7 @@ export default function ProfilePage() {
                                     <Clock size={24} className="text-white/40 mx-auto mb-2" />
                                     <p className="text-white/60 font-bpdots text-sm">NO GAMES RECORDED</p>
                                     <p className="text-white/40 font-bpdots text-xs mt-1">
-                                        Either you're smart enough to avoid this, or we lost your data!
+                                        Either you&apos;re smart enough to avoid this, or we lost your data!
                                         (Probably the former) 📊
                                     </p>
                                 </div>

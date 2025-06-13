@@ -165,7 +165,7 @@ export default function GamePage() {
             <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-20 h-px bg-gradient-to-r from-transparent via-red-400/60 to-transparent"></div>
           </div>
           <p className="text-white/60 font-bpdots text-sm uppercase tracking-widest">
-            (Spoiler alert: You're going to lose)
+            (Spoiler alert: You&apos;re going to lose)
           </p>
 
           {/* Random sarcastic motivation */}
@@ -260,7 +260,7 @@ export default function GamePage() {
                 The 0.1% are probably cheating.
               </p>
               <p className="text-red-500/60 font-bpdots text-xs italic">
-                "Abandon hope, all ye who click here" - Dante (probably)
+                &quot;Abandon hope, all ye who click here&quot; - Dante (probably)
               </p>
             </div>
           </div>

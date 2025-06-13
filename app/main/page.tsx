@@ -336,7 +336,7 @@ export default function MainPage() {
       {/* Hidden disclaimer */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20">
         <p className="text-white/20 font-bpdots text-xs">
-          * No self-esteem was harmed in the making of this game (that's your job)
+          * No self-esteem was harmed in the making of this game (that&apos;s your job)
         </p>
       </div>
     </div>
