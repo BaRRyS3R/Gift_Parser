@@ -222,12 +222,14 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         // Get max simultaneous circles
         let maxSimultaneous = config.maxSimultaneousCircles
         let targetRedCircles = 0
+        let activeTime = config.circleActiveTime
 
         if (isPrecisionMode && precisionState) {
-            // Simple precision mode - get values directly from level config
+            // Получаем конфигурацию текущего уровня
             const levelConfig = getPrecisionLevelConfig(precisionState.intensityLevel)
             maxSimultaneous = levelConfig.simultaneousCircles
             targetRedCircles = levelConfig.redCircles
+            activeTime = levelConfig.circleActiveTime
 
             console.log(`🎯 PRECISION LEVEL ${precisionState.intensityLevel}:`)
             console.log(`   Max simultaneous: ${maxSimultaneous}`)
@@ -347,21 +349,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         // Устанавливаем таймеры для всех кругов
         selectedIds.forEach(circleId => {
             const circleResult = activationResults.find(result => result.id === circleId)
-            let activeTime: number
-
-            if (isPrecisionMode && precisionState) {
-                const levelConfig = getPrecisionLevelConfig(precisionState.intensityLevel)
-                activeTime = levelConfig.circleActiveTime
-                console.log(`⏰ Circle ${circleId} active for ${activeTime}ms (level ${precisionState.intensityLevel})`)
-            } else {
-                activeTime = getAdjustedCircleActiveTime(
-                    config.circleActiveTime,
-                    adaptiveState,
-                    precisionState,
-                    config
-                )
-            }
-
             const timeout = setTimeout(() => {
                 console.log(`⚰️ Auto-deactivating circle: ${circleId}`)
 
