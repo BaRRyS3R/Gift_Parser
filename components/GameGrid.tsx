@@ -28,8 +28,8 @@ export default function GameGrid({
     if (circles.length <= 8) return "w-20 h-20 sm:w-24 sm:h-24";
     if (circles.length <= 12) return "w-16 h-16 sm:w-20 sm:h-20";
     if (circles.length <= 25) return "w-16 h-16 sm:w-20 sm:h-20";
-    if (circles.length <= 40) return "w-14 h-14 sm:w-16 sm:h-16"; // Старый размер для 40 кругов
-    if (circles.length <= 48) return "w-14 h-14 sm:w-16 sm:h-16"; // Новый размер для 48 кругов (6x8)
+    if (circles.length <= 40) return "w-12 h-12 sm:w-14 sm:h-14"; // Старый размер для 40 кругов
+    if (circles.length <= 48) return "w-12 h-12 sm:w-14 sm:h-14"; // Новый размер для 48 кругов (6x8)
     if (circles.length <= 60) return "w-12 h-12 sm:w-14 sm:h-14";
     return "w-10 h-10 sm:w-12 sm:h-12";
   };
@@ -39,7 +39,7 @@ export default function GameGrid({
     if (circles.length <= 8) return "gap-6";
     if (circles.length <= 12) return "gap-4";
     if (circles.length <= 25) return "gap-2";
-    if (circles.length <= 40) return "gap-1";
+    if (circles.length <= 40) return "gap-2";
     if (circles.length <= 48) return "gap-2"; // Минимальный отступ для 48 кругов (6x8)
     if (circles.length <= 60) return "gap-1";
     return "gap-1";
