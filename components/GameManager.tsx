@@ -219,14 +219,15 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         if (isPrecisionMode && precisionState) {
             // Simple precision mode - get values directly from level config
-            maxSimultaneous = getPrecisionSimultaneousCircles(precisionState.intensityLevel)
-            targetRedCircles = getPrecisionRedCircles(precisionState.intensityLevel)
+            const levelConfig = getPrecisionLevelConfig(precisionState.intensityLevel)
+            maxSimultaneous = levelConfig.simultaneousCircles
+            targetRedCircles = levelConfig.redCircles
 
             console.log(`🎯 PRECISION LEVEL ${precisionState.intensityLevel}:`)
             console.log(`   Max simultaneous: ${maxSimultaneous}`)
             console.log(`   Target red circles: ${targetRedCircles}`)
             console.log(`   Currently active: ${currentActiveCount}`)
-            console.log(`   Description: ${getPrecisionDescription(precisionState.intensityLevel)}`)
+            console.log(`   Description: ${levelConfig.description}`)
         } else if (config.adaptiveScaling) {
             maxSimultaneous = Math.ceil(maxSimultaneous * adaptiveState.simultaneousMultiplier)
         }
@@ -259,8 +260,9 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         // For precision mode, always try to fill all available slots
         let targetCircleCount = availableSlots
         if (isPrecisionMode) {
+            // В precision mode активируем все доступные слоты
             targetCircleCount = Math.min(availableSlots, inactiveIds.length)
-            console.log(`🎯 PRECISION: Targeting ${targetCircleCount} circles`)
+            console.log(`🎯 PRECISION: Activating ${targetCircleCount} circles (level ${precisionState.intensityLevel})`)
         } else {
             // For standard mode, use some randomness
             targetCircleCount = Math.min(
@@ -273,6 +275,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         const selectedIds: number[] = []
         const availableIdsCopy = [...inactiveIds]
 
+        // Активируем все выбранные круги одновременно
         for (let i = 0; i < targetCircleCount; i++) {
             if (availableIdsCopy.length === 0) break
             const randomIndex = Math.floor(Math.random() * availableIdsCopy.length)
@@ -282,6 +285,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         console.log(`🚀 ACTIVATING ${selectedIds.length} circles: [${selectedIds.join(', ')}]`)
 
+        // Активируем все круги одновременно
         selectedIds.forEach(id => {
             activeCirclesRef.current.add(id)
             circleActivationTimesRef.current.set(id, Date.now())
@@ -310,6 +314,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             }))
         }
 
+        // Обновляем состояние всех кругов одновременно
         setCircles(prev => prev.map(circle => {
             const activationResult = activationResults.find(result => result.id === circle.id)
             if (activationResult) {
@@ -333,12 +338,12 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             totalCircles: prev.totalCircles + regularCircles.length
         }))
 
+        // Устанавливаем таймеры для всех кругов
         selectedIds.forEach(circleId => {
             const circleResult = activationResults.find(result => result.id === circleId)
             let activeTime: number
 
             if (isPrecisionMode && precisionState) {
-                // Используем время активности из конфигурации уровня
                 const levelConfig = getPrecisionLevelConfig(precisionState.intensityLevel)
                 activeTime = levelConfig.circleActiveTime
                 console.log(`⏰ Circle ${circleId} active for ${activeTime}ms (level ${precisionState.intensityLevel})`)
@@ -356,12 +361,10 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
                 if (!circleResult?.isDecoy) {
                     if (isPrecisionMode) {
-                        // In Precision Mode, missing a circle ends the game
                         console.log(`💀 PRECISION MODE: Game over due to missed circle ${circleId}`)
                         endGameWithCause('miss')
                         return
                     } else {
-                        // Standard mode penalty
                         setStats(prev => {
                             const penalty = calculateProgressiveWrongPenalty(prev.consecutiveMisses)
                             const newAdaptive = updateAdaptiveState(
