@@ -83,7 +83,7 @@ export default function DifficultySelector({
   const getDifficultySpecialNote = (difficulty: GameDifficulty): string | null => {
     switch (difficulty) {
       case GameDifficulty.PRECISION:
-        return "Intensity doubles every 10 seconds";
+        return "Intensity doubles every 8 seconds";
       case GameDifficulty.OMG:
         return "50 targets, pure chaos";
       case GameDifficulty.NIGHTMARE:
@@ -224,7 +224,7 @@ export default function DifficultySelector({
               ONE SHOT MODE
             </span>
             <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              2X ESCALATION
+              8-SEC ESCALATION
             </span>
             <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
               SURVIVAL MODE

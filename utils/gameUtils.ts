@@ -72,13 +72,13 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
     circleCount: 25,
     minActivationTime: 1000,
     maxActivationTime: 1800,
-    maxSimultaneousCircles: 2,
+    maxSimultaneousCircles: 4, // Increased to 4 for even better scaling visibility
     circleActiveTime: 2000,
     decoyProbability: 0.05,
     adaptiveScaling: false, // Custom precision scaling
     fastClickThreshold: 200,
     isPrecisionMode: true,
-    intensityIncreaseInterval: 10, // Increase intensity every 10 seconds
+    intensityIncreaseInterval: 8, // Increase intensity every 8 seconds (reduced for faster testing)
     intensityMultiplier: 2.0, // 2x increase per level (much more aggressive)
     maxIntensityLevel: 15, // Reduced max level due to aggressive scaling
   },
@@ -87,20 +87,20 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
 // Enhanced Precision Mode intensity levels - much more aggressive scaling
 export const PRECISION_INTENSITY_LEVELS: IntensityLevel[] = [
   { level: 1, speedMultiplier: 1.0, simultaneousMultiplier: 1.0, activeTimeMultiplier: 1.0, decoyProbabilityMultiplier: 1.0, description: "WARMING UP" },
-  { level: 2, speedMultiplier: 0.85, simultaneousMultiplier: 1.5, activeTimeMultiplier: 0.85, decoyProbabilityMultiplier: 2.0, description: "GETTING SERIOUS" },
-  { level: 3, speedMultiplier: 0.70, simultaneousMultiplier: 2.0, activeTimeMultiplier: 0.70, decoyProbabilityMultiplier: 3.0, description: "HEATING UP" },
-  { level: 4, speedMultiplier: 0.55, simultaneousMultiplier: 2.5, activeTimeMultiplier: 0.55, decoyProbabilityMultiplier: 4.0, description: "INTENSE" },
-  { level: 5, speedMultiplier: 0.45, simultaneousMultiplier: 3.0, activeTimeMultiplier: 0.45, decoyProbabilityMultiplier: 5.0, description: "DANGEROUS" },
-  { level: 6, speedMultiplier: 0.35, simultaneousMultiplier: 3.5, activeTimeMultiplier: 0.35, decoyProbabilityMultiplier: 6.0, description: "EXTREME" },
-  { level: 7, speedMultiplier: 0.30, simultaneousMultiplier: 4.0, activeTimeMultiplier: 0.30, decoyProbabilityMultiplier: 7.0, description: "INSANE" },
-  { level: 8, speedMultiplier: 0.25, simultaneousMultiplier: 4.5, activeTimeMultiplier: 0.25, decoyProbabilityMultiplier: 8.0, description: "MADNESS" },
-  { level: 9, speedMultiplier: 0.20, simultaneousMultiplier: 5.0, activeTimeMultiplier: 0.20, decoyProbabilityMultiplier: 9.0, description: "CHAOS" },
-  { level: 10, speedMultiplier: 0.18, simultaneousMultiplier: 5.5, activeTimeMultiplier: 0.18, decoyProbabilityMultiplier: 10.0, description: "NIGHTMARE" },
-  { level: 11, speedMultiplier: 0.15, simultaneousMultiplier: 6.0, activeTimeMultiplier: 0.15, decoyProbabilityMultiplier: 12.0, description: "HELL" },
-  { level: 12, speedMultiplier: 0.12, simultaneousMultiplier: 6.5, activeTimeMultiplier: 0.12, decoyProbabilityMultiplier: 14.0, description: "BEYOND LIMITS" },
-  { level: 13, speedMultiplier: 0.10, simultaneousMultiplier: 7.0, activeTimeMultiplier: 0.10, decoyProbabilityMultiplier: 16.0, description: "GODLIKE" },
-  { level: 14, speedMultiplier: 0.08, simultaneousMultiplier: 7.5, activeTimeMultiplier: 0.08, decoyProbabilityMultiplier: 18.0, description: "TRANSCENDENT" },
-  { level: 15, speedMultiplier: 0.05, simultaneousMultiplier: 8.0, activeTimeMultiplier: 0.05, decoyProbabilityMultiplier: 20.0, description: "UNIVERSE BREAKING" },
+  { level: 2, speedMultiplier: 0.8, simultaneousMultiplier: 2.0, activeTimeMultiplier: 0.8, decoyProbabilityMultiplier: 3.0, description: "GETTING SERIOUS" },
+  { level: 3, speedMultiplier: 0.6, simultaneousMultiplier: 3.0, activeTimeMultiplier: 0.6, decoyProbabilityMultiplier: 5.0, description: "HEATING UP" },
+  { level: 4, speedMultiplier: 0.45, simultaneousMultiplier: 4.0, activeTimeMultiplier: 0.45, decoyProbabilityMultiplier: 7.0, description: "INTENSE" },
+  { level: 5, speedMultiplier: 0.35, simultaneousMultiplier: 5.0, activeTimeMultiplier: 0.35, decoyProbabilityMultiplier: 9.0, description: "DANGEROUS" },
+  { level: 6, speedMultiplier: 0.25, simultaneousMultiplier: 6.0, activeTimeMultiplier: 0.25, decoyProbabilityMultiplier: 11.0, description: "EXTREME" },
+  { level: 7, speedMultiplier: 0.20, simultaneousMultiplier: 7.0, activeTimeMultiplier: 0.20, decoyProbabilityMultiplier: 13.0, description: "INSANE" },
+  { level: 8, speedMultiplier: 0.15, simultaneousMultiplier: 8.0, activeTimeMultiplier: 0.15, decoyProbabilityMultiplier: 15.0, description: "MADNESS" },
+  { level: 9, speedMultiplier: 0.12, simultaneousMultiplier: 9.0, activeTimeMultiplier: 0.12, decoyProbabilityMultiplier: 17.0, description: "CHAOS" },
+  { level: 10, speedMultiplier: 0.10, simultaneousMultiplier: 10.0, activeTimeMultiplier: 0.10, decoyProbabilityMultiplier: 20.0, description: "NIGHTMARE" },
+  { level: 11, speedMultiplier: 0.08, simultaneousMultiplier: 12.0, activeTimeMultiplier: 0.08, decoyProbabilityMultiplier: 25.0, description: "HELL" },
+  { level: 12, speedMultiplier: 0.06, simultaneousMultiplier: 15.0, activeTimeMultiplier: 0.06, decoyProbabilityMultiplier: 30.0, description: "BEYOND LIMITS" },
+  { level: 13, speedMultiplier: 0.05, simultaneousMultiplier: 18.0, activeTimeMultiplier: 0.05, decoyProbabilityMultiplier: 35.0, description: "GODLIKE" },
+  { level: 14, speedMultiplier: 0.04, simultaneousMultiplier: 20.0, activeTimeMultiplier: 0.04, decoyProbabilityMultiplier: 40.0, description: "TRANSCENDENT" },
+  { level: 15, speedMultiplier: 0.03, simultaneousMultiplier: 25.0, activeTimeMultiplier: 0.03, decoyProbabilityMultiplier: 50.0, description: "UNIVERSE BREAKING" },
 ];
 
 // Precision Mode utility functions

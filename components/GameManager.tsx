@@ -150,8 +150,13 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     }, [precisionState, clearAllTimeouts])
 
     const deactivateCircle = useCallback((circleId: number) => {
+        const wasActive = activeCirclesRef.current.has(circleId)
         activeCirclesRef.current.delete(circleId)
         circleActivationTimesRef.current.delete(circleId)
+
+        if (wasActive) {
+            console.log(`Deactivating circle ${circleId}, remaining active: ${activeCirclesRef.current.size}`)
+        }
 
         setCircles(prev => prev.map(circle =>
             circle.id === circleId
@@ -169,36 +174,36 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     // Fixed function to get random circle IDs with proper precision scaling
     const getRandomCircleIds = useCallback((
         totalCircles: number,
-        maxCount: number,
+        requestedCount: number,
         excludeIds: number[] = []
     ): number[] => {
         const availableIds = Array.from({ length: totalCircles }, (_, i) => i).filter(
             (id) => !excludeIds.includes(id),
         );
 
-        // Apply precision mode adjustments
-        let adjustedMaxCount = maxCount;
+        // For precision mode, we want to use ALL available slots, not random
+        let targetCount = requestedCount;
         if (isPrecisionMode && precisionState) {
-            adjustedMaxCount = getAdjustedSimultaneousCircles(maxCount, precisionState, config);
-            console.log(`Precision Mode: Adjusting simultaneous circles from ${maxCount} to ${adjustedMaxCount} at level ${precisionState.intensityLevel}`);
-        } else if (config.adaptiveScaling) {
-            adjustedMaxCount = Math.ceil(maxCount * adaptiveState.simultaneousMultiplier);
+            // In precision mode, always try to use maximum slots for increasing difficulty
+            targetCount = Math.min(requestedCount, availableIds.length);
+            console.log(`Precision Mode: Requesting ${requestedCount} circles, will activate ${targetCount} at level ${precisionState.intensityLevel}`);
+        } else {
+            // For standard mode, use some randomness
+            targetCount = Math.min(
+                Math.floor(Math.random() * requestedCount) + 1,
+                availableIds.length,
+            );
         }
 
-        const count = Math.min(
-            Math.floor(Math.random() * adjustedMaxCount) + 1,
-            availableIds.length,
-        );
-
         const selectedIds: number[] = [];
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < targetCount; i++) {
             const randomIndex = Math.floor(Math.random() * availableIds.length);
             const selectedId = availableIds.splice(randomIndex, 1)[0];
             selectedIds.push(selectedId);
         }
 
         return selectedIds;
-    }, [config, adaptiveState, precisionState, isPrecisionMode]);
+    }, [precisionState, isPrecisionMode]);
 
     const activateRandomCircles = useCallback(() => {
         if (gameState !== GameState.PLAYING) return
@@ -219,6 +224,8 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         const availableSlots = maxSimultaneous - currentActiveCount
 
+        console.log(`Precision Mode Check: maxSimultaneous=${maxSimultaneous}, currentActive=${currentActiveCount}, availableSlots=${availableSlots}`)
+
         if (availableSlots <= 0) {
             activationTimeoutRef.current = setTimeout(
                 () => activateRandomCircles(),
@@ -238,14 +245,18 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             return
         }
 
-        // Use the fixed function to get random circle IDs
+        // Use the fixed function to get random circle IDs - pass the available slots count
         const selectedIds = getRandomCircleIds(
             config.circleCount,
-            availableSlots,
+            availableSlots,  // This is correct - how many we can still add
             Array.from(currentActiveIds)
         )
 
-        console.log(`Activating circles: ${selectedIds} (${selectedIds.length} out of max ${maxSimultaneous})`)
+        console.log(`Activating circles: ${selectedIds} (${selectedIds.length} out of max ${maxSimultaneous}, current active: ${currentActiveCount})`)
+        if (isPrecisionMode && precisionState) {
+            const intensity = getPrecisionModeIntensity(precisionState.intensityLevel)
+            console.log(`Precision Mode Level ${precisionState.intensityLevel}: simultaneous=${intensity.simultaneousMultiplier}x, speed=${intensity.speedMultiplier}x, decoy=${intensity.decoyProbabilityMultiplier}x`)
+        }
 
         selectedIds.forEach(id => {
             activeCirclesRef.current.add(id)
@@ -292,7 +303,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 config
             )
 
-            console.log(`Circle ${circleId} will be active for ${activeTime}ms (precision level: ${precisionState?.intensityLevel || 'N/A'})`)
+            console.log(`Circle ${circleId} will be active for ${activeTime}ms (base: ${config.circleActiveTime}ms, precision level: ${precisionState?.intensityLevel || 'N/A'})`)
 
             const timeout = setTimeout(() => {
                 console.log('Auto-deactivating circle:', circleId)
@@ -332,7 +343,11 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         // Schedule next activation with precision mode adjustments
         const nextActivationDelay = getRandomActivationDelay(config, adaptiveState, precisionState)
-        console.log(`Next activation in ${nextActivationDelay}ms`)
+        if (isPrecisionMode && precisionState) {
+            console.log(`Next activation in ${nextActivationDelay}ms (base: ${config.minActivationTime}-${config.maxActivationTime}ms, level ${precisionState.intensityLevel})`)
+        } else {
+            console.log(`Next activation in ${nextActivationDelay}ms`)
+        }
 
         activationTimeoutRef.current = setTimeout(
             () => activateRandomCircles(),
@@ -553,9 +568,11 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
                         // Log intensity changes for debugging
                         if (updated.intensityLevel !== prev.intensityLevel) {
-                            console.log(`Precision Mode: Intensity increased to level ${updated.intensityLevel}`)
+                            console.log(`🔥 PRECISION MODE: INTENSITY LEVEL UP! 🔥`)
+                            console.log(`Level: ${prev.intensityLevel} → ${updated.intensityLevel}`)
                             const intensity = getPrecisionModeIntensity(updated.intensityLevel)
-                            console.log(`New multipliers: speed=${intensity.speedMultiplier}, simultaneous=${intensity.simultaneousMultiplier}, decoy=${intensity.decoyProbabilityMultiplier}`)
+                            console.log(`Multipliers: simultaneous=${intensity.simultaneousMultiplier}x, speed=${intensity.speedMultiplier}x, decoy=${intensity.decoyProbabilityMultiplier}x`)
+                            console.log(`Description: ${intensity.description}`)
                         }
 
                         // Update stats with current precision state
