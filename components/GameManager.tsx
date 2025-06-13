@@ -584,12 +584,8 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                             maxActivationTime: levelConfig.activationTimeMax
                         }))
 
-                        // Перезапускаем активацию кругов с новой конфигурацией
+                        // Перезапуск активации теперь будет через useEffect
                         clearAllTimeouts()
-                        setTimeout(() => {
-                            console.log('Restarting circle activations')
-                            activateRandomCircles()
-                        }, 100)
                     }
 
                     // Update stats with current precision state
@@ -617,6 +613,17 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             clearAllTimeouts()
         }
     }, [])
+
+    useEffect(() => {
+        if (gameState === GameState.PLAYING && isPrecisionMode) {
+            // Запускаем активацию только если нет активного таймера
+            if (!activationTimeoutRef.current) {
+                console.log('Restarting circle activations (level/config change)')
+                activateRandomCircles()
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gameConfig.maxSimultaneousCircles, gameConfig.circleActiveTime, precisionState?.intensityLevel])
 
     useEffect(() => {
         if (gameState === GameState.PLAYING) {
