@@ -430,13 +430,10 @@ export const getRandomCircleIds = (
     adjustedMaxCount = Math.ceil(maxCount * adaptiveState.simultaneousMultiplier);
   }
 
-  // Для precision mode используем фиксированное количество кругов
-  const count = config?.isPrecisionMode && precisionState
-    ? Math.min(adjustedMaxCount, availableIds.length)
-    : Math.min(
-        Math.floor(Math.random() * adjustedMaxCount) + 1,
-        availableIds.length,
-      );
+  const count = Math.min(
+    Math.floor(Math.random() * adjustedMaxCount) + 1,
+    availableIds.length,
+  );
 
   const selectedIds: number[] = [];
   for (let i = 0; i < count; i++) {

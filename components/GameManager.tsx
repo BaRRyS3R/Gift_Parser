@@ -53,12 +53,11 @@ const STANDARD_GAME_DURATION = 30
 const PRECISION_MODE_UPDATE_INTERVAL = 100 // Update precision mode every 100ms
 
 export default function GameManager({ difficulty, onBackToMenu }: GameManagerProps) {
-    const baseConfig = GAME_CONFIGS[difficulty]
-    const [gameConfig, setGameConfig] = useState(baseConfig)
+    const config = GAME_CONFIGS[difficulty]
     const { saveGameResult } = useUser()
-    const isPrecisionMode = gameConfig.isPrecisionMode || false
+    const isPrecisionMode = config.isPrecisionMode || false
 
-    const [circles, setCircles] = useState<Circle[]>(() => createCircleGrid(gameConfig.circleCount))
+    const [circles, setCircles] = useState<Circle[]>(() => createCircleGrid(config.circleCount))
     const [gameState, setGameState] = useState<GameState>(GameState.NOT_STARTED)
     const [timeLeft, setTimeLeft] = useState(STANDARD_GAME_DURATION)
     const [showCircles, setShowCircles] = useState(false)
@@ -185,13 +184,14 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             (id) => !excludeIds.includes(id),
         );
 
+        // For precision mode, we want to use ALL available slots, not random
         let targetCount = requestedCount;
         if (isPrecisionMode && precisionState) {
-            // Используем конфигурацию уровня для определения количества кругов
-            const levelConfig = getPrecisionLevelConfig(precisionState.intensityLevel);
-            targetCount = Math.min(levelConfig.simultaneousCircles, availableIds.length);
-            console.log(`Precision Mode: Level ${precisionState.intensityLevel}, activating ${targetCount} circles`);
+            // In precision mode, always try to use maximum slots for increasing difficulty
+            targetCount = Math.min(requestedCount, availableIds.length);
+            console.log(`Precision Mode: Requesting ${requestedCount} circles, will activate ${targetCount} at level ${precisionState.intensityLevel}`);
         } else {
+            // For standard mode, use some randomness
             targetCount = Math.min(
                 Math.floor(Math.random() * requestedCount) + 1,
                 availableIds.length,
@@ -211,33 +211,24 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const activateRandomCircles = useCallback(() => {
         if (gameState !== GameState.PLAYING) return
 
-        // Проверяем precisionState в начале функции
-        if (isPrecisionMode && !precisionState) {
-            console.error('Precision mode is active but precisionState is null')
-            return
-        }
-
         const currentActiveIds = activeCirclesRef.current
         const currentActiveCount = currentActiveIds.size
 
         // Get max simultaneous circles
-        let maxSimultaneous = gameConfig.maxSimultaneousCircles
+        let maxSimultaneous = config.maxSimultaneousCircles
         let targetRedCircles = 0
-        let activeTime = gameConfig.circleActiveTime
 
         if (isPrecisionMode && precisionState) {
-            // Получаем конфигурацию текущего уровня
-            const levelConfig = getPrecisionLevelConfig(precisionState.intensityLevel)
-            maxSimultaneous = levelConfig.simultaneousCircles
-            targetRedCircles = levelConfig.redCircles
-            activeTime = levelConfig.circleActiveTime
+            // Simple precision mode - get values directly from level config
+            maxSimultaneous = getPrecisionSimultaneousCircles(precisionState.intensityLevel)
+            targetRedCircles = getPrecisionRedCircles(precisionState.intensityLevel)
 
             console.log(`🎯 PRECISION LEVEL ${precisionState.intensityLevel}:`)
             console.log(`   Max simultaneous: ${maxSimultaneous}`)
             console.log(`   Target red circles: ${targetRedCircles}`)
             console.log(`   Currently active: ${currentActiveCount}`)
-            console.log(`   Description: ${levelConfig.description}`)
-        } else if (gameConfig.adaptiveScaling) {
+            console.log(`   Description: ${getPrecisionDescription(precisionState.intensityLevel)}`)
+        } else if (config.adaptiveScaling) {
             maxSimultaneous = Math.ceil(maxSimultaneous * adaptiveState.simultaneousMultiplier)
         }
 
@@ -249,29 +240,28 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             console.log(`⏳ No slots available, scheduling next activation`)
             activationTimeoutRef.current = setTimeout(
                 () => activateRandomCircles(),
-                getRandomActivationDelay(gameConfig, adaptiveState, precisionState)
+                getRandomActivationDelay(config, adaptiveState, precisionState)
             )
             return
         }
 
-        const inactiveIds = Array.from({ length: gameConfig.circleCount }, (_, i) => i)
+        const inactiveIds = Array.from({ length: config.circleCount }, (_, i) => i)
             .filter(id => !currentActiveIds.has(id))
 
         if (inactiveIds.length === 0) {
             console.log(`⚠️ No inactive circles available`)
             activationTimeoutRef.current = setTimeout(
                 () => activateRandomCircles(),
-                getRandomActivationDelay(gameConfig, adaptiveState, precisionState)
+                getRandomActivationDelay(config, adaptiveState, precisionState)
             )
             return
         }
 
         // For precision mode, always try to fill all available slots
         let targetCircleCount = availableSlots
-        if (isPrecisionMode && precisionState) {
-            // В precision mode активируем все доступные слоты
+        if (isPrecisionMode) {
             targetCircleCount = Math.min(availableSlots, inactiveIds.length)
-            console.log(`🎯 PRECISION: Activating ${targetCircleCount} circles (level ${precisionState.intensityLevel})`)
+            console.log(`🎯 PRECISION: Targeting ${targetCircleCount} circles`)
         } else {
             // For standard mode, use some randomness
             targetCircleCount = Math.min(
@@ -284,7 +274,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         const selectedIds: number[] = []
         const availableIdsCopy = [...inactiveIds]
 
-        // Активируем все выбранные круги одновременно
         for (let i = 0; i < targetCircleCount; i++) {
             if (availableIdsCopy.length === 0) break
             const randomIndex = Math.floor(Math.random() * availableIdsCopy.length)
@@ -294,7 +283,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         console.log(`🚀 ACTIVATING ${selectedIds.length} circles: [${selectedIds.join(', ')}]`)
 
-        // Активируем все круги одновременно
         selectedIds.forEach(id => {
             activeCirclesRef.current.add(id)
             circleActivationTimesRef.current.set(id, Date.now())
@@ -303,7 +291,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         // Determine which circles should be red
         let activationResults: { id: number; isDecoy: boolean }[]
 
-        if (isPrecisionMode && precisionState && targetRedCircles > 0) {
+        if (isPrecisionMode && targetRedCircles > 0) {
             // Simple precision mode: specific number of red circles
             const shuffledIds = [...selectedIds].sort(() => Math.random() - 0.5)
             const redIds = shuffledIds.slice(0, Math.min(targetRedCircles, selectedIds.length))
@@ -316,14 +304,13 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             console.log(`🔴 Red circles: [${redIds.join(', ')}] (${redIds.length}/${targetRedCircles})`)
         } else {
             // Standard mode: use probability
-            const decoyProbability = gameConfig.decoyProbability
+            const decoyProbability = config.decoyProbability
             activationResults = selectedIds.map(id => ({
                 id,
                 isDecoy: shouldCreateDecoy(decoyProbability)
             }))
         }
 
-        // Обновляем состояние всех кругов одновременно
         setCircles(prev => prev.map(circle => {
             const activationResult = activationResults.find(result => result.id === circle.id)
             if (activationResult) {
@@ -347,18 +334,30 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             totalCircles: prev.totalCircles + regularCircles.length
         }))
 
-        // Устанавливаем таймеры для всех кругов
         selectedIds.forEach(circleId => {
             const circleResult = activationResults.find(result => result.id === circleId)
+            const activeTime = getAdjustedCircleActiveTime(
+                config.circleActiveTime,
+                adaptiveState,
+                precisionState,
+                config
+            )
+
+            if (isPrecisionMode && precisionState) {
+                console.log(`⏰ Circle ${circleId} active for ${activeTime}ms (level ${precisionState.intensityLevel})`)
+            }
+
             const timeout = setTimeout(() => {
                 console.log(`⚰️ Auto-deactivating circle: ${circleId}`)
 
                 if (!circleResult?.isDecoy) {
                     if (isPrecisionMode) {
+                        // In Precision Mode, missing a circle ends the game
                         console.log(`💀 PRECISION MODE: Game over due to missed circle ${circleId}`)
                         endGameWithCause('miss')
                         return
                     } else {
+                        // Standard mode penalty
                         setStats(prev => {
                             const penalty = calculateProgressiveWrongPenalty(prev.consecutiveMisses)
                             const newAdaptive = updateAdaptiveState(
@@ -386,7 +385,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         })
 
         // Schedule next activation
-        const nextActivationDelay = getRandomActivationDelay(gameConfig, adaptiveState, precisionState)
+        const nextActivationDelay = getRandomActivationDelay(config, adaptiveState, precisionState)
         if (isPrecisionMode && precisionState) {
             console.log(`⏱️ Next activation in ${nextActivationDelay}ms (level ${precisionState.intensityLevel})`)
         }
@@ -395,7 +394,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             () => activateRandomCircles(),
             nextActivationDelay
         )
-    }, [gameConfig, deactivateCircle, gameState, adaptiveState, precisionState, isPrecisionMode, endGameWithCause])
+    }, [config, deactivateCircle, gameState, adaptiveState, precisionState, isPrecisionMode, endGameWithCause])
 
     const handleCircleClick = useCallback((circleId: number) => {
         if (gameState !== GameState.PLAYING) return
@@ -445,7 +444,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
                 if (activationTime) {
                     reactionTime = clickTime - activationTime
-                    fastBonus = calculateFastClickBonus(reactionTime, gameConfig.fastClickThreshold)
+                    fastBonus = calculateFastClickBonus(reactionTime, config.fastClickThreshold)
                 }
 
                 setStats(prev => {
@@ -534,12 +533,21 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 })
             }
         }
-    }, [gameState, circles, deactivateCircle, triggerHapticFeedback, gameConfig, adaptiveState, isPrecisionMode, endGameWithCause])
+    }, [gameState, circles, deactivateCircle, triggerHapticFeedback, config, adaptiveState, isPrecisionMode, endGameWithCause])
 
     const startGame = useCallback(() => {
-        setGameState(GameState.PLAYING)
-        setShowCircles(true)
+        console.log('Starting game...', isPrecisionMode ? 'Precision Mode' : 'Standard Mode')
+        clearAllTimeouts()
+        activeCirclesRef.current.clear()
+        circleActivationTimesRef.current.clear()
+        gameSavedRef.current = false
+        gameStartTimeRef.current = Date.now()
+
+        setGameState(GameState.STARTING)
         setTimeLeft(STANDARD_GAME_DURATION)
+        setIsSavingResult(false)
+        setSaveError(null)
+        setSaveSuccess(false)
         setStats({
             score: 0,
             correctHits: 0,
@@ -556,56 +564,77 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             survivalTime: isPrecisionMode ? 0 : undefined,
             perfectStreak: isPrecisionMode ? 0 : undefined,
         })
+        setAdaptiveState({
+            level: 0,
+            activationSpeedMultiplier: 1,
+            simultaneousMultiplier: 1,
+            activeTimeMultiplier: 1
+        })
+        setCircles(createCircleGrid(config.circleCount))
 
         if (isPrecisionMode) {
             setPrecisionState(initializePrecisionModeState())
-            setGameConfig(baseConfig) // Reset config to base
-
-            precisionUpdateRef.current = setInterval(() => {
-                setPrecisionState(prev => {
-                    if (!prev) return null
-
-                    const updated = updatePrecisionModeState(prev, PRECISION_MODE_UPDATE_INTERVAL, gameConfig)
-
-                    // Если уровень изменился, обновляем конфигурацию
-                    if (updated.intensityLevel !== prev.intensityLevel) {
-                        const levelConfig = getPrecisionLevelConfig(updated.intensityLevel)
-                        console.log(`🔥 PRECISION MODE: LEVEL UP! 🔥`)
-                        console.log(`Level: ${prev.intensityLevel} → ${updated.intensityLevel}`)
-                        console.log(`New config: simultaneous=${levelConfig.simultaneousCircles}, red=${levelConfig.redCircles}, active=${levelConfig.circleActiveTime}ms`)
-                        console.log(`Description: ${levelConfig.description}`)
-
-                        // Обновляем конфигурацию игры через состояние
-                        setGameConfig(prevConfig => ({
-                            ...prevConfig,
-                            maxSimultaneousCircles: levelConfig.simultaneousCircles,
-                            circleActiveTime: levelConfig.circleActiveTime,
-                            minActivationTime: levelConfig.activationTimeMin,
-                            maxActivationTime: levelConfig.activationTimeMax
-                        }))
-
-                        // Перезапуск активации теперь будет через useEffect
-                        clearAllTimeouts()
-                    }
-
-                    // Update stats with current precision state
-                    setStats(prevStats => ({
-                        ...prevStats,
-                        currentIntensityLevel: updated.intensityLevel,
-                        survivalTime: updated.survivalTime
-                    }))
-
-                    return updated
-                })
-            }, PRECISION_MODE_UPDATE_INTERVAL)
         }
 
         setTimeout(() => {
-            console.log('Starting circle activations')
-            activateRandomCircles()
-        }, 500)
+            setShowCircles(true)
+        }, 50)
 
-    }, [baseConfig, clearAllTimeouts, activateRandomCircles, isPrecisionMode])
+        setTimeout(() => {
+            console.log('Starting game mechanics')
+            setGameState(GameState.PLAYING)
+
+            if (!isPrecisionMode) {
+                // Standard mode timer
+                gameTimerRef.current = setInterval(() => {
+                    setTimeLeft(prevTime => {
+                        console.log('Timer tick, time left:', prevTime - 1)
+                        if (prevTime <= 1) {
+                            console.log('Game finished by timer')
+                            setGameState(GameState.FINISHED)
+                            return 0
+                        }
+                        return prevTime - 1
+                    })
+                }, 1000)
+            } else {
+                // Precision Mode update loop
+                precisionUpdateRef.current = setInterval(() => {
+                    const deltaTime = PRECISION_MODE_UPDATE_INTERVAL
+
+                    setPrecisionState(prev => {
+                        if (!prev || !prev.isActive) return prev
+
+                        const updated = updatePrecisionModeState(prev, deltaTime, config)
+
+                        // Log intensity changes for debugging
+                        if (updated.intensityLevel !== prev.intensityLevel) {
+                            console.log(`🔥 PRECISION MODE: LEVEL UP! 🔥`)
+                            console.log(`Level: ${prev.intensityLevel} → ${updated.intensityLevel}`)
+                            const levelConfig = getPrecisionLevelConfig(updated.intensityLevel)
+                            console.log(`New config: simultaneous=${levelConfig.simultaneousCircles}, red=${levelConfig.redCircles}, active=${levelConfig.circleActiveTime}ms`)
+                            console.log(`Description: ${levelConfig.description}`)
+                        }
+
+                        // Update stats with current precision state
+                        setStats(prevStats => ({
+                            ...prevStats,
+                            currentIntensityLevel: updated.intensityLevel,
+                            survivalTime: updated.survivalTime
+                        }))
+
+                        return updated
+                    })
+                }, PRECISION_MODE_UPDATE_INTERVAL)
+            }
+
+            setTimeout(() => {
+                console.log('Starting circle activations')
+                activateRandomCircles()
+            }, 500)
+
+        }, 1500)
+    }, [config.circleCount, clearAllTimeouts, activateRandomCircles, isPrecisionMode, config])
 
     useEffect(() => {
         startGame()
@@ -613,17 +642,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             clearAllTimeouts()
         }
     }, [])
-
-    useEffect(() => {
-        if (gameState === GameState.PLAYING && isPrecisionMode) {
-            // Запускаем активацию только если нет активного таймера
-            if (!activationTimeoutRef.current) {
-                console.log('Restarting circle activations (level/config change)')
-                activateRandomCircles()
-            }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [gameConfig.maxSimultaneousCircles, gameConfig.circleActiveTime, precisionState?.intensityLevel])
 
     useEffect(() => {
         if (gameState === GameState.PLAYING) {
@@ -708,34 +726,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             }
         }
     }, [gameState])
-
-    useEffect(() => {
-        if (isPrecisionMode && gameState === GameState.PLAYING) {
-            // Очищаем предыдущий интервал, если был
-            if (gameTimerRef.current) {
-                clearInterval(gameTimerRef.current)
-                gameTimerRef.current = null
-            }
-            // Запускаем новый интервал для обновления survivalTime
-            gameTimerRef.current = setInterval(() => {
-                setPrecisionState(prev => {
-                    if (!prev || !prev.isActive) return prev
-                    return {
-                        ...prev,
-                        survivalTime: prev.survivalTime + 100
-                    }
-                })
-            }, 100)
-        }
-        // Очищаем интервал при завершении игры или смене режима
-        return () => {
-            if (gameTimerRef.current) {
-                clearInterval(gameTimerRef.current)
-                gameTimerRef.current = null
-            }
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isPrecisionMode, gameState, precisionState?.intensityLevel])
 
     const restartGame = useCallback(() => {
         console.log('Restarting game...')
@@ -864,7 +854,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                         totalTime={STANDARD_GAME_DURATION}
                         isActive={gameState === GameState.PLAYING}
                     />
-                    {gameConfig.adaptiveScaling && (
+                    {config.adaptiveScaling && (
                         <div className="text-xs font-bpdots text-yellow-400 mt-1">
                             {getAdaptiveLevelDescription(adaptiveState.level)}
                         </div>
