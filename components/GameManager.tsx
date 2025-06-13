@@ -184,14 +184,13 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             (id) => !excludeIds.includes(id),
         );
 
-        // For precision mode, we want to use ALL available slots, not random
         let targetCount = requestedCount;
         if (isPrecisionMode && precisionState) {
-            // In precision mode, always try to use maximum slots for increasing difficulty
-            targetCount = Math.min(requestedCount, availableIds.length);
-            console.log(`Precision Mode: Requesting ${requestedCount} circles, will activate ${targetCount} at level ${precisionState.intensityLevel}`);
+            // Используем конфигурацию уровня для определения количества кругов
+            const levelConfig = getPrecisionLevelConfig(precisionState.intensityLevel);
+            targetCount = Math.min(levelConfig.simultaneousCircles, availableIds.length);
+            console.log(`Precision Mode: Level ${precisionState.intensityLevel}, activating ${targetCount} circles`);
         } else {
-            // For standard mode, use some randomness
             targetCount = Math.min(
                 Math.floor(Math.random() * requestedCount) + 1,
                 availableIds.length,
@@ -336,15 +335,20 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         selectedIds.forEach(circleId => {
             const circleResult = activationResults.find(result => result.id === circleId)
-            const activeTime = getAdjustedCircleActiveTime(
-                config.circleActiveTime,
-                adaptiveState,
-                precisionState,
-                config
-            )
+            let activeTime: number
 
             if (isPrecisionMode && precisionState) {
+                // Используем время активности из конфигурации уровня
+                const levelConfig = getPrecisionLevelConfig(precisionState.intensityLevel)
+                activeTime = levelConfig.circleActiveTime
                 console.log(`⏰ Circle ${circleId} active for ${activeTime}ms (level ${precisionState.intensityLevel})`)
+            } else {
+                activeTime = getAdjustedCircleActiveTime(
+                    config.circleActiveTime,
+                    adaptiveState,
+                    precisionState,
+                    config
+                )
             }
 
             const timeout = setTimeout(() => {
