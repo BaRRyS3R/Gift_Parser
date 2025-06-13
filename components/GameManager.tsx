@@ -709,6 +709,34 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }
     }, [gameState])
 
+    useEffect(() => {
+        if (isPrecisionMode && gameState === GameState.PLAYING) {
+            // Очищаем предыдущий интервал, если был
+            if (gameTimerRef.current) {
+                clearInterval(gameTimerRef.current)
+                gameTimerRef.current = null
+            }
+            // Запускаем новый интервал для обновления survivalTime
+            gameTimerRef.current = setInterval(() => {
+                setPrecisionState(prev => {
+                    if (!prev || !prev.isActive) return prev
+                    return {
+                        ...prev,
+                        survivalTime: prev.survivalTime + 100
+                    }
+                })
+            }, 100)
+        }
+        // Очищаем интервал при завершении игры или смене режима
+        return () => {
+            if (gameTimerRef.current) {
+                clearInterval(gameTimerRef.current)
+                gameTimerRef.current = null
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPrecisionMode, gameState, precisionState?.intensityLevel])
+
     const restartGame = useCallback(() => {
         console.log('Restarting game...')
         setShowCircles(false)
