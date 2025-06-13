@@ -1,9 +1,9 @@
-// src/app/profile/page.tsx - Enhanced with Precision Mode Support
+// src/app/profile/page.tsx - Enhanced with Updated Difficulty System
 
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Trophy, Target, Zap, Clock, TrendingUp, Star, Medal, Award, User, Activity, Calendar, BarChart3, Crosshair, AlertTriangle } from 'lucide-react'
+import { Trophy, Target, Zap, Clock, TrendingUp, Star, Medal, Award, User, Activity, Calendar, BarChart3, Crosshair, AlertTriangle, UserCheck, Crown, Flame, Skull } from 'lucide-react'
 import { useUser } from '@/hooks/useUser'
 import { userService, type GameResultDB } from '@/lib/supabase'
 import { GameDifficulty } from '@/types/game'
@@ -12,13 +12,11 @@ import { Spinner } from '@nextui-org/react'
 
 interface UserRankings {
     overall: number | null
-    easy: number | null
-    medium: number | null
-    hard: number | null
-    legendary: number | null
-    omg: number | null
-    nightmare: number | null
-    impossible: number | null
+    hard: number | null        // ROOKIE
+    legendary: number | null   // VETERAN
+    omg: number | null         // MANIAC
+    nightmare: number | null   // DEMON
+    impossible: number | null  // GODLIKE
     precision: number | null
 }
 
@@ -27,8 +25,6 @@ export default function ProfilePage() {
     const [gameHistory, setGameHistory] = useState<GameResultDB[]>([])
     const [rankings, setRankings] = useState<UserRankings>({
         overall: null,
-        easy: null,
-        medium: null,
         hard: null,
         legendary: null,
         omg: null,
@@ -49,8 +45,6 @@ export default function ProfilePage() {
                 const [
                     history,
                     overallRank,
-                    easyRank,
-                    mediumRank,
                     hardRank,
                     legendaryRank,
                     omgRank,
@@ -60,8 +54,6 @@ export default function ProfilePage() {
                 ] = await Promise.all([
                     userService.getGameHistory(telegramUser.id, 15),
                     userService.getUserRanking(telegramUser.id),
-                    userService.getUserDifficultyRanking(telegramUser.id, 'easy'),
-                    userService.getUserDifficultyRanking(telegramUser.id, 'medium'),
                     userService.getUserDifficultyRanking(telegramUser.id, 'hard'),
                     userService.getUserDifficultyRanking(telegramUser.id, 'legendary'),
                     userService.getUserDifficultyRanking(telegramUser.id, 'omg'),
@@ -73,8 +65,6 @@ export default function ProfilePage() {
                 setGameHistory(history)
                 setRankings({
                     overall: overallRank,
-                    easy: easyRank,
-                    medium: mediumRank,
                     hard: hardRank,
                     legendary: legendaryRank,
                     omg: omgRank,
@@ -116,6 +106,13 @@ export default function ProfilePage() {
         if (user.best_accuracy >= 90) achievements.push({ icon: Zap, name: 'SHARPSHOOTER', desc: '90%+ ACCURACY' })
         if (rankings.overall && rankings.overall <= 10) achievements.push({ icon: Trophy, name: 'TOP 10', desc: 'TOP 10 PLAYER' })
 
+        // Difficulty-specific achievements
+        if (user.hard_games >= 10) achievements.push({ icon: UserCheck, name: 'ROOKIE VETERAN', desc: '10+ ROOKIE GAMES' })
+        if (user.legendary_games >= 10) achievements.push({ icon: Award, name: 'VETERAN WARRIOR', desc: '10+ VETERAN GAMES' })
+        if (user.omg_games >= 10) achievements.push({ icon: Flame, name: 'CERTIFIED MANIAC', desc: '10+ MANIAC GAMES' })
+        if (user.nightmare_games >= 5) achievements.push({ icon: Skull, name: 'DEMON SLAYER', desc: '5+ DEMON GAMES' })
+        if (user.impossible_games >= 1) achievements.push({ icon: Crown, name: 'GODLIKE CHALLENGER', desc: 'ATTEMPTED GODLIKE' })
+
         // Precision Mode achievements
         if (user.precision_games >= 1) achievements.push({ icon: Crosshair, name: 'PRECISION INITIATE', desc: 'SURVIVED PRECISION MODE' })
         if (user.precision_games >= 10) achievements.push({ icon: AlertTriangle, name: 'PRECISION VETERAN', desc: '10+ PRECISION ATTEMPTS' })
@@ -135,34 +132,46 @@ export default function ProfilePage() {
         // Factor in precision mode achievements for level calculation
         const adjustedTotal = totalGames + (precisionGames * 2) // Precision games count double
 
-        if (adjustedTotal >= 100) return { level: 'MASTER', color: 'text-white' }
-        if (adjustedTotal >= 50) return { level: 'EXPERT', color: 'text-white' }
-        if (adjustedTotal >= 20) return { level: 'VETERAN', color: 'text-white' }
-        if (adjustedTotal >= 10) return { level: 'SKILLED', color: 'text-white' }
-        return { level: 'ROOKIE', color: 'text-white/60' }
+        if (adjustedTotal >= 100) return { level: 'GODLIKE', color: 'text-yellow-400' }
+        if (adjustedTotal >= 50) return { level: 'DEMON', color: 'text-purple-400' }
+        if (adjustedTotal >= 20) return { level: 'MANIAC', color: 'text-orange-400' }
+        if (adjustedTotal >= 10) return { level: 'VETERAN', color: 'text-blue-400' }
+        return { level: 'ROOKIE', color: 'text-green-400' }
     }
 
     const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
         switch (difficulty) {
-            case GameDifficulty.EASY: return 'NOOB'
-            case GameDifficulty.MEDIUM: return 'CASUAL'
-            case GameDifficulty.HARD: return 'PRO'
-            case GameDifficulty.LEGENDARY: return 'LEGEND'
-            case GameDifficulty.OMG: return 'OMG'
-            case GameDifficulty.NIGHTMARE: return 'NIGHTMARE'
-            case GameDifficulty.IMPOSSIBLE: return 'RAGE MODE'
+            case GameDifficulty.HARD: return 'ROOKIE'
+            case GameDifficulty.LEGENDARY: return 'VETERAN'
+            case GameDifficulty.OMG: return 'MANIAC'
+            case GameDifficulty.NIGHTMARE: return 'DEMON'
+            case GameDifficulty.IMPOSSIBLE: return 'GODLIKE'
             case GameDifficulty.PRECISION: return 'PRECISION'
         }
     }
 
     const getGameModeIcon = (difficulty: string) => {
-        if (difficulty === 'precision') return Crosshair
-        return Target
+        switch (difficulty) {
+            case 'hard': return UserCheck      // ROOKIE
+            case 'legendary': return Award     // VETERAN
+            case 'omg': return Flame          // MANIAC
+            case 'nightmare': return Skull    // DEMON
+            case 'impossible': return Crown   // GODLIKE
+            case 'precision': return Crosshair
+            default: return Target
+        }
     }
 
     const getGameModeColor = (difficulty: string) => {
-        if (difficulty === 'precision') return 'text-red-400'
-        return 'text-blue-400'
+        switch (difficulty) {
+            case 'hard': return 'text-green-400'      // ROOKIE
+            case 'legendary': return 'text-blue-400'  // VETERAN
+            case 'omg': return 'text-orange-400'      // MANIAC
+            case 'nightmare': return 'text-purple-400' // DEMON
+            case 'impossible': return 'text-yellow-400' // GODLIKE
+            case 'precision': return 'text-red-400'
+            default: return 'text-white'
+        }
     }
 
     if (userLoading || isLoadingData) {
@@ -199,7 +208,7 @@ export default function ProfilePage() {
                             <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
                                 <User size={20} className="text-white" />
                             </div>
-                            <div className="absolute -bottom-1 -right-1 bg-white/20 px-1 py-0.5 rounded text-xs font-bpdots font-bold">
+                            <div className={`absolute -bottom-1 -right-1 px-1 py-0.5 rounded text-xs font-bpdots font-bold ${profileLevel.color} bg-black/60`}>
                                 {profileLevel.level}
                             </div>
                         </div>
@@ -331,7 +340,7 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
-                        {/* Standard Difficulty Breakdown */}
+                        {/* Difficulty Breakdown */}
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Trophy size={16} className="text-white/80" />
@@ -345,18 +354,24 @@ export default function ProfilePage() {
 
                                     if (gamesCount === 0) return null
 
+                                    const Icon = getGameModeIcon(difficulty)
+                                    const colorClass = getGameModeColor(difficulty)
+
                                     return (
                                         <div key={difficulty} className="flex items-center justify-between p-2 bg-white/10 rounded-lg">
-                                            <div>
-                                                <div className="font-bpdots font-bold text-white text-sm">
-                                                    {getDifficultyDisplayName(difficulty)}
-                                                </div>
-                                                <div className="text-xs text-white/60 font-bpdots">
-                                                    {gamesCount} GAMES
+                                            <div className="flex items-center space-x-2">
+                                                <Icon size={16} className={colorClass} />
+                                                <div>
+                                                    <div className={`font-bpdots font-bold text-sm ${colorClass}`}>
+                                                        {getDifficultyDisplayName(difficulty)}
+                                                    </div>
+                                                    <div className="text-xs text-white/60 font-bpdots">
+                                                        {gamesCount} GAMES
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-white font-bpdots font-bold text-sm">BEST: {bestScore}</div>
+                                                <div className={`font-bpdots font-bold text-sm ${colorClass}`}>BEST: {bestScore}</div>
                                                 {ranking && (
                                                     <div className="text-xs text-white/60 font-bpdots">
                                                         RANK #{ranking}
@@ -461,7 +476,7 @@ export default function ProfilePage() {
                                                 <div className="flex items-center space-x-2">
                                                     <Icon size={16} className={colorClass} />
                                                     <div>
-                                                        <div className="font-bpdots font-bold text-white text-sm">
+                                                        <div className={`font-bpdots font-bold text-sm ${colorClass}`}>
                                                             {getDifficultyDisplayName(game.difficulty as GameDifficulty)}
                                                         </div>
                                                         <div className="text-xs text-white/60 font-bpdots">

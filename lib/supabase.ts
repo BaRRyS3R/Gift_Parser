@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Enhanced with Precision Mode Support
+// src/lib/supabase.ts - Enhanced with Updated Difficulty System
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -7,7 +7,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Enhanced database types with Precision Mode support
+// Enhanced database types with Updated Difficulty System
 export interface User {
     id: string; // UUID v4
     telegram_id: number;
@@ -28,20 +28,16 @@ export interface User {
     total_missed_circles: number;
     best_accuracy: number;
 
-    // Standard difficulty statistics
-    easy_games: number;
-    easy_best_score: number;
-    medium_games: number;
-    medium_best_score: number;
-    hard_games: number;
+    // Updated difficulty statistics (removed easy/medium, added new names)
+    hard_games: number;       // ROOKIE
     hard_best_score: number;
-    legendary_games: number;
+    legendary_games: number;  // VETERAN
     legendary_best_score: number;
-    omg_games: number;
+    omg_games: number;        // MANIAC
     omg_best_score: number;
-    nightmare_games: number;
+    nightmare_games: number;  // DEMON
     nightmare_best_score: number;
-    impossible_games: number;
+    impossible_games: number; // GODLIKE
     impossible_best_score: number;
 
     // Precision Mode specific statistics
@@ -136,7 +132,7 @@ export interface PrecisionLeaderboard {
     last_played_at?: string;
 }
 
-// Enhanced user service with Precision Mode support
+// Enhanced user service with Updated Difficulty System
 export const userService = {
     async findByTelegramId(telegramId: number): Promise<User | null> {
         const { data, error } = await supabase
@@ -390,7 +386,7 @@ export const userService = {
         }));
     },
 
-    // New Precision Mode leaderboard methods
+    // Precision Mode leaderboard methods
     async getPrecisionLeaderboard(limit: number = 100): Promise<PrecisionLeaderboard[]> {
         const { data, error } = await supabase
             .from("users")

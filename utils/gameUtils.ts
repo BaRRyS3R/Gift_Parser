@@ -1,135 +1,106 @@
-// src/utils/gameUtils.ts - Enhanced version with Precision Mode
+// src/utils/gameUtils.ts - Enhanced version with Redesigned Difficulty System
 
 import { GameConfig, GameDifficulty, Circle, AdaptiveState, ClickTiming, PrecisionModeState, IntensityLevel } from "@/types/game";
 
 export { GameDifficulty };
 
 export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
-  [GameDifficulty.EASY]: {
-    id: "easy",
-    name: "Easy",
-    circleCount: 4,
-    minActivationTime: 1000,
-    maxActivationTime: 3000,
-    maxSimultaneousCircles: 1,
-    circleActiveTime: 2000,
-    decoyProbability: 0,
-    adaptiveScaling: false,
-    fastClickThreshold: 300,
-  },
-  [GameDifficulty.MEDIUM]: {
-    id: "medium",
-    name: "Medium",
-    circleCount: 8,
-    minActivationTime: 1000,
-    maxActivationTime: 3000,
-    maxSimultaneousCircles: 1,
-    circleActiveTime: 2000,
-    decoyProbability: 0.1,
-    adaptiveScaling: false,
-    fastClickThreshold: 250,
-  },
   [GameDifficulty.HARD]: {
     id: "hard",
-    name: "Hard",
-    circleCount: 12,
-    minActivationTime: 500,
+    name: "ROOKIE",
+    circleCount: 16,
+    minActivationTime: 800,
     maxActivationTime: 2000,
     maxSimultaneousCircles: 2,
+    circleActiveTime: 1800,
+    decoyProbability: 0.1,
+    adaptiveScaling: true,
+    fastClickThreshold: 250,
+  },
+  [GameDifficulty.LEGENDARY]: {
+    id: "legendary",
+    name: "VETERAN",
+    circleCount: 25,
+    minActivationTime: 600,
+    maxActivationTime: 1500,
+    maxSimultaneousCircles: 4,
     circleActiveTime: 1500,
     decoyProbability: 0.15,
     adaptiveScaling: true,
     fastClickThreshold: 200,
   },
-  [GameDifficulty.LEGENDARY]: {
-    id: "legendary",
-    name: "Legendary",
-    circleCount: 16,
-    minActivationTime: 1000,
-    maxActivationTime: 1500,
-    maxSimultaneousCircles: 4,
-    circleActiveTime: 1500,
-    decoyProbability: 0.2,
-    adaptiveScaling: true,
-    fastClickThreshold: 200,
-  },
   [GameDifficulty.OMG]: {
     id: "omg",
-    name: "OMG",
-    circleCount: 40,
-    minActivationTime: 200,
-    maxActivationTime: 1500,
+    name: "MANIAC",
+    circleCount: 50,
+    minActivationTime: 400,
+    maxActivationTime: 1200,
     maxSimultaneousCircles: 8,
-    circleActiveTime: 2000,
+    circleActiveTime: 1200,
     decoyProbability: 0.25,
     adaptiveScaling: true,
     fastClickThreshold: 150,
   },
   [GameDifficulty.NIGHTMARE]: {
     id: "nightmare",
-    name: "NIGHTMARE",
-    circleCount: 60,
-    minActivationTime: 100,
+    name: "DEMON",
+    circleCount: 70,
+    minActivationTime: 200,
     maxActivationTime: 800,
-    maxSimultaneousCircles: 15,
-    circleActiveTime: 600,
+    maxSimultaneousCircles: 12,
+    circleActiveTime: 800,
     decoyProbability: 0.3,
     adaptiveScaling: true,
     fastClickThreshold: 120,
   },
   [GameDifficulty.IMPOSSIBLE]: {
     id: "impossible",
-    name: "IMPOSSIBLE",
-    circleCount: 80,
-    minActivationTime: 50,
-    maxActivationTime: 500,
-    maxSimultaneousCircles: 20,
-    circleActiveTime: 400,
-    decoyProbability: 0.35,
+    name: "GODLIKE",
+    circleCount: 60,
+    minActivationTime: 300,
+    maxActivationTime: 700,
+    maxSimultaneousCircles: 8,
+    circleActiveTime: 600,
+    decoyProbability: 0.25,
     adaptiveScaling: true,
     fastClickThreshold: 100,
   },
-  // New Precision Mode configuration
+  // Enhanced Precision Mode
   [GameDifficulty.PRECISION]: {
     id: "precision",
     name: "PRECISION MODE",
-    circleCount: 20,
-    minActivationTime: 800,
-    maxActivationTime: 1500,
+    circleCount: 25,
+    minActivationTime: 1000,
+    maxActivationTime: 1800,
     maxSimultaneousCircles: 2,
-    circleActiveTime: 1800,
-    decoyProbability: 0.1,
+    circleActiveTime: 2000,
+    decoyProbability: 0.05,
     adaptiveScaling: false, // Custom precision scaling
     fastClickThreshold: 200,
     isPrecisionMode: true,
-    intensityIncreaseInterval: 5, // Increase intensity every 5 seconds
-    intensityMultiplier: 1.15, // 15% increase per level
-    maxIntensityLevel: 20,
+    intensityIncreaseInterval: 10, // Increase intensity every 10 seconds
+    intensityMultiplier: 2.0, // 2x increase per level (much more aggressive)
+    maxIntensityLevel: 15, // Reduced max level due to aggressive scaling
   },
 } as const;
 
-// Precision Mode intensity levels configuration
+// Enhanced Precision Mode intensity levels - much more aggressive scaling
 export const PRECISION_INTENSITY_LEVELS: IntensityLevel[] = [
   { level: 1, speedMultiplier: 1.0, simultaneousMultiplier: 1.0, activeTimeMultiplier: 1.0, decoyProbabilityMultiplier: 1.0, description: "WARMING UP" },
-  { level: 2, speedMultiplier: 0.95, simultaneousMultiplier: 1.0, activeTimeMultiplier: 0.95, decoyProbabilityMultiplier: 1.0, description: "GETTING SERIOUS" },
-  { level: 3, speedMultiplier: 0.90, simultaneousMultiplier: 1.1, activeTimeMultiplier: 0.90, decoyProbabilityMultiplier: 1.1, description: "HEATING UP" },
-  { level: 4, speedMultiplier: 0.85, simultaneousMultiplier: 1.2, activeTimeMultiplier: 0.85, decoyProbabilityMultiplier: 1.2, description: "INTENSE" },
-  { level: 5, speedMultiplier: 0.80, simultaneousMultiplier: 1.3, activeTimeMultiplier: 0.80, decoyProbabilityMultiplier: 1.3, description: "DANGEROUS" },
-  { level: 6, speedMultiplier: 0.75, simultaneousMultiplier: 1.4, activeTimeMultiplier: 0.75, decoyProbabilityMultiplier: 1.4, description: "EXTREME" },
-  { level: 7, speedMultiplier: 0.70, simultaneousMultiplier: 1.5, activeTimeMultiplier: 0.70, decoyProbabilityMultiplier: 1.5, description: "INSANE" },
-  { level: 8, speedMultiplier: 0.65, simultaneousMultiplier: 1.6, activeTimeMultiplier: 0.65, decoyProbabilityMultiplier: 1.6, description: "MADNESS" },
-  { level: 9, speedMultiplier: 0.60, simultaneousMultiplier: 1.7, activeTimeMultiplier: 0.60, decoyProbabilityMultiplier: 1.7, description: "CHAOS" },
-  { level: 10, speedMultiplier: 0.55, simultaneousMultiplier: 1.8, activeTimeMultiplier: 0.55, decoyProbabilityMultiplier: 1.8, description: "NIGHTMARE" },
-  { level: 11, speedMultiplier: 0.50, simultaneousMultiplier: 1.9, activeTimeMultiplier: 0.50, decoyProbabilityMultiplier: 1.9, description: "HELL" },
-  { level: 12, speedMultiplier: 0.45, simultaneousMultiplier: 2.0, activeTimeMultiplier: 0.45, decoyProbabilityMultiplier: 2.0, description: "BEYOND LIMITS" },
-  { level: 13, speedMultiplier: 0.40, simultaneousMultiplier: 2.1, activeTimeMultiplier: 0.40, decoyProbabilityMultiplier: 2.1, description: "GODLIKE" },
-  { level: 14, speedMultiplier: 0.35, simultaneousMultiplier: 2.2, activeTimeMultiplier: 0.35, decoyProbabilityMultiplier: 2.2, description: "TRANSCENDENT" },
-  { level: 15, speedMultiplier: 0.30, simultaneousMultiplier: 2.3, activeTimeMultiplier: 0.30, decoyProbabilityMultiplier: 2.3, description: "IMPOSSIBLE" },
-  { level: 16, speedMultiplier: 0.28, simultaneousMultiplier: 2.4, activeTimeMultiplier: 0.28, decoyProbabilityMultiplier: 2.4, description: "LEGENDARY" },
-  { level: 17, speedMultiplier: 0.26, simultaneousMultiplier: 2.5, activeTimeMultiplier: 0.26, decoyProbabilityMultiplier: 2.5, description: "MYTHICAL" },
-  { level: 18, speedMultiplier: 0.24, simultaneousMultiplier: 2.6, activeTimeMultiplier: 0.24, decoyProbabilityMultiplier: 2.6, description: "DIVINE" },
-  { level: 19, speedMultiplier: 0.22, simultaneousMultiplier: 2.7, activeTimeMultiplier: 0.22, decoyProbabilityMultiplier: 2.7, description: "COSMIC" },
-  { level: 20, speedMultiplier: 0.20, simultaneousMultiplier: 2.8, activeTimeMultiplier: 0.20, decoyProbabilityMultiplier: 2.8, description: "UNIVERSE BREAKING" },
+  { level: 2, speedMultiplier: 0.85, simultaneousMultiplier: 1.5, activeTimeMultiplier: 0.85, decoyProbabilityMultiplier: 2.0, description: "GETTING SERIOUS" },
+  { level: 3, speedMultiplier: 0.70, simultaneousMultiplier: 2.0, activeTimeMultiplier: 0.70, decoyProbabilityMultiplier: 3.0, description: "HEATING UP" },
+  { level: 4, speedMultiplier: 0.55, simultaneousMultiplier: 2.5, activeTimeMultiplier: 0.55, decoyProbabilityMultiplier: 4.0, description: "INTENSE" },
+  { level: 5, speedMultiplier: 0.45, simultaneousMultiplier: 3.0, activeTimeMultiplier: 0.45, decoyProbabilityMultiplier: 5.0, description: "DANGEROUS" },
+  { level: 6, speedMultiplier: 0.35, simultaneousMultiplier: 3.5, activeTimeMultiplier: 0.35, decoyProbabilityMultiplier: 6.0, description: "EXTREME" },
+  { level: 7, speedMultiplier: 0.30, simultaneousMultiplier: 4.0, activeTimeMultiplier: 0.30, decoyProbabilityMultiplier: 7.0, description: "INSANE" },
+  { level: 8, speedMultiplier: 0.25, simultaneousMultiplier: 4.5, activeTimeMultiplier: 0.25, decoyProbabilityMultiplier: 8.0, description: "MADNESS" },
+  { level: 9, speedMultiplier: 0.20, simultaneousMultiplier: 5.0, activeTimeMultiplier: 0.20, decoyProbabilityMultiplier: 9.0, description: "CHAOS" },
+  { level: 10, speedMultiplier: 0.18, simultaneousMultiplier: 5.5, activeTimeMultiplier: 0.18, decoyProbabilityMultiplier: 10.0, description: "NIGHTMARE" },
+  { level: 11, speedMultiplier: 0.15, simultaneousMultiplier: 6.0, activeTimeMultiplier: 0.15, decoyProbabilityMultiplier: 12.0, description: "HELL" },
+  { level: 12, speedMultiplier: 0.12, simultaneousMultiplier: 6.5, activeTimeMultiplier: 0.12, decoyProbabilityMultiplier: 14.0, description: "BEYOND LIMITS" },
+  { level: 13, speedMultiplier: 0.10, simultaneousMultiplier: 7.0, activeTimeMultiplier: 0.10, decoyProbabilityMultiplier: 16.0, description: "GODLIKE" },
+  { level: 14, speedMultiplier: 0.08, simultaneousMultiplier: 7.5, activeTimeMultiplier: 0.08, decoyProbabilityMultiplier: 18.0, description: "TRANSCENDENT" },
+  { level: 15, speedMultiplier: 0.05, simultaneousMultiplier: 8.0, activeTimeMultiplier: 0.05, decoyProbabilityMultiplier: 20.0, description: "UNIVERSE BREAKING" },
 ];
 
 // Precision Mode utility functions
@@ -153,7 +124,7 @@ export const updatePrecisionModeState = (
 
   const shouldIncreaseIntensity =
     newTimeInCurrentLevel >= (config.intensityIncreaseInterval! * 1000) &&
-    state.intensityLevel < (config.maxIntensityLevel || 20);
+    state.intensityLevel < (config.maxIntensityLevel || 15);
 
   if (shouldIncreaseIntensity) {
     return {
@@ -182,8 +153,8 @@ export const calculatePrecisionModeScore = (
   intensityLevel: number
 ): number => {
   const baseScore = Math.floor(survivalTime / 1000); // 1 point per second survived
-  const streakBonus = perfectStreak * 2; // 2 points per perfect hit
-  const intensityBonus = Math.floor(intensityLevel * 5); // 5 points per intensity level reached
+  const streakBonus = perfectStreak * 3; // 3 points per perfect hit (increased from 2)
+  const intensityBonus = Math.floor(intensityLevel * 10); // 10 points per intensity level reached (increased from 5)
 
   return baseScore + streakBonus + intensityBonus;
 };
@@ -233,7 +204,7 @@ export const getAdjustedCircleActiveTime = (
 ): number => {
   if (config?.isPrecisionMode && precisionState) {
     const intensity = getPrecisionModeIntensity(precisionState.intensityLevel);
-    return Math.max(200, baseTime * intensity.activeTimeMultiplier);
+    return Math.max(100, baseTime * intensity.activeTimeMultiplier); // Reduced minimum from 200 to 100
   }
 
   if (adaptiveState) {
@@ -263,7 +234,7 @@ export const getAdjustedDecoyProbability = (
 ): number => {
   if (config?.isPrecisionMode && precisionState) {
     const intensity = getPrecisionModeIntensity(precisionState.intensityLevel);
-    return Math.min(0.8, baseProbability * intensity.decoyProbabilityMultiplier);
+    return Math.min(0.95, baseProbability * intensity.decoyProbabilityMultiplier); // Increased max from 0.8 to 0.95
   }
 
   return baseProbability;
@@ -316,24 +287,18 @@ export const getRandomCircleIds = (
 
 export const getGridDimensions = (circleCount: number) => {
   switch (circleCount) {
-    case 4:
-      return { cols: 2, rows: 2 };
-    case 8:
-      return { cols: 4, rows: 2 };
-    case 12:
-      return { cols: 4, rows: 3 };
     case 16:
       return { cols: 4, rows: 4 };
-    case 20: // Precision Mode
-      return { cols: 5, rows: 4 };
-    case 40:
-      return { cols: 5, rows: 8 };
+    case 25:
+      return { cols: 5, rows: 5 };
+    case 50:
+      return { cols: 5, rows: 10 };
     case 60:
       return { cols: 6, rows: 10 };
-    case 80:
-      return { cols: 8, rows: 10 };
+    case 70:
+      return { cols: 7, rows: 10 };
     default:
-      return { cols: 2, rows: 2 };
+      return { cols: 4, rows: 4 };
   }
 };
 

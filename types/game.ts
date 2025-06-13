@@ -1,4 +1,4 @@
-// src/types/game.ts - Enhanced version with Precision Mode
+// src/types/game.ts - Enhanced version with Updated Difficulty System
 
 export interface Circle {
   id: number;
@@ -46,14 +46,12 @@ export interface GameConfig {
 }
 
 export enum GameDifficulty {
-  EASY = "easy",
-  MEDIUM = "medium",
-  HARD = "hard",
-  LEGENDARY = "legendary",
-  OMG = "omg",
-  NIGHTMARE = "nightmare",
-  IMPOSSIBLE = "impossible",
-  PRECISION = "precision", // New Precision Mode
+  HARD = "hard",           // Now the easiest (was 3rd)
+  LEGENDARY = "legendary", // Medium (was 4th)
+  OMG = "omg",            // Hard (was 5th)
+  NIGHTMARE = "nightmare", // Super hard (was 6th)
+  IMPOSSIBLE = "impossible", // Nerfed (was 7th)
+  PRECISION = "precision", // Special mode
 }
 
 export enum GameState {

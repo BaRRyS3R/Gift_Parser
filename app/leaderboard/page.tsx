@@ -1,9 +1,9 @@
-// src/app/leaderboard/page.tsx - Enhanced with Precision Mode Support
+// src/app/leaderboard/page.tsx - Enhanced with Updated Difficulty System
 
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Crown, Medal, Award, Star, Trophy, TrendingUp, Users, Zap, Target, Activity, Clock, Crosshair, AlertTriangle } from 'lucide-react'
+import { Crown, Medal, Award, Star, Trophy, TrendingUp, Users, Zap, Target, Activity, Clock, Crosshair, AlertTriangle, UserCheck, Flame, Skull } from 'lucide-react'
 import { userService, type LeaderboardEntry, type DifficultyLeaderboard, type PrecisionLeaderboard } from '@/lib/supabase'
 import { GameDifficulty, GAME_CONFIGS } from '@/utils/gameUtils'
 import { useUser } from '@/hooks/useUser'
@@ -96,15 +96,68 @@ export default function LeaderboardPage() {
 
     const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
         switch (difficulty) {
-            case GameDifficulty.EASY: return 'NOOB'
-            case GameDifficulty.MEDIUM: return 'CASUAL'
-            case GameDifficulty.HARD: return 'PRO'
-            case GameDifficulty.LEGENDARY: return 'LEGEND'
-            case GameDifficulty.OMG: return 'OMG'
-            case GameDifficulty.NIGHTMARE: return 'NIGHTMARE'
-            case GameDifficulty.IMPOSSIBLE: return 'RAGE MODE'
+            case GameDifficulty.HARD: return 'ROOKIE'
+            case GameDifficulty.LEGENDARY: return 'VETERAN'
+            case GameDifficulty.OMG: return 'MANIAC'
+            case GameDifficulty.NIGHTMARE: return 'DEMON'
+            case GameDifficulty.IMPOSSIBLE: return 'GODLIKE'
             case GameDifficulty.PRECISION: return 'PRECISION'
         }
+    }
+
+    const getDifficultyIcon = (difficulty: GameDifficulty) => {
+        switch (difficulty) {
+            case GameDifficulty.HARD: return UserCheck      // ROOKIE
+            case GameDifficulty.LEGENDARY: return Award     // VETERAN
+            case GameDifficulty.OMG: return Flame          // MANIAC
+            case GameDifficulty.NIGHTMARE: return Skull    // DEMON
+            case GameDifficulty.IMPOSSIBLE: return Crown   // GODLIKE
+            case GameDifficulty.PRECISION: return Crosshair
+            default: return Target
+        }
+    }
+
+    const getDifficultyColor = (difficulty: GameDifficulty) => {
+        switch (difficulty) {
+            case GameDifficulty.HARD: return 'text-green-400'      // ROOKIE
+            case GameDifficulty.LEGENDARY: return 'text-blue-400'  // VETERAN
+            case GameDifficulty.OMG: return 'text-orange-400'      // MANIAC
+            case GameDifficulty.NIGHTMARE: return 'text-purple-400' // DEMON
+            case GameDifficulty.IMPOSSIBLE: return 'text-yellow-400' // GODLIKE
+            case GameDifficulty.PRECISION: return 'text-red-400'
+            default: return 'text-white'
+        }
+    }
+
+    const getDifficultyTabColors = (difficulty: GameDifficulty, isActive: boolean) => {
+        const baseColors = {
+            [GameDifficulty.HARD]: {
+                active: 'bg-green-500/20 text-green-300 border border-green-400/30',
+                inactive: 'text-green-400/60 hover:text-green-400/80'
+            },
+            [GameDifficulty.LEGENDARY]: {
+                active: 'bg-blue-500/20 text-blue-300 border border-blue-400/30',
+                inactive: 'text-blue-400/60 hover:text-blue-400/80'
+            },
+            [GameDifficulty.OMG]: {
+                active: 'bg-orange-500/20 text-orange-300 border border-orange-400/30',
+                inactive: 'text-orange-400/60 hover:text-orange-400/80'
+            },
+            [GameDifficulty.NIGHTMARE]: {
+                active: 'bg-purple-500/20 text-purple-300 border border-purple-400/30',
+                inactive: 'text-purple-400/60 hover:text-purple-400/80'
+            },
+            [GameDifficulty.IMPOSSIBLE]: {
+                active: 'bg-yellow-500/20 text-yellow-300 border border-yellow-400/30',
+                inactive: 'text-yellow-400/60 hover:text-yellow-400/80'
+            },
+            [GameDifficulty.PRECISION]: {
+                active: 'bg-red-500/20 text-red-300 border border-red-400/30',
+                inactive: 'text-red-400/60 hover:text-red-400/80'
+            }
+        }
+
+        return isActive ? baseColors[difficulty].active : baseColors[difficulty].inactive
     }
 
     const renderStandardLeaderboardEntry = (
@@ -140,9 +193,8 @@ export default function LeaderboardPage() {
 
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                        <h3 className={`font-bpdots font-bold truncate text-sm ${
-                            isCurrentUser(entry.telegram_id) ? 'text-white' : 'text-white/90'
-                        }`}>
+                        <h3 className={`font-bpdots font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? 'text-white' : 'text-white/90'
+                            }`}>
                             {entry.first_name} {entry.last_name || ''}
                         </h3>
                         {entry.is_premium && (
@@ -186,8 +238,8 @@ export default function LeaderboardPage() {
                 key={entry.id}
                 className={`
                     flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
-                    ${position <= 3 
-                        ? 'bg-red-500/20 border-red-400/40' 
+                    ${position <= 3
+                        ? 'bg-red-500/20 border-red-400/40'
                         : 'bg-red-500/10 border-red-400/30'
                     }
                     ${isCurrentUser(entry.telegram_id)
@@ -204,9 +256,8 @@ export default function LeaderboardPage() {
 
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                        <h3 className={`font-bpdots font-bold truncate text-sm ${
-                            isCurrentUser(entry.telegram_id) ? 'text-red-200' : 'text-red-300'
-                        }`}>
+                        <h3 className={`font-bpdots font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? 'text-red-200' : 'text-red-300'
+                            }`}>
                             {entry.first_name} {entry.last_name || ''}
                         </h3>
                         {entry.is_premium && (
@@ -289,28 +340,25 @@ export default function LeaderboardPage() {
             <div className="mb-4">
                 <div className="text-center space-y-3">
                     <div className="flex items-center justify-center space-x-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                            isPrecisionTab ? 'bg-red-500/20 border border-red-400/30' : 'bg-white/20'
-                        }`}>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isPrecisionTab ? 'bg-red-500/20 border border-red-400/30' : 'bg-white/20'
+                            }`}>
                             {isPrecisionTab ? (
                                 <Crosshair size={20} className="text-red-400" />
                             ) : (
                                 <Trophy size={20} className="text-white" />
                             )}
                         </div>
-                        <h1 className={`text-2xl font-bold font-bpdots ${
-                            isPrecisionTab ? 'text-red-300' : 'text-white'
-                        }`}>
+                        <h1 className={`text-2xl font-bold font-bpdots ${isPrecisionTab ? 'text-red-300' : 'text-white'
+                            }`}>
                             {isPrecisionTab ? 'PRECISION RANKINGS' : 'RANKING SYSTEM'}
                         </h1>
                     </div>
 
                     {currentLeaderboard.length > 0 && (
-                        <div className={`flex items-center justify-center space-x-4 backdrop-blur-xl border rounded-lg p-2 text-sm ${
-                            isPrecisionTab 
-                                ? 'bg-red-500/10 border-red-400/30' 
+                        <div className={`flex items-center justify-center space-x-4 backdrop-blur-xl border rounded-lg p-2 text-sm ${isPrecisionTab
+                                ? 'bg-red-500/10 border-red-400/30'
                                 : 'bg-white/10 border-white/20'
-                        }`}>
+                            }`}>
                             <div className="flex items-center space-x-1">
                                 <Users size={14} className={isPrecisionTab ? 'text-red-400/80' : 'text-white/60'} />
                                 <span className={`font-bpdots font-bold ${isPrecisionTab ? 'text-red-300' : 'text-white'}`}>
@@ -364,15 +412,12 @@ export default function LeaderboardPage() {
                                 <span>OVERALL</span>
                             </div>
                         </button>
-                        
+
                         <button
                             onClick={() => setActiveTab('precision')}
                             className={`
                                 flex-shrink-0 px-3 py-2 rounded-lg font-bpdots text-xs font-bold transition-all duration-300
-                                ${activeTab === 'precision'
-                                    ? 'bg-red-500/20 text-red-300 border border-red-400/30'
-                                    : 'text-red-400/60 hover:text-red-400/80'
-                                }
+                                ${getDifficultyTabColors(GameDifficulty.PRECISION, activeTab === 'precision')}
                             `}
                         >
                             <div className="flex items-center space-x-1">
@@ -381,21 +426,25 @@ export default function LeaderboardPage() {
                             </div>
                         </button>
 
-                        {Object.values(GameDifficulty).filter(d => d !== GameDifficulty.PRECISION).map((difficulty) => (
-                            <button
-                                key={difficulty}
-                                onClick={() => setActiveTab(difficulty)}
-                                className={`
-                                    flex-shrink-0 px-3 py-2 rounded-lg font-bpdots text-xs font-bold transition-all duration-300
-                                    ${activeTab === difficulty
-                                        ? 'bg-white/20 text-white'
-                                        : 'text-white/60 hover:text-white/80'
-                                    }
-                                `}
-                            >
-                                {getDifficultyDisplayName(difficulty)}
-                            </button>
-                        ))}
+                        {Object.values(GameDifficulty).filter(d => d !== GameDifficulty.PRECISION).map((difficulty) => {
+                            const Icon = getDifficultyIcon(difficulty)
+
+                            return (
+                                <button
+                                    key={difficulty}
+                                    onClick={() => setActiveTab(difficulty)}
+                                    className={`
+                                        flex-shrink-0 px-3 py-2 rounded-lg font-bpdots text-xs font-bold transition-all duration-300
+                                        ${getDifficultyTabColors(difficulty, activeTab === difficulty)}
+                                    `}
+                                >
+                                    <div className="flex items-center space-x-1">
+                                        <Icon size={12} />
+                                        <span>{getDifficultyDisplayName(difficulty)}</span>
+                                    </div>
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
             </div>
@@ -403,11 +452,10 @@ export default function LeaderboardPage() {
             {/* Leaderboard Content */}
             <div className="space-y-3">
                 {currentLeaderboard.length === 0 ? (
-                    <div className={`text-center py-8 backdrop-blur-xl border rounded-lg ${
-                        isPrecisionTab 
-                            ? 'bg-red-500/10 border-red-400/30' 
+                    <div className={`text-center py-8 backdrop-blur-xl border rounded-lg ${isPrecisionTab
+                            ? 'bg-red-500/10 border-red-400/30'
                             : 'bg-white/10 border-white/20'
-                    }`}>
+                        }`}>
                         {isPrecisionTab ? (
                             <AlertTriangle size={32} className="text-red-400/60 mx-auto mb-3" />
                         ) : (
@@ -424,16 +472,14 @@ export default function LeaderboardPage() {
                     <div className="animate-fade-in">
                         {/* Top 3 Section */}
                         {currentLeaderboard.slice(0, 3).length > 0 && (
-                            <div className={`backdrop-blur-xl border rounded-lg p-4 mb-3 ${
-                                isPrecisionTab 
-                                    ? 'bg-red-500/10 border-red-400/30' 
+                            <div className={`backdrop-blur-xl border rounded-lg p-4 mb-3 ${isPrecisionTab
+                                    ? 'bg-red-500/10 border-red-400/30'
                                     : 'bg-white/10 border-white/20'
-                            }`}>
+                                }`}>
                                 <div className="flex items-center space-x-2 mb-3">
                                     <Crown size={16} className={isPrecisionTab ? 'text-red-400' : 'text-white/80'} />
-                                    <h3 className={`text-sm font-bpdots font-bold ${
-                                        isPrecisionTab ? 'text-red-300' : 'text-white'
-                                    }`}>
+                                    <h3 className={`text-sm font-bpdots font-bold ${isPrecisionTab ? 'text-red-300' : 'text-white'
+                                        }`}>
                                         {isPrecisionTab ? 'PRECISION ELITE' : 'TOP PLAYERS'}
                                     </h3>
                                 </div>
@@ -449,16 +495,14 @@ export default function LeaderboardPage() {
 
                         {/* All Players Section */}
                         {currentLeaderboard.length > 3 && (
-                            <div className={`backdrop-blur-xl border rounded-lg p-4 ${
-                                isPrecisionTab 
-                                    ? 'bg-red-500/10 border-red-400/30' 
+                            <div className={`backdrop-blur-xl border rounded-lg p-4 ${isPrecisionTab
+                                    ? 'bg-red-500/10 border-red-400/30'
                                     : 'bg-white/10 border-white/20'
-                            }`}>
+                                }`}>
                                 <div className="flex items-center space-x-2 mb-3">
                                     <Users size={16} className={isPrecisionTab ? 'text-red-400' : 'text-white/80'} />
-                                    <h3 className={`text-sm font-bpdots font-bold ${
-                                        isPrecisionTab ? 'text-red-300' : 'text-white'
-                                    }`}>
+                                    <h3 className={`text-sm font-bpdots font-bold ${isPrecisionTab ? 'text-red-300' : 'text-white'
+                                        }`}>
                                         {isPrecisionTab ? 'ALL PRECISION PLAYERS' : 'ALL PLAYERS'}
                                     </h3>
                                 </div>
@@ -474,14 +518,12 @@ export default function LeaderboardPage() {
 
                         {/* User Position Section */}
                         {user && currentLeaderboard.length > 10 && (
-                            <div className={`backdrop-blur-xl border rounded-lg p-4 ${
-                                isPrecisionTab 
-                                    ? 'bg-red-500/15 border-red-400/40' 
+                            <div className={`backdrop-blur-xl border rounded-lg p-4 ${isPrecisionTab
+                                    ? 'bg-red-500/15 border-red-400/40'
                                     : 'bg-white/15 border-white/25'
-                            }`}>
-                                <h4 className={`text-sm font-bpdots font-bold mb-3 text-center flex items-center justify-center space-x-2 ${
-                                    isPrecisionTab ? 'text-red-300' : 'text-white'
                                 }`}>
+                                <h4 className={`text-sm font-bpdots font-bold mb-3 text-center flex items-center justify-center space-x-2 ${isPrecisionTab ? 'text-red-300' : 'text-white'
+                                    }`}>
                                     <Target size={14} />
                                     <span>YOUR POSITION</span>
                                 </h4>
@@ -502,10 +544,9 @@ export default function LeaderboardPage() {
                                             ) : (
                                                 <Activity size={20} className="text-white/60 mx-auto mb-2" />
                                             )}
-                                            <p className={`font-bpdots text-sm font-bold ${
-                                                isPrecisionTab ? 'text-red-300/80' : 'text-white/60'
-                                            }`}>
-                                                {isPrecisionTab 
+                                            <p className={`font-bpdots text-sm font-bold ${isPrecisionTab ? 'text-red-300/80' : 'text-white/60'
+                                                }`}>
+                                                {isPrecisionTab
                                                     ? 'SURVIVE PRECISION MODE TO SEE YOUR RANKING!'
                                                     : 'PLAY GAMES TO SEE YOUR RANKING!'
                                                 }

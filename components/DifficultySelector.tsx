@@ -1,4 +1,4 @@
-// src/components/DifficultySelector.tsx - Enhanced with Precision Mode
+// src/components/DifficultySelector.tsx - Enhanced with Updated Difficulty System
 
 "use client";
 
@@ -12,7 +12,9 @@ import {
   Flame,
   Skull,
   Swords,
-  Crosshair
+  Crosshair,
+  UserCheck,
+  Award
 } from "lucide-react";
 
 interface DifficultySelectorProps {
@@ -28,61 +30,51 @@ export default function DifficultySelector({
 
   const getDifficultyIcon = (difficulty: GameDifficulty) => {
     switch (difficulty) {
-      case GameDifficulty.EASY: return Shield;
-      case GameDifficulty.MEDIUM: return Target;
-      case GameDifficulty.HARD: return Zap;
-      case GameDifficulty.LEGENDARY: return Crown;
-      case GameDifficulty.OMG: return Flame;
-      case GameDifficulty.NIGHTMARE: return Skull;
-      case GameDifficulty.IMPOSSIBLE: return Swords;
-      case GameDifficulty.PRECISION: return Crosshair;
+      case GameDifficulty.HARD: return UserCheck;       // ROOKIE
+      case GameDifficulty.LEGENDARY: return Award;      // VETERAN
+      case GameDifficulty.OMG: return Flame;           // MANIAC
+      case GameDifficulty.NIGHTMARE: return Skull;     // DEMON
+      case GameDifficulty.IMPOSSIBLE: return Crown;    // GODLIKE
+      case GameDifficulty.PRECISION: return Crosshair; // PRECISION
       default: return Shield;
     }
   };
 
   const getDifficultyLevel = (difficulty: GameDifficulty): number => {
     switch (difficulty) {
-      case GameDifficulty.EASY: return 1;
-      case GameDifficulty.MEDIUM: return 2;
-      case GameDifficulty.HARD: return 3;
-      case GameDifficulty.LEGENDARY: return 4;
-      case GameDifficulty.OMG: return 5;
-      case GameDifficulty.NIGHTMARE: return 6;
-      case GameDifficulty.IMPOSSIBLE: return 7;
-      case GameDifficulty.PRECISION: return 8; // Special level
+      case GameDifficulty.HARD: return 1;      // ROOKIE
+      case GameDifficulty.LEGENDARY: return 2; // VETERAN
+      case GameDifficulty.OMG: return 3;       // MANIAC
+      case GameDifficulty.NIGHTMARE: return 4; // DEMON
+      case GameDifficulty.IMPOSSIBLE: return 5; // GODLIKE
+      case GameDifficulty.PRECISION: return 6;  // PRECISION (Special)
       default: return 1;
     }
   };
 
   const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
     switch (difficulty) {
-      case GameDifficulty.EASY: return 'NOOB'
-      case GameDifficulty.MEDIUM: return 'CASUAL'
-      case GameDifficulty.HARD: return 'PRO'
-      case GameDifficulty.LEGENDARY: return 'LEGEND'
-      case GameDifficulty.OMG: return 'OMG'
-      case GameDifficulty.NIGHTMARE: return 'NIGHTMARE'
-      case GameDifficulty.IMPOSSIBLE: return 'RAGE MODE'
+      case GameDifficulty.HARD: return 'ROOKIE'
+      case GameDifficulty.LEGENDARY: return 'VETERAN'
+      case GameDifficulty.OMG: return 'MANIAC'
+      case GameDifficulty.NIGHTMARE: return 'DEMON'
+      case GameDifficulty.IMPOSSIBLE: return 'GODLIKE'
       case GameDifficulty.PRECISION: return 'PRECISION'
     }
   };
 
   const getDifficultyDescription = (difficulty: GameDifficulty): string => {
     switch (difficulty) {
-      case GameDifficulty.EASY:
-        return "Perfect for beginners";
-      case GameDifficulty.MEDIUM:
-        return "Moderate challenge";
       case GameDifficulty.HARD:
-        return "Advanced mechanics";
+        return "Perfect for beginners";
       case GameDifficulty.LEGENDARY:
-        return "Expert-level play";
+        return "Moderate challenge";
       case GameDifficulty.OMG:
-        return "Extreme intensity";
+        return "Intense madness";
       case GameDifficulty.NIGHTMARE:
-        return "Maximum complexity";
+        return "Demonic complexity";
       case GameDifficulty.IMPOSSIBLE:
-        return "Ultimate challenge";
+        return "Divine challenge";
       case GameDifficulty.PRECISION:
         return "One mistake ends everything";
     }
@@ -91,7 +83,13 @@ export default function DifficultySelector({
   const getDifficultySpecialNote = (difficulty: GameDifficulty): string | null => {
     switch (difficulty) {
       case GameDifficulty.PRECISION:
-        return "Intensity increases every 5 seconds";
+        return "Intensity doubles every 10 seconds";
+      case GameDifficulty.OMG:
+        return "50 targets, pure chaos";
+      case GameDifficulty.NIGHTMARE:
+        return "70 targets, demonic difficulty";
+      case GameDifficulty.IMPOSSIBLE:
+        return "Godlike reflexes required";
       default:
         return null;
     }
@@ -105,7 +103,7 @@ export default function DifficultySelector({
     if (isPrecision) {
       return (
         <div className="flex space-x-1">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
               className={`w-2 h-1 rounded-full transition-all duration-300 ${i <= level
@@ -120,7 +118,7 @@ export default function DifficultySelector({
 
     return (
       <div className="flex space-x-1">
-        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+        {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
             className={`w-2 h-1 rounded-full transition-all duration-300 ${i <= level ? 'bg-white' : 'bg-white/20'
@@ -226,7 +224,7 @@ export default function DifficultySelector({
               ONE SHOT MODE
             </span>
             <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              ESCALATING DIFFICULTY
+              2X ESCALATION
             </span>
             <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
               SURVIVAL MODE
@@ -256,17 +254,64 @@ export default function DifficultySelector({
     const Icon = getDifficultyIcon(difficulty);
     const level = getDifficultyLevel(difficulty);
 
+    // Color scheme based on difficulty
+    const getColorScheme = (diff: GameDifficulty) => {
+      switch (diff) {
+        case GameDifficulty.HARD: // ROOKIE
+          return {
+            accent: 'text-green-400',
+            border: isSelected ? 'border-green-400/60' : 'border-green-400/30',
+            bg: isSelected ? 'bg-green-500/15' : 'bg-green-500/5',
+            hover: 'hover:bg-green-500/10 hover:border-green-400/50'
+          };
+        case GameDifficulty.LEGENDARY: // VETERAN
+          return {
+            accent: 'text-blue-400',
+            border: isSelected ? 'border-blue-400/60' : 'border-blue-400/30',
+            bg: isSelected ? 'bg-blue-500/15' : 'bg-blue-500/5',
+            hover: 'hover:bg-blue-500/10 hover:border-blue-400/50'
+          };
+        case GameDifficulty.OMG: // MANIAC
+          return {
+            accent: 'text-orange-400',
+            border: isSelected ? 'border-orange-400/60' : 'border-orange-400/30',
+            bg: isSelected ? 'bg-orange-500/15' : 'bg-orange-500/5',
+            hover: 'hover:bg-orange-500/10 hover:border-orange-400/50'
+          };
+        case GameDifficulty.NIGHTMARE: // DEMON
+          return {
+            accent: 'text-purple-400',
+            border: isSelected ? 'border-purple-400/60' : 'border-purple-400/30',
+            bg: isSelected ? 'bg-purple-500/15' : 'bg-purple-500/5',
+            hover: 'hover:bg-purple-500/10 hover:border-purple-400/50'
+          };
+        case GameDifficulty.IMPOSSIBLE: // GODLIKE
+          return {
+            accent: 'text-yellow-400',
+            border: isSelected ? 'border-yellow-400/60' : 'border-yellow-400/30',
+            bg: isSelected ? 'bg-yellow-500/15' : 'bg-yellow-500/5',
+            hover: 'hover:bg-yellow-500/10 hover:border-yellow-400/50'
+          };
+        default:
+          return {
+            accent: 'text-white',
+            border: isSelected ? 'border-white/60' : 'border-white/20',
+            bg: isSelected ? 'bg-white/15' : 'bg-white/5',
+            hover: 'hover:bg-white/10'
+          };
+      }
+    };
+
+    const colors = getColorScheme(difficulty);
+
     return (
       <button
         key={difficulty}
         className={`
           group relative w-full p-6 rounded-2xl font-bpdots 
           transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]
-          backdrop-blur-sm overflow-hidden
-          ${isSelected
-            ? 'bg-white/15 shadow-lg shadow-white/10'
-            : 'bg-white/5 hover:bg-white/10'
-          }
+          backdrop-blur-sm overflow-hidden border-2
+          ${colors.bg} ${colors.border} ${colors.hover}
         `}
         onClick={() => onSelectDifficulty(difficulty)}
         style={{
@@ -286,9 +331,9 @@ export default function DifficultySelector({
             <div className="flex items-center space-x-4">
               <div className={`
                 w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
-                ${isSelected ? 'bg-white/20 shadow-lg scale-110' : 'bg-white/10 group-hover:bg-white/15'}
+                ${isSelected ? `bg-white/20 shadow-lg scale-110` : 'bg-white/10 group-hover:bg-white/15'}
               `}>
-                <Icon size={24} className="text-white" />
+                <Icon size={24} className={`${colors.accent} transition-colors duration-300`} />
               </div>
 
               <div className="text-left">
@@ -299,6 +344,11 @@ export default function DifficultySelector({
                 <p className="text-white/60 text-sm">
                   {getDifficultyDescription(difficulty)}
                 </p>
+                {getDifficultySpecialNote(difficulty) && (
+                  <p className="text-white/40 text-xs mt-1 italic">
+                    {getDifficultySpecialNote(difficulty)}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -314,17 +364,17 @@ export default function DifficultySelector({
           {/* Stats Row */}
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
             <div className="text-center">
-              <div className="text-lg font-bold text-white">{config.circleCount}</div>
+              <div className={`text-lg font-bold ${colors.accent}`}>{config.circleCount}</div>
               <div className="text-xs text-white/50 uppercase tracking-wider">Targets</div>
             </div>
 
             <div className="text-center">
-              <div className="text-lg font-bold text-white">{config.maxSimultaneousCircles}</div>
+              <div className={`text-lg font-bold ${colors.accent}`}>{config.maxSimultaneousCircles}</div>
               <div className="text-xs text-white/50 uppercase tracking-wider">Active</div>
             </div>
 
             <div className="text-center">
-              <div className="text-lg font-bold text-white">{config.circleActiveTime}ms</div>
+              <div className={`text-lg font-bold ${colors.accent}`}>{config.circleActiveTime}ms</div>
               <div className="text-xs text-white/50 uppercase tracking-wider">Duration</div>
             </div>
           </div>
