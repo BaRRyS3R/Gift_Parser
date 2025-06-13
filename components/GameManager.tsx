@@ -210,6 +210,12 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const activateRandomCircles = useCallback(() => {
         if (gameState !== GameState.PLAYING) return
 
+        // Проверяем precisionState в начале функции
+        if (isPrecisionMode && !precisionState) {
+            console.error('Precision mode is active but precisionState is null')
+            return
+        }
+
         const currentActiveIds = activeCirclesRef.current
         const currentActiveCount = currentActiveIds.size
 
@@ -259,7 +265,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
         // For precision mode, always try to fill all available slots
         let targetCircleCount = availableSlots
-        if (isPrecisionMode) {
+        if (isPrecisionMode && precisionState) {
             // В precision mode активируем все доступные слоты
             targetCircleCount = Math.min(availableSlots, inactiveIds.length)
             console.log(`🎯 PRECISION: Activating ${targetCircleCount} circles (level ${precisionState.intensityLevel})`)
@@ -294,7 +300,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         // Determine which circles should be red
         let activationResults: { id: number; isDecoy: boolean }[]
 
-        if (isPrecisionMode && targetRedCircles > 0) {
+        if (isPrecisionMode && precisionState && targetRedCircles > 0) {
             // Simple precision mode: specific number of red circles
             const shuffledIds = [...selectedIds].sort(() => Math.random() - 0.5)
             const redIds = shuffledIds.slice(0, Math.min(targetRedCircles, selectedIds.length))
