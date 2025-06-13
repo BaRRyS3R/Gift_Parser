@@ -96,7 +96,6 @@ export default function LeaderboardPage() {
 
     const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
         switch (difficulty) {
-            case GameDifficulty.HARD: return 'ROOKIE'
             case GameDifficulty.LEGENDARY: return 'VETERAN'
             case GameDifficulty.OMG: return 'MANIAC'
             case GameDifficulty.NIGHTMARE: return 'DEMON'
@@ -107,7 +106,6 @@ export default function LeaderboardPage() {
 
     const getDifficultyIcon = (difficulty: GameDifficulty) => {
         switch (difficulty) {
-            case GameDifficulty.HARD: return UserCheck      // ROOKIE
             case GameDifficulty.LEGENDARY: return Award     // VETERAN
             case GameDifficulty.OMG: return Flame          // MANIAC
             case GameDifficulty.NIGHTMARE: return Skull    // DEMON
@@ -119,7 +117,6 @@ export default function LeaderboardPage() {
 
     const getDifficultyColor = (difficulty: GameDifficulty) => {
         switch (difficulty) {
-            case GameDifficulty.HARD: return 'text-green-400'      // ROOKIE
             case GameDifficulty.LEGENDARY: return 'text-blue-400'  // VETERAN
             case GameDifficulty.OMG: return 'text-orange-400'      // MANIAC
             case GameDifficulty.NIGHTMARE: return 'text-purple-400' // DEMON
@@ -131,10 +128,6 @@ export default function LeaderboardPage() {
 
     const getDifficultyTabColors = (difficulty: GameDifficulty, isActive: boolean) => {
         const baseColors = {
-            [GameDifficulty.HARD]: {
-                active: 'bg-green-500/20 text-green-300 border border-green-400/30',
-                inactive: 'text-green-400/60 hover:text-green-400/80'
-            },
             [GameDifficulty.LEGENDARY]: {
                 active: 'bg-blue-500/20 text-blue-300 border border-blue-400/30',
                 inactive: 'text-blue-400/60 hover:text-blue-400/80'

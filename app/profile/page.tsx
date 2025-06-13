@@ -12,7 +12,6 @@ import { Spinner } from '@nextui-org/react'
 
 interface UserRankings {
     overall: number | null
-    hard: number | null        // ROOKIE
     legendary: number | null   // VETERAN
     omg: number | null         // MANIAC
     nightmare: number | null   // DEMON
@@ -25,7 +24,6 @@ export default function ProfilePage() {
     const [gameHistory, setGameHistory] = useState<GameResultDB[]>([])
     const [rankings, setRankings] = useState<UserRankings>({
         overall: null,
-        hard: null,
         legendary: null,
         omg: null,
         nightmare: null,
@@ -45,7 +43,6 @@ export default function ProfilePage() {
                 const [
                     history,
                     overallRank,
-                    hardRank,
                     legendaryRank,
                     omgRank,
                     nightmareRank,
@@ -54,7 +51,6 @@ export default function ProfilePage() {
                 ] = await Promise.all([
                     userService.getGameHistory(telegramUser.id, 15),
                     userService.getUserRanking(telegramUser.id),
-                    userService.getUserDifficultyRanking(telegramUser.id, 'hard'),
                     userService.getUserDifficultyRanking(telegramUser.id, 'legendary'),
                     userService.getUserDifficultyRanking(telegramUser.id, 'omg'),
                     userService.getUserDifficultyRanking(telegramUser.id, 'nightmare'),
@@ -65,7 +61,6 @@ export default function ProfilePage() {
                 setGameHistory(history)
                 setRankings({
                     overall: overallRank,
-                    hard: hardRank,
                     legendary: legendaryRank,
                     omg: omgRank,
                     nightmare: nightmareRank,
@@ -107,7 +102,6 @@ export default function ProfilePage() {
         if (rankings.overall && rankings.overall <= 10) achievements.push({ icon: Trophy, name: 'TOP 10', desc: 'TOP 10 PLAYER' })
 
         // Difficulty-specific achievements
-        if (user.hard_games >= 10) achievements.push({ icon: UserCheck, name: 'ROOKIE VETERAN', desc: '10+ ROOKIE GAMES' })
         if (user.legendary_games >= 10) achievements.push({ icon: Award, name: 'VETERAN WARRIOR', desc: '10+ VETERAN GAMES' })
         if (user.omg_games >= 10) achievements.push({ icon: Flame, name: 'CERTIFIED MANIAC', desc: '10+ MANIAC GAMES' })
         if (user.nightmare_games >= 5) achievements.push({ icon: Skull, name: 'DEMON SLAYER', desc: '5+ DEMON GAMES' })
@@ -141,7 +135,6 @@ export default function ProfilePage() {
 
     const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
         switch (difficulty) {
-            case GameDifficulty.HARD: return 'ROOKIE'
             case GameDifficulty.LEGENDARY: return 'VETERAN'
             case GameDifficulty.OMG: return 'MANIAC'
             case GameDifficulty.NIGHTMARE: return 'DEMON'
@@ -152,7 +145,6 @@ export default function ProfilePage() {
 
     const getGameModeIcon = (difficulty: string) => {
         switch (difficulty) {
-            case 'hard': return UserCheck      // ROOKIE
             case 'legendary': return Award     // VETERAN
             case 'omg': return Flame          // MANIAC
             case 'nightmare': return Skull    // DEMON
@@ -164,7 +156,6 @@ export default function ProfilePage() {
 
     const getGameModeColor = (difficulty: string) => {
         switch (difficulty) {
-            case 'hard': return 'text-green-400'      // ROOKIE
             case 'legendary': return 'text-blue-400'  // VETERAN
             case 'omg': return 'text-orange-400'      // MANIAC
             case 'nightmare': return 'text-purple-400' // DEMON

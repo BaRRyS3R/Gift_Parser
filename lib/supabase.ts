@@ -29,8 +29,6 @@ export interface User {
     best_accuracy: number;
 
     // Updated difficulty statistics (removed easy/medium, added new names)
-    hard_games: number;       // ROOKIE
-    hard_best_score: number;
     legendary_games: number;  // VETERAN
     legendary_best_score: number;
     omg_games: number;        // MANIAC

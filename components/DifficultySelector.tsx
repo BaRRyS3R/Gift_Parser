@@ -1,22 +1,19 @@
-// src/components/DifficultySelector.tsx - Updated for 40 Circle Precision Mode
+// src/components/DifficultySelector.tsx - Updated for new 4-tier difficulty system
 
 "use client";
 
 import { GameDifficulty } from "../types/game";
 import { GAME_CONFIGS } from "../utils/gameUtils";
 import {
-  Shield,
-  Zap,
+  Award,
   Target,
-  Crown,
   Flame,
   Skull,
-  Swords,
+  Crown,
   Crosshair,
-  UserCheck,
-  Award,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from "lucide-react";
 
 interface DifficultySelectorProps {
@@ -32,51 +29,46 @@ export default function DifficultySelector({
 
   const getDifficultyIcon = (difficulty: GameDifficulty) => {
     switch (difficulty) {
-      case GameDifficulty.HARD: return UserCheck;       // ROOKIE
-      case GameDifficulty.LEGENDARY: return Award;      // VETERAN
-      case GameDifficulty.OMG: return Flame;           // MANIAC
-      case GameDifficulty.NIGHTMARE: return Skull;     // DEMON
-      case GameDifficulty.IMPOSSIBLE: return Crown;    // GODLIKE
-      case GameDifficulty.PRECISION: return Crosshair; // PRECISION
-      default: return Shield;
+      case GameDifficulty.LEGENDARY: return Award;        // BEGINNER
+      case GameDifficulty.OMG: return Flame;            // INTERMEDIATE  
+      case GameDifficulty.NIGHTMARE: return Skull;       // ADVANCED
+      case GameDifficulty.IMPOSSIBLE: return Crown;      // EXPERT
+      case GameDifficulty.PRECISION: return Crosshair;   // SURVIVAL
+      default: return Target;
     }
   };
 
   const getDifficultyLevel = (difficulty: GameDifficulty): number => {
     switch (difficulty) {
-      case GameDifficulty.HARD: return 1;      // ROOKIE
-      case GameDifficulty.LEGENDARY: return 2; // VETERAN
-      case GameDifficulty.OMG: return 3;       // MANIAC
-      case GameDifficulty.NIGHTMARE: return 4; // DEMON
-      case GameDifficulty.IMPOSSIBLE: return 5; // GODLIKE
-      case GameDifficulty.PRECISION: return 6;  // PRECISION (Special)
+      case GameDifficulty.LEGENDARY: return 1;    // BEGINNER
+      case GameDifficulty.OMG: return 2;          // INTERMEDIATE
+      case GameDifficulty.NIGHTMARE: return 3;    // ADVANCED
+      case GameDifficulty.IMPOSSIBLE: return 4;   // EXPERT
+      case GameDifficulty.PRECISION: return 5;    // SURVIVAL (Special)
       default: return 1;
     }
   };
 
   const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
     switch (difficulty) {
-      case GameDifficulty.HARD: return 'ROOKIE'
-      case GameDifficulty.LEGENDARY: return 'VETERAN'
-      case GameDifficulty.OMG: return 'MANIAC'
-      case GameDifficulty.NIGHTMARE: return 'DEMON'
-      case GameDifficulty.IMPOSSIBLE: return 'GODLIKE'
-      case GameDifficulty.PRECISION: return 'PRECISION'
+      case GameDifficulty.LEGENDARY: return 'BEGINNER'
+      case GameDifficulty.OMG: return 'INTERMEDIATE'
+      case GameDifficulty.NIGHTMARE: return 'ADVANCED'
+      case GameDifficulty.IMPOSSIBLE: return 'EXPERT'
+      case GameDifficulty.PRECISION: return 'SURVIVAL'
     }
   };
 
   const getDifficultyDescription = (difficulty: GameDifficulty): string => {
     switch (difficulty) {
-      case GameDifficulty.HARD:
-        return "Perfect for beginners";
       case GameDifficulty.LEGENDARY:
-        return "Moderate challenge";
+        return "Perfect for learning the basics";
       case GameDifficulty.OMG:
-        return "Intense madness";
+        return "Step up your reaction skills";
       case GameDifficulty.NIGHTMARE:
-        return "Demonic complexity";
+        return "Serious challenge awaits";
       case GameDifficulty.IMPOSSIBLE:
-        return "Divine challenge";
+        return "Master-level precision required";
       case GameDifficulty.PRECISION:
         return "One mistake ends everything";
     }
@@ -85,15 +77,29 @@ export default function DifficultySelector({
   const getDifficultySpecialNote = (difficulty: GameDifficulty): string | null => {
     switch (difficulty) {
       case GameDifficulty.PRECISION:
-        return "15 levels • 40 circles • Survival mode";
+        return "15 levels • 49 circles • Survival mode";
+      case GameDifficulty.LEGENDARY:
+        return "5x5 grid, gentle pacing";
       case GameDifficulty.OMG:
-        return "50 targets, pure chaos";
+        return "5x5 grid, faster reactions needed";
       case GameDifficulty.NIGHTMARE:
-        return "70 targets, demonic difficulty";
+        return "6x6 grid, intense pressure";
       case GameDifficulty.IMPOSSIBLE:
-        return "Godlike reflexes required";
+        return "7x7 grid, expert-level challenge";
       default:
         return null;
+    }
+  };
+
+  const getGridDescription = (difficulty: GameDifficulty): string => {
+    const config = GAME_CONFIGS[difficulty];
+    const circleCount = config.circleCount;
+
+    switch (circleCount) {
+      case 25: return "5×5";
+      case 36: return "6×6";
+      case 49: return "7×7";
+      default: return `${circleCount}`;
     }
   };
 
@@ -105,7 +111,7 @@ export default function DifficultySelector({
     if (isPrecision) {
       return (
         <div className="flex space-x-1">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+          {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
               className={`w-2 h-1 rounded-full transition-all duration-300 ${i <= level
@@ -120,7 +126,7 @@ export default function DifficultySelector({
 
     return (
       <div className="flex space-x-1">
-        {[1, 2, 3, 4, 5].map((i) => (
+        {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
             className={`w-2 h-1 rounded-full transition-all duration-300 ${i <= level ? 'bg-white' : 'bg-white/20'
@@ -205,8 +211,8 @@ export default function DifficultySelector({
           {/* Updated Precision Mode Stats */}
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-red-400/20">
             <div className="text-center">
-              <div className="text-lg font-bold text-red-200">{config.circleCount}</div>
-              <div className="text-xs text-red-300/60 uppercase tracking-wider">Arena Size</div>
+              <div className="text-lg font-bold text-red-200">{getGridDescription(difficulty)}</div>
+              <div className="text-xs text-red-300/60 uppercase tracking-wider">Grid Size</div>
             </div>
 
             <div className="text-center">
@@ -227,16 +233,16 @@ export default function DifficultySelector({
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="text-center">
-                <div className="text-red-200 font-bold">L1-3</div>
-                <div className="text-red-400/60">1-3 Circles</div>
+                <div className="text-red-200 font-bold">L1-5</div>
+                <div className="text-red-400/60">1-6 Circles</div>
               </div>
               <div className="text-center">
-                <div className="text-red-200 font-bold">L4-9</div>
-                <div className="text-red-400/60">4-14 Circles</div>
+                <div className="text-red-200 font-bold">L6-10</div>
+                <div className="text-red-400/60">8-18 Circles</div>
               </div>
               <div className="text-center">
-                <div className="text-red-200 font-bold">L10-15</div>
-                <div className="text-red-400/60">16-32 Circles</div>
+                <div className="text-red-200 font-bold">L11-15</div>
+                <div className="text-red-400/60">22-40 Circles</div>
               </div>
             </div>
           </div>
@@ -283,35 +289,28 @@ export default function DifficultySelector({
     // Color scheme based on difficulty
     const getColorScheme = (diff: GameDifficulty) => {
       switch (diff) {
-        case GameDifficulty.HARD: // ROOKIE
+        case GameDifficulty.LEGENDARY: // BEGINNER
           return {
             accent: 'text-green-400',
             border: isSelected ? 'border-green-400/60' : 'border-green-400/30',
             bg: isSelected ? 'bg-green-500/15' : 'bg-green-500/5',
             hover: 'hover:bg-green-500/10 hover:border-green-400/50'
           };
-        case GameDifficulty.LEGENDARY: // VETERAN
-          return {
-            accent: 'text-blue-400',
-            border: isSelected ? 'border-blue-400/60' : 'border-blue-400/30',
-            bg: isSelected ? 'bg-blue-500/15' : 'bg-blue-500/5',
-            hover: 'hover:bg-blue-500/10 hover:border-blue-400/50'
-          };
-        case GameDifficulty.OMG: // MANIAC
+        case GameDifficulty.OMG: // INTERMEDIATE
           return {
             accent: 'text-orange-400',
             border: isSelected ? 'border-orange-400/60' : 'border-orange-400/30',
             bg: isSelected ? 'bg-orange-500/15' : 'bg-orange-500/5',
             hover: 'hover:bg-orange-500/10 hover:border-orange-400/50'
           };
-        case GameDifficulty.NIGHTMARE: // DEMON
+        case GameDifficulty.NIGHTMARE: // ADVANCED
           return {
             accent: 'text-purple-400',
             border: isSelected ? 'border-purple-400/60' : 'border-purple-400/30',
             bg: isSelected ? 'bg-purple-500/15' : 'bg-purple-500/5',
             hover: 'hover:bg-purple-500/10 hover:border-purple-400/50'
           };
-        case GameDifficulty.IMPOSSIBLE: // GODLIKE
+        case GameDifficulty.IMPOSSIBLE: // EXPERT
           return {
             accent: 'text-yellow-400',
             border: isSelected ? 'border-yellow-400/60' : 'border-yellow-400/30',
@@ -390,13 +389,13 @@ export default function DifficultySelector({
           {/* Stats Row */}
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
             <div className="text-center">
-              <div className={`text-lg font-bold ${colors.accent}`}>{config.circleCount}</div>
-              <div className="text-xs text-white/50 uppercase tracking-wider">Targets</div>
+              <div className={`text-lg font-bold ${colors.accent}`}>{getGridDescription(difficulty)}</div>
+              <div className="text-xs text-white/50 uppercase tracking-wider">Grid</div>
             </div>
 
             <div className="text-center">
               <div className={`text-lg font-bold ${colors.accent}`}>{config.maxSimultaneousCircles}</div>
-              <div className="text-xs text-white/50 uppercase tracking-wider">Active</div>
+              <div className="text-xs text-white/50 uppercase tracking-wider">Max Active</div>
             </div>
 
             <div className="text-center">
@@ -415,6 +414,7 @@ export default function DifficultySelector({
               )}
               {config.adaptiveScaling && (
                 <span className="px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
+                  <Zap size={10} className="inline mr-1" />
                   Adaptive
                 </span>
               )}

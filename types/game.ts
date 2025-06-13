@@ -1,4 +1,4 @@
-// src/types/game.ts - Updated for New Precision Mode System
+// src/types/game.ts - Updated game types for new difficulty system
 
 export interface Circle {
   id: number;
@@ -45,13 +45,13 @@ export interface GameConfig {
   maxIntensityLevel?: number;
 }
 
+// Updated difficulty enum with streamlined progression
 export enum GameDifficulty {
-  HARD = "hard",           // ROOKIE - Easiest
-  LEGENDARY = "legendary", // VETERAN - Medium
-  OMG = "omg",            // MANIAC - Hard
-  NIGHTMARE = "nightmare", // DEMON - Very Hard
-  IMPOSSIBLE = "impossible", // GODLIKE - Expert
-  PRECISION = "precision", // PRECISION - Special survival mode
+  LEGENDARY = "legendary",   // BEGINNER - 5x5 grid (25 circles)
+  OMG = "omg",              // INTERMEDIATE - 5x5 grid (25 circles)  
+  NIGHTMARE = "nightmare",   // ADVANCED - 6x6 grid (36 circles)
+  IMPOSSIBLE = "impossible", // EXPERT - 7x7 grid (49 circles)
+  PRECISION = "precision",   // SURVIVAL - 7x7 grid (49 circles)
 }
 
 export enum GameState {

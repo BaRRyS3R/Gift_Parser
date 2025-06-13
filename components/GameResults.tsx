@@ -51,7 +51,6 @@ export default function GameResults({
 
     const getDifficultyDisplayName = (difficulty: GameDifficulty): string => {
         switch (difficulty) {
-            case GameDifficulty.HARD: return 'ROOKIE'
             case GameDifficulty.LEGENDARY: return 'VETERAN'
             case GameDifficulty.OMG: return 'MANIAC'
             case GameDifficulty.NIGHTMARE: return 'DEMON'
@@ -62,7 +61,6 @@ export default function GameResults({
 
     const getDifficultyIcon = (difficulty: GameDifficulty) => {
         switch (difficulty) {
-            case GameDifficulty.HARD: return UserCheck      // ROOKIE
             case GameDifficulty.LEGENDARY: return Award     // VETERAN
             case GameDifficulty.OMG: return Flame          // MANIAC
             case GameDifficulty.NIGHTMARE: return Skull    // DEMON
@@ -84,14 +82,6 @@ export default function GameResults({
         }
 
         switch (difficulty) {
-            case GameDifficulty.HARD: // ROOKIE
-                return {
-                    primary: 'text-green-400',
-                    secondary: 'text-green-300',
-                    accent: 'text-green-200',
-                    background: 'bg-green-500/20',
-                    border: 'border-green-400/30'
-                }
             case GameDifficulty.LEGENDARY: // VETERAN
                 return {
                     primary: 'text-blue-400',
@@ -199,7 +189,6 @@ export default function GameResults({
         const hasFastReaction = result.averageReactionTime <= 200
 
         const difficultyMultiplier = {
-            [GameDifficulty.HARD]: 1,
             [GameDifficulty.LEGENDARY]: 1.2,
             [GameDifficulty.OMG]: 1.5,
             [GameDifficulty.NIGHTMARE]: 2,

@@ -1,75 +1,64 @@
-// src/utils/gameUtils.ts - Updated for 48 circles in Precision Mode
+// src/utils/gameUtils.ts - Updated game configurations with new difficulty progression
 
 import { GameConfig, GameDifficulty, Circle, AdaptiveState, ClickTiming, PrecisionModeState, IntensityLevel, PrecisionLevelConfig } from "@/types/game";
 
 export { GameDifficulty };
 
 export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
-  [GameDifficulty.HARD]: {
-    id: "hard",
-    name: "ROOKIE",
-    circleCount: 16,
-    minActivationTime: 800,
-    maxActivationTime: 2000,
+  // Updated difficulty progression with 4 main modes + precision
+  [GameDifficulty.LEGENDARY]: {
+    id: "legendary",
+    name: "BEGINNER",
+    circleCount: 25, // 5x5 grid - easiest mode
+    minActivationTime: 1000,
+    maxActivationTime: 2500,
     maxSimultaneousCircles: 2,
-    circleActiveTime: 1800,
+    circleActiveTime: 2500,
+    decoyProbability: 0.05,
+    adaptiveScaling: true,
+    fastClickThreshold: 300,
+  },
+  [GameDifficulty.OMG]: {
+    id: "omg",
+    name: "INTERMEDIATE",
+    circleCount: 25, // 5x5 grid - medium difficulty
+    minActivationTime: 700,
+    maxActivationTime: 1800,
+    maxSimultaneousCircles: 3,
+    circleActiveTime: 2000,
     decoyProbability: 0.1,
     adaptiveScaling: true,
     fastClickThreshold: 250,
   },
-  [GameDifficulty.LEGENDARY]: {
-    id: "legendary",
-    name: "VETERAN",
-    circleCount: 25,
-    minActivationTime: 600,
-    maxActivationTime: 1500,
-    maxSimultaneousCircles: 4,
-    circleActiveTime: 1500,
+  [GameDifficulty.NIGHTMARE]: {
+    id: "nightmare",
+    name: "ADVANCED",
+    circleCount: 36, // 6x6 grid - hard difficulty
+    minActivationTime: 500,
+    maxActivationTime: 1400,
+    maxSimultaneousCircles: 5,
+    circleActiveTime: 1600,
     decoyProbability: 0.15,
     adaptiveScaling: true,
     fastClickThreshold: 200,
   },
-  [GameDifficulty.OMG]: {
-    id: "omg",
-    name: "MANIAC",
-    circleCount: 50,
-    minActivationTime: 400,
-    maxActivationTime: 1200,
+  [GameDifficulty.IMPOSSIBLE]: {
+    id: "impossible",
+    name: "EXPERT",
+    circleCount: 49, // 7x7 grid - hardest standard mode
+    minActivationTime: 300,
+    maxActivationTime: 1000,
     maxSimultaneousCircles: 8,
     circleActiveTime: 1200,
-    decoyProbability: 0.25,
+    decoyProbability: 0.2,
     adaptiveScaling: true,
     fastClickThreshold: 150,
   },
-  [GameDifficulty.NIGHTMARE]: {
-    id: "nightmare",
-    name: "DEMON",
-    circleCount: 70,
-    minActivationTime: 200,
-    maxActivationTime: 800,
-    maxSimultaneousCircles: 12,
-    circleActiveTime: 800,
-    decoyProbability: 0.3,
-    adaptiveScaling: true,
-    fastClickThreshold: 120,
-  },
-  [GameDifficulty.IMPOSSIBLE]: {
-    id: "impossible",
-    name: "GODLIKE",
-    circleCount: 60,
-    minActivationTime: 300,
-    maxActivationTime: 700,
-    maxSimultaneousCircles: 8,
-    circleActiveTime: 600,
-    decoyProbability: 0.25,
-    adaptiveScaling: true,
-    fastClickThreshold: 100,
-  },
-  // Enhanced Precision Mode - 48 circles (6x8 grid)
+  // Precision Mode - Survival with 7x7 grid
   [GameDifficulty.PRECISION]: {
     id: "precision",
-    name: "PRECISION MODE",
-    circleCount: 48, // Увеличено до 48 для сетки 6x8
+    name: "SURVIVAL",
+    circleCount: 49, // 7x7 grid - maximum challenge
     minActivationTime: 1000,
     maxActivationTime: 1800,
     maxSimultaneousCircles: 4,
@@ -78,15 +67,29 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
     adaptiveScaling: false,
     fastClickThreshold: 200,
     isPrecisionMode: true,
-    intensityIncreaseInterval: 8, // 8 seconds per level
+    intensityIncreaseInterval: 8,
     intensityMultiplier: 2.0,
     maxIntensityLevel: 15,
   },
 } as const;
 
-// Precision Mode level configurations - Redesigned progression for 48 circles
+// Updated grid dimensions configuration
+export const getGridDimensions = (circleCount: number) => {
+  switch (circleCount) {
+    case 25:
+      return { cols: 5, rows: 5 }; // BEGINNER and INTERMEDIATE modes
+    case 36:
+      return { cols: 6, rows: 6 }; // ADVANCED mode
+    case 49:
+      return { cols: 7, rows: 7 }; // EXPERT and SURVIVAL modes
+    default:
+      return { cols: 5, rows: 5 }; // Default fallback
+  }
+};
+
+// Enhanced Precision Mode level configurations for 7x7 grid (49 circles)
 export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
-  // Level 1 - Single white circle
+  // Level 1-3: Basic introduction with minimal red circles
   {
     level: 1,
     simultaneousCircles: 1,
@@ -96,149 +99,139 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     circleActiveTime: 2500,
     description: "WARMING UP"
   },
-  // Level 2 - Two white circles
   {
     level: 2,
     simultaneousCircles: 2,
     redCircles: 0,
-    activationTimeMin: 1000,
-    activationTimeMax: 1800,
-    circleActiveTime: 2200,
+    activationTimeMin: 1100,
+    activationTimeMax: 1900,
+    circleActiveTime: 2300,
     description: "GETTING STARTED"
   },
-  // Level 3 - 3 circles total: 2 white + 1 red
   {
     level: 3,
     simultaneousCircles: 3,
     redCircles: 1,
-    activationTimeMin: 900,
-    activationTimeMax: 1600,
-    circleActiveTime: 2000,
-    description: "AVOID THE RED"
+    activationTimeMin: 1000,
+    activationTimeMax: 1700,
+    circleActiveTime: 2100,
+    description: "BASIC PRECISION"
   },
-  // Level 4 - 4 circles total: 3 white + 1 red
+  // Level 4-6: Medium complexity with balanced white/red ratio
   {
     level: 4,
     simultaneousCircles: 4,
     redCircles: 1,
-    activationTimeMin: 800,
-    activationTimeMax: 1400,
-    circleActiveTime: 1800,
-    description: "MULTI-TASKING"
+    activationTimeMin: 900,
+    activationTimeMax: 1600,
+    circleActiveTime: 1900,
+    description: "FOCUS REQUIRED"
   },
-  // Level 5 - 6 circles total: 4 white + 2 red
   {
     level: 5,
     simultaneousCircles: 6,
     redCircles: 2,
-    activationTimeMin: 700,
-    activationTimeMax: 1200,
-    circleActiveTime: 1600,
-    description: "BALANCED CHAOS"
+    activationTimeMin: 800,
+    activationTimeMax: 1400,
+    circleActiveTime: 1700,
+    description: "MULTI-TARGET"
   },
-  // Level 6 - 8 circles total: 5 white + 3 red
   {
     level: 6,
     simultaneousCircles: 8,
     redCircles: 3,
-    activationTimeMin: 600,
-    activationTimeMax: 1000,
-    circleActiveTime: 1500,
-    description: "TARGET FOCUS"
+    activationTimeMin: 750,
+    activationTimeMax: 1300,
+    circleActiveTime: 1600,
+    description: "ENHANCED DIFFICULTY"
   },
-  // Level 7 - 10 circles total: 6 white + 4 red
+  // Level 7-9: High complexity with increased density
   {
     level: 7,
     simultaneousCircles: 10,
     redCircles: 4,
-    activationTimeMin: 550,
-    activationTimeMax: 900,
-    circleActiveTime: 1400,
-    description: "PRECISION REQUIRED"
+    activationTimeMin: 700,
+    activationTimeMax: 1200,
+    circleActiveTime: 1500,
+    description: "INTENSE FOCUS"
   },
-  // Level 8 - 12 circles total: 7 white + 5 red
   {
     level: 8,
     simultaneousCircles: 12,
     redCircles: 5,
-    activationTimeMin: 500,
-    activationTimeMax: 800,
-    circleActiveTime: 1300,
+    activationTimeMin: 650,
+    activationTimeMax: 1100,
+    circleActiveTime: 1400,
     description: "OVERWHELMING"
   },
-  // Level 9 - 16 circles total: 9 white + 7 red
   {
     level: 9,
-    simultaneousCircles: 16,
+    simultaneousCircles: 15,
     redCircles: 7,
-    activationTimeMin: 450,
-    activationTimeMax: 750,
-    circleActiveTime: 1200,
-    description: "MAXIMUM CHAOS"
+    activationTimeMin: 600,
+    activationTimeMax: 1000,
+    circleActiveTime: 1300,
+    description: "CHAOS MANAGEMENT"
   },
-  // Level 10 - 20 circles total: 11 white + 9 red
+  // Level 10-12: Expert level with high density
   {
     level: 10,
-    simultaneousCircles: 20,
-    redCircles: 9,
-    activationTimeMin: 400,
-    activationTimeMax: 700,
-    circleActiveTime: 1100,
-    description: "INSANITY BEGINS"
+    simultaneousCircles: 18,
+    redCircles: 8,
+    activationTimeMin: 550,
+    activationTimeMax: 950,
+    circleActiveTime: 1200,
+    description: "EXPERT PRECISION"
   },
-  // Level 11 - 24 circles total: 13 white + 11 red
   {
     level: 11,
-    simultaneousCircles: 24,
-    redCircles: 11,
-    activationTimeMin: 350,
-    activationTimeMax: 650,
-    circleActiveTime: 1000,
-    description: "BEYOND HUMAN"
+    simultaneousCircles: 22,
+    redCircles: 10,
+    activationTimeMin: 500,
+    activationTimeMax: 900,
+    circleActiveTime: 1100,
+    description: "MASTER LEVEL"
   },
-  // Level 12 - 28 circles total: 15 white + 13 red
   {
     level: 12,
-    simultaneousCircles: 28,
-    redCircles: 13,
-    activationTimeMin: 300,
-    activationTimeMax: 600,
-    circleActiveTime: 900,
-    description: "GODLIKE FOCUS"
+    simultaneousCircles: 26,
+    redCircles: 12,
+    activationTimeMin: 450,
+    activationTimeMax: 850,
+    circleActiveTime: 1000,
+    description: "LEGENDARY SKILL"
   },
-  // Level 13 - 32 circles total: 17 white + 15 red
+  // Level 13-15: Maximum challenge utilizing full 7x7 grid
   {
     level: 13,
-    simultaneousCircles: 32,
-    redCircles: 15,
-    activationTimeMin: 280,
-    activationTimeMax: 550,
-    circleActiveTime: 800,
-    description: "TRANSCENDENT"
+    simultaneousCircles: 30,
+    redCircles: 14,
+    activationTimeMin: 400,
+    activationTimeMax: 800,
+    circleActiveTime: 900,
+    description: "SUPERHUMAN"
   },
-  // Level 14 - 36 circles total: 19 white + 17 red
   {
     level: 14,
-    simultaneousCircles: 36,
-    redCircles: 17,
-    activationTimeMin: 250,
-    activationTimeMax: 500,
-    circleActiveTime: 700,
-    description: "IMPOSSIBLE REALM"
+    simultaneousCircles: 35,
+    redCircles: 16,
+    activationTimeMin: 350,
+    activationTimeMax: 750,
+    circleActiveTime: 800,
+    description: "BEYOND LIMITS"
   },
-  // Level 15 - 40 circles total: 21 white + 19 red
   {
     level: 15,
     simultaneousCircles: 40,
-    redCircles: 19,
-    activationTimeMin: 200,
-    activationTimeMax: 450,
-    circleActiveTime: 600,
+    redCircles: 18,
+    activationTimeMin: 300,
+    activationTimeMax: 700,
+    circleActiveTime: 700,
     description: "PERFECT MACHINE"
   }
 ];
 
-// Precision Mode utility functions
+// Precision Mode utility functions (unchanged)
 export const initializePrecisionModeState = (): PrecisionModeState => ({
   intensityLevel: 1,
   timeInCurrentLevel: 0,
@@ -282,7 +275,7 @@ export const getPrecisionLevelConfig = (level: number): PrecisionLevelConfig => 
   return PRECISION_LEVELS[clampedLevel - 1];
 };
 
-// Simple functions that get values directly from level config
+// Precision Mode helper functions (unchanged)
 export const getPrecisionSimultaneousCircles = (level: number): number => {
   const levelConfig = getPrecisionLevelConfig(level);
   return levelConfig.simultaneousCircles;
@@ -315,9 +308,9 @@ export const calculatePrecisionModeScore = (
   perfectStreak: number,
   intensityLevel: number
 ): number => {
-  const baseScore = Math.floor(survivalTime / 1000); // 1 point per second survived
-  const streakBonus = perfectStreak * 3; // 3 points per perfect hit
-  const intensityBonus = Math.floor(intensityLevel * 15); // 15 points per intensity level reached
+  const baseScore = Math.floor(survivalTime / 1000);
+  const streakBonus = perfectStreak * 3;
+  const intensityBonus = Math.floor(intensityLevel * 15);
 
   return baseScore + streakBonus + intensityBonus;
 };
@@ -341,7 +334,7 @@ export const getPrecisionModeDeathCause = (
   return 'timeout';
 };
 
-// Enhanced existing functions to support Precision Mode
+// Enhanced existing functions to support all game modes
 export const getRandomActivationDelay = (
   config: GameConfig,
   adaptiveState?: AdaptiveState,
@@ -395,7 +388,7 @@ export const getAdjustedDecoyProbability = (
   return baseProbability;
 };
 
-// Existing utility functions
+// Utility functions (unchanged)
 export const createCircleGrid = (count: number): Circle[] => {
   return Array.from({ length: count }, (_, index) => ({
     id: index,
@@ -440,27 +433,6 @@ export const getRandomCircleIds = (
   return selectedIds;
 };
 
-export const getGridDimensions = (circleCount: number) => {
-  switch (circleCount) {
-    case 16:
-      return { cols: 4, rows: 4 };
-    case 25:
-      return { cols: 5, rows: 5 };
-    case 40:
-      return { cols: 8, rows: 5 }; // Старая конфигурация для 40 кружков
-    case 48: // Новая конфигурация для Precision Mode
-      return { cols: 6, rows: 8 }; // Изменено на 5x8
-    case 50:
-      return { cols: 5, rows: 10 };
-    case 60:
-      return { cols: 6, rows: 10 };
-    case 70:
-      return { cols: 7, rows: 10 };
-    default:
-      return { cols: 4, rows: 4 };
-  }
-};
-
 export const calculateAccuracy = (
   correctHits: number,
   totalClicks: number,
@@ -485,7 +457,7 @@ export const formatPrecisionTime = (milliseconds: number): string => {
   return `${seconds}.${ms.toString().padStart(2, '0')}s`;
 };
 
-// Enhanced existing functions
+// Scoring and penalty functions (unchanged)
 export const calculateProgressiveWrongPenalty = (consecutiveMisses: number): number => {
   if (consecutiveMisses <= 0) return 1;
   if (consecutiveMisses === 1) return 1;
