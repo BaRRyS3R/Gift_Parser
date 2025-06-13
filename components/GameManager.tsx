@@ -1,4 +1,4 @@
-// src/components/GameManager.tsx - Complete Precision Mode Logic Fixed
+// src/components/GameManager.tsx - Complete file with updated layout for Precision Mode
 
 'use client'
 
@@ -43,6 +43,7 @@ import { useUser } from '@/hooks/useUser'
 import GameGrid from './GameGrid'
 import GameTimer from './GameTimer'
 import GameResults from './GameResults'
+import { Zap, AlertTriangle } from 'lucide-react'
 
 interface GameManagerProps {
     difficulty: GameDifficulty
@@ -731,6 +732,132 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }, 300)
     }, [startGame])
 
+    // Обновленная функция renderGameHUD с новой компоновкой
+    const renderGameHUD = () => {
+        const currentPrecisionState = precisionStateRef.current
+
+        if (isPrecisionMode && currentPrecisionState) {
+            return (
+                <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
+                    <div className="flex-1 text-left">
+                        <div className="text-xl font-bpdots text-red-400 font-bold">
+                            Score: {stats.score}
+                        </div>
+                    </div>
+
+                    <div className="flex-1 flex justify-center">
+                        <GameTimer
+                            isActive={gameState === GameState.PLAYING}
+                            isPrecisionMode={true}
+                            survivalTime={currentPrecisionState.survivalTime}
+                            intensityLevel={currentPrecisionState.intensityLevel}
+                        />
+                    </div>
+
+                    <div className="flex-1 text-right">
+                        <button
+                            onClick={onBackToMenu}
+                            className="text-red-400/80 font-bpdots text-lg hover:text-red-400 transition-colors duration-300"
+                        >
+                            QUIT
+                        </button>
+                    </div>
+                </div>
+            )
+        }
+
+        // Standard mode HUD (остается без изменений)
+        return (
+            <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
+                <div className="flex flex-col items-center">
+                    <div className={`text-2xl font-bpdots transition-colors duration-300 ${stats.score >= 0 ? 'text-white' : 'text-red-400'
+                        }`}>
+                        Score: {stats.score >= 0 ? '+' : ''}{stats.score}
+                    </div>
+                    {stats.consecutiveHits > 0 && (
+                        <div className="text-xs font-bpdots text-green-400">
+                            {stats.consecutiveHits} streak
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex flex-col items-center">
+                    <GameTimer
+                        timeLeft={timeLeft}
+                        totalTime={STANDARD_GAME_DURATION}
+                        isActive={gameState === GameState.PLAYING}
+                        isPrecisionMode={false}
+                    />
+                    {config.adaptiveScaling && (
+                        <div className="text-xs font-bpdots text-yellow-400 mt-1">
+                            {getAdaptiveLevelDescription(adaptiveState.level)}
+                        </div>
+                    )}
+                </div>
+
+                <button
+                    onClick={onBackToMenu}
+                    className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
+                >
+                    END
+                </button>
+            </div>
+        )
+    }
+
+    // Новая функция для нижней панели в Precision Mode
+    const renderPrecisionBottomPanel = () => {
+        const currentPrecisionState = precisionStateRef.current
+        if (!isPrecisionMode || !currentPrecisionState) return null
+
+        const levelConfig = getPrecisionLevelConfig(currentPrecisionState.intensityLevel)
+
+        return (
+            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm border-t border-red-400/30">
+                <div className="px-6 py-4">
+                    {/* Level Info */}
+                    <div className="text-center mb-3">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                            <Zap size={16} className="text-orange-400" />
+                            <span className="text-lg font-bold font-bpdots text-orange-400">
+                                Level {currentPrecisionState.intensityLevel}
+                            </span>
+                        </div>
+                        <div className="text-sm font-bpdots text-orange-300/60 uppercase tracking-wider">
+                            {levelConfig.description}
+                        </div>
+                    </div>
+
+                    {/* Level Progress Bar */}
+                    <div className="w-full h-2 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30 mb-3">
+                        <div
+                            className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600 transition-all duration-500 ease-out relative"
+                            style={{
+                                width: `${Math.min(100, (currentPrecisionState.intensityLevel / 15) * 100)}%`,
+                                boxShadow: '0 0 8px rgba(239, 68, 68, 0.5)'
+                            }}
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                        </div>
+                    </div>
+
+                    {/* Level Indicator and Warning */}
+                    <div className="flex items-center justify-between">
+                        <div className="text-xs font-bpdots text-red-400/60">
+                            {currentPrecisionState.intensityLevel}/15 LEVELS
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <AlertTriangle size={12} className="text-red-400" />
+                            <span className="text-xs font-bpdots text-red-300 uppercase tracking-wider">
+                                ONE MISTAKE = DEATH
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     if (gameState === GameState.FINISHED) {
         let result: GameResult
 
@@ -794,82 +921,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         )
     }
 
-    const renderGameHUD = () => {
-        const currentPrecisionState = precisionStateRef.current
-
-        if (isPrecisionMode && currentPrecisionState) {
-            const levelConfig = getPrecisionLevelConfig(currentPrecisionState.intensityLevel)
-
-            return (
-                <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
-                    <div className="flex flex-col items-center">
-                        <div className="text-2xl font-bpdots text-red-400 font-bold">
-                            Score: {stats.score}
-                        </div>
-                        <div className="text-xs font-bpdots text-red-300">
-                            Streak: {stats.perfectStreak || 0}
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-center">
-                        <GameTimer
-                            isActive={gameState === GameState.PLAYING}
-                            isPrecisionMode={true}
-                            survivalTime={currentPrecisionState.survivalTime}
-                            intensityLevel={currentPrecisionState.intensityLevel}
-                            intensityDescription={levelConfig.description}
-                        />
-                    </div>
-
-                    <button
-                        onClick={onBackToMenu}
-                        className="text-red-400/80 font-bpdots text-lg hover:text-red-400 transition-colors duration-300"
-                    >
-                        • QUIT
-                    </button>
-                </div>
-            )
-        }
-
-        // Standard mode HUD
-        return (
-            <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
-                <div className="flex flex-col items-center">
-                    <div className={`text-2xl font-bpdots transition-colors duration-300 ${stats.score >= 0 ? 'text-white' : 'text-red-400'
-                        }`}>
-                        Score: {stats.score >= 0 ? '+' : ''}{stats.score}
-                    </div>
-                    {stats.consecutiveHits > 0 && (
-                        <div className="text-xs font-bpdots text-green-400">
-                            {stats.consecutiveHits} streak
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex flex-col items-center">
-                    <GameTimer
-                        timeLeft={timeLeft}
-                        totalTime={STANDARD_GAME_DURATION}
-                        isActive={gameState === GameState.PLAYING}
-                        isPrecisionMode={false}
-                    />
-                    {config.adaptiveScaling && (
-                        <div className="text-xs font-bpdots text-yellow-400 mt-1">
-                            {getAdaptiveLevelDescription(adaptiveState.level)}
-                        </div>
-                    )}
-                </div>
-
-                <button
-                    onClick={onBackToMenu}
-                    className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
-                >
-                    • END
-                </button>
-            </div>
-        )
-    }
-
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
             {(gameState === GameState.STARTING || gameState === GameState.PLAYING) && renderGameHUD()}
@@ -882,6 +933,9 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     showCircles={showCircles}
                 />
             </div>
+
+            {/* Нижняя панель для Precision Mode */}
+            {(gameState === GameState.STARTING || gameState === GameState.PLAYING) && renderPrecisionBottomPanel()}
         </div>
     )
 }

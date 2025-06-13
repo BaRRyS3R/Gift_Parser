@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Complete Code with Fast Animations & 40 Circles Support
+// src/components/GameGrid.tsx - Updated with support for 48 circles (6x8 grid)
 
 "use client";
 
@@ -28,7 +28,8 @@ export default function GameGrid({
     if (circles.length <= 8) return "w-20 h-20 sm:w-24 sm:h-24";
     if (circles.length <= 12) return "w-16 h-16 sm:w-20 sm:h-20";
     if (circles.length <= 25) return "w-16 h-16 sm:w-20 sm:h-20";
-    if (circles.length <= 40) return "w-10 h-10 sm:w-12 sm:h-12"; // Новый размер для 40 кругов
+    if (circles.length <= 40) return "w-10 h-10 sm:w-12 sm:h-12"; // Старый размер для 40 кругов
+    if (circles.length <= 48) return "w-9 h-9 sm:w-10 sm:h-10"; // Новый размер для 48 кругов (6x8)
     if (circles.length <= 60) return "w-12 h-12 sm:w-14 sm:h-14";
     return "w-10 h-10 sm:w-12 sm:h-12";
   };
@@ -38,7 +39,8 @@ export default function GameGrid({
     if (circles.length <= 8) return "gap-6";
     if (circles.length <= 12) return "gap-4";
     if (circles.length <= 25) return "gap-2";
-    if (circles.length <= 40) return "gap-1"; // Минимальный отступ для 40 кругов
+    if (circles.length <= 40) return "gap-1";
+    if (circles.length <= 48) return "gap-1"; // Минимальный отступ для 48 кругов (6x8)
     if (circles.length <= 60) return "gap-1";
     return "gap-1";
   };
@@ -127,7 +129,7 @@ export default function GameGrid({
       disabled: !isGameActive,
       style: {
         // ИСПРАВЛЕНИЕ: Ускоренная анимация появления кругов
-        transitionDelay: showCircles ? `${circle.id * 15}ms` : "0ms", // Уменьшено с 50ms до 15ms
+        transitionDelay: showCircles ? `${circle.id * 12}ms` : "0ms", // Уменьшено для 48 кружков
         transition: circle.isActive && !circle.isAnimating
           ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out" // Ускорено с 0.3s до 0.2s
           : "all 0.3s ease-out", // Ускорено с 0.7s до 0.3s
@@ -159,6 +161,31 @@ export default function GameGrid({
     );
   };
 
+  const getMaxDimensions = () => {
+    // Специальные настройки для сетки 6x8 (48 кружков)
+    if (circles.length === 48) {
+      return {
+        maxWidth: '95vw',
+        maxHeight: '65vh', // Увеличена высота для вертикальной сетки 6x8
+      };
+    }
+
+    // Настройки для других размеров сетки
+    if (circles.length === 40) {
+      return {
+        maxWidth: '95vw',
+        maxHeight: '50vh',
+      };
+    }
+
+    return {
+      maxWidth: '80vw',
+      maxHeight: '70vh',
+    };
+  };
+
+  const { maxWidth, maxHeight } = getMaxDimensions();
+
   return (
     <div className="flex items-center justify-center min-h-[400px] p-4">
       <div
@@ -170,9 +197,9 @@ export default function GameGrid({
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
-          // Максимальные размеры для разных сеток
-          maxWidth: circles.length === 40 ? '95vw' : '80vw', // Увеличена ширина для 40 кругов
-          maxHeight: circles.length === 40 ? '50vh' : '70vh', // Уменьшена высота для лучшего fit
+          // Динамические размеры для разных сеток
+          maxWidth,
+          maxHeight,
         }}
       >
         {circles.map((circle) => (
