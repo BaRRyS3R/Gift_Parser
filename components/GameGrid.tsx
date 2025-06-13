@@ -1,10 +1,10 @@
-// src/components/GameGrid.tsx - Updated with support for 48 circles (6x8 grid)
+// src/components/GameGrid.tsx - Adaptive circle sizing based on screen dimensions
 
 "use client";
 
 import { Circle } from "../types/game";
 import { getGridDimensions } from "../utils/gameUtils";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 
 interface GameGridProps {
   circles: Circle[];
@@ -23,30 +23,82 @@ export default function GameGrid({
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
 
-  const getCircleSize = () => {
-    if (circles.length <= 4) return "w-24 h-24 sm:w-28 sm:h-28";
-    if (circles.length <= 8) return "w-20 h-20 sm:w-24 sm:h-24";
-    if (circles.length <= 12) return "w-16 h-16 sm:w-20 sm:h-20";
-    if (circles.length <= 25) return "w-16 h-16 sm:w-20 sm:h-20";
-    if (circles.length <= 40) return "w-12 h-12 sm:w-14 sm:h-14"; // Старый размер для 40 кругов
-    if (circles.length <= 48) return "w-12 h-12 sm:w-14 sm:h-14"; // Новый размер для 48 кругов (6x8)
-    if (circles.length <= 60) return "w-12 h-12 sm:w-14 sm:h-14";
-    return "w-10 h-10 sm:w-12 sm:h-12";
-  };
+  // State for dynamic sizing
+  const [circleSize, setCircleSize] = useState(40);
+  const [gapSize, setGapSize] = useState(4);
 
-  const getGapSize = () => {
-    if (circles.length <= 4) return "gap-8";
-    if (circles.length <= 8) return "gap-6";
-    if (circles.length <= 12) return "gap-4";
-    if (circles.length <= 25) return "gap-2";
-    if (circles.length <= 40) return "gap-2";
-    if (circles.length <= 48) return "gap-2"; // Минимальный отступ для 48 кругов (6x8)
-    if (circles.length <= 60) return "gap-1";
-    return "gap-1";
-  };
+  // Calculate adaptive sizes based on screen dimensions
+  useEffect(() => {
+    const calculateAdaptiveSizes = () => {
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+
+      // Calculate available space (accounting for UI elements)
+      const availableWidth = screenWidth * 0.9; // 90% of screen width
+      const availableHeight = screenHeight * 0.6; // 60% of screen height (accounting for top/bottom UI)
+
+      // Calculate maximum circle size based on grid dimensions
+      const maxCircleWidthByColumns = (availableWidth - (cols - 1) * 8) / cols; // 8px gap between circles
+      const maxCircleHeightByRows = (availableHeight - (rows - 1) * 8) / rows;
+
+      // Use the smaller dimension to ensure circles fit in both directions
+      const calculatedSize = Math.min(maxCircleWidthByColumns, maxCircleHeightByRows);
+
+      // Apply size constraints based on device type and circle count
+      let finalSize: number;
+      let finalGap: number;
+
+      if (circles.length <= 16) {
+        // Smaller grids can have larger circles
+        finalSize = Math.max(60, Math.min(calculatedSize, 120));
+        finalGap = 8;
+      } else if (circles.length <= 25) {
+        finalSize = Math.max(48, Math.min(calculatedSize, 80));
+        finalGap = 6;
+      } else if (circles.length <= 48) {
+        // Precision mode with 48 circles (5x8)
+        finalSize = Math.max(36, Math.min(calculatedSize, 64));
+        finalGap = 4;
+      } else {
+        // Larger grids need smaller circles
+        finalSize = Math.max(32, Math.min(calculatedSize, 48));
+        finalGap = 4;
+      }
+
+      // Additional adjustments for very small screens
+      if (screenWidth < 400) {
+        finalSize = finalSize * 0.85;
+        finalGap = Math.max(2, finalGap - 2);
+      }
+
+      setCircleSize(Math.floor(finalSize));
+      setGapSize(finalGap);
+    };
+
+    // Calculate on mount and window resize
+    calculateAdaptiveSizes();
+    window.addEventListener('resize', calculateAdaptiveSizes);
+
+    // Handle orientation changes on mobile devices
+    window.addEventListener('orientationchange', () => {
+      setTimeout(calculateAdaptiveSizes, 100);
+    });
+
+    return () => {
+      window.removeEventListener('resize', calculateAdaptiveSizes);
+      window.removeEventListener('orientationchange', calculateAdaptiveSizes);
+    };
+  }, [circles.length, cols, rows]);
 
   const getCircleStyles = (circle: Circle) => {
-    const baseClasses = `${getCircleSize()} rounded-full border-2 transition-all duration-300 ease-out relative`; // Ускорена анимация с 700ms до 300ms
+    const baseStyles = {
+      width: `${circleSize}px`,
+      height: `${circleSize}px`,
+      minWidth: `${circleSize}px`,
+      minHeight: `${circleSize}px`,
+    };
+
+    const baseClasses = "rounded-full border-2 transition-all duration-300 ease-out relative";
 
     // State-based styling for visibility and animation
     const visibilityClasses = showCircles
@@ -54,31 +106,40 @@ export default function GameGrid({
       : "opacity-0 transform scale-0";
 
     const animationClasses = circle.isAnimating
-      ? "opacity-0 scale-75 transition-all duration-200" // Ускорена анимация исчезновения
+      ? "opacity-0 scale-75 transition-all duration-200"
       : "";
 
     // Interactive state styling based on circle type and activity
     if (circle.isActive && !circle.isAnimating) {
       if (circle.isDecoy) {
         // Decoy circles: red coloring with danger indicators
-        return `${baseClasses} ${visibilityClasses} ${animationClasses} 
-                bg-red-500 border-red-400 shadow-lg shadow-red-500/50 scale-110
-                hover:scale-115 active:scale-95`;
+        return {
+          className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
+                      bg-red-500 border-red-400 shadow-lg shadow-red-500/50 scale-110
+                      hover:scale-115 active:scale-95`,
+          style: baseStyles
+        };
       } else {
         // Regular active circles: white coloring with positive indicators
-        return `${baseClasses} ${visibilityClasses} ${animationClasses}
-                bg-white shadow-lg shadow-white/50 border-white scale-110
-                hover:scale-115 active:scale-95`;
+        return {
+          className: `${baseClasses} ${visibilityClasses} ${animationClasses}
+                      bg-white shadow-lg shadow-white/50 border-white scale-110
+                      hover:scale-115 active:scale-95`,
+          style: baseStyles
+        };
       }
     } else {
       // Inactive circles: standard border styling with hover effects
-      return `${baseClasses} ${visibilityClasses} ${animationClasses}
-              bg-transparent border-white/60 hover:border-white hover:scale-105
-              active:scale-95 hover:shadow-md hover:shadow-white/30`;
+      return {
+        className: `${baseClasses} ${visibilityClasses} ${animationClasses}
+                    bg-transparent border-white/60 hover:border-white hover:scale-105
+                    active:scale-95 hover:shadow-md hover:shadow-white/30`,
+        style: baseStyles
+      };
     }
   };
 
-  // Обработка touch событий для мультитача
+  // Touch event handlers (unchanged)
   const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
     if (!isGameActive) return;
 
@@ -88,12 +149,10 @@ export default function GameGrid({
     const currentTime = Date.now();
     touchStartTimeRef.current.set(circleId, currentTime);
 
-    // Немедленно обрабатываем касание
     if (!processedTouchesRef.current.has(circleId)) {
       processedTouchesRef.current.add(circleId);
       onCircleClick(circleId);
 
-      // Очищаем обработанное касание через небольшой таймаут
       setTimeout(() => {
         processedTouchesRef.current.delete(circleId);
       }, 100);
@@ -106,16 +165,13 @@ export default function GameGrid({
     touchStartTimeRef.current.delete(circleId);
   };
 
-  // Обработка клика для десктопа (с защитой от дублирования с touch)
   const handleClick = (circleId: number, event: React.MouseEvent) => {
     if (!isGameActive) return;
 
-    // Проверяем, не было ли недавно touch события для этого элемента
     const touchTime = touchStartTimeRef.current.get(circleId);
     const currentTime = Date.now();
 
     if (touchTime && currentTime - touchTime < 300) {
-      // Если было touch событие в последние 300ms, игнорируем клик
       return;
     }
 
@@ -128,19 +184,15 @@ export default function GameGrid({
     return {
       disabled: !isGameActive,
       style: {
-        // ИСПРАВЛЕНИЕ: Ускоренная анимация появления кругов
-        transitionDelay: showCircles ? `${circle.id * 12}ms` : "0ms", // Уменьшено для 48 кружков
+        transitionDelay: showCircles ? `${circle.id * 12}ms` : "0ms",
         transition: circle.isActive && !circle.isAnimating
-          ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out" // Ускорено с 0.3s до 0.2s
-          : "all 0.3s ease-out", // Ускорено с 0.7s до 0.3s
+          ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
+          : "all 0.3s ease-out",
         touchAction: 'manipulation',
       },
-      // Touch события для мобильных устройств
       onTouchStart: (event: React.TouchEvent) => handleTouchStart(circle.id, event),
       onTouchEnd: (event: React.TouchEvent) => handleTouchEnd(circle.id, event),
-      // Click события для десктопа с защитой от дублирования
       onClick: (event: React.MouseEvent) => handleClick(circle.id, event),
-      // Предотвращаем контекстное меню на длительном нажатии
       onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
     };
   };
@@ -149,7 +201,7 @@ export default function GameGrid({
     if (!circle.isActive || circle.isAnimating) return null;
 
     const pulseColor = circle.isDecoy ? "border-red-400" : "border-white";
-    const animationDuration = circle.isDecoy ? "1.2s" : "0.8s"; // Ускорена анимация пульсации
+    const animationDuration = circle.isDecoy ? "1.2s" : "0.8s";
 
     return (
       <div
@@ -161,62 +213,61 @@ export default function GameGrid({
     );
   };
 
-  const getMaxDimensions = () => {
-    // Специальные настройки для сетки 6x8 (48 кружков)
-    if (circles.length === 48) {
-      return {
-        maxWidth: '110vw',
-        maxHeight: '80vh', // Увеличена высота для вертикальной сетки 6x8
-      };
-    }
-
-    // Настройки для других размеров сетки
-    if (circles.length === 40) {
-      return {
-        maxWidth: '95vw',
-        maxHeight: '50vh',
-      };
-    }
+  const getContainerMaxDimensions = () => {
+    // Calculate container dimensions based on circle count and adaptive sizing
+    const containerWidth = (circleSize * cols) + (gapSize * (cols - 1)) + 32; // 32px padding
+    const containerHeight = (circleSize * rows) + (gapSize * (rows - 1)) + 32;
 
     return {
-      maxWidth: '80vw',
-      maxHeight: '70vh',
+      maxWidth: `min(95vw, ${containerWidth}px)`,
+      maxHeight: `min(70vh, ${containerHeight}px)`,
     };
   };
 
-  const { maxWidth, maxHeight } = getMaxDimensions();
+  const { maxWidth, maxHeight } = getContainerMaxDimensions();
 
   return (
     <div className="flex items-center justify-center min-h-[400px] p-4">
       <div
-        className={`grid justify-items-center items-center ${getGapSize()}`}
+        className="grid justify-items-center items-center"
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
-          // Предотвращаем выделение текста при множественных касаниях
+          gap: `${gapSize}px`,
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
-          // Динамические размеры для разных сеток
           maxWidth,
           maxHeight,
         }}
       >
-        {circles.map((circle) => (
-          <button
-            key={circle.id}
-            className={`${getCircleStyles(circle)} disabled:cursor-not-allowed select-none`}
-            {...getInteractionProps(circle)}
-          >
-            {renderPulseEffect(circle)}
-            {/* Debug info для precision mode (можно убрать в продакшене) */}
-            {process.env.NODE_ENV === 'development' && circle.isActive && (
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
-                {circle.id}
-              </div>
-            )}
-          </button>
-        ))}
+        {circles.map((circle) => {
+          const circleStyleConfig = getCircleStyles(circle);
+
+          return (
+            <button
+              key={circle.id}
+              className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
+              style={{
+                ...circleStyleConfig.style,
+                ...getInteractionProps(circle).style,
+              }}
+              disabled={getInteractionProps(circle).disabled}
+              onTouchStart={getInteractionProps(circle).onTouchStart}
+              onTouchEnd={getInteractionProps(circle).onTouchEnd}
+              onClick={getInteractionProps(circle).onClick}
+              onContextMenu={getInteractionProps(circle).onContextMenu}
+            >
+              {renderPulseEffect(circle)}
+              {/* Debug info for development */}
+              {process.env.NODE_ENV === 'development' && circle.isActive && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
+                  {circle.id}
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

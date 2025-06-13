@@ -357,7 +357,7 @@ export default function GameResults({
                 <div className="text-center space-y-2">
                     <div className="text-6xl mb-4">{performanceEmoji}</div>
                     <h1 className={`text-4xl font-bold font-bpdots ${colors.primary}`}>
-                        {isPrecisionMode ? 'PRECISION FAILED' : 'GAME OVER'}
+                        {isPrecisionMode ? 'PRECISION END' : 'GAME OVER'}
                     </h1>
                     <div className="flex items-center justify-center space-x-2">
                         <DifficultyIcon size={20} className={colors.primary} />
