@@ -1,11 +1,11 @@
-// src/components/GameResults.tsx - Enhanced with Updated Difficulty System
+// src/components/GameResults.tsx - Enhanced Precision Mode Display
 
 'use client'
 
 import { GameResult, GameDifficulty } from '../types/game'
 import { GAME_CONFIGS, calculateAccuracy, getAdaptiveLevelDescription, formatPrecisionTime } from '../utils/gameUtils'
 import { Spinner } from '@nextui-org/react'
-import { Clock, Target, Zap, AlertTriangle, Trophy, Skull, Activity, Crown, Flame, UserCheck, Award } from 'lucide-react'
+import { Clock, Target, Zap, AlertTriangle, Trophy, Skull, Activity, Crown, Flame, UserCheck, Award, Crosshair } from 'lucide-react'
 
 interface GameResultsProps {
     result: GameResult
@@ -41,9 +41,9 @@ export default function GameResults({
 
     const getDeathCauseMessage = (cause?: string): string => {
         switch (cause) {
-            case 'miss': return 'Target escaped your grasp'
+            case 'miss': return 'Failed to hit a white target'
             case 'wrong_click': return 'Clicked an inactive target'
-            case 'decoy_hit': return 'Fell for the decoy trap'
+            case 'decoy_hit': return 'Clicked a red trap'
             case 'timeout': return 'Time ran out'
             default: return 'Unknown cause of failure'
         }
@@ -67,7 +67,7 @@ export default function GameResults({
             case GameDifficulty.OMG: return Flame          // MANIAC
             case GameDifficulty.NIGHTMARE: return Skull    // DEMON
             case GameDifficulty.IMPOSSIBLE: return Crown   // GODLIKE
-            case GameDifficulty.PRECISION: return Target
+            case GameDifficulty.PRECISION: return Crosshair
             default: return Target
         }
     }
@@ -197,17 +197,13 @@ export default function GameResults({
         const scorePerSecond = result.score / result.duration
         const hasGoodAccuracy = accuracy >= 85
         const hasFastReaction = result.averageReactionTime <= 200
-        const hasSlowReaction = result.averageReactionTime >= 400
-        const hasTerribleAccuracy = accuracy < 40
-        const hasManyDecoys = result.decoyHits >= 5
-        const hasManyMisses = result.missedCircles >= 10
 
         const difficultyMultiplier = {
-            [GameDifficulty.HARD]: 1,      // ROOKIE
-            [GameDifficulty.LEGENDARY]: 1.2, // VETERAN
-            [GameDifficulty.OMG]: 1.5,    // MANIAC
-            [GameDifficulty.NIGHTMARE]: 2, // DEMON
-            [GameDifficulty.IMPOSSIBLE]: 2.5, // GODLIKE
+            [GameDifficulty.HARD]: 1,
+            [GameDifficulty.LEGENDARY]: 1.2,
+            [GameDifficulty.OMG]: 1.5,
+            [GameDifficulty.NIGHTMARE]: 2,
+            [GameDifficulty.IMPOSSIBLE]: 2.5,
             [GameDifficulty.PRECISION]: 1
         }[result.difficulty] || 1
 
@@ -238,7 +234,6 @@ export default function GameResults({
             return excellent[Math.floor(Math.random() * excellent.length)]
         }
 
-        // Rest of the comments remain similar but with adjusted thresholds
         const poor = [
             "Well... that happened. Moving on! 🚶‍♂️",
             "Your performance is questionable at best! 🤨",
@@ -300,6 +295,7 @@ export default function GameResults({
     const getRating = () => {
         if (isPrecisionMode) {
             const survivalTime = result.survivalTime || 0
+            const intensityReached = result.maxIntensityReached || 1
 
             if (survivalTime >= 120000) {
                 return { text: 'TRANSCENDENT PRECISION', color: 'text-purple-400' }
@@ -336,6 +332,18 @@ export default function GameResults({
             return { text: 'NEEDS IMPROVEMENT', color: 'text-orange-400' }
         }
         return { text: 'CRITICAL FAILURE', color: 'text-red-400' }
+    }
+
+    const getPrecisionLevelDescription = (level: number): string => {
+        if (level >= 15) return "PERFECT MACHINE"
+        if (level >= 12) return "GODLIKE FOCUS"
+        if (level >= 10) return "INSANITY BEGINS"
+        if (level >= 8) return "OVERWHELMING"
+        if (level >= 6) return "TARGET FOCUS"
+        if (level >= 4) return "MULTI-TASKING"
+        if (level >= 3) return "AVOID THE RED"
+        if (level >= 2) return "GETTING STARTED"
+        return "WARMING UP"
     }
 
     const rating = getRating()
@@ -433,7 +441,7 @@ export default function GameResults({
                     </div>
 
                     {isPrecisionMode ? (
-                        /* Precision Mode Stats */
+                        /* Enhanced Precision Mode Stats */
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="text-center space-y-1">
@@ -444,9 +452,9 @@ export default function GameResults({
                                 </div>
 
                                 <div className="text-center space-y-1">
-                                    <div className={`text-xs font-bpdots ${colors.accent}`}>MAX INTENSITY</div>
+                                    <div className={`text-xs font-bpdots ${colors.accent}`}>MAX LEVEL</div>
                                     <div className={`text-xl font-bold font-bpdots text-orange-400`}>
-                                        Level {result.maxIntensityReached || 1}
+                                        {result.maxIntensityReached || 1}/15
                                     </div>
                                 </div>
 
@@ -458,12 +466,30 @@ export default function GameResults({
                                 </div>
 
                                 <div className="text-center space-y-1">
-                                    <div className={`text-xs font-bpdots ${colors.accent}`}>SUCCESSFUL</div>
+                                    <div className={`text-xs font-bpdots ${colors.accent}`}>WHITE HITS</div>
                                     <div className={`text-xl font-bold font-bpdots text-green-400`}>
                                         {result.correctHits}
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Level Achievement Display */}
+                            {result.maxIntensityReached && result.maxIntensityReached > 1 && (
+                                <div className={`border-t ${colors.border} pt-4`}>
+                                    <div className="text-center space-y-2">
+                                        <div className={`text-sm font-bpdots ${colors.accent}`}>HIGHEST LEVEL REACHED</div>
+                                        <div className={`text-lg font-bold font-bpdots text-orange-400`}>
+                                            Level {result.maxIntensityReached}: {getPrecisionLevelDescription(result.maxIntensityReached)}
+                                        </div>
+                                        <div className="w-full h-2 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600"
+                                                style={{ width: `${Math.min(100, ((result.maxIntensityReached || 1) / 15) * 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {result.averageReactionTime > 0 && (
                                 <div className={`border-t ${colors.border} pt-4`}>

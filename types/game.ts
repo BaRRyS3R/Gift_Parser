@@ -1,4 +1,4 @@
-// src/types/game.ts - Enhanced version with Updated Difficulty System
+// src/types/game.ts - Updated for New Precision Mode System
 
 export interface Circle {
   id: number;
@@ -46,12 +46,12 @@ export interface GameConfig {
 }
 
 export enum GameDifficulty {
-  HARD = "hard",           // Now the easiest (was 3rd)
-  LEGENDARY = "legendary", // Medium (was 4th)
-  OMG = "omg",            // Hard (was 5th)
-  NIGHTMARE = "nightmare", // Super hard (was 6th)
-  IMPOSSIBLE = "impossible", // Nerfed (was 7th)
-  PRECISION = "precision", // Special mode
+  HARD = "hard",           // ROOKIE - Easiest
+  LEGENDARY = "legendary", // VETERAN - Medium
+  OMG = "omg",            // MANIAC - Hard
+  NIGHTMARE = "nightmare", // DEMON - Very Hard
+  IMPOSSIBLE = "impossible", // GODLIKE - Expert
+  PRECISION = "precision", // PRECISION - Special survival mode
 }
 
 export enum GameState {
@@ -112,12 +112,12 @@ export interface PrecisionModeState {
 
 export interface PrecisionLevelConfig {
   level: number;
-  simultaneousCircles: number;
-  redCircles: number; // absolute number of red circles to spawn
-  activationTimeMin: number; // milliseconds
-  activationTimeMax: number; // milliseconds
-  circleActiveTime: number; // milliseconds
-  description: string;
+  simultaneousCircles: number; // Total number of circles to activate simultaneously
+  redCircles: number; // Number of red trap circles in each activation
+  activationTimeMin: number; // Minimum time between activations (ms)
+  activationTimeMax: number; // Maximum time between activations (ms)  
+  circleActiveTime: number; // How long circles stay active (ms)
+  description: string; // Level description
 }
 
 export interface IntensityLevel {

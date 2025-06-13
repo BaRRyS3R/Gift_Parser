@@ -1,9 +1,9 @@
-// src/components/GameTimer.tsx - Enhanced with Precision Mode Support
+// src/components/GameTimer.tsx - Updated for New Precision Mode System
 
 "use client";
 
 import { formatTime, formatPrecisionTime } from "../utils/gameUtils";
-import { Clock, Zap, AlertTriangle } from "lucide-react";
+import { Clock, Zap, AlertTriangle, Target } from "lucide-react";
 
 interface GameTimerProps {
   timeLeft?: number;
@@ -27,11 +27,11 @@ export default function GameTimer({
 }: GameTimerProps) {
   if (isPrecisionMode) {
     return (
-      <div className="flex flex-col items-center space-y-3">
+      <div className="flex flex-col items-center space-y-2">
         {/* Survival Time Display */}
         <div className="text-center">
           <div className="flex items-center justify-center space-x-2 mb-1">
-            <Clock size={16} className="text-red-400" />
+            <Clock size={14} className="text-red-400" />
             <span className="text-xs font-bpdots text-red-300/80 uppercase tracking-wider">
               SURVIVAL
             </span>
@@ -44,7 +44,7 @@ export default function GameTimer({
         {/* Intensity Level Display */}
         <div className="text-center">
           <div className="flex items-center justify-center space-x-2 mb-1">
-            <Zap size={16} className="text-orange-400" />
+            <Zap size={14} className="text-orange-400" />
             <span className="text-xs font-bpdots text-orange-300/80 uppercase tracking-wider">
               INTENSITY
             </span>
@@ -59,22 +59,29 @@ export default function GameTimer({
 
         {/* Danger Indicator */}
         <div className="flex items-center space-x-2 bg-red-500/20 border border-red-400/30 rounded-lg px-3 py-1">
-          <AlertTriangle size={12} className="text-red-400" />
+          <AlertTriangle size={10} className="text-red-400" />
           <span className="text-xs font-bpdots text-red-300 uppercase tracking-wider">
-            ONE MISTAKE = GAME OVER
+            ONE MISTAKE = DEATH
           </span>
         </div>
 
-        {/* Intensity Progress Bar */}
-        <div className="w-40 h-2 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30">
+        {/* Level Progress Indicator */}
+        <div className="w-32 h-1 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30">
           <div
             className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600 transition-all duration-500 ease-out relative"
             style={{
-              width: `${Math.min(100, (intensityLevel / 20) * 100)}%`,
-              boxShadow: '0 0 10px rgba(239, 68, 68, 0.5)'
+              width: `${Math.min(100, (intensityLevel / 15) * 100)}%`,
+              boxShadow: '0 0 8px rgba(239, 68, 68, 0.5)'
             }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Level Indicator */}
+        <div className="text-center">
+          <div className="text-xs font-bpdots text-red-400/60">
+            {intensityLevel}/15 LEVELS
           </div>
         </div>
       </div>

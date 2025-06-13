@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx
+// src/components/GameGrid.tsx - Complete Code with Fast Animations & 40 Circles Support
 
 "use client";
 
@@ -27,7 +27,8 @@ export default function GameGrid({
     if (circles.length <= 4) return "w-24 h-24 sm:w-28 sm:h-28";
     if (circles.length <= 8) return "w-20 h-20 sm:w-24 sm:h-24";
     if (circles.length <= 12) return "w-16 h-16 sm:w-20 sm:h-20";
-    if (circles.length <= 40) return "w-16 h-16 sm:w-20 sm:h-20";
+    if (circles.length <= 25) return "w-16 h-16 sm:w-20 sm:h-20";
+    if (circles.length <= 40) return "w-10 h-10 sm:w-12 sm:h-12"; // Новый размер для 40 кругов
     if (circles.length <= 60) return "w-12 h-12 sm:w-14 sm:h-14";
     return "w-10 h-10 sm:w-12 sm:h-12";
   };
@@ -36,13 +37,14 @@ export default function GameGrid({
     if (circles.length <= 4) return "gap-8";
     if (circles.length <= 8) return "gap-6";
     if (circles.length <= 12) return "gap-4";
-    if (circles.length <= 40) return "gap-2";
+    if (circles.length <= 25) return "gap-2";
+    if (circles.length <= 40) return "gap-1"; // Минимальный отступ для 40 кругов
     if (circles.length <= 60) return "gap-1";
     return "gap-1";
   };
 
   const getCircleStyles = (circle: Circle) => {
-    const baseClasses = `${getCircleSize()} rounded-full border-2 transition-all duration-700 ease-out relative`;
+    const baseClasses = `${getCircleSize()} rounded-full border-2 transition-all duration-300 ease-out relative`; // Ускорена анимация с 700ms до 300ms
 
     // State-based styling for visibility and animation
     const visibilityClasses = showCircles
@@ -50,7 +52,7 @@ export default function GameGrid({
       : "opacity-0 transform scale-0";
 
     const animationClasses = circle.isAnimating
-      ? "opacity-0 scale-75 transition-all duration-300"
+      ? "opacity-0 scale-75 transition-all duration-200" // Ускорена анимация исчезновения
       : "";
 
     // Interactive state styling based on circle type and activity
@@ -124,11 +126,12 @@ export default function GameGrid({
     return {
       disabled: !isGameActive,
       style: {
-        transitionDelay: showCircles ? `${circle.id * 50}ms` : "0ms",
+        // ИСПРАВЛЕНИЕ: Ускоренная анимация появления кругов
+        transitionDelay: showCircles ? `${circle.id * 15}ms` : "0ms", // Уменьшено с 50ms до 15ms
         transition: circle.isActive && !circle.isAnimating
-          ? "transform 0.3s ease-out, box-shadow 0.3s ease-out, border-color 0.3s ease-out"
-          : "all 0.7s ease-out",
-        touchAction: 'manipulation', // Оптимизация для touch устройств
+          ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out" // Ускорено с 0.3s до 0.2s
+          : "all 0.3s ease-out", // Ускорено с 0.7s до 0.3s
+        touchAction: 'manipulation',
       },
       // Touch события для мобильных устройств
       onTouchStart: (event: React.TouchEvent) => handleTouchStart(circle.id, event),
@@ -144,7 +147,7 @@ export default function GameGrid({
     if (!circle.isActive || circle.isAnimating) return null;
 
     const pulseColor = circle.isDecoy ? "border-red-400" : "border-white";
-    const animationDuration = circle.isDecoy ? "1.5s" : "1s";
+    const animationDuration = circle.isDecoy ? "1.2s" : "0.8s"; // Ускорена анимация пульсации
 
     return (
       <div
@@ -167,6 +170,9 @@ export default function GameGrid({
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
+          // Максимальные размеры для разных сеток
+          maxWidth: circles.length === 40 ? '95vw' : '80vw', // Увеличена ширина для 40 кругов
+          maxHeight: circles.length === 40 ? '50vh' : '70vh', // Уменьшена высота для лучшего fit
         }}
       >
         {circles.map((circle) => (
@@ -176,6 +182,12 @@ export default function GameGrid({
             {...getInteractionProps(circle)}
           >
             {renderPulseEffect(circle)}
+            {/* Debug info для precision mode (можно убрать в продакшене) */}
+            {process.env.NODE_ENV === 'development' && circle.isActive && (
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
+                {circle.id}
+              </div>
+            )}
           </button>
         ))}
       </div>

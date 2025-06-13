@@ -1,4 +1,4 @@
-// src/utils/gameUtils.ts - Enhanced version with Redesigned Difficulty System
+// src/utils/gameUtils.ts - Complete Precision Mode Overhaul
 
 import { GameConfig, GameDifficulty, Circle, AdaptiveState, ClickTiming, PrecisionModeState, IntensityLevel, PrecisionLevelConfig } from "@/types/game";
 
@@ -65,176 +65,176 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
     adaptiveScaling: true,
     fastClickThreshold: 100,
   },
-  // Enhanced Precision Mode
+  // Enhanced Precision Mode - 40 circles
   [GameDifficulty.PRECISION]: {
     id: "precision",
     name: "PRECISION MODE",
-    circleCount: 25,
+    circleCount: 40, // Увеличено до 40
     minActivationTime: 1000,
     maxActivationTime: 1800,
-    maxSimultaneousCircles: 4, // Increased to 4 for even better scaling visibility
+    maxSimultaneousCircles: 4,
     circleActiveTime: 2000,
     decoyProbability: 0.05,
-    adaptiveScaling: false, // Custom precision scaling
+    adaptiveScaling: false,
     fastClickThreshold: 200,
     isPrecisionMode: true,
-    intensityIncreaseInterval: 8, // Increase intensity every 8 seconds (reduced for faster testing)
-    intensityMultiplier: 2.0, // 2x increase per level (much more aggressive)
-    maxIntensityLevel: 15, // Reduced max level due to aggressive scaling
+    intensityIncreaseInterval: 8, // 8 seconds per level
+    intensityMultiplier: 2.0,
+    maxIntensityLevel: 15,
   },
 } as const;
 
-// Precision Mode level configurations
+// Precision Mode level configurations - Completely redesigned progression
 export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
-  // Level 1 - Warm up
+  // Level 1 - Single white circle
   {
     level: 1,
     simultaneousCircles: 1,
     redCircles: 0,
-    activationTimeMin: 1000,
-    activationTimeMax: 1800,
-    circleActiveTime: 2000,
+    activationTimeMin: 1200,
+    activationTimeMax: 2000,
+    circleActiveTime: 2500,
     description: "WARMING UP"
   },
-  // Level 2 - Introduction
+  // Level 2 - Two white circles
   {
     level: 2,
     simultaneousCircles: 2,
     redCircles: 0,
-    activationTimeMin: 900,
-    activationTimeMax: 1600,
-    circleActiveTime: 1800,
+    activationTimeMin: 1000,
+    activationTimeMax: 1800,
+    circleActiveTime: 2200,
     description: "GETTING STARTED"
   },
-  // Level 3 - First red circles
+  // Level 3 - 3 circles total: 2 white + 1 red
   {
     level: 3,
-    simultaneousCircles: 2,
+    simultaneousCircles: 3,
     redCircles: 1,
-    activationTimeMin: 800,
-    activationTimeMax: 1400,
-    circleActiveTime: 1600,
+    activationTimeMin: 900,
+    activationTimeMax: 1600,
+    circleActiveTime: 2000,
     description: "AVOID THE RED"
   },
-  // Level 4 - More simultaneous
+  // Level 4 - 4 circles total: 2 white + 2 red
   {
     level: 4,
-    simultaneousCircles: 3,
-    redCircles: 1,
-    activationTimeMin: 700,
-    activationTimeMax: 1200,
-    circleActiveTime: 1500,
+    simultaneousCircles: 4,
+    redCircles: 2,
+    activationTimeMin: 800,
+    activationTimeMax: 1400,
+    circleActiveTime: 1800,
     description: "MULTI-TASKING"
   },
-  // Level 5 - Faster pace
+  // Level 5 - 6 circles total: 3 white + 3 red
   {
     level: 5,
-    simultaneousCircles: 3,
-    redCircles: 1,
-    activationTimeMin: 600,
-    activationTimeMax: 1000,
-    circleActiveTime: 1400,
-    description: "PICKING UP PACE"
+    simultaneousCircles: 6,
+    redCircles: 3,
+    activationTimeMin: 700,
+    activationTimeMax: 1200,
+    circleActiveTime: 1600,
+    description: "BALANCED CHAOS"
   },
-  // Level 6 - More red circles
+  // Level 6 - 8 circles total: 5 white + 3 red
   {
     level: 6,
-    simultaneousCircles: 4,
-    redCircles: 2,
-    activationTimeMin: 500,
-    activationTimeMax: 900,
-    circleActiveTime: 1300,
-    description: "DANGER ZONE"
+    simultaneousCircles: 8,
+    redCircles: 3,
+    activationTimeMin: 600,
+    activationTimeMax: 1000,
+    circleActiveTime: 1500,
+    description: "TARGET FOCUS"
   },
-  // Level 7 - Intense
+  // Level 7 - 10 circles total: 5 white + 5 red
   {
     level: 7,
-    simultaneousCircles: 4,
-    redCircles: 2,
-    activationTimeMin: 400,
-    activationTimeMax: 800,
-    circleActiveTime: 1200,
-    description: "INTENSITY RISING"
+    simultaneousCircles: 10,
+    redCircles: 5,
+    activationTimeMin: 550,
+    activationTimeMax: 900,
+    circleActiveTime: 1400,
+    description: "FIFTY-FIFTY"
   },
-  // Level 8 - Very challenging
+  // Level 8 - 12 circles total: 6 white + 6 red (changed from spec for balance)
   {
     level: 8,
-    simultaneousCircles: 5,
-    redCircles: 2,
-    activationTimeMin: 350,
-    activationTimeMax: 700,
-    circleActiveTime: 1100,
-    description: "EXTREME FOCUS"
+    simultaneousCircles: 12,
+    redCircles: 6,
+    activationTimeMin: 500,
+    activationTimeMax: 800,
+    circleActiveTime: 1300,
+    description: "OVERWHELMING"
   },
-  // Level 9 - Expert level
+  // Level 9 - 14 circles total: 7 white + 7 red
   {
     level: 9,
-    simultaneousCircles: 5,
-    redCircles: 3,
-    activationTimeMin: 300,
-    activationTimeMax: 600,
-    circleActiveTime: 1000,
-    description: "EXPERT LEVEL"
+    simultaneousCircles: 14,
+    redCircles: 7,
+    activationTimeMin: 450,
+    activationTimeMax: 750,
+    circleActiveTime: 1200,
+    description: "MAXIMUM CHAOS"
   },
-  // Level 10 - Master level
+  // Level 10 - 16 circles total: 8 white + 8 red
   {
     level: 10,
-    simultaneousCircles: 6,
-    redCircles: 3,
-    activationTimeMin: 250,
-    activationTimeMax: 500,
-    circleActiveTime: 900,
-    description: "MASTER PRECISION"
+    simultaneousCircles: 16,
+    redCircles: 8,
+    activationTimeMin: 400,
+    activationTimeMax: 700,
+    circleActiveTime: 1100,
+    description: "INSANITY BEGINS"
   },
-  // Level 11 - Insane
+  // Level 11 - 18 circles total: 9 white + 9 red
   {
     level: 11,
-    simultaneousCircles: 6,
-    redCircles: 4,
-    activationTimeMin: 200,
-    activationTimeMax: 450,
-    circleActiveTime: 800,
-    description: "INSANE MODE"
+    simultaneousCircles: 18,
+    redCircles: 9,
+    activationTimeMin: 350,
+    activationTimeMax: 650,
+    circleActiveTime: 1000,
+    description: "BEYOND HUMAN"
   },
-  // Level 12 - Nightmare
+  // Level 12 - 20 circles total: 10 white + 10 red
   {
     level: 12,
-    simultaneousCircles: 7,
-    redCircles: 4,
-    activationTimeMin: 180,
-    activationTimeMax: 400,
-    circleActiveTime: 700,
-    description: "NIGHTMARE FUEL"
+    simultaneousCircles: 20,
+    redCircles: 10,
+    activationTimeMin: 300,
+    activationTimeMax: 600,
+    circleActiveTime: 900,
+    description: "GODLIKE FOCUS"
   },
-  // Level 13 - Impossible
+  // Level 13 - 24 circles total: 12 white + 12 red
   {
     level: 13,
-    simultaneousCircles: 7,
-    redCircles: 5,
-    activationTimeMin: 160,
-    activationTimeMax: 350,
-    circleActiveTime: 600,
-    description: "IMPOSSIBLE ODDS"
+    simultaneousCircles: 24,
+    redCircles: 12,
+    activationTimeMin: 280,
+    activationTimeMax: 550,
+    circleActiveTime: 800,
+    description: "TRANSCENDENT"
   },
-  // Level 14 - Godlike
+  // Level 14 - 28 circles total: 14 white + 14 red
   {
     level: 14,
-    simultaneousCircles: 8,
-    redCircles: 5,
-    activationTimeMin: 140,
-    activationTimeMax: 300,
-    circleActiveTime: 500,
-    description: "GODLIKE REFLEXES"
+    simultaneousCircles: 28,
+    redCircles: 14,
+    activationTimeMin: 250,
+    activationTimeMax: 500,
+    circleActiveTime: 700,
+    description: "IMPOSSIBLE REALM"
   },
-  // Level 15 - Transcendent
+  // Level 15 - 32 circles total: 16 white + 16 red
   {
     level: 15,
-    simultaneousCircles: 8,
-    redCircles: 6,
-    activationTimeMin: 120,
-    activationTimeMax: 250,
-    circleActiveTime: 400,
-    description: "TRANSCENDENT"
+    simultaneousCircles: 32,
+    redCircles: 16,
+    activationTimeMin: 200,
+    activationTimeMax: 450,
+    circleActiveTime: 600,
+    description: "PERFECT MACHINE"
   }
 ];
 
@@ -316,8 +316,8 @@ export const calculatePrecisionModeScore = (
   intensityLevel: number
 ): number => {
   const baseScore = Math.floor(survivalTime / 1000); // 1 point per second survived
-  const streakBonus = perfectStreak * 3; // 3 points per perfect hit (increased from 2)
-  const intensityBonus = Math.floor(intensityLevel * 10); // 10 points per intensity level reached (increased from 5)
+  const streakBonus = perfectStreak * 3; // 3 points per perfect hit
+  const intensityBonus = Math.floor(intensityLevel * 15); // 15 points per intensity level reached
 
   return baseScore + streakBonus + intensityBonus;
 };
@@ -350,7 +350,6 @@ export const getRandomActivationDelay = (
   let baseDelay = Math.random() * (config.maxActivationTime - config.minActivationTime) + config.minActivationTime;
 
   if (config.isPrecisionMode && precisionState) {
-    // Use simple level-based delay for precision mode
     baseDelay = getPrecisionActivationDelay(precisionState.intensityLevel);
   } else if (adaptiveState && config.adaptiveScaling) {
     baseDelay = baseDelay * adaptiveState.activationSpeedMultiplier;
@@ -366,7 +365,6 @@ export const getAdjustedCircleActiveTime = (
   config?: GameConfig
 ): number => {
   if (config?.isPrecisionMode && precisionState) {
-    // Use simple level-based active time for precision mode
     return getPrecisionCircleActiveTime(precisionState.intensityLevel);
   }
 
@@ -383,7 +381,6 @@ export const getAdjustedSimultaneousCircles = (
   config?: GameConfig
 ): number => {
   if (config?.isPrecisionMode && precisionState) {
-    // Use simple level-based simultaneous circles for precision mode
     return getPrecisionSimultaneousCircles(precisionState.intensityLevel);
   }
 
@@ -395,12 +392,10 @@ export const getAdjustedDecoyProbability = (
   precisionState?: PrecisionModeState | null,
   config?: GameConfig
 ): number => {
-  // For precision mode, we'll handle red circles differently
-  // This function is not used in the new precision mode logic
   return baseProbability;
 };
 
-// Existing utility functions (unchanged)
+// Existing utility functions
 export const createCircleGrid = (count: number): Circle[] => {
   return Array.from({ length: count }, (_, index) => ({
     id: index,
@@ -451,6 +446,8 @@ export const getGridDimensions = (circleCount: number) => {
       return { cols: 4, rows: 4 };
     case 25:
       return { cols: 5, rows: 5 };
+    case 40: // Новый размер для Precision Mode
+      return { cols: 8, rows: 5 };
     case 50:
       return { cols: 5, rows: 10 };
     case 60:

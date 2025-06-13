@@ -1,4 +1,4 @@
-// src/components/DifficultySelector.tsx - Enhanced with Updated Difficulty System
+// src/components/DifficultySelector.tsx - Updated for 40 Circle Precision Mode
 
 "use client";
 
@@ -14,7 +14,9 @@ import {
   Swords,
   Crosshair,
   UserCheck,
-  Award
+  Award,
+  Clock,
+  AlertTriangle
 } from "lucide-react";
 
 interface DifficultySelectorProps {
@@ -83,7 +85,7 @@ export default function DifficultySelector({
   const getDifficultySpecialNote = (difficulty: GameDifficulty): string | null => {
     switch (difficulty) {
       case GameDifficulty.PRECISION:
-        return "Intensity doubles every 8 seconds";
+        return "15 levels • 40 circles • Survival mode";
       case GameDifficulty.OMG:
         return "50 targets, pure chaos";
       case GameDifficulty.NIGHTMARE:
@@ -200,15 +202,15 @@ export default function DifficultySelector({
             </div>
           </div>
 
-          {/* Precision Mode Stats */}
+          {/* Updated Precision Mode Stats */}
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-red-400/20">
             <div className="text-center">
               <div className="text-lg font-bold text-red-200">{config.circleCount}</div>
-              <div className="text-xs text-red-300/60 uppercase tracking-wider">Targets</div>
+              <div className="text-xs text-red-300/60 uppercase tracking-wider">Arena Size</div>
             </div>
 
             <div className="text-center">
-              <div className="text-lg font-bold text-red-200">∞</div>
+              <div className="text-lg font-bold text-red-200">15</div>
               <div className="text-xs text-red-300/60 uppercase tracking-wider">Levels</div>
             </div>
 
@@ -218,16 +220,40 @@ export default function DifficultySelector({
             </div>
           </div>
 
+          {/* Progression Preview */}
+          <div className="bg-red-500/10 border border-red-400/20 rounded-lg p-3">
+            <div className="text-xs font-bpdots text-red-300/80 uppercase tracking-wider mb-2 text-center">
+              Progression Preview
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="text-center">
+                <div className="text-red-200 font-bold">L1-3</div>
+                <div className="text-red-400/60">1-3 Circles</div>
+              </div>
+              <div className="text-center">
+                <div className="text-red-200 font-bold">L4-9</div>
+                <div className="text-red-400/60">4-14 Circles</div>
+              </div>
+              <div className="text-center">
+                <div className="text-red-200 font-bold">L10-15</div>
+                <div className="text-red-400/60">16-32 Circles</div>
+              </div>
+            </div>
+          </div>
+
           {/* Special Features */}
           <div className="flex flex-wrap gap-2 pt-2">
             <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              ONE SHOT MODE
+              <Clock size={10} className="inline mr-1" />
+              8S INTERVALS
             </span>
             <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              8-SEC ESCALATION
+              <AlertTriangle size={10} className="inline mr-1" />
+              NO MERCY
             </span>
             <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              SURVIVAL MODE
+              <Target size={10} className="inline mr-1" />
+              PURE SKILL
             </span>
           </div>
         </div>
