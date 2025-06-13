@@ -739,9 +739,14 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         if (isPrecisionMode && currentPrecisionState) {
             return (
                 <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
-                    <div className="flex-1 text-left">
-                        <div className="text-xl font-bpdots text-red-400 font-bold">
-                            Score: {stats.score}
+                    <div className="flex-1 flex justify-center">
+                        <div className="text-center">
+                            <div className="text-lg font-bpdots text-red-400 font-bold">
+                                Score:
+                            </div>
+                            <div className="text-xl font-bpdots text-red-400 font-bold">
+                                {stats.score}
+                            </div>
                         </div>
                     </div>
 
@@ -754,7 +759,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                         />
                     </div>
 
-                    <div className="flex-1 text-right">
+                    <div className="flex-1 flex justify-center">
                         <button
                             onClick={onBackToMenu}
                             className="text-red-400/80 font-bpdots text-lg hover:text-red-400 transition-colors duration-300"
