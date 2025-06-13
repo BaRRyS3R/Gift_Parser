@@ -536,105 +536,66 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     }, [gameState, circles, deactivateCircle, triggerHapticFeedback, config, adaptiveState, isPrecisionMode, endGameWithCause])
 
     const startGame = useCallback(() => {
-        console.log('Starting game...', isPrecisionMode ? 'Precision Mode' : 'Standard Mode')
+        console.log('Starting game mechanics')
+        setGameState(GameState.PLAYING)
+        setShowCircles(true)
+
+        // Clear any existing timeouts
         clearAllTimeouts()
-        activeCirclesRef.current.clear()
-        circleActivationTimesRef.current.clear()
-        gameSavedRef.current = false
-        gameStartTimeRef.current = Date.now()
 
-        setGameState(GameState.STARTING)
-        setTimeLeft(STANDARD_GAME_DURATION)
-        setIsSavingResult(false)
-        setSaveError(null)
-        setSaveSuccess(false)
-        setStats({
-            score: 0,
-            correctHits: 0,
-            wrongHits: 0,
-            missedCircles: 0,
-            totalCircles: 0,
-            decoyHits: 0,
-            consecutiveHits: 0,
-            consecutiveMisses: 0,
-            fastHits: 0,
-            totalReactionTime: 0,
-            hitCount: 0,
-            currentIntensityLevel: isPrecisionMode ? 1 : undefined,
-            survivalTime: isPrecisionMode ? 0 : undefined,
-            perfectStreak: isPrecisionMode ? 0 : undefined,
-        })
-        setAdaptiveState({
-            level: 0,
-            activationSpeedMultiplier: 1,
-            simultaneousMultiplier: 1,
-            activeTimeMultiplier: 1
-        })
-        setCircles(createCircleGrid(config.circleCount))
+        // Start game timer for standard mode
+        if (!isPrecisionMode) {
+            gameTimerRef.current = setInterval(() => {
+                setTimeLeft((prev: number): number => {
+                    if (prev <= 1) {
+                        clearAllTimeouts()
+                        setGameState(GameState.FINISHED)
+                        return 0
+                    }
+                    return prev - 1
+                })
+            }, 1000)
+        } else {
+            // Start precision mode update interval
+            precisionUpdateRef.current = setInterval(() => {
+                setPrecisionState(prev => {
+                    if (!prev) return null
 
-        if (isPrecisionMode) {
-            setPrecisionState(initializePrecisionModeState())
+                    const updated = updatePrecisionModeState(prev, PRECISION_MODE_UPDATE_INTERVAL, config)
+
+                    // Если уровень изменился, обновляем конфигурацию
+                    if (updated.intensityLevel !== prev.intensityLevel) {
+                        const levelConfig = getPrecisionLevelConfig(updated.intensityLevel)
+                        console.log(`🔥 PRECISION MODE: LEVEL UP! 🔥`)
+                        console.log(`Level: ${prev.intensityLevel} → ${updated.intensityLevel}`)
+                        console.log(`New config: simultaneous=${levelConfig.simultaneousCircles}, red=${levelConfig.redCircles}, active=${levelConfig.circleActiveTime}ms`)
+                        console.log(`Description: ${levelConfig.description}`)
+
+                        // Обновляем конфигурацию игры
+                        config.maxSimultaneousCircles = levelConfig.simultaneousCircles
+                        config.circleActiveTime = levelConfig.circleActiveTime
+                        config.minActivationTime = levelConfig.activationTimeMin
+                        config.maxActivationTime = levelConfig.activationTimeMax
+                    }
+
+                    // Update stats with current precision state
+                    setStats(prevStats => ({
+                        ...prevStats,
+                        currentIntensityLevel: updated.intensityLevel,
+                        survivalTime: updated.survivalTime
+                    }))
+
+                    return updated
+                })
+            }, PRECISION_MODE_UPDATE_INTERVAL)
         }
 
         setTimeout(() => {
-            setShowCircles(true)
-        }, 50)
+            console.log('Starting circle activations')
+            activateRandomCircles()
+        }, 500)
 
-        setTimeout(() => {
-            console.log('Starting game mechanics')
-            setGameState(GameState.PLAYING)
-
-            if (!isPrecisionMode) {
-                // Standard mode timer
-                gameTimerRef.current = setInterval(() => {
-                    setTimeLeft(prevTime => {
-                        console.log('Timer tick, time left:', prevTime - 1)
-                        if (prevTime <= 1) {
-                            console.log('Game finished by timer')
-                            setGameState(GameState.FINISHED)
-                            return 0
-                        }
-                        return prevTime - 1
-                    })
-                }, 1000)
-            } else {
-                // Precision Mode update loop
-                precisionUpdateRef.current = setInterval(() => {
-                    const deltaTime = PRECISION_MODE_UPDATE_INTERVAL
-
-                    setPrecisionState(prev => {
-                        if (!prev || !prev.isActive) return prev
-
-                        const updated = updatePrecisionModeState(prev, deltaTime, config)
-
-                        // Log intensity changes for debugging
-                        if (updated.intensityLevel !== prev.intensityLevel) {
-                            console.log(`🔥 PRECISION MODE: LEVEL UP! 🔥`)
-                            console.log(`Level: ${prev.intensityLevel} → ${updated.intensityLevel}`)
-                            const levelConfig = getPrecisionLevelConfig(updated.intensityLevel)
-                            console.log(`New config: simultaneous=${levelConfig.simultaneousCircles}, red=${levelConfig.redCircles}, active=${levelConfig.circleActiveTime}ms`)
-                            console.log(`Description: ${levelConfig.description}`)
-                        }
-
-                        // Update stats with current precision state
-                        setStats(prevStats => ({
-                            ...prevStats,
-                            currentIntensityLevel: updated.intensityLevel,
-                            survivalTime: updated.survivalTime
-                        }))
-
-                        return updated
-                    })
-                }, PRECISION_MODE_UPDATE_INTERVAL)
-            }
-
-            setTimeout(() => {
-                console.log('Starting circle activations')
-                activateRandomCircles()
-            }, 500)
-
-        }, 1500)
-    }, [config.circleCount, clearAllTimeouts, activateRandomCircles, isPrecisionMode, config])
+    }, [config, clearAllTimeouts, activateRandomCircles, isPrecisionMode])
 
     useEffect(() => {
         startGame()
