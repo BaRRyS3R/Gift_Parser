@@ -449,7 +449,7 @@ export const getGridDimensions = (circleCount: number) => {
     case 40:
       return { cols: 8, rows: 5 }; // Старая конфигурация для 40 кружков
     case 48: // Новая конфигурация для Precision Mode
-      return { cols: 5, rows: 8 }; // Изменено на 5x8
+      return { cols: 6, rows: 8 }; // Изменено на 5x8
     case 50:
       return { cols: 5, rows: 10 };
     case 60:

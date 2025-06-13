@@ -165,8 +165,8 @@ export default function GameGrid({
     // Специальные настройки для сетки 6x8 (48 кружков)
     if (circles.length === 48) {
       return {
-        maxWidth: '95vw',
-        maxHeight: '65vh', // Увеличена высота для вертикальной сетки 6x8
+        maxWidth: '110vw',
+        maxHeight: '80vh', // Увеличена высота для вертикальной сетки 6x8
       };
     }
 
