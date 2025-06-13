@@ -110,6 +110,16 @@ export interface PrecisionModeState {
   isActive: boolean;
 }
 
+export interface PrecisionLevelConfig {
+  level: number;
+  simultaneousCircles: number;
+  redCircles: number; // absolute number of red circles to spawn
+  activationTimeMin: number; // milliseconds
+  activationTimeMax: number; // milliseconds
+  circleActiveTime: number; // milliseconds
+  description: string;
+}
+
 export interface IntensityLevel {
   level: number;
   speedMultiplier: number;

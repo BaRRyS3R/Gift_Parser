@@ -1,6 +1,6 @@
 // src/utils/gameUtils.ts - Enhanced version with Redesigned Difficulty System
 
-import { GameConfig, GameDifficulty, Circle, AdaptiveState, ClickTiming, PrecisionModeState, IntensityLevel } from "@/types/game";
+import { GameConfig, GameDifficulty, Circle, AdaptiveState, ClickTiming, PrecisionModeState, IntensityLevel, PrecisionLevelConfig } from "@/types/game";
 
 export { GameDifficulty };
 
@@ -84,23 +84,158 @@ export const GAME_CONFIGS: Record<GameDifficulty, GameConfig> = {
   },
 } as const;
 
-// Enhanced Precision Mode intensity levels - much more aggressive scaling
-export const PRECISION_INTENSITY_LEVELS: IntensityLevel[] = [
-  { level: 1, speedMultiplier: 1.0, simultaneousMultiplier: 1.0, activeTimeMultiplier: 1.0, decoyProbabilityMultiplier: 1.0, description: "WARMING UP" },
-  { level: 2, speedMultiplier: 0.8, simultaneousMultiplier: 2.0, activeTimeMultiplier: 0.8, decoyProbabilityMultiplier: 3.0, description: "GETTING SERIOUS" },
-  { level: 3, speedMultiplier: 0.6, simultaneousMultiplier: 3.0, activeTimeMultiplier: 0.6, decoyProbabilityMultiplier: 5.0, description: "HEATING UP" },
-  { level: 4, speedMultiplier: 0.45, simultaneousMultiplier: 4.0, activeTimeMultiplier: 0.45, decoyProbabilityMultiplier: 7.0, description: "INTENSE" },
-  { level: 5, speedMultiplier: 0.35, simultaneousMultiplier: 5.0, activeTimeMultiplier: 0.35, decoyProbabilityMultiplier: 9.0, description: "DANGEROUS" },
-  { level: 6, speedMultiplier: 0.25, simultaneousMultiplier: 6.0, activeTimeMultiplier: 0.25, decoyProbabilityMultiplier: 11.0, description: "EXTREME" },
-  { level: 7, speedMultiplier: 0.20, simultaneousMultiplier: 7.0, activeTimeMultiplier: 0.20, decoyProbabilityMultiplier: 13.0, description: "INSANE" },
-  { level: 8, speedMultiplier: 0.15, simultaneousMultiplier: 8.0, activeTimeMultiplier: 0.15, decoyProbabilityMultiplier: 15.0, description: "MADNESS" },
-  { level: 9, speedMultiplier: 0.12, simultaneousMultiplier: 9.0, activeTimeMultiplier: 0.12, decoyProbabilityMultiplier: 17.0, description: "CHAOS" },
-  { level: 10, speedMultiplier: 0.10, simultaneousMultiplier: 10.0, activeTimeMultiplier: 0.10, decoyProbabilityMultiplier: 20.0, description: "NIGHTMARE" },
-  { level: 11, speedMultiplier: 0.08, simultaneousMultiplier: 12.0, activeTimeMultiplier: 0.08, decoyProbabilityMultiplier: 25.0, description: "HELL" },
-  { level: 12, speedMultiplier: 0.06, simultaneousMultiplier: 15.0, activeTimeMultiplier: 0.06, decoyProbabilityMultiplier: 30.0, description: "BEYOND LIMITS" },
-  { level: 13, speedMultiplier: 0.05, simultaneousMultiplier: 18.0, activeTimeMultiplier: 0.05, decoyProbabilityMultiplier: 35.0, description: "GODLIKE" },
-  { level: 14, speedMultiplier: 0.04, simultaneousMultiplier: 20.0, activeTimeMultiplier: 0.04, decoyProbabilityMultiplier: 40.0, description: "TRANSCENDENT" },
-  { level: 15, speedMultiplier: 0.03, simultaneousMultiplier: 25.0, activeTimeMultiplier: 0.03, decoyProbabilityMultiplier: 50.0, description: "UNIVERSE BREAKING" },
+// Precision Mode level configurations
+export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
+  // Level 1 - Warm up
+  {
+    level: 1,
+    simultaneousCircles: 1,
+    redCircles: 0,
+    activationTimeMin: 1000,
+    activationTimeMax: 1800,
+    circleActiveTime: 2000,
+    description: "WARMING UP"
+  },
+  // Level 2 - Introduction
+  {
+    level: 2,
+    simultaneousCircles: 2,
+    redCircles: 0,
+    activationTimeMin: 900,
+    activationTimeMax: 1600,
+    circleActiveTime: 1800,
+    description: "GETTING STARTED"
+  },
+  // Level 3 - First red circles
+  {
+    level: 3,
+    simultaneousCircles: 2,
+    redCircles: 1,
+    activationTimeMin: 800,
+    activationTimeMax: 1400,
+    circleActiveTime: 1600,
+    description: "AVOID THE RED"
+  },
+  // Level 4 - More simultaneous
+  {
+    level: 4,
+    simultaneousCircles: 3,
+    redCircles: 1,
+    activationTimeMin: 700,
+    activationTimeMax: 1200,
+    circleActiveTime: 1500,
+    description: "MULTI-TASKING"
+  },
+  // Level 5 - Faster pace
+  {
+    level: 5,
+    simultaneousCircles: 3,
+    redCircles: 1,
+    activationTimeMin: 600,
+    activationTimeMax: 1000,
+    circleActiveTime: 1400,
+    description: "PICKING UP PACE"
+  },
+  // Level 6 - More red circles
+  {
+    level: 6,
+    simultaneousCircles: 4,
+    redCircles: 2,
+    activationTimeMin: 500,
+    activationTimeMax: 900,
+    circleActiveTime: 1300,
+    description: "DANGER ZONE"
+  },
+  // Level 7 - Intense
+  {
+    level: 7,
+    simultaneousCircles: 4,
+    redCircles: 2,
+    activationTimeMin: 400,
+    activationTimeMax: 800,
+    circleActiveTime: 1200,
+    description: "INTENSITY RISING"
+  },
+  // Level 8 - Very challenging
+  {
+    level: 8,
+    simultaneousCircles: 5,
+    redCircles: 2,
+    activationTimeMin: 350,
+    activationTimeMax: 700,
+    circleActiveTime: 1100,
+    description: "EXTREME FOCUS"
+  },
+  // Level 9 - Expert level
+  {
+    level: 9,
+    simultaneousCircles: 5,
+    redCircles: 3,
+    activationTimeMin: 300,
+    activationTimeMax: 600,
+    circleActiveTime: 1000,
+    description: "EXPERT LEVEL"
+  },
+  // Level 10 - Master level
+  {
+    level: 10,
+    simultaneousCircles: 6,
+    redCircles: 3,
+    activationTimeMin: 250,
+    activationTimeMax: 500,
+    circleActiveTime: 900,
+    description: "MASTER PRECISION"
+  },
+  // Level 11 - Insane
+  {
+    level: 11,
+    simultaneousCircles: 6,
+    redCircles: 4,
+    activationTimeMin: 200,
+    activationTimeMax: 450,
+    circleActiveTime: 800,
+    description: "INSANE MODE"
+  },
+  // Level 12 - Nightmare
+  {
+    level: 12,
+    simultaneousCircles: 7,
+    redCircles: 4,
+    activationTimeMin: 180,
+    activationTimeMax: 400,
+    circleActiveTime: 700,
+    description: "NIGHTMARE FUEL"
+  },
+  // Level 13 - Impossible
+  {
+    level: 13,
+    simultaneousCircles: 7,
+    redCircles: 5,
+    activationTimeMin: 160,
+    activationTimeMax: 350,
+    circleActiveTime: 600,
+    description: "IMPOSSIBLE ODDS"
+  },
+  // Level 14 - Godlike
+  {
+    level: 14,
+    simultaneousCircles: 8,
+    redCircles: 5,
+    activationTimeMin: 140,
+    activationTimeMax: 300,
+    circleActiveTime: 500,
+    description: "GODLIKE REFLEXES"
+  },
+  // Level 15 - Transcendent
+  {
+    level: 15,
+    simultaneousCircles: 8,
+    redCircles: 6,
+    activationTimeMin: 120,
+    activationTimeMax: 250,
+    circleActiveTime: 400,
+    description: "TRANSCENDENT"
+  }
 ];
 
 // Precision Mode utility functions
@@ -142,9 +277,37 @@ export const updatePrecisionModeState = (
   };
 };
 
-export const getPrecisionModeIntensity = (level: number): IntensityLevel => {
-  const clampedLevel = Math.max(1, Math.min(level, PRECISION_INTENSITY_LEVELS.length));
-  return PRECISION_INTENSITY_LEVELS[clampedLevel - 1];
+export const getPrecisionLevelConfig = (level: number): PrecisionLevelConfig => {
+  const clampedLevel = Math.max(1, Math.min(level, PRECISION_LEVELS.length));
+  return PRECISION_LEVELS[clampedLevel - 1];
+};
+
+// Simple functions that get values directly from level config
+export const getPrecisionSimultaneousCircles = (level: number): number => {
+  const levelConfig = getPrecisionLevelConfig(level);
+  return levelConfig.simultaneousCircles;
+};
+
+export const getPrecisionRedCircles = (level: number): number => {
+  const levelConfig = getPrecisionLevelConfig(level);
+  return levelConfig.redCircles;
+};
+
+export const getPrecisionActivationDelay = (level: number): number => {
+  const levelConfig = getPrecisionLevelConfig(level);
+  const min = levelConfig.activationTimeMin;
+  const max = levelConfig.activationTimeMax;
+  return Math.random() * (max - min) + min;
+};
+
+export const getPrecisionCircleActiveTime = (level: number): number => {
+  const levelConfig = getPrecisionLevelConfig(level);
+  return levelConfig.circleActiveTime;
+};
+
+export const getPrecisionDescription = (level: number): string => {
+  const levelConfig = getPrecisionLevelConfig(level);
+  return levelConfig.description;
 };
 
 export const calculatePrecisionModeScore = (
@@ -187,8 +350,8 @@ export const getRandomActivationDelay = (
   let baseDelay = Math.random() * (config.maxActivationTime - config.minActivationTime) + config.minActivationTime;
 
   if (config.isPrecisionMode && precisionState) {
-    const intensity = getPrecisionModeIntensity(precisionState.intensityLevel);
-    baseDelay = baseDelay * intensity.speedMultiplier;
+    // Use simple level-based delay for precision mode
+    baseDelay = getPrecisionActivationDelay(precisionState.intensityLevel);
   } else if (adaptiveState && config.adaptiveScaling) {
     baseDelay = baseDelay * adaptiveState.activationSpeedMultiplier;
   }
@@ -203,8 +366,8 @@ export const getAdjustedCircleActiveTime = (
   config?: GameConfig
 ): number => {
   if (config?.isPrecisionMode && precisionState) {
-    const intensity = getPrecisionModeIntensity(precisionState.intensityLevel);
-    return Math.max(100, baseTime * intensity.activeTimeMultiplier); // Reduced minimum from 200 to 100
+    // Use simple level-based active time for precision mode
+    return getPrecisionCircleActiveTime(precisionState.intensityLevel);
   }
 
   if (adaptiveState) {
@@ -220,8 +383,8 @@ export const getAdjustedSimultaneousCircles = (
   config?: GameConfig
 ): number => {
   if (config?.isPrecisionMode && precisionState) {
-    const intensity = getPrecisionModeIntensity(precisionState.intensityLevel);
-    return Math.ceil(baseCount * intensity.simultaneousMultiplier);
+    // Use simple level-based simultaneous circles for precision mode
+    return getPrecisionSimultaneousCircles(precisionState.intensityLevel);
   }
 
   return baseCount;
@@ -232,11 +395,8 @@ export const getAdjustedDecoyProbability = (
   precisionState?: PrecisionModeState | null,
   config?: GameConfig
 ): number => {
-  if (config?.isPrecisionMode && precisionState) {
-    const intensity = getPrecisionModeIntensity(precisionState.intensityLevel);
-    return Math.min(0.95, baseProbability * intensity.decoyProbabilityMultiplier); // Increased max from 0.8 to 0.95
-  }
-
+  // For precision mode, we'll handle red circles differently
+  // This function is not used in the new precision mode logic
   return baseProbability;
 };
 
