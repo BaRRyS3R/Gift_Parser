@@ -1,4 +1,4 @@
-// src/components/DifficultySelector.tsx - New expandable design with fixed header and footer
+// src/components/DifficultySelector.tsx - Fixed design with unified color scheme
 
 "use client";
 
@@ -145,55 +145,6 @@ export default function DifficultySelector({
     );
   };
 
-  const getColorScheme = (diff: GameDifficulty) => {
-    if (isPrecisionMode(diff)) {
-      return {
-        accent: 'text-red-400',
-        border: 'border-red-400/60',
-        bg: 'bg-red-500/15',
-        hover: 'hover:bg-red-500/10 hover:border-red-400/50'
-      };
-    }
-
-    switch (diff) {
-      case GameDifficulty.LEGENDARY: // BEGINNER
-        return {
-          accent: 'text-green-400',
-          border: 'border-green-400/60',
-          bg: 'bg-green-500/15',
-          hover: 'hover:bg-green-500/10 hover:border-green-400/50'
-        };
-      case GameDifficulty.OMG: // INTERMEDIATE
-        return {
-          accent: 'text-orange-400',
-          border: 'border-orange-400/60',
-          bg: 'bg-orange-500/15',
-          hover: 'hover:bg-orange-500/10 hover:border-orange-400/50'
-        };
-      case GameDifficulty.NIGHTMARE: // ADVANCED
-        return {
-          accent: 'text-purple-400',
-          border: 'border-purple-400/60',
-          bg: 'bg-purple-500/15',
-          hover: 'hover:bg-purple-500/10 hover:border-purple-400/50'
-        };
-      case GameDifficulty.IMPOSSIBLE: // EXPERT
-        return {
-          accent: 'text-yellow-400',
-          border: 'border-yellow-400/60',
-          bg: 'bg-yellow-500/15',
-          hover: 'hover:bg-yellow-500/10 hover:border-yellow-400/50'
-        };
-      default:
-        return {
-          accent: 'text-white',
-          border: 'border-white/60',
-          bg: 'bg-white/15',
-          hover: 'hover:bg-white/10'
-        };
-    }
-  };
-
   const toggleExpanded = (difficulty: GameDifficulty) => {
     setExpandedMode(expandedMode === difficulty ? null : difficulty);
   };
@@ -208,7 +159,6 @@ export default function DifficultySelector({
     const isExpanded = expandedMode === difficulty;
     const Icon = getDifficultyIcon(difficulty);
     const level = getDifficultyLevel(difficulty);
-    const colors = getColorScheme(difficulty);
     const isPrecision = isPrecisionMode(difficulty);
 
     return (
@@ -217,7 +167,14 @@ export default function DifficultySelector({
         className={`
           backdrop-blur-sm overflow-hidden border-2 rounded-2xl font-bpdots 
           transition-all duration-500
-          ${isSelected ? colors.bg + ' ' + colors.border : 'bg-white/5 border-white/20'}
+          ${isPrecision
+            ? (isSelected
+              ? 'bg-red-500/15 border-red-400/60'
+              : 'bg-red-500/5 border-red-400/30')
+            : (isSelected
+              ? 'bg-white/15 border-white/60'
+              : 'bg-white/5 border-white/20')
+          }
           ${isExpanded ? 'shadow-lg shadow-black/20' : ''}
         `}
       >
@@ -226,23 +183,32 @@ export default function DifficultySelector({
           onClick={() => toggleExpanded(difficulty)}
           className={`
             w-full p-4 text-left transition-all duration-300
-            ${isExpanded ? colors.hover : 'hover:bg-white/5'}
+            ${isPrecision
+              ? 'hover:bg-red-500/10'
+              : 'hover:bg-white/5'
+            }
           `}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className={`
                 w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300
-                ${isSelected ? 'bg-white/20 scale-110' : 'bg-white/10'}
+                ${isSelected
+                  ? (isPrecision ? 'bg-red-400/30 scale-110' : 'bg-white/20 scale-110')
+                  : (isPrecision ? 'bg-red-400/20' : 'bg-white/10')
+                }
               `}>
-                <Icon size={20} className={`${colors.accent} transition-colors duration-300`} />
+                <Icon size={20} className={`transition-colors duration-300 ${isPrecision ? 'text-red-400' : 'text-white'
+                  }`} />
               </div>
 
               <div>
-                <h3 className={`text-lg font-bold tracking-wide ${isSelected ? 'text-white' : 'text-white/90'}`}>
+                <h3 className={`text-lg font-bold tracking-wide transition-colors duration-300 ${isSelected ? 'text-white' : 'text-white/90'
+                  }`}>
                   {getDifficultyDisplayName(difficulty)}
                 </h3>
-                <p className="text-white/60 text-sm">
+                <p className={`text-sm ${isPrecision ? 'text-red-300/80' : 'text-white/60'
+                  }`}>
                   {getDifficultyDescription(difficulty)}
                 </p>
               </div>
@@ -251,14 +217,15 @@ export default function DifficultySelector({
             <div className="flex items-center space-x-3">
               {/* Difficulty Level Indicator */}
               <div className="text-right">
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">
+                <div className={`text-xs uppercase tracking-wider mb-1 ${isPrecision ? 'text-red-400/60' : 'text-white/40'
+                  }`}>
                   {isPrecision ? 'Danger' : 'Level'}
                 </div>
                 {renderDifficultyBar(level, isPrecision)}
               </div>
 
               {/* Expand/Collapse Icon */}
-              <div className="text-white/60">
+              <div className={isPrecision ? 'text-red-400/60' : 'text-white/60'}>
                 {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               </div>
             </div>
@@ -272,8 +239,12 @@ export default function DifficultySelector({
             className={`
               w-full py-2 px-4 rounded-lg font-bpdots text-sm font-bold transition-all duration-300
               ${isSelected
-                ? colors.bg + ' ' + colors.accent + ' border ' + colors.border.replace('/60', '/40')
-                : 'bg-white/10 text-white/80 hover:bg-white/15 border border-white/20'
+                ? (isPrecision
+                  ? 'bg-red-500/20 text-red-300 border border-red-400/40'
+                  : 'bg-white/20 text-white border border-white/40')
+                : (isPrecision
+                  ? 'bg-red-500/10 text-red-400/80 hover:bg-red-500/15 border border-red-400/20'
+                  : 'bg-white/10 text-white/80 hover:bg-white/15 border border-white/20')
               }
             `}
           >
@@ -286,7 +257,8 @@ export default function DifficultySelector({
           transition-all duration-500 ease-in-out overflow-hidden
           ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
         `}>
-          <div className="px-4 pb-4 border-t border-white/10">
+          <div className={`px-4 pb-4 border-t ${isPrecision ? 'border-red-400/20' : 'border-white/10'
+            }`}>
             {isPrecision ? (
               /* Precision Mode Details */
               <div className="space-y-4 pt-4">
@@ -356,15 +328,15 @@ export default function DifficultySelector({
                 {/* Stats Grid */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center">
-                    <div className={`text-lg font-bold ${colors.accent}`}>{getGridDescription(difficulty)}</div>
+                    <div className="text-lg font-bold text-white">{getGridDescription(difficulty)}</div>
                     <div className="text-xs text-white/50 uppercase tracking-wider">Grid</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-lg font-bold ${colors.accent}`}>{config.maxSimultaneousCircles}</div>
+                    <div className="text-lg font-bold text-white">{config.maxSimultaneousCircles}</div>
                     <div className="text-xs text-white/50 uppercase tracking-wider">Max Active</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-lg font-bold ${colors.accent}`}>{config.circleActiveTime}ms</div>
+                    <div className="text-lg font-bold text-white">{config.circleActiveTime}ms</div>
                     <div className="text-xs text-white/50 uppercase tracking-wider">Duration</div>
                   </div>
                 </div>
@@ -424,8 +396,8 @@ export default function DifficultySelector({
         </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 pt-32 pb-24 px-6">
+      {/* Scrollable Content with proper padding */}
+      <div className="flex-1 pt-32 pb-32 px-6 overflow-y-auto">
         <div className="space-y-4 animate-fade-in">
           {difficulties.map((difficulty) => renderModeCard(difficulty))}
         </div>
