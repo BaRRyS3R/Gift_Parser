@@ -1,7 +1,8 @@
-// src/components/DifficultySelector.tsx - Updated for new 4-tier difficulty system
+// src/components/DifficultySelector.tsx - New expandable design with fixed header and footer
 
 "use client";
 
+import { useState } from "react";
 import { GameDifficulty } from "../types/game";
 import { GAME_CONFIGS } from "../utils/gameUtils";
 import {
@@ -13,18 +14,25 @@ import {
   Crosshair,
   Clock,
   AlertTriangle,
-  Zap
+  Zap,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 interface DifficultySelectorProps {
   onSelectDifficulty: (difficulty: GameDifficulty) => void;
   selectedDifficulty: GameDifficulty | null;
+  onPlay: () => void;
+  onBack: () => void;
 }
 
 export default function DifficultySelector({
   onSelectDifficulty,
   selectedDifficulty,
+  onPlay,
+  onBack,
 }: DifficultySelectorProps) {
+  const [expandedMode, setExpandedMode] = useState<GameDifficulty | null>(null);
   const difficulties = Object.values(GameDifficulty);
 
   const getDifficultyIcon = (difficulty: GameDifficulty) => {
@@ -137,331 +145,319 @@ export default function DifficultySelector({
     );
   };
 
-  const renderPrecisionModeCard = (difficulty: GameDifficulty) => {
-    const config = GAME_CONFIGS[difficulty];
-    const isSelected = selectedDifficulty === difficulty;
-    const Icon = getDifficultyIcon(difficulty);
-    const level = getDifficultyLevel(difficulty);
+  const getColorScheme = (diff: GameDifficulty) => {
+    if (isPrecisionMode(diff)) {
+      return {
+        accent: 'text-red-400',
+        border: 'border-red-400/60',
+        bg: 'bg-red-500/15',
+        hover: 'hover:bg-red-500/10 hover:border-red-400/50'
+      };
+    }
 
-    return (
-      <button
-        key={difficulty}
-        className={`
-          group relative w-full p-6 rounded-2xl font-bpdots 
-          transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]
-          backdrop-blur-sm overflow-hidden border-2
-          ${isSelected
-            ? 'bg-red-500/15 border-red-400/60 shadow-lg shadow-red-500/20'
-            : 'bg-red-500/5 border-red-400/30 hover:bg-red-500/10 hover:border-red-400/50'
-          }
-        `}
-        onClick={() => onSelectDifficulty(difficulty)}
-      >
-        {/* Animated Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-32 h-32 border border-red-400/30 rounded-full transform translate-x-16 -translate-y-16 animate-pulse"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 border border-red-400/20 rounded-full transform -translate-x-12 translate-y-12 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
-        </div>
-
-        {/* Danger Warning Banner */}
-        <div className="absolute top-0 left-0 right-0 bg-red-500/20 border-b border-red-400/30 px-4 py-2">
-          <div className="text-xs font-bold text-red-200 text-center tracking-wider">
-            ⚠️ EXTREME PRECISION REQUIRED ⚠️
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="relative z-10 space-y-4 mt-8">
-          {/* Header Row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className={`
-                w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
-                ${isSelected
-                  ? 'bg-red-400/30 shadow-lg shadow-red-400/50 scale-110'
-                  : 'bg-red-400/20 group-hover:bg-red-400/25'
-                }
-              `}>
-                <Icon size={24} className="text-red-200" />
-              </div>
-
-              <div className="text-left">
-                <h3 className={`text-xl font-bold tracking-wide transition-all duration-300 ${isSelected ? 'text-red-200 scale-105' : 'text-red-300'
-                  }`}>
-                  {getDifficultyDisplayName(difficulty)}
-                </h3>
-                <p className="text-red-300/80 text-sm">
-                  {getDifficultyDescription(difficulty)}
-                </p>
-                <p className="text-red-400/60 text-xs mt-1 italic">
-                  {getDifficultySpecialNote(difficulty)}
-                </p>
-              </div>
-            </div>
-
-            {/* Difficulty Level Indicator */}
-            <div className="text-right space-y-2">
-              <div className="text-xs text-red-300/60 uppercase tracking-wider">
-                Danger
-              </div>
-              {renderDifficultyBar(level, true)}
-            </div>
-          </div>
-
-          {/* Updated Precision Mode Stats */}
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-red-400/20">
-            <div className="text-center">
-              <div className="text-lg font-bold text-red-200">{getGridDescription(difficulty)}</div>
-              <div className="text-xs text-red-300/60 uppercase tracking-wider">Grid Size</div>
-            </div>
-
-            <div className="text-center">
-              <div className="text-lg font-bold text-red-200">15</div>
-              <div className="text-xs text-red-300/60 uppercase tracking-wider">Levels</div>
-            </div>
-
-            <div className="text-center">
-              <div className="text-lg font-bold text-red-200">1</div>
-              <div className="text-xs text-red-300/60 uppercase tracking-wider">Life</div>
-            </div>
-          </div>
-
-          {/* Progression Preview */}
-          <div className="bg-red-500/10 border border-red-400/20 rounded-lg p-3">
-            <div className="text-xs font-bpdots text-red-300/80 uppercase tracking-wider mb-2 text-center">
-              Progression Preview
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="text-center">
-                <div className="text-red-200 font-bold">L1-5</div>
-                <div className="text-red-400/60">1-6 Circles</div>
-              </div>
-              <div className="text-center">
-                <div className="text-red-200 font-bold">L6-10</div>
-                <div className="text-red-400/60">8-18 Circles</div>
-              </div>
-              <div className="text-center">
-                <div className="text-red-200 font-bold">L11-15</div>
-                <div className="text-red-400/60">22-40 Circles</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Special Features */}
-          <div className="flex flex-wrap gap-2 pt-2">
-            <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              <Clock size={10} className="inline mr-1" />
-              8S INTERVALS
-            </span>
-            <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              <AlertTriangle size={10} className="inline mr-1" />
-              NO MERCY
-            </span>
-            <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              <Target size={10} className="inline mr-1" />
-              PURE SKILL
-            </span>
-          </div>
-        </div>
-
-        {/* Selection Indicator */}
-        {
-          isSelected && (
-            <>
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-red-400/10 via-red-400/5 to-red-400/10 pointer-events-none"></div>
-              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-12 bg-red-400 rounded-r-full"></div>
-            </>
-          )
-        }
-
-        {/* Pulsing Border Effect */}
-        <div className="absolute inset-0 rounded-2xl border border-red-400/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
-      </button >
-    );
+    switch (diff) {
+      case GameDifficulty.LEGENDARY: // BEGINNER
+        return {
+          accent: 'text-green-400',
+          border: 'border-green-400/60',
+          bg: 'bg-green-500/15',
+          hover: 'hover:bg-green-500/10 hover:border-green-400/50'
+        };
+      case GameDifficulty.OMG: // INTERMEDIATE
+        return {
+          accent: 'text-orange-400',
+          border: 'border-orange-400/60',
+          bg: 'bg-orange-500/15',
+          hover: 'hover:bg-orange-500/10 hover:border-orange-400/50'
+        };
+      case GameDifficulty.NIGHTMARE: // ADVANCED
+        return {
+          accent: 'text-purple-400',
+          border: 'border-purple-400/60',
+          bg: 'bg-purple-500/15',
+          hover: 'hover:bg-purple-500/10 hover:border-purple-400/50'
+        };
+      case GameDifficulty.IMPOSSIBLE: // EXPERT
+        return {
+          accent: 'text-yellow-400',
+          border: 'border-yellow-400/60',
+          bg: 'bg-yellow-500/15',
+          hover: 'hover:bg-yellow-500/10 hover:border-yellow-400/50'
+        };
+      default:
+        return {
+          accent: 'text-white',
+          border: 'border-white/60',
+          bg: 'bg-white/15',
+          hover: 'hover:bg-white/10'
+        };
+    }
   };
 
-  const renderStandardModeCard = (difficulty: GameDifficulty, index: number) => {
+  const toggleExpanded = (difficulty: GameDifficulty) => {
+    setExpandedMode(expandedMode === difficulty ? null : difficulty);
+  };
+
+  const selectDifficulty = (difficulty: GameDifficulty) => {
+    onSelectDifficulty(difficulty);
+  };
+
+  const renderModeCard = (difficulty: GameDifficulty) => {
     const config = GAME_CONFIGS[difficulty];
     const isSelected = selectedDifficulty === difficulty;
+    const isExpanded = expandedMode === difficulty;
     const Icon = getDifficultyIcon(difficulty);
     const level = getDifficultyLevel(difficulty);
-
-    // Color scheme based on difficulty
-    const getColorScheme = (diff: GameDifficulty) => {
-      switch (diff) {
-        case GameDifficulty.LEGENDARY: // BEGINNER
-          return {
-            accent: 'text-green-400',
-            border: isSelected ? 'border-green-400/60' : 'border-green-400/30',
-            bg: isSelected ? 'bg-green-500/15' : 'bg-green-500/5',
-            hover: 'hover:bg-green-500/10 hover:border-green-400/50'
-          };
-        case GameDifficulty.OMG: // INTERMEDIATE
-          return {
-            accent: 'text-orange-400',
-            border: isSelected ? 'border-orange-400/60' : 'border-orange-400/30',
-            bg: isSelected ? 'bg-orange-500/15' : 'bg-orange-500/5',
-            hover: 'hover:bg-orange-500/10 hover:border-orange-400/50'
-          };
-        case GameDifficulty.NIGHTMARE: // ADVANCED
-          return {
-            accent: 'text-purple-400',
-            border: isSelected ? 'border-purple-400/60' : 'border-purple-400/30',
-            bg: isSelected ? 'bg-purple-500/15' : 'bg-purple-500/5',
-            hover: 'hover:bg-purple-500/10 hover:border-purple-400/50'
-          };
-        case GameDifficulty.IMPOSSIBLE: // EXPERT
-          return {
-            accent: 'text-yellow-400',
-            border: isSelected ? 'border-yellow-400/60' : 'border-yellow-400/30',
-            bg: isSelected ? 'bg-yellow-500/15' : 'bg-yellow-500/5',
-            hover: 'hover:bg-yellow-500/10 hover:border-yellow-400/50'
-          };
-        default:
-          return {
-            accent: 'text-white',
-            border: isSelected ? 'border-white/60' : 'border-white/20',
-            bg: isSelected ? 'bg-white/15' : 'bg-white/5',
-            hover: 'hover:bg-white/10'
-          };
-      }
-    };
-
     const colors = getColorScheme(difficulty);
+    const isPrecision = isPrecisionMode(difficulty);
 
     return (
-      <button
+      <div
         key={difficulty}
         className={`
-          group relative w-full p-6 rounded-2xl font-bpdots 
-          transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]
-          backdrop-blur-sm overflow-hidden border-2
-          ${colors.bg} ${colors.border} ${colors.hover}
+          backdrop-blur-sm overflow-hidden border-2 rounded-2xl font-bpdots 
+          transition-all duration-500
+          ${isSelected ? colors.bg + ' ' + colors.border : 'bg-white/5 border-white/20'}
+          ${isExpanded ? 'shadow-lg shadow-black/20' : ''}
         `}
-        onClick={() => onSelectDifficulty(difficulty)}
-        style={{
-          animationDelay: `${index * 100}ms`
-        }}
       >
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-32 h-32 border border-white/20 rounded-full transform translate-x-16 -translate-y-16"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 border border-white/10 rounded-full transform -translate-x-12 translate-y-12"></div>
-        </div>
-
-        {/* Main Content */}
-        <div className="relative z-10 space-y-4">
-          {/* Header Row */}
+        {/* Header - Always Visible */}
+        <button
+          onClick={() => toggleExpanded(difficulty)}
+          className={`
+            w-full p-4 text-left transition-all duration-300
+            ${isExpanded ? colors.hover : 'hover:bg-white/5'}
+          `}
+        >
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <div className={`
-                w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
-                ${isSelected ? `bg-white/20 shadow-lg scale-110` : 'bg-white/10 group-hover:bg-white/15'}
+                w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300
+                ${isSelected ? 'bg-white/20 scale-110' : 'bg-white/10'}
               `}>
-                <Icon size={24} className={`${colors.accent} transition-colors duration-300`} />
+                <Icon size={20} className={`${colors.accent} transition-colors duration-300`} />
               </div>
 
-              <div className="text-left">
-                <h3 className={`text-xl font-bold tracking-wide transition-all duration-300 ${isSelected ? 'text-white scale-105' : 'text-white'
-                  }`}>
+              <div>
+                <h3 className={`text-lg font-bold tracking-wide ${isSelected ? 'text-white' : 'text-white/90'}`}>
                   {getDifficultyDisplayName(difficulty)}
                 </h3>
                 <p className="text-white/60 text-sm">
                   {getDifficultyDescription(difficulty)}
                 </p>
-                {getDifficultySpecialNote(difficulty) && (
-                  <p className="text-white/40 text-xs mt-1 italic">
-                    {getDifficultySpecialNote(difficulty)}
-                  </p>
-                )}
               </div>
             </div>
 
-            {/* Difficulty Level Indicator */}
-            <div className="text-right space-y-2">
-              <div className="text-xs text-white/40 uppercase tracking-wider">
-                Level
+            <div className="flex items-center space-x-3">
+              {/* Difficulty Level Indicator */}
+              <div className="text-right">
+                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">
+                  {isPrecision ? 'Danger' : 'Level'}
+                </div>
+                {renderDifficultyBar(level, isPrecision)}
               </div>
-              {renderDifficultyBar(level)}
+
+              {/* Expand/Collapse Icon */}
+              <div className="text-white/60">
+                {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </div>
             </div>
           </div>
+        </button>
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
-            <div className="text-center">
-              <div className={`text-lg font-bold ${colors.accent}`}>{getGridDescription(difficulty)}</div>
-              <div className="text-xs text-white/50 uppercase tracking-wider">Grid</div>
-            </div>
-
-            <div className="text-center">
-              <div className={`text-lg font-bold ${colors.accent}`}>{config.maxSimultaneousCircles}</div>
-              <div className="text-xs text-white/50 uppercase tracking-wider">Max Active</div>
-            </div>
-
-            <div className="text-center">
-              <div className={`text-lg font-bold ${colors.accent}`}>{config.circleActiveTime}ms</div>
-              <div className="text-xs text-white/50 uppercase tracking-wider">Duration</div>
-            </div>
-          </div>
-
-          {/* Special Features */}
-          {(config.decoyProbability > 0 || config.adaptiveScaling) && (
-            <div className="flex flex-wrap gap-2 pt-2">
-              {config.decoyProbability > 0 && (
-                <span className="px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
-                  Decoy: {Math.round(config.decoyProbability * 100)}%
-                </span>
-              )}
-              {config.adaptiveScaling && (
-                <span className="px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
-                  <Zap size={10} className="inline mr-1" />
-                  Adaptive
-                </span>
-              )}
-            </div>
-          )}
+        {/* Selection Button */}
+        <div className="px-4 pb-2">
+          <button
+            onClick={() => selectDifficulty(difficulty)}
+            className={`
+              w-full py-2 px-4 rounded-lg font-bpdots text-sm font-bold transition-all duration-300
+              ${isSelected
+                ? colors.bg + ' ' + colors.accent + ' border ' + colors.border.replace('/60', '/40')
+                : 'bg-white/10 text-white/80 hover:bg-white/15 border border-white/20'
+              }
+            `}
+          >
+            {isSelected ? '✓ SELECTED' : 'SELECT'}
+          </button>
         </div>
 
-        {/* Selection Indicator */}
-        {isSelected && (
-          <>
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-white/10 via-white/5 to-white/10 pointer-events-none"></div>
-            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-12 bg-white rounded-r-full"></div>
-          </>
-        )}
+        {/* Expanded Content */}
+        <div className={`
+          transition-all duration-500 ease-in-out overflow-hidden
+          ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
+        `}>
+          <div className="px-4 pb-4 border-t border-white/10">
+            {isPrecision ? (
+              /* Precision Mode Details */
+              <div className="space-y-4 pt-4">
+                {/* Danger Warning Banner */}
+                <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-3">
+                  <div className="text-xs font-bold text-red-200 text-center tracking-wider mb-2">
+                    ⚠️ EXTREME PRECISION REQUIRED ⚠️
+                  </div>
+                </div>
 
-        {/* Hover Effect Lines */}
-        <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <div className="absolute left-0 top-0 w-px h-full bg-gradient-to-b from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <div className="absolute right-0 top-0 w-px h-full bg-gradient-to-b from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-      </button>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-red-200">{getGridDescription(difficulty)}</div>
+                    <div className="text-xs text-red-300/60 uppercase tracking-wider">Grid Size</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-red-200">15</div>
+                    <div className="text-xs text-red-300/60 uppercase tracking-wider">Levels</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-red-200">1</div>
+                    <div className="text-xs text-red-300/60 uppercase tracking-wider">Life</div>
+                  </div>
+                </div>
+
+                {/* Progression Preview */}
+                <div className="bg-red-500/10 border border-red-400/20 rounded-lg p-3">
+                  <div className="text-xs font-bpdots text-red-300/80 uppercase tracking-wider mb-2 text-center">
+                    Progression Preview
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="text-center">
+                      <div className="text-red-200 font-bold">L1-5</div>
+                      <div className="text-red-400/60">1-6 Circles</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-red-200 font-bold">L6-10</div>
+                      <div className="text-red-400/60">8-18 Circles</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-red-200 font-bold">L11-15</div>
+                      <div className="text-red-400/60">22-40 Circles</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Special Features */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
+                    <Clock size={10} className="inline mr-1" />
+                    8S INTERVALS
+                  </span>
+                  <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
+                    <AlertTriangle size={10} className="inline mr-1" />
+                    NO MERCY
+                  </span>
+                  <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
+                    <Target size={10} className="inline mr-1" />
+                    PURE SKILL
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* Standard Mode Details */
+              <div className="space-y-4 pt-4">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className={`text-lg font-bold ${colors.accent}`}>{getGridDescription(difficulty)}</div>
+                    <div className="text-xs text-white/50 uppercase tracking-wider">Grid</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-lg font-bold ${colors.accent}`}>{config.maxSimultaneousCircles}</div>
+                    <div className="text-xs text-white/50 uppercase tracking-wider">Max Active</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-lg font-bold ${colors.accent}`}>{config.circleActiveTime}ms</div>
+                    <div className="text-xs text-white/50 uppercase tracking-wider">Duration</div>
+                  </div>
+                </div>
+
+                {/* Special Note */}
+                {getDifficultySpecialNote(difficulty) && (
+                  <div className="bg-white/10 border border-white/20 rounded-lg p-3">
+                    <div className="text-xs font-bpdots text-white/80 uppercase tracking-wider mb-1 text-center">
+                      Mode Details
+                    </div>
+                    <p className="text-white/60 font-bpdots text-xs text-center italic">
+                      {getDifficultySpecialNote(difficulty)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Special Features */}
+                {(config.decoyProbability > 0 || config.adaptiveScaling) && (
+                  <div className="flex flex-wrap gap-2">
+                    {config.decoyProbability > 0 && (
+                      <span className="px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
+                        Decoy: {Math.round(config.decoyProbability * 100)}%
+                      </span>
+                    )}
+                    {config.adaptiveScaling && (
+                      <span className="px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
+                        <Zap size={10} className="inline mr-1" />
+                        Adaptive
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     );
   };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="relative">
-          <h2 className="text-4xl font-bold font-bpdots text-white tracking-wider">
-            SELECT MODE
-          </h2>
-          <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent"></div>
+    <div className="flex flex-col h-screen bg-black text-white">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-10 bg-black/90 backdrop-blur-sm border-b border-white/10">
+        <div className="px-6 py-6">
+          <div className="text-center space-y-3">
+            <div className="relative">
+              <h2 className="text-3xl font-bold font-bpdots text-white tracking-wider">
+                SELECT MODE
+              </h2>
+              <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-1 w-12 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent"></div>
+            </div>
+            <p className="text-white/60 font-bpdots text-sm uppercase tracking-widest">
+              Choose your challenge level
+            </p>
+          </div>
         </div>
-        <p className="text-white/60 font-bpdots text-sm uppercase tracking-widest">
-          Choose your challenge level
-        </p>
       </div>
 
-      {/* Difficulty Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 max-h-[500px] overflow-y-auto scrollbar-hide">
-        {difficulties.map((difficulty, index) => {
-          if (isPrecisionMode(difficulty)) {
-            return renderPrecisionModeCard(difficulty);
-          }
-          return renderStandardModeCard(difficulty, index);
-        })}
+      {/* Scrollable Content */}
+      <div className="flex-1 pt-32 pb-24 px-6">
+        <div className="space-y-4 animate-fade-in">
+          {difficulties.map((difficulty) => renderModeCard(difficulty))}
+        </div>
+      </div>
+
+      {/* Fixed Footer Buttons */}
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/90 backdrop-blur-sm border-t border-white/10">
+        <div className="px-6 py-6">
+          <div className="space-y-4">
+            <button
+              onClick={onPlay}
+              disabled={!selectedDifficulty}
+              className={`
+                w-full px-8 py-4 border-2 rounded-xl font-bpdots text-xl font-bold
+                transition-all duration-300 
+                ${selectedDifficulty
+                  ? "bg-transparent border-white text-white hover:bg-white/10 hover:scale-105 active:scale-95 cursor-pointer"
+                  : "bg-transparent border-white/30 text-white/30 cursor-not-allowed"
+                }
+              `}
+            >
+              PLAY
+            </button>
+
+            <button
+              onClick={onBack}
+              className="w-full px-6 py-3 bg-transparent border-2 border-white/60 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white hover:text-white transition-all duration-300"
+            >
+              BACK
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
