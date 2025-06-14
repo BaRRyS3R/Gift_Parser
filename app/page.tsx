@@ -1,4 +1,4 @@
-// src/app/page.tsx - Start page with Telegram WebApp initialization
+// src/app/page.tsx
 
 'use client'
 
@@ -8,7 +8,6 @@ import { Spinner } from '@nextui-org/react'
 import { Play, Zap, Wifi, WifiOff } from 'lucide-react'
 import { userService, type TelegramUser, type User } from '@/lib/supabase'
 import { useUser } from '@/hooks/useUser'
-import { useTelegramControls } from '@/hooks/useTelegramControls'
 
 interface AuthState {
     isChecking: boolean
@@ -23,9 +22,6 @@ export default function IntroPage(): JSX.Element {
     const router = useRouter()
     const videoRef = useRef<HTMLVideoElement>(null)
     const { refreshUser, updateUser, setTelegramUser } = useUser()
-
-    // 🤖 Используем Telegram WebApp контролы
-    const { isAvailable, version, platform, hapticFeedback } = useTelegramControls()
 
     // Флаги для предотвращения повторных операций
     const authInitializedRef = useRef<boolean>(false)
@@ -56,15 +52,6 @@ export default function IntroPage(): JSX.Element {
     const [videoError, setVideoError] = useState<string | null>(null)
     const [isReady, setIsReady] = useState(false)
     const [isPlaying, setIsPlaying] = useState(false)
-
-    // Логирование Telegram статуса
-    useEffect(() => {
-        if (isAvailable) {
-            console.log(`🤖 Telegram WebApp available: v${version} on ${platform}`)
-        } else {
-            console.log('🌐 Running in browser mode (no Telegram WebApp)');
-        }
-    }, [isAvailable, version, platform])
 
     const getTelegramUser = useCallback((): TelegramUser | null => {
         if (typeof window === 'undefined') {
@@ -366,9 +353,6 @@ export default function IntroPage(): JSX.Element {
         const video = videoRef.current
         if (!video) return
 
-        // 🎮 Тактильная обратная связь
-        hapticFeedback('medium')
-
         try {
             video.currentTime = 0
             await video.play()
@@ -385,9 +369,6 @@ export default function IntroPage(): JSX.Element {
         if (!authState.telegramUser || authState.isRegistering || registrationInProgressRef.current) {
             return
         }
-
-        // 🎮 Тактильная обратная связь
-        hapticFeedback('light')
 
         try {
             const registeredUser = await registerUser(authState.telegramUser)
@@ -416,12 +397,6 @@ export default function IntroPage(): JSX.Element {
                     <p className="text-white mt-4 text-sm font-bpdots">
                         {authState.isChecking ? 'Checking user...' : `Loading... ${Math.round(loadProgress)}%`}
                     </p>
-                    {/* Показываем статус Telegram */}
-                    {isAvailable && (
-                        <p className="text-white/60 mt-2 text-xs font-bpdots">
-                            Telegram WebApp v{version} • {platform}
-                        </p>
-                    )}
                 </div>
             )}
 
@@ -487,12 +462,6 @@ export default function IntroPage(): JSX.Element {
                                     <p className="text-white/50 font-bpdots text-xs uppercase tracking-widest">
                                         Choose your entry method
                                     </p>
-                                    {/* Показываем статус Telegram */}
-                                    {isAvailable && (
-                                        <p className="text-white/40 font-bpdots text-xs">
-                                            Telegram WebApp v{version} • {platform}
-                                        </p>
-                                    )}
                                 </div>
 
                                 {/* Buttons */}
