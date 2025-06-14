@@ -167,13 +167,9 @@ export default function DifficultySelector({
         className={`
           backdrop-blur-sm overflow-hidden border-2 rounded-2xl font-bpdots 
           transition-all duration-500
-          ${isPrecision
-            ? (isSelected
-              ? 'bg-red-500/15 border-red-400/60'
-              : 'bg-red-500/5 border-red-400/30')
-            : (isSelected
-              ? 'bg-white/15 border-white/60'
-              : 'bg-white/5 border-white/20')
+          ${isSelected
+            ? 'bg-white/15 border-white/60'
+            : 'bg-white/5 border-white/20'
           }
           ${isExpanded ? 'shadow-lg shadow-black/20' : ''}
         `}
@@ -183,10 +179,7 @@ export default function DifficultySelector({
           onClick={() => toggleExpanded(difficulty)}
           className={`
             w-full p-4 text-left transition-all duration-300
-            ${isPrecision
-              ? 'hover:bg-red-500/10'
-              : 'hover:bg-white/5'
-            }
+            hover:bg-white/5
           `}
         >
           <div className="flex items-center justify-between">
@@ -194,12 +187,11 @@ export default function DifficultySelector({
               <div className={`
                 w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300
                 ${isSelected
-                  ? (isPrecision ? 'bg-red-400/30 scale-110' : 'bg-white/20 scale-110')
-                  : (isPrecision ? 'bg-red-400/20' : 'bg-white/10')
+                  ? 'bg-white/20 scale-110'
+                  : 'bg-white/10'
                 }
               `}>
-                <Icon size={20} className={`transition-colors duration-300 ${isPrecision ? 'text-red-400' : 'text-white'
-                  }`} />
+                <Icon size={20} className="text-white transition-colors duration-300" />
               </div>
 
               <div>
@@ -207,8 +199,7 @@ export default function DifficultySelector({
                   }`}>
                   {getDifficultyDisplayName(difficulty)}
                 </h3>
-                <p className={`text-sm ${isPrecision ? 'text-red-300/80' : 'text-white/60'
-                  }`}>
+                <p className="text-sm text-white/60">
                   {getDifficultyDescription(difficulty)}
                 </p>
               </div>
@@ -217,15 +208,14 @@ export default function DifficultySelector({
             <div className="flex items-center space-x-3">
               {/* Difficulty Level Indicator */}
               <div className="text-right">
-                <div className={`text-xs uppercase tracking-wider mb-1 ${isPrecision ? 'text-red-400/60' : 'text-white/40'
-                  }`}>
+                <div className="text-xs uppercase tracking-wider mb-1 text-white/40">
                   {isPrecision ? 'Danger' : 'Level'}
                 </div>
                 {renderDifficultyBar(level, isPrecision)}
               </div>
 
               {/* Expand/Collapse Icon */}
-              <div className={isPrecision ? 'text-red-400/60' : 'text-white/60'}>
+              <div className="text-white/60">
                 {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               </div>
             </div>
@@ -239,12 +229,8 @@ export default function DifficultySelector({
             className={`
               w-full py-2 px-4 rounded-lg font-bpdots text-sm font-bold transition-all duration-300
               ${isSelected
-                ? (isPrecision
-                  ? 'bg-red-500/20 text-red-300 border border-red-400/40'
-                  : 'bg-white/20 text-white border border-white/40')
-                : (isPrecision
-                  ? 'bg-red-500/10 text-red-400/80 hover:bg-red-500/15 border border-red-400/20'
-                  : 'bg-white/10 text-white/80 hover:bg-white/15 border border-white/20')
+                ? 'bg-white/20 text-white border border-white/40'
+                : 'bg-white/10 text-white/80 hover:bg-white/15 border border-white/20'
               }
             `}
           >
@@ -257,8 +243,7 @@ export default function DifficultySelector({
           transition-all duration-500 ease-in-out overflow-hidden
           ${isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
         `}>
-          <div className={`px-4 pb-4 border-t ${isPrecision ? 'border-red-400/20' : 'border-white/10'
-            }`}>
+          <div className="px-4 pb-4 border-t border-white/10">
             {isPrecision ? (
               /* Precision Mode Details */
               <div className="space-y-4 pt-4">
@@ -396,10 +381,19 @@ export default function DifficultySelector({
         </div>
       </div>
 
-      {/* Scrollable Content with proper padding */}
-      <div className="flex-1 pt-32 pb-32 px-6 overflow-y-auto">
-        <div className="space-y-4 animate-fade-in">
-          {difficulties.map((difficulty) => renderModeCard(difficulty))}
+      {/* Scrollable Content with scroll shadows */}
+      <div className="relative flex-1 pt-32">
+        {/* Top scroll shadow */}
+        <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-black/90 via-black/60 via-black/30 to-transparent z-20 pointer-events-none"></div>
+
+        {/* Bottom scroll shadow */}
+        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black/90 via-black/60 via-black/30 to-transparent z-20 pointer-events-none"></div>
+
+        {/* Scrollable content */}
+        <div className="h-full px-6 pb-52 overflow-y-auto">
+          <div className="space-y-4 animate-fade-in pt-2">
+            {difficulties.map((difficulty) => renderModeCard(difficulty))}
+          </div>
         </div>
       </div>
 
