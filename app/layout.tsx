@@ -1,4 +1,4 @@
-// src/app/layout.tsx - Complete with Telegram WebApp controls
+// src/app/layout.tsx - Полная интеграция с Telegram WebApp API
 
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -44,42 +44,39 @@ export default function RootLayout({
           rel="preload"
           type="font/otf"
         />
-        {/* Telegram Web App script - ВАЖНО: загружается первым */}
+
+        {/* Telegram Web App script - КРИТИЧЕСКИ ВАЖНО загружать первым */}
         <Script
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
 
-        {/* PWA и мобильные мета-теги */}
+        {/* PWA мета-теги */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="msapplication-tap-highlight" content="no" />
 
-        {/* Расширенный viewport с блокировкой overscroll */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+        {/* Оптимизированный viewport */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 
-        {/* CSS для блокировки pull-to-refresh и других мобильных жестов */}
+        {/* Минимальные CSS стили */}
         <style dangerouslySetInnerHTML={{
           __html: `
-            /* Глобальная блокировка pull-to-refresh и zoom */
+            /* Базовые стили для предотвращения только pull-to-refresh */
             html, body {
-              overscroll-behavior: none !important;
               overscroll-behavior-y: none !important;
-              touch-action: pan-x pan-y !important;
               -webkit-overflow-scrolling: touch;
-              -webkit-user-select: none;
-              -moz-user-select: none;
-              -ms-user-select: none;
-              user-select: none;
+              -webkit-font-smoothing: antialiased;
+              -moz-osx-font-smoothing: grayscale;
               position: fixed;
               width: 100%;
               height: 100%;
               overflow: hidden;
             }
             
-            /* Основной контейнер приложения */
+            /* Основной контейнер */
             #__next {
               position: absolute;
               top: 0;
@@ -87,26 +84,26 @@ export default function RootLayout({
               right: 0;
               bottom: 0;
               overflow: auto;
-              overscroll-behavior: none;
+              overscroll-behavior-y: none;
               -webkit-overflow-scrolling: touch;
             }
 
-            /* Блокировка zoom на inputs */
-            button, input, select, textarea {
-              touch-action: manipulation !important;
-              -webkit-tap-highlight-color: transparent;
-            }
-
-            /* Предотвращение выделения текста в игре */
+            /* Отключение выделения и zoom только для элементов игры */
             .game-container, .game-container * {
               -webkit-user-select: none !important;
               -moz-user-select: none !important;
               -ms-user-select: none !important;
               user-select: none !important;
               -webkit-touch-callout: none !important;
+              touch-action: manipulation !important;
             }
 
-            /* Ориентационное предупреждение для ландшафтного режима */
+            /* Остальные элементы сохраняют нормальное поведение */
+            button, input, select, textarea {
+              -webkit-tap-highlight-color: transparent;
+            }
+
+            /* Предупреждение об ориентации */
             .landscape-warning {
               display: none;
               position: fixed;
@@ -153,89 +150,155 @@ export default function RootLayout({
           <NavigationWrapper />
         </Providers>
 
-        {/* Telegram WebApp инициализация и контролы */}
+        {/* ОБНОВЛЕННАЯ Telegram WebApp инициализация с полной поддержкой API */}
         <Script id="telegram-webapp-init" strategy="afterInteractive">
           {`
-            // Функция инициализации Telegram WebApp
+            // Глобальные переменные для отслеживания состояния
+            window.telegramWebAppReady = false;
+            window.telegramWebAppError = null;
+
+            // Функция комплексной инициализации Telegram WebApp
             function initTelegramWebApp() {
-              if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-                const tg = window.Telegram.WebApp;
-                
-                try {
-                  console.log('🤖 Initializing Telegram WebApp v' + tg.version + ' on ' + tg.platform);
-                  
-                  // Базовая инициализация
-                  tg.ready();
-                  tg.expand();
-                  tg.setHeaderColor('#000000');
-                  tg.setBackgroundColor('#000000');
-                  
-                  // 🔒 БЛОКИРОВКА ОРИЕНТАЦИИ В ПОРТРЕТНОМ РЕЖИМЕ
-                  if (tg.lockOrientation) {
-                    tg.lockOrientation();
-                    console.log('✅ Orientation locked to portrait');
-                  } else {
-                    console.warn('⚠️ Orientation lock not supported in this Telegram version');
-                  }
-                  
-                  // 🚫 ОТКЛЮЧЕНИЕ ВЕРТИКАЛЬНЫХ СВАЙПОВ (pull-to-refresh)
-                  if (tg.disableVerticalSwipes) {
-                    tg.disableVerticalSwipes();
-                    console.log('✅ Vertical swipes disabled (pull-to-refresh blocked)');
-                  } else {
-                    console.warn('⚠️ Vertical swipes control not supported in this Telegram version');
-                  }
-                  
-                  // 🛡️ ВКЛЮЧЕНИЕ ПОДТВЕРЖДЕНИЯ ЗАКРЫТИЯ
-                  if (tg.enableClosingConfirmation) {
-                    tg.enableClosingConfirmation();
-                    console.log('✅ Closing confirmation enabled');
-                  }
-                  
-                  // Логирование статуса
-                  if (tg.isOrientationLocked !== undefined) {
-                    console.log('📱 Orientation locked:', tg.isOrientationLocked);
-                  }
-                  if (tg.isVerticalSwipesEnabled !== undefined) {
-                    console.log('👆 Vertical swipes enabled:', tg.isVerticalSwipesEnabled);
-                  }
-                  
-                } catch (error) {
-                  console.error('❌ Telegram WebApp initialization error:', error);
-                }
-              } else {
+              console.log('🚀 Starting Telegram WebApp initialization...');
+              
+              if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
                 console.warn('⚠️ Telegram WebApp API not available - running in browser mode');
+                window.telegramWebAppError = 'API_NOT_AVAILABLE';
+                initFallbackMode();
+                return;
+              }
+
+              const tg = window.Telegram.WebApp;
+              
+              try {
+                console.log('🤖 Telegram WebApp v' + tg.version + ' detected on ' + tg.platform);
+                
+                // 1. БАЗОВАЯ ИНИЦИАЛИЗАЦИЯ
+                console.log('📱 Step 1: Basic initialization');
+                tg.ready();
+                tg.setHeaderColor('#000000');
+                tg.setBackgroundColor('#000000');
+                
+                // 2. АВТОМАТИЧЕСКОЕ РАЗВОРАЧИВАНИЕ НА ВЕСЬ ЭКРАН
+                console.log('📏 Step 2: Expanding to full screen');
+                tg.expand();
+                
+                // Дополнительная проверка расширения через таймаут
+                setTimeout(() => {
+                  if (!tg.isExpanded) {
+                    console.log('🔄 Re-attempting expansion...');
+                    tg.expand();
+                  } else {
+                    console.log('✅ App successfully expanded to full screen');
+                  }
+                }, 500);
+
+                // 3. ОТКЛЮЧЕНИЕ ВЕРТИКАЛЬНЫХ СВАЙПОВ (Bot API 7.7+)
+                console.log('🚫 Step 3: Disabling vertical swipes');
+                if (typeof tg.disableVerticalSwipes === 'function') {
+                  tg.disableVerticalSwipes();
+                  console.log('✅ Vertical swipes disabled via native API');
+                } else {
+                  console.warn('⚠️ disableVerticalSwipes not supported - using fallback');
+                  initLegacySwipeBlock();
+                }
+
+                // 4. БЛОКИРОВКА ОРИЕНТАЦИИ В ПОРТРЕТНОМ РЕЖИМЕ
+                console.log('🔒 Step 4: Locking orientation');
+                if (typeof tg.lockOrientation === 'function') {
+                  tg.lockOrientation();
+                  console.log('✅ Orientation locked to portrait');
+                } else {
+                  console.warn('⚠️ Orientation lock not supported in this version');
+                }
+
+                // 5. ВКЛЮЧЕНИЕ ПОДТВЕРЖДЕНИЯ ЗАКРЫТИЯ
+                console.log('🛡️ Step 5: Enabling closing confirmation');
+                if (typeof tg.enableClosingConfirmation === 'function') {
+                  tg.enableClosingConfirmation();
+                  console.log('✅ Closing confirmation enabled');
+                } else {
+                  console.warn('⚠️ Closing confirmation not supported');
+                }
+
+                // 6. ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ ТЕМЫ
+                console.log('🎨 Step 6: Additional theme settings');
+                if (typeof tg.setBottomBarColor === 'function') {
+                  tg.setBottomBarColor('#000000');
+                  console.log('✅ Bottom bar color set');
+                }
+
+                // 7. ЛОГИРОВАНИЕ ФИНАЛЬНОГО СОСТОЯНИЯ
+                console.log('📊 Final WebApp state:');
+                console.log('   - Expanded:', tg.isExpanded);
+                console.log('   - Version:', tg.version);
+                console.log('   - Platform:', tg.platform);
+                console.log('   - Viewport height:', tg.viewportHeight);
+                console.log('   - Viewport stable height:', tg.viewportStableHeight);
+                
+                if (typeof tg.isVerticalSwipesEnabled !== 'undefined') {
+                  console.log('   - Vertical swipes enabled:', tg.isVerticalSwipesEnabled);
+                }
+                if (typeof tg.isOrientationLocked !== 'undefined') {
+                  console.log('   - Orientation locked:', tg.isOrientationLocked);
+                }
+                if (typeof tg.isClosingConfirmationEnabled !== 'undefined') {
+                  console.log('   - Closing confirmation:', tg.isClosingConfirmationEnabled);
+                }
+
+                window.telegramWebAppReady = true;
+                console.log('🎉 Telegram WebApp initialization completed successfully!');
+
+              } catch (error) {
+                console.error('❌ Telegram WebApp initialization failed:', error);
+                window.telegramWebAppError = error.message;
+                initFallbackMode();
               }
             }
-            
-            // Дополнительная блокировка pull-to-refresh через touch events
-            function initTouchControls() {
-              let startY = 0;
-              let isAtTop = true;
+
+            // Фолбэк для старых версий Telegram или браузерного режима
+            function initLegacySwipeBlock() {
+              console.log('🔧 Initializing legacy swipe blocking...');
               
-              // Предотвращение pull-to-refresh
+              let startY = 0;
+              let startX = 0;
+              
               document.addEventListener('touchstart', function(e) {
                 startY = e.touches[0].pageY;
-                isAtTop = window.scrollY <= 10;
-              }, { passive: false });
+                startX = e.touches[0].pageX;
+              }, { passive: true });
               
               document.addEventListener('touchmove', function(e) {
                 if (e.touches.length > 1) {
-                  // Блокируем pinch-to-zoom
-                  e.preventDefault();
-                  return;
+                  return; // Позволяем мультитач
                 }
                 
-                const y = e.touches[0].pageY;
-                const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+                const currentY = e.touches[0].pageY;
+                const currentX = e.touches[0].pageX;
+                const deltaY = currentY - startY;
+                const deltaX = currentX - startX;
                 
-                // Блокируем pull-to-refresh когда наверху страницы и тянем вниз
-                if (scrollTop <= 10 && y > startY && isAtTop) {
+                const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+                const isAtTop = scrollTop <= 10;
+                
+                // Блокируем только pull-to-refresh: 
+                // - находимся наверху страницы
+                // - движение преимущественно вертикальное вниз
+                // - вертикальное движение больше горизонтального (не горизонтальный свайп)
+                if (isAtTop && deltaY > 30 && Math.abs(deltaY) > Math.abs(deltaX) * 2) {
                   e.preventDefault();
                 }
               }, { passive: false });
               
-              // Блокировка жестов масштабирования
+              console.log('✅ Legacy swipe blocking initialized');
+            }
+
+            // Фолбэк режим для браузеров без Telegram API
+            function initFallbackMode() {
+              console.log('🌐 Initializing fallback mode for browser...');
+              initLegacySwipeBlock();
+              
+              // Блокировка zoom жестов
               document.addEventListener('gesturestart', function(e) {
                 e.preventDefault();
               }, { passive: false });
@@ -248,19 +311,33 @@ export default function RootLayout({
                 e.preventDefault();
               }, { passive: false });
               
-              console.log('✅ Touch controls initialized');
+              console.log('✅ Fallback mode initialized');
             }
-            
-            // Инициализация при загрузке страницы
+
+            // Глобальная функция для проверки готовности (может использоваться в компонентах)
+            window.isTelegramWebAppReady = function() {
+              return window.telegramWebAppReady === true;
+            };
+
+            // Глобальная функция для получения ошибок
+            window.getTelegramWebAppError = function() {
+              return window.telegramWebAppError;
+            };
+
+            // Инициализация при загрузке
             if (document.readyState === 'loading') {
-              document.addEventListener('DOMContentLoaded', function() {
-                initTelegramWebApp();
-                initTouchControls();
-              });
+              document.addEventListener('DOMContentLoaded', initTelegramWebApp);
             } else {
               initTelegramWebApp();
-              initTouchControls();
             }
+
+            // Дополнительная инициализация через небольшую задержку на случай медленной загрузки API
+            setTimeout(() => {
+              if (!window.telegramWebAppReady && !window.telegramWebAppError) {
+                console.log('🔄 Retrying Telegram WebApp initialization...');
+                initTelegramWebApp();
+              }
+            }, 1000);
           `}
         </Script>
       </body>
