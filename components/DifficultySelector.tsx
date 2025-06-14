@@ -1,4 +1,4 @@
-// src/components/DifficultySelector.tsx - Ultra Sarcasm Edition
+// src/components/DifficultySelector.tsx - Updated for new 4-tier difficulty system
 
 "use client";
 
@@ -13,13 +13,7 @@ import {
   Crosshair,
   Clock,
   AlertTriangle,
-  Zap,
-  Coffee,
-  Brain,
-  Heart,
-  Bomb,
-  Shield,
-  Siren
+  Zap
 } from "lucide-react";
 
 interface DifficultySelectorProps {
@@ -35,22 +29,22 @@ export default function DifficultySelector({
 
   const getDifficultyIcon = (difficulty: GameDifficulty) => {
     switch (difficulty) {
-      case GameDifficulty.LEGENDARY: return Award;
-      case GameDifficulty.OMG: return Flame;
-      case GameDifficulty.NIGHTMARE: return Skull;
-      case GameDifficulty.IMPOSSIBLE: return Crown;
-      case GameDifficulty.PRECISION: return Crosshair;
+      case GameDifficulty.LEGENDARY: return Award;        // BEGINNER
+      case GameDifficulty.OMG: return Flame;            // INTERMEDIATE  
+      case GameDifficulty.NIGHTMARE: return Skull;       // ADVANCED
+      case GameDifficulty.IMPOSSIBLE: return Crown;      // EXPERT
+      case GameDifficulty.PRECISION: return Crosshair;   // SURVIVAL
       default: return Target;
     }
   };
 
   const getDifficultyLevel = (difficulty: GameDifficulty): number => {
     switch (difficulty) {
-      case GameDifficulty.LEGENDARY: return 1;
-      case GameDifficulty.OMG: return 2;
-      case GameDifficulty.NIGHTMARE: return 3;
-      case GameDifficulty.IMPOSSIBLE: return 4;
-      case GameDifficulty.PRECISION: return 5;
+      case GameDifficulty.LEGENDARY: return 1;    // BEGINNER
+      case GameDifficulty.OMG: return 2;          // INTERMEDIATE
+      case GameDifficulty.NIGHTMARE: return 3;    // ADVANCED
+      case GameDifficulty.IMPOSSIBLE: return 4;   // EXPERT
+      case GameDifficulty.PRECISION: return 5;    // SURVIVAL (Special)
       default: return 1;
     }
   };
@@ -65,69 +59,35 @@ export default function DifficultySelector({
     }
   };
 
-  // МАКСИМАЛЬНО САРКАСТИЧНЫЕ ОПИСАНИЯ
   const getDifficultyDescription = (difficulty: GameDifficulty): string => {
     switch (difficulty) {
       case GameDifficulty.LEGENDARY:
-        return "Perfect for absolute beginners (and quitters)";
+        return "Perfect for learning the basics";
       case GameDifficulty.OMG:
-        return "When beginner isn't embarrassing enough";
+        return "Step up your reaction skills";
       case GameDifficulty.NIGHTMARE:
-        return "For those who enjoy emotional damage";
+        return "Serious challenge awaits";
       case GameDifficulty.IMPOSSIBLE:
-        return "Destroying egos since forever";
+        return "Master-level precision required";
       case GameDifficulty.PRECISION:
-        return "One mistake = instant depression";
+        return "One mistake ends everything";
     }
   };
 
-  // СУПЕР САРКАСТИЧНЫЕ ЗАМЕТКИ
   const getDifficultySpecialNote = (difficulty: GameDifficulty): string | null => {
     switch (difficulty) {
       case GameDifficulty.PRECISION:
-        return "WARNING: May cause existential crisis";
+        return "15 levels • 49 circles • Survival mode";
       case GameDifficulty.LEGENDARY:
-        return "Training wheels included (sold separately)";
+        return "5x5 grid, gentle pacing";
       case GameDifficulty.OMG:
-        return "Baby steps into disappointment";
+        return "5x5 grid, faster reactions needed";
       case GameDifficulty.NIGHTMARE:
-        return "Your self-esteem called - it's worried";
+        return "6x6 grid, intense pressure";
       case GameDifficulty.IMPOSSIBLE:
-        return "Abandon hope, all ye who enter here";
+        return "7x7 grid, expert-level challenge";
       default:
         return null;
-    }
-  };
-
-  // ДОПОЛНИТЕЛЬНЫЕ САРКАСТИЧНЫЕ ПРЕДУПРЕЖДЕНИЯ
-  const getDifficultyWarning = (difficulty: GameDifficulty): string => {
-    switch (difficulty) {
-      case GameDifficulty.LEGENDARY:
-        return "⚠️ Side effects may include: false confidence";
-      case GameDifficulty.OMG:
-        return "⚠️ Not recommended for fragile egos";
-      case GameDifficulty.NIGHTMARE:
-        return "⚠️ Have therapy number ready";
-      case GameDifficulty.IMPOSSIBLE:
-        return "⚠️ May cause rage-induced keyboard damage";
-      case GameDifficulty.PRECISION:
-        return "☠️ PSYCHOLOGICAL HAZARD - PROCEED WITH CAUTION";
-    }
-  };
-
-  // МОТИВАЦИОННЫЕ (НЕТ) ЦИТАТЫ
-  const getDifficultyQuote = (difficulty: GameDifficulty): string => {
-    switch (difficulty) {
-      case GameDifficulty.LEGENDARY:
-        return '"Everyone starts somewhere... unfortunately."';
-      case GameDifficulty.OMG:
-        return '"Mediocrity is a journey, not a destination."';
-      case GameDifficulty.NIGHTMARE:
-        return '"What doesn\'t kill you makes you... question your life choices."';
-      case GameDifficulty.IMPOSSIBLE:
-        return '"Impossible? More like im-probably-gonna-cry."';
-      case GameDifficulty.PRECISION:
-        return '"Welcome to the precision zone, where dreams go to die."';
     }
   };
 
@@ -155,7 +115,7 @@ export default function DifficultySelector({
             <div
               key={i}
               className={`w-2 h-1 rounded-full transition-all duration-300 ${i <= level
-                ? 'bg-red-400 shadow-sm shadow-red-400/50 animate-pulse'
+                ? 'bg-red-400 shadow-sm shadow-red-400/50'
                 : 'bg-white/20'
                 }`}
             />
@@ -187,8 +147,8 @@ export default function DifficultySelector({
       <button
         key={difficulty}
         className={`
-          group relative w-full p-4 md:p-6 rounded-xl md:rounded-2xl font-bpdots 
-          transition-all duration-500
+          group relative w-full p-6 rounded-2xl font-bpdots 
+          transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]
           backdrop-blur-sm overflow-hidden border-2
           ${isSelected
             ? 'bg-red-500/15 border-red-400/60 shadow-lg shadow-red-500/20'
@@ -203,35 +163,34 @@ export default function DifficultySelector({
           <div className="absolute bottom-0 left-0 w-24 h-24 border border-red-400/20 rounded-full transform -translate-x-12 translate-y-12 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
         </div>
 
-        {/* SUPER DRAMATIC WARNING BANNER */}
-        <div className="absolute top-0 left-0 right-0 bg-red-500/30 border-b border-red-400/50 px-4 py-2">
-          <div className="text-xs font-bold text-red-200 text-center tracking-wider animate-pulse">
-            ☠️ ABANDON ALL HOPE YE WHO ENTER HERE ☠️
+        {/* Danger Warning Banner */}
+        <div className="absolute top-0 left-0 right-0 bg-red-500/20 border-b border-red-400/30 px-4 py-2">
+          <div className="text-xs font-bold text-red-200 text-center tracking-wider">
+            ⚠️ EXTREME PRECISION REQUIRED ⚠️
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="relative z-10 space-y-3 md:space-y-4 mt-6 md:mt-8">
+        <div className="relative z-10 space-y-4 mt-8">
           {/* Header Row */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 md:space-x-4">
+            <div className="flex items-center space-x-4">
               <div className={`
-                w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center transition-all duration-300
+                w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
                 ${isSelected
-                  ? 'bg-red-400/30 shadow-lg shadow-red-400/50'
+                  ? 'bg-red-400/30 shadow-lg shadow-red-400/50 scale-110'
                   : 'bg-red-400/20 group-hover:bg-red-400/25'
                 }
               `}>
-                <Icon size={20} className="text-red-200 md:hidden" />
-                <Icon size={24} className="text-red-200 hidden md:block" />
+                <Icon size={24} className="text-red-200" />
               </div>
 
               <div className="text-left">
-                <h3 className={`text-lg md:text-xl font-bold tracking-wide transition-all duration-300 ${isSelected ? 'text-red-200' : 'text-red-300'
+                <h3 className={`text-xl font-bold tracking-wide transition-all duration-300 ${isSelected ? 'text-red-200 scale-105' : 'text-red-300'
                   }`}>
                   {getDifficultyDisplayName(difficulty)}
                 </h3>
-                <p className="text-red-300/80 text-xs md:text-sm">
+                <p className="text-red-300/80 text-sm">
                   {getDifficultyDescription(difficulty)}
                 </p>
                 <p className="text-red-400/60 text-xs mt-1 italic">
@@ -240,74 +199,84 @@ export default function DifficultySelector({
               </div>
             </div>
 
-            {/* Death Level Indicator */}
-            <div className="text-right space-y-1 md:space-y-2">
+            {/* Difficulty Level Indicator */}
+            <div className="text-right space-y-2">
               <div className="text-xs text-red-300/60 uppercase tracking-wider">
-                Death Level
+                Danger
               </div>
               {renderDifficultyBar(level, true)}
             </div>
           </div>
 
-          {/* Precision Mode Stats */}
-          <div className="grid grid-cols-3 gap-3 md:gap-4 pt-3 md:pt-4 border-t border-red-400/20">
+          {/* Updated Precision Mode Stats */}
+          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-red-400/20">
             <div className="text-center">
-              <div className="text-base md:text-lg font-bold text-red-200">{getGridDescription(difficulty)}</div>
-              <div className="text-xs text-red-300/60 uppercase tracking-wider">Torture Grid</div>
+              <div className="text-lg font-bold text-red-200">{getGridDescription(difficulty)}</div>
+              <div className="text-xs text-red-300/60 uppercase tracking-wider">Grid Size</div>
             </div>
 
             <div className="text-center">
-              <div className="text-base md:text-lg font-bold text-red-200">15</div>
-              <div className="text-xs text-red-300/60 uppercase tracking-wider">Pain Levels</div>
+              <div className="text-lg font-bold text-red-200">15</div>
+              <div className="text-xs text-red-300/60 uppercase tracking-wider">Levels</div>
             </div>
 
             <div className="text-center">
-              <div className="text-base md:text-lg font-bold text-red-200">∞</div>
-              <div className="text-xs text-red-300/60 uppercase tracking-wider">Suffering</div>
+              <div className="text-lg font-bold text-red-200">1</div>
+              <div className="text-xs text-red-300/60 uppercase tracking-wider">Life</div>
             </div>
           </div>
 
-          {/* Sarcastic Warning */}
-          <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-2 md:p-3">
-            <div className="text-xs font-bpdots text-red-300 text-center mb-1 md:mb-2">
-              {getDifficultyWarning(difficulty)}
+          {/* Progression Preview */}
+          <div className="bg-red-500/10 border border-red-400/20 rounded-lg p-3">
+            <div className="text-xs font-bpdots text-red-300/80 uppercase tracking-wider mb-2 text-center">
+              Progression Preview
             </div>
-            <div className="text-xs font-bpdots italic text-red-400/80 text-center">
-              {getDifficultyQuote(difficulty)}
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="text-center">
+                <div className="text-red-200 font-bold">L1-5</div>
+                <div className="text-red-400/60">1-6 Circles</div>
+              </div>
+              <div className="text-center">
+                <div className="text-red-200 font-bold">L6-10</div>
+                <div className="text-red-400/60">8-18 Circles</div>
+              </div>
+              <div className="text-center">
+                <div className="text-red-200 font-bold">L11-15</div>
+                <div className="text-red-400/60">22-40 Circles</div>
+              </div>
             </div>
           </div>
 
-          {/* "Features" */}
-          <div className="flex flex-wrap gap-1 md:gap-2 pt-2">
-            <span className="px-2 md:px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              <Bomb size={8} className="inline mr-1 md:hidden" />
-              <Bomb size={10} className="inline mr-1 hidden md:inline" />
-              INSTANT DEATH
+          {/* Special Features */}
+          <div className="flex flex-wrap gap-2 pt-2">
+            <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
+              <Clock size={10} className="inline mr-1" />
+              8S INTERVALS
             </span>
-            <span className="px-2 md:px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              <AlertTriangle size={8} className="inline mr-1 md:hidden" />
-              <AlertTriangle size={10} className="inline mr-1 hidden md:inline" />
-              EGO DESTRUCTION
+            <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
+              <AlertTriangle size={10} className="inline mr-1" />
+              NO MERCY
             </span>
-            <span className="px-2 md:px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
-              <Skull size={8} className="inline mr-1 md:hidden" />
-              <Skull size={10} className="inline mr-1 hidden md:inline" />
-              SOUL CRUSHING
+            <span className="px-3 py-1 bg-red-400/20 border border-red-400/30 rounded-full text-xs text-red-200">
+              <Target size={10} className="inline mr-1" />
+              PURE SKILL
             </span>
           </div>
         </div>
 
         {/* Selection Indicator */}
-        {isSelected && (
-          <>
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-red-400/10 via-red-400/5 to-red-400/10 pointer-events-none"></div>
-            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-12 bg-red-400 rounded-r-full"></div>
-          </>
-        )}
+        {
+          isSelected && (
+            <>
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-red-400/10 via-red-400/5 to-red-400/10 pointer-events-none"></div>
+              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-12 bg-red-400 rounded-r-full"></div>
+            </>
+          )
+        }
 
         {/* Pulsing Border Effect */}
         <div className="absolute inset-0 rounded-2xl border border-red-400/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
-      </button>
+      </button >
     );
   };
 
@@ -317,31 +286,31 @@ export default function DifficultySelector({
     const Icon = getDifficultyIcon(difficulty);
     const level = getDifficultyLevel(difficulty);
 
-    // Color scheme based on difficulty with more attitude
+    // Color scheme based on difficulty
     const getColorScheme = (diff: GameDifficulty) => {
       switch (diff) {
-        case GameDifficulty.LEGENDARY:
+        case GameDifficulty.LEGENDARY: // BEGINNER
           return {
             accent: 'text-green-400',
             border: isSelected ? 'border-green-400/60' : 'border-green-400/30',
             bg: isSelected ? 'bg-green-500/15' : 'bg-green-500/5',
             hover: 'hover:bg-green-500/10 hover:border-green-400/50'
           };
-        case GameDifficulty.OMG:
+        case GameDifficulty.OMG: // INTERMEDIATE
           return {
             accent: 'text-orange-400',
             border: isSelected ? 'border-orange-400/60' : 'border-orange-400/30',
             bg: isSelected ? 'bg-orange-500/15' : 'bg-orange-500/5',
             hover: 'hover:bg-orange-500/10 hover:border-orange-400/50'
           };
-        case GameDifficulty.NIGHTMARE:
+        case GameDifficulty.NIGHTMARE: // ADVANCED
           return {
             accent: 'text-purple-400',
             border: isSelected ? 'border-purple-400/60' : 'border-purple-400/30',
             bg: isSelected ? 'bg-purple-500/15' : 'bg-purple-500/5',
             hover: 'hover:bg-purple-500/10 hover:border-purple-400/50'
           };
-        case GameDifficulty.IMPOSSIBLE:
+        case GameDifficulty.IMPOSSIBLE: // EXPERT
           return {
             accent: 'text-yellow-400',
             border: isSelected ? 'border-yellow-400/60' : 'border-yellow-400/30',
@@ -364,8 +333,8 @@ export default function DifficultySelector({
       <button
         key={difficulty}
         className={`
-          group relative w-full p-4 md:p-6 rounded-xl md:rounded-2xl font-bpdots 
-          transition-all duration-500
+          group relative w-full p-6 rounded-2xl font-bpdots 
+          transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]
           backdrop-blur-sm overflow-hidden border-2
           ${colors.bg} ${colors.border} ${colors.hover}
         `}
@@ -381,24 +350,23 @@ export default function DifficultySelector({
         </div>
 
         {/* Main Content */}
-        <div className="relative z-10 space-y-3 md:space-y-4">
+        <div className="relative z-10 space-y-4">
           {/* Header Row */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 md:space-x-4">
+            <div className="flex items-center space-x-4">
               <div className={`
-                w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center transition-all duration-300
-                ${isSelected ? `bg-white/20 shadow-lg` : 'bg-white/10 group-hover:bg-white/15'}
+                w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
+                ${isSelected ? `bg-white/20 shadow-lg scale-110` : 'bg-white/10 group-hover:bg-white/15'}
               `}>
-                <Icon size={20} className={`${colors.accent} transition-colors duration-300 md:hidden`} />
-                <Icon size={24} className={`${colors.accent} transition-colors duration-300 hidden md:block`} />
+                <Icon size={24} className={`${colors.accent} transition-colors duration-300`} />
               </div>
 
               <div className="text-left">
-                <h3 className={`text-lg md:text-xl font-bold tracking-wide transition-all duration-300 ${isSelected ? 'text-white' : 'text-white'
+                <h3 className={`text-xl font-bold tracking-wide transition-all duration-300 ${isSelected ? 'text-white scale-105' : 'text-white'
                   }`}>
                   {getDifficultyDisplayName(difficulty)}
                 </h3>
-                <p className="text-white/60 text-xs md:text-sm">
+                <p className="text-white/60 text-sm">
                   {getDifficultyDescription(difficulty)}
                 </p>
                 {getDifficultySpecialNote(difficulty) && (
@@ -410,57 +378,44 @@ export default function DifficultySelector({
             </div>
 
             {/* Difficulty Level Indicator */}
-            <div className="text-right space-y-1 md:space-y-2">
+            <div className="text-right space-y-2">
               <div className="text-xs text-white/40 uppercase tracking-wider">
-                Pain Level
+                Level
               </div>
               {renderDifficultyBar(level)}
             </div>
           </div>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-3 gap-3 md:gap-4 pt-3 md:pt-4 border-t border-white/10">
+          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
             <div className="text-center">
-              <div className={`text-base md:text-lg font-bold ${colors.accent}`}>{getGridDescription(difficulty)}</div>
+              <div className={`text-lg font-bold ${colors.accent}`}>{getGridDescription(difficulty)}</div>
               <div className="text-xs text-white/50 uppercase tracking-wider">Grid</div>
             </div>
 
             <div className="text-center">
-              <div className={`text-base md:text-lg font-bold ${colors.accent}`}>{config.maxSimultaneousCircles}</div>
-              <div className="text-xs text-white/50 uppercase tracking-wider">Max Chaos</div>
+              <div className={`text-lg font-bold ${colors.accent}`}>{config.maxSimultaneousCircles}</div>
+              <div className="text-xs text-white/50 uppercase tracking-wider">Max Active</div>
             </div>
 
             <div className="text-center">
-              <div className={`text-base md:text-lg font-bold ${colors.accent}`}>{config.circleActiveTime}ms</div>
-              <div className="text-xs text-white/50 uppercase tracking-wider">Panic Time</div>
-            </div>
-          </div>
-
-          {/* Sarcastic Warning */}
-          <div className="bg-white/5 border border-white/20 rounded-lg p-2 md:p-3">
-            <div className="text-xs font-bpdots text-white/60 text-center mb-1">
-              {getDifficultyWarning(difficulty)}
-            </div>
-            <div className="text-xs font-bpdots italic text-white/40 text-center">
-              {getDifficultyQuote(difficulty)}
+              <div className={`text-lg font-bold ${colors.accent}`}>{config.circleActiveTime}ms</div>
+              <div className="text-xs text-white/50 uppercase tracking-wider">Duration</div>
             </div>
           </div>
 
           {/* Special Features */}
           {(config.decoyProbability > 0 || config.adaptiveScaling) && (
-            <div className="flex flex-wrap gap-1 md:gap-2 pt-2">
+            <div className="flex flex-wrap gap-2 pt-2">
               {config.decoyProbability > 0 && (
-                <span className="px-2 md:px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
-                  <Bomb size={8} className="inline mr-1 md:hidden" />
-                  <Bomb size={10} className="inline mr-1 hidden md:inline" />
-                  Traps: {Math.round(config.decoyProbability * 100)}%
+                <span className="px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
+                  Decoy: {Math.round(config.decoyProbability * 100)}%
                 </span>
               )}
               {config.adaptiveScaling && (
-                <span className="px-2 md:px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
-                  <Brain size={8} className="inline mr-1 md:hidden" />
-                  <Brain size={10} className="inline mr-1 hidden md:inline" />
-                  Learns to Hate You
+                <span className="px-3 py-1 bg-white/15 rounded-full text-xs text-white/80">
+                  <Zap size={10} className="inline mr-1" />
+                  Adaptive
                 </span>
               )}
             </div>
@@ -485,42 +440,28 @@ export default function DifficultySelector({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-[calc(100vh-2rem)]">
-      {/* Header with extra sarcasm */}
-      <div className="text-center space-y-3 mb-4 px-2">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="text-center space-y-4">
         <div className="relative">
-          <h2 className="text-3xl md:text-4xl font-bold font-bpdots text-white tracking-wider">
-            CHOOSE YOUR POISON
+          <h2 className="text-4xl font-bold font-bpdots text-white tracking-wider">
+            SELECT MODE
           </h2>
-          <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-red-400/60 to-transparent"></div>
+          <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent"></div>
         </div>
-        <p className="text-white/60 font-bpdots text-xs md:text-sm uppercase tracking-widest">
-          How much disappointment can you handle?
+        <p className="text-white/60 font-bpdots text-sm uppercase tracking-widest">
+          Choose your challenge level
         </p>
-        <div className="bg-orange-500/10 border border-orange-400/30 rounded-lg p-2 md:p-3 max-w-sm md:max-w-md mx-auto">
-          <p className="text-orange-300/80 font-bpdots text-xs italic">
-            💡 Pro Tip: All difficulties lead to the same outcome - your inevitable defeat!
-          </p>
-        </div>
       </div>
 
-      {/* Difficulty Cards Grid - теперь занимает оставшееся место */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
-        <div className="grid grid-cols-1 gap-3 md:gap-4 pb-4">
-          {difficulties.map((difficulty, index) => {
-            if (isPrecisionMode(difficulty)) {
-              return renderPrecisionModeCard(difficulty);
-            }
-            return renderStandardModeCard(difficulty, index);
-          })}
-        </div>
-      </div>
-
-      {/* Bottom disclaimer */}
-      <div className="text-center pt-2 pb-2">
-        <p className="text-white/20 font-bpdots text-xs italic">
-          * Difficulty levels are suggestions. Reality will be much worse.
-        </p>
+      {/* Difficulty Cards Grid */}
+      <div className="grid grid-cols-1 gap-4 max-h-[500px] overflow-y-auto scrollbar-hide">
+        {difficulties.map((difficulty, index) => {
+          if (isPrecisionMode(difficulty)) {
+            return renderPrecisionModeCard(difficulty);
+          }
+          return renderStandardModeCard(difficulty, index);
+        })}
       </div>
     </div>
   );

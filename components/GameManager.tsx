@@ -1,4 +1,4 @@
-// src/components/GameManager.tsx - Ultra Sarcasm Gaming Experience
+// src/components/GameManager.tsx - Complete file with updated layout for Precision Mode
 
 'use client'
 
@@ -43,7 +43,7 @@ import { useUser } from '@/hooks/useUser'
 import GameGrid from './GameGrid'
 import GameTimer from './GameTimer'
 import GameResults from './GameResults'
-import { Zap, AlertTriangle, Skull, ThumbsDown, Coffee, Brain, Heart, Bomb, Target, Clock } from 'lucide-react'
+import { Zap, AlertTriangle } from 'lucide-react'
 
 interface GameManagerProps {
     difficulty: GameDifficulty
@@ -62,12 +62,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const [gameState, setGameState] = useState<GameState>(GameState.NOT_STARTED)
     const [timeLeft, setTimeLeft] = useState(STANDARD_GAME_DURATION)
     const [showCircles, setShowCircles] = useState(false)
-
-    // Новые состояния для сарказма
-    const [sarcasticMessage, setSarcasticMessage] = useState<string>('')
-    const [messageType, setMessageType] = useState<'good' | 'bad' | 'neutral'>('neutral')
-    const [showMessage, setShowMessage] = useState(false)
-    const [consecutiveFails, setConsecutiveFails] = useState(0)
 
     const [stats, setStats] = useState<GameStats>({
         score: 0,
@@ -97,7 +91,9 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         isPrecisionMode ? initializePrecisionModeState() : null
     )
 
+    // Ref для хранения актуального состояния precision
     const precisionStateRef = useRef<PrecisionModeState | null>(precisionState)
+
     const [isSavingResult, setIsSavingResult] = useState(false)
     const [saveError, setSaveError] = useState<string | null>(null)
     const [saveSuccess, setSaveSuccess] = useState(false)
@@ -111,130 +107,8 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     const circleActivationTimesRef = useRef<Map<number, number>>(new Map())
     const gameSavedRef = useRef<boolean>(false)
     const gameStartTimeRef = useRef<number>(0)
-    const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-    // САРКАСТИЧНЫЕ СООБЩЕНИЯ ДЛЯ РАЗНЫХ СИТУАЦИЙ
-    const getSarcasticMessage = (type: 'hit' | 'miss' | 'wrong' | 'decoy' | 'fast' | 'streak' | 'level_up', data?: any) => {
-        switch (type) {
-            case 'hit':
-                const hitMessages = [
-                    "Wow! You actually hit something! 🎯",
-                    "Miracle detected! 📈",
-                    "Even a broken clock is right twice a day! ⏰",
-                    "Plot twist: That was intentional! 🎭",
-                    "Your finger found its target! Navigation complete! 🧭",
-                    "Achievement unlocked: Basic hand-eye coordination! 👁️",
-                    "Breaking news: Human makes contact with intended object! 📰"
-                ]
-                return hitMessages[Math.floor(Math.random() * hitMessages.length)]
-
-            case 'miss':
-                const missMessages = [
-                    `Miss #${consecutiveFails + 1}... classic! 💀`,
-                    "Ah, the sweet sound of failure! 🎵",
-                    "Your mouse called - it's disappointed! 🖱️😔",
-                    "That target was obviously too slow for you! 🐌",
-                    "Don't worry, hitting things is overrated! 🎯❌",
-                    "Your aim is like your WiFi - usually missing! 📶",
-                    "That circle was clearly invisible! (It wasn't) 👻",
-                    "Fun fact: You just improved someone else's rank! 📊⬇️"
-                ]
-                return missMessages[Math.floor(Math.random() * missMessages.length)]
-
-            case 'wrong':
-                const wrongMessages = [
-                    "Clicking on nothing? Bold strategy! 🎭",
-                    "That's not how targets work, chief! 🎯",
-                    "You're playing a different game, aren't you? 🎮",
-                    "Instructions unclear? Click THE BRIGHT CIRCLES! 💡",
-                    "Your creativity in missing is impressive! 🎨",
-                    "That empty space was clearly the enemy! 🌌",
-                    "Alternative game mode: Click Everything But The Target! 🔄"
-                ]
-                return wrongMessages[Math.floor(Math.random() * wrongMessages.length)]
-
-            case 'decoy':
-                const decoyMessages = [
-                    "Red means STOP, not GO! 🛑",
-                    "Congratulations! You found the trap! 🕳️",
-                    "The red circles aren't your friends! 🔴❌",
-                    "Plot twist: You were the decoy all along! 🎭",
-                    "That red circle just laughed at you! 😂",
-                    "Decoy eliminated... you! 💥",
-                    "Red = Bad. White = Good. Math is hard! 🧮"
-                ]
-                return decoyMessages[Math.floor(Math.random() * decoyMessages.length)]
-
-            case 'fast':
-                const fastMessages = [
-                    "Speed demon detected! ⚡",
-                    "Your finger went ZOOM! 🏎️",
-                    "That was faster than my loading screen! 💨",
-                    "Lightning reflexes! Or caffeine... 🌩️☕",
-                    "Did you just teleport your finger? 🌟",
-                    "Speed of light has competition! 🚀",
-                    "Your mouse is on fire! 🔥"
-                ]
-                return fastMessages[Math.floor(Math.random() * fastMessages.length)]
-
-            case 'streak':
-                const streak = data?.streak || 0
-                if (streak >= 10) {
-                    const streakMessages = [
-                        `${streak} in a row! Who are you?! 👑`,
-                        `${streak} hits! Are you actually good? 🤔`,
-                        `${streak} streak! The simulation is glitching! 🎮`,
-                        `${streak} consecutive! Plot armor activated! 🛡️`,
-                        `${streak} hits! Your keyboard is possessed! 👻`,
-                    ]
-                    return streakMessages[Math.floor(Math.random() * streakMessages.length)]
-                } else if (streak >= 5) {
-                    return `${streak} in a row! Don't get cocky! 😏`
-                }
-                return `${streak} streak! Beginner's luck! 🍀`
-
-            case 'level_up':
-                const level = data?.level || 0
-                const levelMessages = [
-                    `Level ${level}! The game is learning to hate you more! 🧠💢`,
-                    `Level ${level}! Difficulty increased! (As if you needed more problems) 📈`,
-                    `Level ${level}! The circles are now personally offended! 😤`,
-                    `Level ${level}! Your performance has angered the algorithm! 🤖👿`,
-                    `Level ${level}! Congratulations, you've made everything worse! 🎉💀`
-                ]
-                return levelMessages[Math.floor(Math.random() * levelMessages.length)]
-
-            default:
-                return "Something happened! 🤷‍♂️"
-        }
-    }
-
-    // Функция для показа саркастичного сообщения
-    const showSarcasticMessage = (type: 'hit' | 'miss' | 'wrong' | 'decoy' | 'fast' | 'streak' | 'level_up', data?: any) => {
-        if (messageTimeoutRef.current) {
-            clearTimeout(messageTimeoutRef.current)
-        }
-
-        const message = getSarcasticMessage(type, data)
-        setSarcasticMessage(message)
-
-        // Определяем тип сообщения для стилизации
-        if (type === 'hit' || type === 'fast' || type === 'streak') {
-            setMessageType('good')
-        } else if (type === 'miss' || type === 'wrong' || type === 'decoy') {
-            setMessageType('bad')
-        } else {
-            setMessageType('neutral')
-        }
-
-        setShowMessage(true)
-
-        // Скрываем сообщение через 3 секунды
-        messageTimeoutRef.current = setTimeout(() => {
-            setShowMessage(false)
-        }, 3000)
-    }
-
+    // Обновляем ref каждый раз когда меняется precisionState
     useEffect(() => {
         precisionStateRef.current = precisionState
         if (precisionState) {
@@ -254,10 +128,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         if (activationTimeoutRef.current) {
             clearTimeout(activationTimeoutRef.current)
             activationTimeoutRef.current = null
-        }
-        if (messageTimeoutRef.current) {
-            clearTimeout(messageTimeoutRef.current)
-            messageTimeoutRef.current = null
         }
         circleTimeoutsRef.current.forEach(timeout => clearTimeout(timeout))
         circleTimeoutsRef.current.clear()
@@ -361,17 +231,21 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             return
         }
 
+        // ИСПРАВЛЕНИЕ: Для Precision Mode всегда пытаемся заполнить ВСЕ доступные слоты
         let targetCircleCount: number
         if (isPrecisionMode) {
+            // В Precision Mode всегда стараемся активировать максимальное количество кругов для уровня
             targetCircleCount = Math.min(availableSlots, inactiveIds.length, maxSimultaneous - currentActiveCount)
             console.log(`🎯 PRECISION: Targeting ${targetCircleCount} circles (max possible for level)`)
         } else {
+            // Standard mode - рандомное количество
             targetCircleCount = Math.min(
                 Math.floor(Math.random() * availableSlots) + 1,
                 inactiveIds.length,
             )
         }
 
+        // Select circles to activate
         const selectedIds: number[] = []
         const availableIdsCopy = [...inactiveIds]
 
@@ -389,13 +263,15 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             circleActivationTimesRef.current.set(id, Date.now())
         })
 
+        // ИСПРАВЛЕНИЕ: Правильная логика создания красных кругов
         let activationResults: { id: number; isDecoy: boolean }[]
 
         if (isPrecisionMode && selectedIds.length > 0) {
-            const whiteCirclesNeeded = Math.max(1, selectedIds.length - targetRedCircles)
-            const actualRedCircles = Math.min(targetRedCircles, selectedIds.length - whiteCirclesNeeded)
+            const whiteCirclesNeeded = Math.max(1, selectedIds.length - targetRedCircles) // Минимум 1 белый круг
+            const actualRedCircles = Math.min(targetRedCircles, selectedIds.length - whiteCirclesNeeded) // Оставшиеся могут быть красными
 
             if (actualRedCircles > 0) {
+                // Создаем перемешанный массив и выбираем красные круги
                 const shuffledIds = [...selectedIds].sort(() => Math.random() - 0.5)
                 const redIds = shuffledIds.slice(0, actualRedCircles)
 
@@ -407,6 +283,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 console.log(`🔴 Red circles: [${redIds.join(', ')}] (${actualRedCircles}/${targetRedCircles} planned)`)
                 console.log(`⚪ White circles: [${shuffledIds.slice(actualRedCircles).join(', ')}] (${whiteCirclesNeeded} guaranteed)`)
             } else {
+                // Все круги белые
                 activationResults = selectedIds.map(id => ({
                     id,
                     isDecoy: false
@@ -414,6 +291,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 console.log(`⚪ All circles are white (level has no red circles)`)
             }
         } else {
+            // Standard mode
             const decoyProbability = config.decoyProbability
             activationResults = selectedIds.map(id => ({
                 id,
@@ -444,6 +322,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             totalCircles: prev.totalCircles + regularCircles.length
         }))
 
+        // ИСПРАВЛЕНИЕ: Правильная логика таймаута для красных кругов
         selectedIds.forEach(circleId => {
             const circleResult = activationResults.find(result => result.id === circleId)
             const activeTime = getAdjustedCircleActiveTime(
@@ -460,16 +339,19 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             const timeout = setTimeout(() => {
                 console.log(`⚰️ Auto-deactivating circle: ${circleId} (${circleResult?.isDecoy ? 'RED' : 'WHITE'})`)
 
+                // ИСПРАВЛЕНИЕ: В Precision Mode только пропуск БЕЛЫХ кругов завершает игру
                 if (isPrecisionMode) {
                     if (!circleResult?.isDecoy) {
+                        // Пропущен БЕЛЫЙ круг - игра завершается
                         console.log(`💀 PRECISION MODE: Game over due to missed WHITE circle ${circleId}`)
-                        showSarcasticMessage('miss')
                         endGameWithCause('miss')
                         return
                     } else {
+                        // Пропущен КРАСНЫЙ круг - это нормально, продолжаем игру
                         console.log(`✅ PRECISION MODE: RED circle ${circleId} timed out - this is OK`)
                     }
                 } else if (!circleResult?.isDecoy) {
+                    // Standard mode penalty для белых кругов
                     setStats(prev => {
                         const penalty = calculateProgressiveWrongPenalty(prev.consecutiveMisses)
                         const newAdaptive = updateAdaptiveState(
@@ -479,11 +361,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                         )
                         setAdaptiveState(newAdaptive)
 
-                        // Показываем саркастичное сообщение при пропуске
-                        if (prev.consecutiveMisses % 3 === 2) { // каждый третий промах
-                            showSarcasticMessage('miss')
-                        }
-
                         return {
                             ...prev,
                             score: prev.score - penalty,
@@ -492,7 +369,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                             consecutiveMisses: prev.consecutiveMisses + 1
                         }
                     })
-                    setConsecutiveFails(prev => prev + 1)
                 }
 
                 deactivateCircle(circleId)
@@ -501,6 +377,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             circleTimeoutsRef.current.set(circleId, timeout)
         })
 
+        // Schedule next activation
         const nextActivationDelay = getRandomActivationDelay(config, adaptiveState, currentPrecisionState)
         if (isPrecisionMode && currentPrecisionState) {
             console.log(`⏱️ Next activation in ${nextActivationDelay}ms (level ${currentPrecisionState.intensityLevel})`)
@@ -525,13 +402,14 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             if (circle.isDecoy) {
                 console.log('Decoy hit on circle:', circleId)
                 triggerHapticFeedback('error')
-                showSarcasticMessage('decoy')
 
                 if (isPrecisionMode) {
+                    // In Precision Mode, clicking a decoy ends the game
                     setStats(prev => ({ ...prev, decoyHits: prev.decoyHits + 1 }))
                     endGameWithCause('decoy_hit')
                     return
                 } else {
+                    // Standard mode penalty
                     setStats(prev => {
                         const penalty = calculateDecoyPenalty(prev.consecutiveMisses)
                         const newAdaptive = updateAdaptiveState(
@@ -549,7 +427,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                             consecutiveMisses: prev.consecutiveMisses + 1
                         }
                     })
-                    setConsecutiveFails(prev => prev + 1)
                 }
             } else {
                 console.log('Correct hit on circle:', circleId)
@@ -563,18 +440,12 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     fastBonus = calculateFastClickBonus(reactionTime, config.fastClickThreshold)
                 }
 
-                // Показываем различные саркастичные сообщения
-                if (fastBonus > 0) {
-                    showSarcasticMessage('fast')
-                } else {
-                    showSarcasticMessage('hit')
-                }
-
                 setStats(prev => {
                     let baseScore: number
                     let newStats: GameStats
 
                     if (isPrecisionMode) {
+                        // Precision Mode scoring
                         const newPerfectStreak = (prev.perfectStreak || 0) + 1
                         baseScore = 10 + (newPerfectStreak * 2) + fastBonus
 
@@ -589,12 +460,8 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                             hitCount: prev.hitCount + 1,
                             perfectStreak: newPerfectStreak
                         }
-
-                        // Показываем сообщение о серии в Precision Mode
-                        if (newPerfectStreak > 0 && newPerfectStreak % 10 === 0) {
-                            showSarcasticMessage('streak', { streak: newPerfectStreak })
-                        }
                     } else {
+                        // Standard mode scoring
                         const scoreMultiplier = calculateScoreMultiplier(prev.consecutiveHits + 1)
                         baseScore = Math.floor(1 * scoreMultiplier) + fastBonus
 
@@ -603,12 +470,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                             prev.consecutiveHits + 1,
                             0
                         )
-
-                        // Проверяем повышение уровня
-                        if (newAdaptive.level > adaptiveState.level) {
-                            showSarcasticMessage('level_up', { level: newAdaptive.level })
-                        }
-
                         setAdaptiveState(newAdaptive)
 
                         newStats = {
@@ -621,14 +482,8 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                             totalReactionTime: prev.totalReactionTime + reactionTime,
                             hitCount: prev.hitCount + 1
                         }
-
-                        // Показываем сообщение о серии в стандартном режиме
-                        if (newStats.consecutiveHits > 0 && newStats.consecutiveHits % 5 === 0) {
-                            showSarcasticMessage('streak', { streak: newStats.consecutiveHits })
-                        }
                     }
 
-                    setConsecutiveFails(0) // Сбрасываем счетчик неудач
                     return newStats
                 })
             }
@@ -644,13 +499,14 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         } else if (!circle.isActive && !circle.isAnimating) {
             console.log('Wrong click on circle:', circleId)
             triggerHapticFeedback('error')
-            showSarcasticMessage('wrong')
 
             if (isPrecisionMode) {
+                // In Precision Mode, wrong clicks end the game
                 setStats(prev => ({ ...prev, wrongHits: prev.wrongHits + 1 }))
                 endGameWithCause('wrong_click')
                 return
             } else {
+                // Standard mode penalty
                 setStats(prev => {
                     const penalty = calculateProgressiveWrongPenalty(prev.consecutiveMisses)
                     const newAdaptive = updateAdaptiveState(
@@ -668,7 +524,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                         consecutiveMisses: prev.consecutiveMisses + 1
                     }
                 })
-                setConsecutiveFails(prev => prev + 1)
             }
         }
     }, [gameState, circles, deactivateCircle, triggerHapticFeedback, config, adaptiveState, isPrecisionMode, endGameWithCause])
@@ -686,10 +541,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         setIsSavingResult(false)
         setSaveError(null)
         setSaveSuccess(false)
-        setSarcasticMessage('')
-        setShowMessage(false)
-        setConsecutiveFails(0)
-
         setStats({
             score: 0,
             correctHits: 0,
@@ -729,6 +580,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
             setGameState(GameState.PLAYING)
 
             if (!isPrecisionMode) {
+                // Standard mode timer
                 gameTimerRef.current = setInterval(() => {
                     setTimeLeft(prevTime => {
                         console.log('Timer tick, time left:', prevTime - 1)
@@ -741,6 +593,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     })
                 }, 1000)
             } else {
+                // Precision Mode update loop
                 precisionUpdateRef.current = setInterval(() => {
                     const deltaTime = PRECISION_MODE_UPDATE_INTERVAL
 
@@ -749,17 +602,16 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
 
                         const updated = updatePrecisionModeState(prev, deltaTime, config)
 
+                        // Log intensity changes for debugging
                         if (updated.intensityLevel !== prev.intensityLevel) {
                             console.log(`🔥 PRECISION MODE: LEVEL UP! 🔥`)
                             console.log(`Level: ${prev.intensityLevel} → ${updated.intensityLevel}`)
                             const levelConfig = getPrecisionLevelConfig(updated.intensityLevel)
                             console.log(`New config: simultaneous=${levelConfig.simultaneousCircles}, red=${levelConfig.redCircles}, active=${levelConfig.circleActiveTime}ms`)
                             console.log(`Description: ${levelConfig.description}`)
-
-                            // Показываем саркастичное сообщение о повышении уровня в Precision Mode
-                            showSarcasticMessage('level_up', { level: updated.intensityLevel })
                         }
 
+                        // Update stats with current precision state
                         setStats(prevStats => ({
                             ...prevStats,
                             currentIntensityLevel: updated.intensityLevel,
@@ -776,7 +628,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 activateRandomCircles()
             }, 500)
 
-        }, 800)
+        }, 800) // Уменьшено с 1500 до 800ms
     }, [config.circleCount, clearAllTimeouts, activateRandomCircles, isPrecisionMode, config])
 
     useEffect(() => {
@@ -807,6 +659,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 const finalPrecisionState = precisionStateRef.current
 
                 if (isPrecisionMode && finalPrecisionState) {
+                    // Precision Mode result
                     const finalScore = calculatePrecisionModeScore(
                         finalPrecisionState.survivalTime,
                         stats.perfectStreak || 0,
@@ -831,6 +684,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                         deathCause: getPrecisionModeDeathCause(stats.wrongHits, stats.missedCircles, stats.decoyHits)
                     }
                 } else {
+                    // Standard mode result
                     const averageReactionTime = stats.hitCount > 0
                         ? Math.round(stats.totalReactionTime / stats.hitCount)
                         : 0
@@ -878,7 +732,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         }, 300)
     }, [startGame])
 
-    // Обновленная функция renderGameHUD с саркастичными сообщениями
+    // Обновленная функция renderGameHUD с новой компоновкой
     const renderGameHUD = () => {
         const currentPrecisionState = precisionStateRef.current
 
@@ -910,14 +764,14 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                             onClick={onBackToMenu}
                             className="text-red-400/80 font-bpdots text-lg hover:text-red-400 transition-colors duration-300"
                         >
-                            ESCAPE
+                            QUIT
                         </button>
                     </div>
                 </div>
             )
         }
 
-        // Standard mode HUD с саркастичными дополнениями
+        // Standard mode HUD (остается без изменений)
         return (
             <div className="flex items-center justify-between px-6 py-4 pt-20 z-10 animate-fade-in">
                 <div className="flex flex-col items-center">
@@ -928,12 +782,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     {stats.consecutiveHits > 0 && (
                         <div className="text-xs font-bpdots text-green-400">
                             {stats.consecutiveHits} streak
-                            {stats.consecutiveHits >= 10 && " (suspicious!)"}
-                        </div>
-                    )}
-                    {stats.consecutiveMisses > 5 && (
-                        <div className="text-xs font-bpdots text-red-400">
-                            {stats.consecutiveMisses} fails (ouch!)
                         </div>
                     )}
                 </div>
@@ -948,7 +796,6 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     {config.adaptiveScaling && (
                         <div className="text-xs font-bpdots text-yellow-400 mt-1">
                             {getAdaptiveLevelDescription(adaptiveState.level)}
-                            {adaptiveState.level >= 8 && " (showing off?)"}
                         </div>
                     )}
                 </div>
@@ -957,35 +804,13 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                     onClick={onBackToMenu}
                     className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
                 >
-                    RAGE QUIT
+                    END
                 </button>
             </div>
         )
     }
 
-    // Саркастичное сообщение поверх игрового поля
-    const renderSarcasticMessage = () => {
-        if (!showMessage || !sarcasticMessage) return null
-
-        const messageColors = {
-            good: 'bg-green-500/20 border-green-400/30 text-green-300',
-            bad: 'bg-red-500/20 border-red-400/30 text-red-300',
-            neutral: 'bg-blue-500/20 border-blue-400/30 text-blue-300'
-        }
-
-        return (
-            <div className="fixed top-1/4 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
-                <div className={`
-                    px-6 py-3 rounded-lg backdrop-blur-xl border font-bpdots text-sm font-bold
-                    ${messageColors[messageType]}
-                    animate-pulse
-                `}>
-                    {sarcasticMessage}
-                </div>
-            </div>
-        )
-    }
-
+    // Новая функция для нижней панели в Precision Mode
     const renderPrecisionBottomPanel = () => {
         const currentPrecisionState = precisionStateRef.current
         if (!isPrecisionMode || !currentPrecisionState) return null
@@ -995,19 +820,20 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
         return (
             <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm border-t border-red-400/30">
                 <div className="px-6 py-4">
+                    {/* Level Info */}
                     <div className="text-center mb-3">
                         <div className="flex items-center justify-center space-x-2 mb-2">
-                            <Skull size={16} className="text-red-400" />
-                            <span className="text-lg font-bold font-bpdots text-red-400">
-                                Pain Level {currentPrecisionState.intensityLevel}
+                            <Zap size={16} className="text-orange-400" />
+                            <span className="text-lg font-bold font-bpdots text-orange-400">
+                                Level {currentPrecisionState.intensityLevel}
                             </span>
                         </div>
-                        <div className="text-sm font-bpdots text-red-300/60 uppercase tracking-wider">
+                        <div className="text-sm font-bpdots text-orange-300/60 uppercase tracking-wider">
                             {levelConfig.description}
-                            {currentPrecisionState.intensityLevel >= 10 && " (Why are you still here?)"}
                         </div>
                     </div>
 
+                    {/* Level Progress Bar */}
                     <div className="w-full h-2 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30 mb-3">
                         <div
                             className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600 transition-all duration-500 ease-out relative"
@@ -1020,14 +846,15 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                         </div>
                     </div>
 
+                    {/* Level Indicator and Warning */}
                     <div className="flex items-center justify-between">
                         <div className="text-xs font-bpdots text-red-400/60">
-                            {currentPrecisionState.intensityLevel}/15 LEVELS OF TORTURE
+                            {currentPrecisionState.intensityLevel}/15 LEVELS
                         </div>
                         <div className="flex items-center space-x-2">
-                            <Bomb size={12} className="text-red-400" />
+                            <AlertTriangle size={12} className="text-red-400" />
                             <span className="text-xs font-bpdots text-red-300 uppercase tracking-wider">
-                                ONE MISTAKE = INSTANT REGRET
+                                ONE MISTAKE = DEATH
                             </span>
                         </div>
                     </div>
@@ -1100,10 +927,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
     }
 
     return (
-        <div className="min-h-screen bg-black flex flex-col text-white relative">
-            {/* Саркастичное сообщение */}
-            {renderSarcasticMessage()}
-
+        <div className="min-h-screen bg-black flex flex-col text-white">
             {(gameState === GameState.STARTING || gameState === GameState.PLAYING) && renderGameHUD()}
 
             <div className="flex-1 flex items-center justify-center">
@@ -1115,6 +939,7 @@ export default function GameManager({ difficulty, onBackToMenu }: GameManagerPro
                 />
             </div>
 
+            {/* Нижняя панель для Precision Mode */}
             {(gameState === GameState.STARTING || gameState === GameState.PLAYING) && renderPrecisionBottomPanel()}
         </div>
     )
