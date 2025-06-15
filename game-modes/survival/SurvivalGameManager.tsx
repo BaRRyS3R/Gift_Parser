@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Redesigned interface with bottom panel and fixed progress bar
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed progress bar calculation
 
 "use client";
 
@@ -299,24 +299,21 @@ export default function SurvivalGameManager({
         };
     }, []);
 
-    // Calculate progress percentage for the current level (fixed calculation)
-    const getProgressPercentage = useCallback(() => {
+    // FIXED: Calculate progress percentage for the current level
+    const getProgressPercentage = () => {
         const maxLevels = 15;
         const currentLevel = gameState.currentLevel;
-        const timeInLevel = gameState.timeInCurrentLevel;
-        const levelDuration = gameState.config.intensityIncreaseInterval * 1000; // Convert to milliseconds
+        
+        // Simple linear progress: each level is 1/15 of total progress
+        const progress = Math.min((currentLevel / maxLevels) * 100, 100);
+        
+        console.log(`Progress calculation: Level ${currentLevel}/${maxLevels} = ${progress}%`);
+        
+        return progress;
+    };
 
-        // Calculate base progress from completed levels
-        const completedLevelsProgress = ((currentLevel - 1) / maxLevels) * 100;
-
-        // Calculate progress within current level
-        const currentLevelProgress = Math.min((timeInLevel / levelDuration) * (100 / maxLevels), 100 / maxLevels);
-
-        // Total progress
-        const totalProgress = Math.min(completedLevelsProgress + currentLevelProgress, 100);
-
-        return totalProgress;
-    }, [gameState.currentLevel, gameState.timeInCurrentLevel, gameState.config.intensityIncreaseInterval]);
+    // Get the current progress value
+    const currentProgress = getProgressPercentage();
 
     // Render game results
     if (gameState.gameState === GameState.FINISHED && gameResult) {
@@ -582,17 +579,17 @@ export default function SurvivalGameManager({
                         </button>
                     </div>
 
-                    {/* Progress Bar */}
+                    {/* Progress Bar - FIXED */}
                     <div className="space-y-2">
                         <div className="w-full h-3 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30">
                             <div
-                                className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600 transition-all duration-200 ease-out"
+                                className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600 transition-all duration-300 ease-out"
                                 style={{
-                                    width: `${getProgressPercentage()}%`,
+                                    width: `${currentProgress}%`,
                                 }}
                             />
                         </div>
-
+                        
                         {/* Progress info */}
                         <div className="flex items-center justify-between text-xs font-bpdots">
                             <span className="text-red-400/60">

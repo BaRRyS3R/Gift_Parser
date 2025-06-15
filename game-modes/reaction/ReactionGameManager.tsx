@@ -1,9 +1,9 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Removed header panel
+// src/game-modes/reaction/ReactionGameManager.tsx - Added bottom instruction panel
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Zap, CheckCircle, AlertCircle, RotateCcw } from "lucide-react";
+import { Zap, CheckCircle, AlertCircle, RotateCcw, Target, Clock } from "lucide-react";
 
 import {
     initializeReactionGameState,
@@ -249,6 +249,32 @@ export default function ReactionGameManager({
         };
     }, [startGame]);
 
+    // Get instruction text based on game state
+    const getInstructionText = () => {
+        if (gameState.gameState === GameState.PLAYING) {
+            if (gameState.activeCircleId !== null) {
+                return "CLICK NOW! AS FAST AS POSSIBLE!";
+            } else {
+                return "Wait for the white circle to appear...";
+            }
+        } else {
+            return "Get ready for lightning-fast reflexes test";
+        }
+    };
+
+    // Get instruction icon based on game state
+    const getInstructionIcon = () => {
+        if (gameState.gameState === GameState.PLAYING) {
+            if (gameState.activeCircleId !== null) {
+                return <Target className="text-white" size={16} />;
+            } else {
+                return <Clock className="text-white/60" size={16} />;
+            }
+        } else {
+            return <Zap className="text-white/60" size={16} />;
+        }
+    };
+
     // Render game results
     if (gameState.gameState === GameState.FINISHED && gameResult) {
         const rating = gameResult.rating;
@@ -442,15 +468,47 @@ export default function ReactionGameManager({
         );
     }
 
-    // Render game interface - NO HEADER, just full screen grid
+    // Render game interface with bottom instruction panel
     return (
-        <div className="min-h-screen bg-black flex items-center justify-center text-white">
-            <GameGrid
-                circles={gameState.circles}
-                isGameActive={gameState.gameState === GameState.PLAYING}
-                showCircles={showCircles}
-                onCircleClick={handleCircleClickEvent}
-            />
+        <div className="min-h-screen bg-black flex flex-col text-white">
+            {/* Game Grid - takes up most of the screen */}
+            <div className="flex-1 flex items-center justify-center">
+                <GameGrid
+                    circles={gameState.circles}
+                    isGameActive={gameState.gameState === GameState.PLAYING}
+                    showCircles={showCircles}
+                    onCircleClick={handleCircleClickEvent}
+                />
+            </div>
+
+            {/* Bottom Instruction Panel */}
+            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/30 safe-area-inset-bottom">
+                <div className="px-6 py-4">
+                    <div className="text-center space-y-2">
+                        {/* Main instruction */}
+                        <div className="flex items-center justify-center space-x-2">
+                            {getInstructionIcon()}
+                            <span className={`font-bpdots text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null ? 'text-white animate-pulse' : 'text-white/80'
+                                }`}>
+                                {getInstructionText()}
+                            </span>
+                        </div>
+
+                        {/* Sub instruction */}
+                        <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
+                            {gameState.gameState === GameState.PLAYING ? (
+                                gameState.activeCircleId !== null ? (
+                                    "Lightning fast reflexes required"
+                                ) : (
+                                    "Target will appear in 3-5 seconds"
+                                )
+                            ) : (
+                                "Preparing reaction speed test..."
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
