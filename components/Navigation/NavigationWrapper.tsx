@@ -1,4 +1,4 @@
-// src/components/Navigation/NavigationWrapper.tsx
+// src/components/Navigation/NavigationWrapper.tsx - Updated for new game structure
 
 'use client'
 
@@ -9,7 +9,13 @@ export default function NavigationWrapper() {
     const pathname = usePathname()
 
     // Определяем страницы, где НЕ нужно показывать нижнее меню
-    const hideNavOnPages = ['/', '/game']
+    const hideNavOnPages = [
+        '/',                    // Intro page
+        '/game',               // Old game page (redirect)
+        '/game/reaction',      // Reaction game mode
+        '/game/survival',      // Survival game mode
+    ]
+
     const shouldHideNav = hideNavOnPages.includes(pathname)
 
     console.log('NavigationWrapper - Current pathname:', pathname)

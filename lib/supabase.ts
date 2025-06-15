@@ -1,13 +1,16 @@
-// src/lib/supabase.ts - Enhanced with Updated Difficulty System
+// src/lib/supabase.ts - Updated for new game modes structure
 
 import { createClient } from "@supabase/supabase-js";
+import { GameMode } from "@/types/game-modes/common";
+import { ReactionGameResult } from "@/types/game-modes/reaction";
+import { SurvivalGameResult } from "@/types/game-modes/survival";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Enhanced database types with Updated Difficulty System
+// Updated database types for new game structure
 export interface User {
     id: string; // UUID v4
     telegram_id: number;
@@ -23,33 +26,25 @@ export interface User {
     total_games: number;
     total_score: number;
     best_score: number;
+
+    // Reaction Mode specific statistics
+    reaction_games: number;
+    reaction_best_score: number;
+    reaction_best_time: number; // Best reaction time in milliseconds
+    reaction_average_time: number; // Average reaction time in milliseconds
+
+    // Survival Mode specific statistics
+    survival_games: number;
+    survival_best_score: number;
+    survival_best_time: number; // Best survival time in milliseconds
+    survival_max_level: number; // Maximum level reached
+    survival_best_streak: number; // Best perfect streak
+
+    // Legacy fields (for backward compatibility)
     total_correct_hits: number;
     total_wrong_hits: number;
     total_missed_circles: number;
     best_accuracy: number;
-
-    // Updated difficulty statistics (removed easy/medium, added new names)
-    legendary_games: number;  // VETERAN
-    legendary_best_score: number;
-    omg_games: number;        // MANIAC
-    omg_best_score: number;
-    nightmare_games: number;  // DEMON
-    nightmare_best_score: number;
-    impossible_games: number; // GODLIKE
-    impossible_best_score: number;
-
-    // Precision Mode specific statistics
-    precision_games: number;
-    precision_best_score: number;
-    precision_best_survival_time: number; // in milliseconds
-    precision_max_intensity: number;
-    precision_best_streak: number;
-
-    // Enhanced general statistics
-    total_decoy_hits?: number;
-    total_fast_hits?: number;
-    best_reaction_time?: number;
-    max_adaptive_level?: number;
 
     last_played_at?: string;
     is_active: boolean;
@@ -58,25 +53,30 @@ export interface User {
 export interface GameResultDB {
     id: string; // UUID v4
     user_id: string; // UUID v4
-    difficulty: string;
+    game_mode: GameMode; // 'reaction' | 'survival'
     score: number;
-    correct_hits: number;
-    wrong_hits: number;
-    missed_circles: number;
-    accuracy: number;
     duration: number;
 
-    // Enhanced fields for all modes
+    // Reaction Mode specific fields
+    reaction_time?: number; // milliseconds
+    reaction_rating?: 'LIGHTNING' | 'EXCELLENT' | 'GOOD' | 'AVERAGE' | 'SLOW' | 'MISSED';
+    missed_target?: boolean;
+
+    // Survival Mode specific fields
+    survival_time?: number; // milliseconds
+    max_level_reached?: number;
+    perfect_streak?: number;
+    correct_hits?: number;
+    death_cause?: 'miss' | 'wrong_click' | 'decoy_hit' | 'timeout';
+
+    // Legacy fields (for backward compatibility)
+    wrong_hits?: number;
+    missed_circles?: number;
+    accuracy?: number;
     decoy_hits?: number;
     fast_hits?: number;
     average_reaction_time?: number;
     adaptive_level?: number;
-
-    // Precision Mode specific fields
-    survival_time?: number; // in milliseconds
-    max_intensity_reached?: number;
-    perfect_streak?: number;
-    death_cause?: string; // 'miss' | 'wrong_click' | 'decoy_hit' | 'timeout'
 
     created_at: string;
 }
@@ -99,24 +99,23 @@ export interface LeaderboardEntry {
     is_premium: boolean;
     best_score: number;
     total_games: number;
-    best_accuracy: number;
     last_played_at?: string;
 }
 
-export interface DifficultyLeaderboard {
+export interface ReactionLeaderboard {
     id: string;
     telegram_id: number;
     first_name: string;
     last_name?: string;
     username?: string;
     is_premium: boolean;
-    difficulty_best_score: number;
-    difficulty_games: number;
+    best_reaction_time: number;
+    reaction_games: number;
+    best_reaction_score: number;
     last_played_at?: string;
 }
 
-// Precision Mode specific leaderboard interface
-export interface PrecisionLeaderboard {
+export interface SurvivalLeaderboard {
     id: string;
     telegram_id: number;
     first_name: string;
@@ -124,13 +123,13 @@ export interface PrecisionLeaderboard {
     username?: string;
     is_premium: boolean;
     best_survival_time: number;
-    max_intensity: number;
+    max_level: number;
     best_streak: number;
-    total_precision_games: number;
+    survival_games: number;
     last_played_at?: string;
 }
 
-// Enhanced user service with Updated Difficulty System
+// Enhanced user service with new game modes support
 export const userService = {
     async findByTelegramId(telegramId: number): Promise<User | null> {
         const { data, error } = await supabase
@@ -171,65 +170,44 @@ export const userService = {
         return data;
     },
 
-    async updateGameStats(telegramId: number, gameResult: any): Promise<void> {
+    async updateGameStats(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult): Promise<void> {
         const user = await this.findByTelegramId(telegramId);
         if (!user) throw new Error("User not found");
-
-        const difficultyField = `${gameResult.difficulty}_games`;
-        const difficultyBestField = `${gameResult.difficulty}_best_score`;
 
         const updates: any = {
             total_games: user.total_games + 1,
             total_score: user.total_score + gameResult.score,
             best_score: Math.max(user.best_score, gameResult.score),
-            total_correct_hits: user.total_correct_hits + gameResult.correctHits,
-            total_wrong_hits: user.total_wrong_hits + gameResult.wrongHits,
-            total_missed_circles: user.total_missed_circles + gameResult.missedCircles,
-            best_accuracy: Math.max(user.best_accuracy, gameResult.accuracy),
-            [difficultyField]: (user as any)[difficultyField] + 1,
-            [difficultyBestField]: Math.max(
-                (user as any)[difficultyBestField],
-                gameResult.score,
-            ),
             last_played_at: new Date().toISOString(),
         };
 
-        // Precision Mode specific updates
-        if (gameResult.difficulty === 'precision') {
-            updates.precision_best_survival_time = Math.max(
-                user.precision_best_survival_time || 0,
-                gameResult.survivalTime || 0
-            );
-            updates.precision_max_intensity = Math.max(
-                user.precision_max_intensity || 0,
-                gameResult.maxIntensityReached || 0
-            );
-            updates.precision_best_streak = Math.max(
-                user.precision_best_streak || 0,
-                gameResult.perfectStreak || 0
-            );
-        }
+        if (gameResult.mode === GameMode.REACTION) {
+            const reactionResult = gameResult as ReactionGameResult;
 
-        // Enhanced metrics updates
-        if (gameResult.decoyHits !== undefined) {
-            updates.total_decoy_hits = (user.total_decoy_hits || 0) + gameResult.decoyHits;
-        }
+            updates.reaction_games = user.reaction_games + 1;
+            updates.reaction_best_score = Math.max(user.reaction_best_score || 0, reactionResult.score);
 
-        if (gameResult.fastHits !== undefined) {
-            updates.total_fast_hits = (user.total_fast_hits || 0) + gameResult.fastHits;
-        }
+            if (!reactionResult.missed && reactionResult.reactionTime > 0) {
+                updates.reaction_best_time = user.reaction_best_time > 0
+                    ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
+                    : reactionResult.reactionTime;
 
-        if (gameResult.averageReactionTime !== undefined && gameResult.averageReactionTime > 0) {
-            if (!user.best_reaction_time || gameResult.averageReactionTime < user.best_reaction_time) {
-                updates.best_reaction_time = gameResult.averageReactionTime;
+                // Calculate new average reaction time
+                const totalReactionGames = user.reaction_games;
+                const currentAverage = user.reaction_average_time || 0;
+                const newAverage = totalReactionGames > 0
+                    ? ((currentAverage * totalReactionGames) + reactionResult.reactionTime) / (totalReactionGames + 1)
+                    : reactionResult.reactionTime;
+                updates.reaction_average_time = Math.round(newAverage);
             }
-        }
+        } else if (gameResult.mode === GameMode.SURVIVAL) {
+            const survivalResult = gameResult as SurvivalGameResult;
 
-        if (gameResult.adaptiveLevel !== undefined) {
-            updates.max_adaptive_level = Math.max(
-                user.max_adaptive_level || 0,
-                gameResult.adaptiveLevel
-            );
+            updates.survival_games = user.survival_games + 1;
+            updates.survival_best_score = Math.max(user.survival_best_score || 0, survivalResult.score);
+            updates.survival_best_time = Math.max(user.survival_best_time || 0, survivalResult.survivalTime);
+            updates.survival_max_level = Math.max(user.survival_max_level || 0, survivalResult.maxLevelReached);
+            updates.survival_best_streak = Math.max(user.survival_best_streak || 0, survivalResult.perfectStreak);
         }
 
         const { error } = await supabase
@@ -243,53 +221,29 @@ export const userService = {
         }
     },
 
-    async saveGameResult(telegramId: number, gameResult: any): Promise<void> {
+    async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult): Promise<void> {
         const user = await this.findByTelegramId(telegramId);
         if (!user) throw new Error("User not found");
 
         const resultData: any = {
             user_id: user.id,
-            difficulty: gameResult.difficulty,
+            game_mode: gameResult.mode,
             score: gameResult.score,
-            correct_hits: gameResult.correctHits,
-            wrong_hits: gameResult.wrongHits,
-            missed_circles: gameResult.missedCircles,
-            accuracy: gameResult.accuracy,
             duration: gameResult.duration,
         };
 
-        // Standard enhanced fields
-        if (gameResult.decoyHits !== undefined) {
-            resultData.decoy_hits = gameResult.decoyHits;
-        }
-
-        if (gameResult.fastHits !== undefined) {
-            resultData.fast_hits = gameResult.fastHits;
-        }
-
-        if (gameResult.averageReactionTime !== undefined) {
-            resultData.average_reaction_time = gameResult.averageReactionTime;
-        }
-
-        if (gameResult.adaptiveLevel !== undefined) {
-            resultData.adaptive_level = gameResult.adaptiveLevel;
-        }
-
-        // Precision Mode specific fields
-        if (gameResult.survivalTime !== undefined) {
-            resultData.survival_time = gameResult.survivalTime;
-        }
-
-        if (gameResult.maxIntensityReached !== undefined) {
-            resultData.max_intensity_reached = gameResult.maxIntensityReached;
-        }
-
-        if (gameResult.perfectStreak !== undefined) {
-            resultData.perfect_streak = gameResult.perfectStreak;
-        }
-
-        if (gameResult.deathCause !== undefined) {
-            resultData.death_cause = gameResult.deathCause;
+        if (gameResult.mode === GameMode.REACTION) {
+            const reactionResult = gameResult as ReactionGameResult;
+            resultData.reaction_time = reactionResult.reactionTime;
+            resultData.reaction_rating = reactionResult.rating;
+            resultData.missed_target = reactionResult.missed;
+        } else if (gameResult.mode === GameMode.SURVIVAL) {
+            const survivalResult = gameResult as SurvivalGameResult;
+            resultData.survival_time = survivalResult.survivalTime;
+            resultData.max_level_reached = survivalResult.maxLevelReached;
+            resultData.perfect_streak = survivalResult.perfectStreak;
+            resultData.correct_hits = survivalResult.correctHits;
+            resultData.death_cause = survivalResult.deathCause;
         }
 
         console.log('Saving game result with data:', resultData);
@@ -335,12 +289,10 @@ export const userService = {
                 is_premium,
                 best_score,
                 total_games,
-                best_accuracy,
                 last_played_at
             `)
             .gt('total_games', 0)
             .order("best_score", { ascending: false })
-            .order("best_accuracy", { ascending: false })
             .limit(limit);
 
         if (error) {
@@ -351,10 +303,7 @@ export const userService = {
         return data || [];
     },
 
-    async getDifficultyLeaderboard(difficulty: string, limit: number = 100): Promise<DifficultyLeaderboard[]> {
-        const scoreField = `${difficulty}_best_score`;
-        const gamesField = `${difficulty}_games`;
-
+    async getReactionLeaderboard(limit: number = 100): Promise<ReactionLeaderboard[]> {
         const { data, error } = await supabase
             .from("users")
             .select(`
@@ -364,28 +313,31 @@ export const userService = {
                 last_name,
                 username,
                 is_premium,
-                ${scoreField},
-                ${gamesField},
+                reaction_best_time,
+                reaction_games,
+                reaction_best_score,
                 last_played_at
             `)
-            .gt(gamesField, 0)
-            .order(scoreField, { ascending: false })
+            .gt('reaction_games', 0)
+            .gt('reaction_best_time', 0)
+            .order("reaction_best_time", { ascending: true })
+            .order("reaction_best_score", { ascending: false })
             .limit(limit);
 
         if (error) {
-            console.error("Error fetching difficulty leaderboard:", error);
+            console.error("Error fetching reaction leaderboard:", error);
             throw error;
         }
 
         return (data || []).map((user: any) => ({
             ...user,
-            difficulty_best_score: user[scoreField],
-            difficulty_games: user[gamesField]
+            best_reaction_time: user.reaction_best_time,
+            reaction_games: user.reaction_games,
+            best_reaction_score: user.reaction_best_score
         }));
     },
 
-    // Precision Mode leaderboard methods
-    async getPrecisionLeaderboard(limit: number = 100): Promise<PrecisionLeaderboard[]> {
+    async getSurvivalLeaderboard(limit: number = 100): Promise<SurvivalLeaderboard[]> {
         const { data, error } = await supabase
             .from("users")
             .select(`
@@ -395,28 +347,28 @@ export const userService = {
                 last_name,
                 username,
                 is_premium,
-                precision_best_survival_time,
-                precision_max_intensity,
-                precision_best_streak,
-                precision_games,
+                survival_best_time,
+                survival_max_level,
+                survival_best_streak,
+                survival_games,
                 last_played_at
             `)
-            .gt('precision_games', 0)
-            .order("precision_best_survival_time", { ascending: false })
-            .order("precision_max_intensity", { ascending: false })
+            .gt('survival_games', 0)
+            .order("survival_best_time", { ascending: false })
+            .order("survival_max_level", { ascending: false })
             .limit(limit);
 
         if (error) {
-            console.error("Error fetching precision leaderboard:", error);
+            console.error("Error fetching survival leaderboard:", error);
             throw error;
         }
 
         return (data || []).map((user: any) => ({
             ...user,
-            best_survival_time: user.precision_best_survival_time,
-            max_intensity: user.precision_max_intensity,
-            best_streak: user.precision_best_streak,
-            total_precision_games: user.precision_games
+            best_survival_time: user.survival_best_time,
+            max_level: user.survival_max_level,
+            best_streak: user.survival_best_streak,
+            survival_games: user.survival_games
         }));
     },
 
@@ -428,7 +380,7 @@ export const userService = {
             .from("users")
             .select("id", { count: "exact" })
             .gt('total_games', 0)
-            .or(`best_score.gt.${user.best_score},and(best_score.eq.${user.best_score},best_accuracy.gt.${user.best_accuracy})`);
+            .gt('best_score', user.best_score);
 
         if (error) {
             console.error("Error fetching user ranking:", error);
@@ -438,43 +390,37 @@ export const userService = {
         return (count || 0) + 1;
     },
 
-    async getUserDifficultyRanking(telegramId: number, difficulty: string): Promise<number | null> {
+    async getUserReactionRanking(telegramId: number): Promise<number | null> {
         const user = await this.findByTelegramId(telegramId);
-        if (!user) return null;
-
-        const scoreField = `${difficulty}_best_score`;
-        const gamesField = `${difficulty}_games`;
-        const userScore = (user as any)[scoreField];
-        const userGames = (user as any)[gamesField];
-
-        if (userGames === 0) return null;
+        if (!user || user.reaction_games === 0 || !user.reaction_best_time) return null;
 
         const { count, error } = await supabase
             .from("users")
             .select("id", { count: "exact" })
-            .gt(gamesField, 0)
-            .gt(scoreField, userScore);
+            .gt('reaction_games', 0)
+            .gt('reaction_best_time', 0)
+            .lt('reaction_best_time', user.reaction_best_time);
 
         if (error) {
-            console.error("Error fetching user difficulty ranking:", error);
+            console.error("Error fetching user reaction ranking:", error);
             throw error;
         }
 
         return (count || 0) + 1;
     },
 
-    async getUserPrecisionRanking(telegramId: number): Promise<number | null> {
+    async getUserSurvivalRanking(telegramId: number): Promise<number | null> {
         const user = await this.findByTelegramId(telegramId);
-        if (!user || user.precision_games === 0) return null;
+        if (!user || user.survival_games === 0) return null;
 
         const { count, error } = await supabase
             .from("users")
             .select("id", { count: "exact" })
-            .gt('precision_games', 0)
-            .or(`precision_best_survival_time.gt.${user.precision_best_survival_time},and(precision_best_survival_time.eq.${user.precision_best_survival_time},precision_max_intensity.gt.${user.precision_max_intensity})`);
+            .gt('survival_games', 0)
+            .or(`survival_best_time.gt.${user.survival_best_time},and(survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`);
 
         if (error) {
-            console.error("Error fetching user precision ranking:", error);
+            console.error("Error fetching user survival ranking:", error);
             throw error;
         }
 

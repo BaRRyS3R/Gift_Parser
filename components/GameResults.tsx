@@ -381,18 +381,23 @@ export default function GameResults({
                     </div>
                 </div>
 
-                {/* Save Status */}
+                {/* Save Status with Enhanced Retry Feedback */}
                 {(isSaving || saveError || saveSuccess) && (
                     <div className={`backdrop-blur-sm border rounded-xl p-4 ${colors.background} ${colors.border}`}>
                         {isSaving && (
                             <div className="flex items-center justify-center space-x-3">
                                 <Spinner size="sm" color={isPrecisionMode ? "danger" : "default"} />
-                                <span className={`font-bpdots text-sm ${colors.secondary}`}>
-                                    {isPrecisionMode
-                                        ? "Recording your precision failure..."
-                                        : "Uploading your results..."
-                                    }
-                                </span>
+                                <div className="text-center">
+                                    <span className={`font-bpdots text-sm ${colors.secondary}`}>
+                                        {isPrecisionMode
+                                            ? "Recording your precision data..."
+                                            : "Saving your results..."
+                                        }
+                                    </span>
+                                    <div className={`font-bpdots text-xs ${colors.accent} mt-1`}>
+                                        This may take a few attempts if network is unstable
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -402,18 +407,30 @@ export default function GameResults({
                                     ✓ Results successfully saved!
                                 </div>
                                 <div className={`font-bpdots text-xs ${colors.accent}`}>
-                                    Your performance is now recorded
+                                    Your performance is now recorded in the leaderboards
                                 </div>
                             </div>
                         )}
 
                         {saveError && !isSaving && (
-                            <div className="text-center">
+                            <div className="text-center space-y-3">
                                 <div className="text-red-400 font-bpdots text-sm mb-2">
-                                    ✗ Failed to save results
+                                    ✗ Failed to save results after multiple attempts
                                 </div>
-                                <div className="text-gray-400 font-bpdots text-xs">
-                                    Please try again
+                                <div className="text-gray-400 font-bpdots text-xs mb-3">
+                                    {saveError.includes('3 попыток')
+                                        ? 'Network connection issues detected. Your score was not saved to the leaderboards.'
+                                        : 'Please check your connection and try playing again'
+                                    }
+                                </div>
+
+                                {/* Retry Instructions */}
+                                <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-3">
+                                    <div className="text-xs font-bpdots text-red-300/80 text-center space-y-1">
+                                        <div className="font-bold">📶 CONNECTION ISSUES</div>
+                                        <div>Your game was completed but results couldn't be saved</div>
+                                        <div>Try playing again when connection is stable</div>
+                                    </div>
                                 </div>
                             </div>
                         )}

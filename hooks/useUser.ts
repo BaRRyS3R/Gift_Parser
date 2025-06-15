@@ -1,4 +1,4 @@
-// src/hooks/useUser.tsx
+// src/hooks/useUser.tsx - Updated for new game modes
 
 "use client";
 
@@ -11,6 +11,11 @@ import React, {
 } from "react";
 
 import { userService, type User, type TelegramUser } from "@/lib/supabase";
+import { ReactionGameResult } from "@/types/game-modes/reaction";
+import { SurvivalGameResult } from "@/types/game-modes/survival";
+
+// Union type for all possible game results
+type GameResult = ReactionGameResult | SurvivalGameResult;
 
 interface UserContextType {
   user: User | null;
@@ -18,7 +23,7 @@ interface UserContextType {
   isLoading: boolean;
   error: string | null;
   refreshUser: () => Promise<void>;
-  saveGameResult: (gameResult: any) => Promise<void>;
+  saveGameResult: (gameResult: GameResult) => Promise<void>;
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 }
@@ -28,6 +33,45 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 interface UserProviderProps {
   children: React.ReactNode;
 }
+
+// Helper function for retry logic
+const retryOperation = async <T,>(
+  operation: () => Promise<T>,
+  maxAttempts: number = 3,
+  delay: number = 1000
+): Promise<T> => {
+  let lastError: Error = new Error('Unknown error occurred');
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(`Attempt ${attempt}/${maxAttempts} to save game result`);
+      const result = await operation();
+
+      if (attempt > 1) {
+        console.log(`Successfully saved game result on attempt ${attempt}`);
+      }
+
+      return result;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`Attempt ${attempt} failed:`, lastError.message);
+
+      // If this is not the last attempt, wait before retrying
+      if (attempt < maxAttempts) {
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        // Increase delay for subsequent attempts (exponential backoff)
+        delay *= 1.5;
+      }
+    }
+  }
+
+  // If we get here, all attempts failed
+  console.error(`All ${maxAttempts} attempts to save game result failed`);
+  throw new Error(
+    `Failed to save game result after ${maxAttempts} attempts. Last error: ${lastError.message}`
+  );
+};
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -82,17 +126,37 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [telegramUser]);
 
   const saveGameResult = useCallback(
-    async (gameResult: any): Promise<void> => {
+    async (gameResult: GameResult): Promise<void> => {
       if (!telegramUser) {
         throw new Error("Пользователь Telegram не найден");
       }
 
-      try {
+      // Log the game result for debugging
+      console.log('Saving game result:', {
+        mode: gameResult.mode,
+        score: gameResult.score,
+        duration: gameResult.duration
+      });
+
+      // Create the operation function that will be retried
+      const saveOperation = async (): Promise<void> => {
         await userService.saveGameResult(telegramUser.id, gameResult);
         await refreshUser();
+      };
+
+      try {
+        // Use retry logic with up to 3 attempts
+        await retryOperation(saveOperation, 3, 1000);
+        console.log('Game result saved successfully (with potential retries)');
       } catch (err) {
-        console.error("Ошибка при сохранении результата игры:", err);
-        throw err;
+        console.error("Failed to save game result after all retry attempts:", err);
+
+        // Create a more descriptive error message for the user
+        const errorMessage = err instanceof Error
+          ? `Не удалось сохранить результат игры после 3 попыток: ${err.message}`
+          : "Не удалось сохранить результат игры после 3 попыток. Попробуйте позже.";
+
+        throw new Error(errorMessage);
       }
     },
     [telegramUser, refreshUser],

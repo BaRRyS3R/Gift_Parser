@@ -116,10 +116,10 @@ export default function MainPage() {
 
   return (
     <div className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? 'opacity-0 transition-opacity duration-500 ease-in'
-        : pageLoaded
-          ? 'opacity-100 transition-opacity duration-1000 ease-out'
-          : 'opacity-0'
+      ? 'opacity-0 transition-opacity duration-500 ease-in'
+      : pageLoaded
+        ? 'opacity-100 transition-opacity duration-1000 ease-out'
+        : 'opacity-0'
       }`}>
 
       {/* Background Video */}
