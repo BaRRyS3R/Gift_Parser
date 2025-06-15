@@ -8,7 +8,7 @@ import {
 } from "@/types/purchases";
 
 // URL вашего PHP backend (замените на реальный)
-const PHP_BACKEND_URL = process.env.NEXT_PUBLIC_PHP_BACKEND_URL || 'https://yourdomain.com/telegram-payments';
+const PHP_BACKEND_URL = process.env.NEXT_PUBLIC_PHP_BACKEND_URL;
 
 // Получение initData от Telegram WebApp
 const getTelegramInitData = (): string => {
