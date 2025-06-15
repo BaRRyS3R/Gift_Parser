@@ -1,205 +1,426 @@
-// src/game-modes/reaction/ReactionGameLogic.ts
+// src/game-modes/reaction/ReactionGameManager.tsx
 
-import { 
-  ReactionGameConfig, 
-  ReactionGameStats, 
-  ReactionGameResult, 
-  ReactionGameState 
-} from '@/types/game-modes/reaction';
-import { Circle, GameState, GameMode } from '@/types/game-modes/common';
+'use client'
 
-export const REACTION_CONFIG: ReactionGameConfig = {
-  id: 'reaction',
-  name: 'REACTION SPEED',
-  minDelayMs: 3000,
-  maxDelayMs: 5000,
-  circleActiveTimeMs: 10000, // 10 секунд на клик после появления
-  gridSize: 9 // 3x3 сетка для простоты
-};
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useUser } from '@/hooks/useUser'
+import { GameState } from '@/types/game-modes/common'
+import { ReactionGameState, ReactionGameResult } from '@/types/game-modes/reaction'
+import {
+    initializeReactionGameState,
+    activateRandomCircle,
+    handleCircleClick,
+    createReactionGameResult,
+    cleanupReactionGame,
+    getRandomDelay,
+    getReactionRatingDescription,
+    getReactionRatingColor
+} from './ReactionGameLogic'
+import GameGrid from '@/components/GameGrid'
+import { Target, Zap, Clock } from 'lucide-react'
 
-export const createCircleGrid = (count: number): Circle[] => {
-  return Array.from({ length: count }, (_, index) => ({
-    id: index,
-    isActive: false,
-    isAnimating: false,
-    isDecoy: false,
-  }));
-};
+interface ReactionGameManagerProps {
+    onBackToMenu: () => void
+}
 
-export const getRandomCircleId = (totalCircles: number): number => {
-  return Math.floor(Math.random() * totalCircles);
-};
+export default function ReactionGameManager({ onBackToMenu }: ReactionGameManagerProps) {
+    const { saveGameResult } = useUser()
+    const [gameState, setGameState] = useState<ReactionGameState>(initializeReactionGameState())
+    const [showCircles, setShowCircles] = useState(false)
+    const [isSavingResult, setIsSavingResult] = useState(false)
+    const [saveError, setSaveError] = useState<string | null>(null)
+    const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null)
+    const [instructionStep, setInstructionStep] = useState(0)
+    const gameStateRef = useRef<ReactionGameState>(gameState)
 
-export const getRandomDelay = (config: ReactionGameConfig): number => {
-  return Math.random() * (config.maxDelayMs - config.minDelayMs) + config.minDelayMs;
-};
+    // Update ref when state changes
+    useEffect(() => {
+        gameStateRef.current = gameState
+    }, [gameState])
 
-export const initializeReactionGameState = (): ReactionGameState => {
-  return {
-    config: REACTION_CONFIG,
-    gameState: GameState.NOT_STARTED,
-    stats: {
-      reactionTime: null,
-      clicked: false,
-      startTime: null,
-      clickTime: null,
-      missedTarget: false
-    },
-    circles: createCircleGrid(REACTION_CONFIG.gridSize),
-    activeCircleId: null,
-    startDelayTimeout: null,
-    gameTimeout: null
-  };
-};
+    const triggerHapticFeedback = useCallback((type: 'success' | 'error') => {
+        if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
+            const haptic = window.Telegram.WebApp.HapticFeedback
+            haptic.notificationOccurred(type)
+        }
+    }, [])
 
-export const activateRandomCircle = (
-  state: ReactionGameState,
-  onCircleActivated: (circleId: number) => void,
-  onGameTimeout: () => void
-): ReactionGameState => {
-  const circleId = getRandomCircleId(state.config.gridSize);
-  const activationTime = Date.now();
-  
-  const newState = {
-    ...state,
-    activeCircleId: circleId,
-    stats: {
-      ...state.stats,
-      startTime: activationTime
-    },
-    circles: state.circles.map(circle => 
-      circle.id === circleId 
-        ? { ...circle, isActive: true }
-        : circle
+    const handleGameTimeout = useCallback(() => {
+        console.log('Reaction game timed out')
+
+        setGameState(prev => {
+            const finalState = {
+                ...prev,
+                gameState: GameState.FINISHED,
+                stats: {
+                    ...prev.stats,
+                    missedTarget: true
+                }
+            }
+
+            const result = createReactionGameResult(finalState)
+            setGameResult(result)
+
+            // Save result
+            setIsSavingResult(true)
+            saveGameResult(result)
+                .then(() => {
+                    console.log('Reaction game result saved successfully')
+                    setSaveError(null)
+                })
+                .catch(error => {
+                    console.error('Error saving reaction game result:', error)
+                    setSaveError('Failed to save result')
+                })
+                .finally(() => {
+                    setIsSavingResult(false)
+                })
+
+            cleanupReactionGame(finalState)
+            return finalState
+        })
+    }, [saveGameResult])
+
+    const handleCircleActivated = useCallback((circleId: number) => {
+        console.log(`Circle ${circleId} activated, waiting for click...`)
+        triggerHapticFeedback('success')
+    }, [triggerHapticFeedback])
+
+    const handleCircleClickEvent = useCallback((circleId: number) => {
+        if (gameStateRef.current.gameState !== GameState.PLAYING) return
+
+        console.log('Reaction circle clicked:', circleId)
+
+        const newState = handleCircleClick(gameStateRef.current, circleId)
+
+        if (newState.gameState === GameState.FINISHED) {
+            triggerHapticFeedback(newState.stats.missedTarget ? 'error' : 'success')
+
+            const result = createReactionGameResult(newState)
+            setGameResult(result)
+
+            // Save result
+            setIsSavingResult(true)
+            saveGameResult(result)
+                .then(() => {
+                    console.log('Reaction game result saved successfully')
+                    setSaveError(null)
+                })
+                .catch(error => {
+                    console.error('Error saving reaction game result:', error)
+                    setSaveError('Failed to save result')
+                })
+                .finally(() => {
+                    setIsSavingResult(false)
+                })
+
+            cleanupReactionGame(newState)
+        }
+
+        setGameState(newState)
+    }, [triggerHapticFeedback, saveGameResult])
+
+    const startGame = useCallback(() => {
+        console.log('Starting Reaction Game...')
+        setGameState(initializeReactionGameState())
+        setGameResult(null)
+        setSaveError(null)
+        setIsSavingResult(false)
+
+        // Show circles
+        setTimeout(() => {
+            setShowCircles(true)
+        }, 100)
+
+        // Start game mechanics
+        setTimeout(() => {
+            setGameState(prev => ({ ...prev, gameState: GameState.PLAYING }))
+
+            // Schedule circle activation after random delay
+            const delay = getRandomDelay(gameStateRef.current.config)
+            console.log(`Circle will activate in ${delay}ms`)
+
+            const timeout = setTimeout(() => {
+                if (gameStateRef.current.gameState === GameState.PLAYING) {
+                    setGameState(current =>
+                        activateRandomCircle(
+                            current,
+                            handleCircleActivated,
+                            handleGameTimeout
+                        )
+                    )
+                }
+            }, delay)
+
+            setGameState(prev => ({
+                ...prev,
+                startDelayTimeout: timeout
+            }))
+        }, 800)
+    }, [handleCircleActivated, handleGameTimeout])
+
+    const restartGame = useCallback(() => {
+        setShowCircles(false)
+        setTimeout(() => {
+            startGame()
+        }, 300)
+    }, [startGame])
+
+    // Show instructions first
+    useEffect(() => {
+        const instructionTimer = setTimeout(() => {
+            if (instructionStep < 2) {
+                setInstructionStep(prev => prev + 1)
+            } else {
+                startGame()
+            }
+        }, instructionStep === 0 ? 2000 : 1500)
+
+        return () => clearTimeout(instructionTimer)
+    }, [instructionStep, startGame])
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            cleanupReactionGame(gameStateRef.current)
+        }
+    }, [])
+
+    // Render game results
+    if (gameState.gameState === GameState.FINISHED && gameResult) {
+        const rating = gameResult.rating
+        const ratingColor = getReactionRatingColor(rating)
+        const ratingDescription = getReactionRatingDescription(rating)
+
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="w-full max-w-md space-y-8 animate-fade-in">
+                    <div className="text-center space-y-4">
+                        <div className="text-6xl mb-4">⚡</div>
+
+                        <h1 className="text-4xl font-bold font-bpdots text-yellow-400">
+                            REACTION TEST
+                        </h1>
+
+                        <div className="flex items-center justify-center space-x-2">
+                            <Zap size={20} className="text-yellow-400" />
+                            <p className="text-lg font-bpdots text-yellow-300">
+                                Speed Test Complete
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Results */}
+                    <div className="bg-yellow-500/10 backdrop-blur-sm border border-yellow-400/30 rounded-xl p-6 space-y-6">
+                        <div className="text-center space-y-2">
+                            <div className="text-sm font-bpdots text-yellow-400/60">REACTION TIME</div>
+                            {gameResult.missed ? (
+                                <div className="text-4xl font-bold font-bpdots text-red-400">
+                                    MISSED
+                                </div>
+                            ) : (
+                                <div className="text-4xl font-bold font-bpdots text-yellow-400">
+                                    {gameResult.reactionTime}ms
+                                </div>
+                            )}
+                            <div className={`text-lg font-bpdots ${ratingColor}`}>
+                                {rating}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center space-y-1">
+                                <div className="text-xs font-bpdots text-yellow-400/60">SCORE</div>
+                                <div className="text-xl font-bold font-bpdots text-yellow-300">
+                                    {gameResult.score}
+                                </div>
+                            </div>
+                            <div className="text-center space-y-1">
+                                <div className="text-xs font-bpdots text-yellow-400/60">RATING</div>
+                                <div className={`text-xl font-bold font-bpdots ${ratingColor}`}>
+                                    {rating}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-yellow-400/30 pt-4">
+                            <div className="text-center">
+                                <div className="text-sm font-bpdots text-yellow-400/80 mb-2">
+                                    {ratingDescription}
+                                </div>
+                                {!gameResult.missed && (
+                                    <div className="text-xs font-bpdots text-yellow-400/60">
+                                        {gameResult.reactionTime <= 150 ? 'Superhuman reflexes!' :
+                                            gameResult.reactionTime <= 200 ? 'Excellent speed!' :
+                                                gameResult.reactionTime <= 300 ? 'Good reaction time!' :
+                                                    'Keep practicing!'}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Save Status */}
+                    {(isSavingResult || saveError) && (
+                        <div className="bg-yellow-500/10 backdrop-blur-sm border border-yellow-400/30 rounded-xl p-4">
+                            {isSavingResult && (
+                                <div className="flex items-center justify-center space-x-3">
+                                    <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin"></div>
+                                    <span className="font-bpdots text-sm text-yellow-300/80">
+                                        Recording reaction time...
+                                    </span>
+                                </div>
+                            )}
+
+                            {saveError && !isSavingResult && (
+                                <div className="text-center">
+                                    <div className="text-red-400 font-bpdots text-sm mb-2">
+                                        ✗ Failed to save result
+                                    </div>
+                                    <div className="text-red-400/60 font-bpdots text-xs">
+                                        Your time was recorded locally
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="space-y-4">
+                        <button
+                            onClick={restartGame}
+                            disabled={isSavingResult}
+                            className="w-full px-6 py-4 bg-transparent border-2 border-yellow-400/60 text-yellow-300 rounded-xl font-bpdots text-lg hover:border-yellow-400 hover:bg-yellow-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            TEST AGAIN
+                        </button>
+
+                        <button
+                            onClick={onBackToMenu}
+                            disabled={isSavingResult}
+                            className="w-full px-6 py-4 bg-transparent border-2 border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            BACK TO MENU
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // Render instructions
+    if (instructionStep < 3 && gameState.gameState === GameState.NOT_STARTED) {
+        const instructions = [
+            {
+                icon: <Target size={48} className="text-yellow-400" />,
+                title: "REACTION SPEED TEST",
+                description: "Test your lightning-fast reflexes"
+            },
+            {
+                icon: <Clock size={48} className="text-yellow-400" />,
+                title: "WAIT FOR THE SIGNAL",
+                description: "A target will appear after 3-5 seconds"
+            },
+            {
+                icon: <Zap size={48} className="text-yellow-400" />,
+                title: "CLICK AS FAST AS POSSIBLE",
+                description: "Click the target the moment it appears"
+            }
+        ]
+
+        const currentInstruction = instructions[instructionStep]
+
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="w-full max-w-md text-center space-y-8 animate-fade-in">
+                    <div className="space-y-6">
+                        <div className="flex justify-center">
+                            {currentInstruction.icon}
+                        </div>
+
+                        <div className="space-y-3">
+                            <h1 className="text-3xl font-bold font-bpdots text-yellow-400">
+                                {currentInstruction.title}
+                            </h1>
+                            <p className="text-lg font-bpdots text-yellow-300/80">
+                                {currentInstruction.description}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-center space-x-2">
+                        {instructions.map((_, index) => (
+                            <div
+                                key={index}
+                                className={`w-2 h-2 rounded-full transition-all duration-300 ${index <= instructionStep
+                                        ? 'bg-yellow-400'
+                                        : 'bg-yellow-400/30'
+                                    }`}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // Render game interface
+    return (
+        <div className="min-h-screen bg-black flex flex-col text-white">
+            {/* Game Header */}
+            <div className="flex items-center justify-between px-6 py-4 pt-20 z-10">
+                <div className="flex flex-col items-center">
+                    <div className="text-2xl font-bpdots text-yellow-400">
+                        REACTION
+                    </div>
+                    <div className="text-xs font-bpdots text-yellow-300/60 mt-1">
+                        Speed Test
+                    </div>
+                </div>
+
+                <div className="flex flex-col items-center">
+                    <div className="text-2xl font-bold font-bpdots text-white">
+                        {gameState.gameState === GameState.PLAYING ? 'READY...' : 'WAITING'}
+                    </div>
+                    <div className="text-xs font-bpdots text-white/60">
+                        {gameState.gameState === GameState.PLAYING ? 'Click when target appears' : 'Preparing test'}
+                    </div>
+                </div>
+
+                <button
+                    onClick={onBackToMenu}
+                    className="text-yellow-400/80 font-bpdots text-lg hover:text-yellow-400 transition-colors duration-300"
+                >
+                    QUIT
+                </button>
+            </div>
+
+            {/* Game Grid */}
+            <div className="flex-1 flex items-center justify-center">
+                <GameGrid
+                    circles={gameState.circles}
+                    onCircleClick={handleCircleClickEvent}
+                    isGameActive={gameState.gameState === GameState.PLAYING}
+                    showCircles={showCircles}
+                />
+            </div>
+
+            {/* Bottom instruction */}
+            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm border-t border-yellow-400/30">
+                <div className="px-6 py-4">
+                    <div className="text-center">
+                        <div className="text-sm font-bpdots text-yellow-300/80 mb-1">
+                            {gameState.gameState === GameState.PLAYING
+                                ? 'Wait for the target to appear, then click it as fast as possible!'
+                                : 'Get ready... Target will appear in 3-5 seconds'
+                            }
+                        </div>
+                        <div className="text-xs font-bpdots text-yellow-400/60">
+                            Test your reaction speed and reflexes
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     )
-  };
-
-  onCircleActivated(circleId);
-
-  // Set timeout for game ending if no click
-  const gameTimeout = setTimeout(() => {
-    onGameTimeout();
-  }, state.config.circleActiveTimeMs);
-
-  return {
-    ...newState,
-    gameTimeout
-  };
-};
-
-export const handleCircleClick = (
-  state: ReactionGameState,
-  clickedCircleId: number
-): ReactionGameState => {
-  const clickTime = Date.now();
-  
-  if (state.activeCircleId === clickedCircleId && state.stats.startTime) {
-    // Correct click
-    const reactionTime = clickTime - state.stats.startTime;
-    
-    return {
-      ...state,
-      gameState: GameState.FINISHED,
-      stats: {
-        ...state.stats,
-        clicked: true,
-        clickTime,
-        reactionTime,
-        missedTarget: false
-      },
-      circles: state.circles.map(circle => 
-        circle.id === clickedCircleId 
-          ? { ...circle, isAnimating: true }
-          : circle
-      )
-    };
-  } else {
-    // Wrong click
-    return {
-      ...state,
-      gameState: GameState.FINISHED,
-      stats: {
-        ...state.stats,
-        clicked: true,
-        clickTime,
-        reactionTime: null,
-        missedTarget: true
-      }
-    };
-  }
-};
-
-export const calculateReactionRating = (reactionTime: number | null, missed: boolean): ReactionGameResult['rating'] => {
-  if (missed || reactionTime === null) {
-    return 'MISSED';
-  }
-
-  if (reactionTime <= 150) return 'LIGHTNING';
-  if (reactionTime <= 200) return 'EXCELLENT';
-  if (reactionTime <= 300) return 'GOOD';
-  if (reactionTime <= 500) return 'AVERAGE';
-  return 'SLOW';
-};
-
-export const calculateReactionScore = (reactionTime: number | null, missed: boolean): number => {
-  if (missed || reactionTime === null) {
-    return 0;
-  }
-
-  // Score formula: higher score for faster reaction
-  const baseScore = Math.max(0, 1000 - reactionTime);
-  
-  if (reactionTime <= 150) return Math.floor(baseScore * 1.5); // Lightning bonus
-  if (reactionTime <= 200) return Math.floor(baseScore * 1.3); // Excellence bonus
-  if (reactionTime <= 300) return Math.floor(baseScore * 1.1); // Good bonus
-  
-  return Math.floor(baseScore);
-};
-
-export const createReactionGameResult = (state: ReactionGameState): ReactionGameResult => {
-  const missed = state.stats.missedTarget || !state.stats.clicked;
-  const reactionTime = state.stats.reactionTime || 0;
-  const rating = calculateReactionRating(state.stats.reactionTime, missed);
-  const score = calculateReactionScore(state.stats.reactionTime, missed);
-  
-  return {
-    mode: GameMode.REACTION,
-    score,
-    duration: reactionTime,
-    reactionTime,
-    missed,
-    rating,
-    createdAt: new Date().toISOString()
-  };
-};
-
-export const cleanupReactionGame = (state: ReactionGameState): void => {
-  if (state.startDelayTimeout) {
-    clearTimeout(state.startDelayTimeout);
-  }
-  if (state.gameTimeout) {
-    clearTimeout(state.gameTimeout);
-  }
-};
-
-export const getReactionRatingDescription = (rating: ReactionGameResult['rating']): string => {
-  switch (rating) {
-    case 'LIGHTNING': return 'Lightning fast reflexes!';
-    case 'EXCELLENT': return 'Excellent reaction time!';
-    case 'GOOD': return 'Good response speed!';
-    case 'AVERAGE': return 'Average reaction time.';
-    case 'SLOW': return 'Could be faster...';
-    case 'MISSED': return 'Target missed or timeout.';
-  }
-};
-
-export const getReactionRatingColor = (rating: ReactionGameResult['rating']): string => {
-  switch (rating) {
-    case 'LIGHTNING': return 'text-yellow-400';
-    case 'EXCELLENT': return 'text-green-400';
-    case 'GOOD': return 'text-blue-400';
-    case 'AVERAGE': return 'text-white';
-    case 'SLOW': return 'text-orange-400';
-    case 'MISSED': return 'text-red-400';
-  }
-};
+}

@@ -92,10 +92,10 @@ export default function SurvivalGameManager({ onBackToMenu }: SurvivalGameManage
                 setGameState(prev => {
                     const newState = activateSurvivalCircles(
                         prev,
-                        (circleIds: number[], redCircleIds: number[]) => {
+                        (circleIds, redCircleIds) => {
                             console.log(`Activated circles: ${circleIds.join(', ')}, Red: ${redCircleIds.join(', ')}`)
                         },
-                        (circleId: number, wasDecoy: boolean) => {
+                        (circleId, wasDecoy) => {
                             console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`)
 
                             if (!wasDecoy) {
