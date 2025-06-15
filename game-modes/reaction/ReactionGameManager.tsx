@@ -1,9 +1,9 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Added bottom instruction panel
+// src/game-modes/reaction/ReactionGameManager.tsx - Enhanced with attempts system
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Zap, CheckCircle, AlertCircle, RotateCcw, Target, Clock } from "lucide-react";
+import { Zap, RotateCcw, Target, Clock } from "lucide-react";
 
 import {
     initializeReactionGameState,
@@ -17,6 +17,7 @@ import {
 } from "./ReactionGameLogic";
 
 import { useUser } from "@/hooks/useUser";
+import { userService, type AttemptsStatus } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
     ReactionGameState,
@@ -51,19 +52,65 @@ const initialSaveStatus: SaveStatus = {
 export default function ReactionGameManager({
     onBackToMenu,
 }: ReactionGameManagerProps) {
-    const { saveGameResult } = useUser();
+    const { saveGameResult, telegramUser } = useUser();
     const [gameState, setGameState] = useState<ReactionGameState>(
         initializeReactionGameState(),
     );
     const [showCircles, setShowCircles] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
     const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
+    const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
+        canPlay: true,
+        attemptsRemaining: 5,
+    });
+    const [timeUntilReset, setTimeUntilReset] = useState<string>("");
+    const [isCheckingAttempts, setIsCheckingAttempts] = useState(true);
     const gameStateRef = useRef<ReactionGameState>(gameState);
 
-    // Update ref when state changes
     useEffect(() => {
         gameStateRef.current = gameState;
     }, [gameState]);
+
+    const checkAttempts = useCallback(async () => {
+        if (!telegramUser?.id) return;
+
+        try {
+            setIsCheckingAttempts(true);
+            const status = await userService.checkAndUpdateAttempts(telegramUser.id);
+            setAttemptsStatus(status);
+        } catch (error) {
+            console.error("Error checking attempts:", error);
+        } finally {
+            setIsCheckingAttempts(false);
+        }
+    }, [telegramUser?.id]);
+
+    useEffect(() => {
+        checkAttempts();
+    }, [checkAttempts]);
+
+    useEffect(() => {
+        if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
+            setTimeUntilReset("");
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
+
+            if (diff <= 0) {
+                setTimeUntilReset("");
+                checkAttempts();
+            } else {
+                const minutes = Math.floor(diff / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [attemptsStatus.resetTime, attemptsStatus.canPlay, checkAttempts]);
 
     const triggerHapticFeedback = useCallback((type: "success" | "error") => {
         if (
@@ -76,7 +123,6 @@ export default function ReactionGameManager({
     }, []);
 
     const handleSaveGameResult = useCallback(async (result: ReactionGameResult) => {
-        // Only save successful attempts
         if (result.missed || result.reactionTime <= 0) {
             setSaveStatus(prev => ({
                 ...prev,
@@ -194,24 +240,37 @@ export default function ReactionGameManager({
         [triggerHapticFeedback, handleSaveGameResult],
     );
 
-    const startGame = useCallback(() => {
+    const consumeAttemptAndStart = useCallback(async () => {
+        if (!telegramUser?.id || !attemptsStatus.canPlay) return;
+
+        try {
+            const newStatus = await userService.consumeAttempt(telegramUser.id);
+            setAttemptsStatus(newStatus);
+            return true;
+        } catch (error) {
+            console.error("Error consuming attempt:", error);
+            return false;
+        }
+    }, [telegramUser?.id, attemptsStatus.canPlay]);
+
+    const startGame = useCallback(async () => {
         console.log("Starting Reaction Game...");
+
+        const canStart = await consumeAttemptAndStart();
+        if (!canStart) return;
+
         setGameState(initializeReactionGameState());
         setGameResult(null);
         setSaveStatus(initialSaveStatus);
 
-        // Show circles immediately
         setTimeout(() => {
             setShowCircles(true);
         }, 100);
 
-        // Start game mechanics
         setTimeout(() => {
             setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-            // Schedule circle activation after random delay
             const delay = getRandomDelay(gameStateRef.current.config);
-
             console.log(`Circle will activate in ${delay}ms`);
 
             const timeout = setTimeout(() => {
@@ -231,25 +290,23 @@ export default function ReactionGameManager({
                 startDelayTimeout: timeout,
             }));
         }, 500);
-    }, [handleCircleActivated, handleGameTimeout]);
+    }, [consumeAttemptAndStart, handleCircleActivated, handleGameTimeout]);
 
     const restartGame = useCallback(() => {
+        if (!attemptsStatus.canPlay) return;
+
         setShowCircles(false);
         setTimeout(() => {
             startGame();
         }, 300);
-    }, [startGame]);
+    }, [startGame, attemptsStatus.canPlay]);
 
-    // Start game immediately on component mount
     useEffect(() => {
-        startGame();
-
         return () => {
             cleanupReactionGame(gameStateRef.current);
         };
-    }, [startGame]);
+    }, []);
 
-    // Get instruction text based on game state
     const getInstructionText = () => {
         if (gameState.gameState === GameState.PLAYING) {
             if (gameState.activeCircleId !== null) {
@@ -262,7 +319,6 @@ export default function ReactionGameManager({
         }
     };
 
-    // Get instruction icon based on game state
     const getInstructionIcon = () => {
         if (gameState.gameState === GameState.PLAYING) {
             if (gameState.activeCircleId !== null) {
@@ -275,7 +331,65 @@ export default function ReactionGameManager({
         }
     };
 
-    // Render game results
+    if (isCheckingAttempts) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="text-center space-y-4">
+                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                    <p className="text-white font-bpdots">CHECKING ATTEMPTS...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!attemptsStatus.canPlay) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="w-full max-w-md space-y-8 animate-fade-in">
+                    <div className="text-center space-y-4">
+                        <div className="text-6xl mb-4">⏰</div>
+                        <h1 className="text-4xl font-bold font-bpdots text-white">
+                            NO ATTEMPTS LEFT
+                        </h1>
+                        <p className="text-white/80 font-bpdots text-lg">
+                            You have used all your attempts
+                        </p>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-6">
+                        <div className="text-center space-y-4">
+                            <div className="text-sm font-bpdots text-white/60">
+                                ATTEMPTS REMAINING
+                            </div>
+                            <div className="text-4xl font-bold font-bpdots text-white">
+                                {attemptsStatus.attemptsRemaining}/5
+                            </div>
+                            {timeUntilReset && (
+                                <div className="space-y-2">
+                                    <div className="text-sm font-bpdots text-white/60">
+                                        NEXT RESET IN
+                                    </div>
+                                    <div className="text-2xl font-bold font-bpdots text-green-400">
+                                        {timeUntilReset}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <button
+                            className="w-full px-6 py-4 bg-transparent border-2 border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
+                            onClick={onBackToMenu}
+                        >
+                            BACK TO MENU
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (gameState.gameState === GameState.FINISHED && gameResult) {
         const rating = gameResult.rating;
         const ratingColor = getReactionRatingColor(rating);
@@ -299,7 +413,6 @@ export default function ReactionGameManager({
                         </div>
                     </div>
 
-                    {/* Results */}
                     <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-6 space-y-6">
                         <div className="text-center space-y-2">
                             <div className="text-sm font-bpdots text-white/60">
@@ -330,10 +443,10 @@ export default function ReactionGameManager({
                             </div>
                             <div className="text-center space-y-1">
                                 <div className="text-xs font-bpdots text-white/60">
-                                    RATING
+                                    ATTEMPTS LEFT
                                 </div>
-                                <div className={`text-xl font-bold font-bpdots ${ratingColor}`}>
-                                    {rating}
+                                <div className="text-xl font-bold font-bpdots text-green-400">
+                                    {attemptsStatus.attemptsRemaining}
                                 </div>
                             </div>
                         </div>
@@ -358,7 +471,6 @@ export default function ReactionGameManager({
                         </div>
                     </div>
 
-                    {/* Enhanced Save Status */}
                     {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess || saveStatus.skipped) && (
                         <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
                             {saveStatus.isLoading && (
@@ -395,7 +507,6 @@ export default function ReactionGameManager({
                             {saveStatus.isSuccess && !saveStatus.isLoading && (
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
-                                        <CheckCircle className="text-green-400" size={16} />
                                         <span className="font-bpdots text-sm text-green-400">
                                             ✓ Result saved successfully
                                         </span>
@@ -412,7 +523,6 @@ export default function ReactionGameManager({
                             {saveStatus.skipped && !saveStatus.isLoading && (
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
-                                        <AlertCircle className="text-orange-400" size={16} />
                                         <span className="text-orange-400 font-bpdots text-sm">
                                             ⚠ Attempt not recorded
                                         </span>
@@ -426,7 +536,6 @@ export default function ReactionGameManager({
                             {saveStatus.error && !saveStatus.isLoading && (
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
-                                        <AlertCircle className="text-red-400" size={16} />
                                         <span className="text-red-400 font-bpdots text-sm">
                                             ✗ Save failed after {saveStatus.maxAttempts} attempts
                                         </span>
@@ -445,14 +554,13 @@ export default function ReactionGameManager({
                         </div>
                     )}
 
-                    {/* Action Buttons */}
                     <div className="space-y-4">
                         <button
                             className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl font-bpdots text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={saveStatus.isLoading}
+                            disabled={saveStatus.isLoading || !attemptsStatus.canPlay}
                             onClick={restartGame}
                         >
-                            TEST AGAIN
+                            {attemptsStatus.canPlay ? "TEST AGAIN" : "NO ATTEMPTS LEFT"}
                         </button>
 
                         <button
@@ -468,10 +576,8 @@ export default function ReactionGameManager({
         );
     }
 
-    // Render game interface with bottom instruction panel
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
-            {/* Game Grid - takes up most of the screen */}
             <div className="flex-1 flex items-center justify-center">
                 <GameGrid
                     circles={gameState.circles}
@@ -481,11 +587,9 @@ export default function ReactionGameManager({
                 />
             </div>
 
-            {/* Bottom Instruction Panel */}
             <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/30 safe-area-inset-bottom">
                 <div className="px-6 py-4">
                     <div className="text-center space-y-2">
-                        {/* Main instruction */}
                         <div className="flex items-center justify-center space-x-2">
                             {getInstructionIcon()}
                             <span className={`font-bpdots text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null ? 'text-white animate-pulse' : 'text-white/80'
@@ -494,7 +598,6 @@ export default function ReactionGameManager({
                             </span>
                         </div>
 
-                        {/* Sub instruction */}
                         <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
                             {gameState.gameState === GameState.PLAYING ? (
                                 gameState.activeCircleId !== null ? (
@@ -504,6 +607,13 @@ export default function ReactionGameManager({
                                 )
                             ) : (
                                 "Preparing reaction speed test..."
+                            )}
+                        </div>
+
+                        <div className="flex items-center justify-center space-x-4 text-xs font-bpdots text-white/60">
+                            <span>Attempts: {attemptsStatus.attemptsRemaining}/5</span>
+                            {timeUntilReset && (
+                                <span>Reset: {timeUntilReset}</span>
                             )}
                         </div>
                     </div>

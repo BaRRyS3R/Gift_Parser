@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed progress bar calculation
+// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with attempts system
 
 "use client";
 
@@ -9,8 +9,6 @@ import {
     Zap,
     Clock,
     Target,
-    CheckCircle,
-    AlertCircle,
     RotateCcw
 } from "lucide-react";
 
@@ -27,6 +25,7 @@ import {
 } from "./SurvivalGameLogic";
 
 import { useUser } from "@/hooks/useUser";
+import { userService, type AttemptsStatus } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
     SurvivalGameState,
@@ -56,24 +55,70 @@ const initialSaveStatus: SaveStatus = {
     showRetryDetails: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 100; // 100ms for smooth updates
+const LEVEL_UPDATE_INTERVAL = 100;
 
 export default function SurvivalGameManager({
     onBackToMenu,
 }: SurvivalGameManagerProps) {
-    const { saveGameResult } = useUser();
+    const { saveGameResult, telegramUser } = useUser();
     const [gameState, setGameState] = useState<SurvivalGameState>(
         initializeSurvivalGameState(),
     );
     const [showCircles, setShowCircles] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
     const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
+    const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
+        canPlay: true,
+        attemptsRemaining: 5,
+    });
+    const [timeUntilReset, setTimeUntilReset] = useState<string>("");
+    const [isCheckingAttempts, setIsCheckingAttempts] = useState(true);
     const gameStateRef = useRef<SurvivalGameState>(gameState);
 
-    // Update ref when state changes
     useEffect(() => {
         gameStateRef.current = gameState;
     }, [gameState]);
+
+    const checkAttempts = useCallback(async () => {
+        if (!telegramUser?.id) return;
+
+        try {
+            setIsCheckingAttempts(true);
+            const status = await userService.checkAndUpdateAttempts(telegramUser.id);
+            setAttemptsStatus(status);
+        } catch (error) {
+            console.error("Error checking attempts:", error);
+        } finally {
+            setIsCheckingAttempts(false);
+        }
+    }, [telegramUser?.id]);
+
+    useEffect(() => {
+        checkAttempts();
+    }, [checkAttempts]);
+
+    useEffect(() => {
+        if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
+            setTimeUntilReset("");
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
+
+            if (diff <= 0) {
+                setTimeUntilReset("");
+                checkAttempts();
+            } else {
+                const minutes = Math.floor(diff / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [attemptsStatus.resetTime, attemptsStatus.canPlay, checkAttempts]);
 
     const triggerHapticFeedback = useCallback((type: "success" | "error") => {
         if (
@@ -188,10 +233,8 @@ export default function SurvivalGameManager({
                             console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
 
                             if (!wasDecoy) {
-                                // White circle timeout - game over
                                 endGame("miss");
                             } else {
-                                // Red circle timeout - continue game
                                 setGameState((current) =>
                                     deactivateSurvivalCircle(current, circleId),
                                 );
@@ -227,7 +270,6 @@ export default function SurvivalGameManager({
                 triggerHapticFeedback("success");
                 setGameState(newState);
 
-                // Deactivate the clicked circle after animation
                 setTimeout(() => {
                     setGameState((current) =>
                         deactivateSurvivalCircle(current, circleId),
@@ -244,22 +286,36 @@ export default function SurvivalGameManager({
         [triggerHapticFeedback, endGame],
     );
 
-    const startGame = useCallback(() => {
+    const consumeAttemptAndStart = useCallback(async () => {
+        if (!telegramUser?.id || !attemptsStatus.canPlay) return;
+
+        try {
+            const newStatus = await userService.consumeAttempt(telegramUser.id);
+            setAttemptsStatus(newStatus);
+            return true;
+        } catch (error) {
+            console.error("Error consuming attempt:", error);
+            return false;
+        }
+    }, [telegramUser?.id, attemptsStatus.canPlay]);
+
+    const startGame = useCallback(async () => {
         console.log("Starting Survival Game...");
+
+        const canStart = await consumeAttemptAndStart();
+        if (!canStart) return;
+
         setGameState(initializeSurvivalGameState());
         setGameResult(null);
         setSaveStatus(initialSaveStatus);
 
-        // Show circles
         setTimeout(() => {
             setShowCircles(true);
         }, 100);
 
-        // Start game mechanics
         setTimeout(() => {
             setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-            // Start level update interval
             const levelInterval = setInterval(() => {
                 setGameState((current) => {
                     if (!current.isActive || current.gameState !== GameState.PLAYING) {
@@ -271,7 +327,6 @@ export default function SurvivalGameManager({
                 });
             }, LEVEL_UPDATE_INTERVAL);
 
-            // Start first activation
             setTimeout(() => {
                 scheduleNextActivation();
             }, 1000);
@@ -281,41 +336,91 @@ export default function SurvivalGameManager({
                 levelUpdateInterval: levelInterval,
             }));
         }, 800);
-    }, [scheduleNextActivation]);
+    }, [consumeAttemptAndStart, scheduleNextActivation]);
 
     const restartGame = useCallback(() => {
+        if (!attemptsStatus.canPlay) return;
+
         setShowCircles(false);
         setTimeout(() => {
             startGame();
         }, 300);
-    }, [startGame]);
+    }, [startGame, attemptsStatus.canPlay]);
 
-    // Start game on component mount
     useEffect(() => {
-        startGame();
-
         return () => {
             cleanupSurvivalGame(gameStateRef.current);
         };
     }, []);
 
-    // FIXED: Calculate progress percentage for the current level
     const getProgressPercentage = () => {
         const maxLevels = 15;
         const currentLevel = gameState.currentLevel;
-
-        // Simple linear progress: each level is 1/15 of total progress
         const progress = Math.min((currentLevel / maxLevels) * 100, 100);
-
-        console.log(`Progress calculation: Level ${currentLevel}/${maxLevels} = ${progress}%`);
-
         return progress;
     };
 
-    // Get the current progress value
     const currentProgress = getProgressPercentage();
 
-    // Render game results
+    if (isCheckingAttempts) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="text-center space-y-4">
+                    <div className="w-8 h-8 border-2 border-red-400/20 border-t-red-400 rounded-full animate-spin mx-auto" />
+                    <p className="text-red-300 font-bpdots">CHECKING ATTEMPTS...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!attemptsStatus.canPlay) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="w-full max-w-md space-y-8 animate-fade-in">
+                    <div className="text-center space-y-4">
+                        <div className="text-6xl mb-4">⏰</div>
+                        <h1 className="text-4xl font-bold font-bpdots text-red-400">
+                            NO ATTEMPTS LEFT
+                        </h1>
+                        <p className="text-red-300/80 font-bpdots text-lg">
+                            You have used all your attempts
+                        </p>
+                    </div>
+
+                    <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6">
+                        <div className="text-center space-y-4">
+                            <div className="text-sm font-bpdots text-red-400/60">
+                                ATTEMPTS REMAINING
+                            </div>
+                            <div className="text-4xl font-bold font-bpdots text-red-300">
+                                {attemptsStatus.attemptsRemaining}/5
+                            </div>
+                            {timeUntilReset && (
+                                <div className="space-y-2">
+                                    <div className="text-sm font-bpdots text-red-400/60">
+                                        NEXT RESET IN
+                                    </div>
+                                    <div className="text-2xl font-bold font-bpdots text-green-400">
+                                        {timeUntilReset}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <button
+                            className="w-full px-6 py-4 bg-transparent border-2 border-red-400/40 text-red-300/80 rounded-xl font-bpdots text-lg hover:bg-red-500/5 hover:border-red-400/60 hover:text-red-300 transition-all duration-300 hover:scale-105 active:scale-95"
+                            onClick={onBackToMenu}
+                        >
+                            BACK TO MENU
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (gameState.gameState === GameState.FINISHED && gameResult) {
         const getDeathCauseIcon = () => {
             switch (gameResult.deathCause) {
@@ -363,7 +468,6 @@ export default function SurvivalGameManager({
                         </div>
                     </div>
 
-                    {/* Results */}
                     <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6 space-y-6">
                         <div className="text-center space-y-2">
                             <div className="text-sm font-bpdots text-red-400/60">
@@ -388,6 +492,14 @@ export default function SurvivalGameManager({
                             </div>
                             <div className="text-center space-y-1">
                                 <div className="text-xs font-bpdots text-red-400/60">
+                                    ATTEMPTS LEFT
+                                </div>
+                                <div className="text-xl font-bold font-bpdots text-green-400">
+                                    {attemptsStatus.attemptsRemaining}
+                                </div>
+                            </div>
+                            <div className="text-center space-y-1">
+                                <div className="text-xs font-bpdots text-red-400/60">
                                     PERFECT STREAK
                                 </div>
                                 <div className="text-xl font-bold font-bpdots text-green-400">
@@ -402,17 +514,8 @@ export default function SurvivalGameManager({
                                     {gameResult.correctHits}
                                 </div>
                             </div>
-                            <div className="text-center space-y-1">
-                                <div className="text-xs font-bpdots text-red-400/60">
-                                    MAX LEVEL
-                                </div>
-                                <div className="text-xl font-bold font-bpdots text-orange-400">
-                                    {gameResult.maxLevelReached}/15
-                                </div>
-                            </div>
                         </div>
 
-                        {/* Level Progress */}
                         <div className="border-t border-red-400/30 pt-4">
                             <div className="text-center space-y-2">
                                 <div className="text-xs font-bpdots text-red-400/60 uppercase">
@@ -425,7 +528,6 @@ export default function SurvivalGameManager({
                         </div>
                     </div>
 
-                    {/* Enhanced Save Status */}
                     {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
                         <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
                             {saveStatus.isLoading && (
@@ -462,7 +564,6 @@ export default function SurvivalGameManager({
                             {saveStatus.isSuccess && !saveStatus.isLoading && (
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
-                                        <CheckCircle className="text-green-400" size={16} />
                                         <span className="font-bpdots text-sm text-green-400">
                                             ✓ Survival record saved successfully
                                         </span>
@@ -479,7 +580,6 @@ export default function SurvivalGameManager({
                             {saveStatus.error && !saveStatus.isLoading && (
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
-                                        <AlertCircle className="text-red-400" size={16} />
                                         <span className="text-red-400 font-bpdots text-sm">
                                             ✗ Save failed after {saveStatus.maxAttempts} attempts
                                         </span>
@@ -498,14 +598,13 @@ export default function SurvivalGameManager({
                         </div>
                     )}
 
-                    {/* Action Buttons */}
                     <div className="space-y-4">
                         <button
                             className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl font-bpdots text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={saveStatus.isLoading}
+                            disabled={saveStatus.isLoading || !attemptsStatus.canPlay}
                             onClick={restartGame}
                         >
-                            SURVIVE AGAIN
+                            {attemptsStatus.canPlay ? "SURVIVE AGAIN" : "NO ATTEMPTS LEFT"}
                         </button>
 
                         <button
@@ -521,10 +620,8 @@ export default function SurvivalGameManager({
         );
     }
 
-    // Render game interface - NO HEADER, redesigned bottom panel
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
-            {/* Game Grid - takes up most of the screen */}
             <div className="flex-1 flex items-center justify-center">
                 <GameGrid
                     circles={gameState.circles}
@@ -534,12 +631,9 @@ export default function SurvivalGameManager({
                 />
             </div>
 
-            {/* Bottom Panel - Redesigned layout: LVL X | TIMER | QUIT + Progress Bar */}
             <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom">
                 <div className="px-6 py-4">
-                    {/* Top row: LVL X | TIMER | QUIT */}
                     <div className="flex items-center justify-between mb-4">
-                        {/* Level */}
                         <div className="flex items-center space-x-2">
                             <Zap className="text-orange-400" size={18} />
                             <span className="text-lg font-bold font-bpdots text-orange-400">
@@ -547,7 +641,6 @@ export default function SurvivalGameManager({
                             </span>
                         </div>
 
-                        {/* Timer */}
                         <div className="flex items-center space-x-2">
                             <Clock className="text-white" size={18} />
                             <span className="text-lg font-bold font-bpdots text-white">
@@ -555,7 +648,6 @@ export default function SurvivalGameManager({
                             </span>
                         </div>
 
-                        {/* Quit Button */}
                         <button
                             className="font-bpdots text-lg font-bold text-red-400/80 hover:text-red-400 transition-colors duration-300 px-3 py-1"
                             onClick={onBackToMenu}
@@ -564,9 +656,7 @@ export default function SurvivalGameManager({
                         </button>
                     </div>
 
-                    {/* Progress Bar - FIXED */}
                     <div className="space-y-2">
-                        {/* Progress info */}
                         <div className="flex items-center justify-between text-xs font-bpdots">
                             <span className="text-red-400/60">
                                 {gameState.currentLevel}/15 LEVELS
@@ -577,7 +667,15 @@ export default function SurvivalGameManager({
                                     ONE MISTAKE = DEATH
                                 </span>
                             </div>
+                            <span className="text-green-400">
+                                Attempts: {attemptsStatus.attemptsRemaining}/5
+                            </span>
                         </div>
+                        {timeUntilReset && (
+                            <div className="text-center text-xs font-bpdots text-green-400">
+                                Reset: {timeUntilReset}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

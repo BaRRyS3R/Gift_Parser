@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Fixed saveGameResult method to handle null reaction times
+// src/lib/supabase.ts - Enhanced with attempts management system
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -11,7 +11,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Updated database types for new game structure
+// Updated database types for new game structure with attempts management
 export interface User {
     id: string; // UUID v4
     telegram_id: number;
@@ -22,6 +22,11 @@ export interface User {
     is_premium: boolean;
     created_at: string;
     updated_at: string;
+
+    // Attempts management system
+    attempts_remaining: number;
+    last_attempt_at?: string;
+    attempts_reset_at?: string;
 
     // General game statistics
     total_games: number;
@@ -136,7 +141,15 @@ export interface SurvivalLeaderboard {
     last_played_at?: string;
 }
 
-// Enhanced user service with new game modes support
+// Attempts management interface
+export interface AttemptsStatus {
+    canPlay: boolean;
+    attemptsRemaining: number;
+    resetTime?: Date;
+    timeUntilReset?: number; // milliseconds
+}
+
+// Enhanced user service with attempts management
 export const userService = {
     async findByTelegramId(telegramId: number): Promise<User | null> {
         const { data, error } = await supabase
@@ -161,6 +174,7 @@ export const userService = {
             username: telegramUser.username || null,
             language_code: telegramUser.language_code || null,
             is_premium: telegramUser.is_premium || false,
+            attempts_remaining: 5, // Initialize with 5 attempts
         };
 
         const { data, error } = await supabase
@@ -175,6 +189,98 @@ export const userService = {
         }
 
         return data;
+    },
+
+    async checkAndUpdateAttempts(telegramId: number): Promise<AttemptsStatus> {
+        const user = await this.findByTelegramId(telegramId);
+        if (!user) throw new Error("User not found");
+
+        const now = new Date();
+        const resetTime = user.attempts_reset_at ? new Date(user.attempts_reset_at) : null;
+
+        // Check if attempts should be reset
+        if (resetTime && now >= resetTime) {
+            await this.resetAttempts(telegramId);
+            return {
+                canPlay: true,
+                attemptsRemaining: 5,
+                resetTime: undefined,
+                timeUntilReset: undefined
+            };
+        }
+
+        // Calculate time until reset if applicable
+        let timeUntilReset: number | undefined;
+        if (resetTime && user.attempts_remaining === 0) {
+            timeUntilReset = Math.max(0, resetTime.getTime() - now.getTime());
+        }
+
+        return {
+            canPlay: user.attempts_remaining > 0,
+            attemptsRemaining: user.attempts_remaining,
+            resetTime: resetTime || undefined,
+            timeUntilReset
+        };
+    },
+
+    async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
+        const user = await this.findByTelegramId(telegramId);
+        if (!user) throw new Error("User not found");
+
+        if (user.attempts_remaining <= 0) {
+            throw new Error("No attempts remaining");
+        }
+
+        const now = new Date();
+        const newAttemptsRemaining = Math.max(0, user.attempts_remaining - 1);
+
+        const updates: any = {
+            attempts_remaining: newAttemptsRemaining,
+            last_attempt_at: now.toISOString()
+        };
+
+        // If this was the last attempt, set reset time
+        if (newAttemptsRemaining === 0) {
+            const resetTime = new Date(now.getTime() + 2 * 60 * 1000); // 2 minutes
+            updates.attempts_reset_at = resetTime.toISOString();
+        }
+
+        const { error } = await supabase
+            .from("users")
+            .update(updates)
+            .eq("telegram_id", telegramId);
+
+        if (error) {
+            console.error("Error consuming attempt:", error);
+            throw error;
+        }
+
+        // Return updated status
+        const timeUntilReset = newAttemptsRemaining === 0
+            ? 2 * 60 * 1000
+            : undefined;
+
+        return {
+            canPlay: newAttemptsRemaining > 0,
+            attemptsRemaining: newAttemptsRemaining,
+            resetTime: newAttemptsRemaining === 0 ? new Date(now.getTime() + 2 * 60 * 1000) : undefined,
+            timeUntilReset
+        };
+    },
+
+    async resetAttempts(telegramId: number): Promise<void> {
+        const { error } = await supabase
+            .from("users")
+            .update({
+                attempts_remaining: 5,
+                attempts_reset_at: null
+            })
+            .eq("telegram_id", telegramId);
+
+        if (error) {
+            console.error("Error resetting attempts:", error);
+            throw error;
+        }
     },
 
     async updateGameStats(
@@ -201,14 +307,12 @@ export const userService = {
                 reactionResult.score,
             );
 
-            // FIXED: Only update reaction time stats for successful (non-missed) attempts
             if (!reactionResult.missed && reactionResult.reactionTime > 0) {
                 updates.reaction_best_time =
                     user.reaction_best_time > 0
                         ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
                         : reactionResult.reactionTime;
 
-                // Calculate new average reaction time only for successful attempts
                 const totalReactionGames = user.reaction_games;
                 const currentAverage = user.reaction_average_time || 0;
                 const newAverage =
@@ -271,11 +375,9 @@ export const userService = {
         if (gameResult.mode === GameMode.REACTION) {
             const reactionResult = gameResult as ReactionGameResult;
 
-            // FIXED: Only set reaction_time if it's a successful attempt (not missed and > 0)
             if (!reactionResult.missed && reactionResult.reactionTime > 0) {
                 resultData.reaction_time = reactionResult.reactionTime;
             }
-            // For missed attempts, don't set reaction_time field at all (let it be null)
 
             resultData.reaction_rating = reactionResult.rating;
             resultData.missed_target = reactionResult.missed;
