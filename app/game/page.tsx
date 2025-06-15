@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Enhanced with attempts display
+// src/app/game/page.tsx - Enhanced with server-side validation
 
 "use client";
 
@@ -145,55 +145,54 @@ const AttemptsDisplay = ({
 
   return (
     <div className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${isEmpty
-        ? "bg-red-500/20 border-red-400/40"
-        : isLow
-          ? "bg-orange-500/20 border-orange-400/40"
-          : "bg-white/10 border-white/30"
+      ? "bg-red-500/20 border-red-400/40"
+      : isLow
+        ? "bg-orange-500/20 border-orange-400/40"
+        : "bg-white/10 border-white/30"
       }`}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <Battery
             className={`${isEmpty
-                ? "text-red-400"
-                : isLow
-                  ? "text-orange-400"
-                  : "text-green-400"
+              ? "text-red-400"
+              : isLow
+                ? "text-orange-400"
+                : "text-green-400"
               }`}
             size={18}
           />
           <span className={`font-bpdots text-sm font-bold ${isEmpty
-              ? "text-red-300"
-              : isLow
-                ? "text-orange-300"
-                : "text-white"
+            ? "text-red-300"
+            : isLow
+              ? "text-orange-300"
+              : "text-white"
             }`}>
             ATTEMPTS
           </span>
         </div>
         <span className={`font-bpdots text-lg font-bold ${isEmpty
-            ? "text-red-400"
-            : isLow
-              ? "text-orange-400"
-              : "text-green-400"
+          ? "text-red-400"
+          : isLow
+            ? "text-orange-400"
+            : "text-green-400"
           }`}>
           {attemptsStatus.attemptsRemaining}/5
         </span>
       </div>
 
-      {/* Battery visual indicator */}
       <div className="mb-3">
         <div className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
-            ? "bg-red-400/20"
-            : isLow
-              ? "bg-orange-400/20"
-              : "bg-white/20"
+          ? "bg-red-400/20"
+          : isLow
+            ? "bg-orange-400/20"
+            : "bg-white/20"
           }`}>
           <div
             className={`h-full transition-all duration-500 ${isEmpty
-                ? "bg-red-400"
-                : isLow
-                  ? "bg-orange-400"
-                  : "bg-green-400"
+              ? "bg-red-400"
+              : isLow
+                ? "bg-orange-400"
+                : "bg-green-400"
               }`}
             style={{ width: `${batteryLevel}%` }}
           />
@@ -203,19 +202,18 @@ const AttemptsDisplay = ({
             <div
               key={attempt}
               className={`w-2 h-2 rounded-full ${attempt <= attemptsStatus.attemptsRemaining
-                  ? isEmpty
-                    ? "bg-red-400"
-                    : isLow && attempt <= 1
-                      ? "bg-orange-400"
-                      : "bg-green-400"
-                  : "bg-white/20"
+                ? isEmpty
+                  ? "bg-red-400"
+                  : isLow && attempt <= 1
+                    ? "bg-orange-400"
+                    : "bg-green-400"
+                : "bg-white/20"
                 }`}
             />
           ))}
         </div>
       </div>
 
-      {/* Reset timer */}
       {timeUntilReset && (
         <div className="text-center space-y-1">
           <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
@@ -227,7 +225,6 @@ const AttemptsDisplay = ({
         </div>
       )}
 
-      {/* Status message */}
       {isEmpty && (
         <div className="text-center mt-2">
           <p className="text-xs font-bpdots text-red-400/80">
@@ -264,7 +261,7 @@ export default function GamePage() {
 
     try {
       setIsLoadingAttempts(true);
-      const status = await userService.checkAndUpdateAttempts(telegramUser.id);
+      const status = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
       setAttemptsStatus(status);
     } catch (error) {
       console.error("Error checking attempts:", error);
@@ -432,7 +429,6 @@ export default function GamePage() {
           </div>
         </div>
 
-        {/* Disabled overlay */}
         {isDisabled && (
           <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center">
             <div className="text-center space-y-2">
@@ -614,7 +610,6 @@ export default function GamePage() {
             Choose your challenge
           </p>
         </div>
-
         {/* Attempts Display */}
         <div className="w-full max-w-md animate-fade-in">
           <AttemptsDisplay

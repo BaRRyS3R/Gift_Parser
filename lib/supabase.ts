@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Enhanced with attempts management system
+// src/lib/supabase.ts - Enhanced with server-side time validation and restart attempt consumption
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -149,8 +149,24 @@ export interface AttemptsStatus {
     timeUntilReset?: number; // milliseconds
 }
 
-// Enhanced user service with attempts management
+// Enhanced user service with server-side validation and restart attempt consumption
 export const userService = {
+    async getServerTime(): Promise<Date> {
+        try {
+            const { data, error } = await supabase.rpc('get_current_timestamp');
+            
+            if (error) {
+                console.warn("Failed to get server time, using client time:", error);
+                return new Date();
+            }
+            
+            return new Date(data);
+        } catch (error) {
+            console.warn("Error getting server time, falling back to client time:", error);
+            return new Date();
+        }
+    },
+
     async findByTelegramId(telegramId: number): Promise<User | null> {
         const { data, error } = await supabase
             .from("users")
@@ -191,28 +207,38 @@ export const userService = {
         return data;
     },
 
-    async checkAndUpdateAttempts(telegramId: number): Promise<AttemptsStatus> {
+    async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
         const user = await this.findByTelegramId(telegramId);
         if (!user) throw new Error("User not found");
 
-        const now = new Date();
+        const serverTime = await this.getServerTime();
         const resetTime = user.attempts_reset_at ? new Date(user.attempts_reset_at) : null;
 
-        // Check if attempts should be reset
-        if (resetTime && now >= resetTime) {
+        // Server-side validation: check if reset time has passed according to server
+        if (resetTime && serverTime >= resetTime) {
             await this.resetAttempts(telegramId);
-            return {
-                canPlay: true,
+            return { 
+                canPlay: true, 
                 attemptsRemaining: 5,
                 resetTime: undefined,
                 timeUntilReset: undefined
             };
         }
 
-        // Calculate time until reset if applicable
+        // Additional validation: check for potential time manipulation
+        if (user.last_attempt_at) {
+            const lastAttemptTime = new Date(user.last_attempt_at);
+            const timeSinceLastAttempt = serverTime.getTime() - lastAttemptTime.getTime();
+            
+            // If server time indicates less time has passed than expected, log warning
+            if (timeSinceLastAttempt < 0) {
+                console.warn("Potential time manipulation detected for user:", telegramId);
+            }
+        }
+
         let timeUntilReset: number | undefined;
         if (resetTime && user.attempts_remaining === 0) {
-            timeUntilReset = Math.max(0, resetTime.getTime() - now.getTime());
+            timeUntilReset = Math.max(0, resetTime.getTime() - serverTime.getTime());
         }
 
         return {
@@ -223,7 +249,7 @@ export const userService = {
         };
     },
 
-    async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
+    async consumeAttemptWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
         const user = await this.findByTelegramId(telegramId);
         if (!user) throw new Error("User not found");
 
@@ -231,17 +257,17 @@ export const userService = {
             throw new Error("No attempts remaining");
         }
 
-        const now = new Date();
+        const serverTime = await this.getServerTime();
         const newAttemptsRemaining = Math.max(0, user.attempts_remaining - 1);
-
+        
         const updates: any = {
             attempts_remaining: newAttemptsRemaining,
-            last_attempt_at: now.toISOString()
+            last_attempt_at: serverTime.toISOString()
         };
 
-        // If this was the last attempt, set reset time
+        // Set reset time based on server time
         if (newAttemptsRemaining === 0) {
-            const resetTime = new Date(now.getTime() + 2 * 60 * 1000); // 2 minutes
+            const resetTime = new Date(serverTime.getTime() + 2 * 60 * 1000); // 2 minutes from server time
             updates.attempts_reset_at = resetTime.toISOString();
         }
 
@@ -255,15 +281,14 @@ export const userService = {
             throw error;
         }
 
-        // Return updated status
-        const timeUntilReset = newAttemptsRemaining === 0
-            ? 2 * 60 * 1000
+        const timeUntilReset = newAttemptsRemaining === 0 
+            ? 2 * 60 * 1000 
             : undefined;
 
         return {
             canPlay: newAttemptsRemaining > 0,
             attemptsRemaining: newAttemptsRemaining,
-            resetTime: newAttemptsRemaining === 0 ? new Date(now.getTime() + 2 * 60 * 1000) : undefined,
+            resetTime: newAttemptsRemaining === 0 ? new Date(serverTime.getTime() + 2 * 60 * 1000) : undefined,
             timeUntilReset
         };
     },
@@ -281,6 +306,16 @@ export const userService = {
             console.error("Error resetting attempts:", error);
             throw error;
         }
+    },
+
+    // Legacy method maintained for backward compatibility - redirects to server validation
+    async checkAndUpdateAttempts(telegramId: number): Promise<AttemptsStatus> {
+        return this.checkAndUpdateAttemptsWithServerValidation(telegramId);
+    },
+
+    // Legacy method maintained for backward compatibility - redirects to server validation
+    async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
+        return this.consumeAttemptWithServerValidation(telegramId);
     },
 
     async updateGameStats(

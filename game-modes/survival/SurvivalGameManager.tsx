@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed attempts logic
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed with restart attempt consumption
 
 "use client";
 
@@ -68,42 +68,43 @@ export default function SurvivalGameManager({
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
     const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
     const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
-    const [isConsumingAttempt, setIsConsumingAttempt] = useState(true);
+    const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
+    const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
     const gameStateRef = useRef<SurvivalGameState>(gameState);
 
     useEffect(() => {
         gameStateRef.current = gameState;
     }, [gameState]);
 
-    // Consume attempt immediately when component mounts
+    // Consume attempt immediately when component mounts (initial entry only)
     useEffect(() => {
-        const consumeAttemptOnEntry = async () => {
-            if (!telegramUser?.id) {
-                setIsConsumingAttempt(false);
-                return;
-            }
+        const consumeInitialAttempt = async () => {
+            if (!telegramUser?.id || hasConsumedInitialAttempt) return;
 
             try {
-                const newStatus = await userService.consumeAttempt(telegramUser.id);
+                setIsConsumingAttempt(true);
+                const newStatus = await userService.consumeAttemptWithServerValidation(telegramUser.id);
                 setAttemptsRemaining(newStatus.attemptsRemaining);
-                setIsConsumingAttempt(false);
-                
+                setHasConsumedInitialAttempt(true);
+
                 // Auto-start the game after consuming attempt
                 setTimeout(() => {
                     startGame();
                 }, 500);
             } catch (error) {
-                console.error("Error consuming attempt:", error);
-                setIsConsumingAttempt(false);
+                console.error("Error consuming initial attempt:", error);
+                setHasConsumedInitialAttempt(true);
                 // Still try to start the game even if attempt consumption failed
                 setTimeout(() => {
                     startGame();
                 }, 500);
+            } finally {
+                setIsConsumingAttempt(false);
             }
         };
 
-        consumeAttemptOnEntry();
-    }, [telegramUser?.id]);
+        consumeInitialAttempt();
+    }, [telegramUser?.id, hasConsumedInitialAttempt]);
 
     const triggerHapticFeedback = useCallback((type: "success" | "error") => {
         if (
@@ -307,12 +308,27 @@ export default function SurvivalGameManager({
         }, 800);
     }, [scheduleNextActivation]);
 
-    const restartGame = useCallback(() => {
-        setShowCircles(false);
-        setTimeout(() => {
-            startGame();
-        }, 300);
-    }, [startGame]);
+    // Enhanced restart function that consumes attempts for each restart
+    const restartGame = useCallback(async () => {
+        if (!telegramUser?.id || attemptsRemaining <= 0) return;
+
+        try {
+            setIsConsumingAttempt(true);
+            const newStatus = await userService.consumeAttemptWithServerValidation(telegramUser.id);
+            setAttemptsRemaining(newStatus.attemptsRemaining);
+
+            // Only proceed with restart if we successfully consumed an attempt
+            setShowCircles(false);
+            setTimeout(() => {
+                startGame();
+            }, 300);
+        } catch (error) {
+            console.error("Error consuming attempt for restart:", error);
+            // Don't allow restart if attempt consumption failed
+        } finally {
+            setIsConsumingAttempt(false);
+        }
+    }, [telegramUser?.id, attemptsRemaining, startGame]);
 
     useEffect(() => {
         return () => {
@@ -320,19 +336,14 @@ export default function SurvivalGameManager({
         };
     }, []);
 
-    const getProgressPercentage = () => {
-        const maxLevels = 15;
-        const currentLevel = gameState.currentLevel;
-        const progress = Math.min((currentLevel / maxLevels) * 100, 100);
-        return progress;
-    };
-
     if (isConsumingAttempt) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-red-400/20 border-t-red-400 rounded-full animate-spin mx-auto" />
-                    <p className="text-red-300 font-bpdots">INITIALIZING GAME...</p>
+                    <p className="text-red-300 font-bpdots">
+                        {hasConsumedInitialAttempt ? "CONSUMING ATTEMPT..." : "INITIALIZING GAME..."}
+                    </p>
                 </div>
             </div>
         );
@@ -518,10 +529,15 @@ export default function SurvivalGameManager({
                     <div className="space-y-4">
                         <button
                             className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl font-bpdots text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={saveStatus.isLoading || attemptsRemaining <= 0}
+                            disabled={saveStatus.isLoading || attemptsRemaining <= 0 || isConsumingAttempt}
                             onClick={restartGame}
                         >
-                            {attemptsRemaining > 0 ? "SURVIVE AGAIN" : "NO ATTEMPTS LEFT"}
+                            {isConsumingAttempt
+                                ? "CONSUMING ATTEMPT..."
+                                : attemptsRemaining > 0
+                                    ? "SURVIVE AGAIN"
+                                    : "NO ATTEMPTS LEFT"
+                            }
                         </button>
 
                         <button
