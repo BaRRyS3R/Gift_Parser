@@ -63,7 +63,7 @@ interface TelegramWebApp {
   // ✨ NEW: Orientation control (Bot API 7.7+)
   isOrientationLocked?: boolean;
 
-  // ✨ NEW: Vertical swipes control (Bot API 7.7+) 
+  // ✨ NEW: Vertical swipes control (Bot API 7.7+)
   isVerticalSwipesEnabled?: boolean;
 
   BackButton: {
@@ -118,11 +118,27 @@ interface TelegramWebApp {
 
   // ✨ NEW: Cloud Storage (Bot API 6.9+)
   CloudStorage?: {
-    setItem: (key: string, value: string, callback?: (error: string | null, success: boolean) => void) => void;
-    getItem: (key: string, callback: (error: string | null, value: string | null) => void) => void;
-    getItems: (keys: string[], callback: (error: string | null, values: Record<string, string>) => void) => void;
-    removeItem: (key: string, callback?: (error: string | null, success: boolean) => void) => void;
-    removeItems: (keys: string[], callback?: (error: string | null, success: boolean) => void) => void;
+    setItem: (
+      key: string,
+      value: string,
+      callback?: (error: string | null, success: boolean) => void,
+    ) => void;
+    getItem: (
+      key: string,
+      callback: (error: string | null, value: string | null) => void,
+    ) => void;
+    getItems: (
+      keys: string[],
+      callback: (error: string | null, values: Record<string, string>) => void,
+    ) => void;
+    removeItem: (
+      key: string,
+      callback?: (error: string | null, success: boolean) => void,
+    ) => void;
+    removeItems: (
+      keys: string[],
+      callback?: (error: string | null, success: boolean) => void,
+    ) => void;
     getKeys: (callback: (error: string | null, keys: string[]) => void) => void;
   };
 
@@ -130,15 +146,24 @@ interface TelegramWebApp {
   BiometricManager?: {
     isInited: boolean;
     isBiometricAvailable: boolean;
-    biometricType: 'finger' | 'face' | 'unknown';
+    biometricType: "finger" | "face" | "unknown";
     isAccessRequested: boolean;
     isAccessGranted: boolean;
     isBiometricTokenSaved: boolean;
     deviceId: string;
     init: (callback?: () => void) => void;
-    requestAccess: (params: { reason?: string }, callback?: (success: boolean) => void) => void;
-    authenticate: (params: { reason?: string }, callback?: (success: boolean, token?: string) => void) => void;
-    updateBiometricToken: (token: string, callback?: (success: boolean) => void) => void;
+    requestAccess: (
+      params: { reason?: string },
+      callback?: (success: boolean) => void,
+    ) => void;
+    authenticate: (
+      params: { reason?: string },
+      callback?: (success: boolean, token?: string) => void,
+    ) => void;
+    updateBiometricToken: (
+      token: string,
+      callback?: (success: boolean) => void,
+    ) => void;
     openSettings: () => void;
   };
 
@@ -153,7 +178,10 @@ interface TelegramWebApp {
   disableClosingConfirmation: () => void;
   onEvent: (eventType: string, eventHandler: (...args: any[]) => void) => void;
   offEvent: (eventType: string, eventHandler: (...args: any[]) => void) => void;
-  openLink: (url: string, options?: { try_instant_view?: boolean; try_browser?: string }) => void;
+  openLink: (
+    url: string,
+    options?: { try_instant_view?: boolean; try_browser?: string },
+  ) => void;
   openTelegramLink: (url: string) => void;
   openInvoice: (url: string, callback?: (status: string) => void) => void;
 
@@ -228,7 +256,10 @@ interface TelegramWebApp {
     alpha: number;
     beta: number;
     gamma: number;
-    start: (params?: { refresh_rate?: number; need_absolute?: boolean }, callback?: () => void) => void;
+    start: (
+      params?: { refresh_rate?: number; need_absolute?: boolean },
+      callback?: () => void,
+    ) => void;
     stop: (callback?: () => void) => void;
   };
 
@@ -242,13 +273,16 @@ interface TelegramWebApp {
   };
 
   // ✨ NEW: Share to Story (Bot API 7.8+)
-  shareToStory?: (media_url: string, params?: {
-    text?: string;
-    widget_link?: {
-      url: string;
-      name?: string;
-    };
-  }) => void;
+  shareToStory?: (
+    media_url: string,
+    params?: {
+      text?: string;
+      widget_link?: {
+        url: string;
+        name?: string;
+      };
+    },
+  ) => void;
 }
 
 interface Window {

@@ -1,6 +1,13 @@
 // src/utils/gameUtils.ts - Updated game configurations with new difficulty progression
 
-import { GameConfig, GameDifficulty, Circle, AdaptiveState, ClickTiming, PrecisionModeState, IntensityLevel, PrecisionLevelConfig } from "@/types/game";
+import {
+  GameConfig,
+  GameDifficulty,
+  Circle,
+  AdaptiveState,
+  PrecisionModeState,
+  PrecisionLevelConfig,
+} from "@/types/game";
 
 export { GameDifficulty };
 
@@ -97,7 +104,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 1200,
     activationTimeMax: 2000,
     circleActiveTime: 2500,
-    description: "WARMING UP"
+    description: "WARMING UP",
   },
   {
     level: 2,
@@ -106,7 +113,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 1100,
     activationTimeMax: 1900,
     circleActiveTime: 2300,
-    description: "GETTING STARTED"
+    description: "GETTING STARTED",
   },
   {
     level: 3,
@@ -115,7 +122,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 1000,
     activationTimeMax: 1700,
     circleActiveTime: 2100,
-    description: "BASIC PRECISION"
+    description: "BASIC PRECISION",
   },
   // Level 4-6: Medium complexity with balanced white/red ratio
   {
@@ -125,7 +132,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 900,
     activationTimeMax: 1600,
     circleActiveTime: 1900,
-    description: "FOCUS REQUIRED"
+    description: "FOCUS REQUIRED",
   },
   {
     level: 5,
@@ -134,7 +141,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 800,
     activationTimeMax: 1400,
     circleActiveTime: 1700,
-    description: "MULTI-TARGET"
+    description: "MULTI-TARGET",
   },
   {
     level: 6,
@@ -143,7 +150,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 750,
     activationTimeMax: 1300,
     circleActiveTime: 1600,
-    description: "ENHANCED DIFFICULTY"
+    description: "ENHANCED DIFFICULTY",
   },
   // Level 7-9: High complexity with increased density
   {
@@ -153,7 +160,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 700,
     activationTimeMax: 1200,
     circleActiveTime: 1500,
-    description: "INTENSE FOCUS"
+    description: "INTENSE FOCUS",
   },
   {
     level: 8,
@@ -162,7 +169,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 650,
     activationTimeMax: 1100,
     circleActiveTime: 1400,
-    description: "OVERWHELMING"
+    description: "OVERWHELMING",
   },
   {
     level: 9,
@@ -171,7 +178,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 600,
     activationTimeMax: 1000,
     circleActiveTime: 1300,
-    description: "CHAOS MANAGEMENT"
+    description: "CHAOS MANAGEMENT",
   },
   // Level 10-12: Expert level with high density
   {
@@ -181,7 +188,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 550,
     activationTimeMax: 950,
     circleActiveTime: 1200,
-    description: "EXPERT PRECISION"
+    description: "EXPERT PRECISION",
   },
   {
     level: 11,
@@ -190,7 +197,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 500,
     activationTimeMax: 900,
     circleActiveTime: 1100,
-    description: "MASTER LEVEL"
+    description: "MASTER LEVEL",
   },
   {
     level: 12,
@@ -199,7 +206,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 450,
     activationTimeMax: 850,
     circleActiveTime: 1000,
-    description: "LEGENDARY SKILL"
+    description: "LEGENDARY SKILL",
   },
   // Level 13-15: Maximum challenge utilizing full 7x7 grid
   {
@@ -209,7 +216,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 400,
     activationTimeMax: 800,
     circleActiveTime: 900,
-    description: "SUPERHUMAN"
+    description: "SUPERHUMAN",
   },
   {
     level: 14,
@@ -218,7 +225,7 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 350,
     activationTimeMax: 750,
     circleActiveTime: 800,
-    description: "BEYOND LIMITS"
+    description: "BEYOND LIMITS",
   },
   {
     level: 15,
@@ -227,8 +234,8 @@ export const PRECISION_LEVELS: PrecisionLevelConfig[] = [
     activationTimeMin: 300,
     activationTimeMax: 700,
     circleActiveTime: 700,
-    description: "PERFECT MACHINE"
-  }
+    description: "PERFECT MACHINE",
+  },
 ];
 
 // Precision Mode utility functions (unchanged)
@@ -243,7 +250,7 @@ export const initializePrecisionModeState = (): PrecisionModeState => ({
 export const updatePrecisionModeState = (
   state: PrecisionModeState,
   deltaTime: number,
-  config: GameConfig
+  config: GameConfig,
 ): PrecisionModeState => {
   if (!state.isActive || !config.isPrecisionMode) return state;
 
@@ -251,7 +258,7 @@ export const updatePrecisionModeState = (
   const newTimeInCurrentLevel = state.timeInCurrentLevel + deltaTime;
 
   const shouldIncreaseIntensity =
-    newTimeInCurrentLevel >= (config.intensityIncreaseInterval! * 1000) &&
+    newTimeInCurrentLevel >= config.intensityIncreaseInterval! * 1000 &&
     state.intensityLevel < (config.maxIntensityLevel || 15);
 
   if (shouldIncreaseIntensity) {
@@ -270,19 +277,24 @@ export const updatePrecisionModeState = (
   };
 };
 
-export const getPrecisionLevelConfig = (level: number): PrecisionLevelConfig => {
+export const getPrecisionLevelConfig = (
+  level: number,
+): PrecisionLevelConfig => {
   const clampedLevel = Math.max(1, Math.min(level, PRECISION_LEVELS.length));
+
   return PRECISION_LEVELS[clampedLevel - 1];
 };
 
 // Precision Mode helper functions (unchanged)
 export const getPrecisionSimultaneousCircles = (level: number): number => {
   const levelConfig = getPrecisionLevelConfig(level);
+
   return levelConfig.simultaneousCircles;
 };
 
 export const getPrecisionRedCircles = (level: number): number => {
   const levelConfig = getPrecisionLevelConfig(level);
+
   return levelConfig.redCircles;
 };
 
@@ -290,23 +302,26 @@ export const getPrecisionActivationDelay = (level: number): number => {
   const levelConfig = getPrecisionLevelConfig(level);
   const min = levelConfig.activationTimeMin;
   const max = levelConfig.activationTimeMax;
+
   return Math.random() * (max - min) + min;
 };
 
 export const getPrecisionCircleActiveTime = (level: number): number => {
   const levelConfig = getPrecisionLevelConfig(level);
+
   return levelConfig.circleActiveTime;
 };
 
 export const getPrecisionDescription = (level: number): string => {
   const levelConfig = getPrecisionLevelConfig(level);
+
   return levelConfig.description;
 };
 
 export const calculatePrecisionModeScore = (
   survivalTime: number,
   perfectStreak: number,
-  intensityLevel: number
+  intensityLevel: number,
 ): number => {
   const baseScore = Math.floor(survivalTime / 1000);
   const streakBonus = perfectStreak * 3;
@@ -318,7 +333,7 @@ export const calculatePrecisionModeScore = (
 export const isPrecisionModeGameOver = (
   wrongHits: number,
   missedCircles: number,
-  decoyHits: number
+  decoyHits: number,
 ): boolean => {
   return wrongHits > 0 || missedCircles > 0 || decoyHits > 0;
 };
@@ -326,21 +341,24 @@ export const isPrecisionModeGameOver = (
 export const getPrecisionModeDeathCause = (
   wrongHits: number,
   missedCircles: number,
-  decoyHits: number
-): 'miss' | 'wrong_click' | 'decoy_hit' | 'timeout' => {
-  if (decoyHits > 0) return 'decoy_hit';
-  if (wrongHits > 0) return 'wrong_click';
-  if (missedCircles > 0) return 'miss';
-  return 'timeout';
+  decoyHits: number,
+): "miss" | "wrong_click" | "decoy_hit" | "timeout" => {
+  if (decoyHits > 0) return "decoy_hit";
+  if (wrongHits > 0) return "wrong_click";
+  if (missedCircles > 0) return "miss";
+
+  return "timeout";
 };
 
 // Enhanced existing functions to support all game modes
 export const getRandomActivationDelay = (
   config: GameConfig,
   adaptiveState?: AdaptiveState,
-  precisionState?: PrecisionModeState | null
+  precisionState?: PrecisionModeState | null,
 ): number => {
-  let baseDelay = Math.random() * (config.maxActivationTime - config.minActivationTime) + config.minActivationTime;
+  let baseDelay =
+    Math.random() * (config.maxActivationTime - config.minActivationTime) +
+    config.minActivationTime;
 
   if (config.isPrecisionMode && precisionState) {
     baseDelay = getPrecisionActivationDelay(precisionState.intensityLevel);
@@ -355,7 +373,7 @@ export const getAdjustedCircleActiveTime = (
   baseTime: number,
   adaptiveState?: AdaptiveState,
   precisionState?: PrecisionModeState | null,
-  config?: GameConfig
+  config?: GameConfig,
 ): number => {
   if (config?.isPrecisionMode && precisionState) {
     return getPrecisionCircleActiveTime(precisionState.intensityLevel);
@@ -371,7 +389,7 @@ export const getAdjustedCircleActiveTime = (
 export const getAdjustedSimultaneousCircles = (
   baseCount: number,
   precisionState?: PrecisionModeState | null,
-  config?: GameConfig
+  config?: GameConfig,
 ): number => {
   if (config?.isPrecisionMode && precisionState) {
     return getPrecisionSimultaneousCircles(precisionState.intensityLevel);
@@ -383,7 +401,7 @@ export const getAdjustedSimultaneousCircles = (
 export const getAdjustedDecoyProbability = (
   baseProbability: number,
   precisionState?: PrecisionModeState | null,
-  config?: GameConfig
+  config?: GameConfig,
 ): number => {
   return baseProbability;
 };
@@ -404,7 +422,7 @@ export const getRandomCircleIds = (
   excludeIds: number[] = [],
   adaptiveState?: AdaptiveState,
   precisionState?: PrecisionModeState | null,
-  config?: GameConfig
+  config?: GameConfig,
 ): number[] => {
   const availableIds = Array.from({ length: totalCircles }, (_, i) => i).filter(
     (id) => !excludeIds.includes(id),
@@ -413,9 +431,15 @@ export const getRandomCircleIds = (
   let adjustedMaxCount = maxCount;
 
   if (config?.isPrecisionMode && precisionState) {
-    adjustedMaxCount = getAdjustedSimultaneousCircles(maxCount, precisionState, config);
+    adjustedMaxCount = getAdjustedSimultaneousCircles(
+      maxCount,
+      precisionState,
+      config,
+    );
   } else if (adaptiveState) {
-    adjustedMaxCount = Math.ceil(maxCount * adaptiveState.simultaneousMultiplier);
+    adjustedMaxCount = Math.ceil(
+      maxCount * adaptiveState.simultaneousMultiplier,
+    );
   }
 
   const count = Math.min(
@@ -424,9 +448,11 @@ export const getRandomCircleIds = (
   );
 
   const selectedIds: number[] = [];
+
   for (let i = 0; i < count; i++) {
     const randomIndex = Math.floor(Math.random() * availableIds.length);
     const selectedId = availableIds.splice(randomIndex, 1)[0];
+
     selectedIds.push(selectedId);
   }
 
@@ -438,6 +464,7 @@ export const calculateAccuracy = (
   totalClicks: number,
 ): number => {
   if (totalClicks === 0) return 0;
+
   return Math.round((correctHits / totalClicks) * 100);
 };
 
@@ -452,32 +479,43 @@ export const formatPrecisionTime = (milliseconds: number): string => {
   const ms = Math.floor((milliseconds % 1000) / 10);
 
   if (minutes > 0) {
-    return `${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
   }
-  return `${seconds}.${ms.toString().padStart(2, '0')}s`;
+
+  return `${seconds}.${ms.toString().padStart(2, "0")}s`;
 };
 
 // Scoring and penalty functions (unchanged)
-export const calculateProgressiveWrongPenalty = (consecutiveMisses: number): number => {
+export const calculateProgressiveWrongPenalty = (
+  consecutiveMisses: number,
+): number => {
   if (consecutiveMisses <= 0) return 1;
   if (consecutiveMisses === 1) return 1;
   if (consecutiveMisses === 2) return 2;
   if (consecutiveMisses === 3) return 3;
   if (consecutiveMisses === 4) return 5;
+
   return Math.min(15, Math.floor(consecutiveMisses * 1.5));
 };
 
 export const calculateDecoyPenalty = (consecutiveMisses: number): number => {
   const basePenalty = 3;
-  const progressivePenalty = calculateProgressiveWrongPenalty(consecutiveMisses);
+  const progressivePenalty =
+    calculateProgressiveWrongPenalty(consecutiveMisses);
+
   return basePenalty + progressivePenalty;
 };
 
-export const calculateFastClickBonus = (reactionTime: number, threshold: number): number => {
+export const calculateFastClickBonus = (
+  reactionTime: number,
+  threshold: number,
+): number => {
   if (reactionTime <= threshold) {
     const speedRatio = threshold / Math.max(reactionTime, 1);
+
     return Math.floor(speedRatio);
   }
+
   return 0;
 };
 
@@ -515,6 +553,7 @@ export const calculateScoreMultiplier = (consecutiveHits: number): number => {
   if (consecutiveHits >= 10) return 2.5;
   if (consecutiveHits >= 7) return 2;
   if (consecutiveHits >= 5) return 1.5;
+
   return 1;
 };
 
@@ -524,6 +563,7 @@ export const getAdaptiveLevelDescription = (level: number): string => {
   if (level <= 4) return "INTENSE";
   if (level <= 6) return "EXTREME";
   if (level <= 8) return "INSANE";
+
   return "GODLIKE";
 };
 
@@ -532,5 +572,6 @@ export const calculateAverageReactionTime = (
   hitCount: number,
 ): number => {
   if (hitCount === 0) return 0;
+
   return Math.round(totalReactionTime / hitCount);
 };

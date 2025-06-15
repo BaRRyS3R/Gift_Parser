@@ -1,11 +1,13 @@
 // src/app/layout.tsx
 
 import type { Metadata } from "next";
+
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
 
 import { Providers } from "./providers";
+
 import NavigationWrapper from "@/components/Navigation/NavigationWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -18,15 +20,15 @@ export const metadata: Metadata = {
     initialScale: 1,
     maximumScale: 1,
     userScalable: false,
-    viewportFit: "cover"
+    viewportFit: "cover",
   },
   themeColor: "#000000",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "s0mething"
+    title: "s0mething",
   },
-  manifest: "/manifest.json"
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -50,13 +52,19 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
         {/* PWA and safe area support */}
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="format-detection" content="telephone=no" />
-        <meta name="msapplication-tap-highlight" content="no" />
+        <meta content="yes" name="mobile-web-app-capable" />
+        <meta content="yes" name="apple-mobile-web-app-capable" />
+        <meta
+          content="black-translucent"
+          name="apple-mobile-web-app-status-bar-style"
+        />
+        <meta content="telephone=no" name="format-detection" />
+        <meta content="no" name="msapplication-tap-highlight" />
         {/* Prevent zoom on form inputs */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+        <meta
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+          name="viewport"
+        />
       </head>
       <body className={inter.className}>
         <Providers>

@@ -47,11 +47,11 @@ export interface GameConfig {
 
 // Updated difficulty enum with streamlined progression
 export enum GameDifficulty {
-  LEGENDARY = "legendary",   // BEGINNER - 5x5 grid (25 circles)
-  OMG = "omg",              // INTERMEDIATE - 5x5 grid (25 circles)  
-  NIGHTMARE = "nightmare",   // ADVANCED - 6x6 grid (36 circles)
+  LEGENDARY = "legendary", // BEGINNER - 5x5 grid (25 circles)
+  OMG = "omg", // INTERMEDIATE - 5x5 grid (25 circles)
+  NIGHTMARE = "nightmare", // ADVANCED - 6x6 grid (36 circles)
   IMPOSSIBLE = "impossible", // EXPERT - 7x7 grid (49 circles)
-  PRECISION = "precision",   // SURVIVAL - 7x7 grid (49 circles)
+  PRECISION = "precision", // SURVIVAL - 7x7 grid (49 circles)
 }
 
 export enum GameState {
@@ -78,7 +78,7 @@ export interface GameResult {
   survivalTime?: number;
   maxIntensityReached?: number;
   perfectStreak?: number;
-  deathCause?: 'miss' | 'wrong_click' | 'decoy_hit' | 'timeout';
+  deathCause?: "miss" | "wrong_click" | "decoy_hit" | "timeout";
 }
 
 export interface Achievement {
@@ -115,7 +115,7 @@ export interface PrecisionLevelConfig {
   simultaneousCircles: number; // Total number of circles to activate simultaneously
   redCircles: number; // Number of red trap circles in each activation
   activationTimeMin: number; // Minimum time between activations (ms)
-  activationTimeMax: number; // Maximum time between activations (ms)  
+  activationTimeMax: number; // Maximum time between activations (ms)
   circleActiveTime: number; // How long circles stay active (ms)
   description: string; // Level description
 }
