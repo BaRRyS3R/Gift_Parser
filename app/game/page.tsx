@@ -1,8 +1,8 @@
-// src/app/game/page.tsx - Minimalist Game Mode Selection
+// src/app/game/page.tsx - Enhanced with attempts display
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Zap,
@@ -18,7 +18,11 @@ import {
   CheckCircle,
   Play,
   Shield,
+  Battery,
 } from "lucide-react";
+
+import { useUser } from "@/hooks/useUser";
+import { userService, type AttemptsStatus } from "@/lib/supabase";
 
 interface GameMode {
   id: string;
@@ -128,12 +132,177 @@ const GAME_MODES: GameMode[] = [
   },
 ];
 
+const AttemptsDisplay = ({
+  attemptsStatus,
+  timeUntilReset
+}: {
+  attemptsStatus: AttemptsStatus;
+  timeUntilReset: string;
+}) => {
+  const batteryLevel = (attemptsStatus.attemptsRemaining / 5) * 100;
+  const isLow = attemptsStatus.attemptsRemaining <= 1;
+  const isEmpty = attemptsStatus.attemptsRemaining === 0;
+
+  return (
+    <div className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${isEmpty
+        ? "bg-red-500/20 border-red-400/40"
+        : isLow
+          ? "bg-orange-500/20 border-orange-400/40"
+          : "bg-white/10 border-white/30"
+      }`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <Battery
+            className={`${isEmpty
+                ? "text-red-400"
+                : isLow
+                  ? "text-orange-400"
+                  : "text-green-400"
+              }`}
+            size={18}
+          />
+          <span className={`font-bpdots text-sm font-bold ${isEmpty
+              ? "text-red-300"
+              : isLow
+                ? "text-orange-300"
+                : "text-white"
+            }`}>
+            ATTEMPTS
+          </span>
+        </div>
+        <span className={`font-bpdots text-lg font-bold ${isEmpty
+            ? "text-red-400"
+            : isLow
+              ? "text-orange-400"
+              : "text-green-400"
+          }`}>
+          {attemptsStatus.attemptsRemaining}/5
+        </span>
+      </div>
+
+      {/* Battery visual indicator */}
+      <div className="mb-3">
+        <div className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
+            ? "bg-red-400/20"
+            : isLow
+              ? "bg-orange-400/20"
+              : "bg-white/20"
+          }`}>
+          <div
+            className={`h-full transition-all duration-500 ${isEmpty
+                ? "bg-red-400"
+                : isLow
+                  ? "bg-orange-400"
+                  : "bg-green-400"
+              }`}
+            style={{ width: `${batteryLevel}%` }}
+          />
+        </div>
+        <div className="flex justify-between mt-1">
+          {[1, 2, 3, 4, 5].map((attempt) => (
+            <div
+              key={attempt}
+              className={`w-2 h-2 rounded-full ${attempt <= attemptsStatus.attemptsRemaining
+                  ? isEmpty
+                    ? "bg-red-400"
+                    : isLow && attempt <= 1
+                      ? "bg-orange-400"
+                      : "bg-green-400"
+                  : "bg-white/20"
+                }`}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Reset timer */}
+      {timeUntilReset && (
+        <div className="text-center space-y-1">
+          <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
+            Next reset in
+          </div>
+          <div className="text-lg font-bold font-bpdots text-green-400">
+            {timeUntilReset}
+          </div>
+        </div>
+      )}
+
+      {/* Status message */}
+      {isEmpty && (
+        <div className="text-center mt-2">
+          <p className="text-xs font-bpdots text-red-400/80">
+            All attempts used - wait for reset
+          </p>
+        </div>
+      )}
+
+      {isLow && !isEmpty && (
+        <div className="text-center mt-2">
+          <p className="text-xs font-bpdots text-orange-400/80">
+            Low attempts - use wisely
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function GamePage() {
   const router = useRouter();
+  const { telegramUser } = useUser();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [selectedModeForInfo, setSelectedModeForInfo] = useState<GameMode | null>(null);
+  const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
+    canPlay: true,
+    attemptsRemaining: 5,
+  });
+  const [timeUntilReset, setTimeUntilReset] = useState<string>("");
+  const [isLoadingAttempts, setIsLoadingAttempts] = useState(true);
+
+  const checkAttempts = useCallback(async () => {
+    if (!telegramUser?.id) return;
+
+    try {
+      setIsLoadingAttempts(true);
+      const status = await userService.checkAndUpdateAttempts(telegramUser.id);
+      setAttemptsStatus(status);
+    } catch (error) {
+      console.error("Error checking attempts:", error);
+    } finally {
+      setIsLoadingAttempts(false);
+    }
+  }, [telegramUser?.id]);
+
+  useEffect(() => {
+    checkAttempts();
+  }, [checkAttempts]);
+
+  useEffect(() => {
+    if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
+      setTimeUntilReset("");
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeUntilReset("");
+        checkAttempts();
+      } else {
+        const minutes = Math.floor(diff / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [attemptsStatus.resetTime, attemptsStatus.canPlay, checkAttempts]);
 
   const handleModeStart = (mode: GameMode) => {
+    if (!attemptsStatus.canPlay) return;
+
     setIsTransitioning(true);
     setTimeout(() => {
       router.push(mode.route);
@@ -155,19 +324,25 @@ export default function GamePage() {
   const renderModeCard = (mode: GameMode) => {
     const Icon = mode.icon;
     const isReaction = mode.id === "reaction";
+    const isDisabled = !attemptsStatus.canPlay;
 
     return (
       <div
         key={mode.id}
         className={`
           relative w-full max-w-sm mx-auto backdrop-blur-sm border rounded-2xl font-bpdots 
-          transition-all duration-300 hover:scale-[1.02] hover:shadow-xl
-          ${mode.color.background} ${mode.color.border} hover:border-opacity-60
-          bg-black/20 hover:bg-black/30
+          transition-all duration-300 
+          ${isDisabled
+            ? "opacity-50 cursor-not-allowed"
+            : "hover:scale-[1.02] hover:shadow-xl cursor-pointer"
+          }
+          ${mode.color.background} ${mode.color.border} 
+          ${isDisabled ? "" : "hover:border-opacity-60"}
+          bg-black/20 
+          ${isDisabled ? "" : "hover:bg-black/30"}
         `}
       >
         <div className="p-8">
-          {/* Header - Title */}
           <div className="text-center mb-6">
             <h3 className={`text-2xl font-bold tracking-wide ${mode.color.primary} mb-2`}>
               {mode.name}
@@ -175,16 +350,12 @@ export default function GamePage() {
             <div className="w-12 h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-40"></div>
           </div>
 
-          {/* Description Section */}
           <div className="space-y-6 mb-8">
-            {/* Main Description */}
             <p className={`text-sm leading-relaxed text-center ${mode.color.secondary}`}>
               {mode.description}
             </p>
 
-            {/* Game Info */}
             <div className="space-y-4">
-              {/* Duration and Difficulty */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Clock className={`${mode.color.accent}`} size={14} />
@@ -205,7 +376,6 @@ export default function GamePage() {
                 </div>
               </div>
 
-              {/* Key Features */}
               <div className="space-y-2">
                 {mode.features.map((feature, index) => (
                   <div key={index} className="flex items-center space-x-3">
@@ -220,26 +390,34 @@ export default function GamePage() {
             </div>
           </div>
 
-          {/* Separator */}
           <div className="w-full h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-20 mb-6"></div>
 
-          {/* Action Buttons */}
           <div className="flex space-x-3">
             <button
               onClick={() => handleModeStart(mode)}
-              disabled={isTransitioning}
+              disabled={isTransitioning || isDisabled}
               className={`
                 flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl 
                 font-bpdots text-sm font-bold transition-all duration-300
                 ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-                hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
-                hover:shadow-lg hover:border-opacity-80
+                ${isDisabled
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
+                }
+                disabled:opacity-50 disabled:cursor-not-allowed
               `}
               type="button"
               aria-label={`Start ${mode.name} game mode`}
             >
               <Play size={16} />
-              <span>{isTransitioning ? "LOADING..." : "PLAY"}</span>
+              <span>
+                {isTransitioning
+                  ? "LOADING..."
+                  : isDisabled
+                    ? "NO ATTEMPTS"
+                    : "PLAY"
+                }
+              </span>
             </button>
 
             <button
@@ -253,6 +431,18 @@ export default function GamePage() {
             </button>
           </div>
         </div>
+
+        {/* Disabled overlay */}
+        {isDisabled && (
+          <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <Shield className="text-white/60 mx-auto" size={24} />
+              <p className="text-white/80 font-bpdots text-sm font-bold">
+                NO ATTEMPTS LEFT
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -266,7 +456,6 @@ export default function GamePage() {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
         <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl animate-fade-in">
-          {/* Header */}
           <div className="sticky top-0 bg-black/95 backdrop-blur-sm border-b border-white/10 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -292,9 +481,7 @@ export default function GamePage() {
             </div>
           </div>
 
-          {/* Content */}
           <div className="p-6 space-y-6">
-            {/* Objective */}
             <div>
               <h3 className="text-lg font-bold font-bpdots text-white mb-3 flex items-center space-x-2">
                 <Target className="text-white/80" size={18} />
@@ -305,7 +492,6 @@ export default function GamePage() {
               </p>
             </div>
 
-            {/* Rules */}
             <div>
               <h3 className="text-lg font-bold font-bpdots text-white mb-3 flex items-center space-x-2">
                 <CheckCircle className="text-white/80" size={18} />
@@ -321,7 +507,6 @@ export default function GamePage() {
               </div>
             </div>
 
-            {/* Tips */}
             <div>
               <h3 className="text-lg font-bold font-bpdots text-white mb-3 flex items-center space-x-2">
                 <Zap className="text-white/80" size={18} />
@@ -338,7 +523,6 @@ export default function GamePage() {
               </div>
             </div>
 
-            {/* Scoring */}
             <div>
               <h3 className="text-lg font-bold font-bpdots text-white mb-3 flex items-center space-x-2">
                 <Trophy className="text-white/80" size={18} />
@@ -351,7 +535,6 @@ export default function GamePage() {
               </div>
             </div>
 
-            {/* Quick Stats */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold font-bpdots text-white mb-1">
@@ -371,21 +554,24 @@ export default function GamePage() {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex space-x-4 pt-4 border-t border-white/10">
               <button
                 onClick={() => {
                   handleCloseInfo();
                   handleModeStart(mode);
                 }}
-                disabled={isTransitioning}
+                disabled={isTransitioning || !attemptsStatus.canPlay}
                 className={`
                   flex-1 py-4 px-6 rounded-xl font-bpdots text-lg font-bold transition-all duration-300
                   ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-                  hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
+                  ${!attemptsStatus.canPlay
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:scale-105 active:scale-95"
+                  }
+                  disabled:opacity-50 disabled:cursor-not-allowed
                 `}
               >
-                START PLAYING
+                {!attemptsStatus.canPlay ? "NO ATTEMPTS LEFT" : "START PLAYING"}
               </button>
               <button
                 onClick={handleCloseInfo}
@@ -400,6 +586,17 @@ export default function GamePage() {
     );
   };
 
+  if (isLoadingAttempts) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+          <p className="text-white font-bpdots">CHECKING ATTEMPTS...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative safe-area-inset ${isTransitioning
@@ -407,7 +604,7 @@ export default function GamePage() {
         : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
     >
-      <div className="text-center z-20 space-y-16 flex flex-col items-center justify-center max-w-6xl px-6 w-full">
+      <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center max-w-6xl px-6 w-full">
         {/* Header */}
         <div className="relative space-y-4">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white animate-fade-in">
@@ -418,12 +615,42 @@ export default function GamePage() {
           </p>
         </div>
 
+        {/* Attempts Display */}
+        <div className="w-full max-w-md animate-fade-in">
+          <AttemptsDisplay
+            attemptsStatus={attemptsStatus}
+            timeUntilReset={timeUntilReset}
+          />
+        </div>
+
         {/* Game Mode Cards */}
         <div className="w-full space-y-8">
           <div className="grid gap-8 lg:grid-cols-2 max-w-4xl mx-auto">
             {GAME_MODES.map(renderModeCard)}
           </div>
         </div>
+
+        {/* Attempts Info */}
+        {!attemptsStatus.canPlay && (
+          <div className="animate-fade-in max-w-md mx-auto">
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4 text-center">
+              <div className="flex items-center justify-center space-x-2 mb-2">
+                <AlertTriangle className="text-red-400" size={18} />
+                <span className="font-bpdots text-sm font-bold text-red-300">
+                  ALL ATTEMPTS USED
+                </span>
+              </div>
+              <p className="text-red-400/80 font-bpdots text-xs">
+                Wait for automatic reset or return later
+              </p>
+              {timeUntilReset && (
+                <p className="text-green-400 font-bpdots text-sm font-bold mt-2">
+                  Reset in: {timeUntilReset}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Back Button */}
         <div className="mt-12 animate-fade-in">
@@ -437,6 +664,16 @@ export default function GamePage() {
             <ArrowLeft size={20} className="transition-transform duration-300 group-hover:-translate-x-1" />
             <span className="tracking-wider">BACK TO MENU</span>
           </button>
+        </div>
+
+        {/* Footer Info */}
+        <div className="text-center space-y-2 animate-fade-in">
+          <p className="text-white/40 font-bpdots text-xs">
+            • Attempts reset automatically after 2 minutes •
+          </p>
+          <p className="text-white/30 font-bpdots text-xs">
+            Use your attempts wisely - each game counts!
+          </p>
         </div>
       </div>
 
