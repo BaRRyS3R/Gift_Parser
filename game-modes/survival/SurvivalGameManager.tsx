@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with detailed save status
+// src/game-modes/survival/SurvivalGameManager.tsx - Redesigned interface with bottom panel and fixed progress bar
 
 "use client";
 
@@ -299,6 +299,25 @@ export default function SurvivalGameManager({
         };
     }, []);
 
+    // Calculate progress percentage for the current level (fixed calculation)
+    const getProgressPercentage = useCallback(() => {
+        const maxLevels = 15;
+        const currentLevel = gameState.currentLevel;
+        const timeInLevel = gameState.timeInCurrentLevel;
+        const levelDuration = gameState.config.intensityIncreaseInterval * 1000; // Convert to milliseconds
+
+        // Calculate base progress from completed levels
+        const completedLevelsProgress = ((currentLevel - 1) / maxLevels) * 100;
+
+        // Calculate progress within current level
+        const currentLevelProgress = Math.min((timeInLevel / levelDuration) * (100 / maxLevels), 100 / maxLevels);
+
+        // Total progress
+        const totalProgress = Math.min(completedLevelsProgress + currentLevelProgress, 100);
+
+        return totalProgress;
+    }, [gameState.currentLevel, gameState.timeInCurrentLevel, gameState.config.intensityIncreaseInterval]);
+
     // Render game results
     if (gameState.gameState === GameState.FINISHED && gameResult) {
         const getDeathCauseIcon = () => {
@@ -520,39 +539,10 @@ export default function SurvivalGameManager({
         );
     }
 
-    // Get current level config for display
-    const currentLevelConfig = getLevelConfig(gameState.currentLevel);
-
-    // Render game interface
+    // Render game interface - NO HEADER, redesigned bottom panel
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
-            {/* Game Header */}
-            <div className="flex items-center justify-between px-6 py-4 pt-20 z-10">
-                <div className="flex flex-col items-center">
-                    <div className="text-2xl font-bpdots text-red-400">SURVIVAL</div>
-                    <div className="text-xs font-bpdots text-red-300/60 mt-1">
-                        Score: {gameState.stats.correctHits}
-                    </div>
-                </div>
-
-                <div className="flex flex-col items-center">
-                    <div className="text-2xl font-bold font-bpdots text-white">
-                        {formatSurvivalTime(gameState.stats.survivalTime)}
-                    </div>
-                    <div className="text-xs font-bpdots text-white/60">
-                        Level {gameState.currentLevel}
-                    </div>
-                </div>
-
-                <button
-                    className="text-red-400/80 font-bpdots text-lg hover:text-red-400 transition-colors duration-300"
-                    onClick={onBackToMenu}
-                >
-                    QUIT
-                </button>
-            </div>
-
-            {/* Game Grid */}
+            {/* Game Grid - takes up most of the screen */}
             <div className="flex-1 flex items-center justify-center">
                 <GameGrid
                     circles={gameState.circles}
@@ -562,39 +552,58 @@ export default function SurvivalGameManager({
                 />
             </div>
 
-            {/* Bottom Panel */}
-            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm border-t border-red-400/30">
+            {/* Bottom Panel - Redesigned layout: LVL X | TIMER | QUIT + Progress Bar */}
+            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom">
                 <div className="px-6 py-4">
-                    <div className="text-center mb-3">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                            <Zap className="text-orange-400" size={16} />
-                            <span className="text-lg font-bold font-bpdots text-orange-400">
-                                Level {gameState.currentLevel}
-                            </span>
-                        </div>
-                        <div className="text-sm font-bpdots text-orange-300/60 uppercase tracking-wider">
-                            {currentLevelConfig.description}
-                        </div>
-                    </div>
-
-                    <div className="w-full h-2 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30 mb-3">
-                        <div
-                            className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600 transition-all duration-500 ease-out"
-                            style={{
-                                width: `${Math.min(100, (gameState.currentLevel / 15) * 100)}%`,
-                            }}
-                        />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                        <div className="text-xs font-bpdots text-red-400/60">
-                            {gameState.currentLevel}/15 LEVELS
-                        </div>
+                    {/* Top row: LVL X | TIMER | QUIT */}
+                    <div className="flex items-center justify-between mb-4">
+                        {/* Level */}
                         <div className="flex items-center space-x-2">
-                            <AlertTriangle className="text-red-400" size={12} />
-                            <span className="text-xs font-bpdots text-red-300 uppercase tracking-wider">
-                                ONE MISTAKE = DEATH
+                            <Zap className="text-orange-400" size={18} />
+                            <span className="text-lg font-bold font-bpdots text-orange-400">
+                                LVL {gameState.currentLevel}
                             </span>
+                        </div>
+
+                        {/* Timer */}
+                        <div className="flex items-center space-x-2">
+                            <Clock className="text-white" size={18} />
+                            <span className="text-lg font-bold font-bpdots text-white">
+                                {formatSurvivalTime(gameState.stats.survivalTime)}
+                            </span>
+                        </div>
+
+                        {/* Quit Button */}
+                        <button
+                            className="font-bpdots text-lg font-bold text-red-400/80 hover:text-red-400 transition-colors duration-300 px-3 py-1"
+                            onClick={onBackToMenu}
+                        >
+                            QUIT
+                        </button>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-2">
+                        <div className="w-full h-3 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30">
+                            <div
+                                className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600 transition-all duration-200 ease-out"
+                                style={{
+                                    width: `${getProgressPercentage()}%`,
+                                }}
+                            />
+                        </div>
+
+                        {/* Progress info */}
+                        <div className="flex items-center justify-between text-xs font-bpdots">
+                            <span className="text-red-400/60">
+                                {gameState.currentLevel}/15 LEVELS
+                            </span>
+                            <div className="flex items-center space-x-2">
+                                <AlertTriangle className="text-red-400" size={12} />
+                                <span className="text-red-300 uppercase tracking-wider">
+                                    ONE MISTAKE = DEATH
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>

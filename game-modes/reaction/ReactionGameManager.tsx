@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Streamlined without instructions, conditional saving
+// src/game-modes/reaction/ReactionGameManager.tsx - Removed header panel
 
 "use client";
 
@@ -35,7 +35,7 @@ interface SaveStatus {
     error: string | null;
     isSuccess: boolean;
     showRetryDetails: boolean;
-    skipped: boolean; // New field to track if save was skipped
+    skipped: boolean;
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -230,7 +230,7 @@ export default function ReactionGameManager({
                 ...prev,
                 startDelayTimeout: timeout,
             }));
-        }, 500); // Reduced delay since no instructions
+        }, 500);
     }, [handleCircleActivated, handleGameTimeout]);
 
     const restartGame = useCallback(() => {
@@ -442,62 +442,15 @@ export default function ReactionGameManager({
         );
     }
 
-    // Render game interface
+    // Render game interface - NO HEADER, just full screen grid
     return (
-        <div className="min-h-screen bg-black flex flex-col text-white">
-            {/* Game Header with Safe Area */}
-            <div className="flex items-center justify-between px-6 py-4 safe-area-inset-game z-10">
-                <div className="flex flex-col items-center">
-                    <div className="text-2xl font-bpdots text-white">REACTION</div>
-                    <div className="text-xs font-bpdots text-white/60 mt-1">
-                        Speed Test
-                    </div>
-                </div>
-
-                <div className="flex flex-col items-center">
-                    <div className="text-2xl font-bold font-bpdots text-white">
-                        {gameState.gameState === GameState.PLAYING ? "READY..." : "STARTING..."}
-                    </div>
-                    <div className="text-xs font-bpdots text-white/60">
-                        {gameState.gameState === GameState.PLAYING
-                            ? "Click when target appears"
-                            : "Get ready"}
-                    </div>
-                </div>
-
-                <button
-                    className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
-                    onClick={onBackToMenu}
-                >
-                    QUIT
-                </button>
-            </div>
-
-            {/* Game Grid */}
-            <div className="flex-1 flex items-center justify-center">
-                <GameGrid
-                    circles={gameState.circles}
-                    isGameActive={gameState.gameState === GameState.PLAYING}
-                    showCircles={showCircles}
-                    onCircleClick={handleCircleClickEvent}
-                />
-            </div>
-
-            {/* Bottom instruction */}
-            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm border-t border-white/30 safe-area-inset-bottom">
-                <div className="px-6 py-4">
-                    <div className="text-center">
-                        <div className="text-sm font-bpdots text-white/80 mb-1">
-                            {gameState.gameState === GameState.PLAYING
-                                ? "Click the target as fast as possible when it appears!"
-                                : "Target will appear in 3-5 seconds..."}
-                        </div>
-                        <div className="text-xs font-bpdots text-white/60">
-                            Test your lightning-fast reflexes
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div className="min-h-screen bg-black flex items-center justify-center text-white">
+            <GameGrid
+                circles={gameState.circles}
+                isGameActive={gameState.gameState === GameState.PLAYING}
+                showCircles={showCircles}
+                onCircleClick={handleCircleClickEvent}
+            />
         </div>
     );
 }
