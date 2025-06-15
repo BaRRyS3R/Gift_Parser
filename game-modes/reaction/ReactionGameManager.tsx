@@ -261,22 +261,22 @@ export default function ReactionGameManager({
                     <div className="text-center space-y-4">
                         <div className="text-6xl mb-4">⚡</div>
 
-                        <h1 className="text-4xl font-bold font-bpdots text-yellow-400">
+                        <h1 className="text-4xl font-bold font-bpdots text-white">
                             REACTION TEST
                         </h1>
 
                         <div className="flex items-center justify-center space-x-2">
-                            <Zap className="text-yellow-400" size={20} />
-                            <p className="text-lg font-bpdots text-yellow-300">
+                            <Zap className="text-white" size={20} />
+                            <p className="text-lg font-bpdots text-white/80">
                                 Speed Test Complete
                             </p>
                         </div>
                     </div>
 
                     {/* Results */}
-                    <div className="bg-yellow-500/10 backdrop-blur-sm border border-yellow-400/30 rounded-xl p-6 space-y-6">
+                    <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-6 space-y-6">
                         <div className="text-center space-y-2">
-                            <div className="text-sm font-bpdots text-yellow-400/60">
+                            <div className="text-sm font-bpdots text-white/60">
                                 REACTION TIME
                             </div>
                             {gameResult.missed ? (
@@ -284,7 +284,7 @@ export default function ReactionGameManager({
                                     MISSED
                                 </div>
                             ) : (
-                                <div className="text-4xl font-bold font-bpdots text-yellow-400">
+                                <div className="text-4xl font-bold font-bpdots text-white">
                                     {gameResult.reactionTime}ms
                                 </div>
                             )}
@@ -295,15 +295,15 @@ export default function ReactionGameManager({
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="text-center space-y-1">
-                                <div className="text-xs font-bpdots text-yellow-400/60">
+                                <div className="text-xs font-bpdots text-white/60">
                                     SCORE
                                 </div>
-                                <div className="text-xl font-bold font-bpdots text-yellow-300">
+                                <div className="text-xl font-bold font-bpdots text-white">
                                     {gameResult.score}
                                 </div>
                             </div>
                             <div className="text-center space-y-1">
-                                <div className="text-xs font-bpdots text-yellow-400/60">
+                                <div className="text-xs font-bpdots text-white/60">
                                     RATING
                                 </div>
                                 <div className={`text-xl font-bold font-bpdots ${ratingColor}`}>
@@ -312,13 +312,13 @@ export default function ReactionGameManager({
                             </div>
                         </div>
 
-                        <div className="border-t border-yellow-400/30 pt-4">
+                        <div className="border-t border-white/30 pt-4">
                             <div className="text-center">
-                                <div className="text-sm font-bpdots text-yellow-400/80 mb-2">
+                                <div className="text-sm font-bpdots text-white/80 mb-2">
                                     {ratingDescription}
                                 </div>
                                 {!gameResult.missed && (
-                                    <div className="text-xs font-bpdots text-yellow-400/60">
+                                    <div className="text-xs font-bpdots text-white/60">
                                         {gameResult.reactionTime <= 150
                                             ? "Superhuman reflexes!"
                                             : gameResult.reactionTime <= 200
@@ -334,12 +334,12 @@ export default function ReactionGameManager({
 
                     {/* Enhanced Save Status */}
                     {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess || saveStatus.skipped) && (
-                        <div className="bg-yellow-500/10 backdrop-blur-sm border border-yellow-400/30 rounded-xl p-4">
+                        <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
                             {saveStatus.isLoading && (
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-center space-x-3">
-                                        <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
-                                        <span className="font-bpdots text-sm text-yellow-300/80">
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <span className="font-bpdots text-sm text-white/80">
                                             {saveStatus.showRetryDetails
                                                 ? `Retrying save (${saveStatus.attempt}/${saveStatus.maxAttempts})...`
                                                 : "Recording reaction time..."
@@ -350,14 +350,14 @@ export default function ReactionGameManager({
                                     {saveStatus.showRetryDetails && (
                                         <div className="text-center">
                                             <div className="flex items-center justify-center space-x-2 mb-2">
-                                                <RotateCcw className="text-yellow-400/60" size={14} />
-                                                <span className="text-xs font-bpdots text-yellow-400/60">
+                                                <RotateCcw className="text-white/60" size={14} />
+                                                <span className="text-xs font-bpdots text-white/60">
                                                     Connection issue - retrying automatically
                                                 </span>
                                             </div>
-                                            <div className="w-full bg-yellow-400/20 rounded-full h-1">
+                                            <div className="w-full bg-white/20 rounded-full h-1">
                                                 <div
-                                                    className="bg-yellow-400 h-1 rounded-full transition-all duration-300"
+                                                    className="bg-white h-1 rounded-full transition-all duration-300"
                                                     style={{ width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%` }}
                                                 />
                                             </div>
@@ -422,7 +422,7 @@ export default function ReactionGameManager({
                     {/* Action Buttons */}
                     <div className="space-y-4">
                         <button
-                            className="w-full px-6 py-4 bg-transparent border-2 border-yellow-400/60 text-yellow-300 rounded-xl font-bpdots text-lg hover:border-yellow-400 hover:bg-yellow-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl font-bpdots text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={saveStatus.isLoading}
                             onClick={restartGame}
                         >
@@ -445,11 +445,11 @@ export default function ReactionGameManager({
     // Render game interface
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
-            {/* Game Header */}
-            <div className="flex items-center justify-between px-6 py-4 pt-20 z-10">
+            {/* Game Header with Safe Area */}
+            <div className="flex items-center justify-between px-6 py-4 safe-area-inset-game z-10">
                 <div className="flex flex-col items-center">
-                    <div className="text-2xl font-bpdots text-yellow-400">REACTION</div>
-                    <div className="text-xs font-bpdots text-yellow-300/60 mt-1">
+                    <div className="text-2xl font-bpdots text-white">REACTION</div>
+                    <div className="text-xs font-bpdots text-white/60 mt-1">
                         Speed Test
                     </div>
                 </div>
@@ -466,7 +466,7 @@ export default function ReactionGameManager({
                 </div>
 
                 <button
-                    className="text-yellow-400/80 font-bpdots text-lg hover:text-yellow-400 transition-colors duration-300"
+                    className="text-white/80 font-bpdots text-lg hover:text-white transition-colors duration-300"
                     onClick={onBackToMenu}
                 >
                     QUIT
@@ -484,15 +484,15 @@ export default function ReactionGameManager({
             </div>
 
             {/* Bottom instruction */}
-            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm border-t border-yellow-400/30">
+            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm border-t border-white/30 safe-area-inset-bottom">
                 <div className="px-6 py-4">
                     <div className="text-center">
-                        <div className="text-sm font-bpdots text-yellow-300/80 mb-1">
+                        <div className="text-sm font-bpdots text-white/80 mb-1">
                             {gameState.gameState === GameState.PLAYING
                                 ? "Click the target as fast as possible when it appears!"
                                 : "Target will appear in 3-5 seconds..."}
                         </div>
-                        <div className="text-xs font-bpdots text-yellow-400/60">
+                        <div className="text-xs font-bpdots text-white/60">
                             Test your lightning-fast reflexes
                         </div>
                     </div>

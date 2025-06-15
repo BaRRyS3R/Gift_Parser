@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Enhanced Game Mode Selection with About functionality
+// src/app/game/page.tsx - Enhanced Game Mode Selection with monochrome reaction mode
 
 "use client";
 
@@ -54,11 +54,12 @@ const GAME_MODES: GameMode[] = [
     difficulty: "Medium",
     duration: "~10 seconds",
     color: {
-      primary: "text-yellow-400",
-      secondary: "text-yellow-300",
-      accent: "text-yellow-200",
-      background: "bg-yellow-500/20",
-      border: "border-yellow-400/30",
+      // Updated to monochrome scheme
+      primary: "text-white",
+      secondary: "text-white/90",
+      accent: "text-white/80",
+      background: "bg-white/10",
+      border: "border-white/30",
     },
     features: [
       "Single target precision",
@@ -310,7 +311,8 @@ export default function GamePage() {
               <div className="space-y-2">
                 {mode.detailedInfo.tips.map((tip, index) => (
                   <div key={index} className="flex items-start space-x-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400/60 mt-2 flex-shrink-0"></div>
+                    <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${mode.id === "reaction" ? "bg-white/60" : "bg-red-400/60"
+                      }`}></div>
                     <span className="text-white/70 text-sm leading-relaxed">{tip}</span>
                   </div>
                 ))}
@@ -382,8 +384,8 @@ export default function GamePage() {
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : "opacity-100 transition-opacity duration-1000 ease-out"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
     >
       <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center max-w-4xl px-6">

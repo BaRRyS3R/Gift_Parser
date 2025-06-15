@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameLogic.ts - Updated with single circle configuration
+// src/game-modes/reaction/ReactionGameLogic.ts - Updated with monochrome color scheme
 
 import {
     ReactionGameConfig,
@@ -214,16 +214,16 @@ export const getReactionRatingColor = (
 ): string => {
     switch (rating) {
         case "LIGHTNING":
-            return "text-yellow-400";
+            return "text-white"; // Changed from text-yellow-400 to monochrome
         case "EXCELLENT":
-            return "text-green-400";
+            return "text-green-400"; // Keep green for positive result
         case "GOOD":
-            return "text-blue-400";
+            return "text-blue-400"; // Keep blue for good result
         case "AVERAGE":
-            return "text-white";
+            return "text-white"; // Monochrome
         case "SLOW":
-            return "text-orange-400";
+            return "text-orange-400"; // Keep orange for warning
         case "MISSED":
-            return "text-red-400";
+            return "text-red-400"; // Keep red for error
     }
 };

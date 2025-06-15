@@ -85,6 +85,19 @@ body {
   animation: fade-in 0.3s ease-out forwards;
 }
 
+/* Safe Area Classes */
+.safe-area-inset {
+  padding-top: max(48px, env(safe-area-inset-top) + 16px);
+}
+
+.safe-area-inset-game {
+  padding-top: max(64px, env(safe-area-inset-top) + 16px);
+}
+
+.safe-area-inset-bottom {
+  padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
+}
+
 /* Loader styles */
 .loader-container {
   position: fixed;

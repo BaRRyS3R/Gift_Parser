@@ -42,10 +42,7 @@ export default function BottomNav() {
   };
 
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm border-t border-white/5"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-    >
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm border-t border-white/5 safe-area-inset-bottom">
       {/* Контейнер с правильной центровкой */}
       <div className="w-full max-w-lg mx-auto px-4">
         <div className="flex items-center justify-around h-16">
@@ -59,10 +56,9 @@ export default function BottomNav() {
                 className={`
                   flex flex-col items-center justify-center p-3 rounded-lg
                   transition-all duration-300 ease-out group min-w-0 flex-1
-                  ${
-                    active
-                      ? "text-white scale-110"
-                      : "text-white/60 hover:text-white/80 hover:scale-105"
+                  ${active
+                    ? "text-white scale-110"
+                    : "text-white/60 hover:text-white/80 hover:scale-105"
                   }
                 `}
                 onClick={() => handleNavigation(item.path)}
@@ -86,11 +82,10 @@ export default function BottomNav() {
                 <div
                   className={`
                   absolute inset-0 rounded-lg transition-all duration-300
-                  ${
-                    active
+                  ${active
                       ? "bg-white/5"
                       : "bg-transparent group-hover:bg-white/5"
-                  }
+                    }
                 `}
                 />
               </button>
