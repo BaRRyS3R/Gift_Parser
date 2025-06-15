@@ -303,12 +303,12 @@ export default function SurvivalGameManager({
     const getProgressPercentage = () => {
         const maxLevels = 15;
         const currentLevel = gameState.currentLevel;
-        
+
         // Simple linear progress: each level is 1/15 of total progress
         const progress = Math.min((currentLevel / maxLevels) * 100, 100);
-        
+
         console.log(`Progress calculation: Level ${currentLevel}/${maxLevels} = ${progress}%`);
-        
+
         return progress;
     };
 
@@ -352,13 +352,6 @@ export default function SurvivalGameManager({
                         <h1 className="text-4xl font-bold font-bpdots text-red-400">
                             SURVIVAL END
                         </h1>
-
-                        <div className="flex items-center justify-center space-x-2">
-                            <Crosshair className="text-red-400" size={20} />
-                            <p className="text-lg font-bpdots text-red-300">
-                                Precision Mode Complete
-                            </p>
-                        </div>
 
                         <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-3">
                             <div className="flex items-center justify-center space-x-2">
@@ -424,14 +417,6 @@ export default function SurvivalGameManager({
                             <div className="text-center space-y-2">
                                 <div className="text-xs font-bpdots text-red-400/60 uppercase">
                                     Level Progress
-                                </div>
-                                <div className="w-full h-2 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600"
-                                        style={{
-                                            width: `${Math.min(100, (gameResult.maxLevelReached / 15) * 100)}%`,
-                                        }}
-                                    />
                                 </div>
                                 <div className="text-xs font-bpdots text-red-400/60">
                                     {gameResult.maxLevelReached}/15 LEVELS COMPLETED
@@ -581,15 +566,6 @@ export default function SurvivalGameManager({
 
                     {/* Progress Bar - FIXED */}
                     <div className="space-y-2">
-                        <div className="w-full h-3 bg-red-900/20 rounded-full overflow-hidden border border-red-400/30">
-                            <div
-                                className="h-full bg-gradient-to-r from-orange-400 via-red-400 to-red-600 transition-all duration-300 ease-out"
-                                style={{
-                                    width: `${currentProgress}%`,
-                                }}
-                            />
-                        </div>
-                        
                         {/* Progress info */}
                         <div className="flex items-center justify-between text-xs font-bpdots">
                             <span className="text-red-400/60">
