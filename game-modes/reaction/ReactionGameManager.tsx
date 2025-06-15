@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Enhanced with attempts system
+// src/game-modes/reaction/ReactionGameManager.tsx - Fixed attempts logic
 
 "use client";
 
@@ -17,7 +17,7 @@ import {
 } from "./ReactionGameLogic";
 
 import { useUser } from "@/hooks/useUser";
-import { userService, type AttemptsStatus } from "@/lib/supabase";
+import { userService } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
     ReactionGameState,
@@ -59,58 +59,43 @@ export default function ReactionGameManager({
     const [showCircles, setShowCircles] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
     const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
-    const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
-        canPlay: true,
-        attemptsRemaining: 5,
-    });
-    const [timeUntilReset, setTimeUntilReset] = useState<string>("");
-    const [isCheckingAttempts, setIsCheckingAttempts] = useState(true);
+    const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
+    const [isConsumingAttempt, setIsConsumingAttempt] = useState(true);
     const gameStateRef = useRef<ReactionGameState>(gameState);
 
     useEffect(() => {
         gameStateRef.current = gameState;
     }, [gameState]);
 
-    const checkAttempts = useCallback(async () => {
-        if (!telegramUser?.id) return;
-
-        try {
-            setIsCheckingAttempts(true);
-            const status = await userService.checkAndUpdateAttempts(telegramUser.id);
-            setAttemptsStatus(status);
-        } catch (error) {
-            console.error("Error checking attempts:", error);
-        } finally {
-            setIsCheckingAttempts(false);
-        }
-    }, [telegramUser?.id]);
-
+    // Consume attempt immediately when component mounts
     useEffect(() => {
-        checkAttempts();
-    }, [checkAttempts]);
-
-    useEffect(() => {
-        if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
-            setTimeUntilReset("");
-            return;
-        }
-
-        const interval = setInterval(() => {
-            const now = new Date();
-            const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
-
-            if (diff <= 0) {
-                setTimeUntilReset("");
-                checkAttempts();
-            } else {
-                const minutes = Math.floor(diff / 60000);
-                const seconds = Math.floor((diff % 60000) / 1000);
-                setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+        const consumeAttemptOnEntry = async () => {
+            if (!telegramUser?.id) {
+                setIsConsumingAttempt(false);
+                return;
             }
-        }, 1000);
 
-        return () => clearInterval(interval);
-    }, [attemptsStatus.resetTime, attemptsStatus.canPlay, checkAttempts]);
+            try {
+                const newStatus = await userService.consumeAttempt(telegramUser.id);
+                setAttemptsRemaining(newStatus.attemptsRemaining);
+                setIsConsumingAttempt(false);
+                
+                // Auto-start the game after consuming attempt
+                setTimeout(() => {
+                    startGame();
+                }, 500);
+            } catch (error) {
+                console.error("Error consuming attempt:", error);
+                setIsConsumingAttempt(false);
+                // Still try to start the game even if attempt consumption failed
+                setTimeout(() => {
+                    startGame();
+                }, 500);
+            }
+        };
+
+        consumeAttemptOnEntry();
+    }, [telegramUser?.id]);
 
     const triggerHapticFeedback = useCallback((type: "success" | "error") => {
         if (
@@ -240,24 +225,8 @@ export default function ReactionGameManager({
         [triggerHapticFeedback, handleSaveGameResult],
     );
 
-    const consumeAttemptAndStart = useCallback(async () => {
-        if (!telegramUser?.id || !attemptsStatus.canPlay) return;
-
-        try {
-            const newStatus = await userService.consumeAttempt(telegramUser.id);
-            setAttemptsStatus(newStatus);
-            return true;
-        } catch (error) {
-            console.error("Error consuming attempt:", error);
-            return false;
-        }
-    }, [telegramUser?.id, attemptsStatus.canPlay]);
-
-    const startGame = useCallback(async () => {
+    const startGame = useCallback(() => {
         console.log("Starting Reaction Game...");
-
-        const canStart = await consumeAttemptAndStart();
-        if (!canStart) return;
 
         setGameState(initializeReactionGameState());
         setGameResult(null);
@@ -290,16 +259,14 @@ export default function ReactionGameManager({
                 startDelayTimeout: timeout,
             }));
         }, 500);
-    }, [consumeAttemptAndStart, handleCircleActivated, handleGameTimeout]);
+    }, [handleCircleActivated, handleGameTimeout]);
 
     const restartGame = useCallback(() => {
-        if (!attemptsStatus.canPlay) return;
-
         setShowCircles(false);
         setTimeout(() => {
             startGame();
         }, 300);
-    }, [startGame, attemptsStatus.canPlay]);
+    }, [startGame]);
 
     useEffect(() => {
         return () => {
@@ -331,60 +298,12 @@ export default function ReactionGameManager({
         }
     };
 
-    if (isCheckingAttempts) {
+    if (isConsumingAttempt) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-                    <p className="text-white font-bpdots">CHECKING ATTEMPTS...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (!attemptsStatus.canPlay) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center p-6">
-                <div className="w-full max-w-md space-y-8 animate-fade-in">
-                    <div className="text-center space-y-4">
-                        <div className="text-6xl mb-4">⏰</div>
-                        <h1 className="text-4xl font-bold font-bpdots text-white">
-                            NO ATTEMPTS LEFT
-                        </h1>
-                        <p className="text-white/80 font-bpdots text-lg">
-                            You have used all your attempts
-                        </p>
-                    </div>
-
-                    <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-6">
-                        <div className="text-center space-y-4">
-                            <div className="text-sm font-bpdots text-white/60">
-                                ATTEMPTS REMAINING
-                            </div>
-                            <div className="text-4xl font-bold font-bpdots text-white">
-                                {attemptsStatus.attemptsRemaining}/5
-                            </div>
-                            {timeUntilReset && (
-                                <div className="space-y-2">
-                                    <div className="text-sm font-bpdots text-white/60">
-                                        NEXT RESET IN
-                                    </div>
-                                    <div className="text-2xl font-bold font-bpdots text-green-400">
-                                        {timeUntilReset}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <button
-                            className="w-full px-6 py-4 bg-transparent border-2 border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
-                            onClick={onBackToMenu}
-                        >
-                            BACK TO MENU
-                        </button>
-                    </div>
+                    <p className="text-white font-bpdots">INITIALIZING GAME...</p>
                 </div>
             </div>
         );
@@ -446,7 +365,7 @@ export default function ReactionGameManager({
                                     ATTEMPTS LEFT
                                 </div>
                                 <div className="text-xl font-bold font-bpdots text-green-400">
-                                    {attemptsStatus.attemptsRemaining}
+                                    {attemptsRemaining}
                                 </div>
                             </div>
                         </div>
@@ -557,10 +476,10 @@ export default function ReactionGameManager({
                     <div className="space-y-4">
                         <button
                             className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl font-bpdots text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={saveStatus.isLoading || !attemptsStatus.canPlay}
+                            disabled={saveStatus.isLoading || attemptsRemaining <= 0}
                             onClick={restartGame}
                         >
-                            {attemptsStatus.canPlay ? "TEST AGAIN" : "NO ATTEMPTS LEFT"}
+                            {attemptsRemaining > 0 ? "TEST AGAIN" : "NO ATTEMPTS LEFT"}
                         </button>
 
                         <button
@@ -607,13 +526,6 @@ export default function ReactionGameManager({
                                 )
                             ) : (
                                 "Preparing reaction speed test..."
-                            )}
-                        </div>
-
-                        <div className="flex items-center justify-center space-x-4 text-xs font-bpdots text-white/60">
-                            <span>Attempts: {attemptsStatus.attemptsRemaining}/5</span>
-                            {timeUntilReset && (
-                                <span>Reset: {timeUntilReset}</span>
                             )}
                         </div>
                     </div>
