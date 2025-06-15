@@ -1,9 +1,9 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Enhanced with detailed save status
+// src/game-modes/reaction/ReactionGameManager.tsx - Streamlined without instructions, conditional saving
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Target, Zap, Clock, CheckCircle, AlertCircle, RotateCcw } from "lucide-react";
+import { Zap, CheckCircle, AlertCircle, RotateCcw } from "lucide-react";
 
 import {
     initializeReactionGameState,
@@ -35,6 +35,7 @@ interface SaveStatus {
     error: string | null;
     isSuccess: boolean;
     showRetryDetails: boolean;
+    skipped: boolean; // New field to track if save was skipped
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -44,6 +45,7 @@ const initialSaveStatus: SaveStatus = {
     error: null,
     isSuccess: false,
     showRetryDetails: false,
+    skipped: false,
 };
 
 export default function ReactionGameManager({
@@ -56,7 +58,6 @@ export default function ReactionGameManager({
     const [showCircles, setShowCircles] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
     const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
-    const [instructionStep, setInstructionStep] = useState(0);
     const gameStateRef = useRef<ReactionGameState>(gameState);
 
     // Update ref when state changes
@@ -75,6 +76,18 @@ export default function ReactionGameManager({
     }, []);
 
     const handleSaveGameResult = useCallback(async (result: ReactionGameResult) => {
+        // Only save successful attempts
+        if (result.missed || result.reactionTime <= 0) {
+            setSaveStatus(prev => ({
+                ...prev,
+                skipped: true,
+                isLoading: false,
+                isSuccess: false,
+                error: null,
+            }));
+            return;
+        }
+
         setSaveStatus(prev => ({
             ...prev,
             isLoading: true,
@@ -82,6 +95,7 @@ export default function ReactionGameManager({
             error: null,
             isSuccess: false,
             showRetryDetails: false,
+            skipped: false,
         }));
 
         let attemptCount = 1;
@@ -186,7 +200,7 @@ export default function ReactionGameManager({
         setGameResult(null);
         setSaveStatus(initialSaveStatus);
 
-        // Show circles
+        // Show circles immediately
         setTimeout(() => {
             setShowCircles(true);
         }, 100);
@@ -216,7 +230,7 @@ export default function ReactionGameManager({
                 ...prev,
                 startDelayTimeout: timeout,
             }));
-        }, 800);
+        }, 500); // Reduced delay since no instructions
     }, [handleCircleActivated, handleGameTimeout]);
 
     const restartGame = useCallback(() => {
@@ -226,28 +240,14 @@ export default function ReactionGameManager({
         }, 300);
     }, [startGame]);
 
-    // Show instructions first
+    // Start game immediately on component mount
     useEffect(() => {
-        const instructionTimer = setTimeout(
-            () => {
-                if (instructionStep < 2) {
-                    setInstructionStep((prev) => prev + 1);
-                } else {
-                    startGame();
-                }
-            },
-            instructionStep === 0 ? 2000 : 1500,
-        );
+        startGame();
 
-        return () => clearTimeout(instructionTimer);
-    }, [instructionStep, startGame]);
-
-    // Cleanup on unmount
-    useEffect(() => {
         return () => {
             cleanupReactionGame(gameStateRef.current);
         };
-    }, []);
+    }, [startGame]);
 
     // Render game results
     if (gameState.gameState === GameState.FINISHED && gameResult) {
@@ -333,7 +333,7 @@ export default function ReactionGameManager({
                     </div>
 
                     {/* Enhanced Save Status */}
-                    {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
+                    {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess || saveStatus.skipped) && (
                         <div className="bg-yellow-500/10 backdrop-blur-sm border border-yellow-400/30 rounded-xl p-4">
                             {saveStatus.isLoading && (
                                 <div className="space-y-3">
@@ -383,6 +383,20 @@ export default function ReactionGameManager({
                                 </div>
                             )}
 
+                            {saveStatus.skipped && !saveStatus.isLoading && (
+                                <div className="text-center">
+                                    <div className="flex items-center justify-center space-x-2 mb-2">
+                                        <AlertCircle className="text-orange-400" size={16} />
+                                        <span className="text-orange-400 font-bpdots text-sm">
+                                            ⚠ Attempt not recorded
+                                        </span>
+                                    </div>
+                                    <div className="text-orange-400/60 font-bpdots text-xs">
+                                        Only successful reaction times are saved to leaderboard
+                                    </div>
+                                </div>
+                            )}
+
                             {saveStatus.error && !saveStatus.isLoading && (
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
@@ -428,60 +442,6 @@ export default function ReactionGameManager({
         );
     }
 
-    // Render instructions
-    if (instructionStep < 3 && gameState.gameState === GameState.NOT_STARTED) {
-        const instructions = [
-            {
-                icon: <Target className="text-yellow-400" size={48} />,
-                title: "REACTION SPEED TEST",
-                description: "Test your lightning-fast reflexes",
-            },
-            {
-                icon: <Clock className="text-yellow-400" size={48} />,
-                title: "WAIT FOR THE SIGNAL",
-                description: "A target will appear after 3-5 seconds",
-            },
-            {
-                icon: <Zap className="text-yellow-400" size={48} />,
-                title: "CLICK AS FAST AS POSSIBLE",
-                description: "Click the target the moment it appears",
-            },
-        ];
-
-        const currentInstruction = instructions[instructionStep];
-
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center p-6">
-                <div className="w-full max-w-md text-center space-y-8 animate-fade-in">
-                    <div className="space-y-6">
-                        <div className="flex justify-center">{currentInstruction.icon}</div>
-
-                        <div className="space-y-3">
-                            <h1 className="text-3xl font-bold font-bpdots text-yellow-400">
-                                {currentInstruction.title}
-                            </h1>
-                            <p className="text-lg font-bpdots text-yellow-300/80">
-                                {currentInstruction.description}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-center space-x-2">
-                        {instructions.map((_, index) => (
-                            <div
-                                key={index}
-                                className={`w-2 h-2 rounded-full transition-all duration-300 ${index <= instructionStep
-                                        ? "bg-yellow-400"
-                                        : "bg-yellow-400/30"
-                                    }`}
-                            />
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     // Render game interface
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
@@ -496,12 +456,12 @@ export default function ReactionGameManager({
 
                 <div className="flex flex-col items-center">
                     <div className="text-2xl font-bold font-bpdots text-white">
-                        {gameState.gameState === GameState.PLAYING ? "READY..." : "WAITING"}
+                        {gameState.gameState === GameState.PLAYING ? "READY..." : "STARTING..."}
                     </div>
                     <div className="text-xs font-bpdots text-white/60">
                         {gameState.gameState === GameState.PLAYING
                             ? "Click when target appears"
-                            : "Preparing test"}
+                            : "Get ready"}
                     </div>
                 </div>
 
@@ -529,11 +489,11 @@ export default function ReactionGameManager({
                     <div className="text-center">
                         <div className="text-sm font-bpdots text-yellow-300/80 mb-1">
                             {gameState.gameState === GameState.PLAYING
-                                ? "Wait for the target to appear, then click it as fast as possible!"
-                                : "Get ready... Target will appear in 3-5 seconds"}
+                                ? "Click the target as fast as possible when it appears!"
+                                : "Target will appear in 3-5 seconds..."}
                         </div>
                         <div className="text-xs font-bpdots text-yellow-400/60">
-                            Test your reaction speed and reflexes
+                            Test your lightning-fast reflexes
                         </div>
                     </div>
                 </div>

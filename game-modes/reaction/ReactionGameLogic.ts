@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameLogic.ts - Fixed to handle missed clicks properly
+// src/game-modes/reaction/ReactionGameLogic.ts - Updated with single circle configuration
 
 import {
     ReactionGameConfig,
@@ -12,8 +12,8 @@ export const REACTION_CONFIG: ReactionGameConfig = {
     name: "REACTION SPEED",
     minDelayMs: 3000,
     maxDelayMs: 5000,
-    circleActiveTimeMs: 10000, // 10 секунд на клик после появления
-    gridSize: 9, // 3x3 сетка для простоты
+    circleActiveTimeMs: 10000, // 10 seconds to click after appearance
+    gridSize: 1, // Single circle mode for focused reaction testing
 };
 
 export const createCircleGrid = (count: number): Circle[] => {
@@ -113,7 +113,7 @@ export const handleCircleClick = (
             ),
         };
     } else {
-        // Wrong click - keep reactionTime as null for database compatibility
+        // Wrong click - mark as missed
         return {
             ...state,
             gameState: GameState.FINISHED,
@@ -121,7 +121,7 @@ export const handleCircleClick = (
                 ...state.stats,
                 clicked: true,
                 clickTime,
-                reactionTime: null, // Keep as null, don't convert to 0
+                reactionTime: null,
                 missedTarget: true,
             },
         };
@@ -166,18 +166,15 @@ export const createReactionGameResult = (
     state: ReactionGameState,
 ): ReactionGameResult => {
     const missed = state.stats.missedTarget || !state.stats.clicked;
-
-    // FIXED: Don't default to 0, keep null for missed attempts
-    const reactionTime = state.stats.reactionTime; // Remove || 0
-
+    const reactionTime = state.stats.reactionTime;
     const rating = calculateReactionRating(reactionTime, missed);
     const score = calculateReactionScore(reactionTime, missed);
 
     return {
         mode: GameMode.REACTION,
         score,
-        duration: reactionTime || 0, // Duration can be 0 for display purposes
-        reactionTime: reactionTime || 0, // Keep as 0 for display, but will be handled in DB save
+        duration: reactionTime || 0,
+        reactionTime: reactionTime || 0,
         missed,
         rating,
         createdAt: new Date().toISOString(),
@@ -208,7 +205,7 @@ export const getReactionRatingDescription = (
         case "SLOW":
             return "Could be faster...";
         case "MISSED":
-            return "Target missed or timeout.";
+            return "Target missed or incorrect click.";
     }
 };
 
