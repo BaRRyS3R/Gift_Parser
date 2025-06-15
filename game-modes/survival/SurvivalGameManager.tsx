@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed with restart attempt consumption
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed with smooth restart without visual bugs
 
 "use client";
 
@@ -70,6 +70,10 @@ export default function SurvivalGameManager({
     const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
     const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
     const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
+
+    // Новое состояние для плавного перезапуска
+    const [isRestartLoading, setIsRestartLoading] = useState(false);
+
     const gameStateRef = useRef<SurvivalGameState>(gameState);
 
     useEffect(() => {
@@ -308,27 +312,32 @@ export default function SurvivalGameManager({
         }, 800);
     }, [scheduleNextActivation]);
 
-    // Enhanced restart function that consumes attempts for each restart
+    // Улучшенная функция перезапуска без визуальных багов
     const restartGame = useCallback(async () => {
-        if (!telegramUser?.id || attemptsRemaining <= 0) return;
+        if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
         try {
-            setIsConsumingAttempt(true);
+            setIsRestartLoading(true);
+
+            // Выполняем все операции с попытками в фоне
             const newStatus = await userService.consumeAttemptWithServerValidation(telegramUser.id);
             setAttemptsRemaining(newStatus.attemptsRemaining);
 
-            // Only proceed with restart if we successfully consumed an attempt
+            // Сразу начинаем переход к игре без показа промежуточных экранов
             setShowCircles(false);
+
+            // Короткая задержка для плавности перехода
             setTimeout(() => {
                 startGame();
-            }, 300);
+            }, 200);
+
         } catch (error) {
             console.error("Error consuming attempt for restart:", error);
-            // Don't allow restart if attempt consumption failed
+            // В случае ошибки останавливаем загрузку и не позволяем перезапуск
         } finally {
-            setIsConsumingAttempt(false);
+            setIsRestartLoading(false);
         }
-    }, [telegramUser?.id, attemptsRemaining, startGame]);
+    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading]);
 
     useEffect(() => {
         return () => {
@@ -341,9 +350,7 @@ export default function SurvivalGameManager({
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-red-400/20 border-t-red-400 rounded-full animate-spin mx-auto" />
-                    <p className="text-red-300 font-bpdots">
-                        {hasConsumedInitialAttempt ? "CONSUMING ATTEMPT..." : "INITIALIZING GAME..."}
-                    </p>
+                    <p className="text-red-300 font-bpdots">INITIALIZING GAME...</p>
                 </div>
             </div>
         );
@@ -529,11 +536,11 @@ export default function SurvivalGameManager({
                     <div className="space-y-4">
                         <button
                             className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl font-bpdots text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={saveStatus.isLoading || attemptsRemaining <= 0 || isConsumingAttempt}
+                            disabled={saveStatus.isLoading || attemptsRemaining <= 0 || isRestartLoading}
                             onClick={restartGame}
                         >
-                            {isConsumingAttempt
-                                ? "CONSUMING ATTEMPT..."
+                            {isRestartLoading
+                                ? "STARTING..."
                                 : attemptsRemaining > 0
                                     ? "SURVIVE AGAIN"
                                     : "NO ATTEMPTS LEFT"
@@ -542,7 +549,7 @@ export default function SurvivalGameManager({
 
                         <button
                             className="w-full px-6 py-4 bg-transparent border-2 border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={saveStatus.isLoading}
+                            disabled={saveStatus.isLoading || isRestartLoading}
                             onClick={onBackToMenu}
                         >
                             ESCAPE TO MENU

@@ -10,7 +10,7 @@ export default function ReactionGamePage() {
   const router = useRouter();
 
   const handleBackToMenu = () => {
-    router.push("/main");
+    router.push("/game");
   };
 
   return <ReactionGameManager onBackToMenu={handleBackToMenu} />;

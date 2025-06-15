@@ -10,7 +10,7 @@ export default function SurvivalGamePage() {
   const router = useRouter();
 
   const handleBackToMenu = () => {
-    router.push("/main");
+    router.push("/game");
   };
 
   return <SurvivalGameManager onBackToMenu={handleBackToMenu} />;
