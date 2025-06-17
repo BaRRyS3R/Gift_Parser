@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated with referral system support
+// src/app/page.tsx - Updated with localization support
 
 "use client";
 
@@ -9,6 +9,7 @@ import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
 
 import { userService, type TelegramUser, type User } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
+import { useT } from "@/contexts/LocalizationContext";
 
 interface AuthState {
   isChecking: boolean;
@@ -19,13 +20,13 @@ interface AuthState {
   needsRegistration: boolean;
   referralCode?: string;
   referralBonus?: number;
-  referrerName?: string; // Добавляем поле для имени приглашающего
 }
 
 export default function IntroPage(): JSX.Element {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const { refreshUser, updateUser, setTelegramUser } = useUser();
+  const t = useT();
 
   // Флаги для предотвращения повторных операций
   const authInitializedRef = useRef<boolean>(false);
@@ -153,31 +154,17 @@ export default function IntroPage(): JSX.Element {
     [],
   );
 
-  // UPDATED validateReferralCode - добавляем получение имени приглашающего
   const validateReferralCode = useCallback(
-    async (referralCode: string): Promise<{ isValid: boolean; bonus: number; referrerName: string }> => {
+    async (referralCode: string): Promise<{ isValid: boolean; bonus: number }> => {
       try {
         const referrer = await userService.findByReferralCode(referralCode);
         if (referrer) {
-          // Формируем отображаемое имя
-          let displayName = "s0meone"; // Дефолтное значение
-
-          if (referrer.username) {
-            displayName = `@${referrer.username}`;
-          } else if (referrer.first_name) {
-            displayName = referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : '');
-          }
-
-          return {
-            isValid: true,
-            bonus: referrer.referral_bonus,
-            referrerName: displayName
-          };
+          return { isValid: true, bonus: referrer.referral_bonus };
         }
-        return { isValid: false, bonus: 0, referrerName: "s0meone" };
+        return { isValid: false, bonus: 0 };
       } catch (error) {
         console.error("Ошибка при проверке реферального кода:", error);
-        return { isValid: false, bonus: 0, referrerName: "s0meone" };
+        return { isValid: false, bonus: 0 };
       }
     },
     [],
@@ -221,17 +208,16 @@ export default function IntroPage(): JSX.Element {
         setAuthState((prev) => ({
           ...prev,
           isRegistering: false,
-          error: "Ошибка при регистрации пользователя",
+          error: t('auth.registrationFailed'),
         }));
         throw error;
       } finally {
         registrationInProgressRef.current = false;
       }
     },
-    [updateUser],
+    [updateUser, t],
   );
 
-  // UPDATED initializeAuth - добавляем логику получения имени приглашающего
   const initializeAuth = useCallback(async () => {
     if (authInitializedRef.current) return;
 
@@ -251,7 +237,7 @@ export default function IntroPage(): JSX.Element {
         setAuthState((prev) => ({
           ...prev,
           isChecking: false,
-          error: "Данные пользователя Telegram недоступны",
+          error: t('auth.telegramDataUnavailable'),
         }));
 
         return;
@@ -259,13 +245,11 @@ export default function IntroPage(): JSX.Element {
 
       // Проверяем реферальный код если есть
       let referralBonus = 0;
-      let referrerName = "";
       if (referralCode) {
         const validation = await validateReferralCode(referralCode);
         if (validation.isValid) {
           referralBonus = validation.bonus;
-          referrerName = validation.referrerName;
-          console.log(`Валидный реферальный код. Бонус: +${referralBonus} попыток от ${referrerName}`);
+          console.log(`Валидный реферальный код. Бонус: +${referralBonus} попыток`);
         } else {
           console.log("Невалидный реферальный код");
         }
@@ -275,8 +259,7 @@ export default function IntroPage(): JSX.Element {
         ...prev,
         telegramUser,
         referralCode: referralCode,
-        referralBonus: referralBonus,
-        referrerName: referrerName
+        referralBonus: referralBonus
       }));
 
       // Устанавливаем telegram пользователя в контекст
@@ -317,10 +300,10 @@ export default function IntroPage(): JSX.Element {
       setAuthState((prev) => ({
         ...prev,
         isChecking: false,
-        error: `Ошибка подключения к базе данных: ${error instanceof Error ? error.message : "Неизвестная ошибка"}`,
+        error: `${t('auth.databaseConnectionError')}: ${error instanceof Error ? error.message : t('auth.unknownError')}`,
       }));
     }
-  }, [getTelegramUser, extractReferralCode, validateReferralCode, checkUserExists, router, updateUser, setTelegramUser]);
+  }, [getTelegramUser, extractReferralCode, validateReferralCode, checkUserExists, router, updateUser, setTelegramUser, t]);
 
   // Инициализация Service Worker и шрифта
   useEffect(() => {
@@ -520,8 +503,8 @@ export default function IntroPage(): JSX.Element {
           </div>
           <p className="text-white mt-4 text-sm font-bpdots">
             {authState.isChecking
-              ? "Checking user..."
-              : `Loading... ${Math.round(loadProgress)}%`}
+              ? t('auth.checkingUser')
+              : `${t('common.loading')} ${Math.round(loadProgress)}%`}
           </p>
         </div>
       )}
@@ -545,7 +528,7 @@ export default function IntroPage(): JSX.Element {
               initializeAuth();
             }}
           >
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       )}
@@ -560,13 +543,13 @@ export default function IntroPage(): JSX.Element {
             className="px-4 py-2 bg-white text-black rounded font-bpdots mb-4"
             onClick={handleStart}
           >
-            Retry
+            {t('common.retry')}
           </button>
           <button
             className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg font-bpdots text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
             onClick={handleQuickInit}
           >
-            Continue without video
+            {t('auth.continueWithoutVideo')}
           </button>
         </div>
       )}
@@ -582,10 +565,10 @@ export default function IntroPage(): JSX.Element {
               {authState.isRegistering ? (
                 <div className="text-center">
                   <Spinner color="white" size="lg" />
-                  <p className="text-white mt-4 font-bpdots">Registering...</p>
+                  <p className="text-white mt-4 font-bpdots">{t('auth.registering')}</p>
                   {authState.referralCode && (
                     <p className="text-green-400 mt-2 font-bpdots text-sm">
-                      Processing referral bonus...
+                      {t('auth.processingReferralBonus')}
                     </p>
                   )}
                 </div>
@@ -595,37 +578,34 @@ export default function IntroPage(): JSX.Element {
                   <div className="space-y-4">
                     <div className="relative">
                       <h1 className="text-4xl font-bold font-bpdots text-white tracking-wider">
-                        WELCOME
+                        {t('main.welcome')}
                       </h1>
                       <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
                     </div>
                     <p className="text-white/70 font-bpdots text-sm">
-                      Hello,{" "}
-                      <span className="text-white font-bold">
-                        {authState.telegramUser?.first_name}
-                      </span>
+                      {t('main.greeting', { name: authState.telegramUser?.first_name || 'User' })}
                     </p>
 
-                    {/* UPDATED Referral Bonus Info - отображаем имя приглашающего */}
+                    {/* Referral Bonus Info */}
                     {authState.referralCode && authState.referralBonus && authState.referralBonus > 0 && (
                       <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
                         <div className="flex items-center justify-center space-x-2">
                           <Gift className="text-green-400" size={20} />
                           <span className="font-bpdots text-green-300 font-bold">
-                            REFERRAL BONUS!
+                            {t('auth.referralBonus')}
                           </span>
                         </div>
                         <p className="text-green-400 font-bpdots text-sm">
-                          You&apos;ll get <span className="font-bold">+{authState.referralBonus} extra attempt{authState.referralBonus > 1 ? 's' : ''}</span>
+                          {t('auth.youllGet')} <span className="font-bold">+{authState.referralBonus} {authState.referralBonus > 1 ? t('auth.extraAttempts') : t('auth.extraAttempt')}</span>
                         </p>
                         <p className="text-green-400/60 font-bpdots text-xs">
-                          Invited by: <span className="text-green-300 font-bold">{authState.referrerName || "s0meone"}</span>
+                          {t('auth.referredBy')} {authState.referralCode}
                         </p>
                       </div>
                     )}
 
                     <p className="text-white/50 font-bpdots text-xs uppercase tracking-widest">
-                      Choose your entry method
+                      {t('main.chooseEntryMethod')}
                     </p>
                   </div>
 
@@ -650,7 +630,7 @@ export default function IntroPage(): JSX.Element {
                               size={16}
                             />
                           </div>
-                          <span className="tracking-wider">INITIALIZE</span>
+                          <span className="tracking-wider">{t('main.initialize')}</span>
                         </div>
 
                         {/* Glow effect */}
@@ -659,10 +639,10 @@ export default function IntroPage(): JSX.Element {
 
                       <div className="text-center space-y-1">
                         <p className="text-white/60 font-bpdots text-sm">
-                          Full experience with intro video
+                          {t('main.fullExperience')}
                         </p>
                         <p className="text-white/40 font-bpdots text-xs">
-                          Recommended for first-time users
+                          {t('main.recommended')}
                         </p>
                       </div>
                     </div>
@@ -674,7 +654,7 @@ export default function IntroPage(): JSX.Element {
                       </div>
                       <div className="relative flex justify-center">
                         <span className="bg-black px-4 text-white/40 font-bpdots text-xs uppercase">
-                          or
+                          {t('common.or')}
                         </span>
                       </div>
                     </div>
@@ -698,16 +678,16 @@ export default function IntroPage(): JSX.Element {
                               size={12}
                             />
                           </div>
-                          <span>QUICK START</span>
+                          <span>{t('main.quickStart')}</span>
                         </div>
                       </button>
 
                       <div className="text-center space-y-1">
                         <p className="text-white/50 font-bpdots text-sm">
-                          Skip intro • Potato mode
+                          {t('main.skipIntro')}
                         </p>
                         <p className="text-white/30 font-bpdots text-xs">
-                          For slow connections & impatient users 🥔
+                          {t('main.slowConnections')}
                         </p>
                       </div>
                     </div>

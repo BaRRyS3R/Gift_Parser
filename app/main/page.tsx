@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Главная страница без рамок и попыток
+// src/app/main/page.tsx - Updated with localization support
 
 "use client";
 
@@ -7,10 +7,12 @@ import { useRouter } from "next/navigation";
 import { Play, ShoppingCart } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useT } from "@/contexts/LocalizationContext";
 
 export default function MainPage() {
   const router = useRouter();
   const { user, isLoading: userLoading } = useUser();
+  const t = useT();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
   const [titleText, setTitleText] = useState("|");
@@ -36,7 +38,7 @@ export default function MainPage() {
   ];
 
   const username = user?.first_name || "unknown";
-  const fullGreeting = `Hello, ${username}`;
+  const fullGreeting = t('main.greeting', { name: username });
 
   // Инициализация видео
   useEffect(() => {
@@ -193,7 +195,7 @@ export default function MainPage() {
                   size={24}
                 />
                 <span className="tracking-wider">
-                  {isTransitioning ? "LOADING..." : "START GAME"}
+                  {isTransitioning ? t('main.loading') : t('main.startGame')}
                 </span>
               </div>
             </button>
@@ -239,7 +241,7 @@ export default function MainPage() {
           onClick={handleOpenShop}
           disabled={isTransitioning}
           className="group relative w-16 h-16 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full font-bpdots hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Open shop"
+          aria-label={t('nav.shop')}
         >
           <div className="flex items-center justify-center">
             <ShoppingCart

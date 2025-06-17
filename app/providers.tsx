@@ -1,4 +1,4 @@
-// src/app/providers.tsx
+// src/app/providers.tsx - Updated providers with localization
 
 "use client";
 
@@ -6,6 +6,7 @@ import { NextUIProvider } from "@nextui-org/react";
 import { useEffect } from "react";
 
 import { UserProvider } from "@/hooks/useUser";
+import { LocalizationProvider } from "@/contexts/LocalizationContext";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -25,7 +26,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <NextUIProvider>
-      <UserProvider>{children}</UserProvider>
+      <UserProvider>
+        <LocalizationProvider>
+          {children}
+        </LocalizationProvider>
+      </UserProvider>
     </NextUIProvider>
   );
 }
