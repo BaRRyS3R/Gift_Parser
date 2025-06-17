@@ -19,6 +19,7 @@ interface AuthState {
   needsRegistration: boolean;
   referralCode?: string;
   referralBonus?: number;
+  referrerName?: string; // Добавляем поле для имени приглашающего
 }
 
 export default function IntroPage(): JSX.Element {
@@ -152,17 +153,31 @@ export default function IntroPage(): JSX.Element {
     [],
   );
 
+  // UPDATED validateReferralCode - добавляем получение имени приглашающего
   const validateReferralCode = useCallback(
-    async (referralCode: string): Promise<{ isValid: boolean; bonus: number }> => {
+    async (referralCode: string): Promise<{ isValid: boolean; bonus: number; referrerName: string }> => {
       try {
         const referrer = await userService.findByReferralCode(referralCode);
         if (referrer) {
-          return { isValid: true, bonus: referrer.referral_bonus };
+          // Формируем отображаемое имя
+          let displayName = "s0meone"; // Дефолтное значение
+
+          if (referrer.username) {
+            displayName = `@${referrer.username}`;
+          } else if (referrer.first_name) {
+            displayName = referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : '');
+          }
+
+          return {
+            isValid: true,
+            bonus: referrer.referral_bonus,
+            referrerName: displayName
+          };
         }
-        return { isValid: false, bonus: 0 };
+        return { isValid: false, bonus: 0, referrerName: "s0meone" };
       } catch (error) {
         console.error("Ошибка при проверке реферального кода:", error);
-        return { isValid: false, bonus: 0 };
+        return { isValid: false, bonus: 0, referrerName: "s0meone" };
       }
     },
     [],
@@ -216,6 +231,7 @@ export default function IntroPage(): JSX.Element {
     [updateUser],
   );
 
+  // UPDATED initializeAuth - добавляем логику получения имени приглашающего
   const initializeAuth = useCallback(async () => {
     if (authInitializedRef.current) return;
 
@@ -243,11 +259,13 @@ export default function IntroPage(): JSX.Element {
 
       // Проверяем реферальный код если есть
       let referralBonus = 0;
+      let referrerName = "";
       if (referralCode) {
         const validation = await validateReferralCode(referralCode);
         if (validation.isValid) {
           referralBonus = validation.bonus;
-          console.log(`Валидный реферальный код. Бонус: +${referralBonus} попыток`);
+          referrerName = validation.referrerName;
+          console.log(`Валидный реферальный код. Бонус: +${referralBonus} попыток от ${referrerName}`);
         } else {
           console.log("Невалидный реферальный код");
         }
@@ -257,7 +275,8 @@ export default function IntroPage(): JSX.Element {
         ...prev,
         telegramUser,
         referralCode: referralCode,
-        referralBonus: referralBonus
+        referralBonus: referralBonus,
+        referrerName: referrerName
       }));
 
       // Устанавливаем telegram пользователя в контекст
@@ -587,7 +606,7 @@ export default function IntroPage(): JSX.Element {
                       </span>
                     </p>
 
-                    {/* Referral Bonus Info */}
+                    {/* UPDATED Referral Bonus Info - отображаем имя приглашающего */}
                     {authState.referralCode && authState.referralBonus && authState.referralBonus > 0 && (
                       <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
                         <div className="flex items-center justify-center space-x-2">
@@ -600,7 +619,7 @@ export default function IntroPage(): JSX.Element {
                           You&apos;ll get <span className="font-bold">+{authState.referralBonus} extra attempt{authState.referralBonus > 1 ? 's' : ''}</span>
                         </p>
                         <p className="text-green-400/60 font-bpdots text-xs">
-                          Referred by: {authState.referralCode}
+                          Invited by: <span className="text-green-300 font-bold">{authState.referrerName || "s0meone"}</span>
                         </p>
                       </div>
                     )}

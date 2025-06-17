@@ -715,20 +715,25 @@ export default function ProfilePage() {
                                         <div className="space-y-1 text-xs font-bpdots text-green-400/80">
                                             <p>• Share your referral link with friends</p>
                                             <p>• They get +{referralInfo.referralBonus} extra attempt{referralInfo.referralBonus > 1 ? 's' : ''} when joining</p>
-                                            <p>• You get recognition for each referral</p>
+                                            <p>• You get +5 attempts for each friend who joins</p>
                                             <p>• Help grow the community!</p>
                                         </div>
                                     </div>
 
-                                    {/* Referred by info */}
-                                    {referralInfo.referredBy && (
+                                    {/* UPDATED Referred by info - отображаем имя пользователя */}
+                                    {referralInfo?.referredBy && (
                                         <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-400/30">
                                             <div className="text-sm font-bpdots text-blue-300 font-bold mb-1">
-                                                REFERRED BY
+                                                INVITED BY
                                             </div>
-                                            <div className="text-blue-400 font-mono font-bold">
-                                                {referralInfo.referredBy}
+                                            <div className="text-blue-400 font-bpdots font-bold">
+                                                {referralInfo.referredByName || "s0meone"}
                                             </div>
+                                            {referralInfo.referredByName !== "s0meone" && (
+                                                <div className="text-blue-400/60 font-mono text-xs mt-1">
+                                                    Code: {referralInfo.referredBy}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

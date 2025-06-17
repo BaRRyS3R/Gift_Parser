@@ -155,13 +155,14 @@ export interface AttemptsStatus {
     timeUntilReset?: number; // milliseconds
 }
 
-// Referral system interface
+// Referral system interface - UPDATED
 export interface ReferralInfo {
     referralCode: string;
     referralLink: string;
     referralCount: number;
     referralBonus: number;
     referredBy?: string;
+    referredByName?: string; // Добавляем поле для отображаемого имени пригласившего
 }
 
 // Enhanced user service with server-side validation, restart attempt consumption, and referral system
@@ -233,6 +234,7 @@ export const userService = {
         return code;
     },
 
+    // UPDATED create method - добавляем начисление попыток приглашающему
     async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
         const referralCodeToUse = await this.generateUniqueReferralCode();
         let additionalAttempts = 5; // Base attempts
@@ -245,16 +247,18 @@ export const userService = {
                 referredBy = referralCode;
                 additionalAttempts += referrer.referral_bonus;
 
-                // Update referrer's count
+                // Update referrer's count AND give them 5 attempts bonus
                 await supabase
                     .from("users")
                     .update({
                         referral_count: referrer.referral_count + 1,
+                        attempts_remaining: referrer.attempts_remaining + 5, // Добавляем 5 попыток приглашающему
                         updated_at: new Date().toISOString()
                     })
                     .eq("id", referrer.id);
 
-                console.log(`User referred by ${referralCode}, adding ${referrer.referral_bonus} bonus attempts`);
+                console.log(`User referred by ${referralCode}, adding ${referrer.referral_bonus} bonus attempts to new user`);
+                console.log(`Adding 5 bonus attempts to referrer ${referrer.first_name}`);
             }
         }
 
@@ -286,9 +290,31 @@ export const userService = {
         return data;
     },
 
+    // UPDATED getReferralInfo method - добавляем информацию об имени приглашающего
     async getReferralInfo(telegramId: number): Promise<ReferralInfo | null> {
         const user = await this.findByTelegramId(telegramId);
         if (!user) return null;
+
+        let referredByName: string | undefined;
+
+        // Если есть информация о том, кто пригласил, получаем его отображаемое имя
+        if (user.referred_by) {
+            try {
+                const referrer = await this.findByReferralCode(user.referred_by);
+                if (referrer) {
+                    if (referrer.username) {
+                        referredByName = `@${referrer.username}`;
+                    } else if (referrer.first_name) {
+                        referredByName = referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : '');
+                    } else {
+                        referredByName = "s0meone";
+                    }
+                }
+            } catch (error) {
+                console.error("Error getting referrer display name:", error);
+                referredByName = "s0meone";
+            }
+        }
 
         return {
             referralCode: user.referral_code,
@@ -296,7 +322,24 @@ export const userService = {
             referralCount: user.referral_count,
             referralBonus: user.referral_bonus,
             referredBy: user.referred_by || undefined,
+            referredByName: referredByName,
         };
+    },
+
+    // NEW method - для получения информации о приглашающем пользователе
+    async getReferrerInfo(referralCode: string): Promise<{ name: string; username?: string } | null> {
+        try {
+            const referrer = await this.findByReferralCode(referralCode);
+            if (!referrer) return null;
+
+            return {
+                name: referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : ''),
+                username: referrer.username
+            };
+        } catch (error) {
+            console.error("Error getting referrer info:", error);
+            return null;
+        }
     },
 
     async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
