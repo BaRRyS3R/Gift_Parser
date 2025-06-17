@@ -1,10 +1,10 @@
-// src/app/shop/page.tsx - Minimal UI with live attempt refresh
+// src/app/shop/page.tsx - Minimal UI with live attempt refresh + success animation + top padding fix
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ShoppingCart, Zap, CheckCircle, AlertCircle, Battery } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Zap, CheckCircle, AlertCircle } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { purchaseService } from "@/lib/purchaseService";
@@ -32,6 +32,9 @@ export default function ShopPage() {
     });
 
     const [attemptsRemaining, setAttemptsRemaining] = useState<number>(user?.attempts_remaining || 0);
+    const [animateSuccess, setAnimateSuccess] = useState(false);
+
+    const pageRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         setAttemptsRemaining(user?.attempts_remaining || 0);
@@ -41,6 +44,7 @@ export default function ShopPage() {
         if (purchaseState.success || purchaseState.error) {
             const timer = setTimeout(() => {
                 setPurchaseState(prev => ({ ...prev, error: null, success: false }));
+                setAnimateSuccess(false);
             }, 5000);
             return () => clearTimeout(timer);
         }
@@ -63,10 +67,17 @@ export default function ShopPage() {
 
             if (paymentResult) {
                 await purchaseService.checkPurchaseStatus();
-                await refreshUser();
+                const updatedUser = await refreshUser();
                 setAttemptsRemaining(user?.attempts_remaining || 0);
 
                 setPurchaseState({ isLoading: false, isProcessing: false, error: null, success: true });
+                setAnimateSuccess(true);
+
+                setTimeout(() => {
+                    if (pageRef.current) {
+                        window.scrollTo({ top: pageRef.current.offsetTop + 80, behavior: 'smooth' });
+                    }
+                }, 200);
             } else {
                 setPurchaseState({ isLoading: false, isProcessing: false, error: t('errors.paymentCancelled'), success: false });
             }
@@ -86,14 +97,8 @@ export default function ShopPage() {
     const product = PRODUCTS.additional_attempts;
     const isDisabled = purchaseState.isLoading || purchaseState.isProcessing;
 
-    const getBatteryLevel = () => {
-        if (attemptsRemaining <= 0) return 0;
-        if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
-        return 100;
-    };
-
     return (
-        <div className="min-h-screen bg-black text-white px-4 py-6">
+        <div ref={pageRef} className="min-h-screen bg-black text-white px-4 pt-28 pb-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <button onClick={handleBack} className="flex items-center space-x-2 text-white/70 hover:text-white">
@@ -106,23 +111,16 @@ export default function ShopPage() {
                 </div>
             </div>
 
-            {/* Attempt Counter */}
-            <div className="mb-6">
-                <div className="flex items-center justify-between text-sm text-white/60 mb-1">
-                    <span>{t('shop.currentAttempts')}</span>
-                    <span className="text-white font-mono text-lg">{attemptsRemaining}</span>
+            {/* Success Animation */}
+            {animateSuccess && (
+                <div className="w-full h-24 mb-6 bg-gradient-to-r from-green-400/10 to-green-600/10 animate-pulse rounded-xl border border-green-500/30 flex items-center justify-center">
+                    <CheckCircle size={32} className="text-green-400" />
                 </div>
-                <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                        className="h-full bg-white transition-all duration-500"
-                        style={{ width: `${getBatteryLevel()}%` }}
-                    />
-                </div>
-            </div>
+            )}
 
             {/* Purchase Feedback */}
             {(purchaseState.error || purchaseState.success) && (
-                <div className={`text-sm border px-3 py-2 rounded-md mb-6 ${purchaseState.success ? 'border-green-500 text-green-400' : 'border-red-500 text-red-400'}`}>
+                <div className={`text-sm border px-3 py-2 rounded-md mb-6 ${purchaseState.success ? 'border-green-500 text-green-400' : 'border-red-500 text-red-400'} animate-fade-in`}>
                     <div className="flex items-center space-x-2">
                         {purchaseState.success ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
                         <span>
@@ -143,8 +141,7 @@ export default function ShopPage() {
                     <button
                         onClick={handlePurchaseAttempts}
                         disabled={isDisabled}
-                        className={`text-xs px-3 py-1 border rounded transition ${isDisabled ? 'border-white/10 text-white/30 cursor-not-allowed' : 'border-white/30 text-white hover:bg-white/10'
-                            }`}
+                        className={`text-xs px-3 py-1 border rounded transition ${isDisabled ? 'border-white/10 text-white/30 cursor-not-allowed' : 'border-white/30 text-white hover:bg-white/10'}`}
                     >
                         {purchaseState.isLoading || purchaseState.isProcessing
                             ? t('shop.processingPayment')
