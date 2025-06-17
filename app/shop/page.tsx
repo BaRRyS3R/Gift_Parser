@@ -94,15 +94,15 @@ export default function ShopPage() {
             <CheckCircle className="text-green-400" size={32} />;
 
         const title = isInstantReset ?
-            t('shop.instantResetSuccess') :
-            t('shop.purchaseSuccess');
+            t('shop.notifications.instantResetSuccess') :
+            t('shop.notifications.purchaseSuccess');
 
         const attemptsText = productInfo.attempts_bonus || 0;
         const plural = attemptsText > 1 ? 's' : '';
 
         const message = isInstantReset ?
-            t('shop.instantResetMessage') :
-            t('shop.purchaseSuccessMessage', {
+            t('shop.notifications.instantResetMessage') :
+            t('shop.notifications.purchaseSuccessMessage', {
                 attempts: attemptsText,
                 plural: plural
             });
@@ -236,6 +236,56 @@ export default function ShopPage() {
                 {/* Products Grid */}
                 <div className="max-w-4xl mx-auto">
                     <div className="grid grid-cols-1 gap-4 mb-8">
+                        {/* TEST PRODUCT - REMOVE BEFORE PRODUCTION */}
+                        <Card 
+                            className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-400/30 hover:bg-purple-500/30 hover:border-purple-400/50 transition-all duration-200"
+                        >
+                            <CardBody className="p-4">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                        <div className="flex items-center space-x-3 mb-2">
+                                            <div className="flex-shrink-0">
+                                                <div className="relative">
+                                                    <Star className="text-yellow-400 animate-pulse" size={24} />
+                                                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-ping" />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-white">
+                                                    {t('shop.testProduct.title')}
+                                                </h3>
+                                                <p className="text-white/60 text-sm">
+                                                    {t('shop.testProduct.description')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="px-2 py-1 rounded-full text-xs font-bold border bg-purple-500/20 text-purple-300 border-purple-400/30">
+                                        {t('shop.badges.test')}
+                                    </div>
+                                </div>
+                            </CardBody>
+                            <CardFooter className="px-4 py-3 bg-gradient-to-r from-purple-500/20 to-transparent backdrop-blur-sm">
+                                <div className="flex items-center justify-between w-full">
+                                    <div className="flex items-center space-x-1">
+                                        <Star className="text-yellow-400 animate-spin" size={16} />
+                                        <span className="text-white font-medium">999</span>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        color="primary"
+                                        className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                                        onPress={() => {
+                                            setIsExploding(true);
+                                            setTimeout(() => setIsExploding(false), 2000);
+                                        }}
+                                    >
+                                        {t('shop.testProduct.button')}
+                                    </Button>
+                                </div>
+                            </CardFooter>
+                        </Card>
+
                         {Object.entries(PRODUCTS).map(([key, product]) => {
                             const productType = key as ProductType;
                             const badge = getProductBadge(productType);
@@ -245,8 +295,6 @@ export default function ShopPage() {
                                 <Card 
                                     key={productType}
                                     className="bg-white/5 border border-white/20 hover:bg-white/10 hover:border-white/30 transition-all duration-200"
-                                    isPressable
-                                    onPress={() => handlePurchase(productType)}
                                 >
                                     <CardBody className="p-4">
                                         <div className="flex items-start justify-between">
@@ -257,17 +305,17 @@ export default function ShopPage() {
                                                     </div>
                                                     <div>
                                                         <h3 className="font-bold text-white">
-                                                            {product.title}
+                                                            {t(`shop.products.${productType}.title`)}
                                                         </h3>
                                                         <p className="text-white/60 text-sm">
-                                                            {product.description}
+                                                            {t(`shop.products.${productType}.description`)}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
                                             {badge && (
                                                 <div className={`px-2 py-1 rounded-full text-xs font-bold border ${badge.color}`}>
-                                                    {badge.text}
+                                                    {t(`shop.badges.${badge.text.toLowerCase()}`)}
                                                 </div>
                                             )}
                                         </div>
@@ -283,8 +331,9 @@ export default function ShopPage() {
                                                 color="primary"
                                                 isLoading={loading}
                                                 className="bg-gradient-to-r from-blue-500 to-purple-500"
+                                                onPress={() => handlePurchase(productType)}
                                             >
-                                                {loading ? getLoadingText(productType) : t('shop.buy')}
+                                                {loading ? t('shop.loading') : t('shop.buy')}
                                             </Button>
                                         </div>
                                     </CardFooter>
@@ -296,7 +345,7 @@ export default function ShopPage() {
 
                 {/* Success Notification */}
                 {successNotification.show && (
-                    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 max-w-sm w-full mx-4">
+                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 max-w-sm w-full mx-4 z-50">
                         <div className="flex items-center space-x-3">
                             {successNotification.icon}
                             <div>
@@ -309,7 +358,7 @@ export default function ShopPage() {
 
                 {/* Error Notification */}
                 {purchaseState.error && (
-                    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-red-500/10 backdrop-blur-md border border-red-500/20 rounded-lg p-4 max-w-sm w-full mx-4">
+                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-500/10 backdrop-blur-md border border-red-500/20 rounded-lg p-4 max-w-sm w-full mx-4 z-50">
                         <div className="flex items-center space-x-3">
                             <AlertCircle className="text-red-400" size={24} />
                             <p className="text-white">{purchaseState.error}</p>
