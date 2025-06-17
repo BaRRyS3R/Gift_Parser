@@ -2,419 +2,376 @@
 
 "use client";
 
-import type { CreateInvoiceResponse } from "@/types/purchases";
-
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  ShoppingCart,
-  Zap,
-  CheckCircle,
-  AlertCircle,
-  Star,
-  Battery,
-} from "lucide-react";
+import { ArrowLeft, ShoppingCart, Zap, CheckCircle, AlertCircle, Star, Battery } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { purchaseService } from "@/lib/purchaseService";
 import { PRODUCTS } from "@/types/purchases";
-import { useI18n } from "@/lib/i18n";
+import type { CreateInvoiceResponse } from "@/types/purchases";
 
 interface PurchaseState {
-  isLoading: boolean;
-  isProcessing: boolean;
-  error: string | null;
-  success: boolean;
+    isLoading: boolean;
+    isProcessing: boolean;
+    error: string | null;
+    success: boolean;
 }
 
 export default function ShopPage() {
-  const router = useRouter();
-  const { user, refreshUser } = useUser();
-  const { t } = useI18n();
-  const [purchaseState, setPurchaseState] = useState<PurchaseState>({
-    isLoading: false,
-    isProcessing: false,
-    error: null,
-    success: false,
-  });
-
-  const attemptsRemaining = user?.attempts_remaining || 0;
-
-  // Сброс состояния покупки через некоторое время
-  useEffect(() => {
-    if (purchaseState.success || purchaseState.error) {
-      const timer = setTimeout(() => {
-        setPurchaseState((prev) => ({
-          ...prev,
-          error: null,
-          success: false,
-        }));
-      }, 5000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [purchaseState.success, purchaseState.error]);
-
-  const handlePurchaseAttempts = async () => {
-    if (purchaseState.isLoading || purchaseState.isProcessing) {
-      return;
-    }
-
-    setPurchaseState({
-      isLoading: true,
-      isProcessing: false,
-      error: null,
-      success: false,
-    });
-
-    try {
-      console.log("Initiating purchase for additional attempts...");
-
-      // Создаем инвойс
-      const invoiceResult: CreateInvoiceResponse =
-        await purchaseService.createInvoice("additional_attempts");
-
-      if (!invoiceResult.success || !invoiceResult.invoice_url) {
-        throw new Error(
-          invoiceResult.error || t("shop.errors.createInvoiceFailed"),
-        );
-      }
-
-      console.log("Invoice created, opening payment interface...");
-
-      setPurchaseState((prev) => ({
-        ...prev,
-        isLoading: false,
-        isProcessing: true,
-      }));
-
-      // Открываем инвойс для оплаты
-      const paymentResult = await purchaseService.openInvoice(
-        invoiceResult.invoice_url,
-      );
-
-      if (paymentResult) {
-        console.log("Payment completed successfully");
-
-        setPurchaseState({
-          isLoading: false,
-          isProcessing: false,
-          error: null,
-          success: true,
-        });
-
-        // Обновляем данные пользователя после успешной покупки
-        await refreshUser();
-
-        // Дополнительная проверка статуса покупки
-        await purchaseService.checkPurchaseStatus();
-      } else {
-        console.log("Payment was cancelled or failed");
-
-        setPurchaseState({
-          isLoading: false,
-          isProcessing: false,
-          error: t("shop.errors.paymentCancelled"),
-          success: false,
-        });
-      }
-    } catch (error) {
-      console.error("Purchase error:", error);
-
-      setPurchaseState({
+    const router = useRouter();
+    const { user, refreshUser } = useUser();
+    const [purchaseState, setPurchaseState] = useState<PurchaseState>({
         isLoading: false,
         isProcessing: false,
-        error:
-          error instanceof Error ? error.message : t("shop.errors.unexpected"),
-        success: false,
-      });
-    }
-  };
+        error: null,
+        success: false
+    });
 
-  const handleBack = () => {
-    router.push("/main");
-  };
+    const attemptsRemaining = user?.attempts_remaining || 0;
 
-  const product = PRODUCTS.additional_attempts;
-  const isDisabled = purchaseState.isLoading || purchaseState.isProcessing;
-  const isEmpty = attemptsRemaining === 0;
-  const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
+    // Сброс состояния покупки через некоторое время
+    useEffect(() => {
+        if (purchaseState.success || purchaseState.error) {
+            const timer = setTimeout(() => {
+                setPurchaseState(prev => ({
+                    ...prev,
+                    error: null,
+                    success: false
+                }));
+            }, 5000);
 
-  // Dynamic battery display based on current attempts
-  const getBatteryLevel = () => {
-    if (attemptsRemaining <= 0) return 0;
-    if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
+            return () => clearTimeout(timer);
+        }
+    }, [purchaseState.success, purchaseState.error]);
 
-    return 100; // Full battery for 5+ attempts
-  };
+    const handlePurchaseAttempts = async () => {
+        if (purchaseState.isLoading || purchaseState.isProcessing) {
+            return;
+        }
 
-  const getBatteryColor = () => {
-    if (isEmpty) return "text-red-400";
-    if (isLow) return "text-orange-400";
+        setPurchaseState({
+            isLoading: true,
+            isProcessing: false,
+            error: null,
+            success: false
+        });
 
-    return "text-green-400";
-  };
+        try {
+            console.log('Initiating purchase for additional attempts...');
 
-  const getBatteryBgColor = () => {
-    if (isEmpty) return "bg-red-500/20 border-red-400/40";
-    if (isLow) return "bg-orange-500/20 border-orange-400/40";
+            // Создаем инвойс
+            const invoiceResult: CreateInvoiceResponse = await purchaseService.createInvoice('additional_attempts');
 
-    return "bg-green-500/20 border-green-400/40";
-  };
+            if (!invoiceResult.success || !invoiceResult.invoice_url) {
+                throw new Error(invoiceResult.error || 'Failed to create payment invoice');
+            }
 
-  return (
-    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <button
-            className="flex items-center space-x-2 px-4 py-2 bg-transparent border border-white/30 text-white/80 rounded-lg font-bpdots hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300"
-            onClick={handleBack}
-          >
-            <ArrowLeft size={16} />
-            <span>{t("common.back")}</span>
-          </button>
+            console.log('Invoice created, opening payment interface...');
 
-          <div className="flex items-center space-x-3">
-            <ShoppingCart className="text-white" size={24} />
-            <h1 className="text-2xl font-bold font-bpdots text-white">
-              {t("shop.title")}
-            </h1>
-          </div>
-        </div>
+            setPurchaseState(prev => ({
+                ...prev,
+                isLoading: false,
+                isProcessing: true
+            }));
 
-        <div className="text-center">
-          <p className="text-white/60 font-bpdots text-sm uppercase tracking-wider">
-            {t("shop.description")}
-          </p>
-        </div>
-      </div>
+            // Открываем инвойс для оплаты
+            const paymentResult = await purchaseService.openInvoice(invoiceResult.invoice_url);
 
-      {/* Current Attempts Display */}
-      <div className="mb-6">
-        <div
-          className={`backdrop-blur-sm border rounded-xl p-6 transition-all duration-300 ${getBatteryBgColor()}`}
-        >
-          <div className="text-center space-y-4">
-            <div className="flex items-center justify-center space-x-3">
-              <Battery className={getBatteryColor()} size={24} />
-              <span
-                className={`font-bpdots text-lg font-bold ${getBatteryColor()}`}
-              >
-                {t("shop.currentAttempts")}
-              </span>
-            </div>
+            if (paymentResult) {
+                console.log('Payment completed successfully');
 
-            <div className="text-4xl font-bold font-bpdots text-white">
-              {attemptsRemaining}
-            </div>
+                setPurchaseState({
+                    isLoading: false,
+                    isProcessing: false,
+                    error: null,
+                    success: true
+                });
 
-            <div className="w-full max-w-xs mx-auto">
-              <div
-                className={`w-full h-3 rounded-full overflow-hidden ${
-                  isEmpty
-                    ? "bg-red-400/20"
-                    : isLow
-                      ? "bg-orange-400/20"
-                      : "bg-green-400/20"
-                }`}
-              >
-                <div
-                  className={`h-full transition-all duration-500 ${getBatteryColor().replace("text-", "bg-")}`}
-                  style={{ width: `${getBatteryLevel()}%` }}
-                />
-              </div>
+                // Обновляем данные пользователя после успешной покупки
+                await refreshUser();
 
-              {/* Attempt indicators - show up to 10, then just display number */}
-              {attemptsRemaining <= 10 ? (
-                <div className="flex justify-center space-x-1 mt-2">
-                  {Array.from(
-                    { length: Math.min(10, Math.max(5, attemptsRemaining)) },
-                    (_, i) => (
-                      <div
-                        key={i}
-                        className={`w-2 h-2 rounded-full ${
-                          i < attemptsRemaining
-                            ? getBatteryColor().replace("text-", "bg-")
-                            : "bg-white/20"
-                        }`}
-                      />
-                    ),
-                  )}
+                // Дополнительная проверка статуса покупки
+                await purchaseService.checkPurchaseStatus();
+
+            } else {
+                console.log('Payment was cancelled or failed');
+
+                setPurchaseState({
+                    isLoading: false,
+                    isProcessing: false,
+                    error: 'Payment was cancelled or failed. Please try again.',
+                    success: false
+                });
+            }
+
+        } catch (error) {
+            console.error('Purchase error:', error);
+
+            setPurchaseState({
+                isLoading: false,
+                isProcessing: false,
+                error: error instanceof Error ? error.message : 'An unexpected error occurred during purchase',
+                success: false
+            });
+        }
+    };
+
+    const handleBack = () => {
+        router.push("/main");
+    };
+
+    const product = PRODUCTS.additional_attempts;
+    const isDisabled = purchaseState.isLoading || purchaseState.isProcessing;
+    const isEmpty = attemptsRemaining === 0;
+    const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
+
+    // Dynamic battery display based on current attempts
+    const getBatteryLevel = () => {
+        if (attemptsRemaining <= 0) return 0;
+        if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
+        return 100; // Full battery for 5+ attempts
+    };
+
+    const getBatteryColor = () => {
+        if (isEmpty) return "text-red-400";
+        if (isLow) return "text-orange-400";
+        return "text-green-400";
+    };
+
+    const getBatteryBgColor = () => {
+        if (isEmpty) return "bg-red-500/20 border-red-400/40";
+        if (isLow) return "bg-orange-500/20 border-orange-400/40";
+        return "bg-green-500/20 border-green-400/40";
+    };
+
+    return (
+        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
+            {/* Header */}
+            <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                    <button
+                        onClick={handleBack}
+                        className="flex items-center space-x-2 px-4 py-2 bg-transparent border border-white/30 text-white/80 rounded-lg font-bpdots hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300"
+                    >
+                        <ArrowLeft size={16} />
+                        <span>BACK</span>
+                    </button>
+
+                    <div className="flex items-center space-x-3">
+                        <ShoppingCart className="text-white" size={24} />
+                        <h1 className="text-2xl font-bold font-bpdots text-white">SHOP</h1>
+                    </div>
                 </div>
-              ) : (
-                <div className="text-center mt-2">
-                  <span className={`font-bpdots text-sm ${getBatteryColor()}`}>
-                    {attemptsRemaining} ATTEMPTS
-                  </span>
+
+                <div className="text-center">
+                    <p className="text-white/60 font-bpdots text-sm uppercase tracking-wider">
+                        Purchase additional game attempts
+                    </p>
                 </div>
-              )}
             </div>
 
-            <div className="text-center">
-              {isEmpty && (
-                <p className="text-red-400/80 font-bpdots text-sm">
-                  {t("shop.noAttemptsRemaining")}
-                </p>
-              )}
-              {isLow && !isEmpty && (
-                <p className="text-orange-400/80 font-bpdots text-sm">
-                  {t("shop.lowAttemptsRemaining")}
-                </p>
-              )}
-              {attemptsRemaining > 5 && (
-                <p className="text-green-400/80 font-bpdots text-sm">
-                  {t("shop.plentyOfAttempts")}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+            {/* Current Attempts Display */}
+            <div className="mb-6">
+                <div className={`backdrop-blur-sm border rounded-xl p-6 transition-all duration-300 ${getBatteryBgColor()}`}>
+                    <div className="text-center space-y-4">
+                        <div className="flex items-center justify-center space-x-3">
+                            <Battery className={getBatteryColor()} size={24} />
+                            <span className={`font-bpdots text-lg font-bold ${getBatteryColor()}`}>
+                                CURRENT ATTEMPTS
+                            </span>
+                        </div>
 
-      {/* Purchase Status Messages */}
-      {(purchaseState.error || purchaseState.success) && (
-        <div
-          className={`mb-6 p-4 rounded-xl backdrop-blur-sm border transition-all duration-300 ${
-            purchaseState.success
-              ? "bg-green-500/20 border-green-400/40 text-green-300"
-              : "bg-red-500/20 border-red-400/40 text-red-300"
-          }`}
-        >
-          <div className="flex items-center space-x-3">
-            {purchaseState.success ? (
-              <CheckCircle size={20} />
-            ) : (
-              <AlertCircle size={20} />
+                        <div className="text-4xl font-bold font-bpdots text-white">
+                            {attemptsRemaining}
+                        </div>
+
+                        <div className="w-full max-w-xs mx-auto">
+                            <div className={`w-full h-3 rounded-full overflow-hidden ${isEmpty
+                                ? "bg-red-400/20"
+                                : isLow
+                                    ? "bg-orange-400/20"
+                                    : "bg-green-400/20"
+                                }`}>
+                                <div
+                                    className={`h-full transition-all duration-500 ${getBatteryColor().replace('text-', 'bg-')}`}
+                                    style={{ width: `${getBatteryLevel()}%` }}
+                                />
+                            </div>
+
+                            {/* Attempt indicators - show up to 10, then just display number */}
+                            {attemptsRemaining <= 10 ? (
+                                <div className="flex justify-center space-x-1 mt-2">
+                                    {Array.from({ length: Math.min(10, Math.max(5, attemptsRemaining)) }, (_, i) => (
+                                        <div
+                                            key={i}
+                                            className={`w-2 h-2 rounded-full ${i < attemptsRemaining
+                                                ? getBatteryColor().replace('text-', 'bg-')
+                                                : "bg-white/20"
+                                                }`}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center mt-2">
+                                    <span className={`font-bpdots text-sm ${getBatteryColor()}`}>
+                                        {attemptsRemaining} ATTEMPTS
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="text-center">
+                            {isEmpty && (
+                                <p className="text-red-400/80 font-bpdots text-sm">
+                                    No attempts remaining - purchase more to continue playing
+                                </p>
+                            )}
+                            {isLow && !isEmpty && (
+                                <p className="text-orange-400/80 font-bpdots text-sm">
+                                    Low attempts remaining - consider purchasing more
+                                </p>
+                            )}
+                            {attemptsRemaining > 5 && (
+                                <p className="text-green-400/80 font-bpdots text-sm">
+                                    You have plenty of attempts to play
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Purchase Status Messages */}
+            {(purchaseState.error || purchaseState.success) && (
+                <div className={`mb-6 p-4 rounded-xl backdrop-blur-sm border transition-all duration-300 ${purchaseState.success
+                    ? "bg-green-500/20 border-green-400/40 text-green-300"
+                    : "bg-red-500/20 border-red-400/40 text-red-300"
+                    }`}>
+                    <div className="flex items-center space-x-3">
+                        {purchaseState.success ? (
+                            <CheckCircle size={20} />
+                        ) : (
+                            <AlertCircle size={20} />
+                        )}
+                        <div className="flex-1">
+                            <div className="font-bpdots font-bold">
+                                {purchaseState.success ? "Purchase Successful!" : "Purchase Failed"}
+                            </div>
+                            <div className="text-sm font-bpdots">
+                                {purchaseState.success
+                                    ? "+1 attempt added to your account"
+                                    : purchaseState.error
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
-            <div className="flex-1">
-              <div className="font-bpdots font-bold">
-                {purchaseState.success
-                  ? t("shop.messages.success")
-                  : purchaseState.error}
-              </div>
-              <div className="text-sm font-bpdots">
-                {purchaseState.success
-                  ? t("shop.messages.successDescription")
-                  : purchaseState.error}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Product Card */}
-      <div className="space-y-6">
-        <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-6">
-          <div className="text-center space-y-6">
-            {/* Product Icon */}
-            <div className="w-16 h-16 bg-yellow-400/20 rounded-full flex items-center justify-center mx-auto">
-              <Zap className="text-yellow-400" size={32} />
-            </div>
+            {/* Product Card */}
+            <div className="space-y-6">
+                <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-6">
+                    <div className="text-center space-y-6">
+                        {/* Product Icon */}
+                        <div className="w-16 h-16 bg-yellow-400/20 rounded-full flex items-center justify-center mx-auto">
+                            <Zap className="text-yellow-400" size={32} />
+                        </div>
 
-            {/* Product Info */}
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold font-bpdots text-white">
-                {product.title}
-              </h2>
-              <p className="text-white/70 font-bpdots text-sm">
-                {product.description}
-              </p>
-            </div>
+                        {/* Product Info */}
+                        <div className="space-y-2">
+                            <h2 className="text-2xl font-bold font-bpdots text-white">
+                                {product.title}
+                            </h2>
+                            <p className="text-white/70 font-bpdots text-sm">
+                                {product.description}
+                            </p>
+                        </div>
 
-            {/* Product Features */}
-            <div className="space-y-3">
-              <h3 className="font-bpdots text-sm font-bold text-white/80 uppercase tracking-wider">
-                {t("shop.features")}
-              </h3>
-              <div className="space-y-2">
-                {product.benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400/80" />
-                    <span className="text-white/80 font-bpdots text-sm">
-                      {benefit}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+                        {/* Product Features */}
+                        <div className="space-y-3">
+                            <h3 className="font-bpdots text-sm font-bold text-white/80 uppercase tracking-wider">
+                                Features
+                            </h3>
+                            <div className="space-y-2">
+                                {product.benefits.map((benefit, index) => (
+                                    <div key={index} className="flex items-center space-x-3">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-yellow-400/80" />
+                                        <span className="text-white/80 font-bpdots text-sm">{benefit}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
 
-            {/* Price and Purchase */}
-            <div className="space-y-4 pt-4 border-t border-white/20">
-              <div className="flex items-center justify-center space-x-2">
-                <Star className="text-yellow-400" size={20} />
-                <span className="text-2xl font-bold font-bpdots text-yellow-400">
-                  {product.price}
-                </span>
-                <span className="text-white/60 font-bpdots text-sm">
-                  {t("shop.purchase.perAttempt")}
-                </span>
-              </div>
+                        {/* Price and Purchase */}
+                        <div className="space-y-4 pt-4 border-t border-white/20">
+                            <div className="flex items-center justify-center space-x-2">
+                                <Star className="text-yellow-400" size={20} />
+                                <span className="text-2xl font-bold font-bpdots text-yellow-400">
+                                    {product.price}
+                                </span>
+                                <span className="text-white/60 font-bpdots text-sm">
+                                    Telegram Stars
+                                </span>
+                            </div>
 
-              <button
-                aria-label={t("shop.purchase.buy")}
-                className={`
+                            <button
+                                className={`
                   relative w-full px-8 py-4 bg-transparent border-2 rounded-xl font-bpdots text-lg font-bold 
                   transition-all duration-500 hover:scale-105 active:scale-95
-                  ${
-                    isDisabled
-                      ? "border-white/30 text-white/50 cursor-not-allowed"
-                      : "border-yellow-400/60 text-yellow-300 hover:border-yellow-400 hover:bg-yellow-400/10"
-                  }
+                  ${isDisabled
+                                        ? "border-white/30 text-white/50 cursor-not-allowed"
+                                        : "border-yellow-400/60 text-yellow-300 hover:border-yellow-400 hover:bg-yellow-400/10"
+                                    }
                 `}
-                disabled={isDisabled}
-                type="button"
-                onClick={handlePurchaseAttempts}
-              >
-                <div className="flex items-center justify-center space-x-3">
-                  {purchaseState.isLoading ? (
-                    <div className="w-5 h-5 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
-                  ) : purchaseState.isProcessing ? (
-                    <div className="w-5 h-5 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
-                  ) : (
-                    <ShoppingCart size={20} />
-                  )}
-                  <span className="tracking-wider">
-                    {purchaseState.isLoading
-                      ? t("shop.purchase.loading")
-                      : purchaseState.isProcessing
-                        ? t("shop.purchase.processing")
-                        : t("shop.purchase.buy")}
-                  </span>
+                                disabled={isDisabled}
+                                onClick={handlePurchaseAttempts}
+                                type="button"
+                                aria-label="Purchase additional game attempts"
+                            >
+                                <div className="flex items-center justify-center space-x-3">
+                                    {purchaseState.isLoading ? (
+                                        <div className="w-5 h-5 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
+                                    ) : purchaseState.isProcessing ? (
+                                        <div className="w-5 h-5 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
+                                    ) : (
+                                        <ShoppingCart size={20} />
+                                    )}
+                                    <span className="tracking-wider">
+                                        {purchaseState.isLoading
+                                            ? "CREATING INVOICE..."
+                                            : purchaseState.isProcessing
+                                                ? "PROCESSING PAYMENT..."
+                                                : `PURCHASE FOR ${product.price} ⭐`
+                                        }
+                                    </span>
+                                </div>
+
+                                {/* Button glow effect */}
+                                {!isDisabled && (
+                                    <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/20 via-yellow-400/5 to-yellow-400/20 rounded-xl blur opacity-0 hover:opacity-100 transition duration-1000" />
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Button glow effect */}
-                {!isDisabled && (
-                  <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/20 via-yellow-400/5 to-yellow-400/20 rounded-xl blur opacity-0 hover:opacity-100 transition duration-1000" />
-                )}
-              </button>
+                {/* Info Section */}
+                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
+                    <div className="text-center space-y-2">
+                        <h3 className="font-bpdots text-sm font-bold text-white/80 uppercase tracking-wider">
+                            Payment Info
+                        </h3>
+                        <div className="space-y-1 text-xs font-bpdots text-white/60">
+                            <p>• Payments processed via Telegram Stars</p>
+                            <p>• Attempts added instantly after payment</p>
+                            <p>• Secure payment through Telegram</p>
+                            <p>• No limit on attempts you can have</p>
+                            <p>• No recurring charges</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
-
-        {/* Info Section */}
-        <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
-          <div className="text-center space-y-2">
-            <h3 className="font-bpdots text-sm font-bold text-white/80 uppercase tracking-wider">
-              {t("shop.paymentInfo")}
-            </h3>
-            <div className="space-y-1 text-xs font-bpdots text-white/60">
-              <p>• {t("shop.paymentInfo.viaTelegram")}</p>
-              <p>
-                • {t("shop.paymentInfo.attemptsAdded")}{" "}
-                {t("shop.paymentInfo.instantly")}
-              </p>
-              <p>• {t("shop.paymentInfo.securePayment")}</p>
-              <p>
-                • {t("shop.paymentInfo.noLimit")}{" "}
-                {t("shop.paymentInfo.attempts")}
-              </p>
-              <p>• {t("shop.paymentInfo.noRecurringCharges")}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
