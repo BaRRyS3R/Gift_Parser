@@ -56,7 +56,7 @@ export const ru = {
 
     // Main page
     main: {
-        title: "что-то",
+        title: "something",
         greeting: "Привет, {name}",
         startGame: "НАЧАТЬ ИГРУ",
         loading: "ЗАГРУЗКА...",
