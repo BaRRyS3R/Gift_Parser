@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated with settings and repositioned shop button
+// src/app/main/page.tsx - Updated with dynamic Telegram header offset
 
 "use client";
 
@@ -16,6 +16,10 @@ export default function MainPage() {
   const { user, isLoading: userLoading } = useUser();
   const { settings } = useSettings();
   const t = useT();
+
+  /* -------------------------------------------------
+   * UI state
+   * -------------------------------------------------*/
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
   const [titleText, setTitleText] = useState("|");
@@ -25,6 +29,28 @@ export default function MainPage() {
   const [showTopButtons, setShowTopButtons] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  /* -------------------------------------------------
+   * NEW: dynamic offset to avoid Telegram system UI
+   * -------------------------------------------------*/
+  const DEFAULT_TG_HEADER = 60; // px, sensible fallback
+  const EXTRA_OFFSET = 12;      // px, visual breathing room
+  const [headerOffset, setHeaderOffset] = useState<number>(DEFAULT_TG_HEADER + EXTRA_OFFSET);
+
+  useEffect(() => {
+    /**
+     * Telegram WebApp may expose the header height via
+     * `window.Telegram.WebApp.headerHeight` (number, px).
+     * Safely read it on the client and set our offset.
+     */
+    const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
+    if (typeof tgHeader === "number" && tgHeader > 0) {
+      setHeaderOffset(tgHeader + EXTRA_OFFSET);
+    }
+  }, []);
+
+  /* -------------------------------------------------
+   * Refs & helpers
+   * -------------------------------------------------*/
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const animationSteps = [
@@ -42,9 +68,11 @@ export default function MainPage() {
   ];
 
   const username = user?.first_name || "unknown";
-  const fullGreeting = t('main.greeting', { name: username });
+  const fullGreeting = t("main.greeting", { name: username });
 
-  // Initialize video
+  /* -------------------------------------------------
+   * Background video logic
+   * -------------------------------------------------*/
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !settings.showBackgroundVideo) return;
@@ -67,7 +95,9 @@ export default function MainPage() {
     };
   }, [settings.showBackgroundVideo]);
 
-  // Page load animation
+  /* -------------------------------------------------
+   * Mount / animation logic
+   * -------------------------------------------------*/
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
       setPageLoaded(true);
@@ -101,7 +131,7 @@ export default function MainPage() {
     return () => clearTimeout(titleAnimationTimer);
   }, [pageLoaded]);
 
-  // Greeting animation
+  // Greeting typing animation
   useEffect(() => {
     if (!showGreeting || userLoading) return;
 
@@ -118,6 +148,9 @@ export default function MainPage() {
     return () => clearInterval(typingInterval);
   }, [showGreeting, fullGreeting, userLoading]);
 
+  /* -------------------------------------------------
+   * Handlers
+   * -------------------------------------------------*/
   const handleStartGame = () => {
     setIsTransitioning(true);
     setTimeout(() => {
@@ -137,13 +170,16 @@ export default function MainPage() {
     setIsSettingsOpen(false);
   };
 
+  /* -------------------------------------------------
+   * Render
+   * -------------------------------------------------*/
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : pageLoaded
+            ? "opacity-100 transition-opacity duration-1000 ease-out"
+            : "opacity-0"
         }`}
     >
       {/* Background Video */}
@@ -181,7 +217,8 @@ export default function MainPage() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed top-20 left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-8"
+        style={{ top: headerOffset }}
+        className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-8"
           }`}
       >
         <div className="flex items-center justify-between">
@@ -190,7 +227,7 @@ export default function MainPage() {
             onClick={handleOpenSettings}
             disabled={isTransitioning}
             className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label={t('common.settings')}
+            aria-label={t("common.settings")}
           >
             <div className="flex items-center justify-center">
               <SettingsIcon
@@ -208,7 +245,7 @@ export default function MainPage() {
             onClick={handleOpenShop}
             disabled={isTransitioning}
             className="group relative w-12 h-12 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label={t('nav.shop')}
+            aria-label={t("nav.shop")}
           >
             <div className="flex items-center justify-center">
               <ShoppingCart
@@ -256,7 +293,7 @@ export default function MainPage() {
                   size={24}
                 />
                 <span className="tracking-wider">
-                  {isTransitioning ? t('main.loading') : t('main.startGame')}
+                  {isTransitioning ? t("main.loading") : t("main.startGame")}
                 </span>
               </div>
             </button>
@@ -265,9 +302,7 @@ export default function MainPage() {
 
         {/* User Greeting */}
         <div
-          className={`transition-all duration-1000 transform ${showGreeting
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
+          className={`transition-all duration-1000 transform ${showGreeting ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
         >
           {userLoading ? (
@@ -294,10 +329,7 @@ export default function MainPage() {
       </div>
 
       {/* Settings Modal */}
-      <Settings
-        isOpen={isSettingsOpen}
-        onClose={handleCloseSettings}
-      />
+      <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
     </div>
   );
 }
