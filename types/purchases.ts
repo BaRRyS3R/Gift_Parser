@@ -44,11 +44,15 @@ export interface CreateInvoiceResponse {
     };
     payload?: string;
     error?: string;
+    user_info?: {
+        current_attempts: number;
+        will_have_attempts: number;
+    };
 }
 
 export interface PurchaseService {
     createInvoice: (productType: ProductType) => Promise<CreateInvoiceResponse>;
-    openInvoice: (invoiceUrl: string) => Promise<boolean>;
+    openInvoice: (invoiceUrl: string, productType?: ProductType) => Promise<boolean>;
     checkPurchaseStatus: () => Promise<void>;
 }
 

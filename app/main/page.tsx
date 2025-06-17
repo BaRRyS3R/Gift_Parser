@@ -4,12 +4,12 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Play, 
-  ShoppingCart, 
-  X, 
-  CheckCircle, 
-  AlertCircle, 
+import {
+  Play,
+  ShoppingCart,
+  X,
+  CheckCircle,
+  AlertCircle,
   Loader2,
   Zap,
   Battery,
@@ -55,7 +55,7 @@ export default function MainPage() {
     "|",
     "s|",
     "so-",
-    "som|", 
+    "som|",
     "some=/",
     "somet|",
     "someth|",
@@ -171,7 +171,7 @@ export default function MainPage() {
 
   const closePurchaseModal = () => {
     if (purchaseState.isProcessing) return;
-    
+
     setPurchaseState(prev => ({
       ...prev,
       isModalOpen: false,
@@ -201,7 +201,7 @@ export default function MainPage() {
 
       console.log('Invoice created, opening payment interface...');
 
-      const paymentResult = await purchaseService.openInvoice(invoiceResult.invoice_url);
+      const paymentResult = await purchaseService.openInvoice(invoiceResult.invoice_url, productType);
 
       if (paymentResult) {
         console.log('Payment completed successfully');
@@ -217,7 +217,7 @@ export default function MainPage() {
 
       } else {
         console.log('Payment was cancelled or failed');
-        
+
         setPurchaseState(prev => ({
           ...prev,
           animation: PURCHASE_ANIMATIONS.cancelled
@@ -226,11 +226,11 @@ export default function MainPage() {
 
     } catch (error) {
       console.error('Purchase error:', error);
-      
+
       setPurchaseState(prev => ({
         ...prev,
-        animation: error instanceof Error && error.message.includes('network') 
-          ? PURCHASE_ANIMATIONS.network_error 
+        animation: error instanceof Error && error.message.includes('network')
+          ? PURCHASE_ANIMATIONS.network_error
           : PURCHASE_ANIMATIONS.failed
       }));
     } finally {
@@ -244,12 +244,11 @@ export default function MainPage() {
 
   const renderCartIcon = () => {
     const hasLowAttempts = attemptsRemaining <= 2;
-    
+
     return (
       <div
-        className={`transition-all duration-1000 transform ${
-          showCartIcon ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-        }`}
+        className={`transition-all duration-1000 transform ${showCartIcon ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
       >
         <div className="flex flex-col items-center space-y-3">
           {/* Attempts indicator */}
@@ -269,11 +268,11 @@ export default function MainPage() {
             className="group relative p-4 bg-white/5 backdrop-blur-sm border border-white/20 rounded-full hover:bg-white/10 hover:border-white/40 transition-all duration-300 hover:scale-110 active:scale-95"
             aria-label="Open purchase store"
           >
-            <ShoppingCart 
-              className="text-white/80 group-hover:text-white transition-colors duration-300" 
-              size={24} 
+            <ShoppingCart
+              className="text-white/80 group-hover:text-white transition-colors duration-300"
+              size={24}
             />
-            
+
             {/* Notification dot for low attempts */}
             {hasLowAttempts && (
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-400 rounded-full animate-pulse" />
@@ -328,15 +327,14 @@ export default function MainPage() {
             {Object.values(PRODUCTS).map((product) => {
               const isProcessing = purchaseState.isProcessing && purchaseState.selectedProduct === product.type;
               const isBundle = product.category === 'bundle';
-              
+
               return (
                 <div
                   key={product.type}
-                  className={`relative overflow-hidden rounded-xl border transition-all duration-300 ${
-                    isBundle
+                  className={`relative overflow-hidden rounded-xl border transition-all duration-300 ${isBundle
                       ? "bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-400/30 hover:border-purple-400/50"
                       : "bg-white/5 border-white/20 hover:border-white/40"
-                  } ${isProcessing ? "opacity-50" : "hover:scale-105"}`}
+                    } ${isProcessing ? "opacity-50" : "hover:scale-105"}`}
                 >
                   {/* Popular badge */}
                   {product.popular && (
@@ -385,11 +383,10 @@ export default function MainPage() {
                     <button
                       onClick={() => handlePurchase(product.type)}
                       disabled={purchaseState.isProcessing}
-                      className={`w-full py-3 px-4 rounded-lg font-bpdots font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        isBundle
+                      className={`w-full py-3 px-4 rounded-lg font-bpdots font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${isBundle
                           ? "bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white"
                           : "bg-white/10 hover:bg-white/20 text-white border border-white/20 hover:border-white/40"
-                      } ${isProcessing ? "cursor-not-allowed" : "hover:scale-105 active:scale-95"}`}
+                        } ${isProcessing ? "cursor-not-allowed" : "hover:scale-105 active:scale-95"}`}
                     >
                       {isProcessing ? (
                         <div className="flex items-center justify-center space-x-2">
@@ -452,7 +449,7 @@ export default function MainPage() {
           <h3 className="text-xl font-bold font-bpdots text-white mb-2">
             {animation.message}
           </h3>
-          
+
           {animation.submessage && (
             <p className="text-white/70 font-bpdots text-sm">
               {animation.submessage}
@@ -473,13 +470,12 @@ export default function MainPage() {
 
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
-        isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
-      }`}
+            ? "opacity-100 transition-opacity duration-1000 ease-out"
+            : "opacity-0"
+        }`}
     >
       {/* Background Video */}
       <div
@@ -519,9 +515,8 @@ export default function MainPage() {
 
         {/* Action Button */}
         <div
-          className={`transition-all duration-1000 transform ${
-            showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-          }`}
+          className={`transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
@@ -549,11 +544,10 @@ export default function MainPage() {
 
         {/* User Greeting */}
         <div
-          className={`transition-all duration-1000 transform ${
-            showGreeting
+          className={`transition-all duration-1000 transform ${showGreeting
               ? "opacity-100 translate-y-0"
               : "opacity-0 translate-y-8"
-          }`}
+            }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
