@@ -10,7 +10,7 @@ import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
 import { userService, type TelegramUser, type User } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import DebugLanguage from '@/components/DebugLanguage';
+import DebugLanguage from "@/components/DebugLanguage";
 
 interface AuthState {
   isChecking: boolean;
@@ -69,6 +69,7 @@ export default function IntroPage(): JSX.Element {
 
       if (startParam && startParam.length === 8) {
         console.log("Referral code extracted from start param:", startParam);
+
         return startParam;
       }
     }
@@ -76,9 +77,11 @@ export default function IntroPage(): JSX.Element {
     // Fallback: check URL parameters for development
     if (process.env.NODE_ENV === "development") {
       const urlParams = new URLSearchParams(window.location.search);
-      const refCode = urlParams.get('ref');
+      const refCode = urlParams.get("ref");
+
       if (refCode) {
         console.log("Referral code extracted from URL (dev):", refCode);
+
         return refCode;
       }
     }
@@ -156,15 +159,20 @@ export default function IntroPage(): JSX.Element {
   );
 
   const validateReferralCode = useCallback(
-    async (referralCode: string): Promise<{ isValid: boolean; bonus: number }> => {
+    async (
+      referralCode: string,
+    ): Promise<{ isValid: boolean; bonus: number }> => {
       try {
         const referrer = await userService.findByReferralCode(referralCode);
+
         if (referrer) {
           return { isValid: true, bonus: referrer.referral_bonus };
         }
+
         return { isValid: false, bonus: 0 };
       } catch (error) {
         console.error("Ошибка при проверке реферального кода:", error);
+
         return { isValid: false, bonus: 0 };
       }
     },
@@ -172,7 +180,10 @@ export default function IntroPage(): JSX.Element {
   );
 
   const registerUser = useCallback(
-    async (telegramUser: TelegramUser, referralCode?: string): Promise<User> => {
+    async (
+      telegramUser: TelegramUser,
+      referralCode?: string,
+    ): Promise<User> => {
       if (registrationInProgressRef.current) {
         throw new Error("Регистрация уже в процессе");
       }
@@ -209,7 +220,7 @@ export default function IntroPage(): JSX.Element {
         setAuthState((prev) => ({
           ...prev,
           isRegistering: false,
-          error: t('auth.registrationFailed'),
+          error: t("auth.registrationFailed"),
         }));
         throw error;
       } finally {
@@ -238,7 +249,7 @@ export default function IntroPage(): JSX.Element {
         setAuthState((prev) => ({
           ...prev,
           isChecking: false,
-          error: t('auth.telegramDataUnavailable'),
+          error: t("auth.telegramDataUnavailable"),
         }));
 
         return;
@@ -246,11 +257,15 @@ export default function IntroPage(): JSX.Element {
 
       // Проверяем реферальный код если есть
       let referralBonus = 0;
+
       if (referralCode) {
         const validation = await validateReferralCode(referralCode);
+
         if (validation.isValid) {
           referralBonus = validation.bonus;
-          console.log(`Валидный реферальный код. Бонус: +${referralBonus} попыток`);
+          console.log(
+            `Валидный реферальный код. Бонус: +${referralBonus} попыток`,
+          );
         } else {
           console.log("Невалидный реферальный код");
         }
@@ -260,7 +275,7 @@ export default function IntroPage(): JSX.Element {
         ...prev,
         telegramUser,
         referralCode: referralCode,
-        referralBonus: referralBonus
+        referralBonus: referralBonus,
       }));
 
       // Устанавливаем telegram пользователя в контекст
@@ -301,10 +316,19 @@ export default function IntroPage(): JSX.Element {
       setAuthState((prev) => ({
         ...prev,
         isChecking: false,
-        error: `${t('auth.databaseConnectionError')}: ${error instanceof Error ? error.message : t('auth.unknownError')}`,
+        error: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")}`,
       }));
     }
-  }, [getTelegramUser, extractReferralCode, validateReferralCode, checkUserExists, router, updateUser, setTelegramUser, t]);
+  }, [
+    getTelegramUser,
+    extractReferralCode,
+    validateReferralCode,
+    checkUserExists,
+    router,
+    updateUser,
+    setTelegramUser,
+    t,
+  ]);
 
   // Инициализация Service Worker и шрифта
   useEffect(() => {
@@ -376,7 +400,10 @@ export default function IntroPage(): JSX.Element {
         !currentAuthState.isRegistering
       ) {
         console.log("Начинаем регистрацию после видео");
-        registerUser(currentAuthState.telegramUser, currentAuthState.referralCode)
+        registerUser(
+          currentAuthState.telegramUser,
+          currentAuthState.referralCode,
+        )
           .then((registeredUser) => {
             console.log("Регистрация успешна, пользователь:", registeredUser);
             console.log("Перенаправляем на main через 1 секунду");
@@ -477,7 +504,10 @@ export default function IntroPage(): JSX.Element {
     }
 
     try {
-      const registeredUser = await registerUser(authState.telegramUser, authState.referralCode);
+      const registeredUser = await registerUser(
+        authState.telegramUser,
+        authState.referralCode,
+      );
 
       console.log("Быстрая регистрация успешна:", registeredUser);
       setTimeout(() => {
@@ -504,8 +534,8 @@ export default function IntroPage(): JSX.Element {
           </div>
           <p className="text-white mt-4 text-sm">
             {authState.isChecking
-              ? t('auth.checkingUser')
-              : `${t('common.loading')} ${Math.round(loadProgress)}%`}
+              ? t("auth.checkingUser")
+              : `${t("common.loading")} ${Math.round(loadProgress)}%`}
           </p>
           {/* Добавьте компонент отладки */}
           <DebugLanguage />
@@ -515,9 +545,7 @@ export default function IntroPage(): JSX.Element {
       {/* Экран ошибки авторизации */}
       {authState.error && !isInitialLoading && (
         <div className="loader-container">
-          <p className="text-white text-center mb-4">
-            {authState.error}
-          </p>
+          <p className="text-white text-center mb-4">{authState.error}</p>
           <button
             className="px-4 py-2 bg-white text-black rounded"
             onClick={() => {
@@ -531,7 +559,7 @@ export default function IntroPage(): JSX.Element {
               initializeAuth();
             }}
           >
-            {t('common.retry')}
+            {t("common.retry")}
           </button>
         </div>
       )}
@@ -539,20 +567,18 @@ export default function IntroPage(): JSX.Element {
       {/* Экран ошибки видео */}
       {videoError && !isInitialLoading && !authState.error && (
         <div className="loader-container">
-          <p className="text-white text-center mb-4">
-            {videoError}
-          </p>
+          <p className="text-white text-center mb-4">{videoError}</p>
           <button
             className="px-4 py-2 bg-white text-black rounded mb-4"
             onClick={handleStart}
           >
-            {t('common.retry')}
+            {t("common.retry")}
           </button>
           <button
             className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
             onClick={handleQuickInit}
           >
-            {t('auth.continueWithoutVideo')}
+            {t("auth.continueWithoutVideo")}
           </button>
         </div>
       )}
@@ -568,10 +594,10 @@ export default function IntroPage(): JSX.Element {
               {authState.isRegistering ? (
                 <div className="text-center">
                   <Spinner color="white" size="lg" />
-                  <p className="text-white mt-4">{t('auth.registering')}</p>
+                  <p className="text-white mt-4">{t("auth.registering")}</p>
                   {authState.referralCode && (
                     <p className="text-green-400 mt-2 text-sm">
-                      {t('auth.processingReferralBonus')}
+                      {t("auth.processingReferralBonus")}
                     </p>
                   )}
                 </div>
@@ -581,34 +607,44 @@ export default function IntroPage(): JSX.Element {
                   <div className="space-y-4">
                     <div className="relative">
                       <h1 className="text-4xl font-bold text-white tracking-wider">
-                        {t('main.welcome')}
+                        {t("main.welcome")}
                       </h1>
                       <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
                     </div>
                     <p className="text-white/70 text-sm">
-                      {t('main.greeting', { name: authState.telegramUser?.first_name || 'User' })}
+                      {t("main.greeting", {
+                        name: authState.telegramUser?.first_name || "User",
+                      })}
                     </p>
 
                     {/* Referral Bonus Info */}
-                    {authState.referralCode && authState.referralBonus && authState.referralBonus > 0 && (
-                      <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
-                        <div className="flex items-center justify-center space-x-2">
-                          <Gift className="text-green-400" size={20} />
-                          <span className="text-green-300 font-bold">
-                            {t('auth.referralBonus')}
-                          </span>
+                    {authState.referralCode &&
+                      authState.referralBonus &&
+                      authState.referralBonus > 0 && (
+                        <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
+                          <div className="flex items-center justify-center space-x-2">
+                            <Gift className="text-green-400" size={20} />
+                            <span className="text-green-300 font-bold">
+                              {t("auth.referralBonus")}
+                            </span>
+                          </div>
+                          <p className="text-green-400 text-sm">
+                            {t("auth.youllGet")}{" "}
+                            <span className="font-bold">
+                              +{authState.referralBonus}{" "}
+                              {authState.referralBonus > 1
+                                ? t("auth.extraAttempts")
+                                : t("auth.extraAttempt")}
+                            </span>
+                          </p>
+                          <p className="text-green-400/60 text-xs">
+                            {t("auth.referredBy")} {authState.referralCode}
+                          </p>
                         </div>
-                        <p className="text-green-400 text-sm">
-                          {t('auth.youllGet')} <span className="font-bold">+{authState.referralBonus} {authState.referralBonus > 1 ? t('auth.extraAttempts') : t('auth.extraAttempt')}</span>
-                        </p>
-                        <p className="text-green-400/60 text-xs">
-                          {t('auth.referredBy')} {authState.referralCode}
-                        </p>
-                      </div>
-                    )}
+                      )}
 
                     <p className="text-white/50 text-xs uppercase tracking-widest">
-                      {t('main.chooseEntryMethod')}
+                      {t("main.chooseEntryMethod")}
                     </p>
                   </div>
 
@@ -633,7 +669,9 @@ export default function IntroPage(): JSX.Element {
                               size={16}
                             />
                           </div>
-                          <span className="tracking-wider">{t('main.initialize')}</span>
+                          <span className="tracking-wider">
+                            {t("main.initialize")}
+                          </span>
                         </div>
 
                         {/* Glow effect */}
@@ -642,10 +680,10 @@ export default function IntroPage(): JSX.Element {
 
                       <div className="text-center space-y-1">
                         <p className="text-white/60 text-sm">
-                          {t('main.fullExperience')}
+                          {t("main.fullExperience")}
                         </p>
                         <p className="text-white/40 text-xs">
-                          {t('main.recommended')}
+                          {t("main.recommended")}
                         </p>
                       </div>
                     </div>
@@ -657,7 +695,7 @@ export default function IntroPage(): JSX.Element {
                       </div>
                       <div className="relative flex justify-center">
                         <span className="bg-black px-4 text-white/40 text-xs uppercase">
-                          {t('common.or')}
+                          {t("common.or")}
                         </span>
                       </div>
                     </div>
@@ -681,16 +719,16 @@ export default function IntroPage(): JSX.Element {
                               size={12}
                             />
                           </div>
-                          <span>{t('main.quickStart')}</span>
+                          <span>{t("main.quickStart")}</span>
                         </div>
                       </button>
 
                       <div className="text-center space-y-1">
                         <p className="text-white/50 text-sm">
-                          {t('main.skipIntro')}
+                          {t("main.skipIntro")}
                         </p>
                         <p className="text-white/30 text-xs">
-                          {t('main.slowConnections')}
+                          {t("main.slowConnections")}
                         </p>
                       </div>
                     </div>

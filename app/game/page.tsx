@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import {
   Zap,
   Crosshair,
-  Timer,
   Target,
   Trophy,
   AlertTriangle,
@@ -87,7 +86,7 @@ const GAME_MODES: GameMode[] = [
         "game.modes.reaction.tips.4",
       ],
       scoringKey: "game.modes.reaction.scoring",
-    }
+    },
   },
   {
     id: "survival",
@@ -128,13 +127,13 @@ const GAME_MODES: GameMode[] = [
         "game.modes.survival.tips.4",
       ],
       scoringKey: "game.modes.survival.scoring",
-    }
+    },
   },
 ];
 
 const AttemptsDisplay = ({
   attemptsStatus,
-  timeUntilReset
+  timeUntilReset,
 }: {
   attemptsStatus: AttemptsStatus;
   timeUntilReset: string;
@@ -147,28 +146,33 @@ const AttemptsDisplay = ({
   const getBatteryLevel = () => {
     if (attemptsRemaining <= 0) return 0;
     if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
+
     return 100;
   };
 
   const getBatteryColor = () => {
     if (isEmpty) return "text-red-400";
     if (isLow) return "text-orange-400";
+
     return "text-green-400";
   };
 
   const getBatteryBgColor = () => {
     if (isEmpty) return "bg-red-500/20 border-red-400/40";
     if (isLow) return "bg-orange-500/20 border-orange-400/40";
+
     return "bg-white/10 border-white/30";
   };
 
   return (
-    <div className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${getBatteryBgColor()}`}>
+    <div
+      className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${getBatteryBgColor()}`}
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <Battery className={getBatteryColor()} size={18} />
           <span className={`text-sm font-bold ${getBatteryColor()}`}>
-            {t('attempts.current')}
+            {t("attempts.current")}
           </span>
         </div>
         <span className={`text-lg font-bold ${getBatteryColor()}`}>
@@ -177,34 +181,41 @@ const AttemptsDisplay = ({
       </div>
 
       <div className="mb-3">
-        <div className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
-          ? "bg-red-400/20"
-          : isLow
-            ? "bg-orange-400/20"
-            : "bg-white/20"
-          }`}>
+        <div
+          className={`w-full h-2 rounded-full overflow-hidden ${
+            isEmpty
+              ? "bg-red-400/20"
+              : isLow
+                ? "bg-orange-400/20"
+                : "bg-white/20"
+          }`}
+        >
           <div
-            className={`h-full transition-all duration-500 ${getBatteryColor().replace('text-', 'bg-')}`}
+            className={`h-full transition-all duration-500 ${getBatteryColor().replace("text-", "bg-")}`}
             style={{ width: `${getBatteryLevel()}%` }}
           />
         </div>
 
         {attemptsRemaining <= 10 ? (
           <div className="flex justify-between mt-1">
-            {Array.from({ length: Math.min(10, Math.max(5, attemptsRemaining)) }, (_, i) => (
-              <div
-                key={i}
-                className={`w-2 h-2 rounded-full ${i < attemptsRemaining
-                  ? getBatteryColor().replace('text-', 'bg-')
-                  : "bg-white/20"
+            {Array.from(
+              { length: Math.min(10, Math.max(5, attemptsRemaining)) },
+              (_, i) => (
+                <div
+                  key={i}
+                  className={`w-2 h-2 rounded-full ${
+                    i < attemptsRemaining
+                      ? getBatteryColor().replace("text-", "bg-")
+                      : "bg-white/20"
                   }`}
-              />
-            ))}
+                />
+              ),
+            )}
           </div>
         ) : (
           <div className="text-center mt-1">
             <span className={`text-xs ${getBatteryColor()}`}>
-              {attemptsRemaining} {t('attempts.total')}
+              {attemptsRemaining} {t("attempts.total")}
             </span>
           </div>
         )}
@@ -213,7 +224,7 @@ const AttemptsDisplay = ({
       {timeUntilReset && isEmpty && (
         <div className="text-center space-y-1">
           <div className="text-xs text-white/60 uppercase tracking-wider">
-            {t('attempts.resetTime')}
+            {t("attempts.resetTime")}
           </div>
           <div className="text-lg font-bold text-green-400">
             {timeUntilReset}
@@ -223,19 +234,15 @@ const AttemptsDisplay = ({
 
       <div className="text-center mt-2">
         {isEmpty && (
-          <p className="text-xs text-red-400/80">
-            {t('attempts.noRemaining')}
-          </p>
+          <p className="text-xs text-red-400/80">{t("attempts.noRemaining")}</p>
         )}
         {isLow && !isEmpty && (
           <p className="text-xs text-orange-400/80">
-            {t('attempts.lowRemaining')}
+            {t("attempts.lowRemaining")}
           </p>
         )}
         {attemptsRemaining > 5 && (
-          <p className="text-xs text-green-400/80">
-            {t('attempts.plenty')}
-          </p>
+          <p className="text-xs text-green-400/80">{t("attempts.plenty")}</p>
         )}
       </div>
     </div>
@@ -247,7 +254,8 @@ export default function GamePage() {
   const { telegramUser } = useUser();
   const t = useT();
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [selectedModeForInfo, setSelectedModeForInfo] = useState<GameMode | null>(null);
+  const [selectedModeForInfo, setSelectedModeForInfo] =
+    useState<GameMode | null>(null);
   const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
     canPlay: true,
     attemptsRemaining: 0,
@@ -260,7 +268,11 @@ export default function GamePage() {
 
     try {
       setIsLoadingAttempts(true);
-      const status = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
+      const status =
+        await userService.checkAndUpdateAttemptsWithServerValidation(
+          telegramUser.id,
+        );
+
       setAttemptsStatus(status);
     } catch (error) {
       console.error("Error checking attempts:", error);
@@ -276,6 +288,7 @@ export default function GamePage() {
   useEffect(() => {
     if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
       setTimeUntilReset("");
+
       return;
     }
 
@@ -289,7 +302,8 @@ export default function GamePage() {
       } else {
         const minutes = Math.floor(diff / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
-        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+
+        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
       }
     }, 1000);
 
@@ -317,7 +331,7 @@ export default function GamePage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -341,9 +355,10 @@ export default function GamePage() {
         className={`
           relative w-full max-w-sm mx-auto backdrop-blur-sm border rounded-2xl 
           transition-all duration-300 
-          ${isDisabled
-            ? "opacity-50 cursor-not-allowed"
-            : "hover:scale-[1.02] hover:shadow-xl cursor-pointer"
+          ${
+            isDisabled
+              ? "opacity-50 cursor-not-allowed"
+              : "hover:scale-[1.02] hover:shadow-xl cursor-pointer"
           }
           ${mode.color.background} ${mode.color.border} 
           ${isDisabled ? "" : "hover:border-opacity-60"}
@@ -353,14 +368,18 @@ export default function GamePage() {
       >
         <div className="p-8">
           <div className="text-center mb-6">
-            <h3 className={`text-2xl font-bold tracking-wide ${mode.color.primary} mb-2`}>
+            <h3
+              className={`text-2xl font-bold tracking-wide ${mode.color.primary} mb-2`}
+            >
               {t(mode.nameKey as any)}
             </h3>
-            <div className="w-12 h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-40"></div>
+            <div className="w-12 h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-40" />
           </div>
 
           <div className="space-y-6 mb-8">
-            <p className={`text-sm leading-relaxed text-center ${mode.color.secondary}`}>
+            <p
+              className={`text-sm leading-relaxed text-center ${mode.color.secondary}`}
+            >
               {t(mode.descriptionKey as any)}
             </p>
 
@@ -378,8 +397,13 @@ export default function GamePage() {
                   ) : (
                     <Target className={`${mode.color.accent}`} size={14} />
                   )}
-                  <span className={`text-xs font-medium ${mode.difficulty === "Extreme" ? "text-red-400" : mode.color.accent
-                    }`}>
+                  <span
+                    className={`text-xs font-medium ${
+                      mode.difficulty === "Extreme"
+                        ? "text-red-400"
+                        : mode.color.accent
+                    }`}
+                  >
                     {t(`game.general.difficulty`)}
                   </span>
                 </div>
@@ -388,8 +412,11 @@ export default function GamePage() {
               <div className="space-y-2">
                 {mode.featuresKeys.map((featureKey, index) => (
                   <div key={index} className="flex items-center space-x-3">
-                    <div className={`w-1 h-1 rounded-full ${isReaction ? "bg-white/60" : "bg-red-400/80"
-                      }`}></div>
+                    <div
+                      className={`w-1 h-1 rounded-full ${
+                        isReaction ? "bg-white/60" : "bg-red-400/80"
+                      }`}
+                    />
                     <span className={`text-xs ${mode.color.secondary}`}>
                       {t(featureKey as any)}
                     </span>
@@ -399,42 +426,42 @@ export default function GamePage() {
             </div>
           </div>
 
-          <div className="w-full h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-20 mb-6"></div>
+          <div className="w-full h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-20 mb-6" />
 
           <div className="flex space-x-3">
             <button
-              onClick={() => handleModeStart(mode)}
-              disabled={isTransitioning || isDisabled}
+              aria-label={`Start ${t(mode.nameKey as any)} game mode`}
               className={`
                 flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl 
                 text-sm font-bold transition-all duration-300
                 ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-                ${isDisabled
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
+                ${
+                  isDisabled
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
                 }
                 disabled:opacity-50 disabled:cursor-not-allowed
               `}
+              disabled={isTransitioning || isDisabled}
               type="button"
-              aria-label={`Start ${t(mode.nameKey as any)} game mode`}
+              onClick={() => handleModeStart(mode)}
             >
               <Play size={16} />
               <span>
                 {isTransitioning
-                  ? t('common.loading')
+                  ? t("common.loading")
                   : isDisabled
-                    ? t('game.general.noAttempts')
-                    : t('common.play')
-                }
+                    ? t("game.general.noAttempts")
+                    : t("common.play")}
               </span>
             </button>
 
             <button
-              onClick={() => handleShowInfo(mode)}
-              disabled={isTransitioning}
-              className="px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 bg-white/5 text-white/70 border border-white/20 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              type="button"
               aria-label={`About ${t(mode.nameKey as any)} game mode`}
+              className="px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 bg-white/5 text-white/70 border border-white/20 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              type="button"
+              onClick={() => handleShowInfo(mode)}
             >
               <Info size={16} />
             </button>
@@ -446,7 +473,7 @@ export default function GamePage() {
             <div className="text-center space-y-2">
               <Shield className="text-white/60 mx-auto" size={24} />
               <p className="text-white/80 text-sm font-bold">
-                {t('game.general.noAttemptsLeft')}
+                {t("game.general.noAttemptsLeft")}
               </p>
             </div>
           </div>
@@ -467,8 +494,10 @@ export default function GamePage() {
           <div className="sticky top-0 bg-black/95 backdrop-blur-sm border-b border-white/10 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${mode.color.background}`}>
-                  <Icon size={24} className={mode.color.primary} />
+                <div
+                  className={`w-12 h-12 rounded-lg flex items-center justify-center ${mode.color.background}`}
+                >
+                  <Icon className={mode.color.primary} size={24} />
                 </div>
                 <div>
                   <h2 className={`text-2xl font-bold ${mode.color.primary}`}>
@@ -480,9 +509,9 @@ export default function GamePage() {
                 </div>
               </div>
               <button
-                onClick={handleCloseInfo}
+                aria-label={t("common.close")}
                 className="p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300"
-                aria-label={t('common.close')}
+                onClick={handleCloseInfo}
               >
                 <X size={20} />
               </button>
@@ -493,7 +522,7 @@ export default function GamePage() {
             <div>
               <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <Target className="text-white/80" size={18} />
-                <span>{t('game.general.objective')}</span>
+                <span>{t("game.general.objective")}</span>
               </h3>
               <p className="text-white/80 leading-relaxed">
                 {t(mode.detailedInfo.objectiveKey as any)}
@@ -503,13 +532,15 @@ export default function GamePage() {
             <div>
               <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <CheckCircle className="text-white/80" size={18} />
-                <span>{t('game.general.rules')}</span>
+                <span>{t("game.general.rules")}</span>
               </h3>
               <div className="space-y-2">
                 {mode.detailedInfo.rulesKeys.map((ruleKey, index) => (
                   <div key={index} className="flex items-start space-x-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0"></div>
-                    <span className="text-white/70 text-sm leading-relaxed">{t(ruleKey as any)}</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                    <span className="text-white/70 text-sm leading-relaxed">
+                      {t(ruleKey as any)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -518,14 +549,19 @@ export default function GamePage() {
             <div>
               <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <Zap className="text-white/80" size={18} />
-                <span>{t('game.general.proTips')}</span>
+                <span>{t("game.general.proTips")}</span>
               </h3>
               <div className="space-y-2">
                 {mode.detailedInfo.tipsKeys.map((tipKey, index) => (
                   <div key={index} className="flex items-start space-x-2">
-                    <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${mode.id === "reaction" ? "bg-white/60" : "bg-red-400/60"
-                      }`}></div>
-                    <span className="text-white/70 text-sm leading-relaxed">{t(tipKey as any)}</span>
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${
+                        mode.id === "reaction" ? "bg-white/60" : "bg-red-400/60"
+                      }`}
+                    />
+                    <span className="text-white/70 text-sm leading-relaxed">
+                      {t(tipKey as any)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -534,7 +570,7 @@ export default function GamePage() {
             <div>
               <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <Trophy className="text-white/80" size={18} />
-                <span>{t('game.general.scoringSystem')}</span>
+                <span>{t("game.general.scoringSystem")}</span>
               </h3>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                 <p className="text-white/70 text-sm leading-relaxed">
@@ -549,7 +585,7 @@ export default function GamePage() {
                   {t(`game.general.difficulty`)}
                 </div>
                 <div className="text-xs text-white/60 uppercase tracking-wider">
-                  {t('game.general.difficulty')}
+                  {t("game.general.difficulty")}
                 </div>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-center">
@@ -557,35 +593,38 @@ export default function GamePage() {
                   {t(mode.durationKey as any)}
                 </div>
                 <div className="text-xs text-white/60 uppercase tracking-wider">
-                  {t('game.general.duration')}
+                  {t("game.general.duration")}
                 </div>
               </div>
             </div>
 
             <div className="flex space-x-4 pt-4 border-t border-white/10">
               <button
+                className={`
+                  flex-1 py-4 px-6 rounded-xl text-lg font-bold transition-all duration-300
+                  ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
+                  ${
+                    !attemptsStatus.canPlay
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:scale-105 active:scale-95"
+                  }
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+                disabled={isTransitioning || !attemptsStatus.canPlay}
                 onClick={() => {
                   handleCloseInfo();
                   handleModeStart(mode);
                 }}
-                disabled={isTransitioning || !attemptsStatus.canPlay}
-                className={`
-                  flex-1 py-4 px-6 rounded-xl text-lg font-bold transition-all duration-300
-                  ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-                  ${!attemptsStatus.canPlay
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:scale-105 active:scale-95"
-                  }
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
               >
-                {!attemptsStatus.canPlay ? t('game.general.noAttemptsLeft') : t('game.general.startPlaying')}
+                {!attemptsStatus.canPlay
+                  ? t("game.general.noAttemptsLeft")
+                  : t("game.general.startPlaying")}
               </button>
               <button
-                onClick={handleCloseInfo}
                 className="px-6 py-4 rounded-xl text-lg font-bold bg-white/10 text-white/80 border border-white/20 hover:bg-white/15 hover:border-white/40 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
+                onClick={handleCloseInfo}
               >
-                {t('common.close')}
+                {t("common.close")}
               </button>
             </div>
           </div>
@@ -599,7 +638,7 @@ export default function GamePage() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">{t('game.general.checkingAttempts')}</p>
+          <p className="text-white">{t("game.general.checkingAttempts")}</p>
         </div>
       </div>
     );
@@ -607,18 +646,19 @@ export default function GamePage() {
 
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative safe-area-inset ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative safe-area-inset ${
+        isTransitioning
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : "opacity-100 transition-opacity duration-1000 ease-out"
+      }`}
     >
       <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center max-w-6xl px-6 w-full">
         <div className="relative space-y-4">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold tracking-widest text-white animate-fade-in">
-            {t('game.modes.title')}
+            {t("game.modes.title")}
           </h1>
           <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-            {t('game.modes.subtitle')}
+            {t("game.modes.subtitle")}
           </p>
         </div>
 
@@ -641,30 +681,26 @@ export default function GamePage() {
               <div className="flex items-center justify-center space-x-2 mb-2">
                 <AlertTriangle className="text-red-400" size={18} />
                 <span className="text-sm font-bold text-red-300">
-                  {t('game.general.attemptsUsed')}
+                  {t("game.general.attemptsUsed")}
                 </span>
               </div>
               <p className="text-red-400/80 text-xs">
-                {t('game.general.waitForReset')}
+                {t("game.general.waitForReset")}
               </p>
               {timeUntilReset && (
                 <p className="text-green-400 text-sm font-bold mt-2">
-                  {t('game.general.resetIn')}: {timeUntilReset}
+                  {t("game.general.resetIn")}: {timeUntilReset}
                 </p>
               )}
             </div>
           </div>
         )}
 
-
-
         <div className="text-center space-y-2 animate-fade-in">
           <p className="text-white/40 text-xs">
-            • {t('game.general.automaticReset')} •
+            • {t("game.general.automaticReset")} •
           </p>
-          <p className="text-white/30 text-xs">
-            {t('game.general.useWisely')}
-          </p>
+          <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
         </div>
       </div>
 

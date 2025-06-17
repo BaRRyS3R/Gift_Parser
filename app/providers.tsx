@@ -29,9 +29,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <NextUIProvider>
       <SettingsProvider>
         <UserProvider>
-          <LocalizationProvider>
-            {children}
-          </LocalizationProvider>
+          <LocalizationProvider>{children}</LocalizationProvider>
         </UserProvider>
       </SettingsProvider>
     </NextUIProvider>

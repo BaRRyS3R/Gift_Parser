@@ -2,8 +2,9 @@
 
 "use client";
 
-import { Circle } from "@/types/game-modes/common";
 import { useRef, useState, useEffect } from "react";
+
+import { Circle } from "@/types/game-modes/common";
 
 interface GameGridProps {
   circles: Circle[];
@@ -27,6 +28,7 @@ const getGridDimensions = (circleCount: number) => {
       // Fallback calculation for any other counts
       const cols = Math.ceil(Math.sqrt(circleCount));
       const rows = Math.ceil(circleCount / cols);
+
       return { cols, rows };
   }
 };
@@ -60,7 +62,10 @@ export default function GameGrid({
       const maxCircleHeightByRows = (availableHeight - (rows - 1) * 8) / rows;
 
       // Use the smaller dimension to ensure circles fit in both directions
-      const calculatedSize = Math.min(maxCircleWidthByColumns, maxCircleHeightByRows);
+      const calculatedSize = Math.min(
+        maxCircleWidthByColumns,
+        maxCircleHeightByRows,
+      );
 
       // Apply size constraints based on device type and circle count
       let finalSize: number;
@@ -95,16 +100,16 @@ export default function GameGrid({
 
     // Calculate on mount and window resize
     calculateAdaptiveSizes();
-    window.addEventListener('resize', calculateAdaptiveSizes);
+    window.addEventListener("resize", calculateAdaptiveSizes);
 
     // Handle orientation changes on mobile devices
-    window.addEventListener('orientationchange', () => {
+    window.addEventListener("orientationchange", () => {
       setTimeout(calculateAdaptiveSizes, 100);
     });
 
     return () => {
-      window.removeEventListener('resize', calculateAdaptiveSizes);
-      window.removeEventListener('orientationchange', calculateAdaptiveSizes);
+      window.removeEventListener("resize", calculateAdaptiveSizes);
+      window.removeEventListener("orientationchange", calculateAdaptiveSizes);
     };
   }, [circles.length, cols, rows]);
 
@@ -116,7 +121,8 @@ export default function GameGrid({
       minHeight: `${circleSize}px`,
     };
 
-    const baseClasses = "rounded-full border-2 transition-all duration-300 ease-out relative";
+    const baseClasses =
+      "rounded-full border-2 transition-all duration-300 ease-out relative";
 
     // State-based styling for visibility and animation
     const visibilityClasses = showCircles
@@ -135,7 +141,7 @@ export default function GameGrid({
           className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
                       bg-red-500 border-red-400 shadow-lg shadow-red-500/50 scale-110
                       hover:scale-115 active:scale-95`,
-          style: baseStyles
+          style: baseStyles,
         };
       } else {
         // Regular active circles: white coloring with positive indicators
@@ -143,7 +149,7 @@ export default function GameGrid({
           className: `${baseClasses} ${visibilityClasses} ${animationClasses}
                       bg-white shadow-lg shadow-white/50 border-white scale-110
                       hover:scale-115 active:scale-95`,
-          style: baseStyles
+          style: baseStyles,
         };
       }
     } else {
@@ -152,7 +158,7 @@ export default function GameGrid({
         className: `${baseClasses} ${visibilityClasses} ${animationClasses}
                     bg-transparent border-white/60 hover:border-white hover:scale-105
                     active:scale-95 hover:shadow-md hover:shadow-white/30`,
-        style: baseStyles
+        style: baseStyles,
       };
     }
   };
@@ -165,6 +171,7 @@ export default function GameGrid({
     event.stopPropagation();
 
     const currentTime = Date.now();
+
     touchStartTimeRef.current.set(circleId, currentTime);
 
     if (!processedTouchesRef.current.has(circleId)) {
@@ -203,12 +210,14 @@ export default function GameGrid({
       disabled: !isGameActive,
       style: {
         transitionDelay: showCircles ? `${circle.id * 12}ms` : "0ms",
-        transition: circle.isActive && !circle.isAnimating
-          ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
-          : "all 0.3s ease-out",
-        touchAction: 'manipulation',
+        transition:
+          circle.isActive && !circle.isAnimating
+            ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
+            : "all 0.3s ease-out",
+        touchAction: "manipulation",
       },
-      onTouchStart: (event: React.TouchEvent) => handleTouchStart(circle.id, event),
+      onTouchStart: (event: React.TouchEvent) =>
+        handleTouchStart(circle.id, event),
       onTouchEnd: (event: React.TouchEvent) => handleTouchEnd(circle.id, event),
       onClick: (event: React.MouseEvent) => handleClick(circle.id, event),
       onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
@@ -233,8 +242,8 @@ export default function GameGrid({
 
   const getContainerMaxDimensions = () => {
     // Calculate container dimensions based on circle count and adaptive sizing
-    const containerWidth = (circleSize * cols) + (gapSize * (cols - 1)) + 32; // 32px padding
-    const containerHeight = (circleSize * rows) + (gapSize * (rows - 1)) + 32;
+    const containerWidth = circleSize * cols + gapSize * (cols - 1) + 32; // 32px padding
+    const containerHeight = circleSize * rows + gapSize * (rows - 1) + 32;
 
     return {
       maxWidth: `min(95vw, ${containerWidth}px)`,
@@ -252,9 +261,9 @@ export default function GameGrid({
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
           gap: `${gapSize}px`,
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-          WebkitTouchCallout: 'none',
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
           maxWidth,
           maxHeight,
         }}
@@ -265,22 +274,22 @@ export default function GameGrid({
           return (
             <button
               key={circle.id}
+              aria-label={`Game circle ${circle.id + 1}${circle.isActive ? (circle.isDecoy ? " - trap target" : " - active target") : ""}`}
               className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
+              disabled={getInteractionProps(circle).disabled}
               style={{
                 ...circleStyleConfig.style,
                 ...getInteractionProps(circle).style,
               }}
-              disabled={getInteractionProps(circle).disabled}
-              onTouchStart={getInteractionProps(circle).onTouchStart}
-              onTouchEnd={getInteractionProps(circle).onTouchEnd}
+              type="button"
               onClick={getInteractionProps(circle).onClick}
               onContextMenu={getInteractionProps(circle).onContextMenu}
-              type="button"
-              aria-label={`Game circle ${circle.id + 1}${circle.isActive ? (circle.isDecoy ? ' - trap target' : ' - active target') : ''}`}
+              onTouchEnd={getInteractionProps(circle).onTouchEnd}
+              onTouchStart={getInteractionProps(circle).onTouchStart}
             >
               {renderPulseEffect(circle)}
               {/* Debug info for development */}
-              {process.env.NODE_ENV === 'development' && circle.isActive && (
+              {process.env.NODE_ENV === "development" && circle.isActive && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
                   {circle.id}
                 </div>

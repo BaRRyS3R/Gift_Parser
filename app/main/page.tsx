@@ -33,8 +33,10 @@ export default function MainPage() {
    * NEW: dynamic offset to avoid Telegram system UI
    * -------------------------------------------------*/
   const DEFAULT_TG_HEADER = 60; // px, sensible fallback
-  const EXTRA_OFFSET = 40;      // px, visual breathing room
-  const [headerOffset, setHeaderOffset] = useState<number>(DEFAULT_TG_HEADER + EXTRA_OFFSET);
+  const EXTRA_OFFSET = 40; // px, visual breathing room
+  const [headerOffset, setHeaderOffset] = useState<number>(
+    DEFAULT_TG_HEADER + EXTRA_OFFSET,
+  );
 
   useEffect(() => {
     /**
@@ -43,6 +45,7 @@ export default function MainPage() {
      * Safely read it on the client and set our offset.
      */
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
+
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
@@ -75,6 +78,7 @@ export default function MainPage() {
    * -------------------------------------------------*/
   useEffect(() => {
     const video = videoRef.current;
+
     if (!video || !settings.showBackgroundVideo) return;
 
     const handleLoadedMetadata = () => {
@@ -175,12 +179,13 @@ export default function MainPage() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : pageLoaded
             ? "opacity-100 transition-opacity duration-1000 ease-out"
             : "opacity-0"
-        }`}
+      }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -217,17 +222,20 @@ export default function MainPage() {
 
       {/* Top Navigation Icons */}
       <div
+        className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${
+          showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-8"
+        }`}
         style={{ top: headerOffset }}
-        className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-8"
-          }`}
       >
         <div className="flex items-center justify-between">
           {/* Settings Button - Left */}
           <button
-            onClick={handleOpenSettings}
-            disabled={isTransitioning}
-            className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label={t("common.settings")}
+            className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isTransitioning}
+            onClick={handleOpenSettings}
           >
             <div className="flex items-center justify-center">
               <SettingsIcon
@@ -242,10 +250,10 @@ export default function MainPage() {
 
           {/* Shop Button - Right */}
           <button
-            onClick={handleOpenShop}
-            disabled={isTransitioning}
-            className="group relative w-12 h-12 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label={t("nav.shop")}
+            className="group relative w-12 h-12 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isTransitioning}
+            onClick={handleOpenShop}
           >
             <div className="flex items-center justify-center">
               <ShoppingCart
@@ -274,8 +282,9 @@ export default function MainPage() {
 
         {/* Action Button */}
         <div
-          className={`transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-            }`}
+          className={`transition-all duration-1000 transform ${
+            showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
         >
           <div className="relative group">
             {/* Button Glow Effect */}
@@ -302,8 +311,11 @@ export default function MainPage() {
 
         {/* User Greeting */}
         <div
-          className={`transition-all duration-1000 transform ${showGreeting ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-            }`}
+          className={`transition-all duration-1000 transform ${
+            showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
