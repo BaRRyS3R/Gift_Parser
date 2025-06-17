@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with referral system and unlimited attempts display
+// src/app/profile/page.tsx - Enhanced with localization
 
 "use client";
 
@@ -28,6 +28,7 @@ import { useUser } from "@/hooks/useUser";
 import { userService, type GameResultDB, type ReferralInfo } from "@/lib/supabase";
 import { GameMode } from "@/types/game-modes/common";
 import { formatSurvivalTime } from "@/game-modes/survival/SurvivalGameLogic";
+import { useT } from "@/contexts/LocalizationContext";
 
 interface UserRankings {
     overall: number | null;
@@ -37,6 +38,7 @@ interface UserRankings {
 
 export default function ProfilePage() {
     const { user, telegramUser, isLoading: userLoading } = useUser();
+    const t = useT();
     const [gameHistory, setGameHistory] = useState<GameResultDB[]>([]);
     const [rankings, setRankings] = useState<UserRankings>({
         overall: null,
@@ -101,7 +103,7 @@ export default function ProfilePage() {
         if (!referralInfo) return;
 
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-            const shareText = `🎮 Join me in this amazing reaction game! Use my referral link to get ${referralInfo.referralBonus} extra attempt${referralInfo.referralBonus > 1 ? 's' : ''}: ${referralInfo.referralLink}`;
+            const shareText = `🎮 ${t('profile.referrals.shareWithFriends')}: ${referralInfo.referralLink}`;
 
             // Try to use Telegram's share functionality
             if (window.Telegram.WebApp.openTelegramLink) {
@@ -134,22 +136,22 @@ export default function ProfilePage() {
         if (user.total_games >= 10)
             achievements.push({
                 icon: Target,
-                name: "ACTIVE PLAYER",
-                desc: "10+ GAMES PLAYED",
+                name: t('profile.achievements.activePlayer'),
+                desc: t('profile.achievements.descriptions.gamesPlayed', { count: 10 }),
                 color: "text-blue-400",
             });
         if (user.total_games >= 50)
             achievements.push({
                 icon: Medal,
-                name: "DEDICATED GAMER",
-                desc: "50+ GAMES PLAYED",
+                name: t('profile.achievements.dedicatedGamer'),
+                desc: t('profile.achievements.descriptions.gamesPlayed', { count: 50 }),
                 color: "text-purple-400",
             });
         if (user.total_games >= 100)
             achievements.push({
                 icon: Award,
-                name: "GAME MASTER",
-                desc: "100+ GAMES PLAYED",
+                name: t('profile.achievements.gameMaster'),
+                desc: t('profile.achievements.descriptions.gamesPlayed', { count: 100 }),
                 color: "text-yellow-400",
             });
 
@@ -157,22 +159,22 @@ export default function ProfilePage() {
         if (user.referral_count >= 1)
             achievements.push({
                 icon: Users,
-                name: "RECRUITER",
-                desc: "INVITED 1+ FRIEND",
+                name: t('profile.achievements.recruiter'),
+                desc: t('profile.achievements.descriptions.invitedFriend', { count: 1 }),
                 color: "text-green-400",
             });
         if (user.referral_count >= 5)
             achievements.push({
                 icon: Share2,
-                name: "INFLUENCER",
-                desc: "INVITED 5+ FRIENDS",
+                name: t('profile.achievements.influencer'),
+                desc: t('profile.achievements.descriptions.invitedFriends', { count: 5 }),
                 color: "text-green-400",
             });
         if (user.referral_count >= 10)
             achievements.push({
                 icon: Gift,
-                name: "AMBASSADOR",
-                desc: "INVITED 10+ FRIENDS",
+                name: t('profile.achievements.ambassador'),
+                desc: t('profile.achievements.descriptions.invitedFriends', { count: 10 }),
                 color: "text-green-400",
             });
 
@@ -180,36 +182,36 @@ export default function ProfilePage() {
         if (user.reaction_games >= 1)
             achievements.push({
                 icon: Zap,
-                name: "SPEED TESTER",
-                desc: "TESTED REACTION SPEED",
+                name: t('profile.achievements.speedTester'),
+                desc: t('profile.achievements.descriptions.testedReaction'),
                 color: "text-white",
             });
         if (user.reaction_games >= 10)
             achievements.push({
                 icon: Zap,
-                name: "QUICK REFLEXES",
-                desc: "10+ REACTION TESTS",
+                name: t('profile.achievements.quickReflexes'),
+                desc: t('profile.achievements.descriptions.reactionTests', { count: 10 }),
                 color: "text-white",
             });
         if ((user.reaction_best_time || 0) <= 200)
             achievements.push({
                 icon: Zap,
-                name: "LIGHTNING FAST",
-                desc: "SUB-200MS REACTION",
+                name: t('profile.achievements.lightningFast'),
+                desc: t('profile.achievements.descriptions.subReaction', { time: 200 }),
                 color: "text-white",
             });
         if ((user.reaction_best_time || 0) <= 150)
             achievements.push({
                 icon: Zap,
-                name: "SUPERHUMAN SPEED",
-                desc: "SUB-150MS REACTION",
+                name: t('profile.achievements.superhumanSpeed'),
+                desc: t('profile.achievements.descriptions.subReaction', { time: 150 }),
                 color: "text-white",
             });
         if (rankings.reaction && rankings.reaction <= 10)
             achievements.push({
                 icon: Trophy,
-                name: "SPEED DEMON",
-                desc: "TOP 10 REACTION TIME",
+                name: t('profile.achievements.speedDemon'),
+                desc: t('profile.achievements.descriptions.topReaction'),
                 color: "text-white",
             });
 
@@ -217,57 +219,57 @@ export default function ProfilePage() {
         if (user.survival_games >= 1)
             achievements.push({
                 icon: Crosshair,
-                name: "SURVIVOR",
-                desc: "ENTERED SURVIVAL MODE",
+                name: t('profile.achievements.survivor'),
+                desc: t('profile.achievements.descriptions.enteredSurvival'),
                 color: "text-red-400",
             });
         if (user.survival_games >= 10)
             achievements.push({
                 icon: Crosshair,
-                name: "PERSISTENT SURVIVOR",
-                desc: "10+ SURVIVAL ATTEMPTS",
+                name: t('profile.achievements.persistentSurvivor'),
+                desc: t('profile.achievements.descriptions.survivalAttempts', { count: 10 }),
                 color: "text-red-400",
             });
         if ((user.survival_best_time || 0) >= 30000)
             achievements.push({
                 icon: Clock,
-                name: "ENDURANCE MASTER",
-                desc: "30+ SECONDS SURVIVAL",
+                name: t('profile.achievements.enduranceMaster'),
+                desc: t('profile.achievements.descriptions.secondsSurvival', { time: 30 }),
                 color: "text-red-400",
             });
         if ((user.survival_best_time || 0) >= 60000)
             achievements.push({
                 icon: Clock,
-                name: "SURVIVAL LEGEND",
-                desc: "1+ MINUTE SURVIVAL",
+                name: t('profile.achievements.survivalLegend'),
+                desc: t('profile.achievements.descriptions.minuteSurvival', { time: 1 }),
                 color: "text-red-400",
             });
         if ((user.survival_max_level || 0) >= 5)
             achievements.push({
                 icon: TrendingUp,
-                name: "LEVEL CLIMBER",
-                desc: "REACHED LEVEL 5+",
+                name: t('profile.achievements.levelClimber'),
+                desc: t('profile.achievements.descriptions.reachedLevel', { level: 5 }),
                 color: "text-red-400",
             });
         if ((user.survival_max_level || 0) >= 10)
             achievements.push({
                 icon: TrendingUp,
-                name: "ELITE SURVIVOR",
-                desc: "REACHED LEVEL 10+",
+                name: t('profile.achievements.eliteSurvivor'),
+                desc: t('profile.achievements.descriptions.reachedLevel', { level: 10 }),
                 color: "text-red-400",
             });
         if ((user.survival_best_streak || 0) >= 50)
             achievements.push({
                 icon: Target,
-                name: "STREAK MASTER",
-                desc: "50+ PERFECT HITS",
+                name: t('profile.achievements.streakMaster'),
+                desc: t('profile.achievements.descriptions.perfectHits', { count: 50 }),
                 color: "text-red-400",
             });
         if (rankings.survival && rankings.survival <= 5)
             achievements.push({
                 icon: Trophy,
-                name: "SURVIVAL ELITE",
-                desc: "TOP 5 SURVIVOR",
+                name: t('profile.achievements.survivalElite'),
+                desc: t('profile.achievements.descriptions.topSurvivor', { rank: 5 }),
                 color: "text-red-400",
             });
 
@@ -275,8 +277,8 @@ export default function ProfilePage() {
         if (rankings.overall && rankings.overall <= 10)
             achievements.push({
                 icon: Trophy,
-                name: "TOP PLAYER",
-                desc: "TOP 10 OVERALL",
+                name: t('profile.achievements.topPlayer'),
+                desc: t('profile.achievements.descriptions.topOverall', { rank: 10 }),
                 color: "text-yellow-400",
             });
 
@@ -292,15 +294,15 @@ export default function ProfilePage() {
         const adjustedTotal = totalGames + survivalGames * 2 + reactionGames * 1.5;
 
         if (adjustedTotal >= 100)
-            return { level: "LEGEND", color: "text-yellow-400" };
+            return { level: t('profile.levels.legend'), color: "text-yellow-400" };
         if (adjustedTotal >= 50)
-            return { level: "EXPERT", color: "text-purple-400" };
+            return { level: t('profile.levels.expert'), color: "text-purple-400" };
         if (adjustedTotal >= 20)
-            return { level: "SKILLED", color: "text-blue-400" };
+            return { level: t('profile.levels.skilled'), color: "text-blue-400" };
         if (adjustedTotal >= 10)
-            return { level: "ACTIVE", color: "text-green-400" };
+            return { level: t('profile.levels.active'), color: "text-green-400" };
 
-        return { level: "ROOKIE", color: "text-white" };
+        return { level: t('profile.levels.rookie'), color: "text-white" };
     };
 
     const getGameModeIcon = (mode: string) => {
@@ -328,9 +330,9 @@ export default function ProfilePage() {
     const getGameModeName = (mode: string) => {
         switch (mode) {
             case GameMode.REACTION:
-                return "REACTION";
+                return t('game.modes.reaction.name');
             case GameMode.SURVIVAL:
-                return "SURVIVAL";
+                return t('game.modes.survival.name');
             default:
                 return "UNKNOWN";
         }
@@ -341,7 +343,7 @@ export default function ProfilePage() {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-                    <p className="text-white font-bpdots">LOADING PROFILE...</p>
+                    <p className="text-white">{t('profile.loadingProfile')}</p>
                 </div>
             </div>
         );
@@ -352,7 +354,7 @@ export default function ProfilePage() {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <User className="text-white/60 mx-auto" size={32} />
-                    <p className="text-white font-bpdots">PROFILE NOT FOUND</p>
+                    <p className="text-white">{t('profile.notFound')}</p>
                 </div>
             </div>
         );
@@ -371,29 +373,29 @@ export default function ProfilePage() {
                                 <User className="text-white" size={20} />
                             </div>
                             <div
-                                className={`absolute -bottom-1 -right-1 px-1 py-0.5 rounded text-xs font-bpdots font-bold ${profileLevel.color} bg-black/60`}
+                                className={`absolute -bottom-1 -right-1 px-1 py-0.5 rounded text-xs font-bold ${profileLevel.color} bg-black/60`}
                             >
                                 {profileLevel.level}
                             </div>
                         </div>
                         <div className="flex-1">
-                            <h1 className="text-lg font-bold font-bpdots text-white">
+                            <h1 className="text-lg font-bold text-white">
                                 {user.first_name} {user.last_name || ""}
                             </h1>
                             {user.username && (
-                                <p className="text-white/60 font-bpdots text-xs">
+                                <p className="text-white/60 text-xs">
                                     @{user.username}
                                 </p>
                             )}
                             <div className="flex items-center space-x-2 mt-1">
                                 {user.is_premium && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-white/20 text-white text-xs font-bpdots">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-white/20 text-white text-xs">
                                         <Star className="mr-1" size={10} />
                                         PREMIUM
                                     </span>
                                 )}
                                 {rankings.overall && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-white/20 text-white text-xs font-bpdots">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-white/20 text-white text-xs">
                                         #{rankings.overall}
                                     </span>
                                 )}
@@ -404,35 +406,35 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-4 gap-3">
                         <div className="text-center p-2 bg-white/10 rounded-lg">
                             <Activity className="text-white/60 mx-auto mb-1" size={12} />
-                            <div className="text-lg font-bold font-bpdots text-white">
+                            <div className="text-lg font-bold text-white">
                                 {user.total_games}
                             </div>
-                            <div className="text-xs font-bpdots text-white/60">TOTAL</div>
+                            <div className="text-xs text-white/60">{t('common.total')}</div>
                         </div>
                         <div className="text-center p-2 bg-white/10 rounded-lg border border-white/30">
                             <Zap className="text-white mx-auto mb-1" size={12} />
-                            <div className="text-lg font-bold font-bpdots text-white">
+                            <div className="text-lg font-bold text-white">
                                 {user.reaction_games || 0}
                             </div>
-                            <div className="text-xs font-bpdots text-white/60">
-                                REACTION
+                            <div className="text-xs text-white/60">
+                                {t('game.modes.reaction.name')}
                             </div>
                         </div>
                         <div className="text-center p-2 bg-red-500/20 rounded-lg border border-red-400/30">
                             <Crosshair className="text-red-400 mx-auto mb-1" size={12} />
-                            <div className="text-lg font-bold font-bpdots text-red-400">
+                            <div className="text-lg font-bold text-red-400">
                                 {user.survival_games || 0}
                             </div>
-                            <div className="text-xs font-bpdots text-red-300/60">
-                                SURVIVAL
+                            <div className="text-xs text-red-300/60">
+                                {t('game.modes.survival.name')}
                             </div>
                         </div>
                         <div className="text-center p-2 bg-white/10 rounded-lg">
                             <Trophy className="text-white/60 mx-auto mb-1" size={12} />
-                            <div className="text-lg font-bold font-bpdots text-white">
+                            <div className="text-lg font-bold text-white">
                                 {user.best_score}
                             </div>
-                            <div className="text-xs font-bpdots text-white/60">BEST</div>
+                            <div className="text-xs text-white/60">{t('common.best')}</div>
                         </div>
                     </div>
                 </div>
@@ -446,7 +448,7 @@ export default function ProfilePage() {
                             <button
                                 key={tab}
                                 className={`
-                                    flex-1 py-2 px-3 rounded-lg font-bpdots text-sm font-bold transition-all duration-300
+                                    flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all duration-300
                                     ${activeTab === tab
                                         ? "bg-white/20 text-white"
                                         : "text-white/60 hover:text-white/80"
@@ -454,7 +456,7 @@ export default function ProfilePage() {
                                 `}
                                 onClick={() => setActiveTab(tab)}
                             >
-                                {tab.toUpperCase()}
+                                {t(`profile.tabs.${tab}`)}
                             </button>
                         ))}
                     </div>
@@ -469,16 +471,16 @@ export default function ProfilePage() {
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Zap className="text-yellow-400" size={16} />
-                                <h3 className="text-sm font-bpdots text-white font-bold">
-                                    CURRENT ATTEMPTS
+                                <h3 className="text-sm text-white font-bold">
+                                    {t('profile.stats.currentAttempts')}
                                 </h3>
                             </div>
                             <div className="text-center">
-                                <div className="text-3xl font-bold font-bpdots text-yellow-400 mb-2">
+                                <div className="text-3xl font-bold text-yellow-400 mb-2">
                                     {user.attempts_remaining}
                                 </div>
-                                <div className="text-xs font-bpdots text-white/60">
-                                    ATTEMPTS REMAINING
+                                <div className="text-xs text-white/60">
+                                    {t('attempts.remaining')}
                                 </div>
                             </div>
                         </div>
@@ -487,30 +489,30 @@ export default function ProfilePage() {
                         <div className="bg-white/10 backdrop-blur-xl border border-white/30 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Zap className="text-white" size={16} />
-                                <h3 className="text-sm font-bpdots text-white font-bold">
-                                    REACTION MODE STATS
+                                <h3 className="text-sm text-white font-bold">
+                                    {t('profile.stats.reactionModeStats')}
                                 </h3>
                             </div>
 
                             {(user.reaction_games || 0) === 0 ? (
                                 <div className="text-center py-4">
                                     <Zap className="text-white/60 mx-auto mb-2" size={24} />
-                                    <p className="text-white/60 font-bpdots text-sm">
-                                        NO REACTION TESTS YET
+                                    <p className="text-white/60 text-sm">
+                                        {t('profile.stats.noReactionTests')}
                                     </p>
-                                    <p className="text-white/40 font-bpdots text-xs mt-1">
-                                        TEST YOUR LIGHTNING REFLEXES!
+                                    <p className="text-white/40 text-xs mt-1">
+                                        {t('profile.stats.testReflexes')}
                                     </p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="text-center p-3 bg-white/20 rounded-lg border border-white/30">
                                         <Clock className="text-white mx-auto mb-1" size={16} />
-                                        <div className="text-lg font-bold font-bpdots text-white">
+                                        <div className="text-lg font-bold text-white">
                                             {user.reaction_best_time || 0}ms
                                         </div>
-                                        <div className="text-xs font-bpdots text-white/60">
-                                            BEST TIME
+                                        <div className="text-xs text-white/60">
+                                            {t('profile.stats.bestTime')}
                                         </div>
                                     </div>
                                     <div className="text-center p-3 bg-white/20 rounded-lg border border-white/30">
@@ -518,11 +520,11 @@ export default function ProfilePage() {
                                             className="text-white mx-auto mb-1"
                                             size={16}
                                         />
-                                        <div className="text-lg font-bold font-bpdots text-white">
+                                        <div className="text-lg font-bold text-white">
                                             {user.reaction_best_score || 0}
                                         </div>
-                                        <div className="text-xs font-bpdots text-white/60">
-                                            BEST SCORE
+                                        <div className="text-xs text-white/60">
+                                            {t('profile.stats.bestScore')}
                                         </div>
                                     </div>
                                     <div className="text-center p-3 bg-white/20 rounded-lg border border-white/30">
@@ -530,11 +532,11 @@ export default function ProfilePage() {
                                             className="text-white mx-auto mb-1"
                                             size={16}
                                         />
-                                        <div className="text-lg font-bold font-bpdots text-white">
+                                        <div className="text-lg font-bold text-white">
                                             {user.reaction_average_time || 0}ms
                                         </div>
-                                        <div className="text-xs font-bpdots text-white/60">
-                                            AVERAGE TIME
+                                        <div className="text-xs text-white/60">
+                                            {t('profile.stats.averageTime')}
                                         </div>
                                     </div>
                                     <div className="text-center p-3 bg-white/20 rounded-lg border border-white/30">
@@ -542,11 +544,11 @@ export default function ProfilePage() {
                                             className="text-white mx-auto mb-1"
                                             size={16}
                                         />
-                                        <div className="text-lg font-bold font-bpdots text-white">
+                                        <div className="text-lg font-bold text-white">
                                             #{rankings.reaction || "N/A"}
                                         </div>
-                                        <div className="text-xs font-bpdots text-white/60">
-                                            RANKING
+                                        <div className="text-xs text-white/60">
+                                            {t('profile.stats.ranking')}
                                         </div>
                                     </div>
                                 </div>
@@ -557,8 +559,8 @@ export default function ProfilePage() {
                         <div className="bg-red-500/10 backdrop-blur-xl border border-red-400/30 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Crosshair className="text-red-400" size={16} />
-                                <h3 className="text-sm font-bpdots text-red-300 font-bold">
-                                    SURVIVAL MODE STATS
+                                <h3 className="text-sm text-red-300 font-bold">
+                                    {t('profile.stats.survivalModeStats')}
                                 </h3>
                             </div>
 
@@ -568,22 +570,22 @@ export default function ProfilePage() {
                                         className="text-red-400/60 mx-auto mb-2"
                                         size={24}
                                     />
-                                    <p className="text-red-300/60 font-bpdots text-sm">
-                                        NO SURVIVAL ATTEMPTS YET
+                                    <p className="text-red-300/60 text-sm">
+                                        {t('profile.stats.noSurvivalAttempts')}
                                     </p>
-                                    <p className="text-red-400/40 font-bpdots text-xs mt-1">
-                                        ENTER THE SURVIVAL CHALLENGE!
+                                    <p className="text-red-400/40 text-xs mt-1">
+                                        {t('profile.stats.enterSurvival')}
                                     </p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="text-center p-3 bg-red-500/20 rounded-lg border border-red-400/30">
                                         <Clock className="text-red-300 mx-auto mb-1" size={16} />
-                                        <div className="text-lg font-bold font-bpdots text-red-300">
+                                        <div className="text-lg font-bold text-red-300">
                                             {formatSurvivalTime(user.survival_best_time || 0)}
                                         </div>
-                                        <div className="text-xs font-bpdots text-red-400/60">
-                                            BEST TIME
+                                        <div className="text-xs text-red-400/60">
+                                            {t('profile.stats.bestTime')}
                                         </div>
                                     </div>
                                     <div className="text-center p-3 bg-red-500/20 rounded-lg border border-red-400/30">
@@ -591,29 +593,29 @@ export default function ProfilePage() {
                                             className="text-orange-300 mx-auto mb-1"
                                             size={16}
                                         />
-                                        <div className="text-lg font-bold font-bpdots text-orange-300">
+                                        <div className="text-lg font-bold text-orange-300">
                                             {user.survival_max_level || 0}
                                         </div>
-                                        <div className="text-xs font-bpdots text-red-400/60">
-                                            MAX LEVEL
+                                        <div className="text-xs text-red-400/60">
+                                            {t('profile.stats.maxLevel')}
                                         </div>
                                     </div>
                                     <div className="text-center p-3 bg-red-500/20 rounded-lg border border-red-400/30">
                                         <Target className="text-green-300 mx-auto mb-1" size={16} />
-                                        <div className="text-lg font-bold font-bpdots text-green-300">
+                                        <div className="text-lg font-bold text-green-300">
                                             {user.survival_best_streak || 0}
                                         </div>
-                                        <div className="text-xs font-bpdots text-red-400/60">
-                                            BEST STREAK
+                                        <div className="text-xs text-red-400/60">
+                                            {t('profile.stats.bestStreak')}
                                         </div>
                                     </div>
                                     <div className="text-center p-3 bg-red-500/20 rounded-lg border border-red-400/30">
                                         <Trophy className="text-red-300 mx-auto mb-1" size={16} />
-                                        <div className="text-lg font-bold font-bpdots text-red-300">
+                                        <div className="text-lg font-bold text-red-300">
                                             #{rankings.survival || "N/A"}
                                         </div>
-                                        <div className="text-xs font-bpdots text-red-400/60">
-                                            RANKING
+                                        <div className="text-xs text-red-400/60">
+                                            {t('profile.stats.ranking')}
                                         </div>
                                     </div>
                                 </div>
@@ -627,8 +629,8 @@ export default function ProfilePage() {
                         <div className="bg-green-500/10 backdrop-blur-xl border border-green-400/30 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-4">
                                 <Share2 className="text-green-400" size={16} />
-                                <h3 className="text-sm font-bpdots text-green-300 font-bold">
-                                    REFERRAL SYSTEM
+                                <h3 className="text-sm text-green-300 font-bold">
+                                    {t('profile.referrals.title')}
                                 </h3>
                             </div>
 
@@ -638,28 +640,28 @@ export default function ProfilePage() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="text-center p-3 bg-green-500/20 rounded-lg border border-green-400/30">
                                             <Users className="text-green-300 mx-auto mb-1" size={16} />
-                                            <div className="text-lg font-bold font-bpdots text-green-300">
+                                            <div className="text-lg font-bold text-green-300">
                                                 {referralInfo.referralCount}
                                             </div>
-                                            <div className="text-xs font-bpdots text-green-400/60">
-                                                FRIENDS INVITED
+                                            <div className="text-xs text-green-400/60">
+                                                {t('profile.referrals.friendsInvited')}
                                             </div>
                                         </div>
                                         <div className="text-center p-3 bg-green-500/20 rounded-lg border border-green-400/30">
                                             <Gift className="text-green-300 mx-auto mb-1" size={16} />
-                                            <div className="text-lg font-bold font-bpdots text-green-300">
+                                            <div className="text-lg font-bold text-green-300">
                                                 +{referralInfo.referralBonus}
                                             </div>
-                                            <div className="text-xs font-bpdots text-green-400/60">
-                                                ATTEMPTS BONUS
+                                            <div className="text-xs text-green-400/60">
+                                                {t('profile.referrals.attemptsBonus')}
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Referral Code */}
                                     <div className="space-y-2">
-                                        <div className="text-sm font-bpdots text-green-300 font-bold">
-                                            YOUR REFERRAL CODE
+                                        <div className="text-sm text-green-300 font-bold">
+                                            {t('profile.referrals.yourReferralCode')}
                                         </div>
                                         <div className="bg-black/40 rounded-lg p-3 border border-green-400/30">
                                             <div className="text-center font-mono text-lg font-bold text-green-400 tracking-wider">
@@ -670,8 +672,8 @@ export default function ProfilePage() {
 
                                     {/* Referral Link */}
                                     <div className="space-y-2">
-                                        <div className="text-sm font-bpdots text-green-300 font-bold">
-                                            REFERRAL LINK
+                                        <div className="text-sm text-green-300 font-bold">
+                                            {t('profile.referrals.referralLink')}
                                         </div>
                                         <div className="bg-black/40 rounded-lg p-3 border border-green-400/30">
                                             <div className="text-xs font-mono text-green-400/80 break-all">
@@ -684,56 +686,54 @@ export default function ProfilePage() {
                                     <div className="flex space-x-3">
                                         <button
                                             onClick={handleCopyReferralLink}
-                                            className="flex-1 flex items-center justify-center space-x-2 py-3 px-4 bg-green-500/20 border border-green-400/40 text-green-300 rounded-lg font-bpdots text-sm font-bold hover:bg-green-500/30 transition-all duration-300"
+                                            className="flex-1 flex items-center justify-center space-x-2 py-3 px-4 bg-green-500/20 border border-green-400/40 text-green-300 rounded-lg text-sm font-bold hover:bg-green-500/30 transition-all duration-300"
                                         >
                                             {copySuccess ? (
                                                 <>
                                                     <Check size={16} />
-                                                    <span>COPIED!</span>
+                                                    <span>{t('common.copied')}</span>
                                                 </>
                                             ) : (
                                                 <>
                                                     <Copy size={16} />
-                                                    <span>COPY LINK</span>
+                                                    <span>{t('profile.referrals.copyLink')}</span>
                                                 </>
                                             )}
                                         </button>
                                         <button
                                             onClick={handleShareReferralLink}
-                                            className="flex-1 flex items-center justify-center space-x-2 py-3 px-4 bg-green-500/20 border border-green-400/40 text-green-300 rounded-lg font-bpdots text-sm font-bold hover:bg-green-500/30 transition-all duration-300"
+                                            className="flex-1 flex items-center justify-center space-x-2 py-3 px-4 bg-green-500/20 border border-green-400/40 text-green-300 rounded-lg text-sm font-bold hover:bg-green-500/30 transition-all duration-300"
                                         >
                                             <Share2 size={16} />
-                                            <span>SHARE</span>
+                                            <span>{t('profile.referrals.share')}</span>
                                         </button>
                                     </div>
 
                                     {/* How it works */}
                                     <div className="bg-black/40 rounded-lg p-4 border border-green-400/20">
-                                        <div className="text-sm font-bpdots text-green-300 font-bold mb-2">
-                                            HOW IT WORKS
+                                        <div className="text-sm text-green-300 font-bold mb-2">
+                                            {t('profile.referrals.howItWorks')}
                                         </div>
-                                        <div className="space-y-1 text-xs font-bpdots text-green-400/80">
-                                            <p>• Share your referral link with friends</p>
-                                            <p>• They get +{referralInfo.referralBonus} extra attempt{referralInfo.referralBonus > 1 ? 's' : ''} when joining</p>
-                                            <p>• You get +5 attempts for each friend who joins</p>
-                                            <p>• Help grow the community!</p>
+                                        <div className="space-y-1 text-xs text-green-400/80">
+                                            <p>• {t('profile.referrals.shareWithFriends')}</p>
+                                            <p>• {t('profile.referrals.theyGetExtra', {
+                                                bonus: referralInfo.referralBonus,
+                                                plural: referralInfo.referralBonus > 1 ? 's' : ''
+                                            })}</p>
+                                            <p>• {t('profile.referrals.youGetRecognition')}</p>
+                                            <p>• {t('profile.referrals.helpGrow')}</p>
                                         </div>
                                     </div>
 
-                                    {/* UPDATED Referred by info - отображаем имя пользователя */}
-                                    {referralInfo?.referredBy && (
+                                    {/* Referred by info */}
+                                    {referralInfo.referredBy && (
                                         <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-400/30">
-                                            <div className="text-sm font-bpdots text-blue-300 font-bold mb-1">
-                                                INVITED BY
+                                            <div className="text-sm text-blue-300 font-bold mb-1">
+                                                {t('profile.referrals.referredBy')}
                                             </div>
-                                            <div className="text-blue-400 font-bpdots font-bold">
-                                                {referralInfo.referredByName || "s0meone"}
+                                            <div className="text-blue-400 font-mono font-bold">
+                                                {referralInfo.referredBy}
                                             </div>
-                                            {referralInfo.referredByName !== "s0meone" && (
-                                                <div className="text-blue-400/60 font-mono text-xs mt-1">
-                                                    Code: {referralInfo.referredBy}
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -747,15 +747,15 @@ export default function ProfilePage() {
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Calendar className="text-white/80" size={16} />
-                                <h3 className="text-sm font-bpdots text-white font-bold">
-                                    RECENT GAMES
+                                <h3 className="text-sm text-white font-bold">
+                                    {t('profile.history.title')}
                                 </h3>
                             </div>
                             {gameHistory.length === 0 ? (
                                 <div className="text-center py-6">
                                     <Clock className="text-white/40 mx-auto mb-2" size={24} />
-                                    <p className="text-white/60 font-bpdots text-sm">
-                                        NO GAMES PLAYED YET
+                                    <p className="text-white/60 text-sm">
+                                        {t('profile.history.noGamesYet')}
                                     </p>
                                 </div>
                             ) : (
@@ -780,27 +780,27 @@ export default function ProfilePage() {
                                                     <Icon className={colorClass} size={16} />
                                                     <div>
                                                         <div
-                                                            className={`font-bpdots font-bold text-sm ${colorClass}`}
+                                                            className={`font-bold text-sm ${colorClass}`}
                                                         >
                                                             {getGameModeName(game.game_mode)}
                                                         </div>
-                                                        <div className="text-xs text-white/60 font-bpdots">
+                                                        <div className="text-xs text-white/60">
                                                             {formatDate(game.created_at)}
                                                         </div>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
                                                     <div
-                                                        className={`font-bpdots font-bold text-sm ${colorClass}`}
+                                                        className={`font-bold text-sm ${colorClass}`}
                                                     >
                                                         {game.score}
                                                     </div>
                                                     {isReaction && game.reaction_time ? (
-                                                        <div className="text-xs text-white/60 font-bpdots">
+                                                        <div className="text-xs text-white/60">
                                                             {game.reaction_time}ms
                                                         </div>
                                                     ) : isSurvival && game.survival_time ? (
-                                                        <div className="text-xs text-red-300/60 font-bpdots">
+                                                        <div className="text-xs text-red-300/60">
                                                             {formatSurvivalTime(game.survival_time)}
                                                         </div>
                                                     ) : null}
@@ -819,8 +819,8 @@ export default function ProfilePage() {
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Award className="text-white/80" size={16} />
-                                <h3 className="text-sm font-bpdots text-white font-bold">
-                                    ACHIEVEMENTS
+                                <h3 className="text-sm text-white font-bold">
+                                    {t('profile.achievements.title')}
                                 </h3>
                             </div>
                             <div className="space-y-2">
@@ -859,12 +859,12 @@ export default function ProfilePage() {
                                             </div>
                                             <div className="flex-1">
                                                 <div
-                                                    className={`font-bpdots font-bold text-sm ${achievement.color}`}
+                                                    className={`font-bold text-sm ${achievement.color}`}
                                                 >
                                                     {achievement.name}
                                                 </div>
                                                 <div
-                                                    className={`text-xs font-bpdots ${isReactionAchievement
+                                                    className={`text-xs ${isReactionAchievement
                                                         ? "text-white/60"
                                                         : isSurvivalAchievement
                                                             ? "text-red-400/60"
@@ -896,11 +896,11 @@ export default function ProfilePage() {
                                 {getAchievements().length === 0 && (
                                     <div className="text-center py-6">
                                         <Star className="text-white/40 mx-auto mb-2" size={24} />
-                                        <p className="text-white/60 font-bpdots text-sm">
-                                            NO ACHIEVEMENTS UNLOCKED
+                                        <p className="text-white/60 text-sm">
+                                            {t('profile.achievements.noAchievements')}
                                         </p>
-                                        <p className="text-white/40 font-bpdots text-xs mt-1">
-                                            PLAY GAMES TO UNLOCK ACHIEVEMENTS!
+                                        <p className="text-white/40 text-xs mt-1">
+                                            {t('profile.achievements.playToUnlock')}
                                         </p>
                                     </div>
                                 )}

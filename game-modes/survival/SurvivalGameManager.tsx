@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed with smooth restart without visual bugs
+// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with localization
 
 "use client";
 
@@ -32,6 +32,7 @@ import {
     SurvivalGameResult,
 } from "@/types/game-modes/survival";
 import GameGrid from "@/components/GameGrid";
+import { useT } from "@/contexts/LocalizationContext";
 
 interface SurvivalGameManagerProps {
     onBackToMenu: () => void;
@@ -61,6 +62,7 @@ export default function SurvivalGameManager({
     onBackToMenu,
 }: SurvivalGameManagerProps) {
     const { saveGameResult, telegramUser } = useUser();
+    const t = useT();
     const [gameState, setGameState] = useState<SurvivalGameState>(
         initializeSurvivalGameState(),
     );
@@ -167,10 +169,10 @@ export default function SurvivalGameManager({
                 ...prev,
                 isLoading: false,
                 isSuccess: false,
-                error: error instanceof Error ? error.message : "Failed to save result after 3 attempts",
+                error: error instanceof Error ? error.message : t('errors.saveGameResult'),
             }));
         }
-    }, [saveGameResult]);
+    }, [saveGameResult, t]);
 
     const endGame = useCallback(
         (cause: "miss" | "wrong_click" | "decoy_hit") => {
@@ -345,59 +347,51 @@ export default function SurvivalGameManager({
         };
     }, []);
 
+    const getDeathCauseIcon = (deathCause: string) => {
+        switch (deathCause) {
+            case "miss":
+                return <Clock className="text-red-400" size={20} />;
+            case "wrong_click":
+                return <Target className="text-red-400" size={20} />;
+            case "decoy_hit":
+                return <AlertTriangle className="text-red-400" size={20} />;
+            default:
+                return <Crosshair className="text-red-400" size={20} />;
+        }
+    };
+
+    const getDeathCauseMessage = (deathCause: string) => {
+        const key = `game.modes.survival.deathCauses.${deathCause}` as any;
+        return t(key) || t('game.modes.survival.deathCauses.default');
+    };
+
     if (isConsumingAttempt) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-red-400/20 border-t-red-400 rounded-full animate-spin mx-auto" />
-                    <p className="text-red-300 font-bpdots">INITIALIZING GAME...</p>
+                    <p className="text-red-300">{t('game.general.initializingGame')}</p>
                 </div>
             </div>
         );
     }
 
     if (gameState.gameState === GameState.FINISHED && gameResult) {
-        const getDeathCauseIcon = () => {
-            switch (gameResult.deathCause) {
-                case "miss":
-                    return <Clock className="text-red-400" size={20} />;
-                case "wrong_click":
-                    return <Target className="text-red-400" size={20} />;
-                case "decoy_hit":
-                    return <AlertTriangle className="text-red-400" size={20} />;
-                default:
-                    return <Crosshair className="text-red-400" size={20} />;
-            }
-        };
-
-        const getDeathCauseMessage = () => {
-            switch (gameResult.deathCause) {
-                case "miss":
-                    return "Failed to hit a white target in time";
-                case "wrong_click":
-                    return "Clicked an inactive target";
-                case "decoy_hit":
-                    return "Clicked a red trap circle";
-                default:
-                    return "Survival ended";
-            }
-        };
-
         return (
             <div className="min-h-screen bg-black flex items-center justify-center p-6">
                 <div className="w-full max-w-md space-y-8 animate-fade-in">
                     <div className="text-center space-y-4">
                         <div className="text-6xl mb-4">💀</div>
 
-                        <h1 className="text-4xl font-bold font-bpdots text-red-400">
-                            SURVIVAL END
+                        <h1 className="text-4xl font-bold text-red-400">
+                            {t('game.modes.survival.results.title')}
                         </h1>
 
                         <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-3">
                             <div className="flex items-center justify-center space-x-2">
-                                {getDeathCauseIcon()}
-                                <span className="font-bpdots text-sm text-red-300">
-                                    {getDeathCauseMessage()}
+                                {getDeathCauseIcon(gameResult.deathCause)}
+                                <span className="text-sm text-red-300">
+                                    {getDeathCauseMessage(gameResult.deathCause)}
                                 </span>
                             </div>
                         </div>
@@ -405,47 +399,47 @@ export default function SurvivalGameManager({
 
                     <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6 space-y-6">
                         <div className="text-center space-y-2">
-                            <div className="text-sm font-bpdots text-red-400/60">
-                                SURVIVAL TIME
+                            <div className="text-sm text-red-400/60">
+                                {t('game.modes.survival.results.survivalTime')}
                             </div>
-                            <div className="text-4xl font-bold font-bpdots text-red-400">
+                            <div className="text-4xl font-bold text-red-400">
                                 {formatSurvivalTime(gameResult.survivalTime)}
                             </div>
-                            <div className="text-lg font-bpdots text-red-300">
-                                LEVEL {gameResult.maxLevelReached}
+                            <div className="text-lg text-red-300">
+                                {t('common.level')} {gameResult.maxLevelReached}
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="text-center space-y-1">
-                                <div className="text-xs font-bpdots text-red-400/60">
-                                    FINAL SCORE
+                                <div className="text-xs text-red-400/60">
+                                    {t('game.modes.survival.results.finalScore')}
                                 </div>
-                                <div className="text-xl font-bold font-bpdots text-red-300">
+                                <div className="text-xl font-bold text-red-300">
                                     {gameResult.score}
                                 </div>
                             </div>
                             <div className="text-center space-y-1">
-                                <div className="text-xs font-bpdots text-red-400/60">
-                                    ATTEMPTS LEFT
+                                <div className="text-xs text-red-400/60">
+                                    {t('game.modes.survival.results.attemptsLeft')}
                                 </div>
-                                <div className="text-xl font-bold font-bpdots text-green-400">
+                                <div className="text-xl font-bold text-green-400">
                                     {attemptsRemaining}
                                 </div>
                             </div>
                             <div className="text-center space-y-1">
-                                <div className="text-xs font-bpdots text-red-400/60">
-                                    PERFECT STREAK
+                                <div className="text-xs text-red-400/60">
+                                    {t('game.modes.survival.results.perfectStreak')}
                                 </div>
-                                <div className="text-xl font-bold font-bpdots text-green-400">
+                                <div className="text-xl font-bold text-green-400">
                                     {gameResult.perfectStreak}
                                 </div>
                             </div>
                             <div className="text-center space-y-1">
-                                <div className="text-xs font-bpdots text-red-400/60">
-                                    CORRECT HITS
+                                <div className="text-xs text-red-400/60">
+                                    {t('game.modes.survival.results.correctHits')}
                                 </div>
-                                <div className="text-xl font-bold font-bpdots text-green-400">
+                                <div className="text-xl font-bold text-green-400">
                                     {gameResult.correctHits}
                                 </div>
                             </div>
@@ -453,11 +447,11 @@ export default function SurvivalGameManager({
 
                         <div className="border-t border-red-400/30 pt-4">
                             <div className="text-center space-y-2">
-                                <div className="text-xs font-bpdots text-red-400/60 uppercase">
-                                    Level Progress
+                                <div className="text-xs text-red-400/60 uppercase">
+                                    {t('game.modes.survival.results.levelProgress')}
                                 </div>
-                                <div className="text-xs font-bpdots text-red-400/60">
-                                    {gameResult.maxLevelReached}/15 LEVELS COMPLETED
+                                <div className="text-xs text-red-400/60">
+                                    {gameResult.maxLevelReached}/15 {t('game.modes.survival.results.levelsCompleted')}
                                 </div>
                             </div>
                         </div>
@@ -469,10 +463,10 @@ export default function SurvivalGameManager({
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-center space-x-3">
                                         <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                                        <span className="font-bpdots text-sm text-red-300/80">
+                                        <span className="text-sm text-red-300/80">
                                             {saveStatus.showRetryDetails
-                                                ? `Retrying save (${saveStatus.attempt}/${saveStatus.maxAttempts})...`
-                                                : "Recording survival data..."
+                                                ? t('save.retrying', { attempt: saveStatus.attempt, max: saveStatus.maxAttempts })
+                                                : t('save.recording')
                                             }
                                         </span>
                                     </div>
@@ -481,8 +475,8 @@ export default function SurvivalGameManager({
                                         <div className="text-center">
                                             <div className="flex items-center justify-center space-x-2 mb-2">
                                                 <RotateCcw className="text-red-400/60" size={14} />
-                                                <span className="text-xs font-bpdots text-red-400/60">
-                                                    Connection issue - retrying automatically
+                                                <span className="text-xs text-red-400/60">
+                                                    {t('save.connectionIssue')}
                                                 </span>
                                             </div>
                                             <div className="w-full bg-red-400/20 rounded-full h-1">
@@ -499,14 +493,14 @@ export default function SurvivalGameManager({
                             {saveStatus.isSuccess && !saveStatus.isLoading && (
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
-                                        <span className="font-bpdots text-sm text-green-400">
-                                            ✓ Survival record saved successfully
+                                        <span className="text-sm text-green-400">
+                                            {t('save.recordedSuccessfully')}
                                         </span>
                                     </div>
-                                    <div className="text-green-400/60 font-bpdots text-xs">
+                                    <div className="text-green-400/60 text-xs">
                                         {saveStatus.attempt > 1
-                                            ? `Saved after ${saveStatus.attempt} attempts`
-                                            : "Data synchronized with leaderboard"
+                                            ? t('save.savedAfterRetries', { attempts: saveStatus.attempt })
+                                            : t('save.synchronized')
                                         }
                                     </div>
                                 </div>
@@ -515,18 +509,18 @@ export default function SurvivalGameManager({
                             {saveStatus.error && !saveStatus.isLoading && (
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
-                                        <span className="text-red-400 font-bpdots text-sm">
-                                            ✗ Save failed after {saveStatus.maxAttempts} attempts
+                                        <span className="text-red-400 text-sm">
+                                            {t('shop.saveFailed', { attempts: saveStatus.maxAttempts })}
                                         </span>
                                     </div>
-                                    <div className="text-red-400/60 font-bpdots text-xs mb-3">
-                                        Your survival time was recorded locally but not synchronized
+                                    <div className="text-red-400/60 text-xs mb-3">
+                                        {t('shop.recordedLocally')}
                                     </div>
                                     <button
                                         onClick={() => handleSaveGameResult(gameResult)}
-                                        className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded font-bpdots text-xs hover:bg-red-400/30 transition-colors"
+                                        className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
                                     >
-                                        RETRY SAVE
+                                        {t('shop.retrySave')}
                                     </button>
                                 </div>
                             )}
@@ -535,24 +529,24 @@ export default function SurvivalGameManager({
 
                     <div className="space-y-4">
                         <button
-                            className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl font-bpdots text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={saveStatus.isLoading || attemptsRemaining <= 0 || isRestartLoading}
                             onClick={restartGame}
                         >
                             {isRestartLoading
-                                ? "STARTING..."
+                                ? t('game.modes.survival.results.starting')
                                 : attemptsRemaining > 0
-                                    ? "SURVIVE AGAIN"
-                                    : "NO ATTEMPTS LEFT"
+                                    ? t('game.modes.survival.results.surviveAgain')
+                                    : t('game.general.noAttemptsLeft')
                             }
                         </button>
 
                         <button
-                            className="w-full px-6 py-4 bg-transparent border-2 border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full px-6 py-4 bg-transparent border-2 border-white/40 text-white/80 rounded-xl text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={saveStatus.isLoading || isRestartLoading}
                             onClick={onBackToMenu}
                         >
-                            ESCAPE TO MENU
+                            {t('game.modes.survival.results.escapeToMenu')}
                         </button>
                     </div>
                 </div>
@@ -576,35 +570,35 @@ export default function SurvivalGameManager({
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-2">
                             <Zap className="text-orange-400" size={18} />
-                            <span className="text-lg font-bold font-bpdots text-orange-400">
-                                LVL {gameState.currentLevel}
+                            <span className="text-lg font-bold text-orange-400">
+                                {t('common.level')} {gameState.currentLevel}
                             </span>
                         </div>
 
                         <div className="flex items-center space-x-2">
                             <Clock className="text-white" size={18} />
-                            <span className="text-lg font-bold font-bpdots text-white">
+                            <span className="text-lg font-bold text-white">
                                 {formatSurvivalTime(gameState.stats.survivalTime)}
                             </span>
                         </div>
 
                         <button
-                            className="font-bpdots text-lg font-bold text-red-400/80 hover:text-red-400 transition-colors duration-300 px-3 py-1"
+                            className="text-lg font-bold text-red-400/80 hover:text-red-400 transition-colors duration-300 px-3 py-1"
                             onClick={onBackToMenu}
                         >
-                            QUIT
+                            {t('common.quit')}
                         </button>
                     </div>
 
                     <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs font-bpdots">
+                        <div className="flex items-center justify-between text-xs">
                             <span className="text-red-400/60">
-                                {gameState.currentLevel}/15 LEVELS
+                                {gameState.currentLevel}/15 {t('common.level')}S
                             </span>
                             <div className="flex items-center space-x-2">
                                 <AlertTriangle className="text-red-400" size={12} />
                                 <span className="text-red-300 uppercase tracking-wider">
-                                    ONE MISTAKE = DEATH
+                                    {t('game.modes.survival.instructions.oneMistakeDeath')}
                                 </span>
                             </div>
                         </div>

@@ -1,31 +1,33 @@
-// src/components/Navigation/BottomNav.tsx
+// src/components/Navigation/BottomNav.tsx - Enhanced with localization
 
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
 import { Gamepad2, Trophy, User } from "lucide-react";
-
-const navItems = [
-  {
-    name: "Home",
-    path: "/main",
-    icon: Gamepad2,
-  },
-  {
-    name: "Leaderboard",
-    path: "/leaderboard",
-    icon: Trophy,
-  },
-  {
-    name: "Profile",
-    path: "/profile",
-    icon: User,
-  },
-];
+import { useT } from "@/contexts/LocalizationContext";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useT();
+
+  const navItems = [
+    {
+      name: t('nav.home'),
+      path: "/main",
+      icon: Gamepad2,
+    },
+    {
+      name: t('nav.leaderboard'),
+      path: "/leaderboard",
+      icon: Trophy,
+    },
+    {
+      name: t('nav.profile'),
+      path: "/profile",
+      icon: User,
+    },
+  ];
 
   const isActive = (path: string) => {
     if (path === "/main") {
@@ -62,6 +64,7 @@ export default function BottomNav() {
                   }
                 `}
                 onClick={() => handleNavigation(item.path)}
+                aria-label={item.name}
               >
                 <div
                   className={`

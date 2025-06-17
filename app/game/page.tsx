@@ -167,11 +167,11 @@ const AttemptsDisplay = ({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <Battery className={getBatteryColor()} size={18} />
-          <span className={`font-bpdots text-sm font-bold ${getBatteryColor()}`}>
+          <span className={`text-sm font-bold ${getBatteryColor()}`}>
             ATTEMPTS
           </span>
         </div>
-        <span className={`font-bpdots text-lg font-bold ${getBatteryColor()}`}>
+        <span className={`text-lg font-bold ${getBatteryColor()}`}>
           {attemptsRemaining}
         </span>
       </div>
@@ -204,7 +204,7 @@ const AttemptsDisplay = ({
           </div>
         ) : (
           <div className="text-center mt-1">
-            <span className={`font-bpdots text-xs ${getBatteryColor()}`}>
+            <span className={`text-xs ${getBatteryColor()}`}>
               {attemptsRemaining} TOTAL
             </span>
           </div>
@@ -213,10 +213,10 @@ const AttemptsDisplay = ({
 
       {timeUntilReset && isEmpty && (
         <div className="text-center space-y-1">
-          <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
+          <div className="text-xs text-white/60 uppercase tracking-wider">
             Next reset in
           </div>
-          <div className="text-lg font-bold font-bpdots text-green-400">
+          <div className="text-lg font-bold text-green-400">
             {timeUntilReset}
           </div>
         </div>
@@ -224,17 +224,17 @@ const AttemptsDisplay = ({
 
       <div className="text-center mt-2">
         {isEmpty && (
-          <p className="text-xs font-bpdots text-red-400/80">
+          <p className="text-xs text-red-400/80">
             All attempts used - wait for reset
           </p>
         )}
         {isLow && !isEmpty && (
-          <p className="text-xs font-bpdots text-orange-400/80">
+          <p className="text-xs text-orange-400/80">
             Low attempts - use wisely
           </p>
         )}
         {attemptsRemaining > 5 && (
-          <p className="text-xs font-bpdots text-green-400/80">
+          <p className="text-xs text-green-400/80">
             Plenty of attempts available
           </p>
         )}
@@ -326,7 +326,7 @@ export default function GamePage() {
       <div
         key={mode.id}
         className={`
-          relative w-full max-w-sm mx-auto backdrop-blur-sm border rounded-2xl font-bpdots 
+          relative w-full max-w-sm mx-auto backdrop-blur-sm border rounded-2xl 
           transition-all duration-300 
           ${isDisabled
             ? "opacity-50 cursor-not-allowed"
@@ -394,7 +394,7 @@ export default function GamePage() {
               disabled={isTransitioning || isDisabled}
               className={`
                 flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl 
-                font-bpdots text-sm font-bold transition-all duration-300
+                text-sm font-bold transition-all duration-300
                 ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
                 ${isDisabled
                   ? "opacity-50 cursor-not-allowed"
@@ -419,7 +419,7 @@ export default function GamePage() {
             <button
               onClick={() => handleShowInfo(mode)}
               disabled={isTransitioning}
-              className="px-4 py-3 rounded-xl font-bpdots text-sm font-bold transition-all duration-300 bg-white/5 text-white/70 border border-white/20 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 bg-white/5 text-white/70 border border-white/20 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
               aria-label={`About ${mode.name} game mode`}
             >
@@ -432,7 +432,7 @@ export default function GamePage() {
           <div className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center">
             <div className="text-center space-y-2">
               <Shield className="text-white/60 mx-auto" size={24} />
-              <p className="text-white/80 font-bpdots text-sm font-bold">
+              <p className="text-white/80 text-sm font-bold">
                 NO ATTEMPTS LEFT
               </p>
             </div>
@@ -458,10 +458,10 @@ export default function GamePage() {
                   <Icon size={24} className={mode.color.primary} />
                 </div>
                 <div>
-                  <h2 className={`text-2xl font-bold font-bpdots ${mode.color.primary}`}>
+                  <h2 className={`text-2xl font-bold ${mode.color.primary}`}>
                     {mode.name}
                   </h2>
-                  <p className="text-sm text-white/60 font-bpdots">
+                  <p className="text-sm text-white/60">
                     {mode.description}
                   </p>
                 </div>
@@ -478,7 +478,7 @@ export default function GamePage() {
 
           <div className="p-6 space-y-6">
             <div>
-              <h3 className="text-lg font-bold font-bpdots text-white mb-3 flex items-center space-x-2">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <Target className="text-white/80" size={18} />
                 <span>OBJECTIVE</span>
               </h3>
@@ -488,7 +488,7 @@ export default function GamePage() {
             </div>
 
             <div>
-              <h3 className="text-lg font-bold font-bpdots text-white mb-3 flex items-center space-x-2">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <CheckCircle className="text-white/80" size={18} />
                 <span>RULES</span>
               </h3>
@@ -503,7 +503,7 @@ export default function GamePage() {
             </div>
 
             <div>
-              <h3 className="text-lg font-bold font-bpdots text-white mb-3 flex items-center space-x-2">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <Zap className="text-white/80" size={18} />
                 <span>PRO TIPS</span>
               </h3>
@@ -519,7 +519,7 @@ export default function GamePage() {
             </div>
 
             <div>
-              <h3 className="text-lg font-bold font-bpdots text-white mb-3 flex items-center space-x-2">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <Trophy className="text-white/80" size={18} />
                 <span>SCORING SYSTEM</span>
               </h3>
@@ -532,18 +532,18 @@ export default function GamePage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold font-bpdots text-white mb-1">
+                <div className="text-2xl font-bold text-white mb-1">
                   {mode.difficulty}
                 </div>
-                <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
+                <div className="text-xs text-white/60 uppercase tracking-wider">
                   Difficulty
                 </div>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold font-bpdots text-white mb-1">
+                <div className="text-2xl font-bold text-white mb-1">
                   {mode.duration}
                 </div>
-                <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
+                <div className="text-xs text-white/60 uppercase tracking-wider">
                   Duration
                 </div>
               </div>
@@ -557,7 +557,7 @@ export default function GamePage() {
                 }}
                 disabled={isTransitioning || !attemptsStatus.canPlay}
                 className={`
-                  flex-1 py-4 px-6 rounded-xl font-bpdots text-lg font-bold transition-all duration-300
+                  flex-1 py-4 px-6 rounded-xl text-lg font-bold transition-all duration-300
                   ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
                   ${!attemptsStatus.canPlay
                     ? "opacity-50 cursor-not-allowed"
@@ -570,7 +570,7 @@ export default function GamePage() {
               </button>
               <button
                 onClick={handleCloseInfo}
-                className="px-6 py-4 rounded-xl font-bpdots text-lg font-bold bg-white/10 text-white/80 border border-white/20 hover:bg-white/15 hover:border-white/40 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
+                className="px-6 py-4 rounded-xl text-lg font-bold bg-white/10 text-white/80 border border-white/20 hover:bg-white/15 hover:border-white/40 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
               >
                 CLOSE
               </button>
@@ -586,7 +586,7 @@ export default function GamePage() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white font-bpdots">CHECKING ATTEMPTS...</p>
+          <p className="text-white">CHECKING ATTEMPTS...</p>
         </div>
       </div>
     );
@@ -602,10 +602,10 @@ export default function GamePage() {
       <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center max-w-6xl px-6 w-full">
         {/* Header */}
         <div className="relative space-y-4">
-          <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white animate-fade-in">
+          <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold tracking-widest text-white animate-fade-in">
             MODE
           </h1>
-          <p className="text-white/60 font-bpdots text-sm uppercase tracking-[0.3em] animate-fade-in">
+          <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
             Choose your challenge
           </p>
         </div>
@@ -631,15 +631,15 @@ export default function GamePage() {
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4 text-center">
               <div className="flex items-center justify-center space-x-2 mb-2">
                 <AlertTriangle className="text-red-400" size={18} />
-                <span className="font-bpdots text-sm font-bold text-red-300">
+                <span className="text-sm font-bold text-red-300">
                   ALL ATTEMPTS USED
                 </span>
               </div>
-              <p className="text-red-400/80 font-bpdots text-xs">
+              <p className="text-red-400/80 text-xs">
                 Wait for automatic reset or purchase more attempts
               </p>
               {timeUntilReset && (
-                <p className="text-green-400 font-bpdots text-sm font-bold mt-2">
+                <p className="text-green-400 text-sm font-bold mt-2">
                   Reset in: {timeUntilReset}
                 </p>
               )}
@@ -652,7 +652,7 @@ export default function GamePage() {
           <button
             onClick={handleBackToMenu}
             disabled={isTransitioning}
-            className="group flex items-center space-x-3 px-8 py-4 bg-transparent border border-white/30 text-white/80 rounded-2xl font-bpdots text-lg hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="group flex items-center space-x-3 px-8 py-4 bg-transparent border border-white/30 text-white/80 rounded-2xl text-lg hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             type="button"
             aria-label="Return to main menu"
           >
@@ -663,10 +663,10 @@ export default function GamePage() {
 
         {/* Footer Info */}
         <div className="text-center space-y-2 animate-fade-in">
-          <p className="text-white/40 font-bpdots text-xs">
+          <p className="text-white/40 text-xs">
             • Attempts reset automatically after 2 minutes •
           </p>
-          <p className="text-white/30 font-bpdots text-xs">
+          <p className="text-white/30 text-xs">
             Use your attempts wisely - each game counts!
           </p>
         </div>

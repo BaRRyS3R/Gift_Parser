@@ -185,7 +185,7 @@ export default function MainPage() {
 
             {/* Main Button */}
             <button
-              className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl font-bpdots text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:bg-white/5"
+              className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:bg-white/5"
               disabled={isTransitioning}
               onClick={handleStartGame}
             >
@@ -222,7 +222,7 @@ export default function MainPage() {
               />
             </div>
           ) : (
-            <p className="text-xl font-bpdots text-white/80 tracking-wider">
+            <p className="text-xl text-white/80 tracking-wider">
               {greetingText}
               {greetingText.length < fullGreeting.length && (
                 <span className="animate-pulse">|</span>
@@ -240,7 +240,7 @@ export default function MainPage() {
         <button
           onClick={handleOpenShop}
           disabled={isTransitioning}
-          className="group relative w-16 h-16 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full font-bpdots hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="group relative w-16 h-16 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label={t('nav.shop')}
         >
           <div className="flex items-center justify-center">

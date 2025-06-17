@@ -502,7 +502,7 @@ export default function IntroPage(): JSX.Element {
               style={{ width: `${loadProgress}%` }}
             />
           </div>
-          <p className="text-white mt-4 text-sm font-bpdots">
+          <p className="text-white mt-4 text-sm">
             {authState.isChecking
               ? t('auth.checkingUser')
               : `${t('common.loading')} ${Math.round(loadProgress)}%`}
@@ -515,11 +515,11 @@ export default function IntroPage(): JSX.Element {
       {/* Экран ошибки авторизации */}
       {authState.error && !isInitialLoading && (
         <div className="loader-container">
-          <p className="text-white text-center font-bpdots mb-4">
+          <p className="text-white text-center mb-4">
             {authState.error}
           </p>
           <button
-            className="px-4 py-2 bg-white text-black rounded font-bpdots"
+            className="px-4 py-2 bg-white text-black rounded"
             onClick={() => {
               authInitializedRef.current = false;
               registrationInProgressRef.current = false;
@@ -539,17 +539,17 @@ export default function IntroPage(): JSX.Element {
       {/* Экран ошибки видео */}
       {videoError && !isInitialLoading && !authState.error && (
         <div className="loader-container">
-          <p className="text-white text-center font-bpdots mb-4">
+          <p className="text-white text-center mb-4">
             {videoError}
           </p>
           <button
-            className="px-4 py-2 bg-white text-black rounded font-bpdots mb-4"
+            className="px-4 py-2 bg-white text-black rounded mb-4"
             onClick={handleStart}
           >
             {t('common.retry')}
           </button>
           <button
-            className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg font-bpdots text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
+            className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
             onClick={handleQuickInit}
           >
             {t('auth.continueWithoutVideo')}
@@ -568,9 +568,9 @@ export default function IntroPage(): JSX.Element {
               {authState.isRegistering ? (
                 <div className="text-center">
                   <Spinner color="white" size="lg" />
-                  <p className="text-white mt-4 font-bpdots">{t('auth.registering')}</p>
+                  <p className="text-white mt-4">{t('auth.registering')}</p>
                   {authState.referralCode && (
-                    <p className="text-green-400 mt-2 font-bpdots text-sm">
+                    <p className="text-green-400 mt-2 text-sm">
                       {t('auth.processingReferralBonus')}
                     </p>
                   )}
@@ -580,12 +580,12 @@ export default function IntroPage(): JSX.Element {
                   {/* Header */}
                   <div className="space-y-4">
                     <div className="relative">
-                      <h1 className="text-4xl font-bold font-bpdots text-white tracking-wider">
+                      <h1 className="text-4xl font-bold text-white tracking-wider">
                         {t('main.welcome')}
                       </h1>
                       <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
                     </div>
-                    <p className="text-white/70 font-bpdots text-sm">
+                    <p className="text-white/70 text-sm">
                       {t('main.greeting', { name: authState.telegramUser?.first_name || 'User' })}
                     </p>
 
@@ -594,20 +594,20 @@ export default function IntroPage(): JSX.Element {
                       <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
                         <div className="flex items-center justify-center space-x-2">
                           <Gift className="text-green-400" size={20} />
-                          <span className="font-bpdots text-green-300 font-bold">
+                          <span className="text-green-300 font-bold">
                             {t('auth.referralBonus')}
                           </span>
                         </div>
-                        <p className="text-green-400 font-bpdots text-sm">
+                        <p className="text-green-400 text-sm">
                           {t('auth.youllGet')} <span className="font-bold">+{authState.referralBonus} {authState.referralBonus > 1 ? t('auth.extraAttempts') : t('auth.extraAttempt')}</span>
                         </p>
-                        <p className="text-green-400/60 font-bpdots text-xs">
+                        <p className="text-green-400/60 text-xs">
                           {t('auth.referredBy')} {authState.referralCode}
                         </p>
                       </div>
                     )}
 
-                    <p className="text-white/50 font-bpdots text-xs uppercase tracking-widest">
+                    <p className="text-white/50 text-xs uppercase tracking-widest">
                       {t('main.chooseEntryMethod')}
                     </p>
                   </div>
@@ -617,7 +617,7 @@ export default function IntroPage(): JSX.Element {
                     {/* Main Button - With Intro */}
                     <div className="space-y-3">
                       <button
-                        className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl font-bpdots text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         disabled={authState.isRegistering}
                         style={{ pointerEvents: "auto", zIndex: 100 }}
                         onClick={handleStart}
@@ -641,10 +641,10 @@ export default function IntroPage(): JSX.Element {
                       </button>
 
                       <div className="text-center space-y-1">
-                        <p className="text-white/60 font-bpdots text-sm">
+                        <p className="text-white/60 text-sm">
                           {t('main.fullExperience')}
                         </p>
-                        <p className="text-white/40 font-bpdots text-xs">
+                        <p className="text-white/40 text-xs">
                           {t('main.recommended')}
                         </p>
                       </div>
@@ -656,7 +656,7 @@ export default function IntroPage(): JSX.Element {
                         <div className="w-full border-t border-white/20" />
                       </div>
                       <div className="relative flex justify-center">
-                        <span className="bg-black px-4 text-white/40 font-bpdots text-xs uppercase">
+                        <span className="bg-black px-4 text-white/40 text-xs uppercase">
                           {t('common.or')}
                         </span>
                       </div>
@@ -665,7 +665,7 @@ export default function IntroPage(): JSX.Element {
                     {/* Alternative Button - Quick Mode */}
                     <div className="space-y-3">
                       <button
-                        className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         disabled={authState.isRegistering}
                         style={{ pointerEvents: "auto", zIndex: 100 }}
                         onClick={handleQuickInit}
@@ -686,10 +686,10 @@ export default function IntroPage(): JSX.Element {
                       </button>
 
                       <div className="text-center space-y-1">
-                        <p className="text-white/50 font-bpdots text-sm">
+                        <p className="text-white/50 text-sm">
                           {t('main.skipIntro')}
                         </p>
-                        <p className="text-white/30 font-bpdots text-xs">
+                        <p className="text-white/30 text-xs">
                           {t('main.slowConnections')}
                         </p>
                       </div>

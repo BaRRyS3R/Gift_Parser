@@ -1,4 +1,4 @@
-// src/app/shop/page.tsx - Updated shop page without attempt limits
+// src/app/shop/page.tsx - Enhanced with localization
 
 "use client";
 
@@ -10,6 +10,7 @@ import { useUser } from "@/hooks/useUser";
 import { purchaseService } from "@/lib/purchaseService";
 import { PRODUCTS } from "@/types/purchases";
 import type { CreateInvoiceResponse } from "@/types/purchases";
+import { useT } from "@/contexts/LocalizationContext";
 
 interface PurchaseState {
     isLoading: boolean;
@@ -21,6 +22,7 @@ interface PurchaseState {
 export default function ShopPage() {
     const router = useRouter();
     const { user, refreshUser } = useUser();
+    const t = useT();
     const [purchaseState, setPurchaseState] = useState<PurchaseState>({
         isLoading: false,
         isProcessing: false,
@@ -64,7 +66,7 @@ export default function ShopPage() {
             const invoiceResult: CreateInvoiceResponse = await purchaseService.createInvoice('additional_attempts');
 
             if (!invoiceResult.success || !invoiceResult.invoice_url) {
-                throw new Error(invoiceResult.error || 'Failed to create payment invoice');
+                throw new Error(invoiceResult.error || t('errors.createInvoice'));
             }
 
             console.log('Invoice created, opening payment interface...');
@@ -100,7 +102,7 @@ export default function ShopPage() {
                 setPurchaseState({
                     isLoading: false,
                     isProcessing: false,
-                    error: 'Payment was cancelled or failed. Please try again.',
+                    error: t('errors.paymentCancelled'),
                     success: false
                 });
             }
@@ -111,7 +113,7 @@ export default function ShopPage() {
             setPurchaseState({
                 isLoading: false,
                 isProcessing: false,
-                error: error instanceof Error ? error.message : 'An unexpected error occurred during purchase',
+                error: error instanceof Error ? error.message : t('errors.unknownError'),
                 success: false
             });
         }
@@ -152,21 +154,21 @@ export default function ShopPage() {
                 <div className="flex items-center justify-between mb-4">
                     <button
                         onClick={handleBack}
-                        className="flex items-center space-x-2 px-4 py-2 bg-transparent border border-white/30 text-white/80 rounded-lg font-bpdots hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300"
+                        className="flex items-center space-x-2 px-4 py-2 bg-transparent border border-white/30 text-white/80 rounded-lg hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300"
                     >
                         <ArrowLeft size={16} />
-                        <span>BACK</span>
+                        <span>{t('common.back')}</span>
                     </button>
 
                     <div className="flex items-center space-x-3">
                         <ShoppingCart className="text-white" size={24} />
-                        <h1 className="text-2xl font-bold font-bpdots text-white">SHOP</h1>
+                        <h1 className="text-2xl font-bold text-white">{t('shop.title')}</h1>
                     </div>
                 </div>
 
                 <div className="text-center">
-                    <p className="text-white/60 font-bpdots text-sm uppercase tracking-wider">
-                        Purchase additional game attempts
+                    <p className="text-white/60 text-sm uppercase tracking-wider">
+                        {t('shop.subtitle')}
                     </p>
                 </div>
             </div>
@@ -177,12 +179,12 @@ export default function ShopPage() {
                     <div className="text-center space-y-4">
                         <div className="flex items-center justify-center space-x-3">
                             <Battery className={getBatteryColor()} size={24} />
-                            <span className={`font-bpdots text-lg font-bold ${getBatteryColor()}`}>
-                                CURRENT ATTEMPTS
+                            <span className={`text-lg font-bold ${getBatteryColor()}`}>
+                                {t('shop.currentAttempts')}
                             </span>
                         </div>
 
-                        <div className="text-4xl font-bold font-bpdots text-white">
+                        <div className="text-4xl font-bold text-white">
                             {attemptsRemaining}
                         </div>
 
@@ -214,8 +216,8 @@ export default function ShopPage() {
                                 </div>
                             ) : (
                                 <div className="text-center mt-2">
-                                    <span className={`font-bpdots text-sm ${getBatteryColor()}`}>
-                                        {attemptsRemaining} ATTEMPTS
+                                    <span className={`text-sm ${getBatteryColor()}`}>
+                                        {attemptsRemaining} {t('attempts.total')}
                                     </span>
                                 </div>
                             )}
@@ -223,18 +225,18 @@ export default function ShopPage() {
 
                         <div className="text-center">
                             {isEmpty && (
-                                <p className="text-red-400/80 font-bpdots text-sm">
-                                    No attempts remaining - purchase more to continue playing
+                                <p className="text-red-400/80 text-sm">
+                                    {t('attempts.noRemaining')}
                                 </p>
                             )}
                             {isLow && !isEmpty && (
-                                <p className="text-orange-400/80 font-bpdots text-sm">
-                                    Low attempts remaining - consider purchasing more
+                                <p className="text-orange-400/80 text-sm">
+                                    {t('attempts.lowRemaining')}
                                 </p>
                             )}
                             {attemptsRemaining > 5 && (
-                                <p className="text-green-400/80 font-bpdots text-sm">
-                                    You have plenty of attempts to play
+                                <p className="text-green-400/80 text-sm">
+                                    {t('attempts.plenty')}
                                 </p>
                             )}
                         </div>
@@ -255,12 +257,12 @@ export default function ShopPage() {
                             <AlertCircle size={20} />
                         )}
                         <div className="flex-1">
-                            <div className="font-bpdots font-bold">
-                                {purchaseState.success ? "Purchase Successful!" : "Purchase Failed"}
+                            <div className="font-bold">
+                                {purchaseState.success ? t('shop.purchaseSuccessful') : t('shop.purchaseFailed')}
                             </div>
-                            <div className="text-sm font-bpdots">
+                            <div className="text-sm">
                                 {purchaseState.success
-                                    ? "+1 attempt added to your account"
+                                    ? t('shop.attemptAdded')
                                     : purchaseState.error
                                 }
                             </div>
@@ -280,24 +282,26 @@ export default function ShopPage() {
 
                         {/* Product Info */}
                         <div className="space-y-2">
-                            <h2 className="text-2xl font-bold font-bpdots text-white">
-                                {product.title}
+                            <h2 className="text-2xl font-bold text-white">
+                                {t('shop.moreAttempts')}
                             </h2>
-                            <p className="text-white/70 font-bpdots text-sm">
-                                {product.description}
+                            <p className="text-white/70 text-sm">
+                                {t('shop.description')}
                             </p>
                         </div>
 
                         {/* Product Features */}
                         <div className="space-y-3">
-                            <h3 className="font-bpdots text-sm font-bold text-white/80 uppercase tracking-wider">
-                                Features
+                            <h3 className="text-sm font-bold text-white/80 uppercase tracking-wider">
+                                {t('shop.features')}
                             </h3>
                             <div className="space-y-2">
                                 {product.benefits.map((benefit, index) => (
                                     <div key={index} className="flex items-center space-x-3">
                                         <div className="w-1.5 h-1.5 rounded-full bg-yellow-400/80" />
-                                        <span className="text-white/80 font-bpdots text-sm">{benefit}</span>
+                                        <span className="text-white/80 text-sm">
+                                            {t(`shop.benefits.${index}` as any)}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
@@ -307,17 +311,17 @@ export default function ShopPage() {
                         <div className="space-y-4 pt-4 border-t border-white/20">
                             <div className="flex items-center justify-center space-x-2">
                                 <Star className="text-yellow-400" size={20} />
-                                <span className="text-2xl font-bold font-bpdots text-yellow-400">
+                                <span className="text-2xl font-bold text-yellow-400">
                                     {product.price}
                                 </span>
-                                <span className="text-white/60 font-bpdots text-sm">
+                                <span className="text-white/60 text-sm">
                                     Telegram Stars
                                 </span>
                             </div>
 
                             <button
                                 className={`
-                  relative w-full px-8 py-4 bg-transparent border-2 rounded-xl font-bpdots text-lg font-bold 
+                  relative w-full px-8 py-4 bg-transparent border-2 rounded-xl text-lg font-bold 
                   transition-all duration-500 hover:scale-105 active:scale-95
                   ${isDisabled
                                         ? "border-white/30 text-white/50 cursor-not-allowed"
@@ -327,7 +331,7 @@ export default function ShopPage() {
                                 disabled={isDisabled}
                                 onClick={handlePurchaseAttempts}
                                 type="button"
-                                aria-label="Purchase additional game attempts"
+                                aria-label={t('shop.purchase', { price: product.price })}
                             >
                                 <div className="flex items-center justify-center space-x-3">
                                     {purchaseState.isLoading ? (
@@ -339,10 +343,10 @@ export default function ShopPage() {
                                     )}
                                     <span className="tracking-wider">
                                         {purchaseState.isLoading
-                                            ? "CREATING INVOICE..."
+                                            ? t('shop.creatingInvoice')
                                             : purchaseState.isProcessing
-                                                ? "PROCESSING PAYMENT..."
-                                                : `PURCHASE FOR ${product.price} ⭐`
+                                                ? t('shop.processingPayment')
+                                                : t('shop.purchase', { price: `${product.price} ⭐` })
                                         }
                                     </span>
                                 </div>
@@ -359,15 +363,15 @@ export default function ShopPage() {
                 {/* Info Section */}
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                     <div className="text-center space-y-2">
-                        <h3 className="font-bpdots text-sm font-bold text-white/80 uppercase tracking-wider">
-                            Payment Info
+                        <h3 className="text-sm font-bold text-white/80 uppercase tracking-wider">
+                            {t('shop.paymentInfo')}
                         </h3>
-                        <div className="space-y-1 text-xs font-bpdots text-white/60">
-                            <p>• Payments processed via Telegram Stars</p>
-                            <p>• Attempts added instantly after payment</p>
-                            <p>• Secure payment through Telegram</p>
-                            <p>• No limit on attempts you can have</p>
-                            <p>• No recurring charges</p>
+                        <div className="space-y-1 text-xs text-white/60">
+                            {product.benefits.map((_, index) => (
+                                <p key={index}>
+                                    {t(`shop.paymentDetails.${index}` as any)}
+                                </p>
+                            ))}
                         </div>
                     </div>
                 </div>
