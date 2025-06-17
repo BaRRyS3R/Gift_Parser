@@ -33,7 +33,7 @@ export default function MainPage() {
    * NEW: dynamic offset to avoid Telegram system UI
    * -------------------------------------------------*/
   const DEFAULT_TG_HEADER = 60; // px, sensible fallback
-  const EXTRA_OFFSET = 12;      // px, visual breathing room
+  const EXTRA_OFFSET = 20;      // px, visual breathing room
   const [headerOffset, setHeaderOffset] = useState<number>(DEFAULT_TG_HEADER + EXTRA_OFFSET);
 
   useEffect(() => {
