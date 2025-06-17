@@ -597,7 +597,7 @@ export default function IntroPage(): JSX.Element {
                           </span>
                         </div>
                         <p className="text-green-400 font-bpdots text-sm">
-                          You'll get <span className="font-bold">+{authState.referralBonus} extra attempt{authState.referralBonus > 1 ? 's' : ''}</span>
+                          You&apos;ll get <span className="font-bold">+{authState.referralBonus} extra attempt{authState.referralBonus > 1 ? 's' : ''}</span>
                         </p>
                         <p className="text-green-400/60 font-bpdots text-xs">
                           Referred by: {authState.referralCode}
