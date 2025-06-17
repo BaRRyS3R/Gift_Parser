@@ -315,7 +315,7 @@ export default function ShopPage() {
                                             </div>
                                             {badge && (
                                                 <div className={`px-2 py-1 rounded-full text-xs font-bold border ${badge.color}`}>
-                                                    {t(`shop.badges.${badge.text.toLowerCase()}`)}
+                                                    {t(`shop.badges.${badge.text.replace(/\s+/g, '').toLowerCase()}`)}
                                                 </div>
                                             )}
                                         </div>

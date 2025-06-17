@@ -453,6 +453,7 @@ export const en = {
             description: "Visual effects demonstration",
             button: "Test Effects"
         },
+        buy: "Buy",
     },
 
     // Save status messages

@@ -456,6 +456,7 @@ export const ru = {
             description: "Демонстрация визуальных эффектов",
             button: "Тест эффектов"
         },
+        buy: "Купить",
     },
 
     // Save status messages
