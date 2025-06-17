@@ -1,17 +1,20 @@
-// src/app/main/page.tsx - Updated with localization support
+// src/app/main/page.tsx - Updated with settings and repositioned shop button
 
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Play, ShoppingCart } from "lucide-react";
+import { Play, ShoppingCart, Settings as SettingsIcon } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
+import { useSettings } from "@/contexts/SettingsContext";
+import Settings from "@/components/Settings/Settings";
 
 export default function MainPage() {
   const router = useRouter();
   const { user, isLoading: userLoading } = useUser();
+  const { settings } = useSettings();
   const t = useT();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
@@ -19,7 +22,8 @@ export default function MainPage() {
   const [showButton, setShowButton] = useState(false);
   const [showGreeting, setShowGreeting] = useState(false);
   const [greetingText, setGreetingText] = useState("");
-  const [showShopButton, setShowShopButton] = useState(false);
+  const [showTopButtons, setShowTopButtons] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -40,10 +44,10 @@ export default function MainPage() {
   const username = user?.first_name || "unknown";
   const fullGreeting = t('main.greeting', { name: username });
 
-  // Инициализация видео
+  // Initialize video
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !settings.showBackgroundVideo) return;
 
     const handleLoadedMetadata = () => {
       video.play().catch(console.error);
@@ -61,9 +65,9 @@ export default function MainPage() {
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
       video.removeEventListener("canplay", handleCanPlay);
     };
-  }, []);
+  }, [settings.showBackgroundVideo]);
 
-  // Анимация загрузки страницы
+  // Page load animation
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
       setPageLoaded(true);
@@ -72,7 +76,7 @@ export default function MainPage() {
     return () => clearTimeout(pageLoadTimer);
   }, []);
 
-  // Анимация заголовка
+  // Title animation
   useEffect(() => {
     if (!pageLoaded) return;
 
@@ -87,7 +91,7 @@ export default function MainPage() {
           clearInterval(titleInterval);
           setTimeout(() => setShowButton(true), 300);
           setTimeout(() => setShowGreeting(true), 600);
-          setTimeout(() => setShowShopButton(true), 900);
+          setTimeout(() => setShowTopButtons(true), 900);
         }
       }, 80);
 
@@ -97,7 +101,7 @@ export default function MainPage() {
     return () => clearTimeout(titleAnimationTimer);
   }, [pageLoaded]);
 
-  // Анимация приветствия
+  // Greeting animation
   useEffect(() => {
     if (!showGreeting || userLoading) return;
 
@@ -125,6 +129,14 @@ export default function MainPage() {
     router.push("/shop");
   };
 
+  const handleOpenSettings = () => {
+    setIsSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    setIsSettingsOpen(false);
+  };
+
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
@@ -135,23 +147,25 @@ export default function MainPage() {
         }`}
     >
       {/* Background Video */}
-      <div
-        className="fixed top-0 left-0 w-full h-full z-0"
-        style={{
-          filter: "brightness(0.15) contrast(1.2) grayscale(1)",
-        }}
-      >
-        <video
-          ref={videoRef}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
+      {settings.showBackgroundVideo && (
+        <div
+          className="fixed top-0 left-0 w-full h-full z-0"
+          style={{
+            filter: "brightness(0.15) contrast(1.2) grayscale(1)",
+          }}
         >
-          <source src="/videos/mainbg.mp4" type="video/mp4" />
-        </video>
-      </div>
+          <video
+            ref={videoRef}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source src="/videos/mainbg.mp4" type="video/mp4" />
+          </video>
+        </div>
+      )}
 
       {/* Geometric Background Elements */}
       <div className="absolute inset-0 z-10">
@@ -163,6 +177,53 @@ export default function MainPage() {
         <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white/20 rotate-45" />
         <div className="absolute top-1/3 right-1/3 w-1 h-1 bg-white/30" />
         <div className="absolute bottom-1/4 right-1/4 w-2 h-2 bg-white/15 rotate-45" />
+      </div>
+
+      {/* Top Navigation Icons */}
+      <div
+        className={`fixed top-6 left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-8"
+          }`}
+      >
+        <div className="flex items-center justify-between">
+          {/* Settings Button - Left */}
+          <button
+            onClick={handleOpenSettings}
+            disabled={isTransitioning}
+            className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label={t('common.settings')}
+          >
+            <div className="flex items-center justify-center">
+              <SettingsIcon
+                className="text-white group-hover:rotate-90 transition-transform duration-300"
+                size={20}
+              />
+            </div>
+
+            {/* Button glow effect */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+          </button>
+
+          {/* Shop Button - Right */}
+          <button
+            onClick={handleOpenShop}
+            disabled={isTransitioning}
+            className="group relative w-12 h-12 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label={t('nav.shop')}
+          >
+            <div className="flex items-center justify-center">
+              <ShoppingCart
+                className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
+                size={20}
+              />
+            </div>
+
+            {/* Enhanced glow effect for shop */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+
+            {/* Subtle pulsing effect */}
+            <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -232,28 +293,11 @@ export default function MainPage() {
         </div>
       </div>
 
-      {/* Shop Button - Fixed Bottom Right */}
-      <div
-        className={`fixed bottom-24 right-6 z-30 transition-all duration-1000 transform ${showShopButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-          }`}
-      >
-        <button
-          onClick={handleOpenShop}
-          disabled={isTransitioning}
-          className="group relative w-16 h-16 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label={t('nav.shop')}
-        >
-          <div className="flex items-center justify-center">
-            <ShoppingCart
-              className="text-white group-hover:scale-110 transition-transform duration-300"
-              size={24}
-            />
-          </div>
-
-          {/* Button glow effect */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-        </button>
-      </div>
+      {/* Settings Modal */}
+      <Settings
+        isOpen={isSettingsOpen}
+        onClose={handleCloseSettings}
+      />
     </div>
   );
 }

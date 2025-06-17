@@ -1,4 +1,4 @@
-// src/app/providers.tsx - Updated providers with localization
+// src/app/providers.tsx - Updated providers with SettingsProvider
 
 "use client";
 
@@ -7,10 +7,11 @@ import { useEffect } from "react";
 
 import { UserProvider } from "@/hooks/useUser";
 import { LocalizationProvider } from "@/contexts/LocalizationContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Инициализация Telegram Web App
+    // Initialize Telegram Web App
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
 
@@ -19,18 +20,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
       tg.setHeaderColor("#000000");
       tg.setBackgroundColor("#000000");
 
-      // Отключение подтверждения закрытия для лучшего UX
+      // Disable closing confirmation for better UX
       tg.disableClosingConfirmation();
     }
   }, []);
 
   return (
     <NextUIProvider>
-      <UserProvider>
-        <LocalizationProvider>
-          {children}
-        </LocalizationProvider>
-      </UserProvider>
+      <SettingsProvider>
+        <UserProvider>
+          <LocalizationProvider>
+            {children}
+          </LocalizationProvider>
+        </UserProvider>
+      </SettingsProvider>
     </NextUIProvider>
   );
 }
