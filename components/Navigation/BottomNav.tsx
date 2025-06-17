@@ -4,6 +4,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { Gamepad2, Trophy, User } from "lucide-react";
+
 import { useI18n } from "@/lib/i18n";
 
 const navItems = [
@@ -55,16 +56,17 @@ export default function BottomNav() {
             return (
               <button
                 key={item.key}
+                aria-label={t(`navigation.${item.key}`)}
                 className={`
                   flex flex-col items-center justify-center p-3 rounded-lg
                   transition-all duration-300 ease-out group min-w-0 flex-1
-                  ${active
-                    ? "text-white scale-110"
-                    : "text-white/60 hover:text-white/80 hover:scale-105"
+                  ${
+                    active
+                      ? "text-white scale-110"
+                      : "text-white/60 hover:text-white/80 hover:scale-105"
                   }
                 `}
                 onClick={() => handleNavigation(item.path)}
-                aria-label={t(`navigation.${item.key}`)}
               >
                 <div
                   className={`
@@ -85,10 +87,11 @@ export default function BottomNav() {
                 <div
                   className={`
                   absolute inset-0 rounded-lg transition-all duration-300
-                  ${active
+                  ${
+                    active
                       ? "bg-white/5"
                       : "bg-transparent group-hover:bg-white/5"
-                    }
+                  }
                 `}
                 />
               </button>

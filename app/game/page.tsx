@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import {
   Zap,
   Crosshair,
-  Timer,
   Target,
   Trophy,
   AlertTriangle,
@@ -71,23 +70,25 @@ const GAME_MODES: GameMode[] = [
       "Performance ratings",
     ],
     detailedInfo: {
-      objective: "Click the target circle as quickly as possible when it appears to measure your reaction time.",
+      objective:
+        "Click the target circle as quickly as possible when it appears to measure your reaction time.",
       rules: [
         "A single circle will appear after a random delay (3-5 seconds)",
         "Click the circle as fast as possible when it appears",
         "Only successful clicks are recorded to the leaderboard",
         "The faster your reaction, the higher your score",
-        "Maximum wait time: 10 seconds before timeout"
+        "Maximum wait time: 10 seconds before timeout",
       ],
       tips: [
         "Stay focused and ready during the waiting period",
         "Don't anticipate - react only when you see the target",
         "Use your dominant hand for faster response",
         "Maintain a comfortable hand position",
-        "Practice regularly to improve your reflexes"
+        "Practice regularly to improve your reflexes",
       ],
-      scoring: "Score is calculated based on reaction time: Lightning (≤150ms) = 1.5x bonus, Excellent (≤200ms) = 1.3x bonus, Good (≤300ms) = 1.1x bonus. Base score = 1000 - reaction_time_ms."
-    }
+      scoring:
+        "Score is calculated based on reaction time: Lightning (≤150ms) = 1.5x bonus, Excellent (≤200ms) = 1.3x bonus, Good (≤300ms) = 1.1x bonus. Base score = 1000 - reaction_time_ms.",
+    },
   },
   {
     id: "survival",
@@ -111,30 +112,32 @@ const GAME_MODES: GameMode[] = [
       "One mistake = death",
     ],
     detailedInfo: {
-      objective: "Survive as long as possible by clicking white circles while avoiding red trap circles in increasingly difficult levels.",
+      objective:
+        "Survive as long as possible by clicking white circles while avoiding red trap circles in increasingly difficult levels.",
       rules: [
         "Click only white circles - they disappear when clicked correctly",
         "Never click red circles - they are traps that end your game",
         "Never click inactive (gray) circles - this also ends your game",
         "Missing a white circle timeout also ends your game",
         "Progress through 15 levels with increasing difficulty",
-        "Each level increases speed, targets, and complexity"
+        "Each level increases speed, targets, and complexity",
       ],
       tips: [
         "Focus on accuracy over speed - one mistake ends everything",
         "Track multiple targets simultaneously",
         "Develop peripheral vision awareness",
         "Stay calm as intensity increases",
-        "Learn to distinguish colors quickly under pressure"
+        "Learn to distinguish colors quickly under pressure",
       ],
-      scoring: "Base score = survival_time_seconds + (perfect_streak × 3) + (level_reached × 15). Higher levels and longer streaks provide exponential bonuses."
-    }
+      scoring:
+        "Base score = survival_time_seconds + (perfect_streak × 3) + (level_reached × 15). Higher levels and longer streaks provide exponential bonuses.",
+    },
   },
 ];
 
 const AttemptsDisplay = ({
   attemptsStatus,
-  timeUntilReset
+  timeUntilReset,
 }: {
   attemptsStatus: AttemptsStatus;
   timeUntilReset: string;
@@ -147,27 +150,34 @@ const AttemptsDisplay = ({
   const getBatteryLevel = () => {
     if (attemptsRemaining <= 0) return 0;
     if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
+
     return 100; // Full battery for 5+ attempts
   };
 
   const getBatteryColor = () => {
     if (isEmpty) return "text-red-400";
     if (isLow) return "text-orange-400";
+
     return "text-green-400";
   };
 
   const getBatteryBgColor = () => {
     if (isEmpty) return "bg-red-500/20 border-red-400/40";
     if (isLow) return "bg-orange-500/20 border-orange-400/40";
+
     return "bg-white/10 border-white/30";
   };
 
   return (
-    <div className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${getBatteryBgColor()}`}>
+    <div
+      className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${getBatteryBgColor()}`}
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <Battery className={getBatteryColor()} size={18} />
-          <span className={`font-bpdots text-sm font-bold ${getBatteryColor()}`}>
+          <span
+            className={`font-bpdots text-sm font-bold ${getBatteryColor()}`}
+          >
             ATTEMPTS
           </span>
         </div>
@@ -177,14 +187,17 @@ const AttemptsDisplay = ({
       </div>
 
       <div className="mb-3">
-        <div className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
-          ? "bg-red-400/20"
-          : isLow
-            ? "bg-orange-400/20"
-            : "bg-white/20"
-          }`}>
+        <div
+          className={`w-full h-2 rounded-full overflow-hidden ${
+            isEmpty
+              ? "bg-red-400/20"
+              : isLow
+                ? "bg-orange-400/20"
+                : "bg-white/20"
+          }`}
+        >
           <div
-            className={`h-full transition-all duration-500 ${getBatteryColor().replace('text-', 'bg-')}`}
+            className={`h-full transition-all duration-500 ${getBatteryColor().replace("text-", "bg-")}`}
             style={{ width: `${getBatteryLevel()}%` }}
           />
         </div>
@@ -192,15 +205,19 @@ const AttemptsDisplay = ({
         {/* Attempt indicators - show up to 10, then just display number */}
         {attemptsRemaining <= 10 ? (
           <div className="flex justify-between mt-1">
-            {Array.from({ length: Math.min(10, Math.max(5, attemptsRemaining)) }, (_, i) => (
-              <div
-                key={i}
-                className={`w-2 h-2 rounded-full ${i < attemptsRemaining
-                  ? getBatteryColor().replace('text-', 'bg-')
-                  : "bg-white/20"
+            {Array.from(
+              { length: Math.min(10, Math.max(5, attemptsRemaining)) },
+              (_, i) => (
+                <div
+                  key={i}
+                  className={`w-2 h-2 rounded-full ${
+                    i < attemptsRemaining
+                      ? getBatteryColor().replace("text-", "bg-")
+                      : "bg-white/20"
                   }`}
-              />
-            ))}
+                />
+              ),
+            )}
           </div>
         ) : (
           <div className="text-center mt-1">
@@ -247,7 +264,8 @@ export default function GamePage() {
   const router = useRouter();
   const { telegramUser } = useUser();
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [selectedModeForInfo, setSelectedModeForInfo] = useState<GameMode | null>(null);
+  const [selectedModeForInfo, setSelectedModeForInfo] =
+    useState<GameMode | null>(null);
   const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
     canPlay: true,
     attemptsRemaining: 0,
@@ -260,7 +278,11 @@ export default function GamePage() {
 
     try {
       setIsLoadingAttempts(true);
-      const status = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
+      const status =
+        await userService.checkAndUpdateAttemptsWithServerValidation(
+          telegramUser.id,
+        );
+
       setAttemptsStatus(status);
     } catch (error) {
       console.error("Error checking attempts:", error);
@@ -276,6 +298,7 @@ export default function GamePage() {
   useEffect(() => {
     if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
       setTimeUntilReset("");
+
       return;
     }
 
@@ -289,7 +312,8 @@ export default function GamePage() {
       } else {
         const minutes = Math.floor(diff / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
-        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+
+        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
       }
     }, 1000);
 
@@ -328,9 +352,10 @@ export default function GamePage() {
         className={`
           relative w-full max-w-sm mx-auto backdrop-blur-sm border rounded-2xl font-bpdots 
           transition-all duration-300 
-          ${isDisabled
-            ? "opacity-50 cursor-not-allowed"
-            : "hover:scale-[1.02] hover:shadow-xl cursor-pointer"
+          ${
+            isDisabled
+              ? "opacity-50 cursor-not-allowed"
+              : "hover:scale-[1.02] hover:shadow-xl cursor-pointer"
           }
           ${mode.color.background} ${mode.color.border} 
           ${isDisabled ? "" : "hover:border-opacity-60"}
@@ -340,14 +365,18 @@ export default function GamePage() {
       >
         <div className="p-8">
           <div className="text-center mb-6">
-            <h3 className={`text-2xl font-bold tracking-wide ${mode.color.primary} mb-2`}>
+            <h3
+              className={`text-2xl font-bold tracking-wide ${mode.color.primary} mb-2`}
+            >
               {mode.name}
             </h3>
-            <div className="w-12 h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-40"></div>
+            <div className="w-12 h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-40" />
           </div>
 
           <div className="space-y-6 mb-8">
-            <p className={`text-sm leading-relaxed text-center ${mode.color.secondary}`}>
+            <p
+              className={`text-sm leading-relaxed text-center ${mode.color.secondary}`}
+            >
               {mode.description}
             </p>
 
@@ -365,8 +394,13 @@ export default function GamePage() {
                   ) : (
                     <Target className={`${mode.color.accent}`} size={14} />
                   )}
-                  <span className={`text-xs font-medium ${mode.difficulty === "Extreme" ? "text-red-400" : mode.color.accent
-                    }`}>
+                  <span
+                    className={`text-xs font-medium ${
+                      mode.difficulty === "Extreme"
+                        ? "text-red-400"
+                        : mode.color.accent
+                    }`}
+                  >
                     {mode.difficulty}
                   </span>
                 </div>
@@ -375,8 +409,11 @@ export default function GamePage() {
               <div className="space-y-2">
                 {mode.features.map((feature, index) => (
                   <div key={index} className="flex items-center space-x-3">
-                    <div className={`w-1 h-1 rounded-full ${isReaction ? "bg-white/60" : "bg-red-400/80"
-                      }`}></div>
+                    <div
+                      className={`w-1 h-1 rounded-full ${
+                        isReaction ? "bg-white/60" : "bg-red-400/80"
+                      }`}
+                    />
                     <span className={`text-xs ${mode.color.secondary}`}>
                       {feature}
                     </span>
@@ -386,24 +423,25 @@ export default function GamePage() {
             </div>
           </div>
 
-          <div className="w-full h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-20 mb-6"></div>
+          <div className="w-full h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-20 mb-6" />
 
           <div className="flex space-x-3">
             <button
-              onClick={() => handleModeStart(mode)}
-              disabled={isTransitioning || isDisabled}
+              aria-label={`Start ${mode.name} game mode`}
               className={`
                 flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl 
                 font-bpdots text-sm font-bold transition-all duration-300
                 ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-                ${isDisabled
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
+                ${
+                  isDisabled
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
                 }
                 disabled:opacity-50 disabled:cursor-not-allowed
               `}
+              disabled={isTransitioning || isDisabled}
               type="button"
-              aria-label={`Start ${mode.name} game mode`}
+              onClick={() => handleModeStart(mode)}
             >
               <Play size={16} />
               <span>
@@ -411,17 +449,16 @@ export default function GamePage() {
                   ? "LOADING..."
                   : isDisabled
                     ? "NO ATTEMPTS"
-                    : "PLAY"
-                }
+                    : "PLAY"}
               </span>
             </button>
 
             <button
-              onClick={() => handleShowInfo(mode)}
-              disabled={isTransitioning}
-              className="px-4 py-3 rounded-xl font-bpdots text-sm font-bold transition-all duration-300 bg-white/5 text-white/70 border border-white/20 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              type="button"
               aria-label={`About ${mode.name} game mode`}
+              className="px-4 py-3 rounded-xl font-bpdots text-sm font-bold transition-all duration-300 bg-white/5 text-white/70 border border-white/20 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              type="button"
+              onClick={() => handleShowInfo(mode)}
             >
               <Info size={16} />
             </button>
@@ -454,11 +491,15 @@ export default function GamePage() {
           <div className="sticky top-0 bg-black/95 backdrop-blur-sm border-b border-white/10 p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${mode.color.background}`}>
-                  <Icon size={24} className={mode.color.primary} />
+                <div
+                  className={`w-12 h-12 rounded-lg flex items-center justify-center ${mode.color.background}`}
+                >
+                  <Icon className={mode.color.primary} size={24} />
                 </div>
                 <div>
-                  <h2 className={`text-2xl font-bold font-bpdots ${mode.color.primary}`}>
+                  <h2
+                    className={`text-2xl font-bold font-bpdots ${mode.color.primary}`}
+                  >
                     {mode.name}
                   </h2>
                   <p className="text-sm text-white/60 font-bpdots">
@@ -467,9 +508,9 @@ export default function GamePage() {
                 </div>
               </div>
               <button
-                onClick={handleCloseInfo}
-                className="p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300"
                 aria-label="Close information modal"
+                className="p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300"
+                onClick={handleCloseInfo}
               >
                 <X size={20} />
               </button>
@@ -495,8 +536,10 @@ export default function GamePage() {
               <div className="space-y-2">
                 {mode.detailedInfo.rules.map((rule, index) => (
                   <div key={index} className="flex items-start space-x-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0"></div>
-                    <span className="text-white/70 text-sm leading-relaxed">{rule}</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                    <span className="text-white/70 text-sm leading-relaxed">
+                      {rule}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -510,9 +553,14 @@ export default function GamePage() {
               <div className="space-y-2">
                 {mode.detailedInfo.tips.map((tip, index) => (
                   <div key={index} className="flex items-start space-x-2">
-                    <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${mode.id === "reaction" ? "bg-white/60" : "bg-red-400/60"
-                      }`}></div>
-                    <span className="text-white/70 text-sm leading-relaxed">{tip}</span>
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${
+                        mode.id === "reaction" ? "bg-white/60" : "bg-red-400/60"
+                      }`}
+                    />
+                    <span className="text-white/70 text-sm leading-relaxed">
+                      {tip}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -551,26 +599,27 @@ export default function GamePage() {
 
             <div className="flex space-x-4 pt-4 border-t border-white/10">
               <button
+                className={`
+                  flex-1 py-4 px-6 rounded-xl font-bpdots text-lg font-bold transition-all duration-300
+                  ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
+                  ${
+                    !attemptsStatus.canPlay
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:scale-105 active:scale-95"
+                  }
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+                disabled={isTransitioning || !attemptsStatus.canPlay}
                 onClick={() => {
                   handleCloseInfo();
                   handleModeStart(mode);
                 }}
-                disabled={isTransitioning || !attemptsStatus.canPlay}
-                className={`
-                  flex-1 py-4 px-6 rounded-xl font-bpdots text-lg font-bold transition-all duration-300
-                  ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-                  ${!attemptsStatus.canPlay
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:scale-105 active:scale-95"
-                  }
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
               >
                 {!attemptsStatus.canPlay ? "NO ATTEMPTS LEFT" : "START PLAYING"}
               </button>
               <button
-                onClick={handleCloseInfo}
                 className="px-6 py-4 rounded-xl font-bpdots text-lg font-bold bg-white/10 text-white/80 border border-white/20 hover:bg-white/15 hover:border-white/40 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
+                onClick={handleCloseInfo}
               >
                 CLOSE
               </button>
@@ -594,10 +643,11 @@ export default function GamePage() {
 
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative safe-area-inset ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative safe-area-inset ${
+        isTransitioning
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : "opacity-100 transition-opacity duration-1000 ease-out"
+      }`}
     >
       <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center max-w-6xl px-6 w-full">
         {/* Header */}
@@ -650,13 +700,16 @@ export default function GamePage() {
         {/* Back Button */}
         <div className="mt-12 animate-fade-in">
           <button
-            onClick={handleBackToMenu}
-            disabled={isTransitioning}
-            className="group flex items-center space-x-3 px-8 py-4 bg-transparent border border-white/30 text-white/80 rounded-2xl font-bpdots text-lg hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            type="button"
             aria-label="Return to main menu"
+            className="group flex items-center space-x-3 px-8 py-4 bg-transparent border border-white/30 text-white/80 rounded-2xl font-bpdots text-lg hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isTransitioning}
+            type="button"
+            onClick={handleBackToMenu}
           >
-            <ArrowLeft size={20} className="transition-transform duration-300 group-hover:-translate-x-1" />
+            <ArrowLeft
+              className="transition-transform duration-300 group-hover:-translate-x-1"
+              size={20}
+            />
             <span className="tracking-wider">BACK TO MENU</span>
           </button>
         </div>

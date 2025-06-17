@@ -9,7 +9,9 @@ import { UserProvider } from "@/hooks/useUser";
 import { I18nProvider } from "@/lib/i18n";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [telegramLanguageCode, setTelegramLanguageCode] = useState<string | undefined>();
+  const [telegramLanguageCode, setTelegramLanguageCode] = useState<
+    string | undefined
+  >();
 
   useEffect(() => {
     // Инициализация Telegram Web App
@@ -26,6 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
       // Получаем язык из Telegram
       const user = tg.initDataUnsafe?.user;
+
       if (user?.language_code) {
         setTelegramLanguageCode(user.language_code);
       }

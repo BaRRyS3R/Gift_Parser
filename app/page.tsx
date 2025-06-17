@@ -5,7 +5,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
-import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
+import { Play, Zap } from "lucide-react";
 
 import { userService, type TelegramUser, type User } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
@@ -69,6 +69,7 @@ export default function IntroPage(): JSX.Element {
 
       if (startParam && startParam.length === 8) {
         console.log("Referral code extracted from start param:", startParam);
+
         return startParam;
       }
     }
@@ -76,9 +77,11 @@ export default function IntroPage(): JSX.Element {
     // Fallback: check URL parameters for development
     if (process.env.NODE_ENV === "development") {
       const urlParams = new URLSearchParams(window.location.search);
-      const refCode = urlParams.get('ref');
+      const refCode = urlParams.get("ref");
+
       if (refCode) {
         console.log("Referral code extracted from URL (dev):", refCode);
+
         return refCode;
       }
     }
@@ -157,9 +160,12 @@ export default function IntroPage(): JSX.Element {
 
   // UPDATED validateReferralCode - добавляем получение имени приглашающего
   const validateReferralCode = useCallback(
-    async (referralCode: string): Promise<{ isValid: boolean; bonus: number; referrerName: string }> => {
+    async (
+      referralCode: string,
+    ): Promise<{ isValid: boolean; bonus: number; referrerName: string }> => {
       try {
         const referrer = await userService.findByReferralCode(referralCode);
+
         if (referrer) {
           // Формируем отображаемое имя
           let displayName = "s0meone"; // Дефолтное значение
@@ -167,18 +173,22 @@ export default function IntroPage(): JSX.Element {
           if (referrer.username) {
             displayName = `@${referrer.username}`;
           } else if (referrer.first_name) {
-            displayName = referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : '');
+            displayName =
+              referrer.first_name +
+              (referrer.last_name ? ` ${referrer.last_name}` : "");
           }
 
           return {
             isValid: true,
             bonus: referrer.referral_bonus,
-            referrerName: displayName
+            referrerName: displayName,
           };
         }
+
         return { isValid: false, bonus: 0, referrerName: "s0meone" };
       } catch (error) {
         console.error("Ошибка при проверке реферального кода:", error);
+
         return { isValid: false, bonus: 0, referrerName: "s0meone" };
       }
     },
@@ -186,7 +196,10 @@ export default function IntroPage(): JSX.Element {
   );
 
   const registerUser = useCallback(
-    async (telegramUser: TelegramUser, referralCode?: string): Promise<User> => {
+    async (
+      telegramUser: TelegramUser,
+      referralCode?: string,
+    ): Promise<User> => {
       if (registrationInProgressRef.current) {
         throw new Error("Регистрация уже в процессе");
       }
@@ -262,12 +275,16 @@ export default function IntroPage(): JSX.Element {
       // Проверяем реферальный код если есть
       let referralBonus = 0;
       let referrerName = "";
+
       if (referralCode) {
         const validation = await validateReferralCode(referralCode);
+
         if (validation.isValid) {
           referralBonus = validation.bonus;
           referrerName = validation.referrerName;
-          console.log(`Валидный реферальный код. Бонус: +${referralBonus} попыток от ${referrerName}`);
+          console.log(
+            `Валидный реферальный код. Бонус: +${referralBonus} попыток от ${referrerName}`,
+          );
         } else {
           console.log("Невалидный реферальный код");
         }
@@ -278,7 +295,7 @@ export default function IntroPage(): JSX.Element {
         telegramUser,
         referralCode: referralCode,
         referralBonus: referralBonus,
-        referrerName: referrerName
+        referrerName: referrerName,
       }));
 
       // Устанавливаем telegram пользователя в контекст
@@ -322,7 +339,15 @@ export default function IntroPage(): JSX.Element {
         error: `Ошибка подключения к базе данных: ${error instanceof Error ? error.message : "Неизвестная ошибка"}`,
       }));
     }
-  }, [getTelegramUser, extractReferralCode, validateReferralCode, checkUserExists, router, updateUser, setTelegramUser]);
+  }, [
+    getTelegramUser,
+    extractReferralCode,
+    validateReferralCode,
+    checkUserExists,
+    router,
+    updateUser,
+    setTelegramUser,
+  ]);
 
   // Инициализация Service Worker и шрифта
   useEffect(() => {
@@ -394,7 +419,10 @@ export default function IntroPage(): JSX.Element {
         !currentAuthState.isRegistering
       ) {
         console.log("Начинаем регистрацию после видео");
-        registerUser(currentAuthState.telegramUser, currentAuthState.referralCode)
+        registerUser(
+          currentAuthState.telegramUser,
+          currentAuthState.referralCode,
+        )
           .then((registeredUser) => {
             console.log("Регистрация успешна, пользователь:", registeredUser);
             console.log("Перенаправляем на main через 1 секунду");
@@ -495,7 +523,10 @@ export default function IntroPage(): JSX.Element {
     }
 
     try {
-      const registeredUser = await registerUser(authState.telegramUser, authState.referralCode);
+      const registeredUser = await registerUser(
+        authState.telegramUser,
+        authState.referralCode,
+      );
 
       console.log("Быстрая регистрация успешна:", registeredUser);
       setTimeout(() => {
@@ -515,25 +546,25 @@ export default function IntroPage(): JSX.Element {
       <div className="absolute inset-0 overflow-hidden">
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black">
-            <Spinner size="lg" color="white" />
-            <span className="ml-2">{t('home.loading')}</span>
+            <Spinner color="white" size="lg" />
+            <span className="ml-2">{t("home.loading")}</span>
           </div>
         )}
         {videoError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black">
-            <span className="text-red-500">{t('home.error.video')}</span>
+            <span className="text-red-500">{t("home.error.video")}</span>
           </div>
         )}
         <video
           ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover"
-          playsInline
           muted
-          onLoadedMetadata={handleLoadedMetadata}
-          onProgress={handleProgress}
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
           onCanPlayThrough={handleCanPlayThrough}
           onEnded={handleEnded}
           onError={handleError}
+          onLoadedMetadata={handleLoadedMetadata}
+          onProgress={handleProgress}
         >
           <source src="/videos/intro.mp4" type="video/mp4" />
         </video>
@@ -541,49 +572,57 @@ export default function IntroPage(): JSX.Element {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
-        <h1 className="text-4xl font-bold mb-8">{t('home.welcome')}</h1>
+        <h1 className="text-4xl font-bold mb-8">{t("home.welcome")}</h1>
 
         {authState.isChecking && (
           <div className="flex items-center">
-            <Spinner size="sm" color="white" />
-            <span className="ml-2">{t('auth.checking')}</span>
+            <Spinner color="white" size="sm" />
+            <span className="ml-2">{t("auth.checking")}</span>
           </div>
         )}
 
         {authState.isRegistering && (
           <div className="flex items-center">
-            <Spinner size="sm" color="white" />
-            <span className="ml-2">{t('auth.registering')}</span>
+            <Spinner color="white" size="sm" />
+            <span className="ml-2">{t("auth.registering")}</span>
           </div>
         )}
 
         {authState.error && (
-          <div className="text-red-500 mb-4">{t('auth.error')}</div>
+          <div className="text-red-500 mb-4">{t("auth.error")}</div>
         )}
 
         {authState.referralCode && (
           <div className="mb-4 text-center">
-            <p>{t('home.referral.invitedBy')}: {authState.referrerName}</p>
-            <p>{t('home.referral.bonus')}: {authState.referralBonus}</p>
+            <p>
+              {t("home.referral.invitedBy")}: {authState.referrerName}
+            </p>
+            <p>
+              {t("home.referral.bonus")}: {authState.referralBonus}
+            </p>
           </div>
         )}
 
         <div className="flex gap-4">
           <button
-            onClick={handleStart}
             className="px-6 py-3 bg-blue-600 rounded-lg flex items-center"
-            disabled={!isReady || authState.isChecking || authState.isRegistering}
+            disabled={
+              !isReady || authState.isChecking || authState.isRegistering
+            }
+            onClick={handleStart}
           >
             <Play className="w-5 h-5 mr-2" />
-            {t('home.start')}
+            {t("home.start")}
           </button>
           <button
-            onClick={handleQuickInit}
             className="px-6 py-3 bg-green-600 rounded-lg flex items-center"
-            disabled={!isReady || authState.isChecking || authState.isRegistering}
+            disabled={
+              !isReady || authState.isChecking || authState.isRegistering
+            }
+            onClick={handleQuickInit}
           >
             <Zap className="w-5 h-5 mr-2" />
-            {t('home.quickStart')}
+            {t("home.quickStart")}
           </button>
         </div>
       </div>

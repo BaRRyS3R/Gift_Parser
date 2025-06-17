@@ -35,12 +35,13 @@ export default function MainPage() {
     "something",
   ];
 
-  const username = user?.first_name || t('common.unknown');
-  const fullGreeting = t('main.greeting').replace('{username}', username);
+  const username = user?.first_name || t("common.unknown");
+  const fullGreeting = t("main.greeting").replace("{username}", username);
 
   // Инициализация видео
   useEffect(() => {
     const video = videoRef.current;
+
     if (!video) return;
 
     const handleLoadedMetadata = () => {
@@ -125,12 +126,13 @@ export default function MainPage() {
 
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
-        }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : pageLoaded
+            ? "opacity-100 transition-opacity duration-1000 ease-out"
+            : "opacity-0"
+      }`}
     >
       {/* Background Video */}
       <div
@@ -174,8 +176,9 @@ export default function MainPage() {
 
         {/* Action Button */}
         <div
-          className={`transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-            }`}
+          className={`transition-all duration-1000 transform ${
+            showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          }`}
         >
           <div className="relative group">
             {/* Button Glow Effect */}
@@ -193,7 +196,7 @@ export default function MainPage() {
                   size={24}
                 />
                 <span className="tracking-wider">
-                  {isTransitioning ? t('main.loading') : t('main.startGame')}
+                  {isTransitioning ? t("main.loading") : t("main.startGame")}
                 </span>
               </div>
             </button>
@@ -202,8 +205,11 @@ export default function MainPage() {
 
         {/* Greeting Text */}
         <div
-          className={`transition-all duration-1000 transform ${showGreeting ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-            }`}
+          className={`transition-all duration-1000 transform ${
+            showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
         >
           <p className="text-xl font-bpdots text-white/80 tracking-wider">
             {greetingText}
@@ -212,15 +218,18 @@ export default function MainPage() {
 
         {/* Shop Button */}
         <div
-          className={`transition-all duration-1000 transform ${showShopButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-            }`}
+          className={`transition-all duration-1000 transform ${
+            showShopButton
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+          }`}
         >
           <button
             className="flex items-center space-x-2 px-6 py-3 bg-transparent border border-white/30 text-white/80 rounded-lg font-bpdots hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300"
             onClick={handleOpenShop}
           >
             <ShoppingCart size={20} />
-            <span>{t('main.shop')}</span>
+            <span>{t("main.shop")}</span>
           </button>
         </div>
       </div>
