@@ -1,4 +1,4 @@
-// src/components/Settings/Settings.tsx - Settings modal component
+// src/components/Settings/Settings.tsx - Settings modal without close button
 
 "use client";
 
@@ -176,16 +176,6 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                             }
                         </p>
                     </div>
-                </div>
-
-                {/* Footer */}
-                <div className="p-6 border-t border-white/10">
-                    <button
-                        onClick={onClose}
-                        className="w-full py-3 px-4 bg-white/10 text-white/80 border border-white/20 rounded-lg hover:bg-white/15 hover:border-white/40 hover:text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                        {t('common.close')}
-                    </button>
                 </div>
             </div>
         </div>

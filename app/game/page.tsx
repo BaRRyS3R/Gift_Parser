@@ -12,7 +12,6 @@ import {
   Trophy,
   AlertTriangle,
   Clock,
-  ArrowLeft,
   Info,
   X,
   CheckCircle,
@@ -306,9 +305,22 @@ export default function GamePage() {
     }, 600);
   };
 
-  const handleBackToMenu = () => {
-    router.push("/main");
-  };
+  useEffect(() => {
+    // Setup Telegram WebApp back button
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
+        router.push("/main");
+      });
+
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => { });
+      };
+    }
+  }, [router]);
 
   const handleShowInfo = (mode: GameMode) => {
     setSelectedModeForInfo(mode);
@@ -644,18 +656,7 @@ export default function GamePage() {
           </div>
         )}
 
-        <div className="mt-12 animate-fade-in">
-          <button
-            onClick={handleBackToMenu}
-            disabled={isTransitioning}
-            className="group flex items-center space-x-3 px-8 py-4 bg-transparent border border-white/30 text-white/80 rounded-2xl text-lg hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            type="button"
-            aria-label={t('common.back')}
-          >
-            <ArrowLeft size={20} className="transition-transform duration-300 group-hover:-translate-x-1" />
-            <span className="tracking-wider">{t('common.back')} {t('common.menu')}</span>
-          </button>
-        </div>
+
 
         <div className="text-center space-y-2 animate-fade-in">
           <p className="text-white/40 text-xs">

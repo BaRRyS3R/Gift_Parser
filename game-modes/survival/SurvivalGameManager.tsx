@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with localization
+// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with Telegram back button
 
 "use client";
 
@@ -11,6 +11,7 @@ import {
     Target,
     RotateCcw
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import {
     initializeSurvivalGameState,
@@ -34,10 +35,6 @@ import {
 import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
 
-interface SurvivalGameManagerProps {
-    onBackToMenu: () => void;
-}
-
 interface SaveStatus {
     isLoading: boolean;
     attempt: number;
@@ -58,10 +55,9 @@ const initialSaveStatus: SaveStatus = {
 
 const LEVEL_UPDATE_INTERVAL = 100;
 
-export default function SurvivalGameManager({
-    onBackToMenu,
-}: SurvivalGameManagerProps) {
+export default function SurvivalGameManager() {
     const { saveGameResult, telegramUser } = useUser();
+    const router = useRouter();
     const t = useT();
     const [gameState, setGameState] = useState<SurvivalGameState>(
         initializeSurvivalGameState(),
@@ -72,8 +68,6 @@ export default function SurvivalGameManager({
     const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
     const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
     const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
-
-    // Новое состояние для плавного перезапуска
     const [isRestartLoading, setIsRestartLoading] = useState(false);
 
     const gameStateRef = useRef<SurvivalGameState>(gameState);
@@ -81,6 +75,23 @@ export default function SurvivalGameManager({
     useEffect(() => {
         gameStateRef.current = gameState;
     }, [gameState]);
+
+    // Setup Telegram WebApp back button
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            const tg = window.Telegram.WebApp;
+
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
+                router.push("/game");
+            });
+
+            return () => {
+                tg.BackButton.hide();
+                tg.BackButton.offClick(() => { });
+            };
+        }
+    }, [router]);
 
     // Consume attempt immediately when component mounts (initial entry only)
     useEffect(() => {
@@ -314,28 +325,23 @@ export default function SurvivalGameManager({
         }, 800);
     }, [scheduleNextActivation]);
 
-    // Улучшенная функция перезапуска без визуальных багов
     const restartGame = useCallback(async () => {
         if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
         try {
             setIsRestartLoading(true);
 
-            // Выполняем все операции с попытками в фоне
             const newStatus = await userService.consumeAttemptWithServerValidation(telegramUser.id);
             setAttemptsRemaining(newStatus.attemptsRemaining);
 
-            // Сразу начинаем переход к игре без показа промежуточных экранов
             setShowCircles(false);
 
-            // Короткая задержка для плавности перехода
             setTimeout(() => {
                 startGame();
             }, 200);
 
         } catch (error) {
             console.error("Error consuming attempt for restart:", error);
-            // В случае ошибки останавливаем загрузку и не позволяем перезапуск
         } finally {
             setIsRestartLoading(false);
         }
@@ -540,14 +546,6 @@ export default function SurvivalGameManager({
                                     : t('game.general.noAttemptsLeft')
                             }
                         </button>
-
-                        <button
-                            className="w-full px-6 py-4 bg-transparent border-2 border-white/40 text-white/80 rounded-xl text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={saveStatus.isLoading || isRestartLoading}
-                            onClick={onBackToMenu}
-                        >
-                            {t('game.modes.survival.results.escapeToMenu')}
-                        </button>
                     </div>
                 </div>
             </div>
@@ -581,13 +579,6 @@ export default function SurvivalGameManager({
                                 {formatSurvivalTime(gameState.stats.survivalTime)}
                             </span>
                         </div>
-
-                        <button
-                            className="text-lg font-bold text-red-400/80 hover:text-red-400 transition-colors duration-300 px-3 py-1"
-                            onClick={onBackToMenu}
-                        >
-                            {t('common.quit')}
-                        </button>
                     </div>
 
                     <div className="space-y-2">
