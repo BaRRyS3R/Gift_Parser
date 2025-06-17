@@ -1,21 +1,15 @@
-// src/app/shop/page.tsx - Enhanced shop with beautiful animations
+// src/app/shop/page.tsx - Minimalist shop with Canvas particle system
 
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-    ArrowLeft,
-    ShoppingCart,
-    Zap,
-    CheckCircle,
-    AlertCircle,
-    Star,
-    Sparkles,
-    Plus,
-    CreditCard,
-    Clock,
-    Gift
+import { 
+  ArrowLeft, 
+  Zap, 
+  AlertCircle, 
+  Star,
+  CreditCard
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -28,119 +22,211 @@ interface PurchaseState {
     isLoading: boolean;
     isProcessing: boolean;
     error: string | null;
-    success: boolean;
 }
 
-interface SuccessAnimationState {
-    showAnimation: boolean;
-    animationPhase: 'initial' | 'explosion' | 'collection' | 'complete';
-    particles: Array<{
-        id: number;
-        x: number;
-        y: number;
-        vx: number;
-        vy: number;
-        scale: number;
-        opacity: number;
-        rotation: number;
-    }>;
+interface Particle {
+    id: number;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    life: number;
+    maxLife: number;
+    size: number;
+    type: 'star' | 'circle' | 'spark';
+    opacity: number;
+    rotation: number;
+    rotationSpeed: number;
 }
+
+// Custom hook for particle system
+const useParticleSystem = (canvasRef: React.RefObject<HTMLCanvasElement>) => {
+    const particlesRef = useRef<Particle[]>([]);
+    const animationRef = useRef<number>();
+    const isActiveRef = useRef(false);
+
+    const createParticle = useCallback((x: number, y: number, type: Particle['type'] = 'star'): Particle => {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 8 + 4;
+        
+        return {
+            id: Math.random(),
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 1,
+            maxLife: Math.random() * 60 + 40,
+            size: Math.random() * 4 + 2,
+            type,
+            opacity: 1,
+            rotation: Math.random() * 360,
+            rotationSpeed: (Math.random() - 0.5) * 10
+        };
+    }, []);
+
+    const updateParticles = useCallback(() => {
+        particlesRef.current = particlesRef.current.filter(particle => {
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            particle.vy += 0.2; // gravity
+            particle.vx *= 0.99; // air resistance
+            particle.vy *= 0.99;
+            particle.life -= 1;
+            particle.opacity = particle.life / particle.maxLife;
+            particle.rotation += particle.rotationSpeed;
+            
+            return particle.life > 0;
+        });
+    }, []);
+
+    const drawParticle = useCallback((ctx: CanvasRenderingContext2D, particle: Particle) => {
+        ctx.save();
+        ctx.globalAlpha = particle.opacity;
+        ctx.translate(particle.x, particle.y);
+        ctx.rotate(particle.rotation * Math.PI / 180);
+
+        switch (particle.type) {
+            case 'star':
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * Math.PI * 2) / 5;
+                    const x = Math.cos(angle) * particle.size;
+                    const y = Math.sin(angle) * particle.size;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    
+                    const innerAngle = ((i + 0.5) * Math.PI * 2) / 5;
+                    const innerX = Math.cos(innerAngle) * particle.size * 0.5;
+                    const innerY = Math.sin(innerAngle) * particle.size * 0.5;
+                    ctx.lineTo(innerX, innerY);
+                }
+                ctx.closePath();
+                ctx.fill();
+                break;
+                
+            case 'circle':
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, particle.size, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+                
+            case 'spark':
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = particle.size * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(-particle.size, 0);
+                ctx.lineTo(particle.size, 0);
+                ctx.stroke();
+                break;
+        }
+        
+        ctx.restore();
+    }, []);
+
+    const animate = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        updateParticles();
+        
+        particlesRef.current.forEach(particle => {
+            drawParticle(ctx, particle);
+        });
+
+        if (isActiveRef.current || particlesRef.current.length > 0) {
+            animationRef.current = requestAnimationFrame(animate);
+        }
+    }, [canvasRef, updateParticles, drawParticle]);
+
+    const explode = useCallback((x: number, y: number, count: number = 30) => {
+        const types: Particle['type'][] = ['star', 'circle', 'spark'];
+        
+        for (let i = 0; i < count; i++) {
+            const type = types[Math.floor(Math.random() * types.length)];
+            particlesRef.current.push(createParticle(x, y, type));
+        }
+        
+        isActiveRef.current = true;
+        if (!animationRef.current) {
+            animate();
+        }
+    }, [createParticle, animate]);
+
+    const stop = useCallback(() => {
+        isActiveRef.current = false;
+        if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+            animationRef.current = undefined;
+        }
+        particlesRef.current = [];
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (animationRef.current) {
+                cancelAnimationFrame(animationRef.current);
+            }
+        };
+    }, []);
+
+    return { explode, stop };
+};
 
 export default function ShopPage() {
     const router = useRouter();
     const { user, refreshUser } = useUser();
     const t = useT();
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const { explode, stop } = useParticleSystem(canvasRef);
 
     const [purchaseState, setPurchaseState] = useState<PurchaseState>({
         isLoading: false,
         isProcessing: false,
-        error: null,
-        success: false
+        error: null
     });
 
     const [attemptsRemaining, setAttemptsRemaining] = useState<number>(user?.attempts_remaining || 0);
-    const [successAnimation, setSuccessAnimation] = useState<SuccessAnimationState>({
-        showAnimation: false,
-        animationPhase: 'initial',
-        particles: []
-    });
-
-    const pageRef = useRef<HTMLDivElement>(null);
-    const successSectionRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         setAttemptsRemaining(user?.attempts_remaining || 0);
     }, [user]);
 
-    // Success animation effect
     useEffect(() => {
-        if (purchaseState.success && !successAnimation.showAnimation) {
-            triggerSuccessAnimation();
-        }
-    }, [purchaseState.success]);
-
-    // Clean up animation states
-    useEffect(() => {
-        if (purchaseState.success || purchaseState.error) {
+        if (purchaseState.error) {
             const timer = setTimeout(() => {
-                setPurchaseState(prev => ({ ...prev, error: null, success: false }));
-                setSuccessAnimation({
-                    showAnimation: false,
-                    animationPhase: 'initial',
-                    particles: []
-                });
-            }, 6000);
+                setPurchaseState(prev => ({ ...prev, error: null }));
+            }, 4000);
             return () => clearTimeout(timer);
         }
-    }, [purchaseState.success, purchaseState.error]);
+    }, [purchaseState.error]);
 
-    const triggerSuccessAnimation = () => {
-        // Generate particles for explosion effect
-        const particles = Array.from({ length: 20 }, (_, i) => ({
-            id: i,
-            x: 50,
-            y: 50,
-            vx: (Math.random() - 0.5) * 20,
-            vy: (Math.random() - 0.5) * 20,
-            scale: Math.random() * 0.5 + 0.5,
-            opacity: 1,
-            rotation: Math.random() * 360
-        }));
+    // Setup canvas size
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-        setSuccessAnimation({
-            showAnimation: true,
-            animationPhase: 'initial',
-            particles
-        });
+        const resizeCanvas = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
 
-        // Animation sequence
-        setTimeout(() => {
-            setSuccessAnimation(prev => ({ ...prev, animationPhase: 'explosion' }));
-        }, 200);
-
-        setTimeout(() => {
-            setSuccessAnimation(prev => ({ ...prev, animationPhase: 'collection' }));
-        }, 1000);
-
-        setTimeout(() => {
-            setSuccessAnimation(prev => ({ ...prev, animationPhase: 'complete' }));
-        }, 2000);
-
-        // Scroll to success section
-        setTimeout(() => {
-            if (successSectionRef.current) {
-                successSectionRef.current.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
-            }
-        }, 300);
-    };
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        return () => window.removeEventListener('resize', resizeCanvas);
+    }, []);
 
     const handlePurchaseAttempts = async () => {
         if (purchaseState.isLoading || purchaseState.isProcessing) return;
 
-        setPurchaseState({ isLoading: true, isProcessing: false, error: null, success: false });
+        setPurchaseState({ isLoading: true, isProcessing: false, error: null });
 
         try {
             const invoiceResult: CreateInvoiceResponse = await purchaseService.createInvoice('additional_attempts');
@@ -154,281 +240,134 @@ export default function ShopPage() {
 
             if (paymentResult) {
                 await purchaseService.checkPurchaseStatus();
-                const updatedUser = await refreshUser();
+                await refreshUser();
                 setAttemptsRemaining(user?.attempts_remaining || 0);
 
-                setPurchaseState({ isLoading: false, isProcessing: false, error: null, success: true });
+                // Trigger particle explosion on success
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    const rect = canvas.getBoundingClientRect();
+                    explode(rect.width / 2, rect.height / 2, 50);
+                }
+
+                setPurchaseState({ isLoading: false, isProcessing: false, error: null });
             } else {
-                setPurchaseState({ isLoading: false, isProcessing: false, error: t('errors.paymentCancelled'), success: false });
+                setPurchaseState({ 
+                    isLoading: false, 
+                    isProcessing: false, 
+                    error: t('errors.paymentCancelled')
+                });
             }
 
         } catch (error) {
             setPurchaseState({
                 isLoading: false,
                 isProcessing: false,
-                error: error instanceof Error ? error.message : t('errors.unknownError'),
-                success: false
+                error: error instanceof Error ? error.message : t('errors.unknownError')
             });
         }
     };
 
-    const handleBack = () => router.push("/main");
+    const handleBack = () => {
+        stop();
+        router.push("/main");
+    };
 
     const product = PRODUCTS.additional_attempts;
     const isDisabled = purchaseState.isLoading || purchaseState.isProcessing;
 
     return (
-        <div ref={pageRef} className="min-h-screen bg-black text-white">
-            {/* Success Animation Overlay */}
-            {successAnimation.showAnimation && (
-                <div className="fixed inset-0 z-50 pointer-events-none">
-                    <div className="relative w-full h-full overflow-hidden">
-                        {/* Particles */}
-                        {successAnimation.particles.map(particle => (
-                            <div
-                                key={particle.id}
-                                className={`absolute w-3 h-3 transition-all duration-1000 ${successAnimation.animationPhase === 'explosion'
-                                        ? 'animate-bounce'
-                                        : successAnimation.animationPhase === 'collection'
-                                            ? 'animate-pulse'
-                                            : ''
-                                    }`}
-                                style={{
-                                    left: `${particle.x + (successAnimation.animationPhase === 'explosion' ? particle.vx * 2 : 0)}%`,
-                                    top: `${particle.y + (successAnimation.animationPhase === 'explosion' ? particle.vy * 2 : 0)}%`,
-                                    transform: `scale(${particle.scale}) rotate(${particle.rotation}deg)`,
-                                    opacity: successAnimation.animationPhase === 'complete' ? 0 : particle.opacity,
-                                }}
-                            >
-                                <Star className="text-white" fill="white" />
-                            </div>
-                        ))}
+        <div className="min-h-screen bg-black text-white relative">
+            {/* Particle Canvas */}
+            <canvas
+                ref={canvasRef}
+                className="fixed inset-0 pointer-events-none z-10"
+                style={{ mixBlendMode: 'screen' }}
+            />
 
-                        {/* Central burst effect */}
-                        <div
-                            className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ${successAnimation.animationPhase === 'explosion'
-                                    ? 'scale-150 opacity-100'
-                                    : 'scale-0 opacity-0'
-                                }`}
-                        >
-                            <div className="relative">
-                                <Sparkles className="text-white w-12 h-12 animate-spin" />
-                                <div className="absolute inset-0 bg-white/20 rounded-full animate-ping"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="px-6 pt-20 pb-8">
+            <div className="relative z-20 px-6 pt-20 pb-8">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
-                    <button
-                        onClick={handleBack}
-                        className="group flex items-center space-x-3 text-white/70 hover:text-white transition-all duration-300 hover:scale-105"
+                <div className="flex items-center justify-between mb-12">
+                    <button 
+                        onClick={handleBack} 
+                        className="flex items-center space-x-2 text-white/70 hover:text-white transition-colors"
                     >
-                        <ArrowLeft size={20} className="transition-transform duration-300 group-hover:-translate-x-1" />
-                        <span className="font-medium">{t('common.back')}</span>
+                        <ArrowLeft size={16} />
+                        <span>{t('common.back')}</span>
                     </button>
-
-                    <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-                            <ShoppingCart size={20} className="text-white" />
-                        </div>
-                        <h1 className="text-2xl font-bold tracking-wide">{t('shop.title')}</h1>
-                    </div>
+                    <h1 className="text-lg font-semibold">{t('shop.title')}</h1>
                 </div>
 
-                {/* Current Attempts Display */}
-                <div className="bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-8 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/10"></div>
-                    <div className="relative z-10">
+                {/* Main Content */}
+                <div className="max-w-md mx-auto space-y-8">
+                    {/* Current Attempts */}
+                    <div className="text-center">
+                        <div className="text-sm text-white/60 mb-2">{t('shop.currentAttempts')}</div>
+                        <div className="text-6xl font-bold text-white mb-4">{attemptsRemaining}</div>
+                        <div className="text-white/40 text-xs">{t('attempts.remaining')}</div>
+                    </div>
+
+                    {/* Purchase Section */}
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-6">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center space-x-3">
-                                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                                    <Zap className="text-white" size={24} />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-bold text-white">{t('shop.currentAttempts')}</h2>
-                                    <p className="text-white/60 text-sm">{t('shop.subtitle')}</p>
-                                </div>
+                                <Zap className="text-white" size={20} />
+                                <span className="text-white">{t('shop.moreAttempts')}</span>
                             </div>
-                            <div className="text-right">
-                                <div className="text-4xl font-bold text-white mb-1">{attemptsRemaining}</div>
-                                <div className="text-white/60 text-sm uppercase tracking-wider">{t('attempts.remaining')}</div>
+                            <div className="flex items-center space-x-1">
+                                <Star className="text-yellow-400" size={16} fill="currentColor" />
+                                <span className="text-yellow-400 font-bold">{product.price}</span>
                             </div>
                         </div>
 
-                        {/* Progress bar visualization */}
-                        <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
-                            <div
-                                className="bg-gradient-to-r from-white/40 to-white/60 h-full transition-all duration-1000 ease-out rounded-full"
-                                style={{ width: `${Math.min(100, (attemptsRemaining / 10) * 100)}%` }}
-                            ></div>
-                        </div>
+                        <button
+                            onClick={handlePurchaseAttempts}
+                            disabled={isDisabled}
+                            className={`
+                                w-full py-3 px-4 rounded-lg font-medium transition-all duration-200
+                                ${isDisabled 
+                                    ? 'bg-white/10 text-white/50 cursor-not-allowed' 
+                                    : 'bg-white/20 text-white border border-white/30 hover:bg-white/30'
+                                }
+                            `}
+                        >
+                            {purchaseState.isLoading || purchaseState.isProcessing ? (
+                                <div className="flex items-center justify-center space-x-2">
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    <span className="text-sm">
+                                        {purchaseState.isLoading 
+                                            ? t('shop.creatingInvoice')
+                                            : t('shop.processingPayment')
+                                        }
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center space-x-2">
+                                    <CreditCard size={16} />
+                                    <span>{t('shop.purchase', { price: `${product.price}` })}</span>
+                                </div>
+                            )}
+                        </button>
                     </div>
-                </div>
 
-                {/* Product Card */}
-                <div className="bg-gradient-to-br from-white/5 via-white/10 to-white/5 backdrop-blur-sm border border-white/20 rounded-2xl p-8 mb-8 relative overflow-hidden group hover:border-white/40 transition-all duration-500">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-                    <div className="relative z-10">
-                        <div className="flex items-start justify-between mb-6">
-                            <div className="flex items-center space-x-4">
-                                <div className="w-16 h-16 bg-gradient-to-br from-white/20 to-white/30 rounded-2xl flex items-center justify-center shadow-lg">
-                                    <Zap className="text-white" size={28} />
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white mb-2">{t('shop.moreAttempts')}</h3>
-                                    <p className="text-white/70">{t('shop.description')}</p>
-                                </div>
-                            </div>
-
-                            <div className="text-right">
-                                <div className="flex items-center space-x-2 mb-2">
-                                    <Star className="text-yellow-400" size={20} fill="currentColor" />
-                                    <span className="text-2xl font-bold text-yellow-400">{product.price}</span>
-                                </div>
-                                <div className="text-white/60 text-sm">Telegram Stars</div>
+                    {/* Error Display */}
+                    {purchaseState.error && (
+                        <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-4">
+                            <div className="flex items-center space-x-2">
+                                <AlertCircle size={16} className="text-red-400" />
+                                <span className="text-red-400 text-sm">{purchaseState.error}</span>
                             </div>
                         </div>
+                    )}
 
-                        <div className="mb-6">
-                            <h4 className="text-white font-semibold mb-3 flex items-center space-x-2">
-                                <Gift size={16} />
-                                <span>{t('shop.features')}</span>
-                            </h4>
-                            <div className="space-y-2">
-                                {product.benefits.map((benefit, index) => (
-                                    <div key={index} className="flex items-center space-x-3">
-                                        <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                                        <span className="text-white/80">{benefit}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="flex space-x-4">
-                            <button
-                                onClick={handlePurchaseAttempts}
-                                disabled={isDisabled}
-                                className={`
-                                    flex-1 relative overflow-hidden group/btn py-4 px-6 rounded-xl font-bold text-lg 
-                                    transition-all duration-300 border-2
-                                    ${isDisabled
-                                        ? 'bg-white/10 border-white/20 text-white/50 cursor-not-allowed'
-                                        : 'bg-white/5 border-white/30 text-white hover:bg-white/15 hover:border-white/50 hover:scale-105 active:scale-95'
-                                    }
-                                `}
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-white/20 to-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300"></div>
-
-                                <div className="relative z-10 flex items-center justify-center space-x-3">
-                                    {purchaseState.isLoading || purchaseState.isProcessing ? (
-                                        <>
-                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                            <span>
-                                                {purchaseState.isLoading
-                                                    ? t('shop.creatingInvoice')
-                                                    : t('shop.processingPayment')
-                                                }
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CreditCard size={20} />
-                                            <span>{t('shop.purchase', { price: `${product.price}` })}</span>
-                                        </>
-                                    )}
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Success/Error Feedback */}
-                {(purchaseState.success || purchaseState.error) && (
-                    <div
-                        ref={successSectionRef}
-                        className={`
-                            mb-8 p-6 rounded-2xl border backdrop-blur-sm transition-all duration-500 transform
-                            ${purchaseState.success
-                                ? 'bg-gradient-to-br from-green-500/10 via-green-500/5 to-transparent border-green-500/30 translate-y-0 opacity-100'
-                                : 'bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent border-red-500/30'
-                            }
-                            ${successAnimation.showAnimation ? 'animate-pulse' : ''}
-                        `}
-                    >
-                        {purchaseState.success ? (
-                            <div className="text-center space-y-4">
-                                <div className="relative">
-                                    <CheckCircle
-                                        size={48}
-                                        className={`text-green-400 mx-auto transition-all duration-1000 ${successAnimation.animationPhase === 'explosion' ? 'scale-125 animate-bounce' : 'scale-100'
-                                            }`}
-                                    />
-                                    {successAnimation.animationPhase === 'explosion' && (
-                                        <div className="absolute inset-0 bg-green-400/20 rounded-full animate-ping"></div>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <h3 className="text-2xl font-bold text-green-400 mb-2">
-                                        {t('shop.purchaseSuccessful')}
-                                    </h3>
-                                    <p className="text-green-300/80">
-                                        {t('shop.attemptAdded')}
-                                    </p>
-                                </div>
-
-                                <div className="flex items-center justify-center space-x-4 pt-4">
-                                    <div className="flex items-center space-x-2">
-                                        <Plus className="text-green-400" size={20} />
-                                        <span className="text-2xl font-bold text-green-400">1</span>
-                                    </div>
-                                    <div className="w-px h-8 bg-green-400/30"></div>
-                                    <div className="flex items-center space-x-2">
-                                        <Zap className="text-white" size={20} />
-                                        <span className="text-xl font-bold text-white">{attemptsRemaining}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex items-center space-x-4">
-                                <AlertCircle size={24} className="text-red-400 flex-shrink-0" />
-                                <div>
-                                    <h3 className="text-lg font-bold text-red-400 mb-1">
-                                        {t('shop.purchaseFailed')}
-                                    </h3>
-                                    <p className="text-red-300/80 text-sm">
-                                        {purchaseState.error}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Payment Information */}
-                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-2xl p-6">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
-                        <CreditCard size={18} />
-                        <span>{t('shop.paymentInfo')}</span>
-                    </h3>
-                    <div className="space-y-3">
-                        {[
-                            "• Payments processed via Telegram Stars",
-                            "• Attempts added instantly after payment",
-                            "• Secure payment through Telegram",
-                            "• No limit on attempts you can have",
-                            "• No recurring charges"
-                        ].map((detail, index) => (
-                            <div key={index} className="flex items-start space-x-2">
-                                <div className="w-1.5 h-1.5 bg-white/60 rounded-full mt-2 flex-shrink-0"></div>
-                                <span className="text-white/70 text-sm">{detail}</span>
-                            </div>
-                        ))}
+                    {/* Payment Info */}
+                    <div className="text-center space-y-2">
+                        <p className="text-white/40 text-xs">
+                            {t('shop.paymentDetails.0')}
+                        </p>
+                        <p className="text-white/30 text-xs">
+                            {t('shop.paymentDetails.1')}
+                        </p>
                     </div>
                 </div>
             </div>
