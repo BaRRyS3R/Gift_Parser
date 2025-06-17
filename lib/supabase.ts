@@ -292,7 +292,7 @@ export const userService = {
 
         return {
             referralCode: user.referral_code,
-            referralLink: `https://t.me/marketaggregator_bot?start=${user.referral_code}`,
+            referralLink: `https://t.me/marketaggregator_bot?startapp=${user.referral_code}`,
             referralCount: user.referral_count,
             referralBonus: user.referral_bonus,
             referredBy: user.referred_by || undefined,
