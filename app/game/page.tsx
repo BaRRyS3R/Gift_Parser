@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Enhanced with server-side validation and unlimited attempts display
+// src/app/game/page.tsx - Enhanced with localization integration
 
 "use client";
 
@@ -23,15 +23,16 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { userService, type AttemptsStatus } from "@/lib/supabase";
+import { useT } from "@/contexts/LocalizationContext";
 
 interface GameMode {
   id: string;
-  name: string;
-  description: string;
+  nameKey: string;
+  descriptionKey: string;
   icon: React.ComponentType<any>;
   route: string;
   difficulty: "Medium" | "Extreme";
-  duration: string;
+  durationKey: string;
   color: {
     primary: string;
     secondary: string;
@@ -39,24 +40,24 @@ interface GameMode {
     background: string;
     border: string;
   };
-  features: string[];
+  featuresKeys: string[];
   detailedInfo: {
-    objective: string;
-    rules: string[];
-    tips: string[];
-    scoring: string;
+    objectiveKey: string;
+    rulesKeys: string[];
+    tipsKeys: string[];
+    scoringKey: string;
   };
 }
 
 const GAME_MODES: GameMode[] = [
   {
     id: "reaction",
-    name: "REACTION SPEED",
-    description: "Test your lightning-fast reflexes with precision timing",
+    nameKey: "game.modes.reaction.name",
+    descriptionKey: "game.modes.reaction.description",
     icon: Zap,
     route: "/game/reaction",
     difficulty: "Medium",
-    duration: "~10 seconds",
+    durationKey: "game.modes.reaction.duration",
     color: {
       primary: "text-white",
       secondary: "text-white/90",
@@ -64,39 +65,39 @@ const GAME_MODES: GameMode[] = [
       background: "bg-white/5",
       border: "border-white/20",
     },
-    features: [
-      "Single target precision",
-      "Random timing (3-5s)",
-      "Speed measurement",
-      "Performance ratings",
+    featuresKeys: [
+      "game.modes.reaction.features.0",
+      "game.modes.reaction.features.1",
+      "game.modes.reaction.features.2",
+      "game.modes.reaction.features.3",
     ],
     detailedInfo: {
-      objective: "Click the target circle as quickly as possible when it appears to measure your reaction time.",
-      rules: [
-        "A single circle will appear after a random delay (3-5 seconds)",
-        "Click the circle as fast as possible when it appears",
-        "Only successful clicks are recorded to the leaderboard",
-        "The faster your reaction, the higher your score",
-        "Maximum wait time: 10 seconds before timeout"
+      objectiveKey: "game.modes.reaction.objective",
+      rulesKeys: [
+        "game.modes.reaction.rules.0",
+        "game.modes.reaction.rules.1",
+        "game.modes.reaction.rules.2",
+        "game.modes.reaction.rules.3",
+        "game.modes.reaction.rules.4",
       ],
-      tips: [
-        "Stay focused and ready during the waiting period",
-        "Don't anticipate - react only when you see the target",
-        "Use your dominant hand for faster response",
-        "Maintain a comfortable hand position",
-        "Practice regularly to improve your reflexes"
+      tipsKeys: [
+        "game.modes.reaction.tips.0",
+        "game.modes.reaction.tips.1",
+        "game.modes.reaction.tips.2",
+        "game.modes.reaction.tips.3",
+        "game.modes.reaction.tips.4",
       ],
-      scoring: "Score is calculated based on reaction time: Lightning (≤150ms) = 1.5x bonus, Excellent (≤200ms) = 1.3x bonus, Good (≤300ms) = 1.1x bonus. Base score = 1000 - reaction_time_ms."
+      scoringKey: "game.modes.reaction.scoring",
     }
   },
   {
     id: "survival",
-    name: "SURVIVAL MODE",
-    description: "Survive escalating precision challenges with deadly traps",
+    nameKey: "game.modes.survival.name",
+    descriptionKey: "game.modes.survival.description",
     icon: Crosshair,
     route: "/game/survival",
     difficulty: "Extreme",
-    duration: "Until failure",
+    durationKey: "game.modes.survival.duration",
     color: {
       primary: "text-red-400",
       secondary: "text-red-300",
@@ -104,30 +105,30 @@ const GAME_MODES: GameMode[] = [
       background: "bg-red-500/5",
       border: "border-red-400/20",
     },
-    features: [
-      "15 escalating levels",
-      "Multiple targets",
-      "Trap circles (red)",
-      "One mistake = death",
+    featuresKeys: [
+      "game.modes.survival.features.0",
+      "game.modes.survival.features.1",
+      "game.modes.survival.features.2",
+      "game.modes.survival.features.3",
     ],
     detailedInfo: {
-      objective: "Survive as long as possible by clicking white circles while avoiding red trap circles in increasingly difficult levels.",
-      rules: [
-        "Click only white circles - they disappear when clicked correctly",
-        "Never click red circles - they are traps that end your game",
-        "Never click inactive (gray) circles - this also ends your game",
-        "Missing a white circle timeout also ends your game",
-        "Progress through 15 levels with increasing difficulty",
-        "Each level increases speed, targets, and complexity"
+      objectiveKey: "game.modes.survival.objective",
+      rulesKeys: [
+        "game.modes.survival.rules.0",
+        "game.modes.survival.rules.1",
+        "game.modes.survival.rules.2",
+        "game.modes.survival.rules.3",
+        "game.modes.survival.rules.4",
+        "game.modes.survival.rules.5",
       ],
-      tips: [
-        "Focus on accuracy over speed - one mistake ends everything",
-        "Track multiple targets simultaneously",
-        "Develop peripheral vision awareness",
-        "Stay calm as intensity increases",
-        "Learn to distinguish colors quickly under pressure"
+      tipsKeys: [
+        "game.modes.survival.tips.0",
+        "game.modes.survival.tips.1",
+        "game.modes.survival.tips.2",
+        "game.modes.survival.tips.3",
+        "game.modes.survival.tips.4",
       ],
-      scoring: "Base score = survival_time_seconds + (perfect_streak × 3) + (level_reached × 15). Higher levels and longer streaks provide exponential bonuses."
+      scoringKey: "game.modes.survival.scoring",
     }
   },
 ];
@@ -139,15 +140,15 @@ const AttemptsDisplay = ({
   attemptsStatus: AttemptsStatus;
   timeUntilReset: string;
 }) => {
+  const t = useT();
   const attemptsRemaining = attemptsStatus.attemptsRemaining;
   const isEmpty = attemptsRemaining === 0;
   const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
 
-  // Dynamic battery level calculation
   const getBatteryLevel = () => {
     if (attemptsRemaining <= 0) return 0;
     if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
-    return 100; // Full battery for 5+ attempts
+    return 100;
   };
 
   const getBatteryColor = () => {
@@ -168,7 +169,7 @@ const AttemptsDisplay = ({
         <div className="flex items-center space-x-2">
           <Battery className={getBatteryColor()} size={18} />
           <span className={`text-sm font-bold ${getBatteryColor()}`}>
-            ATTEMPTS
+            {t('attempts.current')}
           </span>
         </div>
         <span className={`text-lg font-bold ${getBatteryColor()}`}>
@@ -189,7 +190,6 @@ const AttemptsDisplay = ({
           />
         </div>
 
-        {/* Attempt indicators - show up to 10, then just display number */}
         {attemptsRemaining <= 10 ? (
           <div className="flex justify-between mt-1">
             {Array.from({ length: Math.min(10, Math.max(5, attemptsRemaining)) }, (_, i) => (
@@ -205,7 +205,7 @@ const AttemptsDisplay = ({
         ) : (
           <div className="text-center mt-1">
             <span className={`text-xs ${getBatteryColor()}`}>
-              {attemptsRemaining} TOTAL
+              {attemptsRemaining} {t('attempts.total')}
             </span>
           </div>
         )}
@@ -214,7 +214,7 @@ const AttemptsDisplay = ({
       {timeUntilReset && isEmpty && (
         <div className="text-center space-y-1">
           <div className="text-xs text-white/60 uppercase tracking-wider">
-            Next reset in
+            {t('attempts.resetTime')}
           </div>
           <div className="text-lg font-bold text-green-400">
             {timeUntilReset}
@@ -225,17 +225,17 @@ const AttemptsDisplay = ({
       <div className="text-center mt-2">
         {isEmpty && (
           <p className="text-xs text-red-400/80">
-            All attempts used - wait for reset
+            {t('attempts.noRemaining')}
           </p>
         )}
         {isLow && !isEmpty && (
           <p className="text-xs text-orange-400/80">
-            Low attempts - use wisely
+            {t('attempts.lowRemaining')}
           </p>
         )}
         {attemptsRemaining > 5 && (
           <p className="text-xs text-green-400/80">
-            Plenty of attempts available
+            {t('attempts.plenty')}
           </p>
         )}
       </div>
@@ -246,6 +246,7 @@ const AttemptsDisplay = ({
 export default function GamePage() {
   const router = useRouter();
   const { telegramUser } = useUser();
+  const t = useT();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [selectedModeForInfo, setSelectedModeForInfo] = useState<GameMode | null>(null);
   const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
@@ -341,14 +342,14 @@ export default function GamePage() {
         <div className="p-8">
           <div className="text-center mb-6">
             <h3 className={`text-2xl font-bold tracking-wide ${mode.color.primary} mb-2`}>
-              {mode.name}
+              {t(mode.nameKey as any)}
             </h3>
             <div className="w-12 h-px bg-gradient-to-r from-transparent via-current to-transparent mx-auto opacity-40"></div>
           </div>
 
           <div className="space-y-6 mb-8">
             <p className={`text-sm leading-relaxed text-center ${mode.color.secondary}`}>
-              {mode.description}
+              {t(mode.descriptionKey as any)}
             </p>
 
             <div className="space-y-4">
@@ -356,7 +357,7 @@ export default function GamePage() {
                 <div className="flex items-center space-x-2">
                   <Clock className={`${mode.color.accent}`} size={14} />
                   <span className={`text-xs font-medium ${mode.color.accent}`}>
-                    {mode.duration}
+                    {t(mode.durationKey as any)}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -367,18 +368,18 @@ export default function GamePage() {
                   )}
                   <span className={`text-xs font-medium ${mode.difficulty === "Extreme" ? "text-red-400" : mode.color.accent
                     }`}>
-                    {mode.difficulty}
+                    {t(`game.general.difficulty`)}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                {mode.features.map((feature, index) => (
+                {mode.featuresKeys.map((featureKey, index) => (
                   <div key={index} className="flex items-center space-x-3">
                     <div className={`w-1 h-1 rounded-full ${isReaction ? "bg-white/60" : "bg-red-400/80"
                       }`}></div>
                     <span className={`text-xs ${mode.color.secondary}`}>
-                      {feature}
+                      {t(featureKey as any)}
                     </span>
                   </div>
                 ))}
@@ -403,15 +404,15 @@ export default function GamePage() {
                 disabled:opacity-50 disabled:cursor-not-allowed
               `}
               type="button"
-              aria-label={`Start ${mode.name} game mode`}
+              aria-label={`Start ${t(mode.nameKey as any)} game mode`}
             >
               <Play size={16} />
               <span>
                 {isTransitioning
-                  ? "LOADING..."
+                  ? t('common.loading')
                   : isDisabled
-                    ? "NO ATTEMPTS"
-                    : "PLAY"
+                    ? t('game.general.noAttempts')
+                    : t('common.play')
                 }
               </span>
             </button>
@@ -421,7 +422,7 @@ export default function GamePage() {
               disabled={isTransitioning}
               className="px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 bg-white/5 text-white/70 border border-white/20 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
-              aria-label={`About ${mode.name} game mode`}
+              aria-label={`About ${t(mode.nameKey as any)} game mode`}
             >
               <Info size={16} />
             </button>
@@ -433,7 +434,7 @@ export default function GamePage() {
             <div className="text-center space-y-2">
               <Shield className="text-white/60 mx-auto" size={24} />
               <p className="text-white/80 text-sm font-bold">
-                NO ATTEMPTS LEFT
+                {t('game.general.noAttemptsLeft')}
               </p>
             </div>
           </div>
@@ -459,17 +460,17 @@ export default function GamePage() {
                 </div>
                 <div>
                   <h2 className={`text-2xl font-bold ${mode.color.primary}`}>
-                    {mode.name}
+                    {t(mode.nameKey as any)}
                   </h2>
                   <p className="text-sm text-white/60">
-                    {mode.description}
+                    {t(mode.descriptionKey as any)}
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleCloseInfo}
                 className="p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300"
-                aria-label="Close information modal"
+                aria-label={t('common.close')}
               >
                 <X size={20} />
               </button>
@@ -480,23 +481,23 @@ export default function GamePage() {
             <div>
               <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <Target className="text-white/80" size={18} />
-                <span>OBJECTIVE</span>
+                <span>{t('game.general.objective')}</span>
               </h3>
               <p className="text-white/80 leading-relaxed">
-                {mode.detailedInfo.objective}
+                {t(mode.detailedInfo.objectiveKey as any)}
               </p>
             </div>
 
             <div>
               <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <CheckCircle className="text-white/80" size={18} />
-                <span>RULES</span>
+                <span>{t('game.general.rules')}</span>
               </h3>
               <div className="space-y-2">
-                {mode.detailedInfo.rules.map((rule, index) => (
+                {mode.detailedInfo.rulesKeys.map((ruleKey, index) => (
                   <div key={index} className="flex items-start space-x-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0"></div>
-                    <span className="text-white/70 text-sm leading-relaxed">{rule}</span>
+                    <span className="text-white/70 text-sm leading-relaxed">{t(ruleKey as any)}</span>
                   </div>
                 ))}
               </div>
@@ -505,14 +506,14 @@ export default function GamePage() {
             <div>
               <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <Zap className="text-white/80" size={18} />
-                <span>PRO TIPS</span>
+                <span>{t('game.general.proTips')}</span>
               </h3>
               <div className="space-y-2">
-                {mode.detailedInfo.tips.map((tip, index) => (
+                {mode.detailedInfo.tipsKeys.map((tipKey, index) => (
                   <div key={index} className="flex items-start space-x-2">
                     <div className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${mode.id === "reaction" ? "bg-white/60" : "bg-red-400/60"
                       }`}></div>
-                    <span className="text-white/70 text-sm leading-relaxed">{tip}</span>
+                    <span className="text-white/70 text-sm leading-relaxed">{t(tipKey as any)}</span>
                   </div>
                 ))}
               </div>
@@ -521,11 +522,11 @@ export default function GamePage() {
             <div>
               <h3 className="text-lg font-bold text-white mb-3 flex items-center space-x-2">
                 <Trophy className="text-white/80" size={18} />
-                <span>SCORING SYSTEM</span>
+                <span>{t('game.general.scoringSystem')}</span>
               </h3>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                 <p className="text-white/70 text-sm leading-relaxed">
-                  {mode.detailedInfo.scoring}
+                  {t(mode.detailedInfo.scoringKey as any)}
                 </p>
               </div>
             </div>
@@ -533,18 +534,18 @@ export default function GamePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold text-white mb-1">
-                  {mode.difficulty}
+                  {t(`game.general.difficulty`)}
                 </div>
                 <div className="text-xs text-white/60 uppercase tracking-wider">
-                  Difficulty
+                  {t('game.general.difficulty')}
                 </div>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold text-white mb-1">
-                  {mode.duration}
+                  {t(mode.durationKey as any)}
                 </div>
                 <div className="text-xs text-white/60 uppercase tracking-wider">
-                  Duration
+                  {t('game.general.duration')}
                 </div>
               </div>
             </div>
@@ -566,13 +567,13 @@ export default function GamePage() {
                   disabled:opacity-50 disabled:cursor-not-allowed
                 `}
               >
-                {!attemptsStatus.canPlay ? "NO ATTEMPTS LEFT" : "START PLAYING"}
+                {!attemptsStatus.canPlay ? t('game.general.noAttemptsLeft') : t('game.general.startPlaying')}
               </button>
               <button
                 onClick={handleCloseInfo}
                 className="px-6 py-4 rounded-xl text-lg font-bold bg-white/10 text-white/80 border border-white/20 hover:bg-white/15 hover:border-white/40 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
               >
-                CLOSE
+                {t('common.close')}
               </button>
             </div>
           </div>
@@ -586,7 +587,7 @@ export default function GamePage() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">CHECKING ATTEMPTS...</p>
+          <p className="text-white">{t('game.general.checkingAttempts')}</p>
         </div>
       </div>
     );
@@ -600,17 +601,15 @@ export default function GamePage() {
         }`}
     >
       <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center max-w-6xl px-6 w-full">
-        {/* Header */}
         <div className="relative space-y-4">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold tracking-widest text-white animate-fade-in">
-            MODE
+            {t('game.modes.title')}
           </h1>
           <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-            Choose your challenge
+            {t('game.modes.subtitle')}
           </p>
         </div>
 
-        {/* Attempts Display */}
         <div className="w-full max-w-md animate-fade-in">
           <AttemptsDisplay
             attemptsStatus={attemptsStatus}
@@ -618,61 +617,56 @@ export default function GamePage() {
           />
         </div>
 
-        {/* Game Mode Cards */}
         <div className="w-full space-y-8">
           <div className="grid gap-8 lg:grid-cols-2 max-w-4xl mx-auto">
             {GAME_MODES.map(renderModeCard)}
           </div>
         </div>
 
-        {/* Attempts Info */}
         {!attemptsStatus.canPlay && (
           <div className="animate-fade-in max-w-md mx-auto">
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4 text-center">
               <div className="flex items-center justify-center space-x-2 mb-2">
                 <AlertTriangle className="text-red-400" size={18} />
                 <span className="text-sm font-bold text-red-300">
-                  ALL ATTEMPTS USED
+                  {t('game.general.attemptsUsed')}
                 </span>
               </div>
               <p className="text-red-400/80 text-xs">
-                Wait for automatic reset or purchase more attempts
+                {t('game.general.waitForReset')}
               </p>
               {timeUntilReset && (
                 <p className="text-green-400 text-sm font-bold mt-2">
-                  Reset in: {timeUntilReset}
+                  {t('game.general.resetIn')}: {timeUntilReset}
                 </p>
               )}
             </div>
           </div>
         )}
 
-        {/* Back Button */}
         <div className="mt-12 animate-fade-in">
           <button
             onClick={handleBackToMenu}
             disabled={isTransitioning}
             className="group flex items-center space-x-3 px-8 py-4 bg-transparent border border-white/30 text-white/80 rounded-2xl text-lg hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             type="button"
-            aria-label="Return to main menu"
+            aria-label={t('common.back')}
           >
             <ArrowLeft size={20} className="transition-transform duration-300 group-hover:-translate-x-1" />
-            <span className="tracking-wider">BACK TO MENU</span>
+            <span className="tracking-wider">{t('common.back')} {t('common.menu')}</span>
           </button>
         </div>
 
-        {/* Footer Info */}
         <div className="text-center space-y-2 animate-fade-in">
           <p className="text-white/40 text-xs">
-            • Attempts reset automatically after 2 minutes •
+            • {t('game.general.automaticReset')} •
           </p>
           <p className="text-white/30 text-xs">
-            Use your attempts wisely - each game counts!
+            {t('game.general.useWisely')}
           </p>
         </div>
       </div>
 
-      {/* Info Modal */}
       {renderInfoModal()}
     </div>
   );
