@@ -11,7 +11,16 @@ export interface Purchase {
   created_at: string;
 }
 
-export type ProductType = "additional_attempts";
+// ============================================================================
+// ТИПЫ ТОВАРОВ - КОНФИГУРАЦИЯ (при добавлении новых товаров обновить здесь)
+// ============================================================================
+export type ProductType =
+  | "attempts_1"
+  | "attempts_5"
+  | "attempts_10"
+  | "attempts_100"
+  | "instant_reset";
+// ============================================================================
 
 export type PurchaseStatus = "pending" | "completed" | "failed" | "refunded";
 
@@ -22,6 +31,8 @@ export interface ProductInfo {
   price: number; // в Telegram Stars
   icon: string;
   benefits: string[];
+  attempts_bonus?: number; // количество добавляемых попыток
+  is_instant_reset?: boolean; // флаг мгновенного восстановления
 }
 
 export interface CreateInvoiceRequest {
@@ -37,7 +48,8 @@ export interface CreateInvoiceResponse {
     title: string;
     description: string;
     price: number;
-    attempts_bonus: number;
+    attempts_bonus?: number;
+    is_instant_reset?: boolean;
   };
   payload?: string;
   error?: string;
@@ -49,18 +61,80 @@ export interface PurchaseService {
   checkPurchaseStatus: () => Promise<void>;
 }
 
-// Конфигурация доступных продуктов
+// ============================================================================
+// КОНФИГУРАЦИЯ ТОВАРОВ - ЦЕНЫ И ХАРАКТЕРИСТИКИ
+// Для изменения цен или количества попыток редактируйте значения ниже
+// ============================================================================
 export const PRODUCTS: Record<ProductType, ProductInfo> = {
-  additional_attempts: {
-    type: "additional_attempts",
-    title: "More Attempts",
+  attempts_1: {
+    type: "attempts_1",
+    title: "+1 Attempt",
     description: "Get 1 additional game attempt",
-    price: 1,
+    price: 10, // 10 Telegram Stars
     icon: "⚡",
+    attempts_bonus: 1,
     benefits: [
-      "Play one more game",
+      "1 additional game",
       "Instant activation",
       "No expiration date",
     ],
   },
+  attempts_5: {
+    type: "attempts_5",
+    title: "+5 Attempts",
+    description: "Get 5 additional game attempts",
+    price: 50, // 50 Telegram Stars
+    icon: "🔥",
+    attempts_bonus: 5,
+    benefits: [
+      "5 additional games",
+      "Better value deal",
+      "Instant activation",
+      "No expiration date",
+    ],
+  },
+  attempts_10: {
+    type: "attempts_10",
+    title: "+10 Attempts",
+    description: "Get 10 additional game attempts",
+    price: 100, // 100 Telegram Stars
+    icon: "💎",
+    attempts_bonus: 10,
+    benefits: [
+      "10 additional games",
+      "Great value pack",
+      "Instant activation",
+      "No expiration date",
+    ],
+  },
+  attempts_100: {
+    type: "attempts_100",
+    title: "+100 Attempts",
+    description: "Get 100 additional game attempts",
+    price: 1000, // 1000 Telegram Stars
+    icon: "👑",
+    attempts_bonus: 100,
+    benefits: [
+      "100 additional games",
+      "Ultimate value pack",
+      "Instant activation",
+      "No expiration date",
+    ],
+  },
+  instant_reset: {
+    type: "instant_reset",
+    title: "Instant Reset",
+    description: "Instantly restore 10 attempts and reset cooldown",
+    price: 200, // 200 Telegram Stars
+    icon: "⏰",
+    attempts_bonus: 10,
+    is_instant_reset: true,
+    benefits: [
+      "Instant cooldown reset",
+      "10 attempts restored",
+      "Skip waiting time",
+      "Continue playing now",
+    ],
+  },
 };
+// ============================================================================

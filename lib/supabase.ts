@@ -11,6 +11,17 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// ============================================================================
+// НАСТРОЙКИ СИСТЕМЫ ПОПЫТОК - КОНФИГУРАЦИЯ
+// ============================================================================
+const ATTEMPTS_CONFIG = {
+  BASE_ATTEMPTS: 10,           // Базовое количество попыток при регистрации
+  RESET_ATTEMPTS: 10,          // Количество попыток после автоматического сброса
+  RESET_INTERVAL_MS: 2 * 60 * 60 * 1000, // Время до сброса попыток (2 часа)
+  REFERRAL_BONUS: 5,           // Дополнительные попытки за реферала
+} as const;
+// ============================================================================
+
 // Updated database types for new game structure with attempts management and referral system
 export interface User {
   id: string; // UUID v4
@@ -72,12 +83,12 @@ export interface GameResultDB {
   // Reaction Mode specific fields
   reaction_time?: number; // milliseconds
   reaction_rating?:
-    | "LIGHTNING"
-    | "EXCELLENT"
-    | "GOOD"
-    | "AVERAGE"
-    | "SLOW"
-    | "MISSED";
+  | "LIGHTNING"
+  | "EXCELLENT"
+  | "GOOD"
+  | "AVERAGE"
+  | "SLOW"
+  | "MISSED";
   missed_target?: boolean;
 
   // Survival Mode specific fields
@@ -442,8 +453,7 @@ export const userService = {
 
     // Set reset time based on server time only if no attempts left
     if (newAttemptsRemaining === 0) {
-      const resetTime = new Date(serverTime.getTime() + 2 * 60 * 1000); // 2 minutes from server time
-
+      const resetTime = new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS);
       updates.attempts_reset_at = resetTime.toISOString();
     }
 
@@ -458,14 +468,14 @@ export const userService = {
     }
 
     const timeUntilReset =
-      newAttemptsRemaining === 0 ? 2 * 60 * 1000 : undefined;
+      newAttemptsRemaining === 0 ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS : undefined;
 
     return {
       canPlay: newAttemptsRemaining > 0,
       attemptsRemaining: newAttemptsRemaining,
       resetTime:
         newAttemptsRemaining === 0
-          ? new Date(serverTime.getTime() + 2 * 60 * 1000)
+          ? new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS)
           : undefined,
       timeUntilReset,
     };
@@ -477,7 +487,7 @@ export const userService = {
     if (!user) throw new Error("User not found");
 
     // Reset to at least 5 attempts, but keep current if higher
-    const newAttempts = Math.max(5, user.attempts_remaining);
+    const newAttempts = Math.max(ATTEMPTS_CONFIG.RESET_ATTEMPTS, user.attempts_remaining);
 
     const { error } = await supabase
       .from("users")
@@ -489,6 +499,26 @@ export const userService = {
 
     if (error) {
       console.error("Error resetting attempts:", error);
+      throw error;
+    }
+  },
+
+  async instantResetAttempts(telegramId: number): Promise<void> {
+    const user = await this.findByTelegramId(telegramId);
+
+    if (!user) throw new Error("User not found");
+
+    const { error } = await supabase
+      .from("users")
+      .update({
+        attempts_remaining: ATTEMPTS_CONFIG.RESET_ATTEMPTS,
+        attempts_reset_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("telegram_id", telegramId);
+
+    if (error) {
+      console.error("Error performing instant reset:", error);
       throw error;
     }
   },
@@ -538,8 +568,8 @@ export const userService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
-              (totalReactionGames + 1)
+              reactionResult.reactionTime) /
+            (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);

@@ -1,4 +1,4 @@
-// src/lib/purchaseService.ts - Сервис для работы с покупками Telegram Stars
+// src/lib/purchaseService.ts - Обновленный сервис для работы с покупками
 
 import {
   ProductType,
@@ -6,6 +6,7 @@ import {
   CreateInvoiceResponse,
   PurchaseService,
 } from "@/types/purchases";
+import { userService } from "@/lib/supabase";
 
 // URL вашего PHP backend (замените на реальный)
 const PHP_BACKEND_URL = process.env.NEXT_PUBLIC_PHP_BACKEND_URL;
@@ -24,14 +25,13 @@ const getTelegramInitData = (): string => {
   // Для разработки и тестирования
   if (process.env.NODE_ENV === "development") {
     console.warn("Using mock initData for development");
-
     return "mock_init_data_for_development";
   }
 
   return "";
 };
 
-// Создание инвойса для покупки
+// Создание инвойса для покупки - ОБНОВЛЕНО для всех типов товаров
 const createInvoice = async (
   productType: ProductType,
 ): Promise<CreateInvoiceResponse> => {
@@ -91,7 +91,6 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
     if (!window.Telegram?.WebApp) {
       console.warn("Telegram WebApp not available, opening in new tab");
       window.open(invoiceUrl, "_blank");
-
       return true;
     }
 
@@ -129,21 +128,20 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
       // Fallback: открываем ссылку в новом окне
       console.log("openInvoice API not available, using fallback");
       window.open(invoiceUrl, "_blank");
-
       return true;
     }
   } catch (error) {
     console.error("Error opening invoice:", error);
-
     return false;
   }
 };
 
-// Проверка статуса покупок (обновление данных пользователя)
+// Проверка статуса покупок - ОБНОВЛЕНО для обработки мгновенного сброса
 const checkPurchaseStatus = async (): Promise<void> => {
-  // Эта функция будет вызывать обновление данных пользователя
-  // чтобы получить актуальное количество попыток после покупки
   console.log("Checking purchase status...");
+
+  // Дополнительная задержка для обработки мгновенного сброса
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   // Здесь можно добавить дополнительную логику проверки статуса
   // или просто обновить данные пользователя
@@ -178,10 +176,18 @@ export const formatStarsAmount = (amount: number): string => {
   return `${amount} ⭐`;
 };
 
+// ОБНОВЛЕНО: валидация для всех новых типов продуктов
 export const validateProductType = (
   productType: string,
 ): productType is ProductType => {
-  return productType === "additional_attempts";
+  const validTypes: ProductType[] = [
+    "attempts_1",
+    "attempts_5",
+    "attempts_10",
+    "attempts_100",
+    "instant_reset"
+  ];
+  return validTypes.includes(productType as ProductType);
 };
 
 // Основной объект сервиса покупок
