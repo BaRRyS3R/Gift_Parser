@@ -1,4 +1,4 @@
-// src/lib/purchaseService.ts - Обновленный сервис для работы с покупками
+// src/lib/purchaseService.ts - Исправленный сервис для работы с покупками
 
 import {
   ProductType,
@@ -6,7 +6,6 @@ import {
   CreateInvoiceResponse,
   PurchaseService,
 } from "@/types/purchases";
-import { userService } from "@/lib/supabase";
 
 // URL вашего PHP backend (замените на реальный)
 const PHP_BACKEND_URL = process.env.NEXT_PUBLIC_PHP_BACKEND_URL;
