@@ -181,7 +181,7 @@ export default function MainPage() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed top-6 left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-8"
+        className={`fixed top-26 left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-8"
           }`}
       >
         <div className="flex items-center justify-between">
