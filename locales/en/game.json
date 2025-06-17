@@ -1,0 +1,77 @@
+{
+  "game": {
+    "modes": {
+      "reaction": {
+        "title": "Reaction Mode",
+        "description": "Test your reaction! Click the circle as soon as it appears.",
+        "start": "Start Game",
+        "restart": "Restart",
+        "pause": "Pause",
+        "resume": "Resume",
+        "score": "Score: {{score}}",
+        "time": "Time: {{time}}ms",
+        "attempts": "Attempts left: {{attempts}}",
+        "bestTime": "Best time: {{time}}ms",
+        "averageTime": "Average time: {{time}}ms",
+        "rating": {
+          "lightning": "Lightning!",
+          "excellent": "Excellent!",
+          "good": "Good!",
+          "average": "Average",
+          "slow": "Slow",
+          "missed": "Missed"
+        }
+      },
+      "survival": {
+        "title": "Survival Mode",
+        "description": "Survive as long as possible! Click green circles and avoid red ones.",
+        "start": "Start Game",
+        "restart": "Restart",
+        "pause": "Pause",
+        "resume": "Resume",
+        "level": "Level {{level}}",
+        "time": "Time: {{time}}",
+        "score": "Score: {{score}}",
+        "streak": "Streak: {{streak}}",
+        "attempts": "Attempts left: {{attempts}}",
+        "deathCause": {
+          "miss": "You missed a circle!",
+          "wrong_click": "You clicked the wrong circle!",
+          "decoy_hit": "You hit a red circle!",
+          "timeout": "Time's up!"
+        }
+      }
+    },
+    "common": {
+      "loading": "Loading...",
+      "ready": "Ready",
+      "go": "Go!",
+      "pause": "Paused",
+      "continue": "Continue",
+      "quit": "Quit",
+      "settings": "Settings",
+      "sound": "Sound",
+      "music": "Music",
+      "vibration": "Vibration",
+      "difficulty": "Difficulty",
+      "easy": "Easy",
+      "medium": "Medium",
+      "hard": "Hard",
+      "custom": "Custom",
+      "gameOver": "Game Over!",
+      "newRecord": "New Record!",
+      "noAttempts": "You're out of attempts",
+      "waitForReset": "Next attempt available in {{time}}",
+      "share": "Share result",
+      "backToMenu": "Back to menu"
+    },
+    "notifications": {
+      "gameStart": "Game Starting!",
+      "gameOver": "Game Over!",
+      "newHighScore": "New High Score!",
+      "levelUp": "Level Up!",
+      "powerUp": "Power Up!",
+      "achievement": "Achievement Unlocked!"
+    }
+  }
+} 

@@ -10,6 +10,7 @@ import { useUser } from "@/hooks/useUser";
 import { purchaseService } from "@/lib/purchaseService";
 import { PRODUCTS } from "@/types/purchases";
 import type { CreateInvoiceResponse } from "@/types/purchases";
+import { useI18n } from "@/lib/i18n";
 
 interface PurchaseState {
     isLoading: boolean;
@@ -21,6 +22,7 @@ interface PurchaseState {
 export default function ShopPage() {
     const router = useRouter();
     const { user, refreshUser } = useUser();
+    const { t } = useI18n();
     const [purchaseState, setPurchaseState] = useState<PurchaseState>({
         isLoading: false,
         isProcessing: false,
@@ -64,7 +66,7 @@ export default function ShopPage() {
             const invoiceResult: CreateInvoiceResponse = await purchaseService.createInvoice('additional_attempts');
 
             if (!invoiceResult.success || !invoiceResult.invoice_url) {
-                throw new Error(invoiceResult.error || 'Failed to create payment invoice');
+                throw new Error(invoiceResult.error || t('shop.errors.createInvoiceFailed'));
             }
 
             console.log('Invoice created, opening payment interface...');
@@ -100,7 +102,7 @@ export default function ShopPage() {
                 setPurchaseState({
                     isLoading: false,
                     isProcessing: false,
-                    error: 'Payment was cancelled or failed. Please try again.',
+                    error: t('shop.errors.paymentCancelled'),
                     success: false
                 });
             }
@@ -111,7 +113,7 @@ export default function ShopPage() {
             setPurchaseState({
                 isLoading: false,
                 isProcessing: false,
-                error: error instanceof Error ? error.message : 'An unexpected error occurred during purchase',
+                error: error instanceof Error ? error.message : t('shop.errors.unexpected'),
                 success: false
             });
         }
@@ -155,18 +157,18 @@ export default function ShopPage() {
                         className="flex items-center space-x-2 px-4 py-2 bg-transparent border border-white/30 text-white/80 rounded-lg font-bpdots hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300"
                     >
                         <ArrowLeft size={16} />
-                        <span>BACK</span>
+                        <span>{t('common.back')}</span>
                     </button>
 
                     <div className="flex items-center space-x-3">
                         <ShoppingCart className="text-white" size={24} />
-                        <h1 className="text-2xl font-bold font-bpdots text-white">SHOP</h1>
+                        <h1 className="text-2xl font-bold font-bpdots text-white">{t('shop.title')}</h1>
                     </div>
                 </div>
 
                 <div className="text-center">
                     <p className="text-white/60 font-bpdots text-sm uppercase tracking-wider">
-                        Purchase additional game attempts
+                        {t('shop.description')}
                     </p>
                 </div>
             </div>
@@ -178,7 +180,7 @@ export default function ShopPage() {
                         <div className="flex items-center justify-center space-x-3">
                             <Battery className={getBatteryColor()} size={24} />
                             <span className={`font-bpdots text-lg font-bold ${getBatteryColor()}`}>
-                                CURRENT ATTEMPTS
+                                {t('shop.currentAttempts')}
                             </span>
                         </div>
 
@@ -224,17 +226,17 @@ export default function ShopPage() {
                         <div className="text-center">
                             {isEmpty && (
                                 <p className="text-red-400/80 font-bpdots text-sm">
-                                    No attempts remaining - purchase more to continue playing
+                                    {t('shop.noAttemptsRemaining')}
                                 </p>
                             )}
                             {isLow && !isEmpty && (
                                 <p className="text-orange-400/80 font-bpdots text-sm">
-                                    Low attempts remaining - consider purchasing more
+                                    {t('shop.lowAttemptsRemaining')}
                                 </p>
                             )}
                             {attemptsRemaining > 5 && (
                                 <p className="text-green-400/80 font-bpdots text-sm">
-                                    You have plenty of attempts to play
+                                    {t('shop.plentyOfAttempts')}
                                 </p>
                             )}
                         </div>
@@ -256,11 +258,11 @@ export default function ShopPage() {
                         )}
                         <div className="flex-1">
                             <div className="font-bpdots font-bold">
-                                {purchaseState.success ? "Purchase Successful!" : "Purchase Failed"}
+                                {purchaseState.success ? t('shop.messages.success') : purchaseState.error}
                             </div>
                             <div className="text-sm font-bpdots">
                                 {purchaseState.success
-                                    ? "+1 attempt added to your account"
+                                    ? t('shop.messages.successDescription')
                                     : purchaseState.error
                                 }
                             </div>
@@ -291,7 +293,7 @@ export default function ShopPage() {
                         {/* Product Features */}
                         <div className="space-y-3">
                             <h3 className="font-bpdots text-sm font-bold text-white/80 uppercase tracking-wider">
-                                Features
+                                {t('shop.features')}
                             </h3>
                             <div className="space-y-2">
                                 {product.benefits.map((benefit, index) => (
@@ -311,7 +313,7 @@ export default function ShopPage() {
                                     {product.price}
                                 </span>
                                 <span className="text-white/60 font-bpdots text-sm">
-                                    Telegram Stars
+                                    {t('shop.purchase.perAttempt')}
                                 </span>
                             </div>
 
@@ -327,7 +329,7 @@ export default function ShopPage() {
                                 disabled={isDisabled}
                                 onClick={handlePurchaseAttempts}
                                 type="button"
-                                aria-label="Purchase additional game attempts"
+                                aria-label={t('shop.purchase.buy')}
                             >
                                 <div className="flex items-center justify-center space-x-3">
                                     {purchaseState.isLoading ? (
@@ -339,10 +341,10 @@ export default function ShopPage() {
                                     )}
                                     <span className="tracking-wider">
                                         {purchaseState.isLoading
-                                            ? "CREATING INVOICE..."
+                                            ? t('shop.purchase.loading')
                                             : purchaseState.isProcessing
-                                                ? "PROCESSING PAYMENT..."
-                                                : `PURCHASE FOR ${product.price} ⭐`
+                                                ? t('shop.purchase.processing')
+                                                : t('shop.purchase.buy')
                                         }
                                     </span>
                                 </div>
@@ -360,14 +362,14 @@ export default function ShopPage() {
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                     <div className="text-center space-y-2">
                         <h3 className="font-bpdots text-sm font-bold text-white/80 uppercase tracking-wider">
-                            Payment Info
+                            {t('shop.paymentInfo')}
                         </h3>
                         <div className="space-y-1 text-xs font-bpdots text-white/60">
-                            <p>• Payments processed via Telegram Stars</p>
-                            <p>• Attempts added instantly after payment</p>
-                            <p>• Secure payment through Telegram</p>
-                            <p>• No limit on attempts you can have</p>
-                            <p>• No recurring charges</p>
+                            <p>• {t('shop.paymentInfo.viaTelegram')}</p>
+                            <p>• {t('shop.paymentInfo.attemptsAdded')} {t('shop.paymentInfo.instantly')}</p>
+                            <p>• {t('shop.paymentInfo.securePayment')}</p>
+                            <p>• {t('shop.paymentInfo.noLimit')} {t('shop.paymentInfo.attempts')}</p>
+                            <p>• {t('shop.paymentInfo.noRecurringCharges')}</p>
                         </div>
                     </div>
                 </div>

@@ -1,0 +1,53 @@
+{
+  "shop": {
+    "title": "Магазин",
+    "balance": "Баланс",
+    "categories": {
+      "all": "Все",
+      "attempts": "Попытки",
+      "powerups": "Усиления",
+      "skins": "Скины",
+      "special": "Специальные"
+    },
+    "items": {
+      "buy": "Купить",
+      "owned": "Куплено",
+      "select": "Выбрать",
+      "selected": "Выбрано",
+      "price": "Цена",
+      "description": "Описание",
+      "effects": "Эффекты",
+      "duration": "Длительность",
+      "cooldown": "Перезарядка"
+    },
+    "attempts": {
+      "single": "Одна попытка",
+      "pack": "Пакет попыток",
+      "mega": "Мега пакет",
+      "description": "Получите больше попыток для игры"
+    },
+    "powerups": {
+      "doubleScore": "Двойной счет",
+      "extraTime": "Дополнительное время",
+      "shield": "Щит",
+      "description": "Улучшите свою игру с помощью усилений"
+    },
+    "skins": {
+      "title": "Скины персонажей",
+      "description": "Настройте внешний вид вашего персонажа"
+    },
+    "special": {
+      "title": "Специальные предложения",
+      "limited": "Ограниченное время",
+      "discount": "Скидка",
+      "description": "Эксклюзивные предложения и специальные акции"
+    },
+    "notifications": {
+      "purchaseSuccess": "Покупка успешна!",
+      "purchaseError": "Ошибка покупки. Пожалуйста, попробуйте снова.",
+      "insufficientFunds": "Недостаточно средств",
+      "confirmPurchase": "Подтвердить покупку?",
+      "processing": "Обработка..."
+    }
+  }
+} 

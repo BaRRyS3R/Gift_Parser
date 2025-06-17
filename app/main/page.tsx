@@ -7,10 +7,12 @@ import { useRouter } from "next/navigation";
 import { Play, ShoppingCart } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useI18n } from "@/lib/i18n";
 
 export default function MainPage() {
   const router = useRouter();
   const { user, isLoading: userLoading } = useUser();
+  const { t } = useI18n();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
   const [titleText, setTitleText] = useState("|");
@@ -26,8 +28,6 @@ export default function MainPage() {
     "s|",
     "so-",
     "som|",
-    "some=/",
-    "somet|",
     "someth|",
     "somethi///",
     "somethin¿",
@@ -35,8 +35,8 @@ export default function MainPage() {
     "something",
   ];
 
-  const username = user?.first_name || "unknown";
-  const fullGreeting = `Hello, ${username}`;
+  const username = user?.first_name || t('common.unknown');
+  const fullGreeting = t('main.greeting').replace('{username}', username);
 
   // Инициализация видео
   useEffect(() => {
@@ -193,64 +193,36 @@ export default function MainPage() {
                   size={24}
                 />
                 <span className="tracking-wider">
-                  {isTransitioning ? "LOADING..." : "START GAME"}
+                  {isTransitioning ? t('main.loading') : t('main.startGame')}
                 </span>
               </div>
             </button>
           </div>
         </div>
 
-        {/* User Greeting */}
+        {/* Greeting Text */}
         <div
-          className={`transition-all duration-1000 transform ${showGreeting
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
+          className={`transition-all duration-1000 transform ${showGreeting ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
         >
-          {userLoading ? (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
-              <div
-                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
-                style={{ animationDelay: "0.2s" }}
-              />
-              <div
-                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
-                style={{ animationDelay: "0.4s" }}
-              />
-            </div>
-          ) : (
-            <p className="text-xl font-bpdots text-white/80 tracking-wider">
-              {greetingText}
-              {greetingText.length < fullGreeting.length && (
-                <span className="animate-pulse">|</span>
-              )}
-            </p>
-          )}
+          <p className="text-xl font-bpdots text-white/80 tracking-wider">
+            {greetingText}
+          </p>
         </div>
-      </div>
 
-      {/* Shop Button - Fixed Bottom Right */}
-      <div
-        className={`fixed bottom-24 right-6 z-30 transition-all duration-1000 transform ${showShopButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-          }`}
-      >
-        <button
-          onClick={handleOpenShop}
-          disabled={isTransitioning}
-          className="group relative w-16 h-16 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full font-bpdots hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Open shop"
+        {/* Shop Button */}
+        <div
+          className={`transition-all duration-1000 transform ${showShopButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
         >
-          <div className="flex items-center justify-center">
-            <ShoppingCart
-              className="text-white group-hover:scale-110 transition-transform duration-300"
-              size={24}
-            />
-          </div>
-
-          {/* Button glow effect */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-        </button>
+          <button
+            className="flex items-center space-x-2 px-6 py-3 bg-transparent border border-white/30 text-white/80 rounded-lg font-bpdots hover:bg-white/5 hover:border-white/50 hover:text-white transition-all duration-300"
+            onClick={handleOpenShop}
+          >
+            <ShoppingCart size={20} />
+            <span>{t('main.shop')}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -4,20 +4,21 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { Gamepad2, Trophy, User } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 const navItems = [
   {
-    name: "Home",
+    key: "home",
     path: "/main",
     icon: Gamepad2,
   },
   {
-    name: "Leaderboard",
+    key: "leaderboard",
     path: "/leaderboard",
     icon: Trophy,
   },
   {
-    name: "Profile",
+    key: "profile",
     path: "/profile",
     icon: User,
   },
@@ -26,6 +27,7 @@ const navItems = [
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useI18n();
 
   const isActive = (path: string) => {
     if (path === "/main") {
@@ -52,7 +54,7 @@ export default function BottomNav() {
 
             return (
               <button
-                key={item.name}
+                key={item.key}
                 className={`
                   flex flex-col items-center justify-center p-3 rounded-lg
                   transition-all duration-300 ease-out group min-w-0 flex-1
@@ -62,6 +64,7 @@ export default function BottomNav() {
                   }
                 `}
                 onClick={() => handleNavigation(item.path)}
+                aria-label={t(`navigation.${item.key}`)}
               >
                 <div
                   className={`

@@ -28,6 +28,7 @@ import { useUser } from "@/hooks/useUser";
 import { userService, type GameResultDB, type ReferralInfo } from "@/lib/supabase";
 import { GameMode } from "@/types/game-modes/common";
 import { formatSurvivalTime } from "@/game-modes/survival/SurvivalGameLogic";
+import { useI18n } from "@/lib/i18n";
 
 interface UserRankings {
     overall: number | null;
@@ -37,6 +38,7 @@ interface UserRankings {
 
 export default function ProfilePage() {
     const { user, telegramUser, isLoading: userLoading } = useUser();
+    const { t } = useI18n();
     const [gameHistory, setGameHistory] = useState<GameResultDB[]>([]);
     const [rankings, setRankings] = useState<UserRankings>({
         overall: null,
@@ -134,22 +136,22 @@ export default function ProfilePage() {
         if (user.total_games >= 10)
             achievements.push({
                 icon: Target,
-                name: "ACTIVE PLAYER",
-                desc: "10+ GAMES PLAYED",
+                name: t('profile.achievements.activePlayer'),
+                desc: t('profile.achievements.activePlayerDesc'),
                 color: "text-blue-400",
             });
         if (user.total_games >= 50)
             achievements.push({
                 icon: Medal,
-                name: "DEDICATED GAMER",
-                desc: "50+ GAMES PLAYED",
+                name: t('profile.achievements.dedicatedGamer'),
+                desc: t('profile.achievements.dedicatedGamerDesc'),
                 color: "text-purple-400",
             });
         if (user.total_games >= 100)
             achievements.push({
                 icon: Award,
-                name: "GAME MASTER",
-                desc: "100+ GAMES PLAYED",
+                name: t('profile.achievements.gameMaster'),
+                desc: t('profile.achievements.gameMasterDesc'),
                 color: "text-yellow-400",
             });
 
@@ -157,22 +159,22 @@ export default function ProfilePage() {
         if (user.referral_count >= 1)
             achievements.push({
                 icon: Users,
-                name: "RECRUITER",
-                desc: "INVITED 1+ FRIEND",
+                name: t('profile.achievements.recruiter'),
+                desc: t('profile.achievements.recruiterDesc'),
                 color: "text-green-400",
             });
         if (user.referral_count >= 5)
             achievements.push({
                 icon: Share2,
-                name: "INFLUENCER",
-                desc: "INVITED 5+ FRIENDS",
+                name: t('profile.achievements.influencer'),
+                desc: t('profile.achievements.influencerDesc'),
                 color: "text-green-400",
             });
         if (user.referral_count >= 10)
             achievements.push({
                 icon: Gift,
-                name: "AMBASSADOR",
-                desc: "INVITED 10+ FRIENDS",
+                name: t('profile.achievements.ambassador'),
+                desc: t('profile.achievements.ambassadorDesc'),
                 color: "text-green-400",
             });
 
@@ -180,36 +182,36 @@ export default function ProfilePage() {
         if (user.reaction_games >= 1)
             achievements.push({
                 icon: Zap,
-                name: "SPEED TESTER",
-                desc: "TESTED REACTION SPEED",
+                name: t('profile.achievements.speedTester'),
+                desc: t('profile.achievements.speedTesterDesc'),
                 color: "text-white",
             });
         if (user.reaction_games >= 10)
             achievements.push({
                 icon: Zap,
-                name: "QUICK REFLEXES",
-                desc: "10+ REACTION TESTS",
+                name: t('profile.achievements.quickReflexes'),
+                desc: t('profile.achievements.quickReflexesDesc'),
                 color: "text-white",
             });
         if ((user.reaction_best_time || 0) <= 200)
             achievements.push({
                 icon: Zap,
-                name: "LIGHTNING FAST",
-                desc: "SUB-200MS REACTION",
+                name: t('profile.achievements.lightningFast'),
+                desc: t('profile.achievements.lightningFastDesc'),
                 color: "text-white",
             });
         if ((user.reaction_best_time || 0) <= 150)
             achievements.push({
                 icon: Zap,
-                name: "SUPERHUMAN SPEED",
-                desc: "SUB-150MS REACTION",
+                name: t('profile.achievements.superhumanSpeed'),
+                desc: t('profile.achievements.superhumanSpeedDesc'),
                 color: "text-white",
             });
         if (rankings.reaction && rankings.reaction <= 10)
             achievements.push({
                 icon: Trophy,
-                name: "SPEED DEMON",
-                desc: "TOP 10 REACTION TIME",
+                name: t('profile.achievements.speedDemon'),
+                desc: t('profile.achievements.speedDemonDesc'),
                 color: "text-white",
             });
 
@@ -217,57 +219,57 @@ export default function ProfilePage() {
         if (user.survival_games >= 1)
             achievements.push({
                 icon: Crosshair,
-                name: "SURVIVOR",
-                desc: "ENTERED SURVIVAL MODE",
+                name: t('profile.achievements.survivor'),
+                desc: t('profile.achievements.survivorDesc'),
                 color: "text-red-400",
             });
         if (user.survival_games >= 10)
             achievements.push({
                 icon: Crosshair,
-                name: "PERSISTENT SURVIVOR",
-                desc: "10+ SURVIVAL ATTEMPTS",
+                name: t('profile.achievements.persistentSurvivor'),
+                desc: t('profile.achievements.persistentSurvivorDesc'),
                 color: "text-red-400",
             });
         if ((user.survival_best_time || 0) >= 30000)
             achievements.push({
                 icon: Clock,
-                name: "ENDURANCE MASTER",
-                desc: "30+ SECONDS SURVIVAL",
+                name: t('profile.achievements.enduranceMaster'),
+                desc: t('profile.achievements.enduranceMasterDesc'),
                 color: "text-red-400",
             });
         if ((user.survival_best_time || 0) >= 60000)
             achievements.push({
                 icon: Clock,
-                name: "SURVIVAL LEGEND",
-                desc: "1+ MINUTE SURVIVAL",
+                name: t('profile.achievements.survivalLegend'),
+                desc: t('profile.achievements.survivalLegendDesc'),
                 color: "text-red-400",
             });
         if ((user.survival_max_level || 0) >= 5)
             achievements.push({
                 icon: TrendingUp,
-                name: "LEVEL CLIMBER",
-                desc: "REACHED LEVEL 5+",
+                name: t('profile.achievements.levelClimber'),
+                desc: t('profile.achievements.levelClimberDesc'),
                 color: "text-red-400",
             });
         if ((user.survival_max_level || 0) >= 10)
             achievements.push({
                 icon: TrendingUp,
-                name: "ELITE SURVIVOR",
-                desc: "REACHED LEVEL 10+",
+                name: t('profile.achievements.eliteSurvivor'),
+                desc: t('profile.achievements.eliteSurvivorDesc'),
                 color: "text-red-400",
             });
         if ((user.survival_best_streak || 0) >= 50)
             achievements.push({
                 icon: Target,
-                name: "STREAK MASTER",
-                desc: "50+ PERFECT HITS",
+                name: t('profile.achievements.streakMaster'),
+                desc: t('profile.achievements.streakMasterDesc'),
                 color: "text-red-400",
             });
         if (rankings.survival && rankings.survival <= 5)
             achievements.push({
                 icon: Trophy,
-                name: "SURVIVAL ELITE",
-                desc: "TOP 5 SURVIVOR",
+                name: t('profile.achievements.survivalElite'),
+                desc: t('profile.achievements.survivalEliteDesc'),
                 color: "text-red-400",
             });
 
@@ -275,8 +277,8 @@ export default function ProfilePage() {
         if (rankings.overall && rankings.overall <= 10)
             achievements.push({
                 icon: Trophy,
-                name: "TOP PLAYER",
-                desc: "TOP 10 OVERALL",
+                name: t('profile.achievements.topPlayer'),
+                desc: t('profile.achievements.topPlayerDesc'),
                 color: "text-yellow-400",
             });
 
@@ -321,18 +323,18 @@ export default function ProfilePage() {
             case GameMode.SURVIVAL:
                 return "text-red-400";
             default:
-                return "text-white";
+                return "text-white/60";
         }
     };
 
     const getGameModeName = (mode: string) => {
         switch (mode) {
             case GameMode.REACTION:
-                return "REACTION";
+                return t('game.modes.reaction.title');
             case GameMode.SURVIVAL:
-                return "SURVIVAL";
+                return t('game.modes.survival.title');
             default:
-                return "UNKNOWN";
+                return mode;
         }
     };
 

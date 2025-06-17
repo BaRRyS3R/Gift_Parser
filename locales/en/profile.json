@@ -1,0 +1,45 @@
+{
+  "profile": {
+    "title": "Profile",
+    "stats": {
+      "title": "Statistics",
+      "gamesPlayed": "Games Played",
+      "wins": "Wins",
+      "losses": "Losses",
+      "winRate": "Win Rate",
+      "totalScore": "Total Score",
+      "averageScore": "Average Score"
+    },
+    "referral": {
+      "title": "Referral Program",
+      "yourCode": "Your Referral Code",
+      "copyCode": "Copy Code",
+      "copied": "Copied!",
+      "invited": "Invited Users",
+      "bonus": "Referral Bonus",
+      "description": "Invite friends and get bonus attempts for each successful referral!"
+    },
+    "settings": {
+      "title": "Settings",
+      "language": "Language",
+      "notifications": "Notifications",
+      "sound": "Sound",
+      "music": "Music",
+      "vibration": "Vibration"
+    },
+    "achievements": {
+      "title": "Achievements",
+      "locked": "Locked",
+      "unlocked": "Unlocked",
+      "progress": "Progress"
+    },
+    "history": {
+      "title": "Game History",
+      "date": "Date",
+      "score": "Score",
+      "result": "Result",
+      "details": "Details",
+      "noGames": "No games played yet"
+    }
+  }
+} 

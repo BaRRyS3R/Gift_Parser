@@ -27,11 +27,13 @@ import {
 import { useUser } from "@/hooks/useUser";
 import { formatSurvivalTime } from "@/game-modes/survival/SurvivalGameLogic";
 import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
+import { useI18n } from "@/lib/i18n";
 
 type LeaderboardType = "overall" | "reaction" | "survival";
 
 export default function LeaderboardPage() {
     const { user } = useUser();
+    const { t } = useI18n();
     const [activeTab, setActiveTab] = useState<LeaderboardType>("overall");
     const [overallLeaderboard, setOverallLeaderboard] = useState<
         LeaderboardEntry[]
@@ -62,14 +64,14 @@ export default function LeaderboardPage() {
                 setSurvivalLeaderboard(survival);
             } catch (err) {
                 console.error("Error loading leaderboards:", err);
-                setError("FAILED TO LOAD RANKING DATA");
+                setError(t('leaderboard.errors.loadFailed'));
             } finally {
                 setIsLoading(false);
             }
         };
 
         loadLeaderboards();
-    }, []);
+    }, [t]);
 
     const getRankIcon = (position: number) => {
         switch (position) {
@@ -160,7 +162,7 @@ export default function LeaderboardPage() {
                         )}
                         {isCurrentUser(entry.telegram_id) && (
                             <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded font-bpdots">
-                                YOU
+                                {t('leaderboard.you')}
                             </span>
                         )}
                     </div>
@@ -191,12 +193,11 @@ export default function LeaderboardPage() {
         position: number,
     ) => {
         const getRatingFromTime = (time: number): string => {
-            if (time <= 150) return "LIGHTNING";
-            if (time <= 200) return "EXCELLENT";
-            if (time <= 300) return "GOOD";
-            if (time <= 500) return "AVERAGE";
-
-            return "SLOW";
+            if (time <= 150) return t('game.modes.reaction.ratings.lightning');
+            if (time <= 200) return t('game.modes.reaction.ratings.excellent');
+            if (time <= 300) return t('game.modes.reaction.ratings.good');
+            if (time <= 500) return t('game.modes.reaction.ratings.average');
+            return t('game.modes.reaction.ratings.slow');
         };
 
         const rating = getRatingFromTime(entry.best_reaction_time);
@@ -241,7 +242,7 @@ export default function LeaderboardPage() {
                         )}
                         {isCurrentUser(entry.telegram_id) && (
                             <span className="text-xs bg-white/30 text-white px-2 py-0.5 rounded font-bpdots border border-white/30">
-                                YOU
+                                {t('leaderboard.you')}
                             </span>
                         )}
                     </div>
@@ -316,7 +317,7 @@ export default function LeaderboardPage() {
                         )}
                         {isCurrentUser(entry.telegram_id) && (
                             <span className="text-xs bg-red-500/30 text-red-200 px-2 py-0.5 rounded font-bpdots border border-red-400/30">
-                                YOU
+                                {t('leaderboard.you')}
                             </span>
                         )}
                     </div>
@@ -334,7 +335,7 @@ export default function LeaderboardPage() {
                     <div className="flex items-center space-x-2 text-xs text-red-400/80 font-bpdots">
                         <div className="flex items-center space-x-1">
                             <TrendingUp size={10} />
-                            <span>L{entry.max_level}</span>
+                            <span>{t('game.modes.survival.level')} {entry.max_level}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                             <Target size={10} />
@@ -410,7 +411,7 @@ export default function LeaderboardPage() {
                             {isReactionTab ? (
                                 <Zap className="text-white" size={20} />
                             ) : isSurvivalTab ? (
-                                <Crosshair className="text-red-400" size={20} />
+                                <Crosshair className="text-red-300" size={20} />
                             ) : (
                                 <Trophy className="text-white" size={20} />
                             )}
@@ -424,10 +425,10 @@ export default function LeaderboardPage() {
                                 }`}
                         >
                             {isReactionTab
-                                ? "REACTION RANKINGS"
+                                ? t('leaderboard.titles.reaction')
                                 : isSurvivalTab
-                                    ? "SURVIVAL RANKINGS"
-                                    : "OVERALL RANKINGS"}
+                                    ? t('leaderboard.titles.survival')
+                                    : t('leaderboard.titles.overall')}
                         </h1>
                     </div>
 
@@ -451,16 +452,6 @@ export default function LeaderboardPage() {
                                     size={14}
                                 />
                                 <span
-                                    className={`font-bpdots font-bold ${isReactionTab
-                                            ? "text-white"
-                                            : isSurvivalTab
-                                                ? "text-red-300"
-                                                : "text-white"
-                                        }`}
-                                >
-                                    {currentLeaderboard.length}
-                                </span>
-                                <span
                                     className={`font-bpdots ${isReactionTab
                                             ? "text-white/80"
                                             : isSurvivalTab
@@ -468,7 +459,7 @@ export default function LeaderboardPage() {
                                                 : "text-white/60"
                                         }`}
                                 >
-                                    PLAYERS
+                                    {t('leaderboard.stats.players', 'leaderboard', { count: currentLeaderboard.length })}
                                 </span>
                             </div>
                             <div
@@ -488,25 +479,6 @@ export default function LeaderboardPage() {
                                     <Trophy className="text-white/60" size={14} />
                                 )}
                                 <span
-                                    className={`font-bpdots font-bold ${isReactionTab
-                                            ? "text-white"
-                                            : isSurvivalTab
-                                                ? "text-red-300"
-                                                : "text-white"
-                                        }`}
-                                >
-                                    {currentLeaderboard[0]
-                                        ? isReactionTab
-                                            ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}ms`
-                                            : isSurvivalTab
-                                                ? formatSurvivalTime(
-                                                    (currentLeaderboard[0] as SurvivalLeaderboard)
-                                                        .best_survival_time,
-                                                )
-                                                : (currentLeaderboard[0] as LeaderboardEntry).best_score
-                                        : "0"}
-                                </span>
-                                <span
                                     className={`font-bpdots ${isReactionTab
                                             ? "text-white/80"
                                             : isSurvivalTab
@@ -515,10 +487,10 @@ export default function LeaderboardPage() {
                                         }`}
                                 >
                                     {isReactionTab
-                                        ? "FASTEST"
+                                        ? t('leaderboard.stats.fastest')
                                         : isSurvivalTab
-                                            ? "LONGEST"
-                                            : "TOP"}
+                                            ? t('leaderboard.stats.longest')
+                                            : t('leaderboard.stats.top')}
                                 </span>
                             </div>
                         </div>
@@ -543,7 +515,7 @@ export default function LeaderboardPage() {
                                     {tab === "overall" && <Trophy size={12} />}
                                     {tab === "reaction" && <Zap size={12} />}
                                     {tab === "survival" && <Crosshair size={12} />}
-                                    <span>{tab.toUpperCase()}</span>
+                                    <span>{t(`leaderboard.tabs.${tab}`)}</span>
                                 </div>
                             </button>
                         ))}
@@ -562,26 +534,15 @@ export default function LeaderboardPage() {
                                     : "bg-white/10 border-white/20"
                             }`}
                     >
-                        {isReactionTab ? (
-                            <Zap className="text-white/60 mx-auto mb-3" size={32} />
-                        ) : isSurvivalTab ? (
-                            <Crosshair className="text-red-400/60 mx-auto mb-3" size={32} />
-                        ) : (
-                            <TrendingUp className="text-white/40 mx-auto mb-3" size={32} />
-                        )}
                         <p
-                            className={`font-bpdots font-bold ${isReactionTab
-                                    ? "text-white/80"
+                            className={`text-lg font-bpdots font-bold ${isReactionTab
+                                    ? "text-white"
                                     : isSurvivalTab
-                                        ? "text-red-300/80"
-                                        : "text-white/60"
+                                        ? "text-red-300"
+                                        : "text-white"
                                 }`}
                         >
-                            {isReactionTab
-                                ? "NO SPEED DEMONS YET"
-                                : isSurvivalTab
-                                    ? "NO SURVIVORS YET"
-                                    : "NO PLAYERS YET"}
+                            {t('leaderboard.empty.noPlayers')}
                         </p>
                         <p
                             className={`font-bpdots text-sm mt-1 ${isReactionTab
@@ -592,10 +553,10 @@ export default function LeaderboardPage() {
                                 }`}
                         >
                             {isReactionTab
-                                ? "TEST YOUR REFLEXES!"
+                                ? t('leaderboard.empty.reactionPrompt')
                                 : isSurvivalTab
-                                    ? "ENTER THE SURVIVAL CHALLENGE!"
-                                    : "BE THE FIRST TO PLAY!"}
+                                    ? t('leaderboard.empty.survivalPrompt')
+                                    : t('leaderboard.empty.overallPrompt')}
                         </p>
                     </div>
                 ) : (
@@ -629,37 +590,39 @@ export default function LeaderboardPage() {
                                             }`}
                                     >
                                         {isReactionTab
-                                            ? "SPEED ELITE"
+                                            ? t('leaderboard.sections.speedElite')
                                             : isSurvivalTab
-                                                ? "SURVIVAL ELITE"
-                                                : "TOP PLAYERS"}
+                                                ? t('leaderboard.sections.survivalElite')
+                                                : t('leaderboard.sections.topPlayers')}
                                     </h3>
                                 </div>
                                 <div className="space-y-2">
                                     {currentLeaderboard
                                         .slice(0, 3)
-                                        .map((entry, index) =>
-                                            isReactionTab
-                                                ? renderReactionLeaderboardEntry(
-                                                    entry as ReactionLeaderboard,
+                                        .map((entry, index) => {
+                                            if (isReactionTab) {
+                                                return renderReactionLeaderboardEntry(
+                                                    entry as unknown as ReactionLeaderboard,
                                                     index + 1,
-                                                )
-                                                : isSurvivalTab
-                                                    ? renderSurvivalLeaderboardEntry(
-                                                        entry as SurvivalLeaderboard,
-                                                        index + 1,
-                                                    )
-                                                    : renderOverallLeaderboardEntry(
-                                                        entry as LeaderboardEntry,
-                                                        index + 1,
-                                                    ),
-                                        )}
+                                                );
+                                            }
+                                            if (isSurvivalTab) {
+                                                return renderSurvivalLeaderboardEntry(
+                                                    entry as unknown as SurvivalLeaderboard,
+                                                    index + 1,
+                                                );
+                                            }
+                                            return renderOverallLeaderboardEntry(
+                                                entry as LeaderboardEntry,
+                                                index + 1,
+                                            );
+                                        })}
                                 </div>
                             </div>
                         )}
 
-                        {/* All Players Section */}
-                        {currentLeaderboard.length > 3 && (
+                        {/* Rest of the Players */}
+                        {currentLeaderboard.slice(3).length > 0 && (
                             <div
                                 className={`backdrop-blur-xl border rounded-lg p-4 ${isReactionTab
                                         ? "bg-white/10 border-white/30"
@@ -686,28 +649,30 @@ export default function LeaderboardPage() {
                                                     : "text-white"
                                             }`}
                                     >
-                                        ALL PLAYERS
+                                        {t('leaderboard.sections.allPlayers')}
                                     </h3>
                                 </div>
                                 <div className="space-y-2 max-h-80 overflow-y-auto">
                                     {currentLeaderboard
                                         .slice(3)
-                                        .map((entry, index) =>
-                                            isReactionTab
-                                                ? renderReactionLeaderboardEntry(
-                                                    entry as ReactionLeaderboard,
+                                        .map((entry, index) => {
+                                            if (isReactionTab) {
+                                                return renderReactionLeaderboardEntry(
+                                                    entry as unknown as ReactionLeaderboard,
                                                     index + 4,
-                                                )
-                                                : isSurvivalTab
-                                                    ? renderSurvivalLeaderboardEntry(
-                                                        entry as SurvivalLeaderboard,
-                                                        index + 4,
-                                                    )
-                                                    : renderOverallLeaderboardEntry(
-                                                        entry as LeaderboardEntry,
-                                                        index + 4,
-                                                    ),
-                                        )}
+                                                );
+                                            }
+                                            if (isSurvivalTab) {
+                                                return renderSurvivalLeaderboardEntry(
+                                                    entry as unknown as SurvivalLeaderboard,
+                                                    index + 4,
+                                                );
+                                            }
+                                            return renderOverallLeaderboardEntry(
+                                                entry as LeaderboardEntry,
+                                                index + 4,
+                                            );
+                                        })}
                                 </div>
                             </div>
                         )}

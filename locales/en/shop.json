@@ -1,0 +1,53 @@
+{
+  "shop": {
+    "title": "Shop",
+    "balance": "Balance",
+    "categories": {
+      "all": "All",
+      "attempts": "Attempts",
+      "powerups": "Power-ups",
+      "skins": "Skins",
+      "special": "Special"
+    },
+    "items": {
+      "buy": "Buy",
+      "owned": "Owned",
+      "select": "Select",
+      "selected": "Selected",
+      "price": "Price",
+      "description": "Description",
+      "effects": "Effects",
+      "duration": "Duration",
+      "cooldown": "Cooldown"
+    },
+    "attempts": {
+      "single": "Single Attempt",
+      "pack": "Attempt Pack",
+      "mega": "Mega Pack",
+      "description": "Get more attempts to play the game"
+    },
+    "powerups": {
+      "doubleScore": "Double Score",
+      "extraTime": "Extra Time",
+      "shield": "Shield",
+      "description": "Enhance your gameplay with power-ups"
+    },
+    "skins": {
+      "title": "Character Skins",
+      "description": "Customize your character's appearance"
+    },
+    "special": {
+      "title": "Special Offers",
+      "limited": "Limited Time",
+      "discount": "Discount",
+      "description": "Exclusive deals and special offers"
+    },
+    "notifications": {
+      "purchaseSuccess": "Purchase successful!",
+      "purchaseError": "Purchase failed. Please try again.",
+      "insufficientFunds": "Insufficient funds",
+      "confirmPurchase": "Confirm purchase?",
+      "processing": "Processing..."
+    }
+  }
+} 

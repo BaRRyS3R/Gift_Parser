@@ -9,6 +9,7 @@ import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
 
 import { userService, type TelegramUser, type User } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
+import { useI18n } from "@/lib/i18n";
 
 interface AuthState {
   isChecking: boolean;
@@ -26,6 +27,7 @@ export default function IntroPage(): JSX.Element {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const { refreshUser, updateUser, setTelegramUser } = useUser();
+  const { t } = useI18n();
 
   // Флаги для предотвращения повторных операций
   const authInitializedRef = useRef<boolean>(false);
@@ -508,231 +510,83 @@ export default function IntroPage(): JSX.Element {
     authState.isChecking || (isLoading && !videoError) || !fontLoaded;
 
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* Экран загрузки */}
-      {isInitialLoading && (
-        <div className="loader-container">
-          <div className="progress-bar">
-            <div
-              className="progress-bar-fill"
-              style={{ width: `${loadProgress}%` }}
-            />
+    <main className="relative min-h-screen bg-black text-white">
+      {/* Video Background */}
+      <div className="absolute inset-0 overflow-hidden">
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black">
+            <Spinner size="lg" color="white" />
+            <span className="ml-2">{t('home.loading')}</span>
           </div>
-          <p className="text-white mt-4 text-sm font-bpdots">
-            {authState.isChecking
-              ? "Checking user..."
-              : `Loading... ${Math.round(loadProgress)}%`}
-          </p>
-        </div>
-      )}
+        )}
+        {videoError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black">
+            <span className="text-red-500">{t('home.error.video')}</span>
+          </div>
+        )}
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-cover"
+          playsInline
+          muted
+          onLoadedMetadata={handleLoadedMetadata}
+          onProgress={handleProgress}
+          onCanPlayThrough={handleCanPlayThrough}
+          onEnded={handleEnded}
+          onError={handleError}
+        >
+          <source src="/videos/intro.mp4" type="video/mp4" />
+        </video>
+      </div>
 
-      {/* Экран ошибки авторизации */}
-      {authState.error && !isInitialLoading && (
-        <div className="loader-container">
-          <p className="text-white text-center font-bpdots mb-4">
-            {authState.error}
-          </p>
-          <button
-            className="px-4 py-2 bg-white text-black rounded font-bpdots"
-            onClick={() => {
-              authInitializedRef.current = false;
-              registrationInProgressRef.current = false;
-              setAuthState((prev) => ({
-                ...prev,
-                error: null,
-                isChecking: true,
-              }));
-              initializeAuth();
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      )}
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
+        <h1 className="text-4xl font-bold mb-8">{t('home.welcome')}</h1>
 
-      {/* Экран ошибки видео */}
-      {videoError && !isInitialLoading && !authState.error && (
-        <div className="loader-container">
-          <p className="text-white text-center font-bpdots mb-4">
-            {videoError}
-          </p>
-          <button
-            className="px-4 py-2 bg-white text-black rounded font-bpdots mb-4"
-            onClick={handleStart}
-          >
-            Retry
-          </button>
-          <button
-            className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg font-bpdots text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
-            onClick={handleQuickInit}
-          >
-            Continue without video
-          </button>
-        </div>
-      )}
-
-      {/* Экран регистрации */}
-      {authState.needsRegistration &&
-        !authState.isChecking &&
-        !authState.error &&
-        !videoError &&
-        !isPlaying && (
-          <div className="min-h-screen bg-black flex items-center justify-center p-6 fixed inset-0 z-50">
-            <div className="w-full max-w-md space-y-8">
-              {authState.isRegistering ? (
-                <div className="text-center">
-                  <Spinner color="white" size="lg" />
-                  <p className="text-white mt-4 font-bpdots">Registering...</p>
-                  {authState.referralCode && (
-                    <p className="text-green-400 mt-2 font-bpdots text-sm">
-                      Processing referral bonus...
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center space-y-8">
-                  {/* Header */}
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <h1 className="text-4xl font-bold font-bpdots text-white tracking-wider">
-                        WELCOME
-                      </h1>
-                      <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
-                    </div>
-                    <p className="text-white/70 font-bpdots text-sm">
-                      Hello,{" "}
-                      <span className="text-white font-bold">
-                        {authState.telegramUser?.first_name}
-                      </span>
-                    </p>
-
-                    {/* UPDATED Referral Bonus Info - отображаем имя приглашающего */}
-                    {authState.referralCode && authState.referralBonus && authState.referralBonus > 0 && (
-                      <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
-                        <div className="flex items-center justify-center space-x-2">
-                          <Gift className="text-green-400" size={20} />
-                          <span className="font-bpdots text-green-300 font-bold">
-                            REFERRAL BONUS!
-                          </span>
-                        </div>
-                        <p className="text-green-400 font-bpdots text-sm">
-                          You&apos;ll get <span className="font-bold">+{authState.referralBonus} extra attempt{authState.referralBonus > 1 ? 's' : ''}</span>
-                        </p>
-                        <p className="text-green-400/60 font-bpdots text-xs">
-                          Invited by: <span className="text-green-300 font-bold">{authState.referrerName || "s0meone"}</span>
-                        </p>
-                      </div>
-                    )}
-
-                    <p className="text-white/50 font-bpdots text-xs uppercase tracking-widest">
-                      Choose your entry method
-                    </p>
-                  </div>
-
-                  {/* Buttons */}
-                  <div className="space-y-6">
-                    {/* Main Button - With Intro */}
-                    <div className="space-y-3">
-                      <button
-                        className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl font-bpdots text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        disabled={authState.isRegistering}
-                        style={{ pointerEvents: "auto", zIndex: 100 }}
-                        onClick={handleStart}
-                      >
-                        <div className="flex items-center justify-center space-x-4">
-                          <div className="relative">
-                            <Play
-                              className="text-white group-hover:translate-x-1 transition-transform duration-300"
-                              size={24}
-                            />
-                            <Wifi
-                              className="absolute -top-2 -right-2 text-white/60"
-                              size={16}
-                            />
-                          </div>
-                          <span className="tracking-wider">INITIALIZE</span>
-                        </div>
-
-                        {/* Glow effect */}
-                        <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
-                      </button>
-
-                      <div className="text-center space-y-1">
-                        <p className="text-white/60 font-bpdots text-sm">
-                          Full experience with intro video
-                        </p>
-                        <p className="text-white/40 font-bpdots text-xs">
-                          Recommended for first-time users
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-white/20" />
-                      </div>
-                      <div className="relative flex justify-center">
-                        <span className="bg-black px-4 text-white/40 font-bpdots text-xs uppercase">
-                          or
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Alternative Button - Quick Mode */}
-                    <div className="space-y-3">
-                      <button
-                        className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl font-bpdots text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        disabled={authState.isRegistering}
-                        style={{ pointerEvents: "auto", zIndex: 100 }}
-                        onClick={handleQuickInit}
-                      >
-                        <div className="flex items-center justify-center space-x-3">
-                          <div className="relative">
-                            <Zap
-                              className="text-white/70 group-hover:text-white transition-colors duration-300"
-                              size={20}
-                            />
-                            <WifiOff
-                              className="absolute -top-1 -right-1 text-white/50"
-                              size={12}
-                            />
-                          </div>
-                          <span>QUICK START</span>
-                        </div>
-                      </button>
-
-                      <div className="text-center space-y-1">
-                        <p className="text-white/50 font-bpdots text-sm">
-                          Skip intro • Potato mode
-                        </p>
-                        <p className="text-white/30 font-bpdots text-xs">
-                          For slow connections & impatient users 🥔
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+        {authState.isChecking && (
+          <div className="flex items-center">
+            <Spinner size="sm" color="white" />
+            <span className="ml-2">{t('auth.checking')}</span>
           </div>
         )}
 
-      {/* Видео контейнер */}
-      <div
-        className={`video-container ${isPlaying ? "opacity-100" : "opacity-0"} transition-opacity duration-500`}
-      >
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video
-          ref={videoRef}
-          playsInline
-          className="video-player"
-          preload="auto"
-        >
-          <source src="/videos/intro.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
+        {authState.isRegistering && (
+          <div className="flex items-center">
+            <Spinner size="sm" color="white" />
+            <span className="ml-2">{t('auth.registering')}</span>
+          </div>
+        )}
+
+        {authState.error && (
+          <div className="text-red-500 mb-4">{t('auth.error')}</div>
+        )}
+
+        {authState.referralCode && (
+          <div className="mb-4 text-center">
+            <p>{t('home.referral.invitedBy')}: {authState.referrerName}</p>
+            <p>{t('home.referral.bonus')}: {authState.referralBonus}</p>
+          </div>
+        )}
+
+        <div className="flex gap-4">
+          <button
+            onClick={handleStart}
+            className="px-6 py-3 bg-blue-600 rounded-lg flex items-center"
+            disabled={!isReady || authState.isChecking || authState.isRegistering}
+          >
+            <Play className="w-5 h-5 mr-2" />
+            {t('home.start')}
+          </button>
+          <button
+            onClick={handleQuickInit}
+            className="px-6 py-3 bg-green-600 rounded-lg flex items-center"
+            disabled={!isReady || authState.isChecking || authState.isRegistering}
+          >
+            <Zap className="w-5 h-5 mr-2" />
+            {t('home.quickStart')}
+          </button>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

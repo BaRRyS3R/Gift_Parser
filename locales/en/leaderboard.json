@@ -1,0 +1,52 @@
+{
+  "leaderboard": {
+    "title": "Leaderboard",
+    "tabs": {
+      "global": "Global",
+      "friends": "Friends",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
+    "columns": {
+      "rank": "Rank",
+      "player": "Player",
+      "score": "Score",
+      "wins": "Wins",
+      "winRate": "Win Rate",
+      "games": "Games"
+    },
+    "filters": {
+      "title": "Filters",
+      "timeRange": "Time Range",
+      "gameMode": "Game Mode",
+      "region": "Region",
+      "apply": "Apply",
+      "reset": "Reset"
+    },
+    "timeRanges": {
+      "allTime": "All Time",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "lastWeek": "Last Week",
+      "lastMonth": "Last Month"
+    },
+    "gameModes": {
+      "all": "All Modes",
+      "classic": "Classic",
+      "timeAttack": "Time Attack",
+      "challenge": "Challenge"
+    },
+    "player": {
+      "you": "You",
+      "viewProfile": "View Profile",
+      "challenge": "Challenge",
+      "addFriend": "Add Friend"
+    },
+    "notifications": {
+      "loading": "Loading leaderboard...",
+      "error": "Error loading leaderboard",
+      "noData": "No data available",
+      "updateSuccess": "Leaderboard updated"
+    }
+  }
+} 

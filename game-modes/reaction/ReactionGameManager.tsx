@@ -17,6 +17,7 @@ import {
 } from "./ReactionGameLogic";
 
 import { useUser } from "@/hooks/useUser";
+import { useI18n } from "@/lib/i18n";
 import { userService } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
@@ -53,18 +54,17 @@ export default function ReactionGameManager({
     onBackToMenu,
 }: ReactionGameManagerProps) {
     const { saveGameResult, telegramUser } = useUser();
+    const { t, formatDate, formatNumber } = useI18n();
     const [gameState, setGameState] = useState<ReactionGameState>(
         initializeReactionGameState(),
     );
-    const [showCircles, setShowCircles] = useState(false);
-    const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
     const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
+    const [showCircles, setShowCircles] = useState(false);
     const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
     const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
     const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
-
-    // Новое состояние для плавного перезапуска
     const [isRestartLoading, setIsRestartLoading] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
 
     const gameStateRef = useRef<ReactionGameState>(gameState);
 
@@ -113,6 +113,8 @@ export default function ReactionGameManager({
     }, []);
 
     const handleSaveGameResult = useCallback(async (result: ReactionGameResult) => {
+        if (!telegramUser?.id) return;
+
         if (result.missed || result.reactionTime <= 0) {
             setSaveStatus(prev => ({
                 ...prev,
@@ -174,7 +176,7 @@ export default function ReactionGameManager({
                 error: error instanceof Error ? error.message : "Failed to save result after 3 attempts",
             }));
         }
-    }, [saveGameResult]);
+    }, [saveGameResult, telegramUser?.id]);
 
     const handleGameTimeout = useCallback(() => {
         console.log("Reaction game timed out");
@@ -206,92 +208,68 @@ export default function ReactionGameManager({
         [triggerHapticFeedback],
     );
 
-    const handleCircleClickEvent = useCallback(
-        (circleId: number) => {
-            if (gameStateRef.current.gameState !== GameState.PLAYING) return;
+    const handleCircleClickEvent = useCallback((circleId: number) => {
+        if (gameState.gameState !== GameState.PLAYING) return;
+        
+        const newState = handleCircleClick(gameState, circleId);
+        setGameState(newState);
 
-            console.log("Reaction circle clicked:", circleId);
-
-            const newState = handleCircleClick(gameStateRef.current, circleId);
-
-            if (newState.gameState === GameState.FINISHED) {
-                triggerHapticFeedback(
-                    newState.stats.missedTarget ? "error" : "success",
-                );
-
-                const result = createReactionGameResult(newState);
-                setGameResult(result);
-                handleSaveGameResult(result);
-                cleanupReactionGame(newState);
-            }
-
-            setGameState(newState);
-        },
-        [triggerHapticFeedback, handleSaveGameResult],
-    );
+        if (newState.gameState === GameState.FINISHED) {
+            const result = createReactionGameResult(newState);
+            setGameResult(result);
+            handleSaveGameResult(result);
+            cleanupReactionGame(newState);
+        }
+    }, [gameState]);
 
     const startGame = useCallback(() => {
-        console.log("Starting Reaction Game...");
-
-        setGameState(initializeReactionGameState());
+        const initialState = initializeReactionGameState();
+        setGameState(initialState);
         setGameResult(null);
         setSaveStatus(initialSaveStatus);
-
-        setTimeout(() => {
-            setShowCircles(true);
-        }, 100);
+        setShowCircles(true);
 
         setTimeout(() => {
             setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
-
-            const delay = getRandomDelay(gameStateRef.current.config);
-            console.log(`Circle will activate in ${delay}ms`);
-
+            const delay = getRandomDelay(initialState.config);
             const timeout = setTimeout(() => {
                 if (gameStateRef.current.gameState === GameState.PLAYING) {
                     setGameState((current) =>
                         activateRandomCircle(
                             current,
-                            handleCircleActivated,
-                            handleGameTimeout,
+                            (circleId) => console.log(`Circle ${circleId} activated`),
+                            () => console.log("Game timed out"),
                         ),
                     );
                 }
             }, delay);
+            setGameState((prev) => ({ ...prev, startDelayTimeout: timeout }));
+        }, 100);
+    }, []);
 
-            setGameState((prev) => ({
-                ...prev,
-                startDelayTimeout: timeout,
-            }));
-        }, 500);
-    }, [handleCircleActivated, handleGameTimeout]);
+    const pauseGame = useCallback(() => {
+        setGameState((prev) => ({ ...prev, gameState: GameState.PAUSED }));
+    }, []);
 
-    // Улучшенная функция перезапуска без визуальных багов
+    const resumeGame = useCallback(() => {
+        setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
+    }, []);
+
     const restartGame = useCallback(async () => {
         if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
         try {
             setIsRestartLoading(true);
-
-            // Выполняем все операции с попытками в фоне
             const newStatus = await userService.consumeAttemptWithServerValidation(telegramUser.id);
             setAttemptsRemaining(newStatus.attemptsRemaining);
-
-            // Сразу начинаем переход к игре без показа промежуточных экранов
-            setShowCircles(false);
-
-            // Короткая задержка для плавности перехода
-            setTimeout(() => {
-                startGame();
-            }, 200);
-
+            cleanupReactionGame(gameState);
+            startGame();
         } catch (error) {
             console.error("Error consuming attempt for restart:", error);
-            // В случае ошибки останавливаем загрузку и не позволяем перезапуск
         } finally {
             setIsRestartLoading(false);
         }
-    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading]);
+    }, [telegramUser?.id, attemptsRemaining, gameState, startGame, isRestartLoading]);
 
     useEffect(() => {
         return () => {
@@ -300,14 +278,17 @@ export default function ReactionGameManager({
     }, []);
 
     const getInstructionText = () => {
-        if (gameState.gameState === GameState.PLAYING) {
-            if (gameState.activeCircleId !== null) {
-                return "CLICK NOW! AS FAST AS POSSIBLE!";
-            } else {
-                return "Wait for the white circle to appear...";
-            }
-        } else {
-            return "Get ready for lightning-fast reflexes test";
+        switch (gameState.gameState) {
+            case GameState.NOT_STARTED:
+                return t('game.modes.reaction.instructions');
+            case GameState.PLAYING:
+                return t('game.modes.reaction.instructions');
+            case GameState.FINISHED:
+                return gameState.stats.missedTarget
+                    ? t('game.modes.reaction.gameOver')
+                    : t('game.modes.reaction.newRecord');
+            default:
+                return t('game.modes.reaction.instructions');
         }
     };
 
@@ -322,6 +303,45 @@ export default function ReactionGameManager({
             return <Zap className="text-white/60" size={16} />;
         }
     };
+
+    const getButtonText = () => {
+        switch (gameState.gameState) {
+            case GameState.NOT_STARTED:
+                return t('game.modes.reaction.start');
+            case GameState.PLAYING:
+                return t('game.common.pause');
+            case GameState.PAUSED:
+                return t('game.modes.reaction.resume');
+            case GameState.FINISHED:
+                return t('game.modes.reaction.restart');
+            default:
+                return t('game.modes.reaction.start');
+        }
+    };
+
+    const getStatusText = () => {
+        if (gameState.gameState === GameState.FINISHED && !gameState.stats.missedTarget) {
+            return `${t('game.modes.reaction.score')}: ${gameState.stats.reactionTime}ms`;
+        }
+        return '';
+    };
+
+    const handleGameAction = useCallback(() => {
+        switch (gameState.gameState) {
+            case GameState.NOT_STARTED:
+                startGame();
+                break;
+            case GameState.PLAYING:
+                pauseGame();
+                break;
+            case GameState.PAUSED:
+                resumeGame();
+                break;
+            case GameState.FINISHED:
+                restartGame();
+                break;
+        }
+    }, [gameState.gameState]);
 
     if (isConsumingAttempt) {
         return (
@@ -526,39 +546,134 @@ export default function ReactionGameManager({
     }
 
     return (
-        <div className="min-h-screen bg-black flex flex-col text-white">
-            <div className="flex-1 flex items-center justify-center">
-                <GameGrid
-                    circles={gameState.circles}
-                    isGameActive={gameState.gameState === GameState.PLAYING}
-                    showCircles={showCircles}
-                    onCircleClick={handleCircleClickEvent}
-                />
-            </div>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+            <div className="w-full max-w-md p-4">
+                <div className="bg-white rounded-lg shadow-lg p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h1 className="text-2xl font-bold text-gray-800">
+                            {t('reaction.title', 'game')}
+                        </h1>
+                        <button
+                            onClick={onBackToMenu}
+                            className="text-gray-600 hover:text-gray-800"
+                        >
+                            {t('common.back', 'common')}
+                        </button>
+                    </div>
 
-            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/30 safe-area-inset-bottom">
-                <div className="px-6 py-4">
-                    <div className="text-center space-y-2">
-                        <div className="flex items-center justify-center space-x-2">
-                            {getInstructionIcon()}
-                            <span className={`font-bpdots text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null ? 'text-white animate-pulse' : 'text-white/80'
-                                }`}>
-                                {getInstructionText()}
+                    <div className="mb-4">
+                        <p className="text-gray-600">
+                            {t('reaction.description', 'game')}
+                        </p>
+                    </div>
+
+                    <div className="mb-4">
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-700">
+                                {t('reaction.score', 'game', { score: gameState.stats.clicked ? 1 : 0 })}
+                            </span>
+                            <span className="text-gray-700">
+                                {t('reaction.time', 'game', { time: gameState.stats.reactionTime || 0 })}
                             </span>
                         </div>
-
-                        <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
-                            {gameState.gameState === GameState.PLAYING ? (
-                                gameState.activeCircleId !== null ? (
-                                    "Lightning fast reflexes required"
-                                ) : (
-                                    "Target will appear in 3-5 seconds"
-                                )
-                            ) : (
-                                "Preparing reaction speed test..."
+                        <div className="flex justify-between items-center mt-2">
+                            <span className="text-gray-700">
+                                {t('reaction.attempts', 'game', { attempts: attemptsRemaining })}
+                            </span>
+                            {gameState.stats.reactionTime !== null && gameState.stats.reactionTime > 0 && (
+                                <span className="text-gray-700">
+                                    {t('reaction.bestTime', 'game', { time: gameState.stats.reactionTime })}
+                                </span>
                             )}
                         </div>
                     </div>
+
+                    <GameGrid
+                        circles={gameState.circles}
+                        onCircleClick={(circleId) => handleCircleClick(gameState, circleId)}
+                        showCircles={showCircles}
+                        isGameActive={gameState.gameState === GameState.PLAYING}
+                    />
+
+                    <div className="mt-4 flex justify-center">
+                        {gameState.gameState === GameState.NOT_STARTED && (
+                            <button
+                                onClick={startGame}
+                                disabled={isConsumingAttempt || attemptsRemaining <= 0}
+                                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                            >
+                                {isConsumingAttempt ? t('common.loading', 'common') : t('reaction.start', 'game')}
+                            </button>
+                        )}
+
+                        {gameState.gameState === GameState.PLAYING && (
+                            <button
+                                onClick={pauseGame}
+                                className="bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600"
+                            >
+                                {t('reaction.pause', 'game')}
+                            </button>
+                        )}
+
+                        {gameState.gameState === GameState.PAUSED && (
+                            <button
+                                onClick={resumeGame}
+                                className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600"
+                            >
+                                {t('reaction.resume', 'game')}
+                            </button>
+                        )}
+
+                        {gameState.gameState === GameState.FINISHED && (
+                            <button
+                                onClick={restartGame}
+                                disabled={attemptsRemaining <= 0 || isRestartLoading}
+                                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                            >
+                                {isRestartLoading ? t('common.loading', 'common') : t('reaction.restart', 'game')}
+                            </button>
+                        )}
+                    </div>
+
+                    {gameResult && (
+                        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                            <h2 className="text-xl font-bold text-gray-800 mb-2">
+                                {t('common.gameOver', 'game')}
+                            </h2>
+                            <div className="space-y-2">
+                                <p className="text-gray-700">
+                                    {t('reaction.score', 'game', { score: gameResult.score })}
+                                </p>
+                                <p className="text-gray-700">
+                                    {t('reaction.time', 'game', { time: gameResult.reactionTime })}
+                                </p>
+                                <p className="text-gray-700">
+                                    {t('reaction.rating.' + gameResult.rating.toLowerCase(), 'game')}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {saveStatus.isLoading && (
+                        <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+                            <p className="text-yellow-800">
+                                {t('common.loading', 'common')}
+                            </p>
+                        </div>
+                    )}
+
+                    {saveStatus.error && (
+                        <div className="mt-4 p-4 bg-red-50 rounded-lg">
+                            <p className="text-red-800">
+                                {t('errors.serverError', 'common')}
+                            </p>
+                            {saveStatus.showRetryDetails && (
+                                <p className="text-red-600 text-sm mt-1">
+                                    {t('common.retry', 'common')} {saveStatus.attempt}/{saveStatus.maxAttempts}
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
