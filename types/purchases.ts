@@ -1,4 +1,4 @@
-// src/types/purchases.ts - Updated types for enhanced purchase system
+// src/types/purchases.ts - Типы для системы покупок Telegram Stars
 
 export interface Purchase {
     id: string;
@@ -11,7 +11,7 @@ export interface Purchase {
     created_at: string;
 }
 
-export type ProductType = 'additional_attempts' | 'restore_attempts';
+export type ProductType = 'additional_attempts';
 
 export type PurchaseStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 
@@ -22,9 +22,6 @@ export interface ProductInfo {
     price: number; // в Telegram Stars
     icon: string;
     benefits: string[];
-    category: 'single' | 'bundle';
-    popular?: boolean;
-    bonus?: string;
 }
 
 export interface CreateInvoiceRequest {
@@ -44,82 +41,26 @@ export interface CreateInvoiceResponse {
     };
     payload?: string;
     error?: string;
-    user_info?: {
-        current_attempts: number;
-        will_have_attempts: number;
-    };
 }
 
 export interface PurchaseService {
     createInvoice: (productType: ProductType) => Promise<CreateInvoiceResponse>;
-    openInvoice: (invoiceUrl: string, productType?: ProductType) => Promise<boolean>;
+    openInvoice: (invoiceUrl: string) => Promise<boolean>;
     checkPurchaseStatus: () => Promise<void>;
 }
 
-export interface PurchaseAnimation {
-    type: 'success' | 'error' | 'loading';
-    message: string;
-    submessage?: string;
-}
-
-// Enhanced product configuration with new items
+// Конфигурация доступных продуктов
 export const PRODUCTS: Record<ProductType, ProductInfo> = {
     additional_attempts: {
         type: 'additional_attempts',
-        title: 'Extra Attempt',
-        description: 'Get 1 additional game attempt to keep playing',
+        title: 'More Attempts',
+        description: 'Get 1 additional game attempt',
         price: 1,
         icon: '⚡',
-        category: 'single',
         benefits: [
+            'Play one more game',
             'Instant activation',
-            'No expiration date',
-            'Works for any game mode'
-        ]
-    },
-    restore_attempts: {
-        type: 'restore_attempts',
-        title: 'Full Restore',
-        description: 'Instantly restore all 5 attempts and get back in the game',
-        price: 5,
-        icon: '🔋',
-        category: 'bundle',
-        popular: true,
-        bonus: 'Best Value!',
-        benefits: [
-            'Restore all 5 attempts',
-            'Instant activation',
-            'Perfect for long gaming sessions',
-            'Skip waiting time'
+            'No expiration date'
         ]
     }
 };
-
-// Animation configurations for purchase states
-export const PURCHASE_ANIMATIONS = {
-    loading: {
-        type: 'loading' as const,
-        message: 'Processing your order...',
-        submessage: 'Please wait while we prepare your purchase'
-    },
-    success: {
-        type: 'success' as const,
-        message: 'Purchase successful! 🎉',
-        submessage: 'Your attempts have been added to your account'
-    },
-    cancelled: {
-        type: 'error' as const,
-        message: 'Purchase cancelled',
-        submessage: 'No charges were made to your account'
-    },
-    failed: {
-        type: 'error' as const,
-        message: 'Purchase failed',
-        submessage: 'Please try again or contact support'
-    },
-    network_error: {
-        type: 'error' as const,
-        message: 'Connection error',
-        submessage: 'Please check your internet connection and try again'
-    }
-} as const;
