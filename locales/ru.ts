@@ -444,6 +444,18 @@ export const ru = {
         saveFailed: "✗ Сохранение не удалось после {attempts} попыток",
         recordedLocally: "Ваше время записано локально, но не синхронизировано",
         retrySave: "ПОВТОРИТЬ СОХРАНЕНИЕ",
+        badges: {
+            test: "Тест",
+            popular: "Популярно",
+            value: "Выгодно",
+            ultimate: "Максимум",
+            instant: "Мгновенно"
+        },
+        testProduct: {
+            title: "Тестовый товар",
+            description: "Демонстрация визуальных эффектов",
+            button: "Тест эффектов"
+        },
     },
 
     // Save status messages

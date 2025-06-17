@@ -305,10 +305,10 @@ export default function ShopPage() {
                                                     </div>
                                                     <div>
                                                         <h3 className="font-bold text-white">
-                                                            {t(`shop.products.${productType}.title`)}
+                                                            {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.title`)}
                                                         </h3>
                                                         <p className="text-white/60 text-sm">
-                                                            {t(`shop.products.${productType}.description`)}
+                                                            {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.description`)}
                                                         </p>
                                                     </div>
                                                 </div>

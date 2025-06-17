@@ -441,6 +441,18 @@ export const en = {
         saveFailed: "✗ Save failed after {attempts} attempts",
         recordedLocally: "Your time was recorded locally but not synchronized",
         retrySave: "RETRY SAVE",
+        badges: {
+            test: "Test",
+            popular: "Popular",
+            value: "Best Value",
+            ultimate: "Ultimate",
+            instant: "Instant"
+        },
+        testProduct: {
+            title: "Test Product",
+            description: "Visual effects demonstration",
+            button: "Test Effects"
+        },
     },
 
     // Save status messages
