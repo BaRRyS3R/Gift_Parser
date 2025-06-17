@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Enhanced with server-side validation
+// src/app/game/page.tsx - Enhanced with server-side validation and unlimited attempts display
 
 "use client";
 
@@ -139,44 +139,40 @@ const AttemptsDisplay = ({
   attemptsStatus: AttemptsStatus;
   timeUntilReset: string;
 }) => {
-  const batteryLevel = (attemptsStatus.attemptsRemaining / 5) * 100;
-  const isLow = attemptsStatus.attemptsRemaining <= 1;
-  const isEmpty = attemptsStatus.attemptsRemaining === 0;
+  const attemptsRemaining = attemptsStatus.attemptsRemaining;
+  const isEmpty = attemptsRemaining === 0;
+  const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
+
+  // Dynamic battery level calculation
+  const getBatteryLevel = () => {
+    if (attemptsRemaining <= 0) return 0;
+    if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
+    return 100; // Full battery for 5+ attempts
+  };
+
+  const getBatteryColor = () => {
+    if (isEmpty) return "text-red-400";
+    if (isLow) return "text-orange-400";
+    return "text-green-400";
+  };
+
+  const getBatteryBgColor = () => {
+    if (isEmpty) return "bg-red-500/20 border-red-400/40";
+    if (isLow) return "bg-orange-500/20 border-orange-400/40";
+    return "bg-white/10 border-white/30";
+  };
 
   return (
-    <div className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${isEmpty
-      ? "bg-red-500/20 border-red-400/40"
-      : isLow
-        ? "bg-orange-500/20 border-orange-400/40"
-        : "bg-white/10 border-white/30"
-      }`}>
+    <div className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${getBatteryBgColor()}`}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
-          <Battery
-            className={`${isEmpty
-              ? "text-red-400"
-              : isLow
-                ? "text-orange-400"
-                : "text-green-400"
-              }`}
-            size={18}
-          />
-          <span className={`font-bpdots text-sm font-bold ${isEmpty
-            ? "text-red-300"
-            : isLow
-              ? "text-orange-300"
-              : "text-white"
-            }`}>
+          <Battery className={getBatteryColor()} size={18} />
+          <span className={`font-bpdots text-sm font-bold ${getBatteryColor()}`}>
             ATTEMPTS
           </span>
         </div>
-        <span className={`font-bpdots text-lg font-bold ${isEmpty
-          ? "text-red-400"
-          : isLow
-            ? "text-orange-400"
-            : "text-green-400"
-          }`}>
-          {attemptsStatus.attemptsRemaining}/5
+        <span className={`font-bpdots text-lg font-bold ${getBatteryColor()}`}>
+          {attemptsRemaining}
         </span>
       </div>
 
@@ -188,33 +184,34 @@ const AttemptsDisplay = ({
             : "bg-white/20"
           }`}>
           <div
-            className={`h-full transition-all duration-500 ${isEmpty
-              ? "bg-red-400"
-              : isLow
-                ? "bg-orange-400"
-                : "bg-green-400"
-              }`}
-            style={{ width: `${batteryLevel}%` }}
+            className={`h-full transition-all duration-500 ${getBatteryColor().replace('text-', 'bg-')}`}
+            style={{ width: `${getBatteryLevel()}%` }}
           />
         </div>
-        <div className="flex justify-between mt-1">
-          {[1, 2, 3, 4, 5].map((attempt) => (
-            <div
-              key={attempt}
-              className={`w-2 h-2 rounded-full ${attempt <= attemptsStatus.attemptsRemaining
-                ? isEmpty
-                  ? "bg-red-400"
-                  : isLow && attempt <= 1
-                    ? "bg-orange-400"
-                    : "bg-green-400"
-                : "bg-white/20"
-                }`}
-            />
-          ))}
-        </div>
+
+        {/* Attempt indicators - show up to 10, then just display number */}
+        {attemptsRemaining <= 10 ? (
+          <div className="flex justify-between mt-1">
+            {Array.from({ length: Math.min(10, Math.max(5, attemptsRemaining)) }, (_, i) => (
+              <div
+                key={i}
+                className={`w-2 h-2 rounded-full ${i < attemptsRemaining
+                  ? getBatteryColor().replace('text-', 'bg-')
+                  : "bg-white/20"
+                  }`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center mt-1">
+            <span className={`font-bpdots text-xs ${getBatteryColor()}`}>
+              {attemptsRemaining} TOTAL
+            </span>
+          </div>
+        )}
       </div>
 
-      {timeUntilReset && (
+      {timeUntilReset && isEmpty && (
         <div className="text-center space-y-1">
           <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
             Next reset in
@@ -225,21 +222,23 @@ const AttemptsDisplay = ({
         </div>
       )}
 
-      {isEmpty && (
-        <div className="text-center mt-2">
+      <div className="text-center mt-2">
+        {isEmpty && (
           <p className="text-xs font-bpdots text-red-400/80">
             All attempts used - wait for reset
           </p>
-        </div>
-      )}
-
-      {isLow && !isEmpty && (
-        <div className="text-center mt-2">
+        )}
+        {isLow && !isEmpty && (
           <p className="text-xs font-bpdots text-orange-400/80">
             Low attempts - use wisely
           </p>
-        </div>
-      )}
+        )}
+        {attemptsRemaining > 5 && (
+          <p className="text-xs font-bpdots text-green-400/80">
+            Plenty of attempts available
+          </p>
+        )}
+      </div>
     </div>
   );
 };
@@ -251,7 +250,7 @@ export default function GamePage() {
   const [selectedModeForInfo, setSelectedModeForInfo] = useState<GameMode | null>(null);
   const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
     canPlay: true,
-    attemptsRemaining: 5,
+    attemptsRemaining: 0,
   });
   const [timeUntilReset, setTimeUntilReset] = useState<string>("");
   const [isLoadingAttempts, setIsLoadingAttempts] = useState(true);
@@ -610,6 +609,7 @@ export default function GamePage() {
             Choose your challenge
           </p>
         </div>
+
         {/* Attempts Display */}
         <div className="w-full max-w-md animate-fade-in">
           <AttemptsDisplay
@@ -636,7 +636,7 @@ export default function GamePage() {
                 </span>
               </div>
               <p className="text-red-400/80 font-bpdots text-xs">
-                Wait for automatic reset or return later
+                Wait for automatic reset or purchase more attempts
               </p>
               {timeUntilReset && (
                 <p className="text-green-400 font-bpdots text-sm font-bold mt-2">

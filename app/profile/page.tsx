@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated for monochrome reaction mode
+// src/app/profile/page.tsx - Updated with referral system and unlimited attempts display
 
 "use client";
 
@@ -16,10 +16,16 @@ import {
     Activity,
     Calendar,
     Trophy,
+    Users,
+    Share2,
+    Copy,
+    Gift,
+    Link,
+    Check,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { userService, type GameResultDB } from "@/lib/supabase";
+import { userService, type GameResultDB, type ReferralInfo } from "@/lib/supabase";
 import { GameMode } from "@/types/game-modes/common";
 import { formatSurvivalTime } from "@/game-modes/survival/SurvivalGameLogic";
 
@@ -37,10 +43,12 @@ export default function ProfilePage() {
         reaction: null,
         survival: null,
     });
+    const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [activeTab, setActiveTab] = useState<
-        "stats" | "history" | "achievements"
+        "stats" | "history" | "achievements" | "referrals"
     >("stats");
+    const [copySuccess, setCopySuccess] = useState(false);
 
     useEffect(() => {
         const loadProfileData = async () => {
@@ -49,12 +57,13 @@ export default function ProfilePage() {
             try {
                 setIsLoadingData(true);
 
-                const [history, overallRank, reactionRank, survivalRank] =
+                const [history, overallRank, reactionRank, survivalRank, refInfo] =
                     await Promise.all([
                         userService.getGameHistory(telegramUser.id, 20),
                         userService.getUserRanking(telegramUser.id),
                         userService.getUserReactionRanking(telegramUser.id),
                         userService.getUserSurvivalRanking(telegramUser.id),
+                        userService.getReferralInfo(telegramUser.id),
                     ]);
 
                 setGameHistory(history);
@@ -63,6 +72,7 @@ export default function ProfilePage() {
                     reaction: reactionRank,
                     survival: survivalRank,
                 });
+                setReferralInfo(refInfo);
             } catch (error) {
                 console.error("Error loading profile data:", error);
             } finally {
@@ -74,6 +84,37 @@ export default function ProfilePage() {
             loadProfileData();
         }
     }, [telegramUser, userLoading]);
+
+    const handleCopyReferralLink = async () => {
+        if (!referralInfo) return;
+
+        try {
+            await navigator.clipboard.writeText(referralInfo.referralLink);
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy: ', err);
+        }
+    };
+
+    const handleShareReferralLink = () => {
+        if (!referralInfo) return;
+
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            const shareText = `🎮 Join me in this amazing reaction game! Use my referral link to get ${referralInfo.referralBonus} extra attempt${referralInfo.referralBonus > 1 ? 's' : ''}: ${referralInfo.referralLink}`;
+
+            // Try to use Telegram's share functionality
+            if (window.Telegram.WebApp.openTelegramLink) {
+                window.Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(referralInfo.referralLink)}&text=${encodeURIComponent(shareText)}`);
+            } else {
+                // Fallback to copying
+                handleCopyReferralLink();
+            }
+        } else {
+            // Fallback for non-Telegram environments
+            handleCopyReferralLink();
+        }
+    };
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString("en-US", {
@@ -112,7 +153,30 @@ export default function ProfilePage() {
                 color: "text-yellow-400",
             });
 
-        // Reaction Mode achievements - using monochrome colors
+        // Referral achievements
+        if (user.referral_count >= 1)
+            achievements.push({
+                icon: Users,
+                name: "RECRUITER",
+                desc: "INVITED 1+ FRIEND",
+                color: "text-green-400",
+            });
+        if (user.referral_count >= 5)
+            achievements.push({
+                icon: Share2,
+                name: "INFLUENCER",
+                desc: "INVITED 5+ FRIENDS",
+                color: "text-green-400",
+            });
+        if (user.referral_count >= 10)
+            achievements.push({
+                icon: Gift,
+                name: "AMBASSADOR",
+                desc: "INVITED 10+ FRIENDS",
+                color: "text-green-400",
+            });
+
+        // Reaction Mode achievements
         if (user.reaction_games >= 1)
             achievements.push({
                 icon: Zap,
@@ -253,7 +317,7 @@ export default function ProfilePage() {
     const getGameModeColor = (mode: string) => {
         switch (mode) {
             case GameMode.REACTION:
-                return "text-white"; // Changed from yellow to white
+                return "text-white";
             case GameMode.SURVIVAL:
                 return "text-red-400";
             default:
@@ -378,7 +442,7 @@ export default function ProfilePage() {
             <div className="mb-4">
                 <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-1">
                     <div className="flex">
-                        {(["stats", "history", "achievements"] as const).map((tab) => (
+                        {(["stats", "referrals", "history", "achievements"] as const).map((tab) => (
                             <button
                                 key={tab}
                                 className={`
@@ -401,7 +465,25 @@ export default function ProfilePage() {
             <div className="space-y-4">
                 {activeTab === "stats" && (
                     <div className="space-y-4 animate-fade-in">
-                        {/* Reaction Mode Statistics - Updated to monochrome */}
+                        {/* Current Attempts Display */}
+                        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <Zap className="text-yellow-400" size={16} />
+                                <h3 className="text-sm font-bpdots text-white font-bold">
+                                    CURRENT ATTEMPTS
+                                </h3>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-3xl font-bold font-bpdots text-yellow-400 mb-2">
+                                    {user.attempts_remaining}
+                                </div>
+                                <div className="text-xs font-bpdots text-white/60">
+                                    ATTEMPTS REMAINING
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Reaction Mode Statistics */}
                         <div className="bg-white/10 backdrop-blur-xl border border-white/30 rounded-xl p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <Zap className="text-white" size={16} />
@@ -540,6 +622,121 @@ export default function ProfilePage() {
                     </div>
                 )}
 
+                {activeTab === "referrals" && (
+                    <div className="space-y-4 animate-fade-in">
+                        <div className="bg-green-500/10 backdrop-blur-xl border border-green-400/30 rounded-xl p-4">
+                            <div className="flex items-center space-x-2 mb-4">
+                                <Share2 className="text-green-400" size={16} />
+                                <h3 className="text-sm font-bpdots text-green-300 font-bold">
+                                    REFERRAL SYSTEM
+                                </h3>
+                            </div>
+
+                            {referralInfo && (
+                                <div className="space-y-4">
+                                    {/* Referral Stats */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="text-center p-3 bg-green-500/20 rounded-lg border border-green-400/30">
+                                            <Users className="text-green-300 mx-auto mb-1" size={16} />
+                                            <div className="text-lg font-bold font-bpdots text-green-300">
+                                                {referralInfo.referralCount}
+                                            </div>
+                                            <div className="text-xs font-bpdots text-green-400/60">
+                                                FRIENDS INVITED
+                                            </div>
+                                        </div>
+                                        <div className="text-center p-3 bg-green-500/20 rounded-lg border border-green-400/30">
+                                            <Gift className="text-green-300 mx-auto mb-1" size={16} />
+                                            <div className="text-lg font-bold font-bpdots text-green-300">
+                                                +{referralInfo.referralBonus}
+                                            </div>
+                                            <div className="text-xs font-bpdots text-green-400/60">
+                                                ATTEMPTS BONUS
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Referral Code */}
+                                    <div className="space-y-2">
+                                        <div className="text-sm font-bpdots text-green-300 font-bold">
+                                            YOUR REFERRAL CODE
+                                        </div>
+                                        <div className="bg-black/40 rounded-lg p-3 border border-green-400/30">
+                                            <div className="text-center font-mono text-lg font-bold text-green-400 tracking-wider">
+                                                {referralInfo.referralCode}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Referral Link */}
+                                    <div className="space-y-2">
+                                        <div className="text-sm font-bpdots text-green-300 font-bold">
+                                            REFERRAL LINK
+                                        </div>
+                                        <div className="bg-black/40 rounded-lg p-3 border border-green-400/30">
+                                            <div className="text-xs font-mono text-green-400/80 break-all">
+                                                {referralInfo.referralLink}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex space-x-3">
+                                        <button
+                                            onClick={handleCopyReferralLink}
+                                            className="flex-1 flex items-center justify-center space-x-2 py-3 px-4 bg-green-500/20 border border-green-400/40 text-green-300 rounded-lg font-bpdots text-sm font-bold hover:bg-green-500/30 transition-all duration-300"
+                                        >
+                                            {copySuccess ? (
+                                                <>
+                                                    <Check size={16} />
+                                                    <span>COPIED!</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Copy size={16} />
+                                                    <span>COPY LINK</span>
+                                                </>
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={handleShareReferralLink}
+                                            className="flex-1 flex items-center justify-center space-x-2 py-3 px-4 bg-green-500/20 border border-green-400/40 text-green-300 rounded-lg font-bpdots text-sm font-bold hover:bg-green-500/30 transition-all duration-300"
+                                        >
+                                            <Share2 size={16} />
+                                            <span>SHARE</span>
+                                        </button>
+                                    </div>
+
+                                    {/* How it works */}
+                                    <div className="bg-black/40 rounded-lg p-4 border border-green-400/20">
+                                        <div className="text-sm font-bpdots text-green-300 font-bold mb-2">
+                                            HOW IT WORKS
+                                        </div>
+                                        <div className="space-y-1 text-xs font-bpdots text-green-400/80">
+                                            <p>• Share your referral link with friends</p>
+                                            <p>• They get +{referralInfo.referralBonus} extra attempt{referralInfo.referralBonus > 1 ? 's' : ''} when joining</p>
+                                            <p>• You get recognition for each referral</p>
+                                            <p>• Help grow the community!</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Referred by info */}
+                                    {referralInfo.referredBy && (
+                                        <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-400/30">
+                                            <div className="text-sm font-bpdots text-blue-300 font-bold mb-1">
+                                                REFERRED BY
+                                            </div>
+                                            <div className="text-blue-400 font-mono font-bold">
+                                                {referralInfo.referredBy}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === "history" && (
                     <div className="space-y-4 animate-fade-in">
                         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4">
@@ -568,10 +765,10 @@ export default function ProfilePage() {
                                             <div
                                                 key={game.id}
                                                 className={`flex items-center justify-between p-2 rounded-lg ${isReaction
-                                                        ? "bg-white/10 border border-white/30"
-                                                        : isSurvival
-                                                            ? "bg-red-500/20 border border-red-400/30"
-                                                            : "bg-white/10"
+                                                    ? "bg-white/10 border border-white/30"
+                                                    : isSurvival
+                                                        ? "bg-red-500/20 border border-red-400/30"
+                                                        : "bg-white/10"
                                                     }`}
                                             >
                                                 <div className="flex items-center space-x-2">
@@ -628,22 +825,28 @@ export default function ProfilePage() {
                                         achievement.color === "text-white";
                                     const isSurvivalAchievement =
                                         achievement.color === "text-red-400";
+                                    const isReferralAchievement =
+                                        achievement.color === "text-green-400";
 
                                     return (
                                         <div
                                             key={index}
                                             className={`flex items-center space-x-3 p-2 rounded-lg ${isReactionAchievement
-                                                    ? "bg-white/10 border border-white/30"
-                                                    : isSurvivalAchievement
-                                                        ? "bg-red-500/20 border border-red-400/30"
+                                                ? "bg-white/10 border border-white/30"
+                                                : isSurvivalAchievement
+                                                    ? "bg-red-500/20 border border-red-400/30"
+                                                    : isReferralAchievement
+                                                        ? "bg-green-500/20 border border-green-400/30"
                                                         : "bg-white/10"
                                                 }`}
                                         >
                                             <div
                                                 className={`w-8 h-8 rounded-lg flex items-center justify-center ${isReactionAchievement
-                                                        ? "bg-white/30"
-                                                        : isSurvivalAchievement
-                                                            ? "bg-red-500/30"
+                                                    ? "bg-white/30"
+                                                    : isSurvivalAchievement
+                                                        ? "bg-red-500/30"
+                                                        : isReferralAchievement
+                                                            ? "bg-green-500/30"
                                                             : "bg-white/20"
                                                     }`}
                                             >
@@ -657,9 +860,11 @@ export default function ProfilePage() {
                                                 </div>
                                                 <div
                                                     className={`text-xs font-bpdots ${isReactionAchievement
-                                                            ? "text-white/60"
-                                                            : isSurvivalAchievement
-                                                                ? "text-red-400/60"
+                                                        ? "text-white/60"
+                                                        : isSurvivalAchievement
+                                                            ? "text-red-400/60"
+                                                            : isReferralAchievement
+                                                                ? "text-green-400/60"
                                                                 : "text-white/60"
                                                         }`}
                                                 >
@@ -668,9 +873,11 @@ export default function ProfilePage() {
                                             </div>
                                             <div
                                                 className={`w-4 h-4 rounded-full flex items-center justify-center ${isReactionAchievement
-                                                        ? "bg-white/30"
-                                                        : isSurvivalAchievement
-                                                            ? "bg-red-500/30"
+                                                    ? "bg-white/30"
+                                                    : isSurvivalAchievement
+                                                        ? "bg-red-500/30"
+                                                        : isReferralAchievement
+                                                            ? "bg-green-500/30"
                                                             : "bg-white/20"
                                                     }`}
                                             >

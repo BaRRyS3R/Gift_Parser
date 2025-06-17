@@ -1,4 +1,4 @@
-// src/app/shop/page.tsx - Страница магазина
+// src/app/shop/page.tsx - Updated shop page without attempt limits
 
 "use client";
 
@@ -123,9 +123,27 @@ export default function ShopPage() {
 
     const product = PRODUCTS.additional_attempts;
     const isDisabled = purchaseState.isLoading || purchaseState.isProcessing;
-    const batteryLevel = (attemptsRemaining / 5) * 100;
-    const isLow = attemptsRemaining <= 1;
     const isEmpty = attemptsRemaining === 0;
+    const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
+
+    // Dynamic battery display based on current attempts
+    const getBatteryLevel = () => {
+        if (attemptsRemaining <= 0) return 0;
+        if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
+        return 100; // Full battery for 5+ attempts
+    };
+
+    const getBatteryColor = () => {
+        if (isEmpty) return "text-red-400";
+        if (isLow) return "text-orange-400";
+        return "text-green-400";
+    };
+
+    const getBatteryBgColor = () => {
+        if (isEmpty) return "bg-red-500/20 border-red-400/40";
+        if (isLow) return "bg-orange-500/20 border-orange-400/40";
+        return "bg-green-500/20 border-green-400/40";
+    };
 
     return (
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
@@ -155,35 +173,17 @@ export default function ShopPage() {
 
             {/* Current Attempts Display */}
             <div className="mb-6">
-                <div className={`backdrop-blur-sm border rounded-xl p-6 transition-all duration-300 ${isEmpty
-                    ? "bg-red-500/20 border-red-400/40"
-                    : isLow
-                        ? "bg-orange-500/20 border-orange-400/40"
-                        : "bg-white/10 border-white/30"
-                    }`}>
+                <div className={`backdrop-blur-sm border rounded-xl p-6 transition-all duration-300 ${getBatteryBgColor()}`}>
                     <div className="text-center space-y-4">
                         <div className="flex items-center justify-center space-x-3">
-                            <Battery
-                                className={`${isEmpty
-                                    ? "text-red-400"
-                                    : isLow
-                                        ? "text-orange-400"
-                                        : "text-green-400"
-                                    }`}
-                                size={24}
-                            />
-                            <span className={`font-bpdots text-lg font-bold ${isEmpty
-                                ? "text-red-300"
-                                : isLow
-                                    ? "text-orange-300"
-                                    : "text-white"
-                                }`}>
+                            <Battery className={getBatteryColor()} size={24} />
+                            <span className={`font-bpdots text-lg font-bold ${getBatteryColor()}`}>
                                 CURRENT ATTEMPTS
                             </span>
                         </div>
 
                         <div className="text-4xl font-bold font-bpdots text-white">
-                            {attemptsRemaining}/5
+                            {attemptsRemaining}
                         </div>
 
                         <div className="w-full max-w-xs mx-auto">
@@ -191,40 +191,53 @@ export default function ShopPage() {
                                 ? "bg-red-400/20"
                                 : isLow
                                     ? "bg-orange-400/20"
-                                    : "bg-white/20"
+                                    : "bg-green-400/20"
                                 }`}>
                                 <div
-                                    className={`h-full transition-all duration-500 ${isEmpty
-                                        ? "bg-red-400"
-                                        : isLow
-                                            ? "bg-orange-400"
-                                            : "bg-green-400"
-                                        }`}
-                                    style={{ width: `${batteryLevel}%` }}
+                                    className={`h-full transition-all duration-500 ${getBatteryColor().replace('text-', 'bg-')}`}
+                                    style={{ width: `${getBatteryLevel()}%` }}
                                 />
                             </div>
-                            <div className="flex justify-between mt-2">
-                                {[1, 2, 3, 4, 5].map((attempt) => (
-                                    <div
-                                        key={attempt}
-                                        className={`w-3 h-3 rounded-full ${attempt <= attemptsRemaining
-                                            ? isEmpty
-                                                ? "bg-red-400"
-                                                : isLow && attempt <= 1
-                                                    ? "bg-orange-400"
-                                                    : "bg-green-400"
-                                            : "bg-white/20"
-                                            }`}
-                                    />
-                                ))}
-                            </div>
+
+                            {/* Attempt indicators - show up to 10, then just display number */}
+                            {attemptsRemaining <= 10 ? (
+                                <div className="flex justify-center space-x-1 mt-2">
+                                    {Array.from({ length: Math.min(10, Math.max(5, attemptsRemaining)) }, (_, i) => (
+                                        <div
+                                            key={i}
+                                            className={`w-2 h-2 rounded-full ${i < attemptsRemaining
+                                                ? getBatteryColor().replace('text-', 'bg-')
+                                                : "bg-white/20"
+                                                }`}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center mt-2">
+                                    <span className={`font-bpdots text-sm ${getBatteryColor()}`}>
+                                        {attemptsRemaining} ATTEMPTS
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
-                        {isEmpty && (
-                            <p className="text-red-400/80 font-bpdots text-sm">
-                                No attempts remaining - purchase more to continue playing
-                            </p>
-                        )}
+                        <div className="text-center">
+                            {isEmpty && (
+                                <p className="text-red-400/80 font-bpdots text-sm">
+                                    No attempts remaining - purchase more to continue playing
+                                </p>
+                            )}
+                            {isLow && !isEmpty && (
+                                <p className="text-orange-400/80 font-bpdots text-sm">
+                                    Low attempts remaining - consider purchasing more
+                                </p>
+                            )}
+                            {attemptsRemaining > 5 && (
+                                <p className="text-green-400/80 font-bpdots text-sm">
+                                    You have plenty of attempts to play
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -353,6 +366,7 @@ export default function ShopPage() {
                             <p>• Payments processed via Telegram Stars</p>
                             <p>• Attempts added instantly after payment</p>
                             <p>• Secure payment through Telegram</p>
+                            <p>• No limit on attempts you can have</p>
                             <p>• No recurring charges</p>
                         </div>
                     </div>

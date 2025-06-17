@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Enhanced with server-side time validation and restart attempt consumption
+// src/lib/supabase.ts - Enhanced with referral system and server-side time validation
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -11,7 +11,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Updated database types for new game structure with attempts management
+// Updated database types for new game structure with attempts management and referral system
 export interface User {
     id: string; // UUID v4
     telegram_id: number;
@@ -27,6 +27,12 @@ export interface User {
     attempts_remaining: number;
     last_attempt_at?: string;
     attempts_reset_at?: string;
+
+    // Referral system
+    referral_code: string; // Unique referral code
+    referred_by?: string; // Referral code of who invited this user
+    referral_bonus: number; // How many attempts this user gives to new referrals (default: 1)
+    referral_count: number; // Number of users referred by this user
 
     // General game statistics
     total_games: number;
@@ -149,17 +155,26 @@ export interface AttemptsStatus {
     timeUntilReset?: number; // milliseconds
 }
 
-// Enhanced user service with server-side validation and restart attempt consumption
+// Referral system interface
+export interface ReferralInfo {
+    referralCode: string;
+    referralLink: string;
+    referralCount: number;
+    referralBonus: number;
+    referredBy?: string;
+}
+
+// Enhanced user service with server-side validation, restart attempt consumption, and referral system
 export const userService = {
     async getServerTime(): Promise<Date> {
         try {
             const { data, error } = await supabase.rpc('get_current_timestamp');
-            
+
             if (error) {
                 console.warn("Failed to get server time, using client time:", error);
                 return new Date();
             }
-            
+
             return new Date(data);
         } catch (error) {
             console.warn("Error getting server time, falling back to client time:", error);
@@ -182,7 +197,67 @@ export const userService = {
         return data;
     },
 
-    async create(telegramUser: TelegramUser): Promise<User> {
+    async findByReferralCode(referralCode: string): Promise<User | null> {
+        const { data, error } = await supabase
+            .from("users")
+            .select("*")
+            .eq("referral_code", referralCode)
+            .maybeSingle();
+
+        if (error) {
+            console.error("Error finding user by referral code:", error);
+            throw error;
+        }
+
+        return data;
+    },
+
+    async generateUniqueReferralCode(): Promise<string> {
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code = '';
+        let isUnique = false;
+
+        while (!isUnique) {
+            code = '';
+            for (let i = 0; i < 8; i++) {
+                code += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+
+            // Check if code already exists
+            const existingUser = await this.findByReferralCode(code);
+            if (!existingUser) {
+                isUnique = true;
+            }
+        }
+
+        return code;
+    },
+
+    async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
+        const referralCodeToUse = await this.generateUniqueReferralCode();
+        let additionalAttempts = 5; // Base attempts
+        let referredBy = null;
+
+        // Handle referral
+        if (referralCode) {
+            const referrer = await this.findByReferralCode(referralCode);
+            if (referrer) {
+                referredBy = referralCode;
+                additionalAttempts += referrer.referral_bonus;
+
+                // Update referrer's count
+                await supabase
+                    .from("users")
+                    .update({
+                        referral_count: referrer.referral_count + 1,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq("id", referrer.id);
+
+                console.log(`User referred by ${referralCode}, adding ${referrer.referral_bonus} bonus attempts`);
+            }
+        }
+
         const userData = {
             telegram_id: telegramUser.id,
             first_name: telegramUser.first_name,
@@ -190,7 +265,11 @@ export const userService = {
             username: telegramUser.username || null,
             language_code: telegramUser.language_code || null,
             is_premium: telegramUser.is_premium || false,
-            attempts_remaining: 5, // Initialize with 5 attempts
+            attempts_remaining: additionalAttempts,
+            referral_code: referralCodeToUse,
+            referred_by: referredBy,
+            referral_bonus: 1, // Default bonus for new users
+            referral_count: 0,
         };
 
         const { data, error } = await supabase
@@ -207,6 +286,19 @@ export const userService = {
         return data;
     },
 
+    async getReferralInfo(telegramId: number): Promise<ReferralInfo | null> {
+        const user = await this.findByTelegramId(telegramId);
+        if (!user) return null;
+
+        return {
+            referralCode: user.referral_code,
+            referralLink: `https://t.me/your_bot_username?start=${user.referral_code}`,
+            referralCount: user.referral_count,
+            referralBonus: user.referral_bonus,
+            referredBy: user.referred_by || undefined,
+        };
+    },
+
     async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
         const user = await this.findByTelegramId(telegramId);
         if (!user) throw new Error("User not found");
@@ -217,9 +309,9 @@ export const userService = {
         // Server-side validation: check if reset time has passed according to server
         if (resetTime && serverTime >= resetTime) {
             await this.resetAttempts(telegramId);
-            return { 
-                canPlay: true, 
-                attemptsRemaining: 5,
+            return {
+                canPlay: true,
+                attemptsRemaining: Math.max(5, user.attempts_remaining),
                 resetTime: undefined,
                 timeUntilReset: undefined
             };
@@ -229,7 +321,7 @@ export const userService = {
         if (user.last_attempt_at) {
             const lastAttemptTime = new Date(user.last_attempt_at);
             const timeSinceLastAttempt = serverTime.getTime() - lastAttemptTime.getTime();
-            
+
             // If server time indicates less time has passed than expected, log warning
             if (timeSinceLastAttempt < 0) {
                 console.warn("Potential time manipulation detected for user:", telegramId);
@@ -259,13 +351,13 @@ export const userService = {
 
         const serverTime = await this.getServerTime();
         const newAttemptsRemaining = Math.max(0, user.attempts_remaining - 1);
-        
+
         const updates: any = {
             attempts_remaining: newAttemptsRemaining,
             last_attempt_at: serverTime.toISOString()
         };
 
-        // Set reset time based on server time
+        // Set reset time based on server time only if no attempts left
         if (newAttemptsRemaining === 0) {
             const resetTime = new Date(serverTime.getTime() + 2 * 60 * 1000); // 2 minutes from server time
             updates.attempts_reset_at = resetTime.toISOString();
@@ -281,8 +373,8 @@ export const userService = {
             throw error;
         }
 
-        const timeUntilReset = newAttemptsRemaining === 0 
-            ? 2 * 60 * 1000 
+        const timeUntilReset = newAttemptsRemaining === 0
+            ? 2 * 60 * 1000
             : undefined;
 
         return {
@@ -294,10 +386,16 @@ export const userService = {
     },
 
     async resetAttempts(telegramId: number): Promise<void> {
+        const user = await this.findByTelegramId(telegramId);
+        if (!user) throw new Error("User not found");
+
+        // Reset to at least 5 attempts, but keep current if higher
+        const newAttempts = Math.max(5, user.attempts_remaining);
+
         const { error } = await supabase
             .from("users")
             .update({
-                attempts_remaining: 5,
+                attempts_remaining: newAttempts,
                 attempts_reset_at: null
             })
             .eq("telegram_id", telegramId);
@@ -308,7 +406,7 @@ export const userService = {
         }
     },
 
-    // Legacy method maintained for backward compatibility - redirects to server validation
+    // Legacy methods maintained for backward compatibility - redirects to server validation
     async checkAndUpdateAttempts(telegramId: number): Promise<AttemptsStatus> {
         return this.checkAndUpdateAttemptsWithServerValidation(telegramId);
     },

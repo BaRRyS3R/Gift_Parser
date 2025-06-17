@@ -1,11 +1,11 @@
-// src/app/page.tsx
+// src/app/page.tsx - Updated with referral system support
 
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
-import { Play, Zap, Wifi, WifiOff } from "lucide-react";
+import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
 
 import { userService, type TelegramUser, type User } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
@@ -17,6 +17,8 @@ interface AuthState {
   telegramUser: TelegramUser | null;
   error: string | null;
   needsRegistration: boolean;
+  referralCode?: string;
+  referralBonus?: number;
 }
 
 export default function IntroPage(): JSX.Element {
@@ -53,6 +55,33 @@ export default function IntroPage(): JSX.Element {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // Extract referral code from Telegram start parameter
+  const extractReferralCode = useCallback((): string | undefined => {
+    if (typeof window === "undefined") return undefined;
+
+    if (window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      const startParam = tg.initDataUnsafe?.start_param;
+
+      if (startParam && startParam.length === 8) {
+        console.log("Referral code extracted from start param:", startParam);
+        return startParam;
+      }
+    }
+
+    // Fallback: check URL parameters for development
+    if (process.env.NODE_ENV === "development") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get('ref');
+      if (refCode) {
+        console.log("Referral code extracted from URL (dev):", refCode);
+        return refCode;
+      }
+    }
+
+    return undefined;
+  }, []);
 
   const getTelegramUser = useCallback((): TelegramUser | null => {
     if (typeof window === "undefined") {
@@ -123,8 +152,24 @@ export default function IntroPage(): JSX.Element {
     [],
   );
 
+  const validateReferralCode = useCallback(
+    async (referralCode: string): Promise<{ isValid: boolean; bonus: number }> => {
+      try {
+        const referrer = await userService.findByReferralCode(referralCode);
+        if (referrer) {
+          return { isValid: true, bonus: referrer.referral_bonus };
+        }
+        return { isValid: false, bonus: 0 };
+      } catch (error) {
+        console.error("Ошибка при проверке реферального кода:", error);
+        return { isValid: false, bonus: 0 };
+      }
+    },
+    [],
+  );
+
   const registerUser = useCallback(
-    async (telegramUser: TelegramUser): Promise<User> => {
+    async (telegramUser: TelegramUser, referralCode?: string): Promise<User> => {
       if (registrationInProgressRef.current) {
         throw new Error("Регистрация уже в процессе");
       }
@@ -139,7 +184,7 @@ export default function IntroPage(): JSX.Element {
         }));
 
         console.log("Создаем нового пользователя в БД...");
-        const newUser = await userService.create(telegramUser);
+        const newUser = await userService.create(telegramUser, referralCode);
 
         console.log("Пользователь успешно создан:", newUser);
 
@@ -180,8 +225,10 @@ export default function IntroPage(): JSX.Element {
       console.log("Инициализация авторизации...");
 
       const telegramUser = getTelegramUser();
+      const referralCode = extractReferralCode();
 
       console.log("Полученный пользователь Telegram:", telegramUser);
+      console.log("Реферальный код:", referralCode);
 
       if (!telegramUser) {
         console.error("Данные пользователя Telegram недоступны");
@@ -194,7 +241,24 @@ export default function IntroPage(): JSX.Element {
         return;
       }
 
-      setAuthState((prev) => ({ ...prev, telegramUser }));
+      // Проверяем реферальный код если есть
+      let referralBonus = 0;
+      if (referralCode) {
+        const validation = await validateReferralCode(referralCode);
+        if (validation.isValid) {
+          referralBonus = validation.bonus;
+          console.log(`Валидный реферальный код. Бонус: +${referralBonus} попыток`);
+        } else {
+          console.log("Невалидный реферальный код");
+        }
+      }
+
+      setAuthState((prev) => ({
+        ...prev,
+        telegramUser,
+        referralCode: referralCode,
+        referralBonus: referralBonus
+      }));
 
       // Устанавливаем telegram пользователя в контекст
       setTelegramUser(telegramUser);
@@ -237,7 +301,7 @@ export default function IntroPage(): JSX.Element {
         error: `Ошибка подключения к базе данных: ${error instanceof Error ? error.message : "Неизвестная ошибка"}`,
       }));
     }
-  }, [getTelegramUser, checkUserExists, router, updateUser, setTelegramUser]);
+  }, [getTelegramUser, extractReferralCode, validateReferralCode, checkUserExists, router, updateUser, setTelegramUser]);
 
   // Инициализация Service Worker и шрифта
   useEffect(() => {
@@ -299,6 +363,7 @@ export default function IntroPage(): JSX.Element {
         user: !!currentAuthState.user,
         isRegistering: currentAuthState.isRegistering,
         needsRegistration: currentAuthState.needsRegistration,
+        referralCode: currentAuthState.referralCode,
       });
 
       // Выполняем регистрацию пользователя после окончания видео
@@ -308,7 +373,7 @@ export default function IntroPage(): JSX.Element {
         !currentAuthState.isRegistering
       ) {
         console.log("Начинаем регистрацию после видео");
-        registerUser(currentAuthState.telegramUser)
+        registerUser(currentAuthState.telegramUser, currentAuthState.referralCode)
           .then((registeredUser) => {
             console.log("Регистрация успешна, пользователь:", registeredUser);
             console.log("Перенаправляем на main через 1 секунду");
@@ -409,7 +474,7 @@ export default function IntroPage(): JSX.Element {
     }
 
     try {
-      const registeredUser = await registerUser(authState.telegramUser);
+      const registeredUser = await registerUser(authState.telegramUser, authState.referralCode);
 
       console.log("Быстрая регистрация успешна:", registeredUser);
       setTimeout(() => {
@@ -499,6 +564,11 @@ export default function IntroPage(): JSX.Element {
                 <div className="text-center">
                   <Spinner color="white" size="lg" />
                   <p className="text-white mt-4 font-bpdots">Registering...</p>
+                  {authState.referralCode && (
+                    <p className="text-green-400 mt-2 font-bpdots text-sm">
+                      Processing referral bonus...
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="text-center space-y-8">
@@ -516,6 +586,25 @@ export default function IntroPage(): JSX.Element {
                         {authState.telegramUser?.first_name}
                       </span>
                     </p>
+
+                    {/* Referral Bonus Info */}
+                    {authState.referralCode && authState.referralBonus && authState.referralBonus > 0 && (
+                      <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Gift className="text-green-400" size={20} />
+                          <span className="font-bpdots text-green-300 font-bold">
+                            REFERRAL BONUS!
+                          </span>
+                        </div>
+                        <p className="text-green-400 font-bpdots text-sm">
+                          You'll get <span className="font-bold">+{authState.referralBonus} extra attempt{authState.referralBonus > 1 ? 's' : ''}</span>
+                        </p>
+                        <p className="text-green-400/60 font-bpdots text-xs">
+                          Referred by: {authState.referralCode}
+                        </p>
+                      </div>
+                    )}
+
                     <p className="text-white/50 font-bpdots text-xs uppercase tracking-widest">
                       Choose your entry method
                     </p>
