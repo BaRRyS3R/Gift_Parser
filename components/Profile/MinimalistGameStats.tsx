@@ -1,0 +1,144 @@
+// src/components/Profile/MinimalistGameStats.tsx - Clean game statistics display
+
+"use client";
+
+import React from "react";
+import { Card, CardBody } from "@nextui-org/react";
+import { Zap, Crosshair, Trophy, Activity, Clock, Target } from "lucide-react";
+import type { User as UserType } from "@/lib/supabase";
+import { formatSurvivalTime } from "@/game-modes/survival/SurvivalGameLogic";
+import { useT } from "@/contexts/LocalizationContext";
+
+interface MinimalistGameStatsProps {
+    user: UserType;
+}
+
+const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
+    const t = useT();
+
+    const StatItem = ({
+        icon: Icon,
+        label,
+        value
+    }: {
+        icon: React.ComponentType<any>;
+        label: string;
+        value: string | number;
+    }) => (
+        <div className="flex items-center justify-between py-2">
+            <div className="flex items-center space-x-2">
+                <Icon className="text-white/60" size={16} />
+                <span className="text-white/80 text-sm">{label}</span>
+            </div>
+            <span className="text-white font-medium text-sm">{value}</span>
+        </div>
+    );
+
+    return (
+        <div className="space-y-6 px-4">
+            {/* Overall Statistics */}
+            <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-white">Overall Statistics</h3>
+                <Card className="bg-white/5 border border-white/20">
+                    <CardBody className="p-4 space-y-3">
+                        <StatItem
+                            icon={Activity}
+                            label="Total Games"
+                            value={user.total_games}
+                        />
+                        <StatItem
+                            icon={Trophy}
+                            label="Best Score"
+                            value={user.best_score}
+                        />
+                        <StatItem
+                            icon={Target}
+                            label="Current Attempts"
+                            value={user.attempts_remaining}
+                        />
+                    </CardBody>
+                </Card>
+            </div>
+
+            {/* Reaction Mode Statistics */}
+            <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-white">Reaction Mode</h3>
+                <Card className="bg-white/5 border border-white/20">
+                    <CardBody className="p-4">
+                        {user.reaction_games === 0 ? (
+                            <div className="text-center py-4">
+                                <Zap className="text-white/40 mx-auto mb-2" size={24} />
+                                <p className="text-white/60 text-sm">No reaction tests yet</p>
+                                <p className="text-white/40 text-xs mt-1">Test your reflexes to see stats</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <StatItem
+                                    icon={Clock}
+                                    label="Best Time"
+                                    value={`${user.reaction_best_time || 0}ms`}
+                                />
+                                <StatItem
+                                    icon={Trophy}
+                                    label="Best Score"
+                                    value={user.reaction_best_score || 0}
+                                />
+                                <StatItem
+                                    icon={Target}
+                                    label="Average Time"
+                                    value={`${user.reaction_average_time || 0}ms`}
+                                />
+                                <StatItem
+                                    icon={Activity}
+                                    label="Total Tests"
+                                    value={user.reaction_games}
+                                />
+                            </div>
+                        )}
+                    </CardBody>
+                </Card>
+            </div>
+
+            {/* Survival Mode Statistics */}
+            <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-white">Survival Mode</h3>
+                <Card className="bg-white/5 border border-white/20">
+                    <CardBody className="p-4">
+                        {user.survival_games === 0 ? (
+                            <div className="text-center py-4">
+                                <Crosshair className="text-white/40 mx-auto mb-2" size={24} />
+                                <p className="text-white/60 text-sm">No survival attempts yet</p>
+                                <p className="text-white/40 text-xs mt-1">Enter survival mode to see stats</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <StatItem
+                                    icon={Clock}
+                                    label="Best Time"
+                                    value={formatSurvivalTime(user.survival_best_time || 0)}
+                                />
+                                <StatItem
+                                    icon={Trophy}
+                                    label="Max Level"
+                                    value={user.survival_max_level || 0}
+                                />
+                                <StatItem
+                                    icon={Target}
+                                    label="Best Streak"
+                                    value={user.survival_best_streak || 0}
+                                />
+                                <StatItem
+                                    icon={Activity}
+                                    label="Total Attempts"
+                                    value={user.survival_games}
+                                />
+                            </div>
+                        )}
+                    </CardBody>
+                </Card>
+            </div>
+        </div>
+    );
+};
+
+export default MinimalistGameStats;

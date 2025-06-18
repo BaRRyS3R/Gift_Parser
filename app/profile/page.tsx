@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Complete gaming-style profile page
+// src/app/profile/page.tsx - Complete minimalist profile page
 
 "use client";
 
@@ -7,11 +7,12 @@ import { useUser } from "@/hooks/useUser";
 import { userService, type ReferralInfo } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
 
-// Import gaming-style components
-import GamingProfileHeader from "@/components/Profile/GamingProfileHeader";
-import GamingAchievementsSection from "@/components/Profile/GamingAchievementsSection";
-import GamingStatsInventory from "@/components/Profile/GamingStatsInventory";
-import GamingJourneySection from "@/components/Profile/GamingJourneySection";
+// Import minimalist components
+import MinimalistProfileHeader from "@/components/Profile/MinimalistProfileHeader";
+import MinimalistActionButtons from "@/components/Profile/MinimalistActionButtons";
+import MinimalistDivider from "@/components/Profile/MinimalistDivider";
+import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
+import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
 
 interface UserRankings {
@@ -20,7 +21,7 @@ interface UserRankings {
   survival: number | null;
 }
 
-export default function GamingProfilePage() {
+export default function MinimalistProfilePage() {
   const { user, telegramUser, isLoading: userLoading } = useUser();
   const t = useT();
 
@@ -31,6 +32,7 @@ export default function GamingProfilePage() {
   });
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -65,16 +67,20 @@ export default function GamingProfilePage() {
     }
   }, [telegramUser, userLoading]);
 
-  const handleViewAllAchievements = () => {
+  const handleOpenReferrals = () => {
+    setIsReferralModalOpen(true);
+  };
+
+  const handleOpenAchievements = () => {
     setIsAchievementsModalOpen(true);
   };
 
   if (userLoading || isLoadingData) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-gray-600 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-gray-400">Loading profile...</p>
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+          <p className="text-white">{t("profile.loadingProfile")}</p>
         </div>
       </div>
     );
@@ -82,59 +88,48 @@ export default function GamingProfilePage() {
 
   if (!user || !telegramUser) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 bg-gray-800 border border-gray-700 rounded-lg flex items-center justify-center mx-auto">
-            <span className="text-gray-500 text-2xl">?</span>
+          <div className="w-16 h-16 bg-white/10 rounded-lg flex items-center justify-center mx-auto">
+            <span className="text-white/60 text-2xl">?</span>
           </div>
-          <p className="text-gray-400">Profile not found</p>
+          <p className="text-white">{t("profile.notFound")}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Gaming-style dark background with subtle pattern */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
-            radial-gradient(circle at 25px 25px, rgba(255,255,255,0.1) 2px, transparent 0),
-            radial-gradient(circle at 75px 75px, rgba(255,255,255,0.05) 2px, transparent 0)
-          `,
-          backgroundSize: '100px 100px'
-        }} />
-      </div>
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-md mx-auto space-y-0">
+        {/* Profile Header - No Container */}
+        <MinimalistProfileHeader user={user} />
 
-      <div className="relative z-10 max-w-md mx-auto px-4 py-6 space-y-8">
-        {/* Profile Header */}
-        <div className="bg-gray-800/80 backdrop-blur-sm border border-gray-700 rounded-xl">
-          <GamingProfileHeader user={user} />
-        </div>
+        {/* Action Buttons */}
+        <MinimalistActionButtons
+          onOpenReferrals={handleOpenReferrals}
+          onOpenAchievements={handleOpenAchievements}
+        />
 
-        {/* Achievements Section */}
-        <div className="bg-gray-800/80 backdrop-blur-sm border border-gray-700 rounded-xl p-4">
-          <GamingAchievementsSection
-            user={user}
-            onViewAll={handleViewAllAchievements}
-          />
-        </div>
+        {/* Divider */}
+        <MinimalistDivider />
 
-        {/* Stats Inventory Section */}
-        <div className="bg-gray-800/80 backdrop-blur-sm border border-gray-700 rounded-xl p-4">
-          <GamingStatsInventory user={user} />
-        </div>
-
-        {/* Journey Section */}
-        <div className="bg-gray-800/80 backdrop-blur-sm border border-gray-700 rounded-xl p-4">
-          <GamingJourneySection user={user} />
-        </div>
+        {/* Game Statistics */}
+        <MinimalistGameStats user={user} />
 
         {/* Bottom spacing for safe area */}
         <div className="h-20" />
       </div>
 
-      {/* Achievements Modal */}
+      {/* Modals */}
+      {referralInfo && (
+        <ReferralModal
+          isOpen={isReferralModalOpen}
+          onClose={() => setIsReferralModalOpen(false)}
+          referralInfo={referralInfo}
+        />
+      )}
+
       <AchievementsModal
         isOpen={isAchievementsModalOpen}
         onClose={() => setIsAchievementsModalOpen(false)}

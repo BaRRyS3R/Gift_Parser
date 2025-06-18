@@ -1,10 +1,10 @@
 // src/components/Profile/index.ts - Updated exports for gaming-style profile components
 
 // Gaming-style profile components
-export { default as GamingProfileHeader } from './GamingProfileHeader';
-export { default as GamingAchievementsSection } from './GamingAchievementsSection';
-export { default as GamingStatsInventory } from './GamingStatsInventory';
-export { default as GamingJourneySection } from './GamingJourneySection';
+export { default as MinimalistActionButtons } from './MinimalistActionButtons';
+export { default as MinimalistDivider } from './MinimalistDivider';
+export { default as MinimalistGameStats } from './MinimalistGameStats';
+export { default as MinimalistProfileHeader } from './MinimalistProfileHeader';
 
 // Modal components (still used)
 export { default as ReferralModal } from './ReferralModal';
