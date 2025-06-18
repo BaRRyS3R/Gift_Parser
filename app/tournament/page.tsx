@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Updated tournament page with rules modal and removed attempts
+// tournament/page.tsx - Fixed version with type-safe rule descriptions
 
 "use client";
 
@@ -41,6 +41,9 @@ import type { Tournament, TournamentLeaderboardEntry, TournamentResult, Tourname
 import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 
+// Type-safe rule tab IDs
+type RuleTabId = "gameMode" | "competition" | "scoring" | "format" | "fairPlay" | "tips";
+
 export default function TournamentPage() {
     const router = useRouter();
     const { user } = useUser();
@@ -57,6 +60,47 @@ export default function TournamentPage() {
     const [timeRemaining, setTimeRemaining] = useState<string>("");
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+    const [activeRuleTab, setActiveRuleTab] = useState<RuleTabId>("gameMode");
+
+    // Helper function to get rule description in a type-safe way
+    const getRuleDescription = (ruleId: RuleTabId) => {
+        switch (ruleId) {
+            case "gameMode":
+                return t("tournament.rules.gameMode.description");
+            case "competition":
+                return t("tournament.rules.competition.description");
+            case "scoring":
+                return t("tournament.rules.scoring.description");
+            case "format":
+                return t("tournament.rules.format.description");
+            case "fairPlay":
+                return t("tournament.rules.fairPlay.description");
+            case "tips":
+                return t("tournament.rules.tips.description");
+            default:
+                return "";
+        }
+    };
+
+    // Helper function to get rule title in a type-safe way
+    const getRuleTitle = (ruleId: RuleTabId) => {
+        switch (ruleId) {
+            case "gameMode":
+                return t("tournament.rules.gameMode.title");
+            case "competition":
+                return t("tournament.rules.competition.title");
+            case "scoring":
+                return t("tournament.rules.scoring.title");
+            case "format":
+                return t("tournament.rules.format.title");
+            case "fairPlay":
+                return t("tournament.rules.fairPlay.title");
+            case "tips":
+                return t("tournament.rules.tips.title");
+            default:
+                return "";
+        }
+    };
 
     const loadTournamentData = useCallback(async () => {
         try {
@@ -250,13 +294,37 @@ export default function TournamentPage() {
         );
     };
 
-    const getRuleDetails = (ruleSection: string) => {
+    const getRuleDetails = (ruleSection: RuleTabId) => {
         const details = [];
         let index = 1;
 
         while (true) {
-            const key = `tournament.rules.${ruleSection}.detail${index}` as any;
-            const detail = t(key);
+            // Create the key manually for each section to ensure type safety
+            let key: string;
+            switch (ruleSection) {
+                case "gameMode":
+                    key = `tournament.rules.gameMode.detail${index}`;
+                    break;
+                case "competition":
+                    key = `tournament.rules.competition.detail${index}`;
+                    break;
+                case "scoring":
+                    key = `tournament.rules.scoring.detail${index}`;
+                    break;
+                case "format":
+                    key = `tournament.rules.format.detail${index}`;
+                    break;
+                case "fairPlay":
+                    key = `tournament.rules.fairPlay.detail${index}`;
+                    break;
+                case "tips":
+                    key = `tournament.rules.tips.detail${index}`;
+                    break;
+                default:
+                    return details;
+            }
+
+            const detail = t(key as any); // Type assertion needed here for dynamic keys
 
             // If the detail is the same as the key, it means translation doesn't exist
             if (detail === key) break;
@@ -268,12 +336,103 @@ export default function TournamentPage() {
         return details;
     };
 
+    const rulesTabs: Array<{
+        id: RuleTabId;
+        title: string;
+        icon: React.ComponentType<any>;
+        color: string;
+        bgColor: string;
+        borderColor: string;
+    }> = [
+            {
+                id: "gameMode",
+                title: getRuleTitle("gameMode"),
+                icon: Crosshair,
+                color: "text-red-400",
+                bgColor: "bg-red-500/10",
+                borderColor: "border-red-400/30"
+            },
+            {
+                id: "competition",
+                title: getRuleTitle("competition"),
+                icon: Shield,
+                color: "text-blue-400",
+                bgColor: "bg-blue-500/10",
+                borderColor: "border-blue-400/30"
+            },
+            {
+                id: "scoring",
+                title: getRuleTitle("scoring"),
+                icon: Trophy,
+                color: "text-yellow-400",
+                bgColor: "bg-yellow-500/10",
+                borderColor: "border-yellow-400/30"
+            },
+            {
+                id: "format",
+                title: getRuleTitle("format"),
+                icon: Timer,
+                color: "text-green-400",
+                bgColor: "bg-green-500/10",
+                borderColor: "border-green-400/30"
+            },
+            {
+                id: "fairPlay",
+                title: getRuleTitle("fairPlay"),
+                icon: AlertTriangle,
+                color: "text-red-400",
+                bgColor: "bg-red-500/10",
+                borderColor: "border-red-400/30"
+            },
+            {
+                id: "tips",
+                title: getRuleTitle("tips"),
+                icon: Zap,
+                color: "text-purple-400",
+                bgColor: "bg-purple-500/10",
+                borderColor: "border-purple-400/30"
+            }
+        ];
+
+    const renderActiveRuleContent = () => {
+        const activeTab = rulesTabs.find(tab => tab.id === activeRuleTab);
+        if (!activeTab) return null;
+
+        const Icon = activeTab.icon;
+        const details = getRuleDetails(activeRuleTab);
+
+        return (
+            <div className={`${activeTab.bgColor} ${activeTab.borderColor} border rounded-xl p-6 min-h-[400px]`}>
+                <div className="flex items-center space-x-3 mb-4">
+                    <div className={`w-12 h-12 ${activeTab.bgColor} ${activeTab.borderColor} border rounded-lg flex items-center justify-center`}>
+                        <Icon className={activeTab.color} size={24} />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-white">{activeTab.title}</h3>
+                        <p className="text-white/70 text-sm">
+                            {getRuleDescription(activeRuleTab)}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    {details.map((detail, index) => (
+                        <div key={index} className="flex items-start space-x-3 p-3 bg-white/5 rounded-lg border border-white/10">
+                            <div className={`w-2 h-2 rounded-full ${activeTab.color.replace('text-', 'bg-')} mt-2 flex-shrink-0`} />
+                            <span className="text-white/90 text-sm leading-relaxed">{detail}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
     const renderRulesModal = () => {
         return (
             <Modal
                 isOpen={isRulesModalOpen}
                 onClose={handleCloseRules}
-                size="2xl"
+                size="3xl"
                 backdrop="blur"
                 scrollBehavior="inside"
                 classNames={{
@@ -287,11 +446,11 @@ export default function TournamentPage() {
                 <ModalContent>
                     <ModalHeader className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-yellow-500/20 border border-yellow-400/30 rounded-lg flex items-center justify-center">
-                                <BookOpen className="text-yellow-400" size={20} />
+                            <div className="w-12 h-12 bg-yellow-500/20 border border-yellow-400/30 rounded-lg flex items-center justify-center">
+                                <BookOpen className="text-yellow-400" size={24} />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-white">
+                                <h2 className="text-2xl font-bold text-white">
                                     {t("tournament.rulesTitle")}
                                 </h2>
                                 <p className="text-white/60 text-sm">
@@ -302,122 +461,42 @@ export default function TournamentPage() {
                     </ModalHeader>
 
                     <ModalBody className="space-y-6">
-                        {/* Game Mode Section */}
-                        <Card className="bg-white/5 border border-white/20">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-2 mb-3">
-                                    <Crosshair className="text-red-400" size={18} />
-                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.gameMode.title")}</h3>
-                                </div>
-                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.gameMode.description")}</p>
-                                <div className="space-y-2 text-sm text-white/80">
-                                    {getRuleDetails("gameMode").map((detail, index) => (
-                                        <div key={index} className="flex items-start space-x-2">
-                                            <div className="w-1 h-1 rounded-full bg-red-400/60 mt-2 flex-shrink-0" />
-                                            <span>{detail}</span>
+                        {/* Tabs Navigation */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {rulesTabs.map((tab) => {
+                                const Icon = tab.icon;
+                                const isActive = activeRuleTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveRuleTab(tab.id)}
+                                        className={`
+                                            p-3 rounded-lg border transition-all duration-300 text-left
+                                            ${isActive
+                                                ? `${tab.bgColor} ${tab.borderColor} scale-105`
+                                                : 'bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30'
+                                            }
+                                        `}
+                                    >
+                                        <div className="flex items-center space-x-2">
+                                            <Icon
+                                                className={isActive ? tab.color : 'text-white/60'}
+                                                size={16}
+                                            />
+                                            <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-white/80'}`}>
+                                                {tab.title}
+                                            </span>
                                         </div>
-                                    ))}
-                                </div>
-                            </CardBody>
-                        </Card>
+                                    </button>
+                                );
+                            })}
+                        </div>
 
-                        {/* Competition Rules */}
-                        <Card className="bg-white/5 border border-white/20">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-2 mb-3">
-                                    <Shield className="text-blue-400" size={18} />
-                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.competition.title")}</h3>
-                                </div>
-                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.competition.description")}</p>
-                                <div className="space-y-2 text-sm text-white/80">
-                                    {getRuleDetails("competition").map((detail, index) => (
-                                        <div key={index} className="flex items-start space-x-2">
-                                            <div className="w-1 h-1 rounded-full bg-blue-400/60 mt-2 flex-shrink-0" />
-                                            <span>{detail}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardBody>
-                        </Card>
-
-                        {/* Scoring System */}
-                        <Card className="bg-white/5 border border-white/20">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-2 mb-3">
-                                    <Trophy className="text-yellow-400" size={18} />
-                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.scoring.title")}</h3>
-                                </div>
-                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.scoring.description")}</p>
-                                <div className="space-y-2 text-sm text-white/80">
-                                    {getRuleDetails("scoring").map((detail, index) => (
-                                        <div key={index} className="flex items-start space-x-2">
-                                            <div className="w-1 h-1 rounded-full bg-yellow-400/60 mt-2 flex-shrink-0" />
-                                            <span>{detail}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardBody>
-                        </Card>
-
-                        {/* Tournament Format */}
-                        <Card className="bg-white/5 border border-white/20">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-2 mb-3">
-                                    <Timer className="text-green-400" size={18} />
-                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.format.title")}</h3>
-                                </div>
-                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.format.description")}</p>
-                                <div className="space-y-2 text-sm text-white/80">
-                                    {getRuleDetails("format").map((detail, index) => (
-                                        <div key={index} className="flex items-start space-x-2">
-                                            <div className="w-1 h-1 rounded-full bg-green-400/60 mt-2 flex-shrink-0" />
-                                            <span>{detail}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardBody>
-                        </Card>
-
-                        {/* Fair Play */}
-                        <Card className="bg-red-500/10 border border-red-400/30">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-2 mb-3">
-                                    <AlertTriangle className="text-red-400" size={18} />
-                                    <h3 className="text-lg font-bold text-red-300">{t("tournament.rules.fairPlay.title")}</h3>
-                                </div>
-                                <p className="text-sm text-red-300/90 mb-3">{t("tournament.rules.fairPlay.description")}</p>
-                                <div className="space-y-2 text-sm text-red-400/80">
-                                    {getRuleDetails("fairPlay").map((detail, index) => (
-                                        <div key={index} className="flex items-start space-x-2">
-                                            <div className="w-1 h-1 rounded-full bg-red-400/60 mt-2 flex-shrink-0" />
-                                            <span>{detail}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardBody>
-                        </Card>
-
-                        {/* Game Tips */}
-                        <Card className="bg-white/5 border border-white/20">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-2 mb-3">
-                                    <Zap className="text-purple-400" size={18} />
-                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.tips.title")}</h3>
-                                </div>
-                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.tips.description")}</p>
-                                <div className="space-y-2 text-sm text-white/80">
-                                    {getRuleDetails("tips").map((detail, index) => (
-                                        <div key={index} className="flex items-start space-x-2">
-                                            <div className="w-1 h-1 rounded-full bg-purple-400/60 mt-2 flex-shrink-0" />
-                                            <span>{detail}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardBody>
-                        </Card>
+                        {/* Active Tab Content */}
+                        {renderActiveRuleContent()}
                     </ModalBody>
 
-                    <ModalFooter>
+                    <ModalFooter className="flex justify-between">
                         <Button
                             className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
                             variant="bordered"
@@ -426,7 +505,7 @@ export default function TournamentPage() {
                             {t("common.close")}
                         </Button>
                         <Button
-                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold"
+                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold px-8"
                             color="primary"
                             onPress={() => {
                                 handleCloseRules();
