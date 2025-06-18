@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with Telegram back button
+// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with Telegram back button and fixed death cause logic
 
 "use client";
 
@@ -89,7 +89,7 @@ export default function SurvivalGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -200,10 +200,26 @@ export default function SurvivalGameManager() {
       console.log("Survival game ended:", cause);
 
       setGameState((prev) => {
+        // ИСПРАВЛЕНО: Правильно обновляем статистику в зависимости от причины проигрыша
+        let updatedStats = { ...prev.stats };
+
+        switch (cause) {
+          case "miss":
+            updatedStats.missedCircles = prev.stats.missedCircles + 1;
+            break;
+          case "wrong_click":
+            updatedStats.wrongHits = prev.stats.wrongHits + 1;
+            break;
+          case "decoy_hit":
+            updatedStats.decoyHits = prev.stats.decoyHits + 1;
+            break;
+        }
+
         const finalState = {
           ...prev,
           gameState: GameState.FINISHED,
           isActive: false,
+          stats: updatedStats,
         };
 
         const result = createSurvivalGameResult(finalState);
@@ -227,7 +243,7 @@ export default function SurvivalGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -246,9 +262,12 @@ export default function SurvivalGameManager() {
             (circleId, wasDecoy) => {
               console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
 
+              // ИСПРАВЛЕНО: правильно определяем причину проигрыша
               if (!wasDecoy) {
+                // Если таймаут белого круга - это пропуск цели (miss), а не timeout
                 endGame("miss");
               } else {
+                // Если таймаут красного круга - просто деактивируем его
                 setGameState((current) =>
                   deactivateSurvivalCircle(current, circleId),
                 );
@@ -381,9 +400,18 @@ export default function SurvivalGameManager() {
   };
 
   const getDeathCauseMessage = (deathCause: string) => {
-    const key = `game.modes.survival.deathCauses.${deathCause}` as any;
+    // Маппинг причин проигрыша на ключи локализации
+    const causeKeyMapping = {
+      "miss": "game.modes.survival.deathCauses.miss",
+      "wrong_click": "game.modes.survival.deathCauses.wrongClick",
+      "decoy_hit": "game.modes.survival.deathCauses.decoyHit",
+      "timeout": "game.modes.survival.deathCauses.default"
+    };
 
-    return t(key) || t("game.modes.survival.deathCauses.default");
+    const key = causeKeyMapping[deathCause as keyof typeof causeKeyMapping] ||
+      causeKeyMapping.timeout;
+
+    return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
 
   if (isConsumingAttempt) {
@@ -482,81 +510,81 @@ export default function SurvivalGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                    <span className="text-sm text-red-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                      <span className="text-sm text-red-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recording")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-red-400/60" size={14} />
-                        <span className="text-xs text-red-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-red-400/20 rounded-full h-1">
-                        <div
-                          className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recording")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.recordedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-red-400/60" size={14} />
+                          <span className="text-xs text-red-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-red-400/20 rounded-full h-1">
+                          <div
+                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.recordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 text-sm">
-                      {t("shop.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 text-sm">
+                        {t("shop.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 text-xs mb-3">
+                      {t("shop.recordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("shop.retrySave")}
+                    </button>
                   </div>
-                  <div className="text-red-400/60 text-xs mb-3">
-                    {t("shop.recordedLocally")}
-                  </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("shop.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           <div className="space-y-4">
             <button
@@ -612,7 +640,7 @@ export default function SurvivalGameManager() {
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-red-400/60">
-                {gameState.currentLevel}/15 {t("common.level")}S
+                {gameState.currentLevel}/15 {t("common.level")}
               </span>
               <div className="flex items-center space-x-2">
                 <AlertTriangle className="text-red-400" size={12} />

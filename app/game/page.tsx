@@ -17,6 +17,7 @@ import {
   Play,
   Shield,
   Battery,
+  ShoppingCart,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -134,9 +135,11 @@ const GAME_MODES: GameMode[] = [
 const AttemptsDisplay = ({
   attemptsStatus,
   timeUntilReset,
+  onShopClick,
 }: {
   attemptsStatus: AttemptsStatus;
   timeUntilReset: string;
+  onShopClick: () => void;
 }) => {
   const t = useT();
   const attemptsRemaining = attemptsStatus.attemptsRemaining;
@@ -182,13 +185,12 @@ const AttemptsDisplay = ({
 
       <div className="mb-3">
         <div
-          className={`w-full h-2 rounded-full overflow-hidden ${
-            isEmpty
+          className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
               ? "bg-red-400/20"
               : isLow
                 ? "bg-orange-400/20"
                 : "bg-white/20"
-          }`}
+            }`}
         >
           <div
             className={`h-full transition-all duration-500 ${getBatteryColor().replace("text-", "bg-")}`}
@@ -203,11 +205,10 @@ const AttemptsDisplay = ({
               (_, i) => (
                 <div
                   key={i}
-                  className={`w-2 h-2 rounded-full ${
-                    i < attemptsRemaining
+                  className={`w-2 h-2 rounded-full ${i < attemptsRemaining
                       ? getBatteryColor().replace("text-", "bg-")
                       : "bg-white/20"
-                  }`}
+                    }`}
                 />
               ),
             )}
@@ -221,30 +222,58 @@ const AttemptsDisplay = ({
         )}
       </div>
 
-      {timeUntilReset && isEmpty && (
-        <div className="text-center space-y-1">
-          <div className="text-xs text-white/60 uppercase tracking-wider">
-            {t("attempts.resetTime")}
+      {/* Расширенное уведомление для пустых попыток с кнопкой магазина */}
+      {isEmpty && (
+        <div className="space-y-3">
+          <div className="text-center space-y-2">
+            <div className="flex items-center justify-center space-x-2 mb-2">
+              <AlertTriangle className="text-red-400" size={18} />
+              <span className="text-sm font-bold text-red-300">
+                {t("game.general.attemptsUsed")}
+              </span>
+            </div>
+            <p className="text-red-400/80 text-xs">
+              {t("game.general.waitForReset")}
+            </p>
+            {timeUntilReset && (
+              <div className="space-y-1">
+                <div className="text-xs text-white/60 uppercase tracking-wider">
+                  {t("attempts.resetTime")}
+                </div>
+                <div className="text-lg font-bold text-green-400">
+                  {timeUntilReset}
+                </div>
+                <p className="text-white/40 text-xs">
+                  {t("game.general.automaticReset")}
+                </p>
+              </div>
+            )}
           </div>
-          <div className="text-lg font-bold text-green-400">
-            {timeUntilReset}
-          </div>
+
+          {/* Кнопка перехода в магазин */}
+          <button
+            onClick={onShopClick}
+            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-400/40 text-yellow-300 rounded-lg hover:from-yellow-500/30 hover:to-orange-500/30 hover:border-yellow-400/60 transition-all duration-300 hover:scale-105 active:scale-95"
+          >
+            <ShoppingCart size={16} />
+            <span className="font-bold text-sm">
+              {t("nav.shop")}
+            </span>
+          </button>
         </div>
       )}
 
-      <div className="text-center mt-2">
-        {isEmpty && (
-          <p className="text-xs text-red-400/80">{t("attempts.noRemaining")}</p>
-        )}
-        {isLow && !isEmpty && (
-          <p className="text-xs text-orange-400/80">
-            {t("attempts.lowRemaining")}
-          </p>
-        )}
-        {attemptsRemaining > 5 && (
-          <p className="text-xs text-green-400/80">{t("attempts.plenty")}</p>
-        )}
-      </div>
+      {/* Остальные состояния */}
+      {!isEmpty && (
+        <div className="text-center mt-2">
+          {isLow && (
+            <p className="text-xs text-orange-400/80">{t("attempts.lowRemaining")}</p>
+          )}
+          {attemptsRemaining > 5 && (
+            <p className="text-xs text-green-400/80">{t("attempts.plenty")}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -319,6 +348,10 @@ export default function GamePage() {
     }, 600);
   };
 
+  const handleOpenShop = () => {
+    router.push("/shop");
+  };
+
   useEffect(() => {
     // Setup Telegram WebApp back button
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -331,7 +364,7 @@ export default function GamePage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -355,10 +388,9 @@ export default function GamePage() {
         className={`
           relative w-full max-w-sm mx-auto backdrop-blur-sm border rounded-2xl 
           transition-all duration-300 
-          ${
-            isDisabled
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:scale-[1.02] hover:shadow-xl cursor-pointer"
+          ${isDisabled
+            ? "opacity-50 cursor-not-allowed"
+            : "hover:scale-[1.02] hover:shadow-xl cursor-pointer"
           }
           ${mode.color.background} ${mode.color.border} 
           ${isDisabled ? "" : "hover:border-opacity-60"}
@@ -398,11 +430,10 @@ export default function GamePage() {
                     <Target className={`${mode.color.accent}`} size={14} />
                   )}
                   <span
-                    className={`text-xs font-medium ${
-                      mode.difficulty === "Extreme"
+                    className={`text-xs font-medium ${mode.difficulty === "Extreme"
                         ? "text-red-400"
                         : mode.color.accent
-                    }`}
+                      }`}
                   >
                     {t(`game.general.difficulty`)}
                   </span>
@@ -413,9 +444,8 @@ export default function GamePage() {
                 {mode.featuresKeys.map((featureKey, index) => (
                   <div key={index} className="flex items-center space-x-3">
                     <div
-                      className={`w-1 h-1 rounded-full ${
-                        isReaction ? "bg-white/60" : "bg-red-400/80"
-                      }`}
+                      className={`w-1 h-1 rounded-full ${isReaction ? "bg-white/60" : "bg-red-400/80"
+                        }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
                       {t(featureKey as any)}
@@ -435,10 +465,9 @@ export default function GamePage() {
                 flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl 
                 text-sm font-bold transition-all duration-300
                 ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-                ${
-                  isDisabled
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
+                ${isDisabled
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
                 }
                 disabled:opacity-50 disabled:cursor-not-allowed
               `}
@@ -555,9 +584,8 @@ export default function GamePage() {
                 {mode.detailedInfo.tipsKeys.map((tipKey, index) => (
                   <div key={index} className="flex items-start space-x-2">
                     <div
-                      className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${
-                        mode.id === "reaction" ? "bg-white/60" : "bg-red-400/60"
-                      }`}
+                      className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${mode.id === "reaction" ? "bg-white/60" : "bg-red-400/60"
+                        }`}
                     />
                     <span className="text-white/70 text-sm leading-relaxed">
                       {t(tipKey as any)}
@@ -603,10 +631,9 @@ export default function GamePage() {
                 className={`
                   flex-1 py-4 px-6 rounded-xl text-lg font-bold transition-all duration-300
                   ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-                  ${
-                    !attemptsStatus.canPlay
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:scale-105 active:scale-95"
+                  ${!attemptsStatus.canPlay
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:scale-105 active:scale-95"
                   }
                   disabled:opacity-50 disabled:cursor-not-allowed
                 `}
@@ -646,11 +673,10 @@ export default function GamePage() {
 
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative safe-area-inset ${
-        isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative safe-area-inset ${isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
-      }`}
+        }`}
     >
       <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center max-w-6xl px-6 w-full">
         <div className="relative space-y-4">
@@ -666,6 +692,7 @@ export default function GamePage() {
           <AttemptsDisplay
             attemptsStatus={attemptsStatus}
             timeUntilReset={timeUntilReset}
+            onShopClick={handleOpenShop}
           />
         </div>
 
@@ -675,31 +702,9 @@ export default function GamePage() {
           </div>
         </div>
 
-        {!attemptsStatus.canPlay && (
-          <div className="animate-fade-in max-w-md mx-auto">
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4 text-center">
-              <div className="flex items-center justify-center space-x-2 mb-2">
-                <AlertTriangle className="text-red-400" size={18} />
-                <span className="text-sm font-bold text-red-300">
-                  {t("game.general.attemptsUsed")}
-                </span>
-              </div>
-              <p className="text-red-400/80 text-xs">
-                {t("game.general.waitForReset")}
-              </p>
-              {timeUntilReset && (
-                <p className="text-green-400 text-sm font-bold mt-2">
-                  {t("game.general.resetIn")}: {timeUntilReset}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
+        {/* УДАЛЕНО: дублирующее уведомление о закончившихся попытках */}
 
         <div className="text-center space-y-2 animate-fade-in">
-          <p className="text-white/40 text-xs">
-            • {t("game.general.automaticReset")} •
-          </p>
           <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
         </div>
       </div>

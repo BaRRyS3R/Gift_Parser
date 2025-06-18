@@ -1,4 +1,4 @@
-// src/components/Profile/MinimalistGameStats.tsx - Clean game statistics display
+// src/components/Profile/MinimalistGameStats.tsx - Clean game statistics display with full localization
 
 "use client";
 
@@ -38,22 +38,22 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
         <div className="space-y-6 px-4">
             {/* Overall Statistics */}
             <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-white">Overall Statistics</h3>
+                <h3 className="text-lg font-semibold text-white">{t("profile.overallStats")}</h3>
                 <Card className="bg-white/5 border border-white/20">
                     <CardBody className="p-4 space-y-3">
                         <StatItem
                             icon={Activity}
-                            label="Total Games"
+                            label={t("profile.totalGames")}
                             value={user.total_games}
                         />
                         <StatItem
                             icon={Trophy}
-                            label="Best Score"
+                            label={`${t("common.best")} ${t("common.score")}`}
                             value={user.best_score}
                         />
                         <StatItem
                             icon={Target}
-                            label="Current Attempts"
+                            label={t("profile.currentAttempts")}
                             value={user.attempts_remaining}
                         />
                     </CardBody>
@@ -62,35 +62,35 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
 
             {/* Reaction Mode Statistics */}
             <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-white">Reaction Mode</h3>
+                <h3 className="text-lg font-semibold text-white">{t("profile.reactionMode")}</h3>
                 <Card className="bg-white/5 border border-white/20">
                     <CardBody className="p-4">
                         {user.reaction_games === 0 ? (
                             <div className="text-center py-4">
                                 <Zap className="text-white/40 mx-auto mb-2" size={24} />
-                                <p className="text-white/60 text-sm">No reaction tests yet</p>
-                                <p className="text-white/40 text-xs mt-1">Test your reflexes to see stats</p>
+                                <p className="text-white/60 text-sm">{t("profile.noReactionTestsYet")}</p>
+                                <p className="text-white/40 text-xs mt-1">{t("profile.testReflexesToSeeStats")}</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
                                 <StatItem
                                     icon={Clock}
-                                    label="Best Time"
+                                    label={t("profile.stats.bestTime")}
                                     value={`${user.reaction_best_time || 0}ms`}
                                 />
                                 <StatItem
                                     icon={Trophy}
-                                    label="Best Score"
+                                    label={t("profile.stats.bestScore")}
                                     value={user.reaction_best_score || 0}
                                 />
                                 <StatItem
                                     icon={Target}
-                                    label="Average Time"
+                                    label={t("profile.stats.averageTime")}
                                     value={`${user.reaction_average_time || 0}ms`}
                                 />
                                 <StatItem
                                     icon={Activity}
-                                    label="Total Tests"
+                                    label={t("profile.totalTests")}
                                     value={user.reaction_games}
                                 />
                             </div>
@@ -101,35 +101,35 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
 
             {/* Survival Mode Statistics */}
             <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-white">Survival Mode</h3>
+                <h3 className="text-lg font-semibold text-white">{t("profile.survivalMode")}</h3>
                 <Card className="bg-white/5 border border-white/20">
                     <CardBody className="p-4">
                         {user.survival_games === 0 ? (
                             <div className="text-center py-4">
                                 <Crosshair className="text-white/40 mx-auto mb-2" size={24} />
-                                <p className="text-white/60 text-sm">No survival attempts yet</p>
-                                <p className="text-white/40 text-xs mt-1">Enter survival mode to see stats</p>
+                                <p className="text-white/60 text-sm">{t("profile.noSurvivalAttemptsYet")}</p>
+                                <p className="text-white/40 text-xs mt-1">{t("profile.enterSurvivalToSeeStats")}</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
                                 <StatItem
                                     icon={Clock}
-                                    label="Best Time"
+                                    label={t("profile.stats.bestTime")}
                                     value={formatSurvivalTime(user.survival_best_time || 0)}
                                 />
                                 <StatItem
                                     icon={Trophy}
-                                    label="Max Level"
+                                    label={t("profile.stats.maxLevel")}
                                     value={user.survival_max_level || 0}
                                 />
                                 <StatItem
                                     icon={Target}
-                                    label="Best Streak"
+                                    label={t("profile.stats.bestStreak")}
                                     value={user.survival_best_streak || 0}
                                 />
                                 <StatItem
                                     icon={Activity}
-                                    label="Total Attempts"
+                                    label={t("profile.totalAttempts")}
                                     value={user.survival_games}
                                 />
                             </div>

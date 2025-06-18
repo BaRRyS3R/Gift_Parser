@@ -246,7 +246,6 @@ export const userService = {
     }
   },
 
-  // Rest of the methods remain the same...
   async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
     const user = await this.findByTelegramId(telegramId);
     if (!user) throw new Error("User not found");
@@ -424,42 +423,20 @@ export const userService = {
     }
   },
 
+  // ОБНОВЛЕНО: Удалено сохранение в таблицу game_results, только обновление статистики пользователя
   async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult): Promise<void> {
     const user = await this.findByTelegramId(telegramId);
     if (!user) throw new Error("User not found");
 
-    const resultData: any = {
-      user_id: user.id,
-      game_mode: gameResult.mode,
+    // УДАЛЕНО: сохранение в таблицу game_results
+    // Теперь сохраняем только статистику в профиль пользователя
+    console.log("Updating user statistics with game result:", {
+      mode: gameResult.mode,
       score: gameResult.score,
-      duration: gameResult.duration,
-    };
+      duration: gameResult.duration
+    });
 
-    if (gameResult.mode === GameMode.REACTION) {
-      const reactionResult = gameResult as ReactionGameResult;
-      if (!reactionResult.missed && reactionResult.reactionTime > 0) {
-        resultData.reaction_time = reactionResult.reactionTime;
-      }
-      resultData.reaction_rating = reactionResult.rating;
-      resultData.missed_target = reactionResult.missed;
-    } else if (gameResult.mode === GameMode.SURVIVAL) {
-      const survivalResult = gameResult as SurvivalGameResult;
-      resultData.survival_time = survivalResult.survivalTime;
-      resultData.max_level_reached = survivalResult.maxLevelReached;
-      resultData.perfect_streak = survivalResult.perfectStreak;
-      resultData.correct_hits = survivalResult.correctHits;
-      resultData.death_cause = survivalResult.deathCause;
-    }
-
-    console.log("Saving game result with data:", resultData);
-
-    const { error } = await supabase.from("game_results").insert(resultData);
-
-    if (error) {
-      console.error("Error saving game result:", error);
-      throw error;
-    }
-
+    // Вызываем только обновление статистики пользователя
     await this.updateGameStats(telegramId, gameResult);
   },
 
@@ -668,28 +645,4 @@ export interface ReferralInfo {
   referralBonus: number;
   referredBy?: string;
   referredByName?: string;
-}
-
-export interface GameResultDB {
-  id: string;
-  user_id: string;
-  game_mode: GameMode;
-  score: number;
-  duration: number;
-  reaction_time?: number;
-  reaction_rating?: "LIGHTNING" | "EXCELLENT" | "GOOD" | "AVERAGE" | "SLOW" | "MISSED";
-  missed_target?: boolean;
-  survival_time?: number;
-  max_level_reached?: number;
-  perfect_streak?: number;
-  correct_hits?: number;
-  death_cause?: "miss" | "wrong_click" | "decoy_hit" | "timeout";
-  wrong_hits?: number;
-  missed_circles?: number;
-  accuracy?: number;
-  decoy_hits?: number;
-  fast_hits?: number;
-  average_reaction_time?: number;
-  adaptive_level?: number;
-  created_at: string;
 }

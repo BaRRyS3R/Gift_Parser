@@ -473,15 +473,17 @@ export const cleanupSurvivalGame = (state: SurvivalGameState): void => {
   }
 };
 
+// ИСПРАВЛЕНО: Обновленная функция форматирования времени с 3 цифрами после точки
 export const formatSurvivalTime = (milliseconds: number): string => {
   const totalSeconds = Math.floor(milliseconds / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const ms = Math.floor((milliseconds % 1000) / 10);
+  // Изменено: теперь отображаем 3 цифры после точки для миллисекунд
+  const ms = milliseconds % 1000;
 
   if (minutes > 0) {
-    return `${minutes}:${seconds.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
   }
 
-  return `${seconds}.${ms.toString().padStart(2, "0")}s`;
+  return `${seconds}.${ms.toString().padStart(3, "0")}s`;
 };
