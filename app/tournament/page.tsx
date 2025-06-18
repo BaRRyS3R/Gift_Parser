@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Tournament page with leaderboard and game entry
+// src/app/tournament/page.tsx - Полностью локализованная турнирная страница
 
 "use client";
 
@@ -73,11 +73,11 @@ export default function TournamentPage() {
 
         } catch (err) {
             console.error("Error loading tournament data:", err);
-            setError("Failed to load tournament data");
+            setError(t("tournament.tournamentNotFound"));
         } finally {
             setIsLoading(false);
         }
-    }, [user?.id, telegramUser?.id]);
+    }, [user?.id, telegramUser?.id, t]);
 
     useEffect(() => {
         loadTournamentData();
@@ -96,7 +96,7 @@ export default function TournamentPage() {
             const diff = endDate.getTime() - now.getTime();
 
             if (diff <= 0) {
-                setTimeRemaining("Tournament Ended");
+                setTimeRemaining(t("tournament.ended"));
                 clearInterval(interval);
                 loadTournamentData(); // Reload to update status
             } else {
@@ -105,7 +105,7 @@ export default function TournamentPage() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [tournamentStatus.activeTournament, tournamentStatus.timeRemaining, loadTournamentData]);
+    }, [tournamentStatus.activeTournament, tournamentStatus.timeRemaining, loadTournamentData, t]);
 
     const handleStartTournament = useCallback(async () => {
         if (!tournamentStatus.activeTournament || attemptsRemaining <= 0 || isTransitioning) return;
@@ -176,8 +176,8 @@ export default function TournamentPage() {
                     <div className="flex items-center space-x-2">
                         <h3
                             className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id)
-                                    ? "text-yellow-200"
-                                    : "text-yellow-300"
+                                ? "text-yellow-200"
+                                : "text-yellow-300"
                                 }`}
                         >
                             {entry.first_name} {entry.last_name || ""}
@@ -187,7 +187,7 @@ export default function TournamentPage() {
                         )}
                         {isCurrentUser(entry.telegram_id) && (
                             <span className="text-xs bg-yellow-500/30 text-yellow-200 px-2 py-0.5 rounded border border-yellow-400/30">
-                                YOU
+                                {t("leaderboard.you")}
                             </span>
                         )}
                     </div>
@@ -253,7 +253,7 @@ export default function TournamentPage() {
                     <div className="flex items-center space-x-2">
                         <Battery className={getBatteryColor()} size={18} />
                         <span className={`text-sm font-bold ${getBatteryColor()}`}>
-                            ATTEMPTS
+                            {t("attempts.current")}
                         </span>
                     </div>
                     <span className={`text-lg font-bold ${getBatteryColor()}`}>
@@ -277,11 +277,11 @@ export default function TournamentPage() {
                             <div className="flex items-center justify-center space-x-2 mb-2">
                                 <AlertTriangle className="text-red-400" size={18} />
                                 <span className="text-sm font-bold text-red-300">
-                                    No attempts remaining
+                                    {t("attempts.noRemaining")}
                                 </span>
                             </div>
                             <p className="text-red-400/80 text-xs">
-                                Buy more attempts to participate in tournament
+                                {t("attempts.noRemaining")}
                             </p>
                         </div>
 
@@ -290,7 +290,9 @@ export default function TournamentPage() {
                             className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-400/40 text-yellow-300 rounded-lg hover:from-yellow-500/30 hover:to-orange-500/30 hover:border-yellow-400/60 transition-all duration-300 hover:scale-105 active:scale-95"
                         >
                             <ShoppingCart size={16} />
-                            <span className="font-bold text-sm">GET ATTEMPTS</span>
+                            <span className="font-bold text-sm">
+                                {t("nav.shop")}
+                            </span>
                         </button>
                     </div>
                 )}
@@ -303,7 +305,7 @@ export default function TournamentPage() {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin mx-auto" />
-                    <p className="text-yellow-300">Loading tournament...</p>
+                    <p className="text-yellow-300">{t("tournament.loadingTournament")}</p>
                 </div>
             </div>
         );
@@ -319,7 +321,7 @@ export default function TournamentPage() {
                         className="px-4 py-2 bg-yellow-500/20 text-yellow-300 rounded-lg hover:bg-yellow-500/30 transition-colors"
                         onClick={() => window.location.reload()}
                     >
-                        Retry
+                        {t("common.retry")}
                     </button>
                 </div>
             </div>
@@ -331,15 +333,15 @@ export default function TournamentPage() {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-6 max-w-md mx-auto px-6">
                     <div className="text-6xl mb-4">🏆</div>
-                    <h1 className="text-3xl font-bold text-yellow-400">No Active Tournament</h1>
+                    <h1 className="text-3xl font-bold text-yellow-400">{t("tournament.noActiveTournament")}</h1>
                     <p className="text-yellow-300/80">
-                        There are currently no active tournaments. Check back later for upcoming tournaments!
+                        {t("tournament.noActiveTournamentDesc")}
                     </p>
                     <button
                         className="px-6 py-3 bg-yellow-500/20 border border-yellow-400/40 text-yellow-300 rounded-xl hover:bg-yellow-500/30 hover:border-yellow-400/60 transition-all duration-300"
                         onClick={() => router.push("/main")}
                     >
-                        Back to Main
+                        {t("common.back")}
                     </button>
                 </div>
             </div>
@@ -362,7 +364,7 @@ export default function TournamentPage() {
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold text-yellow-400">{tournament.name}</h1>
-                            <p className="text-yellow-300/60 text-sm">Tournament Active</p>
+                            <p className="text-yellow-300/60 text-sm">{t("tournament.tournamentActive")}</p>
                         </div>
                     </div>
 
@@ -371,7 +373,7 @@ export default function TournamentPage() {
                             <div className="flex items-center justify-center space-x-2">
                                 <Clock className="text-yellow-400" size={16} />
                                 <span className="text-yellow-300 font-bold">{timeRemaining}</span>
-                                <span className="text-yellow-400/60">remaining</span>
+                                <span className="text-yellow-400/60">{t("tournament.timeRemaining")}</span>
                             </div>
                         </div>
                     )}
@@ -400,10 +402,10 @@ export default function TournamentPage() {
                         <Play size={20} />
                         <span>
                             {isTransitioning
-                                ? "STARTING..."
+                                ? t("game.general.initializingGame")
                                 : attemptsRemaining > 0
-                                    ? "ENTER TOURNAMENT"
-                                    : "NO ATTEMPTS"}
+                                    ? t("tournament.enterTournament")
+                                    : t("game.general.noAttemptsLeft")}
                         </span>
                     </div>
                 </button>
@@ -414,7 +416,7 @@ export default function TournamentPage() {
                 <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
                     <div className="flex items-center space-x-2 mb-3">
                         <Gift className="text-yellow-400" size={16} />
-                        <h3 className="text-sm font-bold text-yellow-300">TOURNAMENT PRIZES</h3>
+                        <h3 className="text-sm font-bold text-yellow-300">{t("tournament.prizes")}</h3>
                     </div>
                     <div className="grid grid-cols-1 gap-2">
                         {tournament.prizes.map((prize, index) => (
@@ -436,22 +438,22 @@ export default function TournamentPage() {
                     <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
                         <div className="flex items-center space-x-2 mb-3">
                             <Target className="text-yellow-400" size={16} />
-                            <h3 className="text-sm font-bold text-yellow-300">YOUR BEST RESULT</h3>
+                            <h3 className="text-sm font-bold text-yellow-300">{t("tournament.yourBestResult")}</h3>
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-center">
                             <div>
                                 <div className="text-lg font-bold text-yellow-300">
                                     {formatTournamentSurvivalTime(userResult.survival_time)}
                                 </div>
-                                <div className="text-xs text-yellow-400/60">TIME</div>
+                                <div className="text-xs text-yellow-400/60">{t("common.time")}</div>
                             </div>
                             <div>
                                 <div className="text-lg font-bold text-yellow-300">#{userResult.rank || "?"}</div>
-                                <div className="text-xs text-yellow-400/60">RANK</div>
+                                <div className="text-xs text-yellow-400/60">{t("tournament.rank")}</div>
                             </div>
                             <div>
                                 <div className="text-lg font-bold text-yellow-300">L{userResult.max_level_reached}</div>
-                                <div className="text-xs text-yellow-400/60">LEVEL</div>
+                                <div className="text-xs text-yellow-400/60">{t("common.level")}</div>
                             </div>
                         </div>
                     </div>
@@ -465,7 +467,7 @@ export default function TournamentPage() {
                         <div className="flex items-center space-x-2 mb-3">
                             <Crown className="text-yellow-400" size={16} />
                             <h3 className="text-sm font-bold text-yellow-300">
-                                PRIZE WINNERS ({winners.length}/{prizeCount})
+                                {t("tournament.winners")} ({winners.length}/{prizeCount})
                             </h3>
                         </div>
                         <div className="space-y-2">
@@ -479,7 +481,7 @@ export default function TournamentPage() {
                         <div className="flex items-center space-x-2 mb-3">
                             <Users className="text-yellow-400" size={16} />
                             <h3 className="text-sm font-bold text-yellow-300">
-                                OTHER PARTICIPANTS ({otherParticipants.length})
+                                {t("tournament.otherParticipants")} ({otherParticipants.length})
                             </h3>
                         </div>
                         <div className="space-y-2 max-h-80 overflow-y-auto">
@@ -493,8 +495,8 @@ export default function TournamentPage() {
                 {leaderboard.length === 0 && (
                     <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-6 text-center">
                         <Trophy className="text-yellow-400/60 mx-auto mb-3" size={32} />
-                        <p className="text-yellow-300/80 font-bold">No participants yet</p>
-                        <p className="text-yellow-400/60 text-sm mt-1">Be the first to enter the tournament!</p>
+                        <p className="text-yellow-300/80 font-bold">{t("tournament.noParticipants")}</p>
+                        <p className="text-yellow-400/60 text-sm mt-1">{t("tournament.beFirstParticipant")}</p>
                     </div>
                 )}
             </div>
@@ -506,19 +508,19 @@ export default function TournamentPage() {
                         <div className="grid grid-cols-3 gap-4 text-center">
                             <div>
                                 <div className="text-lg font-bold text-yellow-300">{leaderboard.length}</div>
-                                <div className="text-xs text-yellow-400/60">PARTICIPANTS</div>
+                                <div className="text-xs text-yellow-400/60">{t("tournament.participants")}</div>
                             </div>
                             <div>
                                 <div className="text-lg font-bold text-yellow-300">
                                     {formatTournamentSurvivalTime(leaderboard[0]?.survival_time || 0)}
                                 </div>
-                                <div className="text-xs text-yellow-400/60">BEST TIME</div>
+                                <div className="text-xs text-yellow-400/60">{t("tournament.bestTime")}</div>
                             </div>
                             <div>
                                 <div className="text-lg font-bold text-yellow-300">
                                     L{Math.max(...leaderboard.map(e => e.max_level_reached), 0)}
                                 </div>
-                                <div className="text-xs text-yellow-400/60">MAX LEVEL</div>
+                                <div className="text-xs text-yellow-400/60">{t("tournament.maxLevel")}</div>
                             </div>
                         </div>
                     </div>

@@ -1,4 +1,4 @@
-// src/types/game-modes/survival.ts - Типы для режима выживания
+// src/types/game-modes/survival.ts - Обновлено для точного учета времени
 
 import { BaseGameResult, GameState, GameMode, Circle } from "./common";
 
@@ -35,6 +35,7 @@ export interface SurvivalGameStats {
   perfectStreak: number;
   totalReactionTime: number;
   hitCount: number;
+  gameStartTime?: number; // ДОБАВЛЕНО: время начала игры для точного расчета
 }
 
 export interface SurvivalGameResult extends BaseGameResult {
@@ -58,4 +59,5 @@ export interface SurvivalGameState {
   activationTimeout: NodeJS.Timeout | null;
   levelUpdateInterval: NodeJS.Timeout | null;
   isActive: boolean;
+  gameStartTime?: number; // ДОБАВЛЕНО: время начала игры в основном состоянии
 }

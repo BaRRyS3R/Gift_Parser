@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with Telegram back button and fixed death cause logic
+// src/game-modes/survival/SurvivalGameManager.tsx - Исправлено для точного учета времени
 
 "use client";
 
@@ -53,7 +53,8 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 100;
+// ИЗМЕНЕНО: Увеличена частота обновления для более точного времени
+const LEVEL_UPDATE_INTERVAL = 16; // ~60fps для плавного обновления времени
 
 export default function SurvivalGameManager() {
   const { saveGameResult, telegramUser } = useUser();
@@ -133,7 +134,6 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -172,7 +172,6 @@ export default function SurvivalGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -200,35 +199,36 @@ export default function SurvivalGameManager() {
       console.log("Survival game ended:", cause);
 
       setGameState((prev) => {
-        // ИСПРАВЛЕНО: Правильно обновляем статистику в зависимости от причины проигрыша
-        let updatedStats = { ...prev.stats };
+        // ИСПРАВЛЕНО: Обновляем время до финального момента
+        const finalState = updateSurvivalLevel(prev, Date.now());
+
+        let updatedStats = { ...finalState.stats };
 
         switch (cause) {
           case "miss":
-            updatedStats.missedCircles = prev.stats.missedCircles + 1;
+            updatedStats.missedCircles = finalState.stats.missedCircles + 1;
             break;
           case "wrong_click":
-            updatedStats.wrongHits = prev.stats.wrongHits + 1;
+            updatedStats.wrongHits = finalState.stats.wrongHits + 1;
             break;
           case "decoy_hit":
-            updatedStats.decoyHits = prev.stats.decoyHits + 1;
+            updatedStats.decoyHits = finalState.stats.decoyHits + 1;
             break;
         }
 
-        const finalState = {
-          ...prev,
+        const finalGameState = {
+          ...finalState,
           gameState: GameState.FINISHED,
           isActive: false,
           stats: updatedStats,
         };
 
-        const result = createSurvivalGameResult(finalState);
-
+        const result = createSurvivalGameResult(finalGameState);
         setGameResult(result);
         handleSaveGameResult(result);
-        cleanupSurvivalGame(finalState);
+        cleanupSurvivalGame(finalGameState);
 
-        return finalState;
+        return finalGameState;
       });
     },
     [handleSaveGameResult],
@@ -262,12 +262,9 @@ export default function SurvivalGameManager() {
             (circleId, wasDecoy) => {
               console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
 
-              // ИСПРАВЛЕНО: правильно определяем причину проигрыша
               if (!wasDecoy) {
-                // Если таймаут белого круга - это пропуск цели (miss), а не timeout
                 endGame("miss");
               } else {
-                // Если таймаут красного круга - просто деактивируем его
                 setGameState((current) =>
                   deactivateSurvivalCircle(current, circleId),
                 );
@@ -294,9 +291,11 @@ export default function SurvivalGameManager() {
 
       console.log("Survival circle clicked:", circleId);
 
+      const clickTime = Date.now(); // ТОЧНОЕ время клика
       const { newState, result } = handleSurvivalCircleClick(
         gameStateRef.current,
         circleId,
+        clickTime, // Передаем точное время
       );
 
       if (result === "correct") {
@@ -333,15 +332,16 @@ export default function SurvivalGameManager() {
     setTimeout(() => {
       setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
+      // ИЗМЕНЕНО: Более частое обновление для точного времени
       const levelInterval = setInterval(() => {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
-
             return current;
           }
 
-          return updateSurvivalLevel(current, LEVEL_UPDATE_INTERVAL);
+          // ИЗМЕНЕНО: Используем реальное время вместо deltaTime
+          return updateSurvivalLevel(current, Date.now());
         });
       }, LEVEL_UPDATE_INTERVAL);
 
@@ -367,7 +367,6 @@ export default function SurvivalGameManager() {
       );
 
       setAttemptsRemaining(newStatus.attemptsRemaining);
-
       setShowCircles(false);
 
       setTimeout(() => {
@@ -400,7 +399,6 @@ export default function SurvivalGameManager() {
   };
 
   const getDeathCauseMessage = (deathCause: string) => {
-    // Маппинг причин проигрыша на ключи локализации
     const causeKeyMapping = {
       "miss": "game.modes.survival.deathCauses.miss",
       "wrong_click": "game.modes.survival.deathCauses.wrongClick",

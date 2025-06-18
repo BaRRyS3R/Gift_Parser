@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameLogic.ts
+// src/game-modes/survival/SurvivalGameLogic.ts - Исправлено для точного учета времени
 
 import {
   SurvivalGameConfig,
@@ -170,6 +170,8 @@ export const createSurvivalCircleGrid = (count: number): Circle[] => {
 };
 
 export const initializeSurvivalGameState = (): SurvivalGameState => {
+  const gameStartTime = Date.now();
+
   return {
     config: SURVIVAL_CONFIG,
     gameState: GameState.NOT_STARTED,
@@ -183,6 +185,7 @@ export const initializeSurvivalGameState = (): SurvivalGameState => {
       perfectStreak: 0,
       totalReactionTime: 0,
       hitCount: 0,
+      gameStartTime, // ДОБАВЛЕНО: точное время начала игры
     },
     circles: createSurvivalCircleGrid(SURVIVAL_CONFIG.circleCount),
     currentLevel: 1,
@@ -192,23 +195,25 @@ export const initializeSurvivalGameState = (): SurvivalGameState => {
     activationTimeout: null,
     levelUpdateInterval: null,
     isActive: true,
+    gameStartTime, // ДОБАВЛЕНО: также в основное состояние
   };
 };
 
 export const getLevelConfig = (level: number): SurvivalLevelConfig => {
   const clampedLevel = Math.max(1, Math.min(level, SURVIVAL_LEVELS.length));
-
   return SURVIVAL_LEVELS[clampedLevel - 1];
 };
 
+// ИЗМЕНЕНО: теперь использует реальное время вместо deltaTime
 export const updateSurvivalLevel = (
   state: SurvivalGameState,
-  deltaTime: number,
+  currentTime?: number // ДОБАВЛЕНО: опциональный параметр для текущего времени
 ): SurvivalGameState => {
-  if (!state.isActive) return state;
+  if (!state.isActive || !state.gameStartTime) return state;
 
-  const newSurvivalTime = state.stats.survivalTime + deltaTime;
-  const newTimeInCurrentLevel = state.timeInCurrentLevel + deltaTime;
+  const now = currentTime || Date.now();
+  const actualSurvivalTime = now - state.gameStartTime; // ТОЧНОЕ время выживания
+  const newTimeInCurrentLevel = actualSurvivalTime - ((state.currentLevel - 1) * state.config.intensityIncreaseInterval * 1000);
 
   const shouldIncreaseLevel =
     newTimeInCurrentLevel >= state.config.intensityIncreaseInterval * 1000 &&
@@ -221,7 +226,7 @@ export const updateSurvivalLevel = (
       timeInCurrentLevel: 0,
       stats: {
         ...state.stats,
-        survivalTime: newSurvivalTime,
+        survivalTime: actualSurvivalTime, // ТОЧНОЕ время
         currentLevel: state.currentLevel + 1,
       },
     };
@@ -232,7 +237,7 @@ export const updateSurvivalLevel = (
     timeInCurrentLevel: newTimeInCurrentLevel,
     stats: {
       ...state.stats,
-      survivalTime: newSurvivalTime,
+      survivalTime: actualSurvivalTime, // ТОЧНОЕ время
     },
   };
 };
@@ -252,7 +257,6 @@ export const getRandomCircleIds = (
   for (let i = 0; i < count; i++) {
     const randomIndex = Math.floor(Math.random() * availableIds.length);
     const selectedId = availableIds.splice(randomIndex, 1)[0];
-
     selectedIds.push(selectedId);
   }
 
@@ -314,7 +318,6 @@ export const activateSurvivalCircles = (
         isDecoy: redIds.includes(circle.id),
       };
     }
-
     return circle;
   });
 
@@ -339,17 +342,20 @@ export const handleSurvivalCircleClick = (
     return { newState: state, result: "wrong" };
   }
 
+  // ОБНОВЛЯЕМ время выживания при каждом клике
+  const updatedState = updateSurvivalLevel(state, clickTime);
+
   if (clickedCircle.isActive && !clickedCircle.isAnimating) {
     if (clickedCircle.isDecoy) {
       // Red circle clicked - game over
       return {
         newState: {
-          ...state,
+          ...updatedState,
           gameState: GameState.FINISHED,
           isActive: false,
           stats: {
-            ...state.stats,
-            decoyHits: state.stats.decoyHits + 1,
+            ...updatedState.stats,
+            decoyHits: updatedState.stats.decoyHits + 1,
           },
         },
         result: "decoy",
@@ -357,19 +363,19 @@ export const handleSurvivalCircleClick = (
     } else {
       // Correct white circle click
       const newStats = {
-        ...state.stats,
-        correctHits: state.stats.correctHits + 1,
-        perfectStreak: state.stats.perfectStreak + 1,
-        hitCount: state.stats.hitCount + 1,
+        ...updatedState.stats,
+        correctHits: updatedState.stats.correctHits + 1,
+        perfectStreak: updatedState.stats.perfectStreak + 1,
+        hitCount: updatedState.stats.hitCount + 1,
       };
 
-      const newCircles = state.circles.map((c) =>
+      const newCircles = updatedState.circles.map((c) =>
         c.id === clickedCircleId ? { ...c, isAnimating: true } : c,
       );
 
       return {
         newState: {
-          ...state,
+          ...updatedState,
           stats: newStats,
           circles: newCircles,
         },
@@ -380,12 +386,12 @@ export const handleSurvivalCircleClick = (
     // Wrong click on inactive circle - game over
     return {
       newState: {
-        ...state,
+        ...updatedState,
         gameState: GameState.FINISHED,
         isActive: false,
         stats: {
-          ...state.stats,
-          wrongHits: state.stats.wrongHits + 1,
+          ...updatedState.stats,
+          wrongHits: updatedState.stats.wrongHits + 1,
         },
       },
       result: "wrong",
@@ -447,17 +453,19 @@ export const getSurvivalDeathCause = (
 export const createSurvivalGameResult = (
   state: SurvivalGameState,
 ): SurvivalGameResult => {
-  const finalScore = calculateSurvivalScore(state.stats, state.currentLevel);
-  const deathCause = getSurvivalDeathCause(state.stats);
+  // ФИНАЛЬНОЕ обновление времени на момент завершения игры
+  const finalState = updateSurvivalLevel(state, Date.now());
+  const finalScore = calculateSurvivalScore(finalState.stats, finalState.currentLevel);
+  const deathCause = getSurvivalDeathCause(finalState.stats);
 
   return {
     mode: GameMode.SURVIVAL,
     score: finalScore,
-    duration: Math.floor(state.stats.survivalTime / 1000),
-    survivalTime: state.stats.survivalTime,
-    maxLevelReached: state.currentLevel,
-    perfectStreak: state.stats.perfectStreak,
-    correctHits: state.stats.correctHits,
+    duration: Math.floor(finalState.stats.survivalTime / 1000),
+    survivalTime: finalState.stats.survivalTime, // ТОЧНОЕ время в миллисекундах
+    maxLevelReached: finalState.currentLevel,
+    perfectStreak: finalState.stats.perfectStreak,
+    correctHits: finalState.stats.correctHits,
     deathCause,
     createdAt: new Date().toISOString(),
   };
@@ -473,12 +481,10 @@ export const cleanupSurvivalGame = (state: SurvivalGameState): void => {
   }
 };
 
-// ИСПРАВЛЕНО: Обновленная функция форматирования времени с 3 цифрами после точки
 export const formatSurvivalTime = (milliseconds: number): string => {
   const totalSeconds = Math.floor(milliseconds / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  // Изменено: теперь отображаем 3 цифры после точки для миллисекунд
   const ms = milliseconds % 1000;
 
   if (minutes > 0) {
