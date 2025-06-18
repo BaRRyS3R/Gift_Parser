@@ -233,11 +233,10 @@ export const tournamentService = {
 
 // Helper function to format tournament survival time with millisecond precision
 export const formatTournamentSurvivalTime = (milliseconds: number): string => {
-    let ms = Math.max(0, Number.isFinite(milliseconds) ? milliseconds : 0);
-    const totalSeconds = Math.floor(ms / 1000);
+    const totalSeconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-    ms = ms % 1000;
+    const ms = milliseconds % 1000;
 
     if (minutes > 0) {
         return `${minutes}:${seconds.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
