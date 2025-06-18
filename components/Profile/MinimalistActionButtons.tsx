@@ -35,7 +35,7 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
                 startContent={<Award size={16} />}
                 onPress={onOpenAchievements}
             >
-                {t("profile.achievementsButton")}
+                {t("profile.achievementButton")}
             </Button>
         </div>
     );

@@ -476,6 +476,13 @@ export default function TournamentPage() {
 
                     <ModalFooter className="flex justify-between">
                         <Button
+                            className="bg-white/10 border border-white/30 text-white hover:bg-white/15"
+                            variant="bordered"
+                            onPress={handleCloseRules}
+                        >
+                            {t("common.close")}
+                        </Button>
+                        <Button
                             className="bg-white text-black font-medium px-6"
                             color="primary"
                             onPress={() => {
