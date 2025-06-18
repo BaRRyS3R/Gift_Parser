@@ -1,4 +1,4 @@
-// tournament/page.tsx - Fixed version with type-safe rule descriptions
+// tournament/page.tsx - Updated with simplified rules and attempts validation
 
 "use client";
 
@@ -11,8 +11,6 @@ import {
     ModalBody,
     ModalFooter,
     Button,
-    Card,
-    CardBody,
 } from "@nextui-org/react";
 import {
     Trophy,
@@ -26,12 +24,7 @@ import {
     Activity,
     TrendingUp,
     Info,
-    X,
     AlertTriangle,
-    Zap,
-    Crosshair,
-    Timer,
-    Shield,
     BookOpen,
 } from "lucide-react";
 
@@ -41,7 +34,6 @@ import type { Tournament, TournamentLeaderboardEntry, TournamentResult, Tourname
 import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 
-// Type-safe rule tab IDs
 type RuleTabId = "gameMode" | "competition" | "scoring" | "format" | "fairPlay" | "tips";
 
 export default function TournamentPage() {
@@ -100,6 +92,11 @@ export default function TournamentPage() {
             default:
                 return "";
         }
+    };
+
+    // Check if user has attempts remaining
+    const hasAttemptsRemaining = () => {
+        return user?.attempts_remaining && user.attempts_remaining > 0;
     };
 
     const loadTournamentData = useCallback(async () => {
@@ -175,11 +172,16 @@ export default function TournamentPage() {
     const handleStartTournament = useCallback(async () => {
         if (!tournamentStatus.activeTournament || isTransitioning) return;
 
+        // Check if user has attempts before proceeding
+        if (!hasAttemptsRemaining()) {
+            return; // Button should be disabled but this is a safety check
+        }
+
         setIsTransitioning(true);
         setTimeout(() => {
             router.push("/tournament/play");
         }, 600);
-    }, [tournamentStatus.activeTournament, isTransitioning, router]);
+    }, [tournamentStatus.activeTournament, isTransitioning, router, user?.attempts_remaining]);
 
     const handleOpenRules = () => {
         setIsRulesModalOpen(true);
@@ -299,7 +301,6 @@ export default function TournamentPage() {
         let index = 1;
 
         while (true) {
-            // Create the key manually for each section to ensure type safety
             let key: string;
             switch (ruleSection) {
                 case "gameMode":
@@ -324,9 +325,8 @@ export default function TournamentPage() {
                     return details;
             }
 
-            const detail = t(key as any); // Type assertion needed here for dynamic keys
+            const detail = t(key as any);
 
-            // If the detail is the same as the key, it means translation doesn't exist
             if (detail === key) break;
 
             details.push(detail);
@@ -336,61 +336,41 @@ export default function TournamentPage() {
         return details;
     };
 
+    // Simplified rules tabs without colors
     const rulesTabs: Array<{
         id: RuleTabId;
         title: string;
         icon: React.ComponentType<any>;
-        color: string;
-        bgColor: string;
-        borderColor: string;
     }> = [
             {
                 id: "gameMode",
                 title: getRuleTitle("gameMode"),
-                icon: Crosshair,
-                color: "text-red-400",
-                bgColor: "bg-red-500/10",
-                borderColor: "border-red-400/30"
+                icon: Target,
             },
             {
                 id: "competition",
                 title: getRuleTitle("competition"),
-                icon: Shield,
-                color: "text-blue-400",
-                bgColor: "bg-blue-500/10",
-                borderColor: "border-blue-400/30"
+                icon: Trophy,
             },
             {
                 id: "scoring",
                 title: getRuleTitle("scoring"),
-                icon: Trophy,
-                color: "text-yellow-400",
-                bgColor: "bg-yellow-500/10",
-                borderColor: "border-yellow-400/30"
+                icon: Activity,
             },
             {
                 id: "format",
                 title: getRuleTitle("format"),
-                icon: Timer,
-                color: "text-green-400",
-                bgColor: "bg-green-500/10",
-                borderColor: "border-green-400/30"
+                icon: Clock,
             },
             {
                 id: "fairPlay",
                 title: getRuleTitle("fairPlay"),
                 icon: AlertTriangle,
-                color: "text-red-400",
-                bgColor: "bg-red-500/10",
-                borderColor: "border-red-400/30"
             },
             {
                 id: "tips",
                 title: getRuleTitle("tips"),
-                icon: Zap,
-                color: "text-purple-400",
-                bgColor: "bg-purple-500/10",
-                borderColor: "border-purple-400/30"
+                icon: Info,
             }
         ];
 
@@ -402,23 +382,23 @@ export default function TournamentPage() {
         const details = getRuleDetails(activeRuleTab);
 
         return (
-            <div className={`${activeTab.bgColor} ${activeTab.borderColor} border rounded-xl p-6 min-h-[400px]`}>
+            <div className="bg-white/5 border border-white/20 rounded-lg p-6">
                 <div className="flex items-center space-x-3 mb-4">
-                    <div className={`w-12 h-12 ${activeTab.bgColor} ${activeTab.borderColor} border rounded-lg flex items-center justify-center`}>
-                        <Icon className={activeTab.color} size={24} />
+                    <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                        <Icon className="text-white/80" size={20} />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold text-white">{activeTab.title}</h3>
-                        <p className="text-white/70 text-sm">
+                        <h3 className="text-lg font-medium text-white">{activeTab.title}</h3>
+                        <p className="text-white/60 text-sm">
                             {getRuleDescription(activeRuleTab)}
                         </p>
                     </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                     {details.map((detail, index) => (
-                        <div key={index} className="flex items-start space-x-3 p-3 bg-white/5 rounded-lg border border-white/10">
-                            <div className={`w-2 h-2 rounded-full ${activeTab.color.replace('text-', 'bg-')} mt-2 flex-shrink-0`} />
+                        <div key={index} className="flex items-start space-x-3 p-3 bg-white/5 rounded border border-white/10">
+                            <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
                             <span className="text-white/90 text-sm leading-relaxed">{detail}</span>
                         </div>
                     ))}
@@ -432,7 +412,7 @@ export default function TournamentPage() {
             <Modal
                 isOpen={isRulesModalOpen}
                 onClose={handleCloseRules}
-                size="3xl"
+                size="2xl"
                 backdrop="blur"
                 scrollBehavior="inside"
                 classNames={{
@@ -444,25 +424,23 @@ export default function TournamentPage() {
                 }}
             >
                 <ModalContent>
-                    <ModalHeader className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                            <div className="w-12 h-12 bg-yellow-500/20 border border-yellow-400/30 rounded-lg flex items-center justify-center">
-                                <BookOpen className="text-yellow-400" size={24} />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-white">
-                                    {t("tournament.rulesTitle")}
-                                </h2>
-                                <p className="text-white/60 text-sm">
-                                    {t("tournament.rulesSubtitle")}
-                                </p>
-                            </div>
+                    <ModalHeader className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                            <BookOpen className="text-white/80" size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-medium text-white">
+                                {t("tournament.rulesTitle")}
+                            </h2>
+                            <p className="text-white/60 text-sm">
+                                {t("tournament.rulesSubtitle")}
+                            </p>
                         </div>
                     </ModalHeader>
 
-                    <ModalBody className="space-y-6">
-                        {/* Tabs Navigation */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <ModalBody className="space-y-4">
+                        {/* Simplified Tabs Navigation */}
+                        <div className="grid grid-cols-2 gap-2">
                             {rulesTabs.map((tab) => {
                                 const Icon = tab.icon;
                                 const isActive = activeRuleTab === tab.id;
@@ -471,16 +449,16 @@ export default function TournamentPage() {
                                         key={tab.id}
                                         onClick={() => setActiveRuleTab(tab.id)}
                                         className={`
-                                            p-3 rounded-lg border transition-all duration-300 text-left
+                                            p-3 rounded border transition-all duration-200 text-left
                                             ${isActive
-                                                ? `${tab.bgColor} ${tab.borderColor} scale-105`
-                                                : 'bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30'
+                                                ? 'bg-white/10 border-white/30'
+                                                : 'bg-white/5 border-white/20 hover:bg-white/8 hover:border-white/25'
                                             }
                                         `}
                                     >
                                         <div className="flex items-center space-x-2">
                                             <Icon
-                                                className={isActive ? tab.color : 'text-white/60'}
+                                                className={isActive ? 'text-white' : 'text-white/60'}
                                                 size={16}
                                             />
                                             <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-white/80'}`}>
@@ -498,20 +476,13 @@ export default function TournamentPage() {
 
                     <ModalFooter className="flex justify-between">
                         <Button
-                            className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
-                            variant="bordered"
-                            onPress={handleCloseRules}
-                        >
-                            {t("common.close")}
-                        </Button>
-                        <Button
-                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold px-8"
+                            className="bg-white text-black font-medium px-6"
                             color="primary"
                             onPress={() => {
                                 handleCloseRules();
                                 handleStartTournament();
                             }}
-                            disabled={!tournamentStatus.activeTournament || isTransitioning}
+                            disabled={!tournamentStatus.activeTournament || isTransitioning || !hasAttemptsRemaining()}
                         >
                             {isTransitioning ? t("game.general.initializingGame") : t("tournament.enterTournament")}
                         </Button>
@@ -603,16 +574,16 @@ export default function TournamentPage() {
 
             {/* Action Buttons */}
             <div className="mb-6 space-y-3">
-                {/* Tournament Entry Button */}
+                {/* Tournament Entry Button with Attempts Check */}
                 <button
                     className={`
             w-full px-6 py-4 rounded-xl text-lg font-medium transition-all duration-300
-            ${!isTransitioning
+            ${!isTransitioning && hasAttemptsRemaining()
                             ? "bg-white/10 border-2 border-white/30 text-white hover:border-white/50 hover:bg-white/15 hover:scale-[1.02] active:scale-[0.98]"
                             : "bg-white/5 border border-white/20 text-white/50 cursor-not-allowed opacity-60"
                         }
           `}
-                    disabled={isTransitioning}
+                    disabled={isTransitioning || !hasAttemptsRemaining()}
                     onClick={handleStartTournament}
                 >
                     <div className="flex items-center justify-center space-x-3">
@@ -620,10 +591,20 @@ export default function TournamentPage() {
                         <span>
                             {isTransitioning
                                 ? t("game.general.initializingGame")
-                                : t("tournament.enterTournament")}
+                                : !hasAttemptsRemaining()
+                                    ? t("game.general.noAttempts")
+                                    : t("tournament.enterTournament")}
                         </span>
                     </div>
                 </button>
+
+                {/* Show attempts remaining when user has no attempts */}
+                {!hasAttemptsRemaining() && (
+                    <div className="bg-white/5 border border-white/20 rounded-lg p-3 text-center">
+                        <p className="text-white/60 text-sm">{t("attempts.noRemaining")}</p>
+                        <p className="text-white/40 text-xs mt-1">{t("game.general.waitForReset")}</p>
+                    </div>
+                )}
 
                 {/* Tournament Rules Button */}
                 <button
