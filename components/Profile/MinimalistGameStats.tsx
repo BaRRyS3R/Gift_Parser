@@ -48,7 +48,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                         />
                         <StatItem
                             icon={Trophy}
-                            label={`${t("common.best")} ${t("common.score")}`}
+                            label={t("common.best")}
                             value={user.best_score}
                         />
                         <StatItem
