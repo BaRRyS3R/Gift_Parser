@@ -1,14 +1,17 @@
-// src/app/main/page.tsx - Updated with dynamic Telegram header offset
+// src/app/main/page.tsx - Tournament integration update for main page
 
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Play, ShoppingCart, Settings as SettingsIcon } from "lucide-react";
+import { Play, ShoppingCart, Settings as SettingsIcon, Trophy, Clock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
+import { tournamentService } from "@/lib/supabase_tournament_extension";
+import type { Tournament } from "@/types/tournaments";
+import { formatTimeRemaining } from "@/types/tournaments";
 import Settings from "@/components/Settings/Settings";
 
 export default function MainPage() {
@@ -30,25 +33,74 @@ export default function MainPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   /* -------------------------------------------------
-   * NEW: dynamic offset to avoid Telegram system UI
+   * Tournament state
    * -------------------------------------------------*/
-  const DEFAULT_TG_HEADER = 60; // px, sensible fallback
-  const EXTRA_OFFSET = 40; // px, visual breathing room
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
+  const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
+  const [showTournamentButton, setShowTournamentButton] = useState(false);
+
+  /* -------------------------------------------------
+   * Dynamic offset for Telegram system UI
+   * -------------------------------------------------*/
+  const DEFAULT_TG_HEADER = 60;
+  const EXTRA_OFFSET = 40;
   const [headerOffset, setHeaderOffset] = useState<number>(
     DEFAULT_TG_HEADER + EXTRA_OFFSET,
   );
 
   useEffect(() => {
-    /**
-     * Telegram WebApp may expose the header height via
-     * `window.Telegram.WebApp.headerHeight` (number, px).
-     * Safely read it on the client and set our offset.
-     */
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
-
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
+  }, []);
+
+  /* -------------------------------------------------
+   * Tournament data loading
+   * -------------------------------------------------*/
+  useEffect(() => {
+    const loadTournamentStatus = async () => {
+      try {
+        const tournamentStatus = await tournamentService.getTournamentStatus();
+
+        if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
+          setActiveTournament(tournamentStatus.activeTournament);
+          setShowTournamentButton(true);
+
+          // Initialize countdown timer
+          if (tournamentStatus.timeRemaining) {
+            setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
+
+            // Update countdown every second
+            const interval = setInterval(() => {
+              const now = new Date();
+              const endDate = new Date(tournamentStatus.activeTournament!.end_date);
+              const diff = endDate.getTime() - now.getTime();
+
+              if (diff <= 0) {
+                setActiveTournament(null);
+                setShowTournamentButton(false);
+                setTournamentTimeRemaining("");
+                clearInterval(interval);
+              } else {
+                setTournamentTimeRemaining(formatTimeRemaining(diff));
+              }
+            }, 1000);
+
+            return () => clearInterval(interval);
+          }
+        } else {
+          setActiveTournament(null);
+          setShowTournamentButton(false);
+        }
+      } catch (error) {
+        console.error("Error loading tournament status:", error);
+        setActiveTournament(null);
+        setShowTournamentButton(false);
+      }
+    };
+
+    loadTournamentStatus();
   }, []);
 
   /* -------------------------------------------------
@@ -162,6 +214,13 @@ export default function MainPage() {
     }, 600);
   };
 
+  const handleOpenTournament = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      router.push("/tournament");
+    }, 600);
+  };
+
   const handleOpenShop = () => {
     router.push("/shop");
   };
@@ -179,13 +238,12 @@ export default function MainPage() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
-        isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : pageLoaded
             ? "opacity-100 transition-opacity duration-1000 ease-out"
             : "opacity-0"
-      }`}
+        }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -222,11 +280,10 @@ export default function MainPage() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${
-          showTopButtons
+        className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-8"
-        }`}
+          }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -243,10 +300,36 @@ export default function MainPage() {
                 size={20}
               />
             </div>
-
-            {/* Button glow effect */}
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
           </button>
+
+          {/* Tournament Button - Center (if active) */}
+          {showTournamentButton && activeTournament && (
+            <button
+              aria-label="Active Tournament"
+              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              onClick={handleOpenTournament}
+            >
+              <div className="flex items-center space-x-2">
+                <Trophy
+                  className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
+                  size={16}
+                />
+                <div className="text-xs">
+                  <div className="font-bold text-yellow-300">TOURNAMENT</div>
+                  {tournamentTimeRemaining && (
+                    <div className="text-yellow-400/80 flex items-center space-x-1">
+                      <Clock size={10} />
+                      <span>{tournamentTimeRemaining}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+              <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
+            </button>
+          )}
 
           {/* Shop Button - Right */}
           <button
@@ -261,11 +344,7 @@ export default function MainPage() {
                 size={20}
               />
             </div>
-
-            {/* Enhanced glow effect for shop */}
             <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-
-            {/* Subtle pulsing effect */}
             <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
           </button>
         </div>
@@ -282,15 +361,12 @@ export default function MainPage() {
 
         {/* Action Button */}
         <div
-          className={`transition-all duration-1000 transform ${
-            showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-          }`}
+          className={`transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
         >
           <div className="relative group">
-            {/* Button Glow Effect */}
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
 
-            {/* Main Button */}
             <button
               className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:bg-white/5"
               disabled={isTransitioning}
@@ -311,11 +387,10 @@ export default function MainPage() {
 
         {/* User Greeting */}
         <div
-          className={`transition-all duration-1000 transform ${
-            showGreeting
+          className={`transition-all duration-1000 transform ${showGreeting
               ? "opacity-100 translate-y-0"
               : "opacity-0 translate-y-8"
-          }`}
+            }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">

@@ -1,15 +1,17 @@
-// src/hooks/useUser.tsx - Updated for new game modes
+// src/hooks/useUser.tsx - Complete version with tournament integration
 
 "use client";
 
 import React, { useState, useCallback, useContext, createContext } from "react";
 
 import { userService, type User, type TelegramUser } from "@/lib/supabase";
+import { tournamentService } from "@/lib/supabase_tournament_extension";
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
+import type { TournamentGameResult } from "@/types/tournaments";
 
-// Union type for all possible game results
-type GameResult = ReactionGameResult | SurvivalGameResult;
+// Union type for all possible game results including tournament
+type GameResult = ReactionGameResult | SurvivalGameResult | TournamentGameResult;
 
 interface UserContextType {
   user: User | null;
@@ -18,6 +20,7 @@ interface UserContextType {
   error: string | null;
   refreshUser: () => Promise<void>;
   saveGameResult: (gameResult: GameResult) => Promise<void>;
+  saveTournamentResult: (tournamentId: string, gameResult: SurvivalGameResult) => Promise<void>;
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 }
@@ -129,6 +132,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         throw new Error("Пользователь Telegram не найден");
       }
 
+      // Check if this is a tournament result
+      if ('tournamentId' in gameResult) {
+        // This is a tournament result, delegate to saveTournamentResult
+        return saveTournamentResult(gameResult.tournamentId, gameResult);
+      }
+
       // Log the game result for debugging
       console.log("Saving game result:", {
         mode: gameResult.mode,
@@ -164,6 +173,60 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     [telegramUser, refreshUser],
   );
 
+  const saveTournamentResult = useCallback(
+    async (tournamentId: string, gameResult: SurvivalGameResult): Promise<void> => {
+      if (!telegramUser || !user) {
+        throw new Error("Пользователь не найден");
+      }
+
+      // Log the tournament result for debugging
+      console.log("Saving tournament result:", {
+        tournamentId,
+        mode: gameResult.mode,
+        score: gameResult.score,
+        survivalTime: gameResult.survivalTime,
+      });
+
+      // Create the operation function that will be retried
+      const saveOperation = async (): Promise<void> => {
+        await tournamentService.saveTournamentResult(
+          tournamentId,
+          user.id,
+          telegramUser.id,
+          {
+            survivalTime: gameResult.survivalTime,
+            score: gameResult.score,
+            maxLevelReached: gameResult.maxLevelReached,
+            perfectStreak: gameResult.perfectStreak,
+            correctHits: gameResult.correctHits,
+            deathCause: gameResult.deathCause,
+          }
+        );
+        // Don't refresh user for tournament results as they don't affect user stats
+      };
+
+      try {
+        // Use retry logic with up to 3 attempts
+        await retryOperation(saveOperation, 3, 1000);
+        console.log("Tournament result saved successfully (with potential retries)");
+      } catch (err) {
+        console.error(
+          "Failed to save tournament result after all retry attempts:",
+          err,
+        );
+
+        // Create a more descriptive error message for the user
+        const errorMessage =
+          err instanceof Error
+            ? `Не удалось сохранить результат турнира после 3 попыток: ${err.message}`
+            : "Не удалось сохранить результат турнира после 3 попыток. Попробуйте позже.";
+
+        throw new Error(errorMessage);
+      }
+    },
+    [telegramUser, user],
+  );
+
   const contextValue: UserContextType = {
     user,
     telegramUser,
@@ -171,6 +234,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     error,
     refreshUser,
     saveGameResult,
+    saveTournamentResult,
     updateUser,
     setTelegramUser: setTelegramUserData,
   };

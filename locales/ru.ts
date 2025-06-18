@@ -1,4 +1,4 @@
-// src/locales/ru.ts - Russian localization
+// src/locales/ru.ts - Complete Russian localization with tournament integration
 
 export const ru = {
     // Common UI elements
@@ -52,6 +52,7 @@ export const ru = {
         profile: "Профиль",
         shop: "Магазин",
         game: "Игра",
+        tournament: "Турнир",
     },
 
     // Main page
@@ -59,12 +60,12 @@ export const ru = {
         title: "something",
         greeting: "Привет, {name}",
         startGame: "НАЧАТЬ ИГРУ",
-        loading: "ЗАГРУЗКА...",
+        loading: "Загрузка...",
         welcome: "ДОБРО ПОЖАЛОВАТЬ",
         chooseEntryMethod: "Выберите способ входа",
         initialize: "ИНИЦИАЛИЗАЦИЯ",
         quickStart: "БЫСТРЫЙ СТАРТ",
-        fullExperience: "Полный опыт с вступительным видео",
+        fullExperience: "С вступительным видео",
         recommended: "Рекомендуется для новых пользователей",
         skipIntro: "Пропустить интро • Режим картошки",
         slowConnections: "Для медленного интернета и нетерпеливых 🥔",
@@ -91,7 +92,7 @@ export const ru = {
     // Game modes
     game: {
         modes: {
-            title: "РЕЖИМ",
+            title: "МОД",
             subtitle: "Выберите испытание",
             reaction: {
                 name: "СКОРОСТЬ РЕАКЦИИ",
@@ -125,10 +126,10 @@ export const ru = {
                 instructions: {
                     ready: "Приготовьтесь к тесту молниеносных рефлексов",
                     waiting: "Ждите появления белого круга...",
-                    clickNow: "КЛИКАЙТЕ СЕЙЧАС! КАК МОЖНО БЫСТРЕЕ!",
+                    clickNow: "ТЫКАЙ! СКОРЕЕ!",
                     targetWillAppear: "Цель появится через 3-5 секунд",
                     lightningFast: "Требуются молниеносные рефлексы",
-                    preparing: "Подготовка теста скорости реакции...",
+                    preparing: "Подготовка",
                 },
                 results: {
                     title: "ТЕСТ РЕАКЦИИ",
@@ -249,6 +250,47 @@ export const ru = {
         },
     },
 
+    // Tournament system
+    tournament: {
+        title: "ТУРНИР",
+        noActiveTournament: "Нет Активных Турниров",
+        noActiveTournamentDesc: "В данный момент нет активных турниров. Проверьте позже для получения информации о предстоящих турнирах!",
+        tournamentActive: "Турнир Активен",
+        timeRemaining: "осталось",
+        enterTournament: "ВОЙТИ В ТУРНИР",
+        playTournamentAgain: "ИГРАТЬ В ТУРНИРЕ СНОВА",
+        tournamentEnd: "КОНЕЦ ТУРНИРА",
+        tournamentMode: "Турнирный Режим",
+        prizes: "ПРИЗЫ ТУРНИРА",
+        winners: "ОБЛАДАТЕЛИ ПРИЗОВ",
+        participants: "УЧАСТНИКИ",
+        otherParticipants: "ДРУГИЕ УЧАСТНИКИ",
+        noParticipants: "Пока нет участников",
+        beFirstParticipant: "Станьте первым участником турнира!",
+        yourBestResult: "ВАШ ЛУЧШИЙ РЕЗУЛЬТАТ",
+        rank: "МЕСТО",
+        maxLevel: "МАКС УРОВЕНЬ",
+        bestTime: "ЛУЧШЕЕ ВРЕМЯ",
+        survivalTime: "ВРЕМЯ ВЫЖИВАНИЯ",
+        tournamentScore: "ТУРНИРНЫЙ СЧЁТ",
+        perfectStreak: "ИДЕАЛЬНАЯ СЕРИЯ",
+        correctHits: "ПРАВИЛЬНЫХ ПОПАДАНИЙ",
+        levelsCompleted: "уровней пройдено",
+        savingResult: "Сохранение результата турнира...",
+        resultSaved: "Результат турнира успешно сохранён",
+        resultSavedAfterRetries: "Сохранено после {attempts} попыток",
+        dataSynchronized: "Данные синхронизированы с турнирной таблицей лидеров",
+        saveFailedRetries: "Сохранение не удалось после {attempts} попыток",
+        resultRecordedLocally: "Ваш результат записан локально, но не синхронизирован",
+        retrySave: "ПОВТОРИТЬ СОХРАНЕНИЕ",
+        connectionIssue: "Проблема соединения - автоматический повтор",
+        retryingSave: "Повтор сохранения ({attempt}/{max})...",
+        loadingTournament: "Загрузка турнира...",
+        tournamentNotFound: "Турнир не найден",
+        redirectingToTournament: "Перенаправление на страницу турнира...",
+        ended: "Завершён",
+    },
+
     // Attempts system
     attempts: {
         current: "ТЕКУЩИЕ ПОПЫТКИ",
@@ -261,7 +303,6 @@ export const ru = {
     },
 
     // Profile page
-    // Страница профиля
     profile: {
         title: "ПРОФИЛЬ",
         loadingProfile: "ЗАГРУЗКА ПРОФИЛЯ...",
@@ -370,12 +411,12 @@ export const ru = {
 
     // Leaderboard
     leaderboard: {
-        title: "ТАБЛИЦА ЛИДЕРОВ",
+        title: "ТОП",
         loadingRanking: "ЗАГРУЗКА РЕЙТИНГОВЫХ ДАННЫХ...",
         failedToLoad: "НЕ УДАЛОСЬ ЗАГРУЗИТЬ РЕЙТИНГОВЫЕ ДАННЫЕ",
         overall: "ОБЩИЙ РЕЙТИНГ",
-        reaction: "РЕЙТИНГ РЕАКЦИИ",
-        survival: "РЕЙТИНГ ВЫЖИВАНИЯ",
+        reaction: "< ТОП >",
+        survival: "> ТОП <",
         players: "ИГРОКОВ",
         fastest: "БЫСТРЕЙШИЙ",
         longest: "ДЛИТЕЛЬНЫЙ",
@@ -468,6 +509,13 @@ export const ru = {
             button: "Тест эффектов"
         },
         buy: "Купить",
+        loading: "Загрузка...",
+        notifications: {
+            purchaseSuccess: "Покупка Успешна!",
+            purchaseSuccessMessage: "{attempts} попыт{plural} добавлено на ваш аккаунт",
+            instantResetSuccess: "Попытки Восстановлены!",
+            instantResetMessage: "Ваши попытки восстановлены и таймер сброшен",
+        },
     },
 
     // Save status messages

@@ -16,6 +16,7 @@ export default function NavigationWrapper() {
     "/game/reaction", // Reaction game mode
     "/game/survival", // Survival game mode
     "/shop", // Shop page
+    "/tournament/play", // Tournament game page
   ];
 
   const shouldHideNav = hideNavOnPages.includes(pathname);

@@ -1,4 +1,4 @@
-// src/locales/en.ts - English localization
+// src/locales/en.ts - Complete English localization with tournament integration
 
 export const en = {
     // Common UI elements
@@ -52,6 +52,7 @@ export const en = {
         profile: "Profile",
         shop: "Shop",
         game: "Game",
+        tournament: "Tournament",
     },
 
     // Main page
@@ -249,6 +250,47 @@ export const en = {
         },
     },
 
+    // Tournament system
+    tournament: {
+        title: "TOURNAMENT",
+        noActiveTournament: "No Active Tournament",
+        noActiveTournamentDesc: "There are currently no active tournaments. Check back later for upcoming tournaments!",
+        tournamentActive: "Tournament Active",
+        timeRemaining: "remaining",
+        enterTournament: "ENTER TOURNAMENT",
+        playTournamentAgain: "PLAY TOURNAMENT AGAIN",
+        tournamentEnd: "TOURNAMENT END",
+        tournamentMode: "Tournament Mode",
+        prizes: "TOURNAMENT PRIZES",
+        winners: "PRIZE WINNERS",
+        participants: "PARTICIPANTS",
+        otherParticipants: "OTHER PARTICIPANTS",
+        noParticipants: "No participants yet",
+        beFirstParticipant: "Be the first to enter the tournament!",
+        yourBestResult: "YOUR BEST RESULT",
+        rank: "RANK",
+        maxLevel: "MAX LEVEL",
+        bestTime: "BEST TIME",
+        survivalTime: "SURVIVAL TIME",
+        tournamentScore: "TOURNAMENT SCORE",
+        perfectStreak: "PERFECT STREAK",
+        correctHits: "CORRECT HITS",
+        levelsCompleted: "levels completed",
+        savingResult: "Saving tournament result...",
+        resultSaved: "Tournament result saved successfully",
+        resultSavedAfterRetries: "Saved after {attempts} attempts",
+        dataSynchronized: "Data synchronized with tournament leaderboard",
+        saveFailedRetries: "Save failed after {attempts} attempts",
+        resultRecordedLocally: "Your result recorded locally but not synchronized",
+        retrySave: "RETRY SAVE",
+        connectionIssue: "Connection issue - automatic retry",
+        retryingSave: "Retrying save ({attempt}/{max})...",
+        loadingTournament: "Loading tournament...",
+        tournamentNotFound: "Tournament not found",
+        redirectingToTournament: "Redirecting to tournament page...",
+        ended: "Ended",
+    },
+
     // Attempts system
     attempts: {
         current: "CURRENT ATTEMPTS",
@@ -370,12 +412,12 @@ export const en = {
 
     // Leaderboard
     leaderboard: {
-        title: "LEADERBOARD",
+        title: "TOP",
         loadingRanking: "LOADING RANKING DATA...",
         failedToLoad: "FAILED TO LOAD RANKING DATA",
         overall: "OVERALL RANKING",
-        reaction: "REACTION RANKING",
-        survival: "SURVIVAL RANKING",
+        reaction: "< TOP >>",
+        survival: "> TOP <",
         players: "PLAYERS",
         fastest: "FASTEST",
         longest: "LONGEST",
