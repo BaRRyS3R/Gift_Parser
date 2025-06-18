@@ -1,27 +1,41 @@
-// src/app/tournament/page.tsx - Minimalist tournament page with improved localization
+// src/app/tournament/page.tsx - Updated tournament page with rules modal and removed attempts
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
+    Modal,
+    ModalContent,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+    Button,
+    Card,
+    CardBody,
+} from "@nextui-org/react";
+import {
     Trophy,
     Clock,
     Target,
     Users,
     Play,
-    AlertTriangle,
     Crown,
     Medal,
     Award,
     Activity,
     TrendingUp,
-    ShoppingCart,
-    Battery,
+    Info,
+    X,
+    AlertTriangle,
+    Zap,
+    Crosshair,
+    Timer,
+    Shield,
+    BookOpen,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { userService } from "@/lib/supabase";
 import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
 import type { Tournament, TournamentLeaderboardEntry, TournamentResult, TournamentStatus } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
@@ -29,7 +43,7 @@ import { useT } from "@/contexts/LocalizationContext";
 
 export default function TournamentPage() {
     const router = useRouter();
-    const { user, telegramUser } = useUser();
+    const { user } = useUser();
     const t = useT();
 
     const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus>({
@@ -38,11 +52,11 @@ export default function TournamentPage() {
     });
     const [leaderboard, setLeaderboard] = useState<TournamentLeaderboardEntry[]>([]);
     const [userResult, setUserResult] = useState<TournamentResult | null>(null);
-    const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<string>("");
     const [isTransitioning, setIsTransitioning] = useState(false);
+    const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
     const loadTournamentData = useCallback(async () => {
         try {
@@ -62,18 +76,13 @@ export default function TournamentPage() {
                 setUserResult(userTournamentResult);
             }
 
-            if (telegramUser?.id) {
-                const attemptsStatus = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
-                setAttemptsRemaining(attemptsStatus.attemptsRemaining);
-            }
-
         } catch (err) {
             console.error("Error loading tournament data:", err);
             setError(t("tournament.tournamentNotFound"));
         } finally {
             setIsLoading(false);
         }
-    }, [user?.id, telegramUser?.id, t]);
+    }, [user?.id, t]);
 
     useEffect(() => {
         loadTournamentData();
@@ -103,17 +112,37 @@ export default function TournamentPage() {
         return () => clearInterval(interval);
     }, [tournamentStatus.activeTournament, tournamentStatus.timeRemaining, loadTournamentData, t]);
 
+    // Setup Telegram WebApp back button to go to main page
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            const tg = window.Telegram.WebApp;
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
+                router.push("/main");
+            });
+
+            return () => {
+                tg.BackButton.hide();
+                tg.BackButton.offClick(() => { });
+            };
+        }
+    }, [router]);
+
     const handleStartTournament = useCallback(async () => {
-        if (!tournamentStatus.activeTournament || attemptsRemaining <= 0 || isTransitioning) return;
+        if (!tournamentStatus.activeTournament || isTransitioning) return;
 
         setIsTransitioning(true);
         setTimeout(() => {
             router.push("/tournament/play");
         }, 600);
-    }, [tournamentStatus.activeTournament, attemptsRemaining, isTransitioning, router]);
+    }, [tournamentStatus.activeTournament, isTransitioning, router]);
 
-    const handleOpenShop = () => {
-        router.push("/shop");
+    const handleOpenRules = () => {
+        setIsRulesModalOpen(true);
+    };
+
+    const handleCloseRules = () => {
+        setIsRulesModalOpen(false);
     };
 
     const getRankIcon = (position: number) => {
@@ -221,81 +250,195 @@ export default function TournamentPage() {
         );
     };
 
-    const AttemptsDisplay = () => {
-        const isEmpty = attemptsRemaining === 0;
-        const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
+    const getRuleDetails = (ruleSection: string) => {
+        const details = [];
+        let index = 1;
 
-        const getBatteryLevel = () => {
-            if (attemptsRemaining <= 0) return 0;
-            if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
-            return 100;
-        };
+        while (true) {
+            const key = `tournament.rules.${ruleSection}.detail${index}` as any;
+            const detail = t(key);
 
-        const getBatteryColor = () => {
-            if (isEmpty) return "text-red-400";
-            if (isLow) return "text-orange-400";
-            return "text-green-400";
-        };
+            // If the detail is the same as the key, it means translation doesn't exist
+            if (detail === key) break;
 
-        const getBatteryBgColor = () => {
-            if (isEmpty) return "bg-red-500/10 border-red-400/20";
-            if (isLow) return "bg-orange-500/10 border-orange-400/20";
-            return "bg-white/5 border-white/20";
-        };
+            details.push(detail);
+            index++;
+        }
 
+        return details;
+    };
+
+    const renderRulesModal = () => {
         return (
-            <div className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${getBatteryBgColor()}`}>
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                        <Battery className={getBatteryColor()} size={16} />
-                        <span className={`text-sm font-medium ${getBatteryColor()}`}>
-                            {t("attempts.current")}
-                        </span>
-                    </div>
-                    <span className={`text-lg font-medium ${getBatteryColor()}`}>
-                        {attemptsRemaining}
-                    </span>
-                </div>
-
-                <div className="mb-2">
-                    <div
-                        className={`w-full h-1.5 rounded-full overflow-hidden ${isEmpty
-                            ? "bg-red-400/20"
-                            : isLow
-                                ? "bg-orange-400/20"
-                                : "bg-white/20"
-                            }`}
-                    >
-                        <div
-                            className={`h-full transition-all duration-500 ${getBatteryColor().replace("text-", "bg-")}`}
-                            style={{ width: `${getBatteryLevel()}%` }}
-                        />
-                    </div>
-                </div>
-
-                {isEmpty && (
-                    <div className="space-y-3 mt-3">
-                        <div className="text-center space-y-2">
-                            <div className="flex items-center justify-center space-x-2">
-                                <AlertTriangle className="text-red-400" size={16} />
-                                <span className="text-sm text-red-300">
-                                    {t("attempts.noRemaining")}
-                                </span>
+            <Modal
+                isOpen={isRulesModalOpen}
+                onClose={handleCloseRules}
+                size="2xl"
+                backdrop="blur"
+                scrollBehavior="inside"
+                classNames={{
+                    backdrop: "bg-black/80",
+                    base: "bg-black border border-white/20",
+                    header: "border-b border-white/10",
+                    body: "py-6",
+                    footer: "border-t border-white/10"
+                }}
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-yellow-500/20 border border-yellow-400/30 rounded-lg flex items-center justify-center">
+                                <BookOpen className="text-yellow-400" size={20} />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-white">
+                                    {t("tournament.rulesTitle")}
+                                </h2>
+                                <p className="text-white/60 text-sm">
+                                    {t("tournament.rulesSubtitle")}
+                                </p>
                             </div>
                         </div>
+                    </ModalHeader>
 
-                        <button
-                            onClick={handleOpenShop}
-                            className="w-full flex items-center justify-center space-x-2 py-2.5 px-3 bg-white/10 border border-white/20 text-white rounded-lg hover:bg-white/15 hover:border-white/30 transition-all duration-300"
+                    <ModalBody className="space-y-6">
+                        {/* Game Mode Section */}
+                        <Card className="bg-white/5 border border-white/20">
+                            <CardBody className="p-4">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <Crosshair className="text-red-400" size={18} />
+                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.gameMode.title")}</h3>
+                                </div>
+                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.gameMode.description")}</p>
+                                <div className="space-y-2 text-sm text-white/80">
+                                    {getRuleDetails("gameMode").map((detail, index) => (
+                                        <div key={index} className="flex items-start space-x-2">
+                                            <div className="w-1 h-1 rounded-full bg-red-400/60 mt-2 flex-shrink-0" />
+                                            <span>{detail}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </Card>
+
+                        {/* Competition Rules */}
+                        <Card className="bg-white/5 border border-white/20">
+                            <CardBody className="p-4">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <Shield className="text-blue-400" size={18} />
+                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.competition.title")}</h3>
+                                </div>
+                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.competition.description")}</p>
+                                <div className="space-y-2 text-sm text-white/80">
+                                    {getRuleDetails("competition").map((detail, index) => (
+                                        <div key={index} className="flex items-start space-x-2">
+                                            <div className="w-1 h-1 rounded-full bg-blue-400/60 mt-2 flex-shrink-0" />
+                                            <span>{detail}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </Card>
+
+                        {/* Scoring System */}
+                        <Card className="bg-white/5 border border-white/20">
+                            <CardBody className="p-4">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <Trophy className="text-yellow-400" size={18} />
+                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.scoring.title")}</h3>
+                                </div>
+                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.scoring.description")}</p>
+                                <div className="space-y-2 text-sm text-white/80">
+                                    {getRuleDetails("scoring").map((detail, index) => (
+                                        <div key={index} className="flex items-start space-x-2">
+                                            <div className="w-1 h-1 rounded-full bg-yellow-400/60 mt-2 flex-shrink-0" />
+                                            <span>{detail}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </Card>
+
+                        {/* Tournament Format */}
+                        <Card className="bg-white/5 border border-white/20">
+                            <CardBody className="p-4">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <Timer className="text-green-400" size={18} />
+                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.format.title")}</h3>
+                                </div>
+                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.format.description")}</p>
+                                <div className="space-y-2 text-sm text-white/80">
+                                    {getRuleDetails("format").map((detail, index) => (
+                                        <div key={index} className="flex items-start space-x-2">
+                                            <div className="w-1 h-1 rounded-full bg-green-400/60 mt-2 flex-shrink-0" />
+                                            <span>{detail}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </Card>
+
+                        {/* Fair Play */}
+                        <Card className="bg-red-500/10 border border-red-400/30">
+                            <CardBody className="p-4">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <AlertTriangle className="text-red-400" size={18} />
+                                    <h3 className="text-lg font-bold text-red-300">{t("tournament.rules.fairPlay.title")}</h3>
+                                </div>
+                                <p className="text-sm text-red-300/90 mb-3">{t("tournament.rules.fairPlay.description")}</p>
+                                <div className="space-y-2 text-sm text-red-400/80">
+                                    {getRuleDetails("fairPlay").map((detail, index) => (
+                                        <div key={index} className="flex items-start space-x-2">
+                                            <div className="w-1 h-1 rounded-full bg-red-400/60 mt-2 flex-shrink-0" />
+                                            <span>{detail}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </Card>
+
+                        {/* Game Tips */}
+                        <Card className="bg-white/5 border border-white/20">
+                            <CardBody className="p-4">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <Zap className="text-purple-400" size={18} />
+                                    <h3 className="text-lg font-bold text-white">{t("tournament.rules.tips.title")}</h3>
+                                </div>
+                                <p className="text-sm text-white/90 mb-3">{t("tournament.rules.tips.description")}</p>
+                                <div className="space-y-2 text-sm text-white/80">
+                                    {getRuleDetails("tips").map((detail, index) => (
+                                        <div key={index} className="flex items-start space-x-2">
+                                            <div className="w-1 h-1 rounded-full bg-purple-400/60 mt-2 flex-shrink-0" />
+                                            <span>{detail}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardBody>
+                        </Card>
+                    </ModalBody>
+
+                    <ModalFooter>
+                        <Button
+                            className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
+                            variant="bordered"
+                            onPress={handleCloseRules}
                         >
-                            <ShoppingCart size={14} />
-                            <span className="text-sm">
-                                {t("nav.shop")}
-                            </span>
-                        </button>
-                    </div>
-                )}
-            </div>
+                            {t("common.close")}
+                        </Button>
+                        <Button
+                            className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold"
+                            color="primary"
+                            onPress={() => {
+                                handleCloseRules();
+                                handleStartTournament();
+                            }}
+                            disabled={!tournamentStatus.activeTournament || isTransitioning}
+                        >
+                            {isTransitioning ? t("game.general.initializingGame") : t("tournament.enterTournament")}
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
         );
     };
 
@@ -379,22 +522,18 @@ export default function TournamentPage() {
                 </div>
             </div>
 
-            {/* Attempts Display */}
-            <div className="mb-6">
-                <AttemptsDisplay />
-            </div>
-
-            {/* Tournament Entry Button */}
-            <div className="mb-6">
+            {/* Action Buttons */}
+            <div className="mb-6 space-y-3">
+                {/* Tournament Entry Button */}
                 <button
                     className={`
             w-full px-6 py-4 rounded-xl text-lg font-medium transition-all duration-300
-            ${attemptsRemaining > 0 && !isTransitioning
+            ${!isTransitioning
                             ? "bg-white/10 border-2 border-white/30 text-white hover:border-white/50 hover:bg-white/15 hover:scale-[1.02] active:scale-[0.98]"
                             : "bg-white/5 border border-white/20 text-white/50 cursor-not-allowed opacity-60"
                         }
           `}
-                    disabled={attemptsRemaining <= 0 || isTransitioning}
+                    disabled={isTransitioning}
                     onClick={handleStartTournament}
                 >
                     <div className="flex items-center justify-center space-x-3">
@@ -402,10 +541,20 @@ export default function TournamentPage() {
                         <span>
                             {isTransitioning
                                 ? t("game.general.initializingGame")
-                                : attemptsRemaining > 0
-                                    ? t("tournament.enterTournament")
-                                    : t("game.general.noAttemptsLeft")}
+                                : t("tournament.enterTournament")}
                         </span>
+                    </div>
+                </button>
+
+                {/* Tournament Rules Button */}
+                <button
+                    className="w-full px-6 py-3 rounded-xl text-base font-medium transition-all duration-300 bg-white/5 border border-white/20 text-white/80 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
+                    onClick={handleOpenRules}
+                    disabled={isTransitioning}
+                >
+                    <div className="flex items-center justify-center space-x-3">
+                        <Info size={18} />
+                        <span>{t("tournament.rulesButton")}</span>
                     </div>
                 </button>
             </div>
@@ -525,6 +674,9 @@ export default function TournamentPage() {
                     </div>
                 </div>
             )}
+
+            {/* Rules Modal */}
+            {renderRulesModal()}
         </div>
     );
 }
