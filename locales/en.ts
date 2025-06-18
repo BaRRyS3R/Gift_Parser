@@ -444,7 +444,7 @@ export const en = {
         badges: {
             test: "Test",
             popular: "Popular",
-            value: "Best Value",
+            bestvalue: "Best Value",
             ultimate: "Ultimate",
             instant: "Instant"
         },

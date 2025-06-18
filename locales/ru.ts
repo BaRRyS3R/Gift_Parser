@@ -447,7 +447,7 @@ export const ru = {
         badges: {
             test: "Тест",
             popular: "Популярно",
-            value: "Выгодно",
+            bestvalue: "Выгодно",
             ultimate: "Максимум",
             instant: "Мгновенно"
         },
