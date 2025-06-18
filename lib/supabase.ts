@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Enhanced with referral system and server-side time validation
+// src/lib/supabase.ts - Enhanced with avatar support
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -11,18 +11,14 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ============================================================================
-// НАСТРОЙКИ СИСТЕМЫ ПОПЫТОК - КОНФИГУРАЦИЯ
-// ============================================================================
 const ATTEMPTS_CONFIG = {
-  BASE_ATTEMPTS: 10,           // Базовое количество попыток при регистрации
-  RESET_ATTEMPTS: 10,          // Количество попыток после автоматического сброса
-  RESET_INTERVAL_MS: 2 * 60 * 60 * 1000, // Время до сброса попыток (2 часа)
-  REFERRAL_BONUS: 5,           // Дополнительные попытки за реферала
+  BASE_ATTEMPTS: 10,
+  RESET_ATTEMPTS: 10,
+  RESET_INTERVAL_MS: 2 * 60 * 60 * 1000,
+  REFERRAL_BONUS: 5,
 } as const;
-// ============================================================================
 
-// Updated database types for new game structure with attempts management and referral system
+// Updated User interface with avatar support
 export interface User {
   id: string; // UUID v4
   telegram_id: number;
@@ -31,6 +27,7 @@ export interface User {
   username?: string;
   language_code?: string;
   is_premium: boolean;
+  avatar_url?: string; // ADD THIS LINE - Avatar URL from Telegram
   created_at: string;
   updated_at: string;
 
@@ -73,43 +70,6 @@ export interface User {
   is_active: boolean;
 }
 
-export interface GameResultDB {
-  id: string; // UUID v4
-  user_id: string; // UUID v4
-  game_mode: GameMode; // 'reaction' | 'survival'
-  score: number;
-  duration: number;
-
-  // Reaction Mode specific fields
-  reaction_time?: number; // milliseconds
-  reaction_rating?:
-  | "LIGHTNING"
-  | "EXCELLENT"
-  | "GOOD"
-  | "AVERAGE"
-  | "SLOW"
-  | "MISSED";
-  missed_target?: boolean;
-
-  // Survival Mode specific fields
-  survival_time?: number; // milliseconds
-  max_level_reached?: number;
-  perfect_streak?: number;
-  correct_hits?: number;
-  death_cause?: "miss" | "wrong_click" | "decoy_hit" | "timeout";
-
-  // Legacy fields (for backward compatibility)
-  wrong_hits?: number;
-  missed_circles?: number;
-  accuracy?: number;
-  decoy_hits?: number;
-  fast_hits?: number;
-  average_reaction_time?: number;
-  adaptive_level?: number;
-
-  created_at: string;
-}
-
 export interface TelegramUser {
   id: number;
   first_name: string;
@@ -117,84 +77,39 @@ export interface TelegramUser {
   username?: string;
   language_code?: string;
   is_premium?: boolean;
+  photo_url?: string; // ADD THIS LINE - Telegram avatar URL if available
 }
 
-export interface LeaderboardEntry {
-  id: string;
-  telegram_id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  is_premium: boolean;
-  best_score: number;
-  total_games: number;
-  last_played_at?: string;
-}
+// Enhanced avatar fetching utility
+const getTelegramAvatarUrl = async (telegramUser: TelegramUser): Promise<string | null> => {
+  try {
+    // If Telegram provides photo_url directly
+    if (telegramUser.photo_url) {
+      return telegramUser.photo_url;
+    }
 
-export interface ReactionLeaderboard {
-  id: string;
-  telegram_id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  is_premium: boolean;
-  best_reaction_time: number;
-  reaction_games: number;
-  best_reaction_score: number;
-  last_played_at?: string;
-}
+    // Alternative: Use Telegram API to get user photos (requires bot token)
+    // This would need to be implemented on the backend for security
+    // For now, we'll use a fallback or empty avatar
 
-export interface SurvivalLeaderboard {
-  id: string;
-  telegram_id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  is_premium: boolean;
-  best_survival_time: number;
-  max_level: number;
-  best_streak: number;
-  survival_games: number;
-  last_played_at?: string;
-}
+    return null;
+  } catch (error) {
+    console.warn("Failed to fetch Telegram avatar:", error);
+    return null;
+  }
+};
 
-// Attempts management interface
-export interface AttemptsStatus {
-  canPlay: boolean;
-  attemptsRemaining: number;
-  resetTime?: Date;
-  timeUntilReset?: number; // milliseconds
-}
-
-// Referral system interface - UPDATED
-export interface ReferralInfo {
-  referralCode: string;
-  referralLink: string;
-  referralCount: number;
-  referralBonus: number;
-  referredBy?: string;
-  referredByName?: string; // Добавляем поле для отображаемого имени пригласившего
-}
-
-// Enhanced user service with server-side validation, restart attempt consumption, and referral system
 export const userService = {
   async getServerTime(): Promise<Date> {
     try {
       const { data, error } = await supabase.rpc("get_current_timestamp");
-
       if (error) {
         console.warn("Failed to get server time, using client time:", error);
-
         return new Date();
       }
-
       return new Date(data);
     } catch (error) {
-      console.warn(
-        "Error getting server time, falling back to client time:",
-        error,
-      );
-
+      console.warn("Error getting server time, falling back to client time:", error);
       return new Date();
     }
   },
@@ -237,14 +152,10 @@ export const userService = {
     while (!isUnique) {
       code = "";
       for (let i = 0; i < 8; i++) {
-        code += characters.charAt(
-          Math.floor(Math.random() * characters.length),
-        );
+        code += characters.charAt(Math.floor(Math.random() * characters.length));
       }
 
-      // Check if code already exists
       const existingUser = await this.findByReferralCode(code);
-
       if (!existingUser) {
         isUnique = true;
       }
@@ -253,41 +164,34 @@ export const userService = {
     return code;
   },
 
-  // UPDATED create method - добавляем начисление попыток приглашающему
-  async create(
-    telegramUser: TelegramUser,
-    referralCode?: string,
-  ): Promise<User> {
+  // UPDATED create method with avatar support
+  async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
     const referralCodeToUse = await this.generateUniqueReferralCode();
-    let additionalAttempts = 5; // Base attempts
+    let additionalAttempts = 5;
     let referredBy = null;
 
     // Handle referral
     if (referralCode) {
       const referrer = await this.findByReferralCode(referralCode);
-
       if (referrer) {
         referredBy = referralCode;
         additionalAttempts += referrer.referral_bonus;
 
-        // Update referrer's count AND give them 5 attempts bonus
         await supabase
           .from("users")
           .update({
             referral_count: referrer.referral_count + 1,
-            attempts_remaining: referrer.attempts_remaining + 5, // Добавляем 5 попыток приглашающему
+            attempts_remaining: referrer.attempts_remaining + 5,
             updated_at: new Date().toISOString(),
           })
           .eq("id", referrer.id);
 
-        console.log(
-          `User referred by ${referralCode}, adding ${referrer.referral_bonus} bonus attempts to new user`,
-        );
-        console.log(
-          `Adding 5 bonus attempts to referrer ${referrer.first_name}`,
-        );
+        console.log(`User referred by ${referralCode}, adding ${referrer.referral_bonus} bonus attempts to new user`);
       }
     }
+
+    // Fetch avatar URL
+    const avatarUrl = await getTelegramAvatarUrl(telegramUser);
 
     const userData = {
       telegram_id: telegramUser.id,
@@ -296,10 +200,11 @@ export const userService = {
       username: telegramUser.username || null,
       language_code: telegramUser.language_code || null,
       is_premium: telegramUser.is_premium || false,
+      avatar_url: avatarUrl, // NEW: Save avatar URL
       attempts_remaining: additionalAttempts,
       referral_code: referralCodeToUse,
       referred_by: referredBy,
-      referral_bonus: 1, // Default bonus for new users
+      referral_bonus: 1,
       referral_count: 0,
     };
 
@@ -317,26 +222,36 @@ export const userService = {
     return data;
   },
 
-  // UPDATED getReferralInfo method - добавляем информацию об имени приглашающего
+  // NEW: Update avatar URL method
+  async updateAvatarUrl(telegramId: number, avatarUrl: string | null): Promise<void> {
+    const { error } = await supabase
+      .from("users")
+      .update({
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("telegram_id", telegramId);
+
+    if (error) {
+      console.error("Error updating avatar URL:", error);
+      throw error;
+    }
+  },
+
   async getReferralInfo(telegramId: number): Promise<ReferralInfo | null> {
     const user = await this.findByTelegramId(telegramId);
-
     if (!user) return null;
 
     let referredByName: string | undefined;
 
-    // Если есть информация о том, кто пригласил, получаем его отображаемое имя
     if (user.referred_by) {
       try {
         const referrer = await this.findByReferralCode(user.referred_by);
-
         if (referrer) {
           if (referrer.username) {
             referredByName = `@${referrer.username}`;
           } else if (referrer.first_name) {
-            referredByName =
-              referrer.first_name +
-              (referrer.last_name ? ` ${referrer.last_name}` : "");
+            referredByName = referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : "");
           } else {
             referredByName = "s0meone";
           }
@@ -357,44 +272,31 @@ export const userService = {
     };
   },
 
-  // NEW method - для получения информации о приглашающем пользователе
-  async getReferrerInfo(
-    referralCode: string,
-  ): Promise<{ name: string; username?: string } | null> {
+  async getReferrerInfo(referralCode: string): Promise<{ name: string; username?: string } | null> {
     try {
       const referrer = await this.findByReferralCode(referralCode);
-
       if (!referrer) return null;
 
       return {
-        name:
-          referrer.first_name +
-          (referrer.last_name ? ` ${referrer.last_name}` : ""),
+        name: referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : ""),
         username: referrer.username,
       };
     } catch (error) {
       console.error("Error getting referrer info:", error);
-
       return null;
     }
   },
 
-  async checkAndUpdateAttemptsWithServerValidation(
-    telegramId: number,
-  ): Promise<AttemptsStatus> {
+  // Rest of the methods remain the same...
+  async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
     const user = await this.findByTelegramId(telegramId);
-
     if (!user) throw new Error("User not found");
 
     const serverTime = await this.getServerTime();
-    const resetTime = user.attempts_reset_at
-      ? new Date(user.attempts_reset_at)
-      : null;
+    const resetTime = user.attempts_reset_at ? new Date(user.attempts_reset_at) : null;
 
-    // Server-side validation: check if reset time has passed according to server
     if (resetTime && serverTime >= resetTime) {
       await this.resetAttempts(telegramId);
-
       return {
         canPlay: true,
         attemptsRemaining: Math.max(5, user.attempts_remaining),
@@ -403,23 +305,15 @@ export const userService = {
       };
     }
 
-    // Additional validation: check for potential time manipulation
     if (user.last_attempt_at) {
       const lastAttemptTime = new Date(user.last_attempt_at);
-      const timeSinceLastAttempt =
-        serverTime.getTime() - lastAttemptTime.getTime();
-
-      // If server time indicates less time has passed than expected, log warning
+      const timeSinceLastAttempt = serverTime.getTime() - lastAttemptTime.getTime();
       if (timeSinceLastAttempt < 0) {
-        console.warn(
-          "Potential time manipulation detected for user:",
-          telegramId,
-        );
+        console.warn("Potential time manipulation detected for user:", telegramId);
       }
     }
 
     let timeUntilReset: number | undefined;
-
     if (resetTime && user.attempts_remaining === 0) {
       timeUntilReset = Math.max(0, resetTime.getTime() - serverTime.getTime());
     }
@@ -432,13 +326,9 @@ export const userService = {
     };
   },
 
-  async consumeAttemptWithServerValidation(
-    telegramId: number,
-  ): Promise<AttemptsStatus> {
+  async consumeAttemptWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
     const user = await this.findByTelegramId(telegramId);
-
     if (!user) throw new Error("User not found");
-
     if (user.attempts_remaining <= 0) {
       throw new Error("No attempts remaining");
     }
@@ -451,7 +341,6 @@ export const userService = {
       last_attempt_at: serverTime.toISOString(),
     };
 
-    // Set reset time based on server time only if no attempts left
     if (newAttemptsRemaining === 0) {
       const resetTime = new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS);
       updates.attempts_reset_at = resetTime.toISOString();
@@ -467,26 +356,22 @@ export const userService = {
       throw error;
     }
 
-    const timeUntilReset =
-      newAttemptsRemaining === 0 ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS : undefined;
+    const timeUntilReset = newAttemptsRemaining === 0 ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS : undefined;
 
     return {
       canPlay: newAttemptsRemaining > 0,
       attemptsRemaining: newAttemptsRemaining,
-      resetTime:
-        newAttemptsRemaining === 0
-          ? new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS)
-          : undefined,
+      resetTime: newAttemptsRemaining === 0
+        ? new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS)
+        : undefined,
       timeUntilReset,
     };
   },
 
   async resetAttempts(telegramId: number): Promise<void> {
     const user = await this.findByTelegramId(telegramId);
-
     if (!user) throw new Error("User not found");
 
-    // Reset to at least 5 attempts, but keep current if higher
     const newAttempts = Math.max(ATTEMPTS_CONFIG.RESET_ATTEMPTS, user.attempts_remaining);
 
     const { error } = await supabase
@@ -505,7 +390,6 @@ export const userService = {
 
   async instantResetAttempts(telegramId: number): Promise<void> {
     const user = await this.findByTelegramId(telegramId);
-
     if (!user) throw new Error("User not found");
 
     const { error } = await supabase
@@ -523,22 +407,17 @@ export const userService = {
     }
   },
 
-  // Legacy methods maintained for backward compatibility - redirects to server validation
+  // Legacy methods maintained for backward compatibility
   async checkAndUpdateAttempts(telegramId: number): Promise<AttemptsStatus> {
     return this.checkAndUpdateAttemptsWithServerValidation(telegramId);
   },
 
-  // Legacy method maintained for backward compatibility - redirects to server validation
   async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
     return this.consumeAttemptWithServerValidation(telegramId);
   },
 
-  async updateGameStats(
-    telegramId: number,
-    gameResult: ReactionGameResult | SurvivalGameResult,
-  ): Promise<void> {
+  async updateGameStats(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult): Promise<void> {
     const user = await this.findByTelegramId(telegramId);
-
     if (!user) throw new Error("User not found");
 
     const updates: any = {
@@ -550,50 +429,29 @@ export const userService = {
 
     if (gameResult.mode === GameMode.REACTION) {
       const reactionResult = gameResult as ReactionGameResult;
-
       updates.reaction_games = user.reaction_games + 1;
-      updates.reaction_best_score = Math.max(
-        user.reaction_best_score || 0,
-        reactionResult.score,
-      );
+      updates.reaction_best_score = Math.max(user.reaction_best_score || 0, reactionResult.score);
 
       if (!reactionResult.missed && reactionResult.reactionTime > 0) {
-        updates.reaction_best_time =
-          user.reaction_best_time > 0
-            ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
-            : reactionResult.reactionTime;
+        updates.reaction_best_time = user.reaction_best_time > 0
+          ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
+          : reactionResult.reactionTime;
 
         const totalReactionGames = user.reaction_games;
         const currentAverage = user.reaction_average_time || 0;
-        const newAverage =
-          totalReactionGames > 0
-            ? (currentAverage * totalReactionGames +
-              reactionResult.reactionTime) /
-            (totalReactionGames + 1)
-            : reactionResult.reactionTime;
+        const newAverage = totalReactionGames > 0
+          ? (currentAverage * totalReactionGames + reactionResult.reactionTime) / (totalReactionGames + 1)
+          : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
       }
     } else if (gameResult.mode === GameMode.SURVIVAL) {
       const survivalResult = gameResult as SurvivalGameResult;
-
       updates.survival_games = user.survival_games + 1;
-      updates.survival_best_score = Math.max(
-        user.survival_best_score || 0,
-        survivalResult.score,
-      );
-      updates.survival_best_time = Math.max(
-        user.survival_best_time || 0,
-        survivalResult.survivalTime,
-      );
-      updates.survival_max_level = Math.max(
-        user.survival_max_level || 0,
-        survivalResult.maxLevelReached,
-      );
-      updates.survival_best_streak = Math.max(
-        user.survival_best_streak || 0,
-        survivalResult.perfectStreak,
-      );
+      updates.survival_best_score = Math.max(user.survival_best_score || 0, survivalResult.score);
+      updates.survival_best_time = Math.max(user.survival_best_time || 0, survivalResult.survivalTime);
+      updates.survival_max_level = Math.max(user.survival_max_level || 0, survivalResult.maxLevelReached);
+      updates.survival_best_streak = Math.max(user.survival_best_streak || 0, survivalResult.perfectStreak);
     }
 
     const { error } = await supabase
@@ -607,12 +465,8 @@ export const userService = {
     }
   },
 
-  async saveGameResult(
-    telegramId: number,
-    gameResult: ReactionGameResult | SurvivalGameResult,
-  ): Promise<void> {
+  async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult): Promise<void> {
     const user = await this.findByTelegramId(telegramId);
-
     if (!user) throw new Error("User not found");
 
     const resultData: any = {
@@ -624,16 +478,13 @@ export const userService = {
 
     if (gameResult.mode === GameMode.REACTION) {
       const reactionResult = gameResult as ReactionGameResult;
-
       if (!reactionResult.missed && reactionResult.reactionTime > 0) {
         resultData.reaction_time = reactionResult.reactionTime;
       }
-
       resultData.reaction_rating = reactionResult.rating;
       resultData.missed_target = reactionResult.missed;
     } else if (gameResult.mode === GameMode.SURVIVAL) {
       const survivalResult = gameResult as SurvivalGameResult;
-
       resultData.survival_time = survivalResult.survivalTime;
       resultData.max_level_reached = survivalResult.maxLevelReached;
       resultData.perfect_streak = survivalResult.perfectStreak;
@@ -653,45 +504,21 @@ export const userService = {
     await this.updateGameStats(telegramId, gameResult);
   },
 
-  async getGameHistory(
-    telegramId: number,
-    limit: number = 50,
-  ): Promise<GameResultDB[]> {
-    const user = await this.findByTelegramId(telegramId);
-
-    if (!user) return [];
-
-    const { data, error } = await supabase
-      .from("game_results")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error("Error fetching game history:", error);
-      throw error;
-    }
-
-    return data || [];
-  },
-
   async getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
     const { data, error } = await supabase
       .from("users")
-      .select(
-        `
-                id,
-                telegram_id,
-                first_name,
-                last_name,
-                username,
-                is_premium,
-                best_score,
-                total_games,
-                last_played_at
-            `,
-      )
+      .select(`
+        id,
+        telegram_id,
+        first_name,
+        last_name,
+        username,
+        is_premium,
+        avatar_url,
+        best_score,
+        total_games,
+        last_played_at
+      `)
       .gt("total_games", 0)
       .order("best_score", { ascending: false })
       .limit(limit);
@@ -704,25 +531,22 @@ export const userService = {
     return data || [];
   },
 
-  async getReactionLeaderboard(
-    limit: number = 100,
-  ): Promise<ReactionLeaderboard[]> {
+  async getReactionLeaderboard(limit: number = 100): Promise<ReactionLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
-      .select(
-        `
-                id,
-                telegram_id,
-                first_name,
-                last_name,
-                username,
-                is_premium,
-                reaction_best_time,
-                reaction_games,
-                reaction_best_score,
-                last_played_at
-            `,
-      )
+      .select(`
+        id,
+        telegram_id,
+        first_name,
+        last_name,
+        username,
+        is_premium,
+        avatar_url,
+        reaction_best_time,
+        reaction_games,
+        reaction_best_score,
+        last_played_at
+      `)
       .gt("reaction_games", 0)
       .gt("reaction_best_time", 0)
       .order("reaction_best_time", { ascending: true })
@@ -742,26 +566,23 @@ export const userService = {
     }));
   },
 
-  async getSurvivalLeaderboard(
-    limit: number = 100,
-  ): Promise<SurvivalLeaderboard[]> {
+  async getSurvivalLeaderboard(limit: number = 100): Promise<SurvivalLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
-      .select(
-        `
-                id,
-                telegram_id,
-                first_name,
-                last_name,
-                username,
-                is_premium,
-                survival_best_time,
-                survival_max_level,
-                survival_best_streak,
-                survival_games,
-                last_played_at
-            `,
-      )
+      .select(`
+        id,
+        telegram_id,
+        first_name,
+        last_name,
+        username,
+        is_premium,
+        avatar_url,
+        survival_best_time,
+        survival_max_level,
+        survival_best_streak,
+        survival_games,
+        last_played_at
+      `)
       .gt("survival_games", 0)
       .order("survival_best_time", { ascending: false })
       .order("survival_max_level", { ascending: false })
@@ -783,7 +604,6 @@ export const userService = {
 
   async getUserRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
-
     if (!user || user.total_games === 0) return null;
 
     const { count, error } = await supabase
@@ -802,9 +622,7 @@ export const userService = {
 
   async getUserReactionRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
-
-    if (!user || user.reaction_games === 0 || !user.reaction_best_time)
-      return null;
+    if (!user || user.reaction_games === 0 || !user.reaction_best_time) return null;
 
     const { count, error } = await supabase
       .from("users")
@@ -823,16 +641,13 @@ export const userService = {
 
   async getUserSurvivalRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
-
     if (!user || user.survival_games === 0) return null;
 
     const { count, error } = await supabase
       .from("users")
       .select("id", { count: "exact" })
       .gt("survival_games", 0)
-      .or(
-        `survival_best_time.gt.${user.survival_best_time},and(survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`,
-      );
+      .or(`survival_best_time.gt.${user.survival_best_time},and(survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`);
 
     if (error) {
       console.error("Error fetching user survival ranking:", error);
@@ -842,3 +657,86 @@ export const userService = {
     return (count || 0) + 1;
   },
 };
+
+// Updated interfaces with avatar support
+export interface LeaderboardEntry {
+  id: string;
+  telegram_id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  is_premium: boolean;
+  avatar_url?: string; // NEW
+  best_score: number;
+  total_games: number;
+  last_played_at?: string;
+}
+
+export interface ReactionLeaderboard {
+  id: string;
+  telegram_id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  is_premium: boolean;
+  avatar_url?: string; // NEW
+  best_reaction_time: number;
+  reaction_games: number;
+  best_reaction_score: number;
+  last_played_at?: string;
+}
+
+export interface SurvivalLeaderboard {
+  id: string;
+  telegram_id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  is_premium: boolean;
+  avatar_url?: string; // NEW
+  best_survival_time: number;
+  max_level: number;
+  best_streak: number;
+  survival_games: number;
+  last_played_at?: string;
+}
+
+export interface AttemptsStatus {
+  canPlay: boolean;
+  attemptsRemaining: number;
+  resetTime?: Date;
+  timeUntilReset?: number;
+}
+
+export interface ReferralInfo {
+  referralCode: string;
+  referralLink: string;
+  referralCount: number;
+  referralBonus: number;
+  referredBy?: string;
+  referredByName?: string;
+}
+
+export interface GameResultDB {
+  id: string;
+  user_id: string;
+  game_mode: GameMode;
+  score: number;
+  duration: number;
+  reaction_time?: number;
+  reaction_rating?: "LIGHTNING" | "EXCELLENT" | "GOOD" | "AVERAGE" | "SLOW" | "MISSED";
+  missed_target?: boolean;
+  survival_time?: number;
+  max_level_reached?: number;
+  perfect_streak?: number;
+  correct_hits?: number;
+  death_cause?: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+  wrong_hits?: number;
+  missed_circles?: number;
+  accuracy?: number;
+  decoy_hits?: number;
+  fast_hits?: number;
+  average_reaction_time?: number;
+  adaptive_level?: number;
+  created_at: string;
+}
