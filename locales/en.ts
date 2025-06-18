@@ -42,7 +42,7 @@ export const en = {
         used: "SQUANDERED",
         available: "READY TO WASTE",
         unlimited: "INFINITE DISAPPOINTMENT",
-        or: "or (as if it matters)",
+        or: "or",
     },
 
     // Navigation with contempt
