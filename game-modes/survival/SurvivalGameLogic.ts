@@ -209,10 +209,19 @@ export const updateSurvivalLevel = (
   state: SurvivalGameState,
   currentTime?: number // ДОБАВЛЕНО: опциональный параметр для текущего времени
 ): SurvivalGameState => {
-  if (!state.isActive || !state.gameStartTime) return state;
+  if (!state.isActive || !state.gameStartTime) {
+    return {
+      ...state,
+      stats: {
+        ...state.stats,
+        survivalTime: 0,
+      },
+    };
+  }
 
   const now = currentTime || Date.now();
-  const actualSurvivalTime = now - state.gameStartTime; // ТОЧНОЕ время выживания
+  let actualSurvivalTime = now - state.gameStartTime;
+  if (!Number.isFinite(actualSurvivalTime) || actualSurvivalTime < 0) actualSurvivalTime = 0;
   const newTimeInCurrentLevel = actualSurvivalTime - ((state.currentLevel - 1) * state.config.intensityIncreaseInterval * 1000);
 
   const shouldIncreaseLevel =
@@ -226,7 +235,7 @@ export const updateSurvivalLevel = (
       timeInCurrentLevel: 0,
       stats: {
         ...state.stats,
-        survivalTime: actualSurvivalTime, // ТОЧНОЕ время
+        survivalTime: actualSurvivalTime,
         currentLevel: state.currentLevel + 1,
       },
     };
@@ -237,7 +246,7 @@ export const updateSurvivalLevel = (
     timeInCurrentLevel: newTimeInCurrentLevel,
     stats: {
       ...state.stats,
-      survivalTime: actualSurvivalTime, // ТОЧНОЕ время
+      survivalTime: actualSurvivalTime,
     },
   };
 };
@@ -457,12 +466,13 @@ export const createSurvivalGameResult = (
   const finalState = updateSurvivalLevel(state, Date.now());
   const finalScore = calculateSurvivalScore(finalState.stats, finalState.currentLevel);
   const deathCause = getSurvivalDeathCause(finalState.stats);
+  const safeSurvivalTime = Math.max(0, Number.isFinite(finalState.stats.survivalTime) ? finalState.stats.survivalTime : 0);
 
   return {
     mode: GameMode.SURVIVAL,
     score: finalScore,
-    duration: Math.floor(finalState.stats.survivalTime / 1000),
-    survivalTime: finalState.stats.survivalTime, // ТОЧНОЕ время в миллисекундах
+    duration: Math.floor(safeSurvivalTime / 1000),
+    survivalTime: safeSurvivalTime, // ТОЧНОЕ время в миллисекундах
     maxLevelReached: finalState.currentLevel,
     perfectStreak: finalState.stats.perfectStreak,
     correctHits: finalState.stats.correctHits,
@@ -482,10 +492,11 @@ export const cleanupSurvivalGame = (state: SurvivalGameState): void => {
 };
 
 export const formatSurvivalTime = (milliseconds: number): string => {
-  const totalSeconds = Math.floor(milliseconds / 1000);
+  let ms = Math.max(0, Number.isFinite(milliseconds) ? milliseconds : 0);
+  const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const ms = milliseconds % 1000;
+  ms = ms % 1000;
 
   if (minutes > 0) {
     return `${minutes}:${seconds.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
