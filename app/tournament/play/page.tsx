@@ -9,12 +9,15 @@ import { Trophy } from "lucide-react";
 import { tournamentService } from "@/lib/supabase_tournament_extension";
 import TournamentGameManager from "@/game-modes/tournament/TournamentGameManager";
 import type { Tournament } from "@/types/tournaments";
+import { useT } from "@/contexts/LocalizationContext";
 
 export default function TournamentPlayPage() {
     const router = useRouter();
     const [tournament, setTournament] = useState<Tournament | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const t = useT();
 
     useEffect(() => {
         const loadTournament = async () => {
@@ -50,7 +53,7 @@ export default function TournamentPlayPage() {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin mx-auto" />
-                    <p className="text-yellow-300">Loading tournament...</p>
+                    <p className="text-yellow-300">{t("tournament.loadingTournament")}</p>
                 </div>
             </div>
         );
@@ -62,7 +65,7 @@ export default function TournamentPlayPage() {
                 <div className="text-center space-y-4">
                     <Trophy className="text-yellow-400/60 mx-auto" size={32} />
                     <p className="text-yellow-300/80">{error || "Tournament not found"}</p>
-                    <p className="text-yellow-400/60 text-sm">Redirecting to tournament page...</p>
+                    <p className="text-yellow-400/60 text-sm">{t("tournament.redirectingToTournament")}.</p>
                 </div>
             </div>
         );
