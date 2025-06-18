@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Enhanced with avatar support
+// src/lib/supabase.ts
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -18,7 +18,7 @@ const ATTEMPTS_CONFIG = {
   REFERRAL_BONUS: 5,
 } as const;
 
-// Updated User interface with avatar support
+// Updated User interface
 export interface User {
   id: string; // UUID v4
   telegram_id: number;
@@ -27,7 +27,6 @@ export interface User {
   username?: string;
   language_code?: string;
   is_premium: boolean;
-  avatar_url?: string; // ADD THIS LINE - Avatar URL from Telegram
   created_at: string;
   updated_at: string;
 
@@ -77,27 +76,7 @@ export interface TelegramUser {
   username?: string;
   language_code?: string;
   is_premium?: boolean;
-  photo_url?: string; // ADD THIS LINE - Telegram avatar URL if available
 }
-
-// Enhanced avatar fetching utility
-const getTelegramAvatarUrl = async (telegramUser: TelegramUser): Promise<string | null> => {
-  try {
-    // If Telegram provides photo_url directly
-    if (telegramUser.photo_url) {
-      return telegramUser.photo_url;
-    }
-
-    // Alternative: Use Telegram API to get user photos (requires bot token)
-    // This would need to be implemented on the backend for security
-    // For now, we'll use a fallback or empty avatar
-
-    return null;
-  } catch (error) {
-    console.warn("Failed to fetch Telegram avatar:", error);
-    return null;
-  }
-};
 
 export const userService = {
   async getServerTime(): Promise<Date> {
@@ -164,7 +143,7 @@ export const userService = {
     return code;
   },
 
-  // UPDATED create method with avatar support
+  // UPDATED create method
   async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
     const referralCodeToUse = await this.generateUniqueReferralCode();
     let additionalAttempts = 5;
@@ -190,9 +169,6 @@ export const userService = {
       }
     }
 
-    // Fetch avatar URL
-    const avatarUrl = await getTelegramAvatarUrl(telegramUser);
-
     const userData = {
       telegram_id: telegramUser.id,
       first_name: telegramUser.first_name,
@@ -200,7 +176,6 @@ export const userService = {
       username: telegramUser.username || null,
       language_code: telegramUser.language_code || null,
       is_premium: telegramUser.is_premium || false,
-      avatar_url: avatarUrl, // NEW: Save avatar URL
       attempts_remaining: additionalAttempts,
       referral_code: referralCodeToUse,
       referred_by: referredBy,
@@ -220,22 +195,6 @@ export const userService = {
     }
 
     return data;
-  },
-
-  // NEW: Update avatar URL method
-  async updateAvatarUrl(telegramId: number, avatarUrl: string | null): Promise<void> {
-    const { error } = await supabase
-      .from("users")
-      .update({
-        avatar_url: avatarUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("telegram_id", telegramId);
-
-    if (error) {
-      console.error("Error updating avatar URL:", error);
-      throw error;
-    }
   },
 
   async getReferralInfo(telegramId: number): Promise<ReferralInfo | null> {
@@ -514,7 +473,6 @@ export const userService = {
         last_name,
         username,
         is_premium,
-        avatar_url,
         best_score,
         total_games,
         last_played_at
@@ -541,7 +499,6 @@ export const userService = {
         last_name,
         username,
         is_premium,
-        avatar_url,
         reaction_best_time,
         reaction_games,
         reaction_best_score,
@@ -576,7 +533,6 @@ export const userService = {
         last_name,
         username,
         is_premium,
-        avatar_url,
         survival_best_time,
         survival_max_level,
         survival_best_streak,
@@ -658,7 +614,7 @@ export const userService = {
   },
 };
 
-// Updated interfaces with avatar support
+// Updated interfaces
 export interface LeaderboardEntry {
   id: string;
   telegram_id: number;
@@ -666,7 +622,6 @@ export interface LeaderboardEntry {
   last_name?: string;
   username?: string;
   is_premium: boolean;
-  avatar_url?: string; // NEW
   best_score: number;
   total_games: number;
   last_played_at?: string;
@@ -679,7 +634,6 @@ export interface ReactionLeaderboard {
   last_name?: string;
   username?: string;
   is_premium: boolean;
-  avatar_url?: string; // NEW
   best_reaction_time: number;
   reaction_games: number;
   best_reaction_score: number;
@@ -693,7 +647,6 @@ export interface SurvivalLeaderboard {
   last_name?: string;
   username?: string;
   is_premium: boolean;
-  avatar_url?: string; // NEW
   best_survival_time: number;
   max_level: number;
   best_streak: number;
