@@ -1,4 +1,4 @@
-// src/components/Profile/GamingJourneySection.tsx - Gaming journey timeline
+// src/components/Profile/GamingJourneySection.tsx - Fixed unescaped entities and accessibility
 
 "use client";
 
@@ -23,7 +23,6 @@ const GamingJourneySection: React.FC<GamingJourneySectionProps> = ({ user }) => 
     const getMilestones = (): JourneyMilestone[] => {
         const milestones: JourneyMilestone[] = [];
         const joinDate = new Date(user.created_at);
-        const currentDate = new Date();
 
         // Account creation milestone
         milestones.push({
@@ -108,7 +107,7 @@ const GamingJourneySection: React.FC<GamingJourneySectionProps> = ({ user }) => 
         if (diffDays < 30) return `${diffDays} days ago`;
 
         const month = date.toLocaleDateString('en-US', { month: 'short' });
-        const year = date.getFullYear() === now.getFullYear() ? '' : ` '${date.getFullYear().toString().slice(-2)}`;
+        const year = date.getFullYear() === now.getFullYear() ? '' : ` &apos;${date.getFullYear().toString().slice(-2)}`;
         return `${date.getDate()} ${month}${year}`;
     };
 
@@ -150,22 +149,24 @@ const GamingJourneySection: React.FC<GamingJourneySectionProps> = ({ user }) => 
                 <div className="flex items-center space-x-3">
                     <h2 className="text-xl font-bold text-white">Your Journey</h2>
                 </div>
-                <span className="text-gray-400 text-sm">Since {joinMonth} '{joinYear}</span>
+                <span className="text-gray-400 text-sm">Since {joinMonth} &apos;{joinYear}</span>
             </div>
 
             {/* Journey Timeline */}
             <div className="space-y-3">
-                {milestones.map((milestone, index) => {
+                {milestones.map((milestone) => {
                     const IconComponent = milestone.icon;
 
                     return (
-                        <div
+                        <button
                             key={milestone.id}
                             className={`
-                flex items-center space-x-4 p-3 rounded-lg border transition-all duration-200
-                hover:scale-[1.02] cursor-pointer
+                flex items-center space-x-4 p-3 rounded-lg border transition-all duration-200 w-full text-left
+                hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50
                 ${getRarityBg(milestone.rarity)}
               `}
+                            type="button"
+                            aria-label={`${milestone.title}: ${milestone.description} on ${milestone.date}`}
                         >
                             {/* Milestone Icon */}
                             <div className={`
@@ -191,7 +192,7 @@ const GamingJourneySection: React.FC<GamingJourneySectionProps> = ({ user }) => 
                                     {milestone.date}
                                 </p>
                             </div>
-                        </div>
+                        </button>
                     );
                 })}
 

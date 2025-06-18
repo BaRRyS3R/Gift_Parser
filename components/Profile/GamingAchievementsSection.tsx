@@ -1,4 +1,4 @@
-// src/components/Profile/GamingAchievementsSection.tsx - Gaming-style achievements display
+// src/components/Profile/GamingAchievementsSection.tsx - Fixed accessibility issues
 
 "use client";
 
@@ -135,9 +135,11 @@ const GamingAchievementsSection: React.FC<GamingAchievementsSectionProps> = ({
     return (
         <div className="space-y-4">
             {/* Section Header */}
-            <div
-                className="flex items-center justify-between cursor-pointer group"
+            <button
+                className="flex items-center justify-between w-full group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 rounded-lg p-2"
                 onClick={onViewAll}
+                type="button"
+                aria-label="View all achievements"
             >
                 <div className="flex items-center space-x-3">
                     <h2 className="text-xl font-bold text-white">Achievements</h2>
@@ -146,22 +148,25 @@ const GamingAchievementsSection: React.FC<GamingAchievementsSectionProps> = ({
                     </span>
                 </div>
                 <ChevronRight className="text-gray-400 group-hover:text-white transition-colors" size={20} />
-            </div>
+            </button>
 
             {/* Achievements Grid */}
             <div className="grid grid-cols-3 gap-3">
                 {achievements.map((achievement) => (
-                    <div
+                    <button
                         key={achievement.id}
                         className={`
-              relative aspect-square rounded-lg border-2 p-3 transition-all duration-200
+              relative aspect-square rounded-lg border-2 p-3 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50
               ${getRarityStyle(achievement.rarity, achievement.unlocked)}
-              ${achievement.unlocked ? 'hover:scale-105 cursor-pointer' : 'opacity-50'}
+              ${achievement.unlocked ? 'hover:scale-105 cursor-pointer' : 'opacity-50 cursor-not-allowed'}
             `}
+                        disabled={!achievement.unlocked}
+                        type="button"
+                        aria-label={`${achievement.name} achievement: ${achievement.description}`}
                     >
                         {/* Achievement Icon */}
                         <div className="flex items-center justify-center h-full">
-                            <span className="text-2xl">{achievement.icon}</span>
+                            <span className="text-2xl" role="img" aria-hidden="true">{achievement.icon}</span>
                         </div>
 
                         {/* Rarity Indicator */}
@@ -180,7 +185,7 @@ const GamingAchievementsSection: React.FC<GamingAchievementsSectionProps> = ({
                         <div className="absolute inset-x-0 bottom-0 bg-black/80 text-white text-xs p-1 rounded-b-lg opacity-0 hover:opacity-100 transition-opacity">
                             <p className="font-semibold truncate">{achievement.name}</p>
                         </div>
-                    </div>
+                    </button>
                 ))}
             </div>
         </div>
