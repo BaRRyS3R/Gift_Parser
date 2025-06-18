@@ -89,7 +89,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                             {t("profile.referrals.title")}
                         </h2>
                         <p className="text-white/60 text-sm">
-                            Invite friends and earn recognition
+                            👉👌
                         </p>
                     </div>
                 </ModalHeader>
