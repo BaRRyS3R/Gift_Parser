@@ -611,11 +611,6 @@ export default function IntroPage(): JSX.Element {
                       </h1>
                       <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-2 w-16 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
                     </div>
-                    <p className="text-white/70 text-sm">
-                      {t("main.greeting", {
-                        name: authState.telegramUser?.first_name || "User",
-                      })}
-                    </p>
 
                     {/* Referral Bonus Info */}
                     {authState.referralCode &&
