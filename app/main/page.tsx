@@ -266,11 +266,6 @@ export default function MainPage() {
           </video>
         </div>
       )}
-      
-      <div className="min-h-screen bg-black text-white">
-        {/* Отображение попыток в самом верху */}
-        <AttemptsDisplay />
-      </div>
 
       {/* Top Navigation Icons */}
       <div
@@ -281,6 +276,11 @@ export default function MainPage() {
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
+          <div className="min-h-screen bg-black text-white">
+            {/* Отображение попыток в самом верху */}
+            <AttemptsDisplay />
+          </div>
+          
           {/* Settings Button - Left */}
           <button
             aria-label={t("common.settings")}
