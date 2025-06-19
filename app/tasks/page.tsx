@@ -1,71 +1,107 @@
-// src/app/tasks/page.tsx - Страница заданий
+// src/app/tasks/page.tsx - Обновленная страница заданий с клиентской логикой
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, Button, Progress } from "@nextui-org/react";
-import { ArrowLeft, Clock, CheckCircle, Gift, Star } from "lucide-react";
+import { Card, CardBody, Button } from "@nextui-org/react";
+import { ArrowLeft, Gift, RefreshCw } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import { tasksService } from "@/lib/tasksService";
-import type { Task, TaskType, TaskStatus } from "@/types/tasks";
-import { TASKS_CONFIG, getTaskProgress } from "@/types/tasks";
+import type { TaskType } from "@/config/tasks";
 import TaskCard from "@/components/Tasks/TaskCard";
 import TaskProgressCard from "@/components/Tasks/TaskProgressCard";
+
+interface TaskWithConfig {
+    id: string;
+    type: TaskType;
+    title: string;
+    description: string;
+    reward: number;
+    icon: string;
+    action_url?: string;
+    channel_id?: string;
+    is_repeatable: boolean;
+    validation_type: 'manual' | 'automatic' | 'timer';
+    timer_duration?: number;
+    status: 'available' | 'in_progress' | 'completed' | 'claimed';
+    completed_at?: string;
+    claimed_at?: string;
+    countdown?: number;
+}
 
 export default function TasksPage() {
     const router = useRouter();
     const { user, refreshUser } = useUser();
     const t = useT();
 
-    const [tasks, setTasks] = useState<Task[]>([]);
+    const [tasks, setTasks] = useState<TaskWithConfig[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [processingTask, setProcessingTask] = useState<TaskType | null>(null);
 
+    // Настройка кнопки возврата Telegram WebApp
     useEffect(() => {
-        // Setup Telegram WebApp back button
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
             tg.BackButton.show();
-            tg.BackButton.onClick(() => {
+
+            const handleBackClick = () => {
                 router.push("/main");
-            });
+            };
+
+            tg.BackButton.onClick(handleBackClick);
 
             return () => {
                 tg.BackButton.hide();
-                tg.BackButton.offClick(() => { });
+                tg.BackButton.offClick(handleBackClick);
             };
         }
     }, [router]);
 
+    // Загрузка пользовательских заданий при монтировании компонента
     useEffect(() => {
         loadUserTasks();
     }, []);
 
-    const loadUserTasks = async () => {
-        if (!user) return;
+    // Обновление заданий с таймерами каждую секунду
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTasks(prevTasks => {
+                const hasActiveTimers = prevTasks.some(task =>
+                    task.status === "in_progress" && task.countdown !== undefined
+                );
 
+                if (hasActiveTimers) {
+                    loadUserTasks();
+                }
+
+                return prevTasks;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    const loadUserTasks = useCallback(async () => {
         try {
-            setIsLoading(true);
             setError(null);
-
             const response = await tasksService.getUserTasks();
 
             if (response.success) {
-                setTasks(response.tasks);
+                setTasks(response.tasks as TaskWithConfig[]);
             } else {
                 setError(response.error || t("tasks.errors.loadFailed"));
             }
         } catch (err) {
-            console.error("Error loading tasks:", err);
+            console.error("Ошибка загрузки заданий:", err);
             setError(t("tasks.errors.loadFailed"));
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [t]);
 
     const handleTaskAction = async (taskType: TaskType) => {
         if (processingTask || !user) return;
@@ -78,146 +114,106 @@ export default function TasksPage() {
             if (!task) return;
 
             if (task.status === "completed") {
-                // Claim reward
+                // Получение награды за выполненное задание
                 const response = await tasksService.claimReward(taskType);
 
                 if (response.success) {
-                    // Update task status
-                    setTasks(prev => prev.map(t =>
-                        t.type === taskType
-                            ? { ...t, status: "claimed" as TaskStatus }
-                            : t
-                    ));
-
-                    // Refresh user data to update attempts
                     await refreshUser();
+                    await loadUserTasks();
+
+                    // Показать уведомление об успешном получении награды
+                    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+                        window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+                    }
                 } else {
                     setError(response.error || t("tasks.errors.claimFailed"));
                 }
             } else if (task.status === "available") {
-                // Start task
-                if (taskType === "subscribe_channel") {
-                    await handleSubscribeChannel();
-                } else if (taskType === "share_link") {
-                    await handleShareLink();
-                } else if (taskType === "post_story") {
-                    await handlePostStory();
-                }
+                // Начало выполнения задания
+                await handleTaskStart(task);
             }
         } catch (err) {
-            console.error("Error processing task:", err);
+            console.error("Ошибка обработки задания:", err);
             setError(t("tasks.errors.checkFailed"));
         } finally {
             setProcessingTask(null);
         }
     };
 
-    const handleSubscribeChannel = async () => {
-        const config = TASKS_CONFIG.subscribe_channel;
+    const handleTaskStart = async (task: TaskWithConfig) => {
+        const { type: taskType, action_url, validation_type } = task;
 
-        // Open channel in Telegram
-        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-            window.Telegram.WebApp.openTelegramLink(config.action_url!);
-        } else {
-            window.open(config.action_url, "_blank");
+        // Открытие внешних ссылок для определенных типов заданий
+        if (action_url) {
+            if (taskType === "subscribe_channel") {
+                await handleSubscribeChannel(action_url);
+            } else {
+                await handleExternalAction(action_url);
+            }
+        } else if (taskType === "share_link") {
+            await handleShareLink();
+        } else if (taskType === "post_story") {
+            await handlePostStory();
         }
 
-        // Wait a moment then check subscription
-        setTimeout(async () => {
-            await checkTaskCompletion("subscribe_channel");
-        }, 3000);
+        // Запуск логики выполнения задания
+        const response = await tasksService.startTask(taskType);
+
+        if (response.success) {
+            await loadUserTasks();
+        } else {
+            setError(response.error || t("tasks.errors.checkFailed"));
+        }
+    };
+
+    const handleSubscribeChannel = async (channelUrl: string) => {
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            window.Telegram.WebApp.openTelegramLink(channelUrl);
+        } else {
+            window.open(channelUrl, "_blank");
+        }
+    };
+
+    const handleExternalAction = async (url: string) => {
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            window.Telegram.WebApp.openLink(url);
+        } else {
+            window.open(url, "_blank");
+        }
     };
 
     const handleShareLink = async () => {
-        // Update task status to in_progress
-        setTasks(prev => prev.map(t =>
-            t.type === "share_link"
-                ? { ...t, status: "in_progress" as TaskStatus }
-                : t
-        ));
-
-        // Generate share link
-        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent("https://t.me/marketaggregator_bot?startapp=share")}&text=${encodeURIComponent("🎮 Check out this awesome game!")}`;
+        const shareUrl = `https://t.me/share/url?url=${encodeURIComponent("https://t.me/marketaggregator_bot?startapp=share")}&text=${encodeURIComponent("🎮 Попробуйте эту потрясающую игру!")}`;
 
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             window.Telegram.WebApp.openTelegramLink(shareUrl);
         } else {
             window.open(shareUrl, "_blank");
         }
-
-        // Start 5-second countdown
-        startTaskCountdown("share_link");
     };
 
     const handlePostStory = async () => {
-        // Update task status to in_progress
-        setTasks(prev => prev.map(t =>
-            t.type === "post_story"
-                ? { ...t, status: "in_progress" as TaskStatus }
-                : t
-        ));
-
-        // Try to use shareToStory if available
         if (typeof window !== "undefined" && window.Telegram?.WebApp?.shareToStory) {
             try {
                 window.Telegram.WebApp.shareToStory("/videos/mainbg.mp4", {
-                    text: "🎮 Playing this amazing game!",
+                    text: "🎮 Играю в эту потрясающую игру!",
                     widget_link: {
                         url: "https://t.me/marketaggregator_bot",
-                        name: "Play Game"
+                        name: "Играть"
                     }
                 });
             } catch (err) {
-                console.log("shareToStory not available, fallback to manual");
+                console.log("shareToStory недоступен, используем fallback");
+                // Fallback для устройств без поддержки Stories
+                await handleShareLink();
             }
-        }
-
-        // Start 5-second countdown
-        startTaskCountdown("post_story");
-    };
-
-    const startTaskCountdown = (taskType: TaskType) => {
-        let countdown = 5;
-
-        const interval = setInterval(() => {
-            if (countdown <= 0) {
-                clearInterval(interval);
-                // Update task status to completed
-                setTasks(prev => prev.map(t =>
-                    t.type === taskType
-                        ? { ...t, status: "completed" as TaskStatus }
-                        : t
-                ));
-            } else {
-                // Update countdown in task description or somewhere visible
-                setTasks(prev => prev.map(t =>
-                    t.type === taskType
-                        ? { ...t, countdown }
-                        : t
-                ));
-                countdown--;
-            }
-        }, 1000);
-    };
-
-    const checkTaskCompletion = async (taskType: TaskType) => {
-        try {
-            const response = await tasksService.checkTask(taskType);
-
-            if (response.success && response.task_completed) {
-                // Update task status
-                setTasks(prev => prev.map(t =>
-                    t.type === taskType
-                        ? { ...t, status: "completed" as TaskStatus }
-                        : t
-                ));
-            }
-        } catch (err) {
-            console.error("Error checking task:", err);
+        } else {
+            // Fallback для старых версий Telegram
+            await handleShareLink();
         }
     };
 
-    const progress = getTaskProgress(tasks);
+    const progress = tasksService.getProgress();
     const totalReward = tasks.reduce((sum, task) => sum + task.reward, 0);
 
     if (isLoading) {
@@ -234,26 +230,48 @@ export default function TasksPage() {
     return (
         <div className="min-h-screen bg-black text-white">
             <div className="px-4 pt-20 pb-8">
-                {/* Header */}
+                {/* Заголовок страницы */}
                 <div className="text-center mb-8">
                     <h1 className="text-2xl font-bold mb-2">{t("tasks.title")}</h1>
                     <p className="text-white/60 text-sm">{t("tasks.subtitle")}</p>
                 </div>
 
-                {/* Progress Card */}
+                {/* Карточка прогресса выполнения заданий */}
                 <TaskProgressCard
                     progress={progress}
                     totalReward={totalReward}
                 />
 
-                {/* Error Message */}
+                {/* Отображение сообщений об ошибках */}
                 {error && (
                     <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
-                        <p className="text-red-400 text-sm">{error}</p>
+                        <div className="flex items-center justify-between">
+                            <p className="text-red-400 text-sm">{error}</p>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onPress={() => setError(null)}
+                            >
+                                {t("common.close")}
+                            </Button>
+                        </div>
                     </div>
                 )}
 
-                {/* Tasks List */}
+                {/* Кнопка обновления заданий */}
+                <div className="mb-6 flex justify-center">
+                    <Button
+                        variant="bordered"
+                        size="sm"
+                        startContent={<RefreshCw size={16} />}
+                        onPress={loadUserTasks}
+                        isLoading={isLoading}
+                    >
+                        Обновить задания
+                    </Button>
+                </div>
+
+                {/* Список заданий */}
                 <div className="space-y-4">
                     {tasks.length === 0 ? (
                         <Card className="bg-white/5 border border-white/20">
@@ -274,7 +292,7 @@ export default function TasksPage() {
                     )}
                 </div>
 
-                {/* Bottom spacing for safe area */}
+                {/* Отступ снизу для безопасной области */}
                 <div className="h-20" />
             </div>
         </div>

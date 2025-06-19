@@ -1,208 +1,368 @@
-// src/lib/tasksService.ts - Сервис для работы с заданиями
+// src/lib/tasksService.ts - Обновленный сервис для клиентской работы с заданиями
 
-import type {
-    TaskType,
-    Task,
-    CheckTaskRequest,
-    CheckTaskResponse,
-    GetUserTasksRequest,
-    GetUserTasksResponse,
-    CompleteTaskRequest,
-    CompleteTaskResponse,
-} from "@/types/tasks";
+import { TASKS_CONFIG, getTaskById, getAllTasks, getTaskProgress } from "@/config/tasks";
+import type { TaskConfig, TaskType, TaskStatus, UserTask } from "@/config/tasks";
+import { userService } from "@/lib/supabase";
 
-import { TASKS_CONFIG } from "@/types/tasks";
+// Ключи для localStorage
+const STORAGE_KEYS = {
+    USER_TASKS: 'neuroland_user_tasks',
+    TASK_TIMERS: 'neuroland_task_timers'
+} as const;
 
-// URL PHP backend для заданий
-const PHP_BACKEND_URL = process.env.NEXT_PUBLIC_PHP_BACKEND_URL;
+// Интерфейсы для ответов API
+export interface TasksResponse {
+    success: boolean;
+    tasks: UserTask[];
+    error?: string;
+}
 
-// Получение initData от Telegram WebApp
-const getTelegramInitData = (): string => {
+export interface TaskActionResponse {
+    success: boolean;
+    task_completed?: boolean;
+    reward_claimed?: boolean;
+    attempts_added?: number;
+    error?: string;
+}
+
+// Получение пользователя Telegram для идентификации
+const getTelegramUserId = (): number => {
     if (typeof window === "undefined") {
-        return "";
+        return 0;
     }
 
-    // В продакшене используйте реальные данные от Telegram
-    if (window.Telegram?.WebApp?.initData) {
-        return window.Telegram.WebApp.initData;
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
+        return window.Telegram.WebApp.initDataUnsafe.user.id;
     }
 
-    // Для разработки
+    // Для разработки возвращаем тестовый ID
     if (process.env.NODE_ENV === "development") {
-        console.warn("Using mock initData for development");
-        return "mock_init_data_for_development";
+        return 430743609;
     }
 
-    throw new Error("Telegram WebApp data not available");
+    return 0;
 };
 
-// Получение заданий пользователя
-const getUserTasks = async (): Promise<GetUserTasksResponse> => {
+// Получение ключа для localStorage конкретного пользователя
+const getUserStorageKey = (baseKey: string): string => {
+    const userId = getTelegramUserId();
+    return `${baseKey}_${userId}`;
+};
+
+// Загрузка заданий пользователя из localStorage
+const loadUserTasksFromStorage = (): UserTask[] => {
     try {
-        const initData = getTelegramInitData();
+        const storageKey = getUserStorageKey(STORAGE_KEYS.USER_TASKS);
+        const stored = localStorage.getItem(storageKey);
 
-        if (!initData) {
-            throw new Error("Telegram WebApp data not available");
+        if (stored) {
+            return JSON.parse(stored);
         }
-
-        const requestData: GetUserTasksRequest = {
-            initData
-        };
-
-        console.log("Getting user tasks");
-
-        const response = await fetch(`${PHP_BACKEND_URL}/tasks_handler.php?action=get_tasks`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestData),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result: GetUserTasksResponse = await response.json();
-
-        if (!result.success) {
-            throw new Error(result.error || "Failed to get user tasks");
-        }
-
-        console.log("User tasks retrieved successfully:", result);
-
-        return result;
     } catch (error) {
-        console.error("Error getting user tasks:", error);
-
-        return {
-            success: false,
-            tasks: [],
-            error: error instanceof Error ? error.message : "Unknown error occurred",
-        };
+        console.error("Ошибка загрузки заданий из localStorage:", error);
     }
+
+    return [];
 };
 
-// Проверка выполнения задания
-const checkTask = async (taskType: TaskType): Promise<CheckTaskResponse> => {
+// Сохранение заданий пользователя в localStorage
+const saveUserTasksToStorage = (tasks: UserTask[]): void => {
     try {
-        const initData = getTelegramInitData();
-
-        if (!initData) {
-            throw new Error("Telegram WebApp data not available");
-        }
-
-        const requestData: CheckTaskRequest = {
-            initData,
-            taskType
-        };
-
-        console.log("Checking task:", taskType);
-
-        const response = await fetch(`${PHP_BACKEND_URL}/tasks_handler.php?action=check_task`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestData),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result: CheckTaskResponse = await response.json();
-
-        if (!result.success) {
-            throw new Error(result.error || "Failed to check task");
-        }
-
-        console.log("Task check completed:", result);
-
-        return result;
+        const storageKey = getUserStorageKey(STORAGE_KEYS.USER_TASKS);
+        localStorage.setItem(storageKey, JSON.stringify(tasks));
     } catch (error) {
-        console.error("Error checking task:", error);
-
-        return {
-            success: false,
-            task_completed: false,
-            reward_claimed: false,
-            error: error instanceof Error ? error.message : "Unknown error occurred",
-        };
+        console.error("Ошибка сохранения заданий в localStorage:", error);
     }
 };
 
-// Получение награды за задание
-const claimReward = async (taskType: TaskType): Promise<CompleteTaskResponse> => {
-    try {
-        const initData = getTelegramInitData();
+// Инициализация заданий для нового пользователя
+const initializeUserTasks = (): UserTask[] => {
+    const existingTasks = loadUserTasksFromStorage();
+    const allTaskConfigs = getAllTasks();
 
-        if (!initData) {
-            throw new Error("Telegram WebApp data not available");
+    // Создаем задания для пользователя на основе конфигурации
+    const userTasks: UserTask[] = allTaskConfigs.map(config => {
+        // Проверяем есть ли уже это задание у пользователя
+        const existingTask = existingTasks.find(task => task.type === config.type);
+
+        if (existingTask) {
+            return existingTask;
         }
 
-        const requestData: CompleteTaskRequest = {
-            initData,
-            taskType
-        };
-
-        console.log("Claiming reward for task:", taskType);
-
-        const response = await fetch(`${PHP_BACKEND_URL}/tasks_handler.php?action=claim_reward`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestData),
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result: CompleteTaskResponse = await response.json();
-
-        if (!result.success) {
-            throw new Error(result.error || "Failed to claim reward");
-        }
-
-        console.log("Reward claimed successfully:", result);
-
-        return result;
-    } catch (error) {
-        console.error("Error claiming reward:", error);
-
+        // Создаем новое задание
         return {
-            success: false,
-            reward_claimed: false,
-            attempts_added: 0,
-            error: error instanceof Error ? error.message : "Unknown error occurred",
+            id: config.id,
+            type: config.type,
+            status: "available"
         };
-    }
+    });
+
+    saveUserTasksToStorage(userTasks);
+    return userTasks;
 };
 
-// Утилитарные функции
-export const getTaskConfig = (taskType: TaskType) => {
-    return TASKS_CONFIG[taskType];
+// Обновление статуса задания
+const updateTaskStatus = (taskType: TaskType, newStatus: TaskStatus, additionalData?: Partial<UserTask>): UserTask[] => {
+    const userTasks = loadUserTasksFromStorage();
+    const updatedTasks = userTasks.map(task => {
+        if (task.type === taskType) {
+            const updatedTask = {
+                ...task,
+                status: newStatus,
+                ...additionalData
+            };
+
+            // Добавляем timestamp для завершенных заданий
+            if (newStatus === "completed" && !task.completed_at) {
+                updatedTask.completed_at = new Date().toISOString();
+            }
+
+            if (newStatus === "claimed" && !task.claimed_at) {
+                updatedTask.claimed_at = new Date().toISOString();
+            }
+
+            return updatedTask;
+        }
+        return task;
+    });
+
+    saveUserTasksToStorage(updatedTasks);
+    return updatedTasks;
 };
 
-export const formatTaskReward = (reward: number): string => {
-    return `+${reward} attempts`;
+// Управление таймерами заданий
+const startTaskTimer = (taskType: TaskType, duration: number): void => {
+    const timerId = setInterval(() => {
+        const userTasks = loadUserTasksFromStorage();
+        const task = userTasks.find(t => t.type === taskType);
+
+        if (task && task.countdown !== undefined) {
+            if (task.countdown <= 1) {
+                // Таймер завершен, отмечаем задание как выполненное
+                clearInterval(timerId);
+                updateTaskStatus(taskType, "completed");
+            } else {
+                // Обновляем countdown
+                updateTaskStatus(taskType, "in_progress", {
+                    countdown: task.countdown - 1
+                });
+            }
+        } else {
+            clearInterval(timerId);
+        }
+    }, 1000);
 };
 
-// Основной объект сервиса заданий
+// Основной сервис заданий
 export const tasksService = {
-    getUserTasks,
-    checkTask,
-    claimReward,
-    getTaskConfig,
-    formatTaskReward,
+    // Получение заданий пользователя
+    async getUserTasks(): Promise<TasksResponse> {
+        try {
+            let userTasks = loadUserTasksFromStorage();
+
+            // Если заданий нет, инициализируем их
+            if (userTasks.length === 0) {
+                userTasks = initializeUserTasks();
+            }
+
+            // Объединяем пользовательские задания с конфигурацией
+            const tasksWithConfig = userTasks.map(userTask => {
+                const config = getTaskById(userTask.id);
+                if (!config) return null;
+
+                return {
+                    ...config,
+                    status: userTask.status,
+                    completed_at: userTask.completed_at,
+                    claimed_at: userTask.claimed_at,
+                    countdown: userTask.countdown
+                };
+            }).filter(Boolean);
+
+            return {
+                success: true,
+                tasks: tasksWithConfig as any[]
+            };
+        } catch (error) {
+            console.error("Ошибка получения заданий:", error);
+            return {
+                success: false,
+                tasks: [],
+                error: "Не удалось загрузить задания"
+            };
+        }
+    },
+
+    // Проверка выполнения задания (для manual типа)
+    async checkTask(taskType: TaskType): Promise<TaskActionResponse> {
+        try {
+            const config = getTaskById(taskType);
+            if (!config) {
+                return {
+                    success: false,
+                    error: "Задание не найдено"
+                };
+            }
+
+            const userTasks = loadUserTasksFromStorage();
+            const task = userTasks.find(t => t.type === taskType);
+
+            if (!task) {
+                return {
+                    success: false,
+                    error: "Задание пользователя не найдено"
+                };
+            }
+
+            if (task.status !== "available") {
+                return {
+                    success: true,
+                    task_completed: task.status === "completed" || task.status === "claimed"
+                };
+            }
+
+            // Для manual типа просто отмечаем как выполненное
+            if (config.validation_type === 'manual') {
+                updateTaskStatus(taskType, "completed");
+                return {
+                    success: true,
+                    task_completed: true
+                };
+            }
+
+            return {
+                success: true,
+                task_completed: false
+            };
+        } catch (error) {
+            console.error("Ошибка проверки задания:", error);
+            return {
+                success: false,
+                error: "Ошибка проверки задания"
+            };
+        }
+    },
+
+    // Начало выполнения задания
+    async startTask(taskType: TaskType): Promise<TaskActionResponse> {
+        try {
+            const config = getTaskById(taskType);
+            if (!config) {
+                return {
+                    success: false,
+                    error: "Задание не найдено"
+                };
+            }
+
+            const userTasks = loadUserTasksFromStorage();
+            const task = userTasks.find(t => t.type === taskType);
+
+            if (!task || task.status !== "available") {
+                return {
+                    success: false,
+                    error: "Задание недоступно"
+                };
+            }
+
+            // Обработка разных типов валидации
+            if (config.validation_type === 'timer' && config.timer_duration) {
+                // Запускаем таймер
+                updateTaskStatus(taskType, "in_progress", {
+                    countdown: config.timer_duration
+                });
+                startTaskTimer(taskType, config.timer_duration);
+
+                return {
+                    success: true,
+                    task_completed: false
+                };
+            } else if (config.validation_type === 'manual') {
+                // Для manual заданий сразу помечаем как выполненное
+                updateTaskStatus(taskType, "completed");
+                return {
+                    success: true,
+                    task_completed: true
+                };
+            } else {
+                // Automatic - сразу выполняем
+                updateTaskStatus(taskType, "completed");
+                return {
+                    success: true,
+                    task_completed: true
+                };
+            }
+        } catch (error) {
+            console.error("Ошибка начала задания:", error);
+            return {
+                success: false,
+                error: "Ошибка начала задания"
+            };
+        }
+    },
+
+    // Получение награды за задание
+    async claimReward(taskType: TaskType): Promise<TaskActionResponse> {
+        try {
+            const config = getTaskById(taskType);
+            if (!config) {
+                return {
+                    success: false,
+                    error: "Задание не найдено"
+                };
+            }
+
+            const userTasks = loadUserTasksFromStorage();
+            const task = userTasks.find(t => t.type === taskType);
+
+            if (!task || task.status !== "completed") {
+                return {
+                    success: false,
+                    error: "Задание не выполнено"
+                };
+            }
+
+            // Отмечаем награду как полученную
+            updateTaskStatus(taskType, "claimed");
+
+            // Добавляем попытки пользователю через userService
+            const userId = getTelegramUserId();
+            if (userId && userId > 0) {
+                try {
+                    const user = await userService.findByTelegramId(userId);
+                    if (user) {
+                        await userService.resetAttempts(userId); // Обновляем попытки
+                    }
+                } catch (error) {
+                    console.error("Ошибка обновления попыток пользователя:", error);
+                }
+            }
+
+            return {
+                success: true,
+                reward_claimed: true,
+                attempts_added: config.reward
+            };
+        } catch (error) {
+            console.error("Ошибка получения награды:", error);
+            return {
+                success: false,
+                error: "Ошибка получения награды"
+            };
+        }
+    },
+
+    // Сброс всех заданий (для тестирования)
+    resetAllTasks(): void {
+        const storageKey = getUserStorageKey(STORAGE_KEYS.USER_TASKS);
+        localStorage.removeItem(storageKey);
+    },
+
+    // Получение прогресса
+    getProgress(): { completed: number; total: number; percentage: number } {
+        const userTasks = loadUserTasksFromStorage();
+        return getTaskProgress(userTasks);
+    }
 };
 
-// Экспорт всех функций
-export {
-    getUserTasks,
-    checkTask,
-    claimReward,
-    getTelegramInitData,
-};
+// Экспорт утилитарных функций
+export { TASKS_CONFIG, getTaskById, getAllTasks, getTaskProgress };
