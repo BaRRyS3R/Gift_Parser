@@ -1,442 +1,416 @@
-// src/app/main/page.tsx - Complete main page with attempts display
+// src/app/main/page.tsx - Tournament integration update for main page
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Trophy,
-  Zap,
-  Target,
-  Clock,
-  Users,
-  Star,
-  TrendingUp,
-  Play,
-  ChevronRight,
-  Activity,
-  Gift,
-} from "lucide-react";
+import { Play, ShoppingCart, Settings as SettingsIcon, Trophy, Clock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { tournamentService } from "@/lib/supabase_tournament_extension";
-import { userService } from "@/lib/supabase";
-import type { Tournament, TournamentStatus } from "@/types/tournaments";
-import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
+import { useSettings } from "@/contexts/SettingsContext";
+import { tournamentService } from "@/lib/supabase_tournament_extension";
+import type { Tournament } from "@/types/tournaments";
+import { formatTimeRemaining } from "@/types/tournaments";
+import Settings from "@/components/Settings/Settings";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
-
-interface QuickStats {
-  totalGames: number;
-  bestReactionTime: number | null;
-  bestSurvivalTime: number;
-  currentRank: number | null;
-}
 
 export default function MainPage() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isLoading: userLoading } = useUser();
+  const { settings } = useSettings();
   const t = useT();
 
-  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus>({
-    isActive: false,
-    activeTournament: null,
-  });
-  const [quickStats, setQuickStats] = useState<QuickStats>({
-    totalGames: 0,
-    bestReactionTime: null,
-    bestSurvivalTime: 0,
-    currentRank: null,
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  /* -------------------------------------------------
+   * UI state
+   * -------------------------------------------------*/
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [pageLoaded, setPageLoaded] = useState(false);
+  const [titleText, setTitleText] = useState("|");
+  const [showButton, setShowButton] = useState(false);
+  const [showGreeting, setShowGreeting] = useState(false);
+  const [greetingText, setGreetingText] = useState("");
+  const [showTopButtons, setShowTopButtons] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  /* -------------------------------------------------
+   * Tournament state
+   * -------------------------------------------------*/
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
   const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
+  const [showTournamentButton, setShowTournamentButton] = useState(false);
 
-  // Setup Telegram WebApp
+  /* -------------------------------------------------
+   * Dynamic offset for Telegram system UI
+   * -------------------------------------------------*/
+  const DEFAULT_TG_HEADER = 60;
+  const EXTRA_OFFSET = 40;
+  const [headerOffset, setHeaderOffset] = useState<number>(
+    DEFAULT_TG_HEADER + EXTRA_OFFSET,
+  );
+
   useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
-
-      // Hide back button on main page
-      tg.BackButton.hide();
+    const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
+    if (typeof tgHeader === "number" && tgHeader > 0) {
+      setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
   }, []);
 
-  // Load tournament status and user stats
-  const loadData = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  /* -------------------------------------------------
+   * Tournament data loading
+   * -------------------------------------------------*/
+  useEffect(() => {
+    const loadTournamentStatus = async () => {
+      try {
+        const tournamentStatus = await tournamentService.getTournamentStatus();
 
-      // Load tournament status
-      const status = await tournamentService.getTournamentStatus();
-      setTournamentStatus(status);
+        if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
+          setActiveTournament(tournamentStatus.activeTournament);
+          setShowTournamentButton(true);
 
-      // Load user stats if user exists
-      if (user?.telegram_id) {
-        const [overallRank, reactionRank, survivalRank] = await Promise.all([
-          userService.getUserRanking(user.telegram_id),
-          userService.getUserReactionRanking(user.telegram_id),
-          userService.getUserSurvivalRanking(user.telegram_id),
-        ]);
+          // Initialize countdown timer
+          if (tournamentStatus.timeRemaining) {
+            setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
 
-        setQuickStats({
-          totalGames: user.total_games || 0,
-          bestReactionTime: user.reaction_best_time || null,
-          bestSurvivalTime: user.survival_best_time || 0,
-          currentRank: overallRank,
-        });
+            // Update countdown every second
+            const interval = setInterval(() => {
+              const now = new Date();
+              const endDate = new Date(tournamentStatus.activeTournament!.end_date);
+              const diff = endDate.getTime() - now.getTime();
+
+              if (diff <= 0) {
+                setActiveTournament(null);
+                setShowTournamentButton(false);
+                setTournamentTimeRemaining("");
+                clearInterval(interval);
+              } else {
+                setTournamentTimeRemaining(formatTimeRemaining(diff));
+              }
+            }, 1000);
+
+            return () => clearInterval(interval);
+          }
+        } else {
+          setActiveTournament(null);
+          setShowTournamentButton(false);
+        }
+      } catch (error) {
+        console.error("Error loading tournament status:", error);
+        setActiveTournament(null);
+        setShowTournamentButton(false);
       }
-    } catch (error) {
-      console.error("Error loading main page data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
+    };
 
+    loadTournamentStatus();
+  }, []);
+
+  /* -------------------------------------------------
+   * Refs & helpers
+   * -------------------------------------------------*/
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const animationSteps = [
+    "|",
+    "s|",
+    "so-",
+    "som|",
+    "some=/",
+    "somet|",
+    "someth|",
+    "somethi///",
+    "somethin¿",
+    "something?",
+    "something",
+  ];
+
+  const username = user?.first_name || "unknown";
+  const fullGreeting = t("main.greeting", { name: username });
+
+  /* -------------------------------------------------
+   * Background video logic
+   * -------------------------------------------------*/
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    const video = videoRef.current;
 
-  // Update tournament countdown
+    if (!video || !settings.showBackgroundVideo) return;
+
+    const handleLoadedMetadata = () => {
+      video.play().catch(console.error);
+    };
+
+    const handleCanPlay = () => {
+      video.play().catch(console.error);
+    };
+
+    video.addEventListener("loadedmetadata", handleLoadedMetadata);
+    video.addEventListener("canplay", handleCanPlay);
+    video.load();
+
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      video.removeEventListener("canplay", handleCanPlay);
+    };
+  }, [settings.showBackgroundVideo]);
+
+  /* -------------------------------------------------
+   * Mount / animation logic
+   * -------------------------------------------------*/
   useEffect(() => {
-    if (!tournamentStatus.activeTournament || !tournamentStatus.timeRemaining) {
-      setTournamentTimeRemaining("");
-      return;
-    }
+    const pageLoadTimer = setTimeout(() => {
+      setPageLoaded(true);
+    }, 300);
 
-    const interval = setInterval(() => {
-      const now = new Date();
-      const endDate = new Date(tournamentStatus.activeTournament!.end_date);
-      const diff = endDate.getTime() - now.getTime();
+    return () => clearTimeout(pageLoadTimer);
+  }, []);
 
-      if (diff <= 0) {
-        setTournamentTimeRemaining("");
-        clearInterval(interval);
-        loadData(); // Refresh data when tournament ends
+  // Title animation
+  useEffect(() => {
+    if (!pageLoaded) return;
+
+    const titleAnimationTimer = setTimeout(() => {
+      let currentStep = 0;
+
+      const titleInterval = setInterval(() => {
+        if (currentStep < animationSteps.length) {
+          setTitleText(animationSteps[currentStep]);
+          currentStep++;
+        } else {
+          clearInterval(titleInterval);
+          setTimeout(() => setShowButton(true), 300);
+          setTimeout(() => setShowGreeting(true), 600);
+          setTimeout(() => setShowTopButtons(true), 900);
+        }
+      }, 80);
+
+      return () => clearInterval(titleInterval);
+    }, 800);
+
+    return () => clearTimeout(titleAnimationTimer);
+  }, [pageLoaded]);
+
+  // Greeting typing animation
+  useEffect(() => {
+    if (!showGreeting || userLoading) return;
+
+    let currentChar = 0;
+    const typingInterval = setInterval(() => {
+      if (currentChar <= fullGreeting.length) {
+        setGreetingText(fullGreeting.slice(0, currentChar));
+        currentChar++;
       } else {
-        setTournamentTimeRemaining(formatTimeRemaining(diff));
+        clearInterval(typingInterval);
       }
-    }, 1000);
+    }, 60);
 
-    return () => clearInterval(interval);
-  }, [tournamentStatus.activeTournament, tournamentStatus.timeRemaining, loadData]);
+    return () => clearInterval(typingInterval);
+  }, [showGreeting, fullGreeting, userLoading]);
 
-  const hasAttempts = user?.attempts_remaining && user.attempts_remaining > 0;
-
-  const handleGameModeSelect = (mode: "reaction" | "survival") => {
-    if (!hasAttempts) {
-      router.push("/shop");
-      return;
-    }
-
-    router.push(`/game/${mode}`);
+  /* -------------------------------------------------
+   * Handlers
+   * -------------------------------------------------*/
+  const handleStartGame = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      router.push("/game");
+    }, 600);
   };
 
-  const handleTournamentClick = () => {
-    router.push("/tournament");
+  const handleOpenTournament = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      router.push("/tournament");
+    }, 600);
   };
 
-  const handleProfileClick = () => {
-    router.push("/profile");
-  };
-
-  const handleLeaderboardClick = () => {
-    router.push("/leaderboard");
-  };
-
-  const handleShopClick = () => {
+  const handleOpenShop = () => {
     router.push("/shop");
   };
 
-  const formatSurvivalTime = (milliseconds: number): string => {
-    if (milliseconds < 1000) return "0s";
-
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-
-    if (minutes > 0) {
-      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-    }
-    return `${seconds}s`;
+  const handleOpenSettings = () => {
+    setIsSettingsOpen(true);
   };
 
-  const renderTournamentCard = () => {
-    if (!tournamentStatus.activeTournament) return null;
-
-    return (
-      <div
-        onClick={handleTournamentClick}
-        className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-400/30 rounded-xl p-4 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-yellow-400/20 border border-yellow-400/40 rounded-lg flex items-center justify-center">
-              <Trophy className="text-yellow-400" size={20} />
-            </div>
-            <div>
-              <h3 className="text-lg font-medium text-white">
-                {tournamentStatus.activeTournament.name}
-              </h3>
-              <p className="text-yellow-400/80 text-sm">
-                {t("tournament.tournamentActive")}
-              </p>
-            </div>
-          </div>
-          <ChevronRight className="text-yellow-400/60" size={20} />
-        </div>
-
-        {tournamentTimeRemaining && (
-          <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-lg p-2">
-            <div className="flex items-center justify-center space-x-2">
-              <Clock className="text-yellow-400/80" size={14} />
-              <span className="text-yellow-400 text-sm font-medium">
-                {tournamentTimeRemaining} {t("tournament.timeRemaining")}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-    );
+  const handleCloseSettings = () => {
+    setIsSettingsOpen(false);
   };
 
-  const renderGameModeCard = (
-    mode: "reaction" | "survival",
-    title: string,
-    description: string,
-    icon: React.ComponentType<any>,
-    gradient: string,
-    borderColor: string,
-    iconColor: string
-  ) => {
-    const Icon = icon;
-    const isDisabled = !hasAttempts;
-
-    return (
-      <div
-        onClick={() => handleGameModeSelect(mode)}
-        className={`
-                    ${gradient} ${borderColor} rounded-xl p-4 cursor-pointer transition-all duration-300
-                    ${isDisabled
-            ? "opacity-60 cursor-not-allowed"
-            : "hover:scale-[1.02] active:scale-[0.98]"
-          }
-                `}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-3">
-            <div className={`w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center`}>
-              <Icon className={iconColor} size={20} />
-            </div>
-            <div>
-              <h3 className="text-lg font-medium text-white">{title}</h3>
-              <p className="text-white/70 text-sm">{description}</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            {!hasAttempts && (
-              <div className="bg-white/10 px-2 py-1 rounded text-xs text-white/60">
-                {t("game.general.noAttempts")}
-              </div>
-            )}
-            <ChevronRight className="text-white/60" size={20} />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center">
-          <Play className={`${iconColor} transition-all duration-300`} size={16} />
-          <span className="text-white/80 text-sm ml-2 font-medium">
-            {isDisabled ? t("shop.moreAttempts") : t("game.general.startPlaying")}
-          </span>
-        </div>
-      </div>
-    );
-  };
-
-  const renderQuickStats = () => {
-    if (!user || quickStats.totalGames === 0) {
-      return (
-        <div className="bg-white/5 border border-white/20 rounded-xl p-4 text-center">
-          <div className="text-3xl mb-2">🎮</div>
-          <h3 className="text-lg font-medium text-white mb-2">
-            {t("main.welcome")}
-          </h3>
-          <p className="text-white/60 text-sm">
-            {t("leaderboard.beFirst")}
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="bg-white/5 border border-white/20 rounded-xl p-4">
-        <div className="flex items-center space-x-2 mb-3">
-          <Star className="text-white/80" size={16} />
-          <h3 className="text-sm font-medium text-white">{t("profile.overallStats")}</h3>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center">
-            <div className="text-lg font-bold text-white">{quickStats.totalGames}</div>
-            <div className="text-xs text-white/60">{t("profile.totalGames")}</div>
-          </div>
-
-          {quickStats.currentRank && (
-            <div className="text-center">
-              <div className="text-lg font-bold text-white">#{quickStats.currentRank}</div>
-              <div className="text-xs text-white/60">{t("profile.stats.ranking")}</div>
-            </div>
-          )}
-
-          {quickStats.bestReactionTime && (
-            <div className="text-center">
-              <div className="text-lg font-bold text-white">{quickStats.bestReactionTime}ms</div>
-              <div className="text-xs text-white/60">{t("profile.stats.bestTime")}</div>
-            </div>
-          )}
-
-          {quickStats.bestSurvivalTime > 0 && (
-            <div className="text-center">
-              <div className="text-lg font-bold text-white">
-                {formatSurvivalTime(quickStats.bestSurvivalTime)}
-              </div>
-              <div className="text-xs text-white/60">{t("leaderboard.longest")}</div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderQuickActions = () => {
-    return (
-      <div className="grid grid-cols-3 gap-3">
-        <button
-          onClick={handleProfileClick}
-          className="bg-white/5 border border-white/20 rounded-xl p-3 hover:bg-white/10 hover:border-white/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <div className="flex flex-col items-center space-y-2">
-            <div className="w-8 h-8 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
-              <Users className="text-white/80" size={16} />
-            </div>
-            <span className="text-xs text-white/80 font-medium">{t("nav.profile")}</span>
-          </div>
-        </button>
-
-        <button
-          onClick={handleLeaderboardClick}
-          className="bg-white/5 border border-white/20 rounded-xl p-3 hover:bg-white/10 hover:border-white/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <div className="flex flex-col items-center space-y-2">
-            <div className="w-8 h-8 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
-              <TrendingUp className="text-white/80" size={16} />
-            </div>
-            <span className="text-xs text-white/80 font-medium">{t("nav.leaderboard")}</span>
-          </div>
-        </button>
-
-        <button
-          onClick={handleShopClick}
-          className="bg-white/5 border border-white/20 rounded-xl p-3 hover:bg-white/10 hover:border-white/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <div className="flex flex-col items-center space-y-2">
-            <div className="w-8 h-8 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
-              <Gift className="text-white/80" size={16} />
-            </div>
-            <span className="text-xs text-white/80 font-medium">{t("nav.shop")}</span>
-          </div>
-        </button>
-      </div>
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">{t("common.loading")}</p>
-        </div>
-      </div>
-    );
-  }
-
+  /* -------------------------------------------------
+   * Render
+   * -------------------------------------------------*/
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Attempts Display at the top */}
-      <AttemptsDisplay />
-
-      {/* Main content */}
-      <div className="px-4 pb-20 space-y-6">
-        {/* Welcome Section */}
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold text-white">
-            {t("main.greeting", { name: user?.first_name || "Player" })}
-          </h1>
-          <p className="text-white/60 text-sm">
-            {hasAttempts
-              ? t("game.general.useWisely")
-              : t("game.general.waitForReset")
-            }
-          </p>
+    <div
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : pageLoaded
+          ? "opacity-100 transition-opacity duration-1000 ease-out"
+          : "opacity-0"
+        }`}
+    >
+      {/* Background Video */}
+      {settings.showBackgroundVideo && (
+        <div
+          className="fixed top-0 left-0 w-full h-full z-0"
+          style={{
+            filter: "brightness(0.15) contrast(1.2) grayscale(1)",
+          }}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source src="/videos/mainbg.mp4" type="video/mp4" />
+          </video>
         </div>
-
-        {/* Tournament Card */}
-        {tournamentStatus.activeTournament && renderTournamentCard()}
-
-        {/* Game Modes */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-medium text-white">{t("game.modes.title")}</h2>
-
-          <div className="space-y-3">
-            {renderGameModeCard(
-              "reaction",
-              t("game.modes.reaction.name"),
-              t("game.modes.reaction.description"),
-              Zap,
-              "bg-gradient-to-br from-blue-500/20 to-purple-500/20",
-              "border border-blue-400/30",
-              "text-blue-400"
-            )}
-
-            {renderGameModeCard(
-              "survival",
-              t("game.modes.survival.name"),
-              t("game.modes.survival.description"),
-              Target,
-              "bg-gradient-to-br from-red-500/20 to-pink-500/20",
-              "border border-red-400/30",
-              "text-red-400"
-            )}
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-medium text-white">{t("profile.stats.currentAttempts")}</h2>
-          {renderQuickStats()}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-medium text-white">{t("common.menu")}</h2>
-          {renderQuickActions()}
-        </div>
-
-        {/* Additional info for new users */}
-        {(!user || user.total_games === 0) && (
-          <div className="bg-white/5 border border-white/20 rounded-xl p-4 text-center">
-            <div className="text-2xl mb-2">✨</div>
-            <h3 className="text-lg font-medium text-white mb-2">
-              {t("main.welcome")}
-            </h3>
-            <p className="text-white/60 text-sm leading-relaxed">
-              {t("game.general.automaticReset")}
-            </p>
-          </div>
-        )}
+      )}
+      
+      <div className="min-h-screen bg-black text-white">
+        {/* Отображение попыток в самом верху */}
+        <AttemptsDisplay />
       </div>
+
+      {/* Top Navigation Icons */}
+      <div
+        className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 -translate-y-8"
+          }`}
+        style={{ top: headerOffset }}
+      >
+        <div className="flex items-center justify-between">
+          {/* Settings Button - Left */}
+          <button
+            aria-label={t("common.settings")}
+            className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isTransitioning}
+            onClick={handleOpenSettings}
+          >
+            <div className="flex items-center justify-center">
+              <SettingsIcon
+                className="text-white group-hover:rotate-90 transition-transform duration-300"
+                size={20}
+              />
+            </div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+          </button>
+
+          {/* Tournament Button - Center (if active) */}
+          {showTournamentButton && activeTournament && (
+            <button
+              aria-label="Active Tournament"
+              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              onClick={handleOpenTournament}
+            >
+              <div className="flex items-center space-x-2">
+                <Trophy
+                  className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
+                  size={16}
+                />
+                <div className="text-xs">
+                  <div className="font-bold text-yellow-300">TOURNAMENT</div>
+                  {tournamentTimeRemaining && (
+                    <div className="text-yellow-400/80 flex items-center space-x-1">
+                      <Clock size={10} />
+                      <span>{tournamentTimeRemaining}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+              <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
+            </button>
+          )}
+
+          {/* Shop Button - Right */}
+          <button
+            aria-label={t("nav.shop")}
+            className="group relative w-12 h-12 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isTransitioning}
+            onClick={handleOpenShop}
+          >
+            <div className="flex items-center justify-center">
+              <ShoppingCart
+                className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
+                size={20}
+              />
+            </div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+            <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
+        {/* Title Section */}
+        <div className="relative">
+          <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
+            {titleText}
+          </h1>
+        </div>
+
+        {/* Action Button */}
+        <div
+          className={`transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
+        >
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
+
+            <button
+              className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:bg-white/5"
+              disabled={isTransitioning}
+              onClick={handleStartGame}
+            >
+              <div className="flex items-center justify-center space-x-4">
+                <Play
+                  className="text-white group-hover:translate-x-1 transition-transform duration-300"
+                  size={24}
+                />
+                <span className="tracking-wider">
+                  {isTransitioning ? t("main.loading") : t("main.startGame")}
+                </span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* User Greeting */}
+        <div
+          className={`transition-all duration-1000 transform ${showGreeting
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+            }`}
+        >
+          {userLoading ? (
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
+              <div
+                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
+                style={{ animationDelay: "0.2s" }}
+              />
+              <div
+                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
+                style={{ animationDelay: "0.4s" }}
+              />
+            </div>
+          ) : (
+            <p className="text-xl text-white/80 tracking-wider">
+              {greetingText}
+              {greetingText.length < fullGreeting.length && (
+                <span className="animate-pulse">|</span>
+              )}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Settings Modal */}
+      <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
     </div>
   );
 }
