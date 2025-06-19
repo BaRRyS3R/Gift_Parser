@@ -1,4 +1,4 @@
-// src/components/Profile/MinimalistGameStats.tsx - Clean game statistics display with full localization
+// src/components/Profile/MinimalistGameStats.tsx - Исправленная статистика игр без текущих попыток
 
 "use client";
 
@@ -36,7 +36,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
 
     return (
         <div className="space-y-6 px-4">
-            {/* Overall Statistics */}
+            {/* Overall Statistics - убрали currentAttempts */}
             <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-white">{t("profile.overallStats")}</h3>
                 <Card className="bg-white/5 border border-white/20">
@@ -50,11 +50,6 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                             icon={Trophy}
                             label={t("common.best")}
                             value={user.best_score}
-                        />
-                        <StatItem
-                            icon={Target}
-                            label={t("profile.currentAttempts")}
-                            value={user.attempts_remaining}
                         />
                     </CardBody>
                 </Card>
@@ -119,11 +114,16 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                                 />
                                 <StatItem
                                     icon={Trophy}
+                                    label={t("profile.stats.bestScore")}
+                                    value={user.survival_best_score || 0}
+                                />
+                                <StatItem
+                                    icon={Target}
                                     label={t("profile.stats.maxLevel")}
                                     value={user.survival_max_level || 0}
                                 />
                                 <StatItem
-                                    icon={Target}
+                                    icon={Zap}
                                     label={t("profile.stats.bestStreak")}
                                     value={user.survival_best_streak || 0}
                                 />
