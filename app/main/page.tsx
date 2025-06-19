@@ -13,6 +13,7 @@ import { tournamentService } from "@/lib/supabase_tournament_extension";
 import type { Tournament } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
 import Settings from "@/components/Settings/Settings";
+import AttemptsDisplay from "@/components/AttemptsDisplay";
 
 export default function MainPage() {
   const router = useRouter();
@@ -407,6 +408,17 @@ export default function MainPage() {
 
       {/* Settings Modal */}
       <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
+
+      {/* Attempts Display - Bottom Above Navigation */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-40 transition-all duration-1000 transform ${showTopButtons
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-8"
+          }`}
+        style={{ paddingBottom: "96px" }} // Space for navigation menu
+      >
+        <AttemptsDisplay />
+      </div>
     </div>
   );
 }
