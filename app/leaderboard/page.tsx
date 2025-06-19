@@ -134,11 +134,10 @@ export default function LeaderboardPage() {
         className={`
                     flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
                     ${getRankBg(position)}
-                    ${
-                      isCurrentUser(entry.telegram_id)
-                        ? "ring-1 ring-white/40 bg-white/15"
-                        : "hover:bg-white/10"
-                    }
+                    ${isCurrentUser(entry.telegram_id)
+            ? "ring-1 ring-white/40 bg-white/15"
+            : "hover:bg-white/10"
+          }
                 `}
       >
         <div className="flex items-center justify-center w-8">
@@ -148,11 +147,10 @@ export default function LeaderboardPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2">
             <h3
-              className={`font-bold truncate text-sm ${
-                isCurrentUser(entry.telegram_id)
-                  ? "text-white"
-                  : "text-white/90"
-              }`}
+              className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id)
+                ? "text-white"
+                : "text-white/90"
+                }`}
             >
               {entry.first_name} {entry.last_name || ""}
             </h3>
@@ -203,16 +201,14 @@ export default function LeaderboardPage() {
         key={entry.id}
         className={`
                     flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
-                    ${
-                      position <= 3
-                        ? "bg-white/20 border-white/40"
-                        : "bg-white/10 border-white/30"
-                    }
-                    ${
-                      isCurrentUser(entry.telegram_id)
-                        ? "ring-1 ring-white/60 bg-white/25"
-                        : "hover:bg-white/15"
-                    }
+                    ${position <= 3
+            ? "bg-white/20 border-white/40"
+            : "bg-white/10 border-white/30"
+          }
+                    ${isCurrentUser(entry.telegram_id)
+            ? "ring-1 ring-white/60 bg-white/25"
+            : "hover:bg-white/15"
+          }
                 `}
       >
         <div className="flex items-center justify-center w-8">
@@ -226,11 +222,10 @@ export default function LeaderboardPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2">
             <h3
-              className={`font-bold truncate text-sm ${
-                isCurrentUser(entry.telegram_id)
-                  ? "text-white"
-                  : "text-white/90"
-              }`}
+              className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id)
+                ? "text-white"
+                : "text-white/90"
+                }`}
             >
               {entry.first_name} {entry.last_name || ""}
             </h3>
@@ -277,16 +272,14 @@ export default function LeaderboardPage() {
         key={entry.id}
         className={`
                     flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
-                    ${
-                      position <= 3
-                        ? "bg-red-500/20 border-red-400/40"
-                        : "bg-red-500/10 border-red-400/30"
-                    }
-                    ${
-                      isCurrentUser(entry.telegram_id)
-                        ? "ring-1 ring-red-400/60 bg-red-500/25"
-                        : "hover:bg-red-500/15"
-                    }
+                    ${position <= 3
+            ? "bg-red-500/20 border-red-400/40"
+            : "bg-red-500/10 border-red-400/30"
+          }
+                    ${isCurrentUser(entry.telegram_id)
+            ? "ring-1 ring-red-400/60 bg-red-500/25"
+            : "hover:bg-red-500/15"
+          }
                 `}
       >
         <div className="flex items-center justify-center w-8">
@@ -302,11 +295,10 @@ export default function LeaderboardPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2">
             <h3
-              className={`font-bold truncate text-sm ${
-                isCurrentUser(entry.telegram_id)
-                  ? "text-red-200"
-                  : "text-red-300"
-              }`}
+              className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id)
+                ? "text-red-200"
+                : "text-red-300"
+                }`}
             >
               {entry.first_name} {entry.last_name || ""}
             </h3>
@@ -457,16 +449,6 @@ export default function LeaderboardPage() {
     }
   };
 
-  const getMetricLabel = () => {
-    if (isReactionTab) {
-      return t("leaderboard.fastest");
-    } else if (isSurvivalTab) {
-      return t("leaderboard.longest");
-    } else {
-      return t("leaderboard.top");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {/* Header */}
@@ -474,24 +456,22 @@ export default function LeaderboardPage() {
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center space-x-3">
             <div
-              className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                isReactionTab
-                  ? "bg-white/20 border border-white/30"
-                  : isSurvivalTab
-                    ? "bg-red-500/20 border border-red-400/30"
-                    : "bg-white/20"
-              }`}
+              className={`w-10 h-10 rounded-lg flex items-center justify-center ${isReactionTab
+                ? "bg-white/20 border border-white/30"
+                : isSurvivalTab
+                  ? "bg-red-500/20 border border-red-400/30"
+                  : "bg-white/20"
+                }`}
             >
               {getLeaderboardIcon()}
             </div>
             <h1
-              className={`text-2xl font-bold ${
-                isReactionTab
-                  ? "text-white"
-                  : isSurvivalTab
-                    ? "text-red-300"
-                    : "text-white"
-              }`}
+              className={`text-2xl font-bold ${isReactionTab
+                ? "text-white"
+                : isSurvivalTab
+                  ? "text-red-300"
+                  : "text-white"
+                }`}
             >
               {getLeaderboardTitle()}
             </h1>
@@ -499,56 +479,41 @@ export default function LeaderboardPage() {
 
           {currentLeaderboard.length > 0 && (
             <div
-              className={`flex items-center justify-center space-x-4 backdrop-blur-xl border rounded-lg p-2 text-sm ${
-                isReactionTab
-                  ? "bg-white/10 border-white/30"
-                  : isSurvivalTab
-                    ? "bg-red-500/10 border-red-400/30"
-                    : "bg-white/10 border-white/20"
-              }`}
+              className={`flex items-center justify-center space-x-4 backdrop-blur-xl border rounded-lg p-2 text-sm ${isReactionTab
+                ? "bg-white/10 border-white/30"
+                : isSurvivalTab
+                  ? "bg-red-500/10 border-red-400/30"
+                  : "bg-white/10 border-white/20"
+                }`}
             >
               <div className="flex items-center space-x-1">
                 <Users
-                  className={`${
-                    isReactionTab
-                      ? "text-white/80"
-                      : isSurvivalTab
-                        ? "text-red-400/80"
-                        : "text-white/60"
-                  }`}
+                  className={`${isReactionTab
+                    ? "text-white/80"
+                    : isSurvivalTab
+                      ? "text-red-400/80"
+                      : "text-white/60"
+                    }`}
                   size={14}
                 />
                 <span
-                  className={`font-bold ${
-                    isReactionTab
-                      ? "text-white"
-                      : isSurvivalTab
-                        ? "text-red-300"
-                        : "text-white"
-                  }`}
+                  className={`font-bold ${isReactionTab
+                    ? "text-white"
+                    : isSurvivalTab
+                      ? "text-red-300"
+                      : "text-white"
+                    }`}
                 >
                   {currentLeaderboard.length}
                 </span>
-                <span
-                  className={`${
-                    isReactionTab
-                      ? "text-white/80"
-                      : isSurvivalTab
-                        ? "text-red-400/80"
-                        : "text-white/60"
-                  }`}
-                >
-                  {t("leaderboard.players")}
-                </span>
               </div>
               <div
-                className={`w-px h-4 ${
-                  isReactionTab
-                    ? "bg-white/30"
-                    : isSurvivalTab
-                      ? "bg-red-400/30"
-                      : "bg-white/20"
-                }`}
+                className={`w-px h-4 ${isReactionTab
+                  ? "bg-white/30"
+                  : isSurvivalTab
+                    ? "bg-red-400/30"
+                    : "bg-white/20"
+                  }`}
               />
               <div className="flex items-center space-x-1">
                 {isReactionTab ? (
@@ -559,35 +524,23 @@ export default function LeaderboardPage() {
                   <Trophy className="text-white/60" size={14} />
                 )}
                 <span
-                  className={`font-bold ${
-                    isReactionTab
-                      ? "text-white"
-                      : isSurvivalTab
-                        ? "text-red-300"
-                        : "text-white"
-                  }`}
+                  className={`font-bold ${isReactionTab
+                    ? "text-white"
+                    : isSurvivalTab
+                      ? "text-red-300"
+                      : "text-white"
+                    }`}
                 >
                   {currentLeaderboard[0]
                     ? isReactionTab
                       ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}ms`
                       : isSurvivalTab
                         ? formatSurvivalTime(
-                            (currentLeaderboard[0] as SurvivalLeaderboard)
-                              .best_survival_time,
-                          )
+                          (currentLeaderboard[0] as SurvivalLeaderboard)
+                            .best_survival_time,
+                        )
                         : (currentLeaderboard[0] as LeaderboardEntry).best_score
                     : "0"}
-                </span>
-                <span
-                  className={`${
-                    isReactionTab
-                      ? "text-white/80"
-                      : isSurvivalTab
-                        ? "text-red-400/80"
-                        : "text-white/60"
-                  }`}
-                >
-                  {getMetricLabel()}
                 </span>
               </div>
             </div>
@@ -624,13 +577,12 @@ export default function LeaderboardPage() {
       <div className="space-y-3">
         {currentLeaderboard.length === 0 ? (
           <div
-            className={`text-center py-8 backdrop-blur-xl border rounded-lg ${
-              isReactionTab
-                ? "bg-white/10 border-white/30"
-                : isSurvivalTab
-                  ? "bg-red-500/10 border-red-400/30"
-                  : "bg-white/10 border-white/20"
-            }`}
+            className={`text-center py-8 backdrop-blur-xl border rounded-lg ${isReactionTab
+              ? "bg-white/10 border-white/30"
+              : isSurvivalTab
+                ? "bg-red-500/10 border-red-400/30"
+                : "bg-white/10 border-white/20"
+              }`}
           >
             {(() => {
               const emptyState = getEmptyStateMessage();
@@ -639,24 +591,22 @@ export default function LeaderboardPage() {
                 <>
                   {emptyState.icon}
                   <p
-                    className={`font-bold ${
-                      isReactionTab
-                        ? "text-white/80"
-                        : isSurvivalTab
-                          ? "text-red-300/80"
-                          : "text-white/60"
-                    }`}
+                    className={`font-bold ${isReactionTab
+                      ? "text-white/80"
+                      : isSurvivalTab
+                        ? "text-red-300/80"
+                        : "text-white/60"
+                      }`}
                   >
                     {emptyState.title}
                   </p>
                   <p
-                    className={`text-sm mt-1 ${
-                      isReactionTab
-                        ? "text-white/60"
-                        : isSurvivalTab
-                          ? "text-red-400/60"
-                          : "text-white/40"
-                    }`}
+                    className={`text-sm mt-1 ${isReactionTab
+                      ? "text-white/60"
+                      : isSurvivalTab
+                        ? "text-red-400/60"
+                        : "text-white/40"
+                      }`}
                   >
                     {emptyState.subtitle}
                   </p>
@@ -669,33 +619,30 @@ export default function LeaderboardPage() {
             {/* Top 3 Section */}
             {currentLeaderboard.slice(0, 3).length > 0 && (
               <div
-                className={`backdrop-blur-xl border rounded-lg p-4 mb-3 ${
-                  isReactionTab
-                    ? "bg-white/10 border-white/30"
-                    : isSurvivalTab
-                      ? "bg-red-500/10 border-red-400/30"
-                      : "bg-white/10 border-white/20"
-                }`}
+                className={`backdrop-blur-xl border rounded-lg p-4 mb-3 ${isReactionTab
+                  ? "bg-white/10 border-white/30"
+                  : isSurvivalTab
+                    ? "bg-red-500/10 border-red-400/30"
+                    : "bg-white/10 border-white/20"
+                  }`}
               >
                 <div className="flex items-center space-x-2 mb-3">
                   <Crown
-                    className={`${
-                      isReactionTab
-                        ? "text-white"
-                        : isSurvivalTab
-                          ? "text-red-400"
-                          : "text-white/80"
-                    }`}
+                    className={`${isReactionTab
+                      ? "text-white"
+                      : isSurvivalTab
+                        ? "text-red-400"
+                        : "text-white/80"
+                      }`}
                     size={16}
                   />
                   <h3
-                    className={`text-sm font-bold ${
-                      isReactionTab
-                        ? "text-white"
-                        : isSurvivalTab
-                          ? "text-red-300"
-                          : "text-white"
-                    }`}
+                    className={`text-sm font-bold ${isReactionTab
+                      ? "text-white"
+                      : isSurvivalTab
+                        ? "text-red-300"
+                        : "text-white"
+                      }`}
                   >
                     {getTopPlayersLabel()}
                   </h3>
@@ -706,18 +653,18 @@ export default function LeaderboardPage() {
                     .map((entry, index) =>
                       isReactionTab
                         ? renderReactionLeaderboardEntry(
-                            entry as ReactionLeaderboard,
-                            index + 1,
-                          )
+                          entry as ReactionLeaderboard,
+                          index + 1,
+                        )
                         : isSurvivalTab
                           ? renderSurvivalLeaderboardEntry(
-                              entry as SurvivalLeaderboard,
-                              index + 1,
-                            )
+                            entry as SurvivalLeaderboard,
+                            index + 1,
+                          )
                           : renderOverallLeaderboardEntry(
-                              entry as LeaderboardEntry,
-                              index + 1,
-                            ),
+                            entry as LeaderboardEntry,
+                            index + 1,
+                          ),
                     )}
                 </div>
               </div>
@@ -726,33 +673,30 @@ export default function LeaderboardPage() {
             {/* All Players Section */}
             {currentLeaderboard.length > 3 && (
               <div
-                className={`backdrop-blur-xl border rounded-lg p-4 ${
-                  isReactionTab
-                    ? "bg-white/10 border-white/30"
-                    : isSurvivalTab
-                      ? "bg-red-500/10 border-red-400/30"
-                      : "bg-white/10 border-white/20"
-                }`}
+                className={`backdrop-blur-xl border rounded-lg p-4 ${isReactionTab
+                  ? "bg-white/10 border-white/30"
+                  : isSurvivalTab
+                    ? "bg-red-500/10 border-red-400/30"
+                    : "bg-white/10 border-white/20"
+                  }`}
               >
                 <div className="flex items-center space-x-2 mb-3">
                   <Users
-                    className={`${
-                      isReactionTab
-                        ? "text-white"
-                        : isSurvivalTab
-                          ? "text-red-400"
-                          : "text-white/80"
-                    }`}
+                    className={`${isReactionTab
+                      ? "text-white"
+                      : isSurvivalTab
+                        ? "text-red-400"
+                        : "text-white/80"
+                      }`}
                     size={16}
                   />
                   <h3
-                    className={`text-sm font-bold ${
-                      isReactionTab
-                        ? "text-white"
-                        : isSurvivalTab
-                          ? "text-red-300"
-                          : "text-white"
-                    }`}
+                    className={`text-sm font-bold ${isReactionTab
+                      ? "text-white"
+                      : isSurvivalTab
+                        ? "text-red-300"
+                        : "text-white"
+                      }`}
                   >
                     {t("leaderboard.allPlayers")}
                   </h3>
@@ -763,18 +707,18 @@ export default function LeaderboardPage() {
                     .map((entry, index) =>
                       isReactionTab
                         ? renderReactionLeaderboardEntry(
-                            entry as ReactionLeaderboard,
-                            index + 4,
-                          )
+                          entry as ReactionLeaderboard,
+                          index + 4,
+                        )
                         : isSurvivalTab
                           ? renderSurvivalLeaderboardEntry(
-                              entry as SurvivalLeaderboard,
-                              index + 4,
-                            )
+                            entry as SurvivalLeaderboard,
+                            index + 4,
+                          )
                           : renderOverallLeaderboardEntry(
-                              entry as LeaderboardEntry,
-                              index + 4,
-                            ),
+                            entry as LeaderboardEntry,
+                            index + 4,
+                          ),
                     )}
                 </div>
               </div>
