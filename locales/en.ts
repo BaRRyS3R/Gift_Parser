@@ -95,6 +95,11 @@ export const en = {
         features: "Features",
         objective: "Objective",
         scoring: "Scoring",
+        general: {
+            attemptsUsed: "Attempts used up",
+            waitForReset: "Wait for automatic restoration or purchase additional attempts",
+            automaticReset: "Attempts are automatically restored every 2 hours",
+        },
         difficulties: {
             easy: "Easy",
             medium: "Medium",
