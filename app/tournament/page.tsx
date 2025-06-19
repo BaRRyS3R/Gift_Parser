@@ -1,4 +1,4 @@
-// tournament/page.tsx - Updated with simplified rules and attempts validation
+// tournament/page.tsx - Updated with tab structure and improved UX
 
 "use client";
 
@@ -9,7 +9,6 @@ import {
     ModalContent,
     ModalHeader,
     ModalBody,
-    ModalFooter,
     Button,
 } from "@nextui-org/react";
 import {
@@ -26,6 +25,10 @@ import {
     Info,
     AlertTriangle,
     BookOpen,
+    ChevronDown,
+    ChevronUp,
+    BarChart3,
+    List,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -35,6 +38,7 @@ import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 
 type RuleTabId = "gameMode" | "competition" | "scoring" | "format" | "fairPlay" | "tips";
+type MainTabId = "tournament" | "leaderboard";
 
 export default function TournamentPage() {
     const router = useRouter();
@@ -53,6 +57,8 @@ export default function TournamentPage() {
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
     const [activeRuleTab, setActiveRuleTab] = useState<RuleTabId>("gameMode");
+    const [activeMainTab, setActiveMainTab] = useState<MainTabId>("tournament");
+    const [isPrizesExpanded, setIsPrizesExpanded] = useState(false);
 
     // Helper function to get rule description in a type-safe way
     const getRuleDescription = (ruleId: RuleTabId) => {
@@ -109,7 +115,7 @@ export default function TournamentPage() {
 
             if (status.activeTournament) {
                 const [tournamentLeaderboard, userTournamentResult] = await Promise.all([
-                    tournamentService.getTournamentLeaderboard(status.activeTournament.id),
+                    tournamentService.getTournamentLeaderboard(status.activeTournament.id, 50),
                     user?.id ? tournamentService.getUserTournamentResult(status.activeTournament.id, user.id) : null
                 ]);
 
@@ -170,18 +176,13 @@ export default function TournamentPage() {
     }, [router]);
 
     const handleStartTournament = useCallback(async () => {
-        if (!tournamentStatus.activeTournament || isTransitioning) return;
-
-        // Check if user has attempts before proceeding
-        if (!hasAttemptsRemaining()) {
-            return; // Button should be disabled but this is a safety check
-        }
+        if (!tournamentStatus.activeTournament || isTransitioning || !hasAttemptsRemaining()) return;
 
         setIsTransitioning(true);
         setTimeout(() => {
             router.push("/tournament/play");
         }, 600);
-    }, [tournamentStatus.activeTournament, isTransitioning, router, user?.attempts_remaining]);
+    }, [tournamentStatus.activeTournament, isTransitioning, router]);
 
     const handleOpenRules = () => {
         setIsRulesModalOpen(true);
@@ -231,13 +232,13 @@ export default function TournamentPage() {
             <div
                 key={entry.id}
                 className={`
-          flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-sm
-          ${getRankBg(position)}
-          ${isCurrentUser(entry.telegram_id)
+                    flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-sm
+                    ${getRankBg(position)}
+                    ${isCurrentUser(entry.telegram_id)
                         ? "ring-1 ring-white/40 bg-white/15"
                         : "hover:bg-white/10"
                     }
-        `}
+                `}
             >
                 <div className="flex items-center justify-center w-8">
                     {getRankIcon(position)}
@@ -420,7 +421,6 @@ export default function TournamentPage() {
                     base: "bg-black border border-white/20",
                     header: "border-b border-white/10",
                     body: "py-6",
-                    footer: "border-t border-white/10"
                 }}
             >
                 <ModalContent>
@@ -473,29 +473,239 @@ export default function TournamentPage() {
                         {/* Active Tab Content */}
                         {renderActiveRuleContent()}
                     </ModalBody>
-
-                    <ModalFooter className="flex justify-between">
-                        <Button
-                            className="bg-white/10 border border-white/30 text-white hover:bg-white/15"
-                            variant="bordered"
-                            onPress={handleCloseRules}
-                        >
-                            {t("common.close")}
-                        </Button>
-                        <Button
-                            className="bg-white text-black font-medium px-6"
-                            color="primary"
-                            onPress={() => {
-                                handleCloseRules();
-                                handleStartTournament();
-                            }}
-                            disabled={!tournamentStatus.activeTournament || isTransitioning || !hasAttemptsRemaining()}
-                        >
-                            {isTransitioning ? t("game.general.initializingGame") : t("tournament.enterTournament")}
-                        </Button>
-                    </ModalFooter>
                 </ModalContent>
             </Modal>
+        );
+    };
+
+    const renderTournamentStats = () => {
+        if (leaderboard.length === 0) return null;
+
+        return (
+            <div className="bg-white/5 border border-white/20 rounded-xl p-4 mb-4">
+                <div className="flex items-center space-x-2 mb-3">
+                    <BarChart3 className="text-white/80" size={16} />
+                    <h3 className="text-sm font-medium text-white">{t("leaderboard.topPlayers")}</h3>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <div className="text-lg font-medium text-white">{leaderboard.length}</div>
+                        <div className="text-xs text-white/60">{t("tournament.participants")}</div>
+                    </div>
+                    <div>
+                        <div className="text-lg font-medium text-white">
+                            {formatTournamentSurvivalTime(leaderboard[0]?.survival_time || 0)}
+                        </div>
+                        <div className="text-xs text-white/60">{t("tournament.bestTime")}</div>
+                    </div>
+                    <div>
+                        <div className="text-lg font-medium text-white">
+                            L{Math.max(...leaderboard.map(e => e.max_level_reached), 0)}
+                        </div>
+                        <div className="text-xs text-white/60">{t("tournament.maxLevel")}</div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderPrizesSection = () => {
+        if (!tournamentStatus.activeTournament) return null;
+
+        return (
+            <div className="bg-white/5 border border-white/20 rounded-xl mb-4">
+                <button
+                    onClick={() => setIsPrizesExpanded(!isPrizesExpanded)}
+                    className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors rounded-xl"
+                >
+                    <div className="flex items-center space-x-2">
+                        <Trophy className="text-white/80" size={16} />
+                        <h3 className="text-sm font-medium text-white">{t("tournament.prizes")}</h3>
+                    </div>
+                    {isPrizesExpanded ? (
+                        <ChevronUp className="text-white/60" size={16} />
+                    ) : (
+                        <ChevronDown className="text-white/60" size={16} />
+                    )}
+                </button>
+                
+                {isPrizesExpanded && (
+                    <div className="px-4 pb-4">
+                        <div className="space-y-2">
+                            {tournamentStatus.activeTournament.prizes.map((prize, index) => (
+                                <div
+                                    key={index}
+                                    className="flex items-center space-x-3 p-2 bg-white/5 rounded-lg border border-white/10"
+                                >
+                                    {getRankIcon(index + 1)}
+                                    <span className="text-white/80 text-sm">{prize}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderTournamentTab = () => {
+        return (
+            <div className="space-y-4">
+                {/* Tournament Statistics */}
+                {renderTournamentStats()}
+
+                {/* Tournament Rules Button */}
+                <button
+                    className="w-full px-6 py-3 rounded-xl text-base font-medium transition-all duration-300 bg-white/5 border border-white/20 text-white/80 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
+                    onClick={handleOpenRules}
+                    disabled={isTransitioning}
+                >
+                    <div className="flex items-center justify-center space-x-3">
+                        <Info size={18} />
+                        <span>{t("tournament.rulesButton")}</span>
+                    </div>
+                </button>
+
+                {/* Prizes Section */}
+                {renderPrizesSection()}
+
+                {/* User's Result */}
+                {userResult && (
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <Target className="text-white/80" size={16} />
+                            <h3 className="text-sm font-medium text-white">{t("tournament.yourBestResult")}</h3>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <div className="text-lg font-medium text-white">
+                                    {formatTournamentSurvivalTime(userResult.survival_time)}
+                                </div>
+                                <div className="text-xs text-white/60">{t("common.time")}</div>
+                            </div>
+                            <div>
+                                <div className="text-lg font-medium text-white">#{userResult.rank || "?"}</div>
+                                <div className="text-xs text-white/60">{t("tournament.rank")}</div>
+                            </div>
+                            <div>
+                                <div className="text-lg font-medium text-white">L{userResult.max_level_reached}</div>
+                                <div className="text-xs text-white/60">{t("common.level")}</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Tournament Entry Button */}
+                <button
+                    className={`
+                        w-full px-6 py-4 rounded-xl text-lg font-medium transition-all duration-300
+                        ${!isTransitioning && hasAttemptsRemaining()
+                            ? "bg-white/10 border-2 border-white/30 text-white hover:border-white/50 hover:bg-white/15 hover:scale-[1.02] active:scale-[0.98]"
+                            : "bg-white/5 border border-white/20 text-white/50 cursor-not-allowed opacity-60"
+                        }
+                    `}
+                    disabled={isTransitioning || !hasAttemptsRemaining()}
+                    onClick={handleStartTournament}
+                >
+                    <div className="flex items-center justify-center space-x-3">
+                        <Play size={20} />
+                        <span>
+                            {isTransitioning
+                                ? t("game.general.initializingGame")
+                                : !hasAttemptsRemaining()
+                                    ? t("game.general.noAttempts")
+                                    : t("tournament.enterTournament")}
+                        </span>
+                    </div>
+                </button>
+
+                {/* No attempts warning */}
+                {!hasAttemptsRemaining() && (
+                    <div className="bg-white/5 border border-white/20 rounded-lg p-3 text-center">
+                        <p className="text-white/60 text-sm">{t("attempts.noRemaining")}</p>
+                        <p className="text-white/40 text-xs mt-1">{t("game.general.waitForReset")}</p>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderLeaderboardTab = () => {
+        const tournament = tournamentStatus.activeTournament;
+        if (!tournament) return null;
+
+        const prizeCount = tournament.prizes.length;
+        const winners = leaderboard.slice(0, prizeCount);
+        const otherParticipants = leaderboard.slice(prizeCount, 20); // Top 20 total
+
+        return (
+            <div className="space-y-4">
+                {winners.length > 0 && (
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <Crown className="text-white/80" size={16} />
+                            <h3 className="text-sm font-medium text-white">
+                                {t("tournament.winners")} ({winners.length}/{prizeCount})
+                            </h3>
+                        </div>
+                        <div className="space-y-2">
+                            {winners.map((entry, index) => renderLeaderboardEntry(entry, index + 1))}
+                        </div>
+                    </div>
+                )}
+
+                {otherParticipants.length > 0 && (
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <Users className="text-white/80" size={16} />
+                            <h3 className="text-sm font-medium text-white">
+                                {t("tournament.otherParticipants")} (Top 20)
+                            </h3>
+                        </div>
+                        <div className="space-y-2 max-h-80 overflow-y-auto">
+                            {otherParticipants.map((entry, index) =>
+                                renderLeaderboardEntry(entry, index + prizeCount + 1)
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {leaderboard.length === 0 && (
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-6 text-center">
+                        <Trophy className="text-white/40 mx-auto mb-3" size={32} />
+                        <p className="text-white/60">{t("tournament.noParticipants")}</p>
+                        <p className="text-white/40 text-sm mt-1">{t("tournament.beFirstParticipant")}</p>
+                    </div>
+                )}
+
+                {/* User Position if not in top leaderboard */}
+                {userResult && userResult.rank && userResult.rank > 20 && (
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <Target className="text-white/80" size={16} />
+                            <h3 className="text-sm font-medium text-white">{t("leaderboard.you")}</h3>
+                        </div>
+                        <div className="p-3 bg-white/10 border border-white/30 rounded-lg">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <span className="text-white/70 text-sm font-medium">#{userResult.rank}</span>
+                                    <span className="text-white font-medium">
+                                        {user?.first_name} {user?.last_name || ""}
+                                    </span>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-base font-medium text-white">
+                                        {formatTournamentSurvivalTime(userResult.survival_time)}
+                                    </div>
+                                    <div className="text-xs text-white/60">
+                                        L{userResult.max_level_reached}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         );
     };
 
@@ -548,9 +758,6 @@ export default function TournamentPage() {
     }
 
     const tournament = tournamentStatus.activeTournament;
-    const prizeCount = tournament.prizes.length;
-    const winners = leaderboard.slice(0, prizeCount);
-    const otherParticipants = leaderboard.slice(prizeCount);
 
     return (
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
@@ -579,168 +786,42 @@ export default function TournamentPage() {
                 </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="mb-6 space-y-3">
-                {/* Tournament Entry Button with Attempts Check */}
-                <button
-                    className={`
-            w-full px-6 py-4 rounded-xl text-lg font-medium transition-all duration-300
-            ${!isTransitioning && hasAttemptsRemaining()
-                            ? "bg-white/10 border-2 border-white/30 text-white hover:border-white/50 hover:bg-white/15 hover:scale-[1.02] active:scale-[0.98]"
-                            : "bg-white/5 border border-white/20 text-white/50 cursor-not-allowed opacity-60"
-                        }
-          `}
-                    disabled={isTransitioning || !hasAttemptsRemaining()}
-                    onClick={handleStartTournament}
-                >
-                    <div className="flex items-center justify-center space-x-3">
-                        <Play size={20} />
-                        <span>
-                            {isTransitioning
-                                ? t("game.general.initializingGame")
-                                : !hasAttemptsRemaining()
-                                    ? t("game.general.noAttempts")
-                                    : t("tournament.enterTournament")}
-                        </span>
-                    </div>
-                </button>
-
-                {/* Show attempts remaining when user has no attempts */}
-                {!hasAttemptsRemaining() && (
-                    <div className="bg-white/5 border border-white/20 rounded-lg p-3 text-center">
-                        <p className="text-white/60 text-sm">{t("attempts.noRemaining")}</p>
-                        <p className="text-white/40 text-xs mt-1">{t("game.general.waitForReset")}</p>
-                    </div>
-                )}
-
-                {/* Tournament Rules Button */}
-                <button
-                    className="w-full px-6 py-3 rounded-xl text-base font-medium transition-all duration-300 bg-white/5 border border-white/20 text-white/80 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
-                    onClick={handleOpenRules}
-                    disabled={isTransitioning}
-                >
-                    <div className="flex items-center justify-center space-x-3">
-                        <Info size={18} />
-                        <span>{t("tournament.rulesButton")}</span>
-                    </div>
-                </button>
-            </div>
-
-            {/* Prizes Section */}
+            {/* Main Tabs */}
             <div className="mb-6">
-                <div className="bg-white/5 border border-white/20 rounded-xl p-4">
-                    <div className="flex items-center space-x-2 mb-3">
-                        <Trophy className="text-white/80" size={16} />
-                        <h3 className="text-sm font-medium text-white">{t("tournament.prizes")}</h3>
-                    </div>
-                    <div className="space-y-2">
-                        {tournament.prizes.map((prize, index) => (
-                            <div
-                                key={index}
-                                className="flex items-center space-x-3 p-2 bg-white/5 rounded-lg border border-white/10"
-                            >
-                                {getRankIcon(index + 1)}
-                                <span className="text-white/80 text-sm">{prize}</span>
-                            </div>
-                        ))}
-                    </div>
+                <div className="bg-white/5 border border-white/20 rounded-xl p-1 flex">
+                    <button
+                        onClick={() => setActiveMainTab("tournament")}
+                        className={`
+                            flex-1 px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2
+                            ${activeMainTab === "tournament"
+                                ? "bg-white/10 border border-white/20 text-white"
+                                : "text-white/60 hover:text-white/80 hover:bg-white/5"
+                            }
+                        `}
+                    >
+                        <Trophy size={16} />
+                        <span className="font-medium">{t("nav.tournament")}</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveMainTab("leaderboard")}
+                        className={`
+                            flex-1 px-4 py-3 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2
+                            ${activeMainTab === "leaderboard"
+                                ? "bg-white/10 border border-white/20 text-white"
+                                : "text-white/60 hover:text-white/80 hover:bg-white/5"
+                            }
+                        `}
+                    >
+                        <List size={16} />
+                        <span className="font-medium">{t("nav.leaderboard")}</span>
+                    </button>
                 </div>
             </div>
 
-            {/* User's Result */}
-            {userResult && (
-                <div className="mb-6">
-                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
-                        <div className="flex items-center space-x-2 mb-3">
-                            <Target className="text-white/80" size={16} />
-                            <h3 className="text-sm font-medium text-white">{t("tournament.yourBestResult")}</h3>
-                        </div>
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                            <div>
-                                <div className="text-lg font-medium text-white">
-                                    {formatTournamentSurvivalTime(userResult.survival_time)}
-                                </div>
-                                <div className="text-xs text-white/60">{t("common.time")}</div>
-                            </div>
-                            <div>
-                                <div className="text-lg font-medium text-white">#{userResult.rank || "?"}</div>
-                                <div className="text-xs text-white/60">{t("tournament.rank")}</div>
-                            </div>
-                            <div>
-                                <div className="text-lg font-medium text-white">L{userResult.max_level_reached}</div>
-                                <div className="text-xs text-white/60">{t("common.level")}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Leaderboard */}
-            <div className="space-y-4">
-                {winners.length > 0 && (
-                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
-                        <div className="flex items-center space-x-2 mb-3">
-                            <Crown className="text-white/80" size={16} />
-                            <h3 className="text-sm font-medium text-white">
-                                {t("tournament.winners")} ({winners.length}/{prizeCount})
-                            </h3>
-                        </div>
-                        <div className="space-y-2">
-                            {winners.map((entry, index) => renderLeaderboardEntry(entry, index + 1))}
-                        </div>
-                    </div>
-                )}
-
-                {otherParticipants.length > 0 && (
-                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
-                        <div className="flex items-center space-x-2 mb-3">
-                            <Users className="text-white/80" size={16} />
-                            <h3 className="text-sm font-medium text-white">
-                                {t("tournament.otherParticipants")} ({otherParticipants.length})
-                            </h3>
-                        </div>
-                        <div className="space-y-2 max-h-80 overflow-y-auto">
-                            {otherParticipants.map((entry, index) =>
-                                renderLeaderboardEntry(entry, index + prizeCount + 1)
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {leaderboard.length === 0 && (
-                    <div className="bg-white/5 border border-white/20 rounded-xl p-6 text-center">
-                        <Trophy className="text-white/40 mx-auto mb-3" size={32} />
-                        <p className="text-white/60">{t("tournament.noParticipants")}</p>
-                        <p className="text-white/40 text-sm mt-1">{t("tournament.beFirstParticipant")}</p>
-                    </div>
-                )}
+            {/* Tab Content */}
+            <div className="mb-8">
+                {activeMainTab === "tournament" ? renderTournamentTab() : renderLeaderboardTab()}
             </div>
-
-            {/* Statistics */}
-            {leaderboard.length > 0 && (
-                <div className="mt-6 mb-8">
-                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                            <div>
-                                <div className="text-lg font-medium text-white">{leaderboard.length}</div>
-                                <div className="text-xs text-white/60">{t("tournament.participants")}</div>
-                            </div>
-                            <div>
-                                <div className="text-lg font-medium text-white">
-                                    {formatTournamentSurvivalTime(leaderboard[0]?.survival_time || 0)}
-                                </div>
-                                <div className="text-xs text-white/60">{t("tournament.bestTime")}</div>
-                            </div>
-                            <div>
-                                <div className="text-lg font-medium text-white">
-                                    L{Math.max(...leaderboard.map(e => e.max_level_reached), 0)}
-                                </div>
-                                <div className="text-xs text-white/60">{t("tournament.maxLevel")}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Rules Modal */}
             {renderRulesModal()}
