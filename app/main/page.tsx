@@ -1,416 +1,334 @@
-// src/app/main/page.tsx - Tournament integration update for main page
+// src/app/main/page.tsx - Main page with simple attempts counter
 
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Play, ShoppingCart, Settings as SettingsIcon, Trophy, Clock } from "lucide-react";
+import {
+  Trophy,
+  Zap,
+  Target,
+  Clock,
+  Users,
+  Star,
+  TrendingUp,
+  Play,
+  ChevronRight
+} from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { useT } from "@/contexts/LocalizationContext";
-import { useSettings } from "@/contexts/SettingsContext";
 import { tournamentService } from "@/lib/supabase_tournament_extension";
-import type { Tournament } from "@/types/tournaments";
+import type { Tournament, TournamentStatus } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
-import Settings from "@/components/Settings/Settings";
-import AttemptsDisplay from "@/components/AttemptsDisplay";
+import { useT } from "@/contexts/LocalizationContext";
 
 export default function MainPage() {
   const router = useRouter();
-  const { user, isLoading: userLoading } = useUser();
-  const { settings } = useSettings();
+  const { user } = useUser();
   const t = useT();
 
-  /* -------------------------------------------------
-   * UI state
-   * -------------------------------------------------*/
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [pageLoaded, setPageLoaded] = useState(false);
-  const [titleText, setTitleText] = useState("|");
-  const [showButton, setShowButton] = useState(false);
-  const [showGreeting, setShowGreeting] = useState(false);
-  const [greetingText, setGreetingText] = useState("");
-  const [showTopButtons, setShowTopButtons] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  /* -------------------------------------------------
-   * Tournament state
-   * -------------------------------------------------*/
-  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
+  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus>({
+    isActive: false,
+    activeTournament: null,
+  });
+  const [isLoading, setIsLoading] = useState(true);
   const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
-  const [showTournamentButton, setShowTournamentButton] = useState(false);
+  const [attemptsResetTime, setAttemptsResetTime] = useState<string>("");
 
-  /* -------------------------------------------------
-   * Dynamic offset for Telegram system UI
-   * -------------------------------------------------*/
-  const DEFAULT_TG_HEADER = 60;
-  const EXTRA_OFFSET = 40;
-  const [headerOffset, setHeaderOffset] = useState<number>(
-    DEFAULT_TG_HEADER + EXTRA_OFFSET,
-  );
-
+  // Setup Telegram WebApp
   useEffect(() => {
-    const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
-    if (typeof tgHeader === "number" && tgHeader > 0) {
-      setHeaderOffset(tgHeader + EXTRA_OFFSET);
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      tg.BackButton.hide();
     }
   }, []);
 
-  /* -------------------------------------------------
-   * Tournament data loading
-   * -------------------------------------------------*/
+  // Update attempts reset timer
   useEffect(() => {
-    const loadTournamentStatus = async () => {
-      try {
-        const tournamentStatus = await tournamentService.getTournamentStatus();
+    if (!user?.attempts_reset_at || (user?.attempts_remaining && user.attempts_remaining > 0)) {
+      setAttemptsResetTime("");
+      return;
+    }
 
-        if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
-          setActiveTournament(tournamentStatus.activeTournament);
-          setShowTournamentButton(true);
+    const interval = setInterval(() => {
+      const now = new Date();
+      const resetTime = new Date(user.attempts_reset_at!);
+      const diff = resetTime.getTime() - now.getTime();
 
-          // Initialize countdown timer
-          if (tournamentStatus.timeRemaining) {
-            setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
-
-            // Update countdown every second
-            const interval = setInterval(() => {
-              const now = new Date();
-              const endDate = new Date(tournamentStatus.activeTournament!.end_date);
-              const diff = endDate.getTime() - now.getTime();
-
-              if (diff <= 0) {
-                setActiveTournament(null);
-                setShowTournamentButton(false);
-                setTournamentTimeRemaining("");
-                clearInterval(interval);
-              } else {
-                setTournamentTimeRemaining(formatTimeRemaining(diff));
-              }
-            }, 1000);
-
-            return () => clearInterval(interval);
-          }
-        } else {
-          setActiveTournament(null);
-          setShowTournamentButton(false);
-        }
-      } catch (error) {
-        console.error("Error loading tournament status:", error);
-        setActiveTournament(null);
-        setShowTournamentButton(false);
-      }
-    };
-
-    loadTournamentStatus();
-  }, []);
-
-  /* -------------------------------------------------
-   * Refs & helpers
-   * -------------------------------------------------*/
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  const animationSteps = [
-    "|",
-    "s|",
-    "so-",
-    "som|",
-    "some=/",
-    "somet|",
-    "someth|",
-    "somethi///",
-    "somethin¿",
-    "something?",
-    "something",
-  ];
-
-  const username = user?.first_name || "unknown";
-  const fullGreeting = t("main.greeting", { name: username });
-
-  /* -------------------------------------------------
-   * Background video logic
-   * -------------------------------------------------*/
-  useEffect(() => {
-    const video = videoRef.current;
-
-    if (!video || !settings.showBackgroundVideo) return;
-
-    const handleLoadedMetadata = () => {
-      video.play().catch(console.error);
-    };
-
-    const handleCanPlay = () => {
-      video.play().catch(console.error);
-    };
-
-    video.addEventListener("loadedmetadata", handleLoadedMetadata);
-    video.addEventListener("canplay", handleCanPlay);
-    video.load();
-
-    return () => {
-      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      video.removeEventListener("canplay", handleCanPlay);
-    };
-  }, [settings.showBackgroundVideo]);
-
-  /* -------------------------------------------------
-   * Mount / animation logic
-   * -------------------------------------------------*/
-  useEffect(() => {
-    const pageLoadTimer = setTimeout(() => {
-      setPageLoaded(true);
-    }, 300);
-
-    return () => clearTimeout(pageLoadTimer);
-  }, []);
-
-  // Title animation
-  useEffect(() => {
-    if (!pageLoaded) return;
-
-    const titleAnimationTimer = setTimeout(() => {
-      let currentStep = 0;
-
-      const titleInterval = setInterval(() => {
-        if (currentStep < animationSteps.length) {
-          setTitleText(animationSteps[currentStep]);
-          currentStep++;
-        } else {
-          clearInterval(titleInterval);
-          setTimeout(() => setShowButton(true), 300);
-          setTimeout(() => setShowGreeting(true), 600);
-          setTimeout(() => setShowTopButtons(true), 900);
-        }
-      }, 80);
-
-      return () => clearInterval(titleInterval);
-    }, 800);
-
-    return () => clearTimeout(titleAnimationTimer);
-  }, [pageLoaded]);
-
-  // Greeting typing animation
-  useEffect(() => {
-    if (!showGreeting || userLoading) return;
-
-    let currentChar = 0;
-    const typingInterval = setInterval(() => {
-      if (currentChar <= fullGreeting.length) {
-        setGreetingText(fullGreeting.slice(0, currentChar));
-        currentChar++;
+      if (diff <= 0) {
+        setAttemptsResetTime("");
+        clearInterval(interval);
       } else {
-        clearInterval(typingInterval);
+        setAttemptsResetTime(formatTimeRemaining(diff));
       }
-    }, 60);
+    }, 1000);
 
-    return () => clearInterval(typingInterval);
-  }, [showGreeting, fullGreeting, userLoading]);
+    return () => clearInterval(interval);
+  }, [user?.attempts_reset_at, user?.attempts_remaining]);
 
-  /* -------------------------------------------------
-   * Handlers
-   * -------------------------------------------------*/
-  const handleStartGame = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      router.push("/game");
-    }, 600);
+  // Load tournament status
+  const loadTournamentData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const status = await tournamentService.getTournamentStatus();
+      setTournamentStatus(status);
+    } catch (error) {
+      console.error("Error loading tournament data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTournamentData();
+  }, [loadTournamentData]);
+
+  // Update tournament countdown
+  useEffect(() => {
+    if (!tournamentStatus.activeTournament || !tournamentStatus.timeRemaining) {
+      setTournamentTimeRemaining("");
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const endDate = new Date(tournamentStatus.activeTournament!.end_date);
+      const diff = endDate.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTournamentTimeRemaining("");
+        clearInterval(interval);
+        loadTournamentData();
+      } else {
+        setTournamentTimeRemaining(formatTimeRemaining(diff));
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [tournamentStatus.activeTournament, tournamentStatus.timeRemaining, loadTournamentData]);
+
+  const hasAttempts = user?.attempts_remaining && user.attempts_remaining > 0;
+
+  const handleGameModeSelect = (mode: "reaction" | "survival") => {
+    if (!hasAttempts) {
+      router.push("/shop");
+      return;
+    }
+    router.push(`/game/${mode}`);
   };
 
-  const handleOpenTournament = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      router.push("/tournament");
-    }, 600);
+  const handleTournamentClick = () => {
+    router.push("/tournament");
   };
 
-  const handleOpenShop = () => {
+  const handleProfileClick = () => {
+    router.push("/profile");
+  };
+
+  const handleLeaderboardClick = () => {
+    router.push("/leaderboard");
+  };
+
+  const handleShopClick = () => {
     router.push("/shop");
   };
 
-  const handleOpenSettings = () => {
-    setIsSettingsOpen(true);
+  // Simple attempts counter component
+  const renderAttemptsCounter = () => {
+    if (!user) return null;
+
+    const attemptsText = hasAttempts
+      ? `${user.attempts_remaining} ${t("attempts.remaining").toLowerCase()}`
+      : attemptsResetTime
+        ? `${t("attempts.resetTime")}: ${attemptsResetTime}`
+        : t("game.general.noAttempts");
+
+    return (
+      <div className="text-center py-4">
+        <p className="text-white/70 text-sm">
+          {attemptsText}
+        </p>
+      </div>
+    );
   };
 
-  const handleCloseSettings = () => {
-    setIsSettingsOpen(false);
-  };
-
-  /* -------------------------------------------------
-   * Render
-   * -------------------------------------------------*/
-  return (
-    <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
-        }`}
-    >
-      {/* Background Video */}
-      {settings.showBackgroundVideo && (
-        <div
-          className="fixed top-0 left-0 w-full h-full z-0"
-          style={{
-            filter: "brightness(0.15) contrast(1.2) grayscale(1)",
-          }}
-        >
-          <video
-            ref={videoRef}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-          >
-            <source src="/videos/mainbg.mp4" type="video/mp4" />
-          </video>
-        </div>
-      )}
-
-      {/* Top Navigation Icons */}
-      <div
-        className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons
-          ? "opacity-100 translate-y-0"
-          : "opacity-0 -translate-y-8"
-          }`}
-        style={{ top: headerOffset }}
-      >
-        <div className="flex items-center justify-between">
-          <div className="min-h-screen bg-black text-white">
-            {/* Отображение попыток в самом верху */}
-            <AttemptsDisplay />
-          </div>
-          
-          {/* Settings Button - Left */}
-          <button
-            aria-label={t("common.settings")}
-            className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isTransitioning}
-            onClick={handleOpenSettings}
-          >
-            <div className="flex items-center justify-center">
-              <SettingsIcon
-                className="text-white group-hover:rotate-90 transition-transform duration-300"
-                size={20}
-              />
-            </div>
-            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-          </button>
-
-          {/* Tournament Button - Center (if active) */}
-          {showTournamentButton && activeTournament && (
-            <button
-              aria-label="Active Tournament"
-              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning}
-              onClick={handleOpenTournament}
-            >
-              <div className="flex items-center space-x-2">
-                <Trophy
-                  className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
-                  size={16}
-                />
-                <div className="text-xs">
-                  <div className="font-bold text-yellow-300">TOURNAMENT</div>
-                  {tournamentTimeRemaining && (
-                    <div className="text-yellow-400/80 flex items-center space-x-1">
-                      <Clock size={10} />
-                      <span>{tournamentTimeRemaining}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-              <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
-            </button>
-          )}
-
-          {/* Shop Button - Right */}
-          <button
-            aria-label={t("nav.shop")}
-            className="group relative w-12 h-12 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isTransitioning}
-            onClick={handleOpenShop}
-          >
-            <div className="flex items-center justify-center">
-              <ShoppingCart
-                className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
-                size={20}
-              />
-            </div>
-            <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-            <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
-          </button>
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+          <p className="text-white">{t("common.loading")}</p>
         </div>
       </div>
+    );
+  }
 
-      {/* Main Content */}
-      <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
-        {/* Title Section */}
-        <div className="relative">
-          <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
-            {titleText}
+  return (
+    <div className="min-h-screen bg-black text-white">
+      {/* Simple attempts counter */}
+      {renderAttemptsCounter()}
+
+      {/* Main content */}
+      <div className="px-4 pb-20 space-y-6">
+        {/* Welcome header */}
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold text-white">
+            {t("main.greeting", { name: user?.first_name || "Player" })}
           </h1>
         </div>
 
-        {/* Action Button */}
-        <div
-          className={`transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-            }`}
-        >
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
+        {/* Tournament card */}
+        {tournamentStatus.activeTournament && (
+          <div
+            onClick={handleTournamentClick}
+            className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border border-yellow-400/30 rounded-xl p-6 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-yellow-400/20 border border-yellow-400/40 rounded-lg flex items-center justify-center">
+                  <Trophy className="text-yellow-400" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    {tournamentStatus.activeTournament.name}
+                  </h3>
+                  <p className="text-yellow-400/80">
+                    {t("tournament.tournamentActive")}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="text-yellow-400/60" size={24} />
+            </div>
 
-            <button
-              className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:bg-white/5"
-              disabled={isTransitioning}
-              onClick={handleStartGame}
-            >
-              <div className="flex items-center justify-center space-x-4">
-                <Play
-                  className="text-white group-hover:translate-x-1 transition-transform duration-300"
-                  size={24}
-                />
-                <span className="tracking-wider">
-                  {isTransitioning ? t("main.loading") : t("main.startGame")}
+            {tournamentTimeRemaining && (
+              <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-lg p-3 text-center">
+                <div className="flex items-center justify-center space-x-2">
+                  <Clock className="text-yellow-400/80" size={16} />
+                  <span className="text-yellow-400 font-medium">
+                    {tournamentTimeRemaining} {t("tournament.timeRemaining")}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Game modes */}
+        <div className="space-y-4">
+          {/* Reaction Speed */}
+          <div
+            onClick={() => handleGameModeSelect("reaction")}
+            className={`
+                            bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-400/30 
+                            rounded-xl p-6 cursor-pointer transition-all duration-300
+                            ${hasAttempts
+                ? "hover:scale-[1.02] active:scale-[0.98]"
+                : "opacity-60"
+              }
+                        `}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-blue-400/20 border border-blue-400/40 rounded-lg flex items-center justify-center">
+                  <Zap className="text-blue-400" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    {t("game.modes.reaction.name")}
+                  </h3>
+                  <p className="text-blue-400/80">
+                    {t("game.modes.reaction.description")}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="text-blue-400/60" size={24} />
+            </div>
+
+            <div className="text-center">
+              <div className="flex items-center justify-center space-x-2">
+                <Play className="text-blue-400" size={16} />
+                <span className="text-white font-medium">
+                  {hasAttempts ? t("game.general.startPlaying") : t("shop.moreAttempts")}
                 </span>
               </div>
-            </button>
+            </div>
+          </div>
+
+          {/* Survival Mode */}
+          <div
+            onClick={() => handleGameModeSelect("survival")}
+            className={`
+                            bg-gradient-to-br from-red-500/20 to-pink-500/20 border border-red-400/30 
+                            rounded-xl p-6 cursor-pointer transition-all duration-300
+                            ${hasAttempts
+                ? "hover:scale-[1.02] active:scale-[0.98]"
+                : "opacity-60"
+              }
+                        `}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-red-400/20 border border-red-400/40 rounded-lg flex items-center justify-center">
+                  <Target className="text-red-400" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    {t("game.modes.survival.name")}
+                  </h3>
+                  <p className="text-red-400/80">
+                    {t("game.modes.survival.description")}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="text-red-400/60" size={24} />
+            </div>
+
+            <div className="text-center">
+              <div className="flex items-center justify-center space-x-2">
+                <Play className="text-red-400" size={16} />
+                <span className="text-white font-medium">
+                  {hasAttempts ? t("game.general.startPlaying") : t("shop.moreAttempts")}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* User Greeting */}
-        <div
-          className={`transition-all duration-1000 transform ${showGreeting
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
-            }`}
-        >
-          {userLoading ? (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
-              <div
-                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
-                style={{ animationDelay: "0.2s" }}
-              />
-              <div
-                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
-                style={{ animationDelay: "0.4s" }}
-              />
+        {/* Quick navigation */}
+        <div className="grid grid-cols-3 gap-4">
+          <button
+            onClick={handleProfileClick}
+            className="bg-white/10 border border-white/30 rounded-xl p-4 hover:bg-white/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <div className="flex flex-col items-center space-y-2">
+              <Users className="text-white" size={24} />
+              <span className="text-white font-medium">{t("nav.profile")}</span>
             </div>
-          ) : (
-            <p className="text-xl text-white/80 tracking-wider">
-              {greetingText}
-              {greetingText.length < fullGreeting.length && (
-                <span className="animate-pulse">|</span>
-              )}
-            </p>
-          )}
+          </button>
+
+          <button
+            onClick={handleLeaderboardClick}
+            className="bg-white/10 border border-white/30 rounded-xl p-4 hover:bg-white/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <div className="flex flex-col items-center space-y-2">
+              <TrendingUp className="text-white" size={24} />
+              <span className="text-white font-medium">{t("nav.leaderboard")}</span>
+            </div>
+          </button>
+
+          <button
+            onClick={handleShopClick}
+            className="bg-white/10 border border-white/30 rounded-xl p-4 hover:bg-white/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <div className="flex flex-col items-center space-y-2">
+              <Star className="text-white" size={24} />
+              <span className="text-white font-medium">{t("nav.shop")}</span>
+            </div>
+          </button>
         </div>
       </div>
-
-      {/* Settings Modal */}
-      <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
     </div>
   );
 }
