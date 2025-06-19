@@ -13,7 +13,6 @@ import { tournamentService } from "@/lib/supabase_tournament_extension";
 import type { Tournament } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
 import Settings from "@/components/Settings/Settings";
-import AttemptsDisplay from "@/components/AttemptsDisplay";
 
 export default function MainPage() {
   const router = useRouter();
@@ -267,16 +266,7 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* Attempts Display - Top Center */}
-      <div
-        className={`fixed left-0 right-0 z-40 transition-all duration-1000 transform ${showTopButtons
-          ? "opacity-100 translate-y-0"
-          : "opacity-0 -translate-y-4"
-          }`}
-        style={{ top: Math.max(20, headerOffset - 20) }}
-      >
-        <AttemptsDisplay />
-      </div>
+
 
       {/* Top Navigation Icons */}
       <div
