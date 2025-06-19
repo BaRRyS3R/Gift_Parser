@@ -20,6 +20,23 @@ export default function TournamentPlayPage() {
     const t = useT();
 
     useEffect(() => {
+        // Setup Telegram WebApp back button
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            const tg = window.Telegram.WebApp;
+
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
+                router.push("/tournament");
+            });
+
+            return () => {
+                tg.BackButton.hide();
+                tg.BackButton.offClick(() => { });
+            };
+        }
+    }, [router]);
+
+    useEffect(() => {
         const loadTournament = async () => {
             try {
                 setIsLoading(true);

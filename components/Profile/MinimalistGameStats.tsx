@@ -51,11 +51,6 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                             label={`${t("common.best")} ${t("common.score")}`}
                             value={user.best_score}
                         />
-                        <StatItem
-                            icon={Target}
-                            label={t("profile.currentAttempts")}
-                            value={user.attempts_remaining}
-                        />
                     </CardBody>
                 </Card>
             </div>

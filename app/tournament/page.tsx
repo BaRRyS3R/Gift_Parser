@@ -1,38 +1,44 @@
-// src/app/tournament/page.tsx - Полностью локализованная турнирная страница
+// tournament/page.tsx - Updated with simplified rules and attempts validation
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
+    Modal,
+    ModalContent,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+    Button,
+} from "@nextui-org/react";
+import {
     Trophy,
     Clock,
     Target,
     Users,
-    Gift,
-    Star,
     Play,
-    AlertTriangle,
     Crown,
     Medal,
     Award,
-    Zap,
     Activity,
     TrendingUp,
-    ShoppingCart,
-    Battery,
+    Info,
+    AlertTriangle,
+    BookOpen,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { userService } from "@/lib/supabase";
 import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
 import type { Tournament, TournamentLeaderboardEntry, TournamentResult, TournamentStatus } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 
+type RuleTabId = "gameMode" | "competition" | "scoring" | "format" | "fairPlay" | "tips";
+
 export default function TournamentPage() {
     const router = useRouter();
-    const { user, telegramUser } = useUser();
+    const { user } = useUser();
     const t = useT();
 
     const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus>({
@@ -41,11 +47,57 @@ export default function TournamentPage() {
     });
     const [leaderboard, setLeaderboard] = useState<TournamentLeaderboardEntry[]>([]);
     const [userResult, setUserResult] = useState<TournamentResult | null>(null);
-    const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<string>("");
     const [isTransitioning, setIsTransitioning] = useState(false);
+    const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+    const [activeRuleTab, setActiveRuleTab] = useState<RuleTabId>("gameMode");
+
+    // Helper function to get rule description in a type-safe way
+    const getRuleDescription = (ruleId: RuleTabId) => {
+        switch (ruleId) {
+            case "gameMode":
+                return t("tournament.rules.gameMode.description");
+            case "competition":
+                return t("tournament.rules.competition.description");
+            case "scoring":
+                return t("tournament.rules.scoring.description");
+            case "format":
+                return t("tournament.rules.format.description");
+            case "fairPlay":
+                return t("tournament.rules.fairPlay.description");
+            case "tips":
+                return t("tournament.rules.tips.description");
+            default:
+                return "";
+        }
+    };
+
+    // Helper function to get rule title in a type-safe way
+    const getRuleTitle = (ruleId: RuleTabId) => {
+        switch (ruleId) {
+            case "gameMode":
+                return t("tournament.rules.gameMode.title");
+            case "competition":
+                return t("tournament.rules.competition.title");
+            case "scoring":
+                return t("tournament.rules.scoring.title");
+            case "format":
+                return t("tournament.rules.format.title");
+            case "fairPlay":
+                return t("tournament.rules.fairPlay.title");
+            case "tips":
+                return t("tournament.rules.tips.title");
+            default:
+                return "";
+        }
+    };
+
+    // Check if user has attempts remaining
+    const hasAttemptsRemaining = () => {
+        return user?.attempts_remaining && user.attempts_remaining > 0;
+    };
 
     const loadTournamentData = useCallback(async () => {
         try {
@@ -65,19 +117,13 @@ export default function TournamentPage() {
                 setUserResult(userTournamentResult);
             }
 
-            // Load user attempts
-            if (telegramUser?.id) {
-                const attemptsStatus = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
-                setAttemptsRemaining(attemptsStatus.attemptsRemaining);
-            }
-
         } catch (err) {
             console.error("Error loading tournament data:", err);
             setError(t("tournament.tournamentNotFound"));
         } finally {
             setIsLoading(false);
         }
-    }, [user?.id, telegramUser?.id, t]);
+    }, [user?.id, t]);
 
     useEffect(() => {
         loadTournamentData();
@@ -98,7 +144,7 @@ export default function TournamentPage() {
             if (diff <= 0) {
                 setTimeRemaining(t("tournament.ended"));
                 clearInterval(interval);
-                loadTournamentData(); // Reload to update status
+                loadTournamentData();
             } else {
                 setTimeRemaining(formatTimeRemaining(diff));
             }
@@ -107,30 +153,55 @@ export default function TournamentPage() {
         return () => clearInterval(interval);
     }, [tournamentStatus.activeTournament, tournamentStatus.timeRemaining, loadTournamentData, t]);
 
+    // Setup Telegram WebApp back button to go to main page
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            const tg = window.Telegram.WebApp;
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
+                router.push("/main");
+            });
+
+            return () => {
+                tg.BackButton.hide();
+                tg.BackButton.offClick(() => { });
+            };
+        }
+    }, [router]);
+
     const handleStartTournament = useCallback(async () => {
-        if (!tournamentStatus.activeTournament || attemptsRemaining <= 0 || isTransitioning) return;
+        if (!tournamentStatus.activeTournament || isTransitioning) return;
+
+        // Check if user has attempts before proceeding
+        if (!hasAttemptsRemaining()) {
+            return; // Button should be disabled but this is a safety check
+        }
 
         setIsTransitioning(true);
         setTimeout(() => {
             router.push("/tournament/play");
         }, 600);
-    }, [tournamentStatus.activeTournament, attemptsRemaining, isTransitioning, router]);
+    }, [tournamentStatus.activeTournament, isTransitioning, router, user?.attempts_remaining]);
 
-    const handleOpenShop = () => {
-        router.push("/shop");
+    const handleOpenRules = () => {
+        setIsRulesModalOpen(true);
+    };
+
+    const handleCloseRules = () => {
+        setIsRulesModalOpen(false);
     };
 
     const getRankIcon = (position: number) => {
         switch (position) {
             case 1:
-                return <Crown className="text-yellow-400" size={18} />;
+                return <Crown className="text-white" size={16} />;
             case 2:
-                return <Medal className="text-gray-300" size={18} />;
+                return <Medal className="text-white/80" size={16} />;
             case 3:
-                return <Award className="text-amber-600" size={18} />;
+                return <Award className="text-white/60" size={16} />;
             default:
                 return (
-                    <span className="text-yellow-400/60 text-sm font-bold">#{position}</span>
+                    <span className="text-white/50 text-sm font-medium">#{position}</span>
                 );
         }
     };
@@ -138,13 +209,13 @@ export default function TournamentPage() {
     const getRankBg = (position: number) => {
         switch (position) {
             case 1:
-                return "bg-yellow-500/20 border-yellow-400/40";
+                return "bg-white/20 border-white/40";
             case 2:
-                return "bg-gray-400/20 border-gray-300/40";
+                return "bg-white/15 border-white/30";
             case 3:
-                return "bg-amber-600/20 border-amber-500/40";
+                return "bg-white/10 border-white/25";
             default:
-                return "bg-yellow-500/10 border-yellow-400/30";
+                return "bg-white/5 border-white/20";
         }
     };
 
@@ -160,11 +231,11 @@ export default function TournamentPage() {
             <div
                 key={entry.id}
                 className={`
-          flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
+          flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-sm
           ${getRankBg(position)}
           ${isCurrentUser(entry.telegram_id)
-                        ? "ring-1 ring-yellow-400/60 bg-yellow-500/25"
-                        : "hover:bg-yellow-500/15"
+                        ? "ring-1 ring-white/40 bg-white/15"
+                        : "hover:bg-white/10"
                     }
         `}
             >
@@ -175,48 +246,48 @@ export default function TournamentPage() {
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
                         <h3
-                            className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id)
-                                ? "text-yellow-200"
-                                : "text-yellow-300"
+                            className={`font-medium truncate text-sm ${isCurrentUser(entry.telegram_id)
+                                ? "text-white"
+                                : "text-white/90"
                                 }`}
                         >
                             {entry.first_name} {entry.last_name || ""}
                         </h3>
                         {entry.is_premium && (
-                            <Star className="text-yellow-400 flex-shrink-0" size={12} />
+                            <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
                         )}
                         {isCurrentUser(entry.telegram_id) && (
-                            <span className="text-xs bg-yellow-500/30 text-yellow-200 px-2 py-0.5 rounded border border-yellow-400/30">
+                            <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded text-xs">
                                 {t("leaderboard.you")}
                             </span>
                         )}
                     </div>
                     {entry.username && (
-                        <p className="text-xs text-yellow-300/60 truncate">@{entry.username}</p>
+                        <p className="text-xs text-white/50 truncate">@{entry.username}</p>
                     )}
                     {prize && (
                         <div className="flex items-center space-x-1 mt-1">
-                            <Gift className="text-yellow-400" size={10} />
-                            <span className="text-xs text-yellow-400 font-bold">{prize}</span>
+                            <div className="w-1 h-1 rounded-full bg-white/40" />
+                            <span className="text-xs text-white/70">{prize}</span>
                         </div>
                     )}
                 </div>
 
                 <div className="text-right space-y-1">
-                    <div className="text-lg font-bold text-yellow-300">
+                    <div className="text-base font-medium text-white">
                         {formatTournamentSurvivalTime(entry.survival_time)}
                     </div>
-                    <div className="flex items-center space-x-2 text-xs text-yellow-400/80">
+                    <div className="flex items-center space-x-2 text-xs text-white/60">
                         <div className="flex items-center space-x-1">
-                            <TrendingUp size={10} />
+                            <TrendingUp size={8} />
                             <span>L{entry.max_level_reached}</span>
                         </div>
                         <div className="flex items-center space-x-1">
-                            <Target size={10} />
+                            <Target size={8} />
                             <span>{entry.perfect_streak}</span>
                         </div>
                         <div className="flex items-center space-x-1">
-                            <Activity size={10} />
+                            <Activity size={8} />
                             <span>{entry.correct_hits}</span>
                         </div>
                     </div>
@@ -225,78 +296,206 @@ export default function TournamentPage() {
         );
     };
 
-    const AttemptsDisplay = () => {
-        const isEmpty = attemptsRemaining === 0;
-        const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
+    const getRuleDetails = (ruleSection: RuleTabId) => {
+        const details = [];
+        let index = 1;
 
-        const getBatteryLevel = () => {
-            if (attemptsRemaining <= 0) return 0;
-            if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
-            return 100;
-        };
+        while (true) {
+            let key: string;
+            switch (ruleSection) {
+                case "gameMode":
+                    key = `tournament.rules.gameMode.detail${index}`;
+                    break;
+                case "competition":
+                    key = `tournament.rules.competition.detail${index}`;
+                    break;
+                case "scoring":
+                    key = `tournament.rules.scoring.detail${index}`;
+                    break;
+                case "format":
+                    key = `tournament.rules.format.detail${index}`;
+                    break;
+                case "fairPlay":
+                    key = `tournament.rules.fairPlay.detail${index}`;
+                    break;
+                case "tips":
+                    key = `tournament.rules.tips.detail${index}`;
+                    break;
+                default:
+                    return details;
+            }
 
-        const getBatteryColor = () => {
-            if (isEmpty) return "text-red-400";
-            if (isLow) return "text-orange-400";
-            return "text-green-400";
-        };
+            const detail = t(key as any);
 
-        const getBatteryBgColor = () => {
-            if (isEmpty) return "bg-red-500/20 border-red-400/40";
-            if (isLow) return "bg-orange-500/20 border-orange-400/40";
-            return "bg-yellow-500/10 border-yellow-400/30";
-        };
+            if (detail === key) break;
+
+            details.push(detail);
+            index++;
+        }
+
+        return details;
+    };
+
+    // Simplified rules tabs without colors
+    const rulesTabs: Array<{
+        id: RuleTabId;
+        title: string;
+        icon: React.ComponentType<any>;
+    }> = [
+            {
+                id: "gameMode",
+                title: getRuleTitle("gameMode"),
+                icon: Target,
+            },
+            {
+                id: "competition",
+                title: getRuleTitle("competition"),
+                icon: Trophy,
+            },
+            {
+                id: "scoring",
+                title: getRuleTitle("scoring"),
+                icon: Activity,
+            },
+            {
+                id: "format",
+                title: getRuleTitle("format"),
+                icon: Clock,
+            },
+            {
+                id: "fairPlay",
+                title: getRuleTitle("fairPlay"),
+                icon: AlertTriangle,
+            },
+            {
+                id: "tips",
+                title: getRuleTitle("tips"),
+                icon: Info,
+            }
+        ];
+
+    const renderActiveRuleContent = () => {
+        const activeTab = rulesTabs.find(tab => tab.id === activeRuleTab);
+        if (!activeTab) return null;
+
+        const Icon = activeTab.icon;
+        const details = getRuleDetails(activeRuleTab);
 
         return (
-            <div className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${getBatteryBgColor()}`}>
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                        <Battery className={getBatteryColor()} size={18} />
-                        <span className={`text-sm font-bold ${getBatteryColor()}`}>
-                            {t("attempts.current")}
-                        </span>
+            <div className="bg-white/5 border border-white/20 rounded-lg p-6">
+                <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                        <Icon className="text-white/80" size={20} />
                     </div>
-                    <span className={`text-lg font-bold ${getBatteryColor()}`}>
-                        {attemptsRemaining}
-                    </span>
-                </div>
-
-                <div className="mb-3">
-                    <div className={`w-full h-2 rounded-full overflow-hidden ${isEmpty ? "bg-red-400/20" : isLow ? "bg-orange-400/20" : "bg-yellow-400/20"
-                        }`}>
-                        <div
-                            className={`h-full transition-all duration-500 ${getBatteryColor().replace("text-", "bg-")}`}
-                            style={{ width: `${getBatteryLevel()}%` }}
-                        />
+                    <div>
+                        <h3 className="text-lg font-medium text-white">{activeTab.title}</h3>
+                        <p className="text-white/60 text-sm">
+                            {getRuleDescription(activeRuleTab)}
+                        </p>
                     </div>
                 </div>
 
-                {isEmpty && (
-                    <div className="space-y-3">
-                        <div className="text-center space-y-2">
-                            <div className="flex items-center justify-center space-x-2 mb-2">
-                                <AlertTriangle className="text-red-400" size={18} />
-                                <span className="text-sm font-bold text-red-300">
-                                    {t("attempts.noRemaining")}
-                                </span>
-                            </div>
-                            <p className="text-red-400/80 text-xs">
-                                {t("attempts.noRemaining")}
+                <div className="space-y-2">
+                    {details.map((detail, index) => (
+                        <div key={index} className="flex items-start space-x-3 p-3 bg-white/5 rounded border border-white/10">
+                            <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                            <span className="text-white/90 text-sm leading-relaxed">{detail}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    const renderRulesModal = () => {
+        return (
+            <Modal
+                isOpen={isRulesModalOpen}
+                onClose={handleCloseRules}
+                size="2xl"
+                backdrop="blur"
+                scrollBehavior="inside"
+                classNames={{
+                    backdrop: "bg-black/80",
+                    base: "bg-black border border-white/20",
+                    header: "border-b border-white/10",
+                    body: "py-6",
+                    footer: "border-t border-white/10"
+                }}
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                            <BookOpen className="text-white/80" size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-medium text-white">
+                                {t("tournament.rulesTitle")}
+                            </h2>
+                            <p className="text-white/60 text-sm">
+                                {t("tournament.rulesSubtitle")}
                             </p>
                         </div>
+                    </ModalHeader>
 
-                        <button
-                            onClick={handleOpenShop}
-                            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-400/40 text-yellow-300 rounded-lg hover:from-yellow-500/30 hover:to-orange-500/30 hover:border-yellow-400/60 transition-all duration-300 hover:scale-105 active:scale-95"
+                    <ModalBody className="space-y-4">
+                        {/* Simplified Tabs Navigation */}
+                        <div className="grid grid-cols-2 gap-2">
+                            {rulesTabs.map((tab) => {
+                                const Icon = tab.icon;
+                                const isActive = activeRuleTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveRuleTab(tab.id)}
+                                        className={`
+                                            p-3 rounded border transition-all duration-200 text-left
+                                            ${isActive
+                                                ? 'bg-white/10 border-white/30'
+                                                : 'bg-white/5 border-white/20 hover:bg-white/8 hover:border-white/25'
+                                            }
+                                        `}
+                                    >
+                                        <div className="flex items-center space-x-2">
+                                            <Icon
+                                                className={isActive ? 'text-white' : 'text-white/60'}
+                                                size={16}
+                                            />
+                                            <span className={`text-sm font-medium ${isActive ? 'text-white' : 'text-white/80'}`}>
+                                                {tab.title}
+                                            </span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Active Tab Content */}
+                        {renderActiveRuleContent()}
+                    </ModalBody>
+
+                    <ModalFooter className="flex justify-between">
+                        <Button
+                            className="bg-white/10 border border-white/30 text-white hover:bg-white/15"
+                            variant="bordered"
+                            onPress={handleCloseRules}
                         >
-                            <ShoppingCart size={16} />
-                            <span className="font-bold text-sm">
-                                {t("nav.shop")}
-                            </span>
-                        </button>
-                    </div>
-                )}
-            </div>
+                            {t("common.close")}
+                        </Button>
+                        <Button
+                            className="bg-white text-black font-medium px-6"
+                            color="primary"
+                            onPress={() => {
+                                handleCloseRules();
+                                handleStartTournament();
+                            }}
+                            disabled={!tournamentStatus.activeTournament || isTransitioning || !hasAttemptsRemaining()}
+                        >
+                            {isTransitioning ? t("game.general.initializingGame") : t("tournament.enterTournament")}
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
         );
     };
 
@@ -304,8 +503,8 @@ export default function TournamentPage() {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
-                    <div className="w-8 h-8 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin mx-auto" />
-                    <p className="text-yellow-300">{t("tournament.loadingTournament")}</p>
+                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                    <p className="text-white">{t("tournament.loadingTournament")}</p>
                 </div>
             </div>
         );
@@ -315,10 +514,10 @@ export default function TournamentPage() {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
-                    <Trophy className="text-yellow-400/60 mx-auto" size={32} />
-                    <p className="text-yellow-300/80">{error}</p>
+                    <Trophy className="text-white/40 mx-auto" size={32} />
+                    <p className="text-white/60">{error}</p>
                     <button
-                        className="px-4 py-2 bg-yellow-500/20 text-yellow-300 rounded-lg hover:bg-yellow-500/30 transition-colors"
+                        className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
                         onClick={() => window.location.reload()}
                     >
                         {t("common.retry")}
@@ -332,13 +531,13 @@ export default function TournamentPage() {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-6 max-w-md mx-auto px-6">
-                    <div className="text-6xl mb-4">🏆</div>
-                    <h1 className="text-3xl font-bold text-yellow-400">{t("tournament.noActiveTournament")}</h1>
-                    <p className="text-yellow-300/80">
+                    <div className="text-4xl mb-4">🏆</div>
+                    <h1 className="text-2xl font-medium text-white">{t("tournament.noActiveTournament")}</h1>
+                    <p className="text-white/60 text-sm leading-relaxed">
                         {t("tournament.noActiveTournamentDesc")}
                     </p>
                     <button
-                        className="px-6 py-3 bg-yellow-500/20 border border-yellow-400/40 text-yellow-300 rounded-xl hover:bg-yellow-500/30 hover:border-yellow-400/60 transition-all duration-300"
+                        className="px-6 py-3 bg-white/10 border border-white/20 text-white rounded-xl hover:bg-white/20 hover:border-white/30 transition-all duration-300"
                         onClick={() => router.push("/main")}
                     >
                         {t("common.back")}
@@ -359,43 +558,39 @@ export default function TournamentPage() {
             <div className="mb-6">
                 <div className="text-center space-y-4">
                     <div className="flex items-center justify-center space-x-3">
-                        <div className="w-12 h-12 bg-yellow-500/20 border border-yellow-400/30 rounded-lg flex items-center justify-center">
-                            <Trophy className="text-yellow-400" size={24} />
+                        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                            <Trophy className="text-white" size={24} />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold text-yellow-400">{tournament.name}</h1>
-                            <p className="text-yellow-300/60 text-sm">{t("tournament.tournamentActive")}</p>
+                            <h1 className="text-2xl font-medium text-white">{tournament.name}</h1>
+                            <p className="text-white/60 text-sm">{t("tournament.tournamentActive")}</p>
                         </div>
                     </div>
 
                     {timeRemaining && (
-                        <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-lg p-3">
+                        <div className="bg-white/5 border border-white/20 rounded-lg p-3">
                             <div className="flex items-center justify-center space-x-2">
-                                <Clock className="text-yellow-400" size={16} />
-                                <span className="text-yellow-300 font-bold">{timeRemaining}</span>
-                                <span className="text-yellow-400/60">{t("tournament.timeRemaining")}</span>
+                                <Clock className="text-white/80" size={16} />
+                                <span className="text-white font-medium">{timeRemaining}</span>
+                                <span className="text-white/60">{t("tournament.timeRemaining")}</span>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Attempts Display */}
-            <div className="mb-6">
-                <AttemptsDisplay />
-            </div>
-
-            {/* Tournament Entry Button */}
-            <div className="mb-6">
+            {/* Action Buttons */}
+            <div className="mb-6 space-y-3">
+                {/* Tournament Entry Button with Attempts Check */}
                 <button
                     className={`
-            w-full px-6 py-4 rounded-xl text-lg font-bold transition-all duration-300
-            ${attemptsRemaining > 0 && !isTransitioning
-                            ? "bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-2 border-yellow-400/60 text-yellow-300 hover:border-yellow-400 hover:from-yellow-500/30 hover:to-orange-500/30 hover:scale-105 active:scale-95"
-                            : "bg-gray-500/20 border border-gray-400/40 text-gray-400 cursor-not-allowed opacity-50"
+            w-full px-6 py-4 rounded-xl text-lg font-medium transition-all duration-300
+            ${!isTransitioning && hasAttemptsRemaining()
+                            ? "bg-white/10 border-2 border-white/30 text-white hover:border-white/50 hover:bg-white/15 hover:scale-[1.02] active:scale-[0.98]"
+                            : "bg-white/5 border border-white/20 text-white/50 cursor-not-allowed opacity-60"
                         }
           `}
-                    disabled={attemptsRemaining <= 0 || isTransitioning}
+                    disabled={isTransitioning || !hasAttemptsRemaining()}
                     onClick={handleStartTournament}
                 >
                     <div className="flex items-center justify-center space-x-3">
@@ -403,29 +598,49 @@ export default function TournamentPage() {
                         <span>
                             {isTransitioning
                                 ? t("game.general.initializingGame")
-                                : attemptsRemaining > 0
-                                    ? t("tournament.enterTournament")
-                                    : t("game.general.noAttemptsLeft")}
+                                : !hasAttemptsRemaining()
+                                    ? t("game.general.noAttempts")
+                                    : t("tournament.enterTournament")}
                         </span>
+                    </div>
+                </button>
+
+                {/* Show attempts remaining when user has no attempts */}
+                {!hasAttemptsRemaining() && (
+                    <div className="bg-white/5 border border-white/20 rounded-lg p-3 text-center">
+                        <p className="text-white/60 text-sm">{t("attempts.noRemaining")}</p>
+                        <p className="text-white/40 text-xs mt-1">{t("game.general.waitForReset")}</p>
+                    </div>
+                )}
+
+                {/* Tournament Rules Button */}
+                <button
+                    className="w-full px-6 py-3 rounded-xl text-base font-medium transition-all duration-300 bg-white/5 border border-white/20 text-white/80 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
+                    onClick={handleOpenRules}
+                    disabled={isTransitioning}
+                >
+                    <div className="flex items-center justify-center space-x-3">
+                        <Info size={18} />
+                        <span>{t("tournament.rulesButton")}</span>
                     </div>
                 </button>
             </div>
 
             {/* Prizes Section */}
             <div className="mb-6">
-                <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
+                <div className="bg-white/5 border border-white/20 rounded-xl p-4">
                     <div className="flex items-center space-x-2 mb-3">
-                        <Gift className="text-yellow-400" size={16} />
-                        <h3 className="text-sm font-bold text-yellow-300">{t("tournament.prizes")}</h3>
+                        <Trophy className="text-white/80" size={16} />
+                        <h3 className="text-sm font-medium text-white">{t("tournament.prizes")}</h3>
                     </div>
-                    <div className="grid grid-cols-1 gap-2">
+                    <div className="space-y-2">
                         {tournament.prizes.map((prize, index) => (
                             <div
                                 key={index}
-                                className="flex items-center space-x-3 p-2 bg-yellow-500/5 rounded-lg border border-yellow-400/20"
+                                className="flex items-center space-x-3 p-2 bg-white/5 rounded-lg border border-white/10"
                             >
                                 {getRankIcon(index + 1)}
-                                <span className="text-yellow-300 font-medium">{prize}</span>
+                                <span className="text-white/80 text-sm">{prize}</span>
                             </div>
                         ))}
                     </div>
@@ -435,25 +650,25 @@ export default function TournamentPage() {
             {/* User's Result */}
             {userResult && (
                 <div className="mb-6">
-                    <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
                         <div className="flex items-center space-x-2 mb-3">
-                            <Target className="text-yellow-400" size={16} />
-                            <h3 className="text-sm font-bold text-yellow-300">{t("tournament.yourBestResult")}</h3>
+                            <Target className="text-white/80" size={16} />
+                            <h3 className="text-sm font-medium text-white">{t("tournament.yourBestResult")}</h3>
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-center">
                             <div>
-                                <div className="text-lg font-bold text-yellow-300">
+                                <div className="text-lg font-medium text-white">
                                     {formatTournamentSurvivalTime(userResult.survival_time)}
                                 </div>
-                                <div className="text-xs text-yellow-400/60">{t("common.time")}</div>
+                                <div className="text-xs text-white/60">{t("common.time")}</div>
                             </div>
                             <div>
-                                <div className="text-lg font-bold text-yellow-300">#{userResult.rank || "?"}</div>
-                                <div className="text-xs text-yellow-400/60">{t("tournament.rank")}</div>
+                                <div className="text-lg font-medium text-white">#{userResult.rank || "?"}</div>
+                                <div className="text-xs text-white/60">{t("tournament.rank")}</div>
                             </div>
                             <div>
-                                <div className="text-lg font-bold text-yellow-300">L{userResult.max_level_reached}</div>
-                                <div className="text-xs text-yellow-400/60">{t("common.level")}</div>
+                                <div className="text-lg font-medium text-white">L{userResult.max_level_reached}</div>
+                                <div className="text-xs text-white/60">{t("common.level")}</div>
                             </div>
                         </div>
                     </div>
@@ -463,10 +678,10 @@ export default function TournamentPage() {
             {/* Leaderboard */}
             <div className="space-y-4">
                 {winners.length > 0 && (
-                    <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
                         <div className="flex items-center space-x-2 mb-3">
-                            <Crown className="text-yellow-400" size={16} />
-                            <h3 className="text-sm font-bold text-yellow-300">
+                            <Crown className="text-white/80" size={16} />
+                            <h3 className="text-sm font-medium text-white">
                                 {t("tournament.winners")} ({winners.length}/{prizeCount})
                             </h3>
                         </div>
@@ -477,10 +692,10 @@ export default function TournamentPage() {
                 )}
 
                 {otherParticipants.length > 0 && (
-                    <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
                         <div className="flex items-center space-x-2 mb-3">
-                            <Users className="text-yellow-400" size={16} />
-                            <h3 className="text-sm font-bold text-yellow-300">
+                            <Users className="text-white/80" size={16} />
+                            <h3 className="text-sm font-medium text-white">
                                 {t("tournament.otherParticipants")} ({otherParticipants.length})
                             </h3>
                         </div>
@@ -493,10 +708,10 @@ export default function TournamentPage() {
                 )}
 
                 {leaderboard.length === 0 && (
-                    <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-6 text-center">
-                        <Trophy className="text-yellow-400/60 mx-auto mb-3" size={32} />
-                        <p className="text-yellow-300/80 font-bold">{t("tournament.noParticipants")}</p>
-                        <p className="text-yellow-400/60 text-sm mt-1">{t("tournament.beFirstParticipant")}</p>
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-6 text-center">
+                        <Trophy className="text-white/40 mx-auto mb-3" size={32} />
+                        <p className="text-white/60">{t("tournament.noParticipants")}</p>
+                        <p className="text-white/40 text-sm mt-1">{t("tournament.beFirstParticipant")}</p>
                     </div>
                 )}
             </div>
@@ -504,28 +719,31 @@ export default function TournamentPage() {
             {/* Statistics */}
             {leaderboard.length > 0 && (
                 <div className="mt-6 mb-8">
-                    <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
+                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
                         <div className="grid grid-cols-3 gap-4 text-center">
                             <div>
-                                <div className="text-lg font-bold text-yellow-300">{leaderboard.length}</div>
-                                <div className="text-xs text-yellow-400/60">{t("tournament.participants")}</div>
+                                <div className="text-lg font-medium text-white">{leaderboard.length}</div>
+                                <div className="text-xs text-white/60">{t("tournament.participants")}</div>
                             </div>
                             <div>
-                                <div className="text-lg font-bold text-yellow-300">
+                                <div className="text-lg font-medium text-white">
                                     {formatTournamentSurvivalTime(leaderboard[0]?.survival_time || 0)}
                                 </div>
-                                <div className="text-xs text-yellow-400/60">{t("tournament.bestTime")}</div>
+                                <div className="text-xs text-white/60">{t("tournament.bestTime")}</div>
                             </div>
                             <div>
-                                <div className="text-lg font-bold text-yellow-300">
+                                <div className="text-lg font-medium text-white">
                                     L{Math.max(...leaderboard.map(e => e.max_level_reached), 0)}
                                 </div>
-                                <div className="text-xs text-yellow-400/60">{t("tournament.maxLevel")}</div>
+                                <div className="text-xs text-white/60">{t("tournament.maxLevel")}</div>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Rules Modal */}
+            {renderRulesModal()}
         </div>
     );
 }
