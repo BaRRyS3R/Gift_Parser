@@ -1,4 +1,4 @@
-// src/locales/en.ts - Updated English localization with tournament rules
+// src/locales/en.ts - Обновленная английская локализация с заданиями
 
 export const en = {
     // Common UI elements
@@ -43,16 +43,86 @@ export const en = {
         available: "AVAILABLE",
         unlimited: "UNLIMITED",
         or: "or",
+        completed: "COMPLETED",
+        claim: "CLAIM",
+        claimed: "CLAIMED",
+        reward: "REWARD",
     },
 
     // Navigation
     nav: {
         home: "Home",
+        tasks: "Tasks",
         leaderboard: "Leaderboard",
         profile: "Profile",
         shop: "Shop",
         game: "Game",
         tournament: "Tournament",
+    },
+
+    // Tasks system
+    tasks: {
+        title: "TASKS",
+        subtitle: "Complete tasks to earn attempts",
+        noTasks: "No tasks available",
+        progress: "Progress",
+        totalReward: "Total Reward",
+        completedTasks: "Completed Tasks",
+
+        subscribeChannel: {
+            title: "Follow Channel",
+            description: "Subscribe to @thefacets channel",
+            instruction: "Click the button below to subscribe to our Telegram channel",
+            button: "Subscribe to Channel",
+            checking: "Checking subscription...",
+            verifying: "Verifying...",
+            success: "Subscription verified!",
+            error: "Please subscribe to the channel first",
+        },
+
+        shareLink: {
+            title: "Share with Friend",
+            description: "Send game link to a friend",
+            instruction: "Share the game with a friend using Telegram",
+            button: "Share Game",
+            waiting: "Please share the game...",
+            countdown: "Verify in {seconds}s",
+            verify: "Confirm Share",
+            success: "Share completed!",
+        },
+
+        postStory: {
+            title: "Post Story",
+            description: "Share a story about the game",
+            instruction: "Post a story on Telegram using the game video",
+            button: "Share to Story",
+            waiting: "Please post the story...",
+            countdown: "Verify in {seconds}s",
+            verify: "Confirm Post",
+            success: "Story posted!",
+        },
+
+        status: {
+            available: "Available",
+            inProgress: "In Progress",
+            completed: "Completed",
+            claimed: "Claimed",
+        },
+
+        rewards: {
+            attempts: "+{count} attempts",
+            claimReward: "Claim Reward",
+            rewardClaimed: "Reward Claimed",
+            totalRewards: "Total: +{count} attempts",
+        },
+
+        errors: {
+            loadFailed: "Failed to load tasks",
+            checkFailed: "Failed to check task",
+            claimFailed: "Failed to claim reward",
+            notCompleted: "Task not completed",
+            alreadyClaimed: "Reward already claimed",
+        },
     },
 
     // Main page

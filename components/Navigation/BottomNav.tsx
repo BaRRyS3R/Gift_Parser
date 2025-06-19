@@ -1,9 +1,9 @@
-// src/components/Navigation/BottomNav.tsx - Исправленная навигация без перекрытий
+// src/components/Navigation/BottomNav.tsx - Обновленная навигация с заданиями и магазином
 
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Gamepad2, Trophy, User } from "lucide-react";
+import { Gamepad2, Trophy, User, ShoppingCart, CheckSquare } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -19,9 +19,19 @@ export default function BottomNav() {
       icon: Gamepad2,
     },
     {
+      name: t("nav.tasks"),
+      path: "/tasks",
+      icon: CheckSquare,
+    },
+    {
       name: t("nav.leaderboard"),
       path: "/leaderboard",
       icon: Trophy,
+    },
+    {
+      name: t("nav.shop"),
+      path: "/shop",
+      icon: ShoppingCart,
     },
     {
       name: t("nav.profile"),
@@ -46,8 +56,8 @@ export default function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm border-t border-white/5 safe-area-inset-bottom">
-      <div className="w-full max-w-lg mx-auto px-4">
-        <div className="flex items-center justify-center h-16 gap-8">
+      <div className="w-full max-w-lg mx-auto px-2">
+        <div className="flex items-center justify-center h-16 gap-2">
           {navItems.map((item) => {
             const active = isActive(item.path);
             const Icon = item.icon;
@@ -58,7 +68,7 @@ export default function BottomNav() {
                 aria-label={item.name}
                 className={`
                   relative flex flex-col items-center justify-center
-                  w-12 h-12 rounded-lg transition-all duration-300 ease-out
+                  flex-1 h-12 rounded-lg transition-all duration-300 ease-out
                   ${active
                     ? "text-white"
                     : "text-white/60 hover:text-white/80"
@@ -84,9 +94,17 @@ export default function BottomNav() {
                       transition-all duration-300
                       ${active ? "stroke-2" : "stroke-1.5"}
                     `}
-                    size={20}
+                    size={18}
                   />
                 </div>
+
+                {/* Название */}
+                <span className={`
+                  text-xs mt-1 transition-all duration-300
+                  ${active ? "font-medium" : "font-normal"}
+                `}>
+                  {item.name}
+                </span>
 
                 {/* Индикатор активного состояния */}
                 {active && (

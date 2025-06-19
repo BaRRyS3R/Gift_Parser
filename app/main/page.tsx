@@ -1,10 +1,10 @@
-// src/app/main/page.tsx - Tournament integration update for main page with attempts display
+// src/app/main/page.tsx - Обновленная главная страница без кнопки магазина
 
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Play, ShoppingCart, Settings as SettingsIcon, Trophy, Clock } from "lucide-react";
+import { Play, Settings as SettingsIcon, Trophy, Clock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -222,10 +222,6 @@ export default function MainPage() {
     }, 600);
   };
 
-  const handleOpenShop = () => {
-    router.push("/shop");
-  };
-
   const handleOpenSettings = () => {
     setIsSettingsOpen(true);
   };
@@ -267,8 +263,6 @@ export default function MainPage() {
         </div>
       )}
 
-
-
       {/* Top Navigation Icons */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons
@@ -294,7 +288,7 @@ export default function MainPage() {
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
           </button>
 
-          {/* Tournament Button - Center (if active) */}
+          {/* Tournament Button - Right (if active) */}
           {showTournamentButton && activeTournament && (
             <button
               aria-label="Active Tournament"
@@ -321,23 +315,6 @@ export default function MainPage() {
               <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
             </button>
           )}
-
-          {/* Shop Button - Right */}
-          <button
-            aria-label={t("nav.shop")}
-            className="group relative w-12 h-12 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isTransitioning}
-            onClick={handleOpenShop}
-          >
-            <div className="flex items-center justify-center">
-              <ShoppingCart
-                className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
-                size={20}
-              />
-            </div>
-            <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-            <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
-          </button>
         </div>
       </div>
 

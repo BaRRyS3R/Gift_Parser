@@ -1,4 +1,4 @@
-// src/locales/ru.ts - Updated Russian localization with tournament rules
+// src/locales/ru.ts - Обновленная русская локализация с заданиями
 
 export const ru = {
     // Common UI elements
@@ -43,16 +43,86 @@ export const ru = {
         available: "ДОСТУПНО",
         unlimited: "БЕЗЛИМИТ",
         or: "или",
+        completed: "ВЫПОЛНЕНО",
+        claim: "ПОЛУЧИТЬ",
+        claimed: "ПОЛУЧЕНО",
+        reward: "НАГРАДА",
     },
 
     // Navigation
     nav: {
         home: "Главная",
+        tasks: "Задания",
         leaderboard: "Рейтинг",
         profile: "Профиль",
         shop: "Магазин",
         game: "Игра",
         tournament: "Турнир",
+    },
+
+    // Tasks system
+    tasks: {
+        title: "ЗАДАНИЯ",
+        subtitle: "Выполняйте задания для получения попыток",
+        noTasks: "Нет доступных заданий",
+        progress: "Прогресс",
+        totalReward: "Общая награда",
+        completedTasks: "Выполнено заданий",
+
+        subscribeChannel: {
+            title: "Подпишись на канал",
+            description: "Подпишитесь на канал @thefacets",
+            instruction: "Нажмите кнопку ниже, чтобы подписаться на наш Telegram канал",
+            button: "Подписаться на канал",
+            checking: "Проверка подписки...",
+            verifying: "Проверяем...",
+            success: "Подписка подтверждена!",
+            error: "Пожалуйста, сначала подпишитесь на канал",
+        },
+
+        shareLink: {
+            title: "Поделись с другом",
+            description: "Отправь ссылку на игру другу",
+            instruction: "Поделитесь игрой с другом через Telegram",
+            button: "Поделиться игрой",
+            waiting: "Пожалуйста, поделитесь игрой...",
+            countdown: "Подтвердить через {seconds}с",
+            verify: "Подтвердить отправку",
+            success: "Отправка завершена!",
+        },
+
+        postStory: {
+            title: "Опубликуй в сторис",
+            description: "Поделись историей об игре",
+            instruction: "Опубликуйте историю в Telegram используя видео игры",
+            button: "Поделиться в сторис",
+            waiting: "Пожалуйста, опубликуйте историю...",
+            countdown: "Подтвердить через {seconds}с",
+            verify: "Подтвердить публикацию",
+            success: "История опубликована!",
+        },
+
+        status: {
+            available: "Доступно",
+            inProgress: "В процессе",
+            completed: "Выполнено",
+            claimed: "Получено",
+        },
+
+        rewards: {
+            attempts: "+{count} попыток",
+            claimReward: "Получить награду",
+            rewardClaimed: "Награда получена",
+            totalRewards: "Всего: +{count} попыток",
+        },
+
+        errors: {
+            loadFailed: "Не удалось загрузить задания",
+            checkFailed: "Не удалось проверить задание",
+            claimFailed: "Не удалось получить награду",
+            notCompleted: "Задание не выполнено",
+            alreadyClaimed: "Награда уже получена",
+        },
     },
 
     // Main page
