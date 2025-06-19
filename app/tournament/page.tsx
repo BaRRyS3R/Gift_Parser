@@ -1,4 +1,4 @@
-// tournament/page.tsx - Updated with tab structure and improved UX
+// tournament/page.tsx - Updated with attempts timer and reorganized stats
 
 "use client";
 
@@ -29,9 +29,11 @@ import {
     ChevronUp,
     BarChart3,
     List,
+    ShoppingCart,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { userService } from "@/lib/supabase";
 import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
 import type { Tournament, TournamentLeaderboardEntry, TournamentResult, TournamentStatus } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
@@ -59,6 +61,7 @@ export default function TournamentPage() {
     const [activeRuleTab, setActiveRuleTab] = useState<RuleTabId>("gameMode");
     const [activeMainTab, setActiveMainTab] = useState<MainTabId>("tournament");
     const [isPrizesExpanded, setIsPrizesExpanded] = useState(false);
+    const [attemptsResetTime, setAttemptsResetTime] = useState<string>("");
 
     // Helper function to get rule description in a type-safe way
     const getRuleDescription = (ruleId: RuleTabId) => {
@@ -104,6 +107,30 @@ export default function TournamentPage() {
     const hasAttemptsRemaining = () => {
         return user?.attempts_remaining && user.attempts_remaining > 0;
     };
+
+    // Update attempts reset timer
+    useEffect(() => {
+        if (!user?.attempts_reset_at || hasAttemptsRemaining()) {
+            setAttemptsResetTime("");
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const resetTime = new Date(user.attempts_reset_at!);
+            const diff = resetTime.getTime() - now.getTime();
+
+            if (diff <= 0) {
+                setAttemptsResetTime("");
+                clearInterval(interval);
+                // Optionally refresh user data here
+            } else {
+                setAttemptsResetTime(formatTimeRemaining(diff));
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [user?.attempts_reset_at, user?.attempts_remaining]);
 
     const loadTournamentData = useCallback(async () => {
         try {
@@ -190,6 +217,10 @@ export default function TournamentPage() {
 
     const handleCloseRules = () => {
         setIsRulesModalOpen(false);
+    };
+
+    const handleGoToShop = () => {
+        router.push("/shop");
     };
 
     const getRankIcon = (position: number) => {
@@ -548,12 +579,37 @@ export default function TournamentPage() {
         );
     };
 
+    const renderNoAttemptsWarning = () => {
+        if (hasAttemptsRemaining()) return null;
+
+        return (
+            <div className="bg-white/5 border border-white/20 rounded-lg p-4 text-center space-y-3">
+                <div className="space-y-2">
+                    <p className="text-white/60 text-sm">{t("attempts.noRemaining")}</p>
+                    {attemptsResetTime && (
+                        <div className="flex items-center justify-center space-x-2">
+                            <Clock className="text-white/50" size={14} />
+                            <p className="text-white/50 text-xs">
+                                {t("attempts.resetTime")}: {attemptsResetTime}
+                            </p>
+                        </div>
+                    )}
+                </div>
+                
+                <button
+                    onClick={handleGoToShop}
+                    className="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg hover:bg-white/15 hover:border-white/30 transition-all duration-300 flex items-center justify-center space-x-2 mx-auto"
+                >
+                    <ShoppingCart size={16} />
+                    <span className="text-sm">{t("shop.moreAttempts")}</span>
+                </button>
+            </div>
+        );
+    };
+
     const renderTournamentTab = () => {
         return (
             <div className="space-y-4">
-                {/* Tournament Statistics */}
-                {renderTournamentStats()}
-
                 {/* Tournament Rules Button */}
                 <button
                     className="w-full px-6 py-3 rounded-xl text-base font-medium transition-all duration-300 bg-white/5 border border-white/20 text-white/80 hover:bg-white/10 hover:border-white/30 hover:text-white hover:scale-[1.01] active:scale-[0.99]"
@@ -619,13 +675,8 @@ export default function TournamentPage() {
                     </div>
                 </button>
 
-                {/* No attempts warning */}
-                {!hasAttemptsRemaining() && (
-                    <div className="bg-white/5 border border-white/20 rounded-lg p-3 text-center">
-                        <p className="text-white/60 text-sm">{t("attempts.noRemaining")}</p>
-                        <p className="text-white/40 text-xs mt-1">{t("game.general.waitForReset")}</p>
-                    </div>
-                )}
+                {/* No attempts warning with shop button and timer */}
+                {renderNoAttemptsWarning()}
             </div>
         );
     };
@@ -640,6 +691,9 @@ export default function TournamentPage() {
 
         return (
             <div className="space-y-4">
+                {/* Tournament Statistics - moved here */}
+                {renderTournamentStats()}
+
                 {winners.length > 0 && (
                     <div className="bg-white/5 border border-white/20 rounded-xl p-4">
                         <div className="flex items-center space-x-2 mb-3">
