@@ -1,4 +1,4 @@
-// src/components/Navigation/BottomNav.tsx - Enhanced with localization
+// src/components/Navigation/BottomNav.tsx - Исправленная навигация без перекрытий
 
 "use client";
 
@@ -46,9 +46,8 @@ export default function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm border-t border-white/5 safe-area-inset-bottom">
-      {/* Контейнер с правильной центровкой */}
       <div className="w-full max-w-lg mx-auto px-4">
-        <div className="flex items-center justify-around h-16">
+        <div className="flex items-center justify-center h-16 gap-8">
           {navItems.map((item) => {
             const active = isActive(item.path);
             const Icon = item.icon;
@@ -58,42 +57,41 @@ export default function BottomNav() {
                 key={item.name}
                 aria-label={item.name}
                 className={`
-                  flex flex-col items-center justify-center p-3 rounded-lg
-                  transition-all duration-300 ease-out group min-w-0 flex-1
-                  ${
-                    active
-                      ? "text-white scale-110"
-                      : "text-white/60 hover:text-white/80 hover:scale-105"
+                  relative flex flex-col items-center justify-center
+                  w-12 h-12 rounded-lg transition-all duration-300 ease-out
+                  ${active
+                    ? "text-white"
+                    : "text-white/60 hover:text-white/80"
                   }
                 `}
                 onClick={() => handleNavigation(item.path)}
               >
-                <div
-                  className={`
-                  relative transition-all duration-300
-                  ${active ? "transform -translate-y-1" : "group-hover:transform group-hover:-translate-y-0.5"}
-                `}
-                >
+                {/* Фоновая подсветка для активного состояния */}
+                {active && (
+                  <div className="absolute inset-0 bg-white/10 rounded-lg transition-all duration-300" />
+                )}
+
+                {/* Фоновая подсветка при наведении */}
+                <div className="absolute inset-0 bg-white/5 rounded-lg opacity-0 hover:opacity-100 transition-all duration-300" />
+
+                {/* Иконка */}
+                <div className={`
+                  relative z-10 transition-all duration-300
+                  ${active ? "transform -translate-y-0.5" : ""}
+                `}>
                   <Icon
                     className={`
                       transition-all duration-300
-                      ${active ? "stroke-2" : "stroke-1.5 group-hover:stroke-2"}
+                      ${active ? "stroke-2" : "stroke-1.5"}
                     `}
-                    size={24}
+                    size={20}
                   />
                 </div>
 
-                {/* Подсветка при наведении */}
-                <div
-                  className={`
-                  absolute inset-0 rounded-lg transition-all duration-300
-                  ${
-                    active
-                      ? "bg-white/5"
-                      : "bg-transparent group-hover:bg-white/5"
-                  }
-                `}
-                />
+                {/* Индикатор активного состояния */}
+                {active && (
+                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full" />
+                )}
               </button>
             );
           })}
