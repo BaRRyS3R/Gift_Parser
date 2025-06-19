@@ -1,4 +1,4 @@
-// src/locales/en.ts - Обновленная английская локализация с заданиями
+// src/locales/en.ts - Updated English localization with tournament rules
 
 export const en = {
     // Common UI elements
@@ -43,86 +43,61 @@ export const en = {
         available: "AVAILABLE",
         unlimited: "UNLIMITED",
         or: "or",
-        completed: "COMPLETED",
-        claim: "CLAIM",
-        claimed: "CLAIMED",
-        reward: "REWARD",
     },
 
     // Navigation
     nav: {
         home: "Home",
-        tasks: "Tasks",
         leaderboard: "Leaderboard",
         profile: "Profile",
         shop: "Shop",
         game: "Game",
         tournament: "Tournament",
+        tasks: "Tasks",
     },
-
-    // Tasks system
+    
+    // Tasks
     tasks: {
         title: "TASKS",
-        subtitle: "Complete tasks to earn attempts",
-        noTasks: "No tasks available",
-        progress: "Progress",
-        totalReward: "Total Reward",
-        completedTasks: "Completed Tasks",
+        subtitle: "Complete tasks to earn extra attempts",
+        start: "START",
+        wait: "WAIT",
+        checking: "CHECKING...",
+        claim: "CLAIM",
+        completed: "COMPLETED",
+        attempts: "attempts",
+        waitMinutes: "Wait {minutes}m",
+        storyNotSupported: "Story sharing is not supported in this version",
 
-        subscribeChannel: {
-            title: "Follow Channel",
-            description: "Subscribe to @thefacets channel",
-            instruction: "Click the button below to subscribe to our Telegram channel",
-            button: "Subscribe to Channel",
-            checking: "Checking subscription...",
-            verifying: "Verifying...",
-            success: "Subscription verified!",
-            error: "Please subscribe to the channel first",
+        // Task definitions
+        joinNewsChannel: {
+            name: "Join Channel",
+            description: "Stay updated with latest news and announcements"
         },
-
-        shareLink: {
-            title: "Share with Friend",
-            description: "Send game link to a friend",
-            instruction: "Share the game with a friend using Telegram",
-            button: "Share Game",
-            waiting: "Please share the game...",
-            countdown: "Verify in {seconds}s",
-            verify: "Confirm Share",
-            success: "Share completed!",
+        joinUpdatesChannel: {
+            name: "Join Updates Channel",
+            description: "Get notified about game updates and features"
         },
-
-        postStory: {
-            title: "Post Story",
-            description: "Share a story about the game",
-            instruction: "Post a story on Telegram using the game video",
-            button: "Share to Story",
-            waiting: "Please post the story...",
-            countdown: "Verify in {seconds}s",
-            verify: "Confirm Post",
-            success: "Story posted!",
+        joinCommunityChat: {
+            name: "Join Chat",
+            description: "Connect with other players and share strategies"
         },
-
-        status: {
-            available: "Available",
-            inProgress: "In Progress",
-            completed: "Completed",
-            claimed: "Claimed",
+        followTwitter: {
+            name: "Follow on Twitter",
+            description: "Follow our official Twitter account for updates"
         },
-
-        rewards: {
-            attempts: "+{count} attempts",
-            claimReward: "Claim Reward",
-            rewardClaimed: "Reward Claimed",
-            totalRewards: "Total: +{count} attempts",
+        retweetPost: {
+            name: "Retweet Post",
+            description: "Help spread the word by retweeting our latest post"
         },
-
-        errors: {
-            loadFailed: "Failed to load tasks",
-            checkFailed: "Failed to check task",
-            claimFailed: "Failed to claim reward",
-            notCompleted: "Task not completed",
-            alreadyClaimed: "Reward already claimed",
+        visitWebsite: {
+            name: "Visit Website",
+            description: "Check out our official website for more information"
         },
+        shareStory: {
+            name: "Share to Story",
+            description: "Share the game to your Telegram story"
+        }
     },
 
     // Main page

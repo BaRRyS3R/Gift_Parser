@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Обновленная главная страница без кнопки магазина
+// src/app/main/page.tsx - Обновленная главная страница с перемещенной кнопкой турнира
 
 "use client";
 
@@ -263,7 +263,7 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* Top Navigation Icons */}
+      {/* Top Navigation Icons - Updated layout */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons
           ? "opacity-100 translate-y-0"
@@ -288,7 +288,7 @@ export default function MainPage() {
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
           </button>
 
-          {/* Tournament Button - Right (if active) */}
+          {/* Tournament Button - Right (перемещена с места магазина) */}
           {showTournamentButton && activeTournament && (
             <button
               aria-label="Active Tournament"

@@ -1,4 +1,4 @@
-// src/components/Navigation/NavigationWrapper.tsx - Updated for tasks page
+// src/components/Navigation/NavigationWrapper.tsx - Updated for new game structure and shop
 
 "use client";
 
@@ -15,8 +15,9 @@ export default function NavigationWrapper() {
     "/game", // Old game page (redirect)
     "/game/reaction", // Reaction game mode
     "/game/survival", // Survival game mode
-    "/tournament/play", // Tournament game page
+    "/shop", // Shop page
     "/tournament", // Tournament page
+    "/tournament/play", // Tournament game page
   ];
 
   const shouldHideNav = hideNavOnPages.includes(pathname);

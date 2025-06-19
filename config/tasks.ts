@@ -1,152 +1,132 @@
-// src/config/tasks.ts - Конфигурация заданий для легкого редактирования
+// src/config/tasks.ts - Конфигурация заданий
 
-export interface TaskConfig {
-    id: string;
-    type: TaskType;
-    title: string;
-    description: string;
-    reward: number;
-    icon: string;
-    action_url?: string;
-    channel_id?: string;
-    is_repeatable: boolean;
-    validation_type: 'manual' | 'automatic' | 'timer';
-    timer_duration?: number; // в секундах для timer типа
+export type TaskType = 'channel' | 'chat' | 'twitter' | 'website' | 'story';
+
+export interface Task {
+  id: string;
+  type: TaskType;
+  title: string; // Название ресурса (канала, сайта и т.д.)
+  description: string; // Описание задания
+  url: string;
+  reward: number; // Количество попыток в награду
+  icon: string; // Имя иконки или emoji
+  color: string; // Цвет для UI
+  cooldown?: number; // Кулдаун в миллисекундах (только для story)
 }
 
-export type TaskType =
-    | "subscribe_channel"
-    | "share_link"
-    | "post_story"
-    | "join_chat"
-    | "follow_social"
-    | "visit_link";
+export const TASKS: Task[] = [
+  // Каналы
+  {
+    id: 'join_news_channel',
+    type: 'channel',
+    title: 'Facets',
+    description: 'Channel',
+    url: 'https://t.me/thefacets',
+    reward: 5,
+    icon: '📢',
+    color: 'from-blue-500/20 to-cyan-500/20'
+  },
+  {
+    id: 'join_updates_channel',
+    type: 'channel',
+    title: 'Facets Channel 2',
+    description: 'Updates Channel',
+    url: 'https://t.me/thefacets',
+    reward: 3,
+    icon: '🔔',
+    color: 'from-purple-500/20 to-pink-500/20'
+  },
 
-export type TaskStatus =
-    | "available"
-    | "in_progress"
-    | "completed"
-    | "claimed";
+  // Чаты
+  {
+    id: 'join_community_chat',
+    type: 'chat',
+    title: 'Chat',
+    description: 'Test Chat',
+    url: 'https://t.me/thefacets_chat',
+    reward: 4,
+    icon: '💬',
+    color: 'from-green-500/20 to-emerald-500/20'
+  },
 
-// КОНФИГУРАЦИЯ ЗАДАНИЙ - ЛЕГКО РЕДАКТИРУЕМАЯ
-export const TASKS_CONFIG: TaskConfig[] = [
-    {
-        id: "subscribe_thefacets",
-        type: "subscribe_channel",
-        title: "Подписаться на The Facets",
-        description: "Подпишитесь на наш основной Telegram канал @thefacets",
-        reward: 5,
-        icon: "📢",
-        action_url: "https://t.me/thefacets",
-        channel_id: "-1002367424339",
-        is_repeatable: false,
-        validation_type: 'manual'
-    },
-    {
-        id: "subscribe_neuroland_news",
-        type: "subscribe_channel",
-        title: "Подписаться на новости игры",
-        description: "Подпишитесь на канал с новостями и обновлениями игры",
-        reward: 3,
-        icon: "📰",
-        action_url: "https://t.me/neuroland_news",
-        channel_id: "-1001234567890",
-        is_repeatable: false,
-        validation_type: 'manual'
-    },
-    {
-        id: "share_with_friends",
-        type: "share_link",
-        title: "Поделиться с друзьями",
-        description: "Расскажите друзьям об игре через Telegram",
-        reward: 3,
-        icon: "🔗",
-        is_repeatable: false,
-        validation_type: 'timer',
-        timer_duration: 5
-    },
-    {
-        id: "post_game_story",
-        type: "post_story",
-        title: "Опубликовать историю",
-        description: "Поделитесь игрой в своих Telegram Stories",
-        reward: 4,
-        icon: "📸",
-        is_repeatable: false,
-        validation_type: 'timer',
-        timer_duration: 5
-    },
-    {
-        id: "join_community_chat",
-        type: "join_chat",
-        title: "Присоединиться к чату",
-        description: "Вступите в чат сообщества игроков",
-        reward: 2,
-        icon: "💬",
-        action_url: "https://t.me/neuroland_chat",
-        channel_id: "-1001234567891",
-        is_repeatable: false,
-        validation_type: 'manual'
-    },
-    {
-        id: "follow_twitter",
-        type: "follow_social",
-        title: "Подписаться в Twitter",
-        description: "Подпишитесь на наш Twitter аккаунт",
-        reward: 2,
-        icon: "🐦",
-        action_url: "https://twitter.com/neuroland_game",
-        is_repeatable: false,
-        validation_type: 'timer',
-        timer_duration: 10
-    },
-    {
-        id: "visit_website",
-        type: "visit_link",
-        title: "Посетить сайт проекта",
-        description: "Изучите официальный сайт проекта",
-        reward: 1,
-        icon: "🌐",
-        action_url: "https://neuroland.game",
-        is_repeatable: false,
-        validation_type: 'timer',
-        timer_duration: 10
-    }
+  // Twitter
+  {
+    id: 'follow_twitter',
+    type: 'twitter',
+    title: '@YourGameOfficial',
+    description: 'Twitter Follow',
+    url: 'https://twitter.com/your_account',
+    reward: 3,
+    icon: '🐦',
+    color: 'from-sky-500/20 to-blue-500/20'
+  },
+  {
+    id: 'retweet_post',
+    type: 'twitter',
+    title: 'Twitter Repost',
+    description: 'Twitter Desc',
+    url: 'https://twitter.com/your_account/status/123456789',
+    reward: 2,
+    icon: '🔄',
+    color: 'from-sky-500/20 to-blue-500/20'
+  },
+
+  // Веб-сайты
+  {
+    id: 'visit_website',
+    type: 'website',
+    title: 'NOTFREN',
+    description: 'Blackhole',
+    url: 'https://notfren.com',
+    reward: 2,
+    icon: '🌐',
+    color: 'from-orange-500/20 to-red-500/20'
+  },
+
+  // Сторис
+  {
+    id: 'share_story',
+    type: 'story',
+    title: 'Test Storys',
+    description: 'Share in telegram',
+    url: '/videos/mainbg.mp4', // Путь к видео для сторис
+    reward: 10,
+    icon: '📸',
+    color: 'from-yellow-500/20 to-orange-500/20',
+    cooldown: 2 * 60 * 1000 // 2 минуты
+  }
 ];
 
-// Вспомогательные функции
-export const getTaskById = (taskId: string): TaskConfig | undefined => {
-    return TASKS_CONFIG.find(task => task.id === taskId);
+// Получение задания по ID
+export const getTaskById = (id: string): Task | undefined => {
+  return TASKS.find(task => task.id === id);
 };
 
-export const getTaskByType = (taskType: TaskType): TaskConfig | undefined => {
-    return TASKS_CONFIG.find(task => task.type === taskType);
+// Получение заданий по типу
+export const getTasksByType = (type: TaskType): Task[] => {
+  return TASKS.filter(task => task.type === type);
 };
 
-export const getAllTasks = (): TaskConfig[] => {
-    return [...TASKS_CONFIG];
+// Получение иконки для типа задания
+export const getTaskTypeIcon = (type: TaskType): string => {
+  switch (type) {
+    case 'channel': return '📢';
+    case 'chat': return '💬';
+    case 'twitter': return '🐦';
+    case 'website': return '🌐';
+    case 'story': return '📸';
+    default: return '📋';
+  }
 };
 
-export const getTaskProgress = (userTasks: UserTask[]): {
-    completed: number;
-    total: number;
-    percentage: number;
-} => {
-    const total = TASKS_CONFIG.length;
-    const completed = userTasks.filter(task =>
-        task.status === "completed" || task.status === "claimed"
-    ).length;
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-    return { completed, total, percentage };
+// Получение названия типа задания
+export const getTaskTypeName = (type: TaskType): string => {
+  switch (type) {
+    case 'channel': return 'Channel';
+    case 'chat': return 'Chat';
+    case 'twitter': return 'Twitter';
+    case 'website': return 'Website';
+    case 'story': return 'Story';
+    default: return 'Task';
+  }
 };
-
-// Типы для пользовательских заданий
-export interface UserTask {
-    id: string;
-    type: TaskType;
-    status: TaskStatus;
-    completed_at?: string;
-    claimed_at?: string;
-    countdown?: number;
-}

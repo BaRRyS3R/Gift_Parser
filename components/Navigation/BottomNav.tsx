@@ -19,14 +19,14 @@ export default function BottomNav() {
       icon: Gamepad2,
     },
     {
-      name: t("nav.tasks"),
-      path: "/tasks",
-      icon: CheckSquare,
-    },
-    {
       name: t("nav.leaderboard"),
       path: "/leaderboard",
       icon: Trophy,
+    },
+    {
+      name: t("nav.tasks"),
+      path: "/tasks",
+      icon: CheckSquare,
     },
     {
       name: t("nav.shop"),
@@ -68,7 +68,7 @@ export default function BottomNav() {
                 aria-label={item.name}
                 className={`
                   relative flex flex-col items-center justify-center
-                  flex-1 h-12 rounded-lg transition-all duration-300 ease-out
+                  w-14 h-12 rounded-lg transition-all duration-300 ease-out
                   ${active
                     ? "text-white"
                     : "text-white/60 hover:text-white/80"
@@ -98,10 +98,10 @@ export default function BottomNav() {
                   />
                 </div>
 
-                {/* Название */}
+                {/* Название кнопки */}
                 <span className={`
                   text-xs mt-1 transition-all duration-300
-                  ${active ? "font-medium" : "font-normal"}
+                  ${active ? "text-white font-medium" : "text-white/50"}
                 `}>
                   {item.name}
                 </span>
