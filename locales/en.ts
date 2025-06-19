@@ -98,7 +98,8 @@ export const en = {
         general: {
             attemptsUsed: "Attempts used up",
             waitForReset: "Wait for automatic restoration or purchase additional attempts",
-            automaticReset: "Attempts are automatically restored every 2 hours",
+            automaticReset: "Attempts are automatically restored every 24 hours",
+            difficulty: "Difficulty",
         },
         difficulties: {
             easy: "Easy",
