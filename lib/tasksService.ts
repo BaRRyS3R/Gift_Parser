@@ -27,13 +27,13 @@ const getTelegramInitData = (): string => {
         return window.Telegram.WebApp.initData;
     }
 
-    // Для разработки и тестирования
+    // Для разработки
     if (process.env.NODE_ENV === "development") {
         console.warn("Using mock initData for development");
         return "mock_init_data_for_development";
     }
 
-    return "";
+    throw new Error("Telegram WebApp data not available");
 };
 
 // Получение заданий пользователя

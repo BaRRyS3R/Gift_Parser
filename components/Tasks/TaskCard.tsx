@@ -104,10 +104,10 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, isProcessing, onAction }) => 
                         <div className="text-2xl">{task.icon}</div>
                         <div>
                             <h3 className="font-bold text-white">
-                                {t(task.title as any)}
+                                {task.title}
                             </h3>
                             <p className="text-white/60 text-sm">
-                                {t(task.description as any)}
+                                {task.description}
                             </p>
                         </div>
                     </div>
