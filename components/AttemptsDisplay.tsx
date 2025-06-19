@@ -1,86 +1,138 @@
-// src/components/AttemptsDisplay.tsx - Attempts counter for main page
+// src/components/AttemptsDisplay.tsx - Лаконичный показатель попыток для главной страницы
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Clock, Zap } from "lucide-react";
+
 import { useUser } from "@/hooks/useUser";
-import { formatTimeRemaining } from "@/types/tournaments";
+import { userService, type AttemptsStatus } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
 
-export default function AttemptsDisplay() {
-    const { user } = useUser();
-    const t = useT();
-    const [timeUntilReset, setTimeUntilReset] = useState<string>("");
+interface AttemptsDisplayProps {
+    className?: string;
+}
 
-    // Update reset timer
+const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => {
+    const { telegramUser } = useUser();
+    const t = useT();
+
+    const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
+        canPlay: true,
+        attemptsRemaining: 0,
+    });
+    const [timeUntilReset, setTimeUntilReset] = useState<string>("");
+    const [isLoading, setIsLoading] = useState(true);
+
+    const checkAttempts = useCallback(async () => {
+        if (!telegramUser?.id) return;
+
+        try {
+            const status = await userService.checkAndUpdateAttemptsWithServerValidation(
+                telegramUser.id,
+            );
+            setAttemptsStatus(status);
+        } catch (error) {
+            console.error("Error checking attempts:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [telegramUser?.id]);
+
     useEffect(() => {
-        if (!user?.attempts_reset_at || (user?.attempts_remaining && user.attempts_remaining > 0)) {
+        checkAttempts();
+    }, [checkAttempts]);
+
+    // Обновление таймера
+    useEffect(() => {
+        if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
             setTimeUntilReset("");
             return;
         }
 
         const interval = setInterval(() => {
             const now = new Date();
-            const resetTime = new Date(user.attempts_reset_at!);
-            const diff = resetTime.getTime() - now.getTime();
+            const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
 
             if (diff <= 0) {
                 setTimeUntilReset("");
-                clearInterval(interval);
+                checkAttempts();
             } else {
-                setTimeUntilReset(formatTimeRemaining(diff));
+                const hours = Math.floor(diff / 3600000);
+                const minutes = Math.floor((diff % 3600000) / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+
+                if (hours > 0) {
+                    setTimeUntilReset(`${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`);
+                } else {
+                    setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
+                }
             }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [user?.attempts_reset_at, user?.attempts_remaining]);
+    }, [attemptsStatus.resetTime, attemptsStatus.canPlay, checkAttempts]);
 
-    if (!user) {
+    if (isLoading) {
         return (
-            <div className="text-center py-4">
-                <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+            <div className={`flex items-center justify-center ${className}`}>
+                <div className="bg-black/30 backdrop-blur-sm border border-white/20 rounded-lg px-4 py-2">
+                    <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+                        <span className="text-white/80 text-sm">
+                            {t("common.loading")}
+                        </span>
+                    </div>
+                </div>
             </div>
         );
     }
 
-    const hasAttempts = user.attempts_remaining && user.attempts_remaining > 0;
+    const isEmpty = attemptsStatus.attemptsRemaining === 0;
+    const isLow = attemptsStatus.attemptsRemaining <= 2 && attemptsStatus.attemptsRemaining > 0;
+
+    const getTextColor = () => {
+        if (isEmpty) return "text-red-400";
+        if (isLow) return "text-orange-400";
+        return "text-green-400";
+    };
+
+    const getBorderColor = () => {
+        if (isEmpty) return "border-red-400/30";
+        if (isLow) return "border-orange-400/30";
+        return "border-white/20";
+    };
 
     return (
-        <div className="text-center py-4 px-4">
-            <div className="bg-white/5 border border-white/20 rounded-xl p-4 max-w-md mx-auto">
-                <div className="flex items-center justify-center space-x-3">
-                    <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
-                        <Zap className={hasAttempts ? "text-white" : "text-white/50"} size={20} />
+        <div className={`flex items-center justify-center ${className}`}>
+            <div className={`bg-black/30 backdrop-blur-sm border rounded-lg px-4 py-2 ${getBorderColor()}`}>
+                {isEmpty && timeUntilReset ? (
+                    <div className="flex items-center space-x-2">
+                        <Clock className="text-red-400" size={16} />
+                        <span className="text-red-400 text-sm font-medium">
+                            {timeUntilReset}
+                        </span>
+                        <span className="text-red-400/60 text-xs">
+                            {t("attempts.resetTime")}
+                        </span>
                     </div>
-
-                    <div className="text-left">
-                        <div className="flex items-center space-x-2">
-                            <span className="text-sm text-white/60 uppercase tracking-wider">
-                                {t("attempts.current")}
-                            </span>
-                            <span className={`text-xl font-bold ${hasAttempts ? "text-white" : "text-white/50"}`}>
-                                {user.attempts_remaining || 0}
-                            </span>
-                        </div>
-
-                        {!hasAttempts && timeUntilReset && (
-                            <div className="flex items-center space-x-1 mt-1">
-                                <Clock className="text-white/40" size={12} />
-                                <span className="text-xs text-white/40">
-                                    {t("attempts.resetTime")}: {timeUntilReset}
-                                </span>
-                            </div>
-                        )}
-
-                        {hasAttempts && (
-                            <div className="text-xs text-white/40 mt-1">
-                                {t("attempts.remaining")}
-                            </div>
-                        )}
+                ) : (
+                    <div className="flex items-center space-x-2">
+                        <Zap className={getTextColor()} size={16} />
+                        <span className={`${getTextColor()} text-sm font-medium`}>
+                            {attemptsStatus.attemptsRemaining}
+                        </span>
+                        <span className="text-white/60 text-xs">
+                            {attemptsStatus.attemptsRemaining === 1
+                                ? t("common.attempts").slice(0, -1)  // "attempt" instead of "attempts"
+                                : t("common.attempts")
+                            }
+                        </span>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );
-}
+};
+
+export default AttemptsDisplay;
