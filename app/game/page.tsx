@@ -186,10 +186,10 @@ const AttemptsDisplay = ({
       <div className="mb-3">
         <div
           className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
-            ? "bg-red-400/20"
-            : isLow
-              ? "bg-orange-400/20"
-              : "bg-white/20"
+              ? "bg-red-400/20"
+              : isLow
+                ? "bg-orange-400/20"
+                : "bg-white/20"
             }`}
         >
           <div
@@ -206,8 +206,8 @@ const AttemptsDisplay = ({
                 <div
                   key={i}
                   className={`w-2 h-2 rounded-full ${i < attemptsRemaining
-                    ? getBatteryColor().replace("text-", "bg-")
-                    : "bg-white/20"
+                      ? getBatteryColor().replace("text-", "bg-")
+                      : "bg-white/20"
                     }`}
                 />
               ),
@@ -431,8 +431,8 @@ export default function GamePage() {
                   )}
                   <span
                     className={`text-xs font-medium ${mode.difficulty === "Extreme"
-                      ? "text-red-400"
-                      : mode.color.accent
+                        ? "text-red-400"
+                        : mode.color.accent
                       }`}
                   >
                     {t(`game.general.difficulty`)}
@@ -674,8 +674,8 @@ export default function GamePage() {
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative safe-area-inset ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : "opacity-100 transition-opacity duration-1000 ease-out"
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
     >
       <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center max-w-6xl px-6 w-full">
@@ -701,6 +701,8 @@ export default function GamePage() {
             {GAME_MODES.map(renderModeCard)}
           </div>
         </div>
+
+        {/* УДАЛЕНО: дублирующее уведомление о закончившихся попытках */}
 
         <div className="text-center space-y-2 animate-fade-in">
           <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>

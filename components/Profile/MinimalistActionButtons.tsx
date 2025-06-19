@@ -26,7 +26,7 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
                 startContent={<Share2 size={16} />}
                 onPress={onOpenReferrals}
             >
-                {t("profile.referralButton")}
+                Referrals
             </Button>
 
             <Button
@@ -35,7 +35,7 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
                 startContent={<Award size={16} />}
                 onPress={onOpenAchievements}
             >
-                {t("profile.achievementButton")}
+                Achievements
             </Button>
         </div>
     );

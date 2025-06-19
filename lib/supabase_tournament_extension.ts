@@ -1,4 +1,4 @@
-// src/lib/supabase_tournament_extension.ts - Tournament functions integration with time fix
+// src/lib/supabase_tournament_extension.ts - Tournament functions integration
 
 import { supabase } from "./supabase";
 import type {
@@ -231,20 +231,8 @@ export const tournamentService = {
     }
 };
 
-// ИСПРАВЛЕННАЯ функция для форматирования времени турнира с обработкой отрицательных значений
+// Helper function to format tournament survival time with millisecond precision
 export const formatTournamentSurvivalTime = (milliseconds: number): string => {
-    // Обрабатываем отрицательные значения
-    if (milliseconds < 0) {
-        console.warn('Negative survival time detected:', milliseconds);
-        return "0.000s";
-    }
-
-    // Убеждаемся, что значение является числом
-    if (isNaN(milliseconds) || !isFinite(milliseconds)) {
-        console.warn('Invalid survival time value:', milliseconds);
-        return "0.000s";
-    }
-
     const totalSeconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;

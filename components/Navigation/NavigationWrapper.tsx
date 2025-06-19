@@ -1,4 +1,4 @@
-// src/components/Navigation/NavigationWrapper.tsx - Обновленный с добавлением страницы турнира
+// src/components/Navigation/NavigationWrapper.tsx - Updated for new game structure and shop
 
 "use client";
 
@@ -16,7 +16,6 @@ export default function NavigationWrapper() {
     "/game/reaction", // Reaction game mode
     "/game/survival", // Survival game mode
     "/shop", // Shop page
-    "/tournament", // Tournament page - добавлена для скрытия нижнего меню
     "/tournament/play", // Tournament game page
   ];
 

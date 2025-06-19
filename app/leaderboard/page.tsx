@@ -457,6 +457,16 @@ export default function LeaderboardPage() {
     }
   };
 
+  const getMetricLabel = () => {
+    if (isReactionTab) {
+      return t("leaderboard.fastest");
+    } else if (isSurvivalTab) {
+      return t("leaderboard.longest");
+    } else {
+      return t("leaderboard.top");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {/* Header */}
@@ -483,7 +493,7 @@ export default function LeaderboardPage() {
                     : "text-white"
               }`}
             >
-              {t("leaderboard.title")}
+              {getLeaderboardTitle()}
             </h1>
           </div>
 
@@ -518,6 +528,17 @@ export default function LeaderboardPage() {
                   }`}
                 >
                   {currentLeaderboard.length}
+                </span>
+                <span
+                  className={`${
+                    isReactionTab
+                      ? "text-white/80"
+                      : isSurvivalTab
+                        ? "text-red-400/80"
+                        : "text-white/60"
+                  }`}
+                >
+                  {t("leaderboard.players")}
                 </span>
               </div>
               <div
@@ -556,6 +577,17 @@ export default function LeaderboardPage() {
                           )
                         : (currentLeaderboard[0] as LeaderboardEntry).best_score
                     : "0"}
+                </span>
+                <span
+                  className={`${
+                    isReactionTab
+                      ? "text-white/80"
+                      : isSurvivalTab
+                        ? "text-red-400/80"
+                        : "text-white/60"
+                  }`}
+                >
+                  {getMetricLabel()}
                 </span>
               </div>
             </div>

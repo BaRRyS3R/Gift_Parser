@@ -1,4 +1,4 @@
-// src/app/shop/page.tsx - Updated shop page without instant reset product
+// src/app/shop/page.tsx - Новый дизайн магазина с карточками и уведомлениями
 
 "use client";
 
@@ -14,6 +14,7 @@ import {
     CheckCircle,
     X,
     ExternalLink,
+    Clock,
     Crown,
     Gem,
     Flame
@@ -69,6 +70,7 @@ export default function ShopPage() {
     }, [purchaseState.error]);
 
     useEffect(() => {
+        // Setup Telegram WebApp back button
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
             tg.BackButton.show();
@@ -85,14 +87,25 @@ export default function ShopPage() {
 
     const showSuccessNotification = (product: ProductType) => {
         const productInfo = PRODUCTS[product];
-        const icon = <CheckCircle className="text-green-400" size={32} />;
-        const title = t('shop.notifications.purchaseSuccess');
-        const attemptsText = productInfo.attempts_bonus;
+        const isInstantReset = productInfo.is_instant_reset;
+
+        const icon = isInstantReset ?
+            <Clock className="text-green-400" size={32} /> :
+            <CheckCircle className="text-green-400" size={32} />;
+
+        const title = isInstantReset ?
+            t('shop.notifications.instantResetSuccess') :
+            t('shop.notifications.purchaseSuccess');
+
+        const attemptsText = productInfo.attempts_bonus || 0;
         const plural = attemptsText > 1 ? 's' : '';
-        const message = t('shop.notifications.purchaseSuccessMessage', {
-            attempts: attemptsText,
-            plural: plural
-        });
+
+        const message = isInstantReset ?
+            t('shop.notifications.instantResetMessage') :
+            t('shop.notifications.purchaseSuccessMessage', {
+                attempts: attemptsText,
+                plural: plural
+            });
 
         setSuccessNotification({
             show: true,
@@ -101,11 +114,13 @@ export default function ShopPage() {
             icon
         });
 
+        // Показываем конфетти
         setIsExploding(true);
         setTimeout(() => {
             setIsExploding(false);
         }, 2000);
 
+        // Скрываем уведомление через 3 секунды
         setTimeout(() => {
             setSuccessNotification(prev => ({ ...prev, show: false }));
         }, 3000);
@@ -172,6 +187,7 @@ export default function ShopPage() {
             case 'attempts_5': return <Flame className="text-orange-400" size={24} />;
             case 'attempts_10': return <Gem className="text-purple-400" size={24} />;
             case 'attempts_100': return <Crown className="text-yellow-400" size={24} />;
+            case 'instant_reset': return <Clock className="text-green-400" size={24} />;
             default: return <Star className="text-white" size={24} />;
         }
     };
@@ -181,6 +197,7 @@ export default function ShopPage() {
             case 'attempts_5': return { text: 'Popular', color: 'bg-orange-500/20 text-orange-300 border-orange-400/30' };
             case 'attempts_10': return { text: 'Best Value', color: 'bg-purple-500/20 text-purple-300 border-purple-400/30' };
             case 'attempts_100': return { text: 'Ultimate', color: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30' };
+            case 'instant_reset': return { text: 'Instant', color: 'bg-green-500/20 text-green-300 border-green-400/30' };
             default: return null;
         }
     };
@@ -192,182 +209,162 @@ export default function ShopPage() {
 
     const getLoadingText = (productType: ProductType) => {
         if (purchaseState.loadingProduct !== productType) return null;
-        return purchaseState.isLoading ? t('shop.creatingInvoice') : t('shop.processingPayment');
+        return purchaseState.isLoading ? 'Creating...' : 'Processing...';
     };
 
-    if (!user) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-                    <p className="text-white">{t('common.loading')}</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="min-h-screen bg-black text-white px-4 py-6 safe-area-inset">
+        <div className="min-h-screen bg-black text-white">
             {isExploding && (
-                <div className="fixed inset-0 z-50 pointer-events-none">
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        <ConfettiExplosion
-                            force={0.8}
-                            duration={3000}
-                            particleCount={250}
-                            width={1600}
-                        />
-                    </div>
+                <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+                    <ConfettiExplosion
+                        force={0.8}
+                        duration={2000}
+                        particleCount={100}
+                        width={400}
+                        colors={['#FFD700', '#FF69B4', '#00BFFF', '#7B68EE', '#FF4500']}
+                    />
                 </div>
             )}
-
-            <div className="max-w-md mx-auto space-y-6">
-                <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center space-x-3">
-                        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                            <CreditCard className="text-white" size={20} />
-                        </div>
-                        <h1 className="text-2xl font-bold text-white">{t('shop.title')}</h1>
-                    </div>
-                    <p className="text-white/70 text-sm">{t('shop.subtitle')}</p>
+            
+            <div className="px-4 pt-20 pb-8">
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <h1 className="text-2xl font-bold mb-2">{t('shop.title')}</h1>
+                    <p className="text-white/60 text-sm">{t('shop.subtitle')}</p>
                 </div>
 
-                <div className="space-y-4">
-                    <Card className="bg-white/5 border border-white/20">
-                        <CardBody className="p-4">
-                            <div className="text-center space-y-4">
-                                <div className="w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center mx-auto">
-                                    <Star className="text-white" size={24} />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-white mb-2">{t('shop.moreAttempts')}</h2>
-                                    <p className="text-white/60 text-sm">{t('shop.description')}</p>
-                                </div>
-                                <div className="text-xs text-white/50 space-y-1">
-                                    <div className="flex items-center space-x-2">
-                                        <CheckCircle className="text-green-400" size={12} />
-                                        <span>Дополнительные игры</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <CheckCircle className="text-green-400" size={12} />
-                                        <span>Мгновенная активация</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <CheckCircle className="text-green-400" size={12} />
-                                        <span>Без срока годности</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardBody>
-                        <CardFooter className="px-4 py-3 bg-gradient-to-r from-white/10 to-transparent backdrop-blur-sm">
-                            <div className="w-full text-center">
-                                <div className="flex items-center justify-center space-x-2 text-xs text-white/50">
-                                    <ExternalLink size={12} />
-                                    <span>Powered by Telegram Stars</span>
-                                </div>
-                            </div>
-                        </CardFooter>
-                    </Card>
-
-                    {Object.entries(PRODUCTS).map(([key, product]) => {
-                        const productType = key as ProductType;
-                        const badge = getProductBadge(productType);
-                        const loading = isLoading(productType);
-
-                        return (
-                            <Card
-                                key={productType}
-                                className="bg-white/5 border border-white/20 hover:bg-white/10 hover:border-white/30 transition-all duration-200"
-                            >
-                                <CardBody className="p-4">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <div className="flex items-center space-x-3 mb-2">
-                                                <div className="flex-shrink-0">
-                                                    {getProductIcon(productType)}
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-bold text-white">
-                                                        {t(`shop.products.${productType.replace('_', '')}.title`)}
-                                                    </h3>
-                                                    <p className="text-white/60 text-sm">
-                                                        {t(`shop.products.${productType.replace('_', '')}.description`)}
-                                                    </p>
+                {/* Products Grid */}
+                <div className="max-w-4xl mx-auto">
+                    <div className="grid grid-cols-1 gap-4 mb-8">
+                        {/* TEST PRODUCT - REMOVE BEFORE PRODUCTION */}
+                        <Card 
+                            className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-400/30 hover:bg-purple-500/30 hover:border-purple-400/50 transition-all duration-200"
+                        >
+                            <CardBody className="p-4">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                        <div className="flex items-center space-x-3 mb-2">
+                                            <div className="flex-shrink-0">
+                                                <div className="relative">
+                                                    <Star className="text-yellow-400 animate-pulse" size={24} />
+                                                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-ping" />
                                                 </div>
                                             </div>
-                                        </div>
-                                        {badge && (
-                                            <div className={`px-2 py-1 rounded-full text-xs font-bold border ${badge.color}`}>
-                                                {t(`shop.badges.${badge.text.replace(/\s+/g, '').toLowerCase()}`)}
+                                            <div>
+                                                <h3 className="font-bold text-white">
+                                                    {t('shop.testProduct.title')}
+                                                </h3>
+                                                <p className="text-white/60 text-sm">
+                                                    {t('shop.testProduct.description')}
+                                                </p>
                                             </div>
-                                        )}
-                                    </div>
-                                </CardBody>
-                                <CardFooter className="px-4 py-3 bg-gradient-to-r from-white/10 to-transparent backdrop-blur-sm">
-                                    <div className="flex items-center justify-between w-full">
-                                        <div className="flex items-center space-x-1">
-                                            <Star className="text-yellow-400" size={16} />
-                                            <span className="text-white font-medium">{product.price}</span>
                                         </div>
-                                        <Button
-                                            size="sm"
-                                            color="primary"
-                                            isLoading={loading}
-                                            className="bg-gradient-to-r from-blue-500 to-purple-500"
-                                            onPress={() => handlePurchase(productType)}
-                                        >
-                                            {loading ? getLoadingText(productType) : t('shop.buy')}
-                                        </Button>
                                     </div>
-                                </CardFooter>
-                            </Card>
-                        );
-                    })}
-                </div>
-
-                {purchaseState.error && (
-                    <Card className="bg-red-500/10 border border-red-400/30">
-                        <CardBody className="p-4">
-                            <div className="flex items-center space-x-3">
-                                <AlertCircle className="text-red-400 flex-shrink-0" size={20} />
-                                <div>
-                                    <p className="text-red-300 text-sm font-medium">{t('shop.purchaseFailed')}</p>
-                                    <p className="text-red-400/80 text-xs mt-1">{purchaseState.error}</p>
+                                    <div className="px-2 py-1 rounded-full text-xs font-bold border bg-purple-500/20 text-purple-300 border-purple-400/30">
+                                        {t('shop.badges.test')}
+                                    </div>
                                 </div>
-                                <button
-                                    className="text-red-300 hover:text-red-200 ml-auto"
-                                    onClick={() => setPurchaseState(prev => ({ ...prev, error: null }))}
+                            </CardBody>
+                            <CardFooter className="px-4 py-3 bg-gradient-to-r from-purple-500/20 to-transparent backdrop-blur-sm">
+                                <div className="flex items-center justify-between w-full">
+                                    <div className="flex items-center space-x-1">
+                                        <Star className="text-yellow-400 animate-spin" size={16} />
+                                        <span className="text-white font-medium">999</span>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        color="primary"
+                                        className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                                        onPress={() => {
+                                            setIsExploding(true);
+                                            setTimeout(() => setIsExploding(false), 2000);
+                                        }}
+                                    >
+                                        {t('shop.testProduct.button')}
+                                    </Button>
+                                </div>
+                            </CardFooter>
+                        </Card>
+
+                        {Object.entries(PRODUCTS).map(([key, product]) => {
+                            const productType = key as ProductType;
+                            const badge = getProductBadge(productType);
+                            const loading = isLoading(productType);
+
+                            return (
+                                <Card 
+                                    key={productType}
+                                    className="bg-white/5 border border-white/20 hover:bg-white/10 hover:border-white/30 transition-all duration-200"
                                 >
-                                    <X size={16} />
-                                </button>
-                            </div>
-                        </CardBody>
-                    </Card>
-                )}
-
-                {successNotification.show && (
-                    <Card className="bg-green-500/10 border border-green-400/30">
-                        <CardBody className="p-4">
-                            <div className="flex items-center space-x-3">
-                                {successNotification.icon}
-                                <div>
-                                    <p className="text-green-300 text-sm font-medium">{successNotification.title}</p>
-                                    <p className="text-green-400/80 text-xs mt-1">{successNotification.message}</p>
-                                </div>
-                            </div>
-                        </CardBody>
-                    </Card>
-                )}
-
-                <div className="text-center pt-4">
-                    <Button
-                        variant="ghost"
-                        className="text-white/60 hover:text-white"
-                        onPress={() => router.push("/main")}
-                    >
-                        {t('common.back')}
-                    </Button>
+                                    <CardBody className="p-4">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center space-x-3 mb-2">
+                                                    <div className="flex-shrink-0">
+                                                        {getProductIcon(productType)}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-bold text-white">
+                                                            {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.title`)}
+                                                        </h3>
+                                                        <p className="text-white/60 text-sm">
+                                                            {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.description`)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {badge && (
+                                                <div className={`px-2 py-1 rounded-full text-xs font-bold border ${badge.color}`}>
+                                                    {t(`shop.badges.${badge.text.replace(/\s+/g, '').toLowerCase()}`)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CardBody>
+                                    <CardFooter className="px-4 py-3 bg-gradient-to-r from-white/10 to-transparent backdrop-blur-sm">
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center space-x-1">
+                                                <Star className="text-yellow-400" size={16} />
+                                                <span className="text-white font-medium">{product.price}</span>
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                color="primary"
+                                                isLoading={loading}
+                                                className="bg-gradient-to-r from-blue-500 to-purple-500"
+                                                onPress={() => handlePurchase(productType)}
+                                            >
+                                                {loading ? t('shop.loading') : t('shop.buy')}
+                                            </Button>
+                                        </div>
+                                    </CardFooter>
+                                </Card>
+                            );
+                        })}
+                    </div>
                 </div>
+
+                {/* Success Notification */}
+                {successNotification.show && (
+                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 max-w-sm w-full mx-4 z-50">
+                        <div className="flex items-center space-x-3">
+                            {successNotification.icon}
+                            <div>
+                                <h4 className="font-bold text-white">{successNotification.title}</h4>
+                                <p className="text-white/60 text-sm">{successNotification.message}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Error Notification */}
+                {purchaseState.error && (
+                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-500/10 backdrop-blur-md border border-red-500/20 rounded-lg p-4 max-w-sm w-full mx-4 z-50">
+                        <div className="flex items-center space-x-3">
+                            <AlertCircle className="text-red-400" size={24} />
+                            <p className="text-white">{purchaseState.error}</p>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
