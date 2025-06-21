@@ -108,6 +108,37 @@ export const userService = {
     return data;
   },
 
+  async validateReferralCodeAndGetReferrer(referralCode: string): Promise<{
+    isValid: boolean;
+    bonus: number;
+    referrerName?: string;
+    referrerUsername?: string;
+  }> {
+    try {
+      const referrer = await this.findByReferralCode(referralCode);
+
+      if (referrer) {
+        // Формируем имя пригласившего
+        let referrerName = referrer.first_name;
+        if (referrer.last_name) {
+          referrerName += ` ${referrer.last_name}`;
+        }
+
+        return {
+          isValid: true,
+          bonus: referrer.referral_bonus,
+          referrerName,
+          referrerUsername: referrer.username,
+        };
+      }
+
+      return { isValid: false, bonus: 0 };
+    } catch (error) {
+      console.error("Error validating referral code and getting referrer info:", error);
+      return { isValid: false, bonus: 0 };
+    }
+  },
+
   async findByReferralCode(referralCode: string): Promise<User | null> {
     const { data, error } = await supabase
       .from("users")
@@ -231,7 +262,11 @@ export const userService = {
     };
   },
 
-  async getReferrerInfo(referralCode: string): Promise<{ name: string; username?: string } | null> {
+  async getReferrerInfo(referralCode: string): Promise<{
+    name: string;
+    username?: string;
+    bonus: number;
+  } | null> {
     try {
       const referrer = await this.findByReferralCode(referralCode);
       if (!referrer) return null;
@@ -239,6 +274,7 @@ export const userService = {
       return {
         name: referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : ""),
         username: referrer.username,
+        bonus: referrer.referral_bonus,
       };
     } catch (error) {
       console.error("Error getting referrer info:", error);

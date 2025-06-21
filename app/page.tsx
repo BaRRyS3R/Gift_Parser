@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated with localization support
+// src/app/page.tsx - Updated to use service layer method
 
 "use client";
 
@@ -21,6 +21,8 @@ interface AuthState {
   needsRegistration: boolean;
   referralCode?: string;
   referralBonus?: number;
+  referrerName?: string;
+  referrerUsername?: string;
 }
 
 export default function IntroPage(): JSX.Element {
@@ -69,7 +71,6 @@ export default function IntroPage(): JSX.Element {
 
       if (startParam && startParam.length === 8) {
         console.log("Referral code extracted from start param:", startParam);
-
         return startParam;
       }
     }
@@ -81,7 +82,6 @@ export default function IntroPage(): JSX.Element {
 
       if (refCode) {
         console.log("Referral code extracted from URL (dev):", refCode);
-
         return refCode;
       }
     }
@@ -153,27 +153,6 @@ export default function IntroPage(): JSX.Element {
       } catch (error) {
         console.error("Ошибка при проверке пользователя:", error);
         throw error;
-      }
-    },
-    [],
-  );
-
-  const validateReferralCode = useCallback(
-    async (
-      referralCode: string,
-    ): Promise<{ isValid: boolean; bonus: number }> => {
-      try {
-        const referrer = await userService.findByReferralCode(referralCode);
-
-        if (referrer) {
-          return { isValid: true, bonus: referrer.referral_bonus };
-        }
-
-        return { isValid: false, bonus: 0 };
-      } catch (error) {
-        console.error("Ошибка при проверке реферального кода:", error);
-
-        return { isValid: false, bonus: 0 };
       }
     },
     [],
@@ -255,16 +234,21 @@ export default function IntroPage(): JSX.Element {
         return;
       }
 
-      // Проверяем реферальный код если есть
+      // Проверяем реферальный код если есть и получаем информацию о пригласившем
+      // Используем метод из сервисного слоя
       let referralBonus = 0;
+      let referrerName: string | undefined;
+      let referrerUsername: string | undefined;
 
       if (referralCode) {
-        const validation = await validateReferralCode(referralCode);
+        const validation = await userService.validateReferralCodeAndGetReferrer(referralCode);
 
         if (validation.isValid) {
           referralBonus = validation.bonus;
+          referrerName = validation.referrerName;
+          referrerUsername = validation.referrerUsername;
           console.log(
-            `Валидный реферальный код. Бонус: +${referralBonus} попыток`,
+            `Валидный реферальный код. Бонус: +${referralBonus} попыток. Пригласил: ${referrerName}`,
           );
         } else {
           console.log("Невалидный реферальный код");
@@ -276,6 +260,8 @@ export default function IntroPage(): JSX.Element {
         telegramUser,
         referralCode: referralCode,
         referralBonus: referralBonus,
+        referrerName: referrerName,
+        referrerUsername: referrerUsername,
       }));
 
       // Устанавливаем telegram пользователя в контекст
@@ -322,7 +308,6 @@ export default function IntroPage(): JSX.Element {
   }, [
     getTelegramUser,
     extractReferralCode,
-    validateReferralCode,
     checkUserExists,
     router,
     updateUser,
@@ -369,7 +354,6 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
-
           setLoadProgress(progress);
         }
       }
@@ -518,6 +502,17 @@ export default function IntroPage(): JSX.Element {
     }
   };
 
+  // Функция для форматирования отображаемого имени пригласившего
+  const getDisplayReferrerName = (): string => {
+    if (authState.referrerUsername) {
+      return `@${authState.referrerUsername}`;
+    }
+    if (authState.referrerName) {
+      return authState.referrerName;
+    }
+    return "s0meone";
+  };
+
   const isInitialLoading =
     authState.isChecking || (isLoading && !videoError) || !fontLoaded;
 
@@ -537,7 +532,6 @@ export default function IntroPage(): JSX.Element {
               ? t("auth.checkingUser")
               : `${t("common.loading")} ${Math.round(loadProgress)}%`}
           </p>
-          {/* Добавьте компонент отладки */}
           <DebugLanguage />
         </div>
       )}
@@ -617,7 +611,7 @@ export default function IntroPage(): JSX.Element {
                       })}
                     </p>
 
-                    {/* Referral Bonus Info */}
+                    {/* Referral Bonus Info - с отображением имени пригласившего */}
                     {authState.referralCode &&
                       authState.referralBonus &&
                       authState.referralBonus > 0 && (
@@ -638,7 +632,7 @@ export default function IntroPage(): JSX.Element {
                             </span>
                           </p>
                           <p className="text-green-400/60 text-xs">
-                            {t("auth.referredBy")} {authState.referralCode}
+                            {t("auth.referredBy")} {getDisplayReferrerName()}
                           </p>
                         </div>
                       )}
