@@ -11,11 +11,7 @@ import {
     Star,
     CheckCircle,
     Clock,
-    Crown,
-    Gem,
-    Flame,
-    ShoppingCart,
-    Target
+    ShoppingCart
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";

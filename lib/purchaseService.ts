@@ -183,8 +183,7 @@ export const validateProductType = (
     "attempts_1",
     "attempts_5",
     "attempts_10",
-    "attempts_100",
-    "instant_reset"
+    "attempts_100"
   ];
   return validTypes.includes(productType as ProductType);
 };
