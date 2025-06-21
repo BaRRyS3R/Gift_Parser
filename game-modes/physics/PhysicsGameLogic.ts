@@ -53,7 +53,7 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
-        impulseForce: 0.012,
+        impulseForce: 0.1,
         maxMistakes: 4,
         levelDuration: 180, // 3 minutes
     };
@@ -70,7 +70,7 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.012,
+    force: 0.1,
     radius: 120,
     falloff: 0.4,
 };
