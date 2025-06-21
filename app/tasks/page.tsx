@@ -358,7 +358,7 @@ export default function TasksPage() {
             <div className="min-h-screen bg-black text-white flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/60">Загрузка заданий...</p>
+                    <p className="text-white/60">{t("tasks.loading")}</p>
                 </div>
             </div>
         );
