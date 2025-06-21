@@ -3,7 +3,6 @@
 "use client";
 
 import React, { useRef, useEffect, useCallback } from "react";
-import * as Matter from "matter-js";
 import { PhysicsGameState } from "@/types/game-modes/physics";
 import { PhysicsCircle } from "@/types/game-modes/common";
 

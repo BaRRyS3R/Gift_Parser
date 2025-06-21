@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameLogic.ts - Логика физического игрового режима
+// src/game-modes/physics/PhysicsGameLogic.ts - Complete corrected physics logic with proper Matter.js integration
 
 import * as Matter from "matter-js";
 import {
@@ -21,31 +21,34 @@ export const PHYSICS_CONFIG: PhysicsGameConfig = {
     initialActivationTimeMin: 1500,
     initialActivationTimeMax: 3000,
     circleActiveTime: 2500,
-    impulseForce: 0.005,
+    impulseForce: 0.008, // Increased for better visual feedback
     maxMistakes: 4,
-    levelDuration: 120, // 2 минуты
+    levelDuration: 120, // 2 minutes
 };
 
 export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
     containerWidth: PHYSICS_CONFIG.containerWidth,
     containerHeight: PHYSICS_CONFIG.containerHeight,
     wallThickness: 10,
-    gravity: { x: 0, y: 0.3 }, // Слабая гравитация
-    restitution: 0.8, // Упругость
-    friction: 0.005, // Трение
-    frictionAir: 0.01, // Сопротивление воздуха
+    gravity: { x: 0, y: 0.4 }, // Slight gravity for natural movement
+    restitution: 0.8, // Bounce factor
+    friction: 0.01, // Surface friction
+    frictionAir: 0.015, // Air resistance
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
     force: PHYSICS_CONFIG.impulseForce,
-    radius: 80, // Радиус действия импульса
-    falloff: 0.7, // Коэффициент ослабления
+    radius: 100, // Increased impulse radius
+    falloff: 0.6, // Force reduction with distance
 };
 
 export const createPhysicsEngine = (): Matter.Engine => {
     const engine = Matter.Engine.create();
     engine.world.gravity.x = PHYSICS_ENGINE_CONFIG.gravity.x;
     engine.world.gravity.y = PHYSICS_ENGINE_CONFIG.gravity.y;
+
+    // Configure engine timing for consistent physics
+    engine.timing.timeScale = 1;
 
     return engine;
 };
@@ -58,22 +61,47 @@ export const createPhysicsCircles = (
     engine: Matter.Engine
 ): PhysicsCircle[] => {
     const circles: PhysicsCircle[] = [];
-    const margin = radius + 10;
+    const margin = radius + 15; // Increased margin for better spacing
+    const maxAttempts = 100; // Prevent infinite loops
 
     for (let i = 0; i < count; i++) {
-        // Размещаем круги случайно, но с отступами от краев
-        const x = margin + Math.random() * (containerWidth - 2 * margin);
-        const y = margin + Math.random() * (containerHeight - 2 * margin);
+        let x: number, y: number;
+        let attempts = 0;
+        let validPosition = false;
 
-        // Создаем физическое тело
+        // Find non-overlapping position for each circle
+        do {
+            x = margin + Math.random() * (containerWidth - 2 * margin);
+            y = margin + Math.random() * (containerHeight - 2 * margin);
+
+            validPosition = true;
+
+            // Check collision with existing circles
+            for (const existingCircle of circles) {
+                const distance = Math.sqrt(
+                    Math.pow(x - existingCircle.x, 2) + Math.pow(y - existingCircle.y, 2)
+                );
+
+                // Ensure minimum distance between circle centers
+                if (distance < radius * 2.2) { // 2.2x radius for proper spacing
+                    validPosition = false;
+                    break;
+                }
+            }
+
+            attempts++;
+        } while (!validPosition && attempts < maxAttempts);
+
+        // Create physics body with collision detection
         const body = Matter.Bodies.circle(x, y, radius, {
             restitution: PHYSICS_ENGINE_CONFIG.restitution,
             friction: PHYSICS_ENGINE_CONFIG.friction,
             frictionAir: PHYSICS_ENGINE_CONFIG.frictionAir,
-            density: 0.001,
+            density: 0.002, // Increased for better collision response
+            label: `circle_${i}`, // Label for identification
         });
 
-        // Добавляем в мир
+        // Add body to physics world
         Matter.World.add(engine.world, body);
 
         const circle: PhysicsCircle = {
@@ -85,6 +113,8 @@ export const createPhysicsCircles = (
             isAnimating: false,
             isDecoy: false,
             matterBodyId: body.id,
+            vx: 0,
+            vy: 0,
         };
 
         circles.push(circle);
@@ -105,32 +135,48 @@ export const createBoundaryWalls = (
             -thickness / 2,
             containerWidth + thickness * 2,
             thickness,
-            { isStatic: true }
+            {
+                isStatic: true,
+                label: "wall_top",
+                render: { fillStyle: "#ffffff40" }
+            }
         ),
         bottom: Matter.Bodies.rectangle(
             containerWidth / 2,
             containerHeight + thickness / 2,
             containerWidth + thickness * 2,
             thickness,
-            { isStatic: true }
+            {
+                isStatic: true,
+                label: "wall_bottom",
+                render: { fillStyle: "#ffffff40" }
+            }
         ),
         left: Matter.Bodies.rectangle(
             -thickness / 2,
             containerHeight / 2,
             thickness,
             containerHeight + thickness * 2,
-            { isStatic: true }
+            {
+                isStatic: true,
+                label: "wall_left",
+                render: { fillStyle: "#ffffff40" }
+            }
         ),
         right: Matter.Bodies.rectangle(
             containerWidth + thickness / 2,
             containerHeight / 2,
             thickness,
             containerHeight + thickness * 2,
-            { isStatic: true }
+            {
+                isStatic: true,
+                label: "wall_right",
+                render: { fillStyle: "#ffffff40" }
+            }
         ),
     };
 
-    // Добавляем все стены в мир
+    // Add all walls to physics world
     Matter.World.add(engine.world, [walls.top, walls.bottom, walls.left, walls.right]);
 
     return walls;
@@ -187,7 +233,7 @@ export const initializePhysicsGameState = (): PhysicsGameState => {
 };
 
 export const updatePhysicsPositions = (state: PhysicsGameState): PhysicsGameState => {
-    // Обновляем позиции кругов из физического движка
+    // Synchronize circle positions with Matter.js physics bodies
     const updatedCircles = state.circles.map((circle) => {
         const body = state.engine.world.bodies.find(b => b.id === circle.matterBodyId);
         if (body) {
@@ -213,20 +259,20 @@ export const activateRandomCircle = (
     onCircleActivated: (circleId: number, isDecoy: boolean) => void,
     onCircleTimeout: (circleId: number, wasDecoy: boolean) => void,
 ): PhysicsGameState => {
-    if (state.activeCircleIds.length > 0) return state; // Уже есть активный круг
+    if (state.activeCircleIds.length > 0) return state; // Only one active circle at a time
 
-    // Выбираем случайный круг
+    // Select available circles for activation
     const availableCircles = state.circles.filter(c => !c.isActive && !c.isAnimating);
     if (availableCircles.length === 0) return state;
 
     const randomCircle = availableCircles[Math.floor(Math.random() * availableCircles.length)];
 
-    // 20% шанс на ловушку (красный круг)
-    const isDecoy = Math.random() < 0.2;
+    // 25% chance for trap circle (red)
+    const isDecoy = Math.random() < 0.25;
 
     const newActiveCircleIds = [...state.activeCircleIds, randomCircle.id];
 
-    // Устанавливаем таймаут для деактивации
+    // Set timeout for circle deactivation
     const timeout = setTimeout(() => {
         onCircleTimeout(randomCircle.id, isDecoy);
     }, state.config.circleActiveTime);
@@ -260,34 +306,43 @@ export const applyImpulse = (
     const clickedBody = state.engine.world.bodies.find(b => b.id === clickedCircle.matterBodyId);
     if (!clickedBody) return state;
 
-    // Применяем импульс ко всем другим кругам
+    console.log(`Applying impulse from circle ${clickedCircleId} at position:`, clickedBody.position);
+
+    // Apply impulse to all other circles within radius
+    let affectedCircles = 0;
+
     state.circles.forEach((circle) => {
         if (circle.id === clickedCircleId) return;
 
         const body = state.engine.world.bodies.find(b => b.id === circle.matterBodyId);
         if (!body) return;
 
-        // Вычисляем расстояние
+        // Calculate distance and direction
         const dx = body.position.x - clickedBody.position.x;
         const dy = body.position.y - clickedBody.position.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // Применяем силу только если круг в радиусе действия
+        // Apply force if within effective radius
         if (distance <= IMPULSE_CONFIG.radius && distance > 0) {
-            // Нормализуем направление
+            // Normalize direction vector
             const normalizedX = dx / distance;
             const normalizedY = dy / distance;
 
-            // Вычисляем силу с учетом затухания
-            const forceMagnitude = IMPULSE_CONFIG.force * Math.pow(IMPULSE_CONFIG.falloff, distance / 10);
+            // Calculate force magnitude with distance falloff
+            const distanceRatio = 1 - (distance / IMPULSE_CONFIG.radius);
+            const forceMagnitude = IMPULSE_CONFIG.force * Math.pow(distanceRatio, IMPULSE_CONFIG.falloff);
 
-            // Применяем импульс
+            // Apply impulse force to body
             Matter.Body.applyForce(body, body.position, {
                 x: normalizedX * forceMagnitude,
                 y: normalizedY * forceMagnitude,
             });
+
+            affectedCircles++;
         }
     });
+
+    console.log(`Impulse affected ${affectedCircles} circles`);
 
     return state;
 };
@@ -307,7 +362,7 @@ export const handlePhysicsCircleClick = (
 
     if (clickedCircle.isActive && !clickedCircle.isAnimating) {
         if (clickedCircle.isDecoy) {
-            // Красный круг - ошибка
+            // Red circle clicked - mistake
             return {
                 newState: {
                     ...updatedState,
@@ -320,7 +375,7 @@ export const handlePhysicsCircleClick = (
                 result: "decoy",
             };
         } else {
-            // Правильный клик - применяем импульс и даем очки
+            // Correct white circle click - apply impulse and award points
             const stateWithImpulse = applyImpulse(updatedState, clickedCircleId);
 
             const newStats = {
@@ -344,7 +399,7 @@ export const handlePhysicsCircleClick = (
             };
         }
     } else {
-        // Клик по неактивному кругу - ошибка
+        // Click on inactive circle - mistake
         return {
             newState: {
                 ...updatedState,
@@ -363,6 +418,7 @@ export const removeWall = (state: PhysicsGameState, mistakeCount: number): Physi
     const newBoundaries = { ...state.boundaries };
     let wallToRemove: keyof typeof state.wallBodies | null = null;
 
+    // Determine which wall to remove based on mistake count
     switch (mistakeCount) {
         case 1:
             if (newBoundaries.top && state.wallBodies.top) {
@@ -390,9 +446,12 @@ export const removeWall = (state: PhysicsGameState, mistakeCount: number): Physi
             break;
     }
 
-    // Удаляем стену из физического мира
+    // Remove wall from physics world
     if (wallToRemove && state.wallBodies[wallToRemove]) {
+        console.log(`Removing wall: ${wallToRemove} due to mistake ${mistakeCount}`);
+
         Matter.World.remove(state.world, state.wallBodies[wallToRemove]!);
+
         const newWallBodies = { ...state.wallBodies };
         delete newWallBodies[wallToRemove];
 
@@ -440,7 +499,7 @@ export const deactivatePhysicsCircle = (
 export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
     const containerWidth = state.config.containerWidth;
     const containerHeight = state.config.containerHeight;
-    const margin = 50; // Дополнительный отступ для проверки
+    const margin = 80; // Larger margin for escape detection
 
     let escapedCount = 0;
 
@@ -455,13 +514,14 @@ export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
         }
     });
 
-    // Игра заканчивается, если большинство кругов ушло
-    return escapedCount >= state.circles.length * 0.7;
+    // Game ends when 60% of circles have escaped
+    const escapeThreshold = Math.floor(state.circles.length * 0.6);
+    return escapedCount >= escapeThreshold;
 };
 
 export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {
     const baseScore = stats.correctHits * 100;
-    const timeBonus = Math.max(0, stats.gameTime / 1000) * 5; // 5 очков за секунду
+    const timeBonus = Math.max(0, stats.gameTime / 1000) * 5; // 5 points per second
     const mistakePenalty = stats.currentMistakes * 50;
 
     return Math.max(0, baseScore + timeBonus - mistakePenalty);
@@ -489,13 +549,13 @@ export const createPhysicsGameResult = (
 };
 
 export const cleanupPhysicsGame = (state: PhysicsGameState): void => {
-    // Очищаем таймауты
+    // Clear all timeouts
     state.circleTimeouts.forEach((timeout) => clearTimeout(timeout));
     if (state.activationTimeout) {
         clearTimeout(state.activationTimeout);
     }
 
-    // Очищаем Matter.js движок
+    // Clear Matter.js engine
     if (state.engine) {
         Matter.Engine.clear(state.engine);
         if (state.render) {
