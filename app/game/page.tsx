@@ -29,7 +29,7 @@ interface GameMode {
   descriptionKey: string;
   icon: React.ComponentType<any>;
   route: string;
-  difficulty: "Medium" | "Extreme" | "Experimental";
+  difficulty: "🤡" | "💋😈" | "👉👌";
   durationKey: string;
   color: {
     primary: string;
@@ -50,7 +50,7 @@ const GAME_MODES: GameMode[] = [
     descriptionKey: "game.modes.reaction.description",
     icon: Zap,
     route: "/game/reaction",
-    difficulty: "Medium",
+    difficulty: "🤡",
     durationKey: "game.modes.reaction.duration",
     color: {
       primary: "text-white",
@@ -78,7 +78,7 @@ const GAME_MODES: GameMode[] = [
     descriptionKey: "game.modes.survival.description",
     icon: Crosshair,
     route: "/game/survival",
-    difficulty: "Extreme",
+    difficulty: "💋😈",
     durationKey: "game.modes.survival.duration",
     color: {
       primary: "text-red-400",
@@ -106,7 +106,7 @@ const GAME_MODES: GameMode[] = [
     descriptionKey: "game.modes.physics.description",
     icon: Atom,
     route: "/game/physics",
-    difficulty: "Experimental",
+    difficulty: "👉👌",
     durationKey: "game.modes.physics.duration",
     color: {
       primary: "text-purple-400",
@@ -274,14 +274,14 @@ const CompactGameModeCard = ({
                 </span>
                 <div className="w-1 h-1 rounded-full bg-white/40" />
                 <span
-                  className={`${mode.difficulty === "Extreme"
+                  className={`${mode.difficulty === "💋😈"
                     ? "text-red-400"
-                    : mode.difficulty === "Experimental"
+                    : mode.difficulty === "👉👌"
                       ? "text-purple-400"
                       : mode.color.accent
                     }`}
                 >
-                  {mode.difficulty === "Experimental" ? "Эксп." : mode.difficulty}
+                  {mode.difficulty === "👉👌" ? "👉👌" : mode.difficulty}
                 </span>
               </div>
             </div>
@@ -324,30 +324,6 @@ const CompactGameModeCard = ({
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
                       {t(featureKey as any)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Basic Rules */}
-            <div>
-              <h4 className={`text-sm font-bold ${mode.color.primary} mb-2`}>
-                Основные правила:
-              </h4>
-              <div className="space-y-1">
-                {mode.basicRules.map((ruleKey, index) => (
-                  <div key={index} className="flex items-start space-x-2">
-                    <div
-                      className={`w-1 h-1 rounded-full mt-2 flex-shrink-0 ${mode.id === "reaction"
-                        ? "bg-white/60"
-                        : mode.id === "survival"
-                          ? "bg-red-400/60"
-                          : "bg-purple-400/60"
-                        }`}
-                    />
-                    <span className={`text-xs ${mode.color.secondary} leading-relaxed`}>
-                      {t(ruleKey as any)}
                     </span>
                   </div>
                 ))}
