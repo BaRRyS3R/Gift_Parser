@@ -269,13 +269,23 @@ export default function ShopPage() {
 
                 {/* Success Notification */}
                 {successNotification.show && (
-                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-4 max-w-sm w-full mx-4 z-50">
-                        <div className="flex items-center space-x-3">
-                            {successNotification.icon}
-                            <div>
-                                <h4 className="font-bold text-white">{successNotification.title}</h4>
-                                <p className="text-white/60 text-sm">{successNotification.message}</p>
+                    <div className={`
+                        fixed bottom-0 left-0 right-0 z-50 px-4 pb-24
+                        transform transition-all duration-500 ease-out
+                        ${successNotification.show ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}
+                    `}>
+                        <div className="bg-gradient-to-r from-green-500/90 to-emerald-500/90 backdrop-blur-md border border-green-400/30 rounded-t-2xl p-4 shadow-2xl">
+                            <div className="flex items-center space-x-4">
+                                <div className="flex-shrink-0 w-12 h-12 bg-green-400/20 rounded-full flex items-center justify-center">
+                                    {successNotification.icon}
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-white text-lg">{successNotification.title}</h4>
+                                    <p className="text-green-100 text-sm mt-1">{successNotification.message}</p>
+                                </div>
                             </div>
+                            {/* Decorative elements */}
+                            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-green-300/50 rounded-b-full" />
                         </div>
                     </div>
                 )}
