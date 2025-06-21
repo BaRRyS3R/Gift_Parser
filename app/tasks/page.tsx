@@ -6,9 +6,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Button, Progress, Chip, Divider } from "@nextui-org/react";
 import {
-    Clock,
     Gift,
-    ExternalLink,
     Check,
     Play,
     AlertCircle,
@@ -18,8 +16,7 @@ import {
 } from "lucide-react";
 import {
     SiTelegram,
-    SiX,
-    SiTwitter
+    SiX
 } from "react-icons/si";
 
 import { useT } from "@/contexts/LocalizationContext";
