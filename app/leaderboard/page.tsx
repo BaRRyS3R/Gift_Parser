@@ -26,7 +26,7 @@ import {
   type PhysicsLeaderboard,
 } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
-import { formatSurvivalTime } from "@/game-modes/survival/SurvivalGameLogic";
+import { formatSurvivalTime, formatPhysicsTime } from "@/utils/timeFormatter";
 import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -561,7 +561,7 @@ export default function LeaderboardPage() {
                           (currentLeaderboard[0] as SurvivalLeaderboard)
                             .best_survival_time,
                         )
-                        : (currentLeaderboard[0] as PhysicsLeaderboard).best_physics_score
+                        : formatPhysicsTime((currentLeaderboard[0] as PhysicsLeaderboard).best_physics_time)
                     : "0"}
                 </span>
               </div>

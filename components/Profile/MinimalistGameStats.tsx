@@ -6,7 +6,7 @@ import React, { useState } from "react";
 import { Card, CardBody } from "@nextui-org/react";
 import { Zap, Crosshair, Trophy, Activity, Clock, Target, ChevronDown, ChevronUp, Atom } from "lucide-react";
 import type { User as UserType } from "@/lib/supabase";
-import { formatSurvivalTime } from "@/game-modes/survival/SurvivalGameLogic";
+import { formatSurvivalTime, formatPhysicsTime } from "@/utils/timeFormatter";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface MinimalistGameStatsProps {
@@ -254,7 +254,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                         <StatItem
                             icon={Clock}
                             label={t("profile.stats.bestTime")}
-                            value={`${user.physics_best_time || 0}s`}
+                            value={formatPhysicsTime(user.physics_best_time || 0)}
                         />
                         <StatItem
                             icon={Target}

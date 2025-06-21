@@ -203,30 +203,6 @@ export const en = {
                     "Speed measurement",
                     "Performance rating",
                 ],
-                rules: [
-                    "One circle will appear after a random delay (3-5 seconds)",
-                    "Click the circle as fast as possible when it appears",
-                    "Only successful clicks are recorded to the leaderboard",
-                    "The faster your reaction, the higher your score",
-                    "Maximum waiting time: 10 seconds before timeout",
-                ],
-                tips: [
-                    "Stay focused and ready during the waiting period",
-                    "Don't anticipate - only react when you see the target",
-                    "Use your dominant hand for faster response",
-                    "Maintain a comfortable hand position",
-                    "Practice regularly to improve reflexes",
-                ],
-                scoring:
-                    "Score calculated based on reaction time: Lightning (≤150ms) = 1.5x bonus, Excellent (≤200ms) = 1.3x bonus, Good (≤300ms) = 1.1x bonus. Base score = 1000 - reaction_time_ms.",
-                instructions: {
-                    ready: "Get ready for lightning reflex test",
-                    waiting: "Wait for the white circle to appear...",
-                    clickNow: "CLICK NOW! AS FAST AS POSSIBLE!",
-                    targetWillAppear: "Target will appear in 3-5 seconds",
-                    lightningFast: "Lightning fast reflexes required",
-                    preparing: "Preparing reaction speed test...",
-                },
                 results: {
                     title: "REACTION",
                     subtitle: "The fiasco has been digitalized. Our... condolences?",
@@ -267,23 +243,6 @@ export const en = {
                     "Trap circles (red)",
                     "One mistake = death",
                 ],
-                rules: [
-                    "Click only white circles - they disappear on correct click",
-                    "Never click red circles - they're traps that end the game",
-                    "Never click inactive (gray) circles - this also ends the game",
-                    "Missing a white circle timeout also ends the game",
-                    "Progress through 15 levels with increasing difficulty",
-                    "Each level increases speed, targets, and complexity",
-                ],
-                tips: [
-                    "Focus on accuracy over speed - one mistake ends everything",
-                    "Track multiple targets simultaneously",
-                    "Develop peripheral vision",
-                    "Stay calm as intensity increases",
-                    "Learn to distinguish colors quickly under pressure",
-                ],
-                scoring:
-                    "Base score = survival_seconds + (perfect_streak × 3) + (level_reached × 15). Higher levels and longer streaks give exponential bonuses.",
                 instructions: {
                     oneMistakeDeath: "ONE MISTAKE = DEATH",
                 },
@@ -337,23 +296,6 @@ export const en = {
                     "Make a mistake and the walls disappear.",
                     "That's how it is.",
                 ],
-                rules: [
-                    "Click white circles to create impulse explosions",
-                    "Each correct hit pushes nearby circles away",
-                    "Never click red circles - they're deadly traps",
-                    "Never click inactive circles - this counts as a mistake",
-                    "Each mistake removes one wall from the container",
-                    "Game ends when too many circles escape or 4 mistakes made",
-                ],
-                tips: [
-                    "Plan your clicks to maximize impulse effectiveness",
-                    "Watch physics - circles can help push each other",
-                    "Preserve walls by avoiding mistakes at all costs",
-                    "Use the container boundaries strategically",
-                    "Stay calm as chaos increases with fewer walls",
-                ],
-                scoring:
-                    "Base score = (correct_hits × 100) + (survival_time_seconds × 5) - (mistakes × 50). Longer survival and accuracy give the highest scores.",
                 results: {
                     title: "PHYSICS COMPLETE",
                     gameTime: "GAME TIME",
