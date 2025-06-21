@@ -6,20 +6,20 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Button, Progress, Chip, Divider } from "@nextui-org/react";
 import {
-    Gift,
     Check,
     Play,
     AlertCircle,
     CheckCircle2,
     Globe,
-    Camera
+    Camera,
+    Target
 } from "lucide-react";
 import {
     SiTelegram,
     SiX
 } from "react-icons/si";
 
-import { useT } from "@/contexts/LocalizationContext";
+import { useT, useLanguage } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
 import { taskService } from "@/lib/supabase_tasks";
 import type { TaskWithCompletion, TaskType, TaskProcessingState } from "@/types/tasks";
@@ -358,7 +358,7 @@ export default function TasksPage() {
             <div className="min-h-screen bg-black text-white flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/60">Загрузка заданий...</p>
+                    <p className="text-white/60">{t("tasks.loading")}</p>
                 </div>
             </div>
         );
@@ -505,9 +505,9 @@ function TaskCard({
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 {/* Full card diagonal pattern of icons */}
                 <div className="absolute -top-8 -left-8 w-full h-full transform rotate-12 opacity-5">
-                    <div className="grid grid-cols-6 gap-6 w-full h-full">
-                        {Array.from({ length: 24 }).map((_, i) => (
-                            <TaskIcon key={i} size={28} className="text-white" />
+                    <div className="grid grid-cols-7 gap-4 w-full h-full">
+                        {Array.from({ length: 49 }).map((_, i) => (
+                            <TaskIcon key={i} size={24} className="text-white" />
                         ))}
                     </div>
                 </div>
@@ -543,9 +543,9 @@ function TaskCard({
                         {/* Footer */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                                <Gift className="text-white" size={16} />
+                                <Target className="text-white" size={16} />
                                 <span className="text-white font-bold">
-                                    +{task.reward_attempts} {task.reward_attempts === 1 ? 'попытка' : 'попыток'}
+                                    +{task.reward_attempts}
                                 </span>
                                 {isCompleted && (
                                     <CheckCircle2 className="text-white ml-2" size={16} />

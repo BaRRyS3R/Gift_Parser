@@ -62,6 +62,7 @@ export const ru = {
         // Основные элементы
         title: "ЗАДАНИЯ",
         subtitle: "Выполняйте задания для получения дополнительных попыток",
+        loading: "Загрузка",
 
         // Кнопки и статусы
         start: "НАЧАТЬ",
@@ -80,9 +81,7 @@ export const ru = {
         verifying: "Проверяем...",
 
         // Награды
-        reward: "+{count} попыток",
-        rewardSingle: "+1 попытка",
-        rewardMultiple: "+{count} попыток",
+        reward: "Попыток:",
 
         // Разделы
         sections: {

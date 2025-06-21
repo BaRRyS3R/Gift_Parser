@@ -61,6 +61,7 @@ export const en = {
         // Основные элементы
         title: "TASKS",
         subtitle: "Complete tasks to earn extra attempts",
+        loading: "Loading",
 
         // Кнопки и статусы
         start: "START",
@@ -79,9 +80,7 @@ export const en = {
         verifying: "Verifying...",
 
         // Награды
-        reward: "+{count} attempts",
-        rewardSingle: "+1 attempt",
-        rewardMultiple: "+{count} attempts",
+        reward: "Attempts:",
 
         // Разделы
         sections: {
