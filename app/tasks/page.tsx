@@ -6,9 +6,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Button, Progress, Chip, Divider } from "@nextui-org/react";
 import {
-    Clock,
-    Gift,
-    ExternalLink,
     Check,
     Play,
     AlertCircle,
