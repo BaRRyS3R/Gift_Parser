@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { 
     SiTelegram, 
-    SiX 
+    SiX
 } from "react-icons/si";
 
 import { useT, useLanguage } from "@/contexts/LocalizationContext";
@@ -503,13 +503,9 @@ function TaskCard({
         >
             {/* Background Pattern with Icons */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {/* Full card pattern with blur */}
-                <div className="absolute -top-8 -left-8 w-full h-full transform rotate-12 opacity-10 blur-sm">
-                    <div className="grid grid-cols-8 gap-4 w-full h-full">
-                        {Array.from({ length: 64 }).map((_, i) => (
-                            <TaskIcon key={i} size={24} className="text-white" />
-                        ))}
-                    </div>
+                {/* Single large icon on the right side */}
+                <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
+                    <TaskIcon size={120} className="text-white" />
                 </div>
             </div>
 
