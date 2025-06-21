@@ -111,16 +111,16 @@ export default function MainPage() {
 
   const animationSteps = [
     "|",
-    "s|",
-    "so-",
-    "som|",
-    "some=/",
-    "somet|",
-    "someth|",
-    "somethi///",
-    "somethin¿",
-    "something?",
-    "something",
+    "c|",
+    "ci-",
+    "cir|",
+    "cir=/",
+    "circ|",
+    "circu|",
+    "circus///",
+    "circusl¿",
+    "circusle?",
+    "circusle",
   ];
 
   const username = user?.first_name || "unknown";

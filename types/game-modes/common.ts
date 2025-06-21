@@ -1,4 +1,4 @@
-// src/types/game-modes/common.ts - Общие типы для всех игровых режимов
+// src/types/game-modes/common.ts - Обновлено с добавлением физического режима
 
 export interface Circle {
   id: number;
@@ -7,6 +7,15 @@ export interface Circle {
   isDecoy: boolean;
   x?: number;
   y?: number;
+}
+
+export interface PhysicsCircle extends Circle {
+  x: number;
+  y: number;
+  vx?: number;
+  vy?: number;
+  radius: number;
+  matterBodyId?: number; // ID тела в Matter.js
 }
 
 export enum GameState {
@@ -20,6 +29,7 @@ export enum GameState {
 export enum GameMode {
   REACTION = "reaction",
   SURVIVAL = "survival",
+  PHYSICS = "physics",
 }
 
 export interface BaseGameResult {
@@ -49,4 +59,12 @@ export type GameDifficulty = "easy" | "medium" | "hard" | "extreme";
 export interface GridDimensions {
   cols: number;
   rows: number;
+}
+
+// Boundaries для физического режима
+export interface BoundaryState {
+  top: boolean;
+  left: boolean;
+  right: boolean;
+  bottom: boolean;
 }

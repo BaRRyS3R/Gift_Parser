@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Enhanced with localization integration
+// src/app/game/page.tsx - Enhanced with physics mode integration
 
 "use client";
 
@@ -18,6 +18,7 @@ import {
   Shield,
   Battery,
   ShoppingCart,
+  Atom,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -30,7 +31,7 @@ interface GameMode {
   descriptionKey: string;
   icon: React.ComponentType<any>;
   route: string;
-  difficulty: "Medium" | "Extreme";
+  difficulty: "Medium" | "Extreme" | "Experimental";
   durationKey: string;
   color: {
     primary: string;
@@ -130,6 +131,47 @@ const GAME_MODES: GameMode[] = [
       scoringKey: "game.modes.survival.scoring",
     },
   },
+  {
+    id: "physics",
+    nameKey: "game.modes.physics.name",
+    descriptionKey: "game.modes.physics.description",
+    icon: Atom,
+    route: "/game/physics",
+    difficulty: "Experimental",
+    durationKey: "game.modes.physics.duration",
+    color: {
+      primary: "text-purple-400",
+      secondary: "text-purple-300",
+      accent: "text-purple-200",
+      background: "bg-purple-500/5",
+      border: "border-purple-400/20",
+    },
+    featuresKeys: [
+      "game.modes.physics.features.0",
+      "game.modes.physics.features.1",
+      "game.modes.physics.features.2",
+      "game.modes.physics.features.3",
+    ],
+    detailedInfo: {
+      objectiveKey: "game.modes.physics.objective",
+      rulesKeys: [
+        "game.modes.physics.rules.0",
+        "game.modes.physics.rules.1",
+        "game.modes.physics.rules.2",
+        "game.modes.physics.rules.3",
+        "game.modes.physics.rules.4",
+        "game.modes.physics.rules.5",
+      ],
+      tipsKeys: [
+        "game.modes.physics.tips.0",
+        "game.modes.physics.tips.1",
+        "game.modes.physics.tips.2",
+        "game.modes.physics.tips.3",
+        "game.modes.physics.tips.4",
+      ],
+      scoringKey: "game.modes.physics.scoring",
+    },
+  },
 ];
 
 const AttemptsDisplay = ({
@@ -185,10 +227,10 @@ const AttemptsDisplay = ({
       <div className="mb-3">
         <div
           className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
-              ? "bg-red-400/20"
-              : isLow
-                ? "bg-orange-400/20"
-                : "bg-white/20"
+            ? "bg-red-400/20"
+            : isLow
+              ? "bg-orange-400/20"
+              : "bg-white/20"
             }`}
         >
           <div
@@ -205,8 +247,8 @@ const AttemptsDisplay = ({
                 <div
                   key={i}
                   className={`w-2 h-2 rounded-full ${i < attemptsRemaining
-                      ? getBatteryColor().replace("text-", "bg-")
-                      : "bg-white/20"
+                    ? getBatteryColor().replace("text-", "bg-")
+                    : "bg-white/20"
                     }`}
                 />
               ),
@@ -221,7 +263,6 @@ const AttemptsDisplay = ({
         )}
       </div>
 
-      {/* Расширенное уведомление для пустых попыток с кнопкой магазина */}
       {isEmpty && (
         <div className="space-y-3">
           <div className="text-center space-y-2">
@@ -248,7 +289,6 @@ const AttemptsDisplay = ({
             )}
           </div>
 
-          {/* Кнопка перехода в магазин */}
           <button
             onClick={onShopClick}
             className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-400/40 text-yellow-300 rounded-lg hover:from-yellow-500/30 hover:to-orange-500/30 hover:border-yellow-400/60 transition-all duration-300 hover:scale-105 active:scale-95"
@@ -261,7 +301,6 @@ const AttemptsDisplay = ({
         </div>
       )}
 
-      {/* Остальные состояния */}
       {!isEmpty && (
         <div className="text-center mt-2">
           {isLow && (
@@ -351,7 +390,6 @@ export default function GamePage() {
   };
 
   useEffect(() => {
-    // Setup Telegram WebApp back button
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
 
@@ -378,6 +416,8 @@ export default function GamePage() {
   const renderModeCard = (mode: GameMode) => {
     const Icon = mode.icon;
     const isReaction = mode.id === "reaction";
+    const isSurvival = mode.id === "survival";
+    const isPhysics = mode.id === "physics";
     const isDisabled = !attemptsStatus.canPlay;
 
     return (
@@ -424,16 +464,20 @@ export default function GamePage() {
                 <div className="flex items-center space-x-2">
                   {mode.difficulty === "Extreme" ? (
                     <AlertTriangle className="text-red-400" size={14} />
+                  ) : mode.difficulty === "Experimental" ? (
+                    <Atom className="text-purple-400" size={14} />
                   ) : (
                     <Target className={`${mode.color.accent}`} size={14} />
                   )}
                   <span
                     className={`text-xs font-medium ${mode.difficulty === "Extreme"
-                        ? "text-red-400"
+                      ? "text-red-400"
+                      : mode.difficulty === "Experimental"
+                        ? "text-purple-400"
                         : mode.color.accent
                       }`}
                   >
-                    {t(`game.general.difficulty`)}
+                    {mode.difficulty === "Experimental" ? "Эксп." : t(`game.general.difficulty`)}
                   </span>
                 </div>
               </div>
@@ -442,7 +486,11 @@ export default function GamePage() {
                 {mode.featuresKeys.map((featureKey, index) => (
                   <div key={index} className="flex items-center space-x-3">
                     <div
-                      className={`w-1 h-1 rounded-full ${isReaction ? "bg-white/60" : "bg-red-400/80"
+                      className={`w-1 h-1 rounded-full ${isReaction
+                        ? "bg-white/60"
+                        : isSurvival
+                          ? "bg-red-400/80"
+                          : "bg-purple-400/80"
                         }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
@@ -582,7 +630,11 @@ export default function GamePage() {
                 {mode.detailedInfo.tipsKeys.map((tipKey, index) => (
                   <div key={index} className="flex items-start space-x-2">
                     <div
-                      className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${mode.id === "reaction" ? "bg-white/60" : "bg-red-400/60"
+                      className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0 ${mode.id === "reaction"
+                        ? "bg-white/60"
+                        : mode.id === "survival"
+                          ? "bg-red-400/60"
+                          : "bg-purple-400/60"
                         }`}
                     />
                     <span className="text-white/70 text-sm leading-relaxed">
@@ -608,7 +660,7 @@ export default function GamePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white/5 border border-white/10 rounded-lg p-4 text-center">
                 <div className="text-2xl font-bold text-white mb-1">
-                  {t(`game.general.difficulty`)}
+                  {mode.difficulty === "Experimental" ? "Эксп." : t(`game.general.difficulty`)}
                 </div>
                 <div className="text-xs text-white/60 uppercase tracking-wider">
                   {t("game.general.difficulty")}
@@ -672,8 +724,8 @@ export default function GamePage() {
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative safe-area-inset ${isTransitioning
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : "opacity-100 transition-opacity duration-1000 ease-out"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
     >
       <div className="text-center z-20 space-y-12 flex flex-col items-center justify-center max-w-6xl px-6 w-full">
@@ -695,12 +747,10 @@ export default function GamePage() {
         </div>
 
         <div className="w-full space-y-8">
-          <div className="grid gap-8 lg:grid-cols-2 max-w-4xl mx-auto">
+          <div className="grid gap-8 lg:grid-cols-2 xl:grid-cols-3 max-w-6xl mx-auto">
             {GAME_MODES.map(renderModeCard)}
           </div>
         </div>
-
-        {/* УДАЛЕНО: дублирующее уведомление о закончившихся попытках */}
 
         <div className="text-center space-y-2 animate-fade-in">
           <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>

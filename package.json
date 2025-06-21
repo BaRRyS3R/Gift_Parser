@@ -1,5 +1,5 @@
 {
-  "name": "s0mething",
+  "name": "circusle",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -37,6 +37,7 @@
     "localforage": "^1.10.0",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.469.0",
+    "matter-js": "^0.20.0",
     "msw": "^2.7.5",
     "nanoid": "^5.1.5",
     "next": "15.0.4",

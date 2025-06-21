@@ -1,6 +1,6 @@
 {
-  "name": "s0mething",
-  "short_name": "s0mething",
+  "name": "circusle",
+  "short_name": "circusle",
   "description": "Test your reflexes in this fast-paced reaction game",
   "start_url": "/",
   "display": "fullscreen",

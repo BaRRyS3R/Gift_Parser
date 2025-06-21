@@ -1,4 +1,4 @@
-// src/locales/ru.ts - Updated Russian localization with tournament rules
+// src/locales/ru.ts - Updated Russian localization with physics mode
 
 export const ru = {
     // Common UI elements
@@ -57,7 +57,6 @@ export const ru = {
     },
 
     // Задания
-
     tasks: {
         // Основные элементы
         title: "ЗАДАНИЯ",
@@ -325,6 +324,53 @@ export const ru = {
                     perfectMachine: "СОВЕРШЕННАЯ МАШИНА",
                 },
             },
+            physics: {
+                name: "ФИЗИЧЕСКИЙ РЕЖИМ",
+                description: "Управляйте динамической физикой с взрывными импульсами и разрушаемыми барьерами",
+                difficulty: "Экспериментальный",
+                duration: "~2 минуты",
+                objective:
+                    "Выживайте, кликая по белым кругам для создания импульсов, которые отталкивают другие круги. Избегайте ошибок или наблюдайте, как стены исчезают одна за другой.",
+                features: [
+                    "20 кругов с реалистичной физикой",
+                    "Импульсные взрывы при правильных попаданиях",
+                    "Система разрушаемых стен",
+                    "Сложность на основе ошибок",
+                ],
+                rules: [
+                    "Кликайте по белым кругам для создания импульсных взрывов",
+                    "Каждое правильное попадание отталкивает соседние круги",
+                    "Никогда не кликайте по красным кругам - это смертельные ловушки",
+                    "Никогда не кликайте по неактивным кругам - это считается ошибкой",
+                    "Каждая ошибка убирает одну стену из контейнера",
+                    "Игра заканчивается, когда слишком много кругов сбегает или сделано 4 ошибки",
+                ],
+                tips: [
+                    "Планируйте свои клики для максимальной эффективности импульса",
+                    "Следите за физикой - круги могут помогать отталкивать друг друга",
+                    "Сохраняйте стены, избегая ошибок любой ценой",
+                    "Используйте границы контейнера стратегически",
+                    "Сохраняйте спокойствие при увеличении хаоса с меньшим количеством стен",
+                ],
+                scoring:
+                    "Базовый счёт = (правильные_попадания × 100) + (время_выживания_секунды × 5) - (ошибки × 50). Более долгое выживание и точность дают наивысшие очки.",
+                results: {
+                    title: "ФИЗИКА ЗАВЕРШЕНА",
+                    gameTime: "ВРЕМЯ ИГРЫ",
+                    finalScore: "ФИНАЛЬНЫЙ СЧЁТ",
+                    totalHits: "ВСЕГО ПОПАДАНИЙ",
+                    mistakesMade: "ОШИБОК СДЕЛАНО",
+                    survivalTime: "ВРЕМЯ ВЫЖИВАНИЯ",
+                    playAgain: "ИГРАТЬ СНОВА",
+                    backToMenu: "НАЗАД В МЕНЮ",
+                },
+                deathCauses: {
+                    mistakes: "Слишком много ошибок - все стены разрушены",
+                    escapedCircles: "Круги сбежали из контейнера",
+                    timeout: "Время вышло",
+                    default: "Физический эксперимент завершён",
+                },
+            },
         },
         general: {
             initializingGame: "ИНИЦИАЛИЗАЦИЯ ИГРЫ...",
@@ -468,10 +514,13 @@ export const ru = {
         overallStats: "Общая статистика",
         reactionMode: "Режим реакции",
         survivalMode: "Режим выживания",
+        physicsMode: "Физический режим",
         noReactionTestsYet: "Пока нет тестов реакции",
         testReflexesToSeeStats: "Пройдите тест на рефлексы, чтобы увидеть статистику",
         noSurvivalAttemptsYet: "Пока не было попыток выживания",
         enterSurvivalToSeeStats: "Войдите в режим выживания, чтобы увидеть статистику",
+        noPhysicsAttemptsYet: "Пока не было физических экспериментов",
+        enterPhysicsToSeeStats: "Попробуйте физический режим для просмотра статистики",
         totalGames: "Всего игр",
         currentAttempts: "Текущие попытки",
         totalTests: "Всего тестов",
@@ -495,16 +544,21 @@ export const ru = {
             currentAttempts: "Текущие попытки",
             reactionModeStats: "Реакция",
             survivalModeStats: "Выживание",
+            physicsModeStats: "Физика",
             noReactionTests: "НЕТ ТЕСТОВ РЕАКЦИИ",
             testReflexes: "Проверь свои молниеносные рефлексы (если они есть)!",
             noSurvivalAttempts: "НЕТ ПОПЫТОК ВЫЖИВАНИЯ",
             enterSurvival: "ПРИНЯТЬ ВЫЗОВ ВЫЖИВАНИЯ!",
+            noPhysicsAttempts: "НЕТ ФИЗИЧЕСКИХ ЭКСПЕРИМЕНТОВ",
+            enterPhysics: "ПОПРОБОВАТЬ ФИЗИЧЕСКИЙ ЭКСПЕРИМЕНТ!",
             bestTime: "Лучшее время",
             bestScore: "Лучший счет",
             averageTime: "Среднее время",
             ranking: "Рейтинг",
             maxLevel: "Максимальный уровень",
             bestStreak: "Лучшая серия",
+            bestSurvival: "Лучшее выживание",
+            totalExperiments: "Всего экспериментов",
         },
         referrals: {
             title: "РЕФЕРРАЛЬНАЯ СИСТЕМА",
@@ -548,6 +602,10 @@ export const ru = {
             eliteSurvivor: "ЭЛИТНЫЙ ВЫЖИВШИЙ",
             streakMaster: "МАСТЕР СЕРИИ",
             survivalElite: "ЭЛИТА ВЫЖИВАНИЯ",
+            physicsExperimenter: "ФИЗИК-ЭКСПЕРИМЕНТАТОР",
+            impulseMaster: "МАСТЕР ИМПУЛЬСОВ",
+            wallBreaker: "РАЗРУШИТЕЛЬ СТЕН",
+            physicsElite: "ЭЛИТА ФИЗИКИ",
             topPlayer: "ТОП-ИГРОК",
             descriptions: {
                 gamesPlayed: "СЫГРАНО ИГР: {count}+",
@@ -563,7 +621,12 @@ export const ru = {
                 minuteSurvival: "ВЫЖИВАНИЕ: {time}+ МИНУТ",
                 reachedLevel: "ДОСТИГНУТ УРОВЕНЬ {level}+",
                 perfectHits: "{count}+ ИДЕАЛЬНЫХ ПОПАДАНИЙ",
+                enteredPhysics: "ПРОБОВАЛ ФИЗИЧЕСКИЙ РЕЖИМ",
+                physicsAttempts: "ФИЗИЧЕСКИХ ЭКСПЕРИМЕНТОВ: {count}+",
+                physicsScore: "ФИЗИЧЕСКИЙ СЧЁТ: {score}+",
+                physicsTime: "ФИЗИЧЕСКОЕ ВРЕМЯ: {time}+ СЕКУНД",
                 topSurvivor: "ТОП-{rank} СРЕДИ ВЫЖИВШИХ",
+                topPhysics: "ТОП-{rank} ПО ФИЗИКЕ",
                 topOverall: "ТОП-{rank} В ОБЩЕМ ЗАЧЕТЕ",
             },
         },
@@ -577,19 +640,24 @@ export const ru = {
         overall: "ОБЩИЙ",
         reaction: "РЕАКЦИЯ",
         survival: "ВЫЖИВАНИЕ",
+        physics: "ФИЗИКА",
         players: "ИГРОКОВ",
         fastest: "БЫСТРЕЙШИЙ",
         longest: "ДЛИТЕЛЬНЫЙ",
+        experimental: "ЭКСПЕРИМЕНТАЛЬНЫЙ",
         top: "ТОП",
         you: "ВЫ",
         noSpeedDemons: "ЕЩЁ НЕТ ДЕМОНОВ СКОРОСТИ",
         noSurvivors: "ЕЩЁ НЕТ ВЫЖИВШИХ",
+        noPhysicists: "ЕЩЁ НЕТ ФИЗИКОВ",
         noPlayers: "ЕЩЁ НЕТ ИГРОКОВ",
         testReflexes: "ПРОВЕРЬТЕ СВОИ РЕФЛЕКСЫ!",
         enterChallenge: "ВОЙДИТЕ В ИСПЫТАНИЕ ВЫЖИВАНИЯ!",
+        tryPhysics: "ПОПРОБУЙТЕ ФИЗИЧЕСКИЙ ЭКСПЕРИМЕНТ!",
         beFirst: "БУДЬТЕ ПЕРВЫМ КТО СЫГРАЕТ!",
         speedElite: "ЭЛИТА СКОРОСТИ",
         survivalElite: "ЭЛИТА ВЫЖИВАНИЯ",
+        physicsElite: "ЭЛИТА ФИЗИКИ",
         topPlayers: "ТОП ИГРОКИ",
         allPlayers: "ВСЕ ИГРОКИ",
     },
@@ -682,12 +750,14 @@ export const ru = {
     save: {
         recording: "Запись данных выживания...",
         recordingReaction: "Запись времени реакции...",
+        recordingPhysics: "Запись физического эксперимента...",
         retrying: "Повтор сохранения ({attempt}/{max})...",
         connectionIssue: "Проблема соединения - автоматический повтор",
         savedSuccessfully: "✓ Результат успешно сохранён",
         savedAfterRetries: "Сохранено после {attempts} попыток",
         synchronized: "Данные синхронизированы с таблицей лидеров",
         recordedSuccessfully: "✓ Запись выживания успешно сохранена",
+        physicsRecordedSuccessfully: "✓ Физический эксперимент успешно сохранён",
     },
 
     // Error messages

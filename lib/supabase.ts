@@ -1,10 +1,11 @@
-// src/lib/supabase.ts
+// src/lib/supabase.ts - Updated with physics mode support
 
 import { createClient } from "@supabase/supabase-js";
 
 import { GameMode } from "@/types/game-modes/common";
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
+import { PhysicsGameResult } from "@/types/game-modes/physics";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -18,7 +19,7 @@ const ATTEMPTS_CONFIG = {
   REFERRAL_BONUS: 5,
 } as const;
 
-// Updated User interface
+// Updated User interface with physics mode support
 export interface User {
   id: string; // UUID v4
   telegram_id: number;
@@ -58,6 +59,14 @@ export interface User {
   survival_best_time: number; // Best survival time in milliseconds
   survival_max_level: number; // Maximum level reached
   survival_best_streak: number; // Best perfect streak
+
+  // Physics Mode specific statistics
+  physics_games: number;
+  physics_best_score: number;
+  physics_best_time: number; // Best physics game time in milliseconds
+  physics_total_hits: number; // Total correct hits across all physics games
+  physics_best_hits: number; // Best hits in a single physics game
+  physics_least_mistakes: number; // Fewest mistakes in a single physics game
 
   // Legacy fields (for backward compatibility)
   total_correct_hits: number;
@@ -409,7 +418,7 @@ export const userService = {
     return this.consumeAttemptWithServerValidation(telegramId);
   },
 
-  async updateGameStats(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult): Promise<void> {
+  async updateGameStats(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult): Promise<void> {
     const user = await this.findByTelegramId(telegramId);
     if (!user) throw new Error("User not found");
 
@@ -445,6 +454,20 @@ export const userService = {
       updates.survival_best_time = Math.max(user.survival_best_time || 0, survivalResult.survivalTime);
       updates.survival_max_level = Math.max(user.survival_max_level || 0, survivalResult.maxLevelReached);
       updates.survival_best_streak = Math.max(user.survival_best_streak || 0, survivalResult.perfectStreak);
+    } else if (gameResult.mode === GameMode.PHYSICS) {
+      const physicsResult = gameResult as PhysicsGameResult;
+      updates.physics_games = user.physics_games + 1;
+      updates.physics_best_score = Math.max(user.physics_best_score || 0, physicsResult.score);
+      updates.physics_best_time = Math.max(user.physics_best_time || 0, physicsResult.gameTime);
+      updates.physics_total_hits = (user.physics_total_hits || 0) + physicsResult.totalHits;
+      updates.physics_best_hits = Math.max(user.physics_best_hits || 0, physicsResult.totalHits);
+
+      // Track least mistakes (initialize with first game if no previous record)
+      if (user.physics_least_mistakes === undefined || user.physics_least_mistakes === null) {
+        updates.physics_least_mistakes = physicsResult.mistakesMade;
+      } else {
+        updates.physics_least_mistakes = Math.min(user.physics_least_mistakes, physicsResult.mistakesMade);
+      }
     }
 
     const { error } = await supabase
@@ -458,20 +481,16 @@ export const userService = {
     }
   },
 
-  // ОБНОВЛЕНО: Удалено сохранение в таблицу game_results, только обновление статистики пользователя
-  async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult): Promise<void> {
+  async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult): Promise<void> {
     const user = await this.findByTelegramId(telegramId);
     if (!user) throw new Error("User not found");
 
-    // УДАЛЕНО: сохранение в таблицу game_results
-    // Теперь сохраняем только статистику в профиль пользователя
     console.log("Updating user statistics with game result:", {
       mode: gameResult.mode,
       score: gameResult.score,
       duration: gameResult.duration
     });
 
-    // Вызываем только обновление статистики пользователя
     await this.updateGameStats(telegramId, gameResult);
   },
 
@@ -570,6 +589,43 @@ export const userService = {
     }));
   },
 
+  async getPhysicsLeaderboard(limit: number = 100): Promise<PhysicsLeaderboard[]> {
+    const { data, error } = await supabase
+      .from("users")
+      .select(`
+        id,
+        telegram_id,
+        first_name,
+        last_name,
+        username,
+        is_premium,
+        physics_best_score,
+        physics_best_time,
+        physics_best_hits,
+        physics_least_mistakes,
+        physics_games,
+        last_played_at
+      `)
+      .gt("physics_games", 0)
+      .order("physics_best_score", { ascending: false })
+      .order("physics_best_time", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("Error fetching physics leaderboard:", error);
+      throw error;
+    }
+
+    return (data || []).map((user: any) => ({
+      ...user,
+      best_physics_score: user.physics_best_score,
+      best_physics_time: user.physics_best_time,
+      best_hits: user.physics_best_hits,
+      least_mistakes: user.physics_least_mistakes,
+      physics_games: user.physics_games,
+    }));
+  },
+
   async getUserRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
     if (!user || user.total_games === 0) return null;
@@ -624,6 +680,24 @@ export const userService = {
 
     return (count || 0) + 1;
   },
+
+  async getUserPhysicsRanking(telegramId: number): Promise<number | null> {
+    const user = await this.findByTelegramId(telegramId);
+    if (!user || user.physics_games === 0) return null;
+
+    const { count, error } = await supabase
+      .from("users")
+      .select("id", { count: "exact" })
+      .gt("physics_games", 0)
+      .or(`physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`);
+
+    if (error) {
+      console.error("Error fetching user physics ranking:", error);
+      throw error;
+    }
+
+    return (count || 0) + 1;
+  },
 };
 
 // Updated interfaces
@@ -663,6 +737,21 @@ export interface SurvivalLeaderboard {
   max_level: number;
   best_streak: number;
   survival_games: number;
+  last_played_at?: string;
+}
+
+export interface PhysicsLeaderboard {
+  id: string;
+  telegram_id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  is_premium: boolean;
+  best_physics_score: number;
+  best_physics_time: number;
+  best_hits: number;
+  least_mistakes: number;
+  physics_games: number;
   last_played_at?: string;
 }
 

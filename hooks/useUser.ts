@@ -8,10 +8,11 @@ import { userService, type User, type TelegramUser } from "@/lib/supabase";
 import { tournamentService } from "@/lib/supabase_tournament_extension";
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
+import { PhysicsGameResult } from "@/types/game-modes/physics";
 import type { TournamentGameResult } from "@/types/tournaments";
 
 // Union type for all possible game results including tournament
-type GameResult = ReactionGameResult | SurvivalGameResult | TournamentGameResult;
+type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | TournamentGameResult;
 
 interface UserContextType {
   user: User | null;
