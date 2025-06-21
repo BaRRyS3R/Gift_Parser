@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Complete corrected physics game manager
+// src/game-modes/physics/PhysicsGameManager.tsx - Complete implementation with progressive difficulty and adaptive sizing
 
 "use client";
 
@@ -12,6 +12,7 @@ import {
     RotateCcw,
     Shield,
     TrendingDown,
+    TrendingUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as Matter from "matter-js";
@@ -19,7 +20,8 @@ import * as Matter from "matter-js";
 import {
     initializePhysicsGameState,
     updatePhysicsPositions,
-    activateRandomCircle,
+    updatePhysicsLevel,
+    activateRandomCircles,
     handlePhysicsCircleClick,
     deactivatePhysicsCircle,
     createPhysicsGameResult,
@@ -28,7 +30,7 @@ import {
     checkCirclesEscaped,
     formatPhysicsTime,
     applyImpulse,
-    PHYSICS_CONFIG,
+    getPhysicsLevelConfig,
 } from "./PhysicsGameLogic";
 
 import { useUser } from "@/hooks/useUser";
@@ -196,7 +198,7 @@ export default function PhysicsGameManager() {
         [saveGameResult, t],
     );
 
-    // Physics engine update loop with proper synchronization
+    // Physics engine update loop with level progression
     const updatePhysicsEngine = useCallback(() => {
         const currentState = gameStateRef.current;
 
@@ -208,26 +210,18 @@ export default function PhysicsGameManager() {
             return;
         }
 
-        // Update Matter.js engine with consistent timing
-        Matter.Engine.update(currentState.engine, 16.67); // 60fps
+        // Update Matter.js engine
+        Matter.Engine.update(currentState.engine, 16.67);
 
-        // Update game state with new physics positions
+        // Update game state with physics and level progression
         setGameState((prev) => {
             const updatedState = updatePhysicsPositions(prev);
-
-            // Update game time
-            const currentTime = Date.now();
-            const gameTime = currentTime - (updatedState.gameStartTime || currentTime);
-
-            const newStats = {
-                ...updatedState.stats,
-                gameTime,
-            };
+            const levelUpdatedState = updatePhysicsLevel(updatedState);
 
             // Check win/loss conditions
-            const escapedCircles = checkCirclesEscaped(updatedState);
-            const tooManyMistakes = newStats.currentMistakes > PHYSICS_CONFIG.maxMistakes;
-            const timeUp = gameTime >= PHYSICS_CONFIG.levelDuration * 1000;
+            const escapedCircles = checkCirclesEscaped(levelUpdatedState);
+            const tooManyMistakes = levelUpdatedState.stats.currentMistakes >= levelUpdatedState.config.maxMistakes;
+            const timeUp = levelUpdatedState.stats.gameTime >= levelUpdatedState.config.levelDuration * 1000;
 
             if (escapedCircles || tooManyMistakes || timeUp) {
                 const deathCause = tooManyMistakes
@@ -238,17 +232,13 @@ export default function PhysicsGameManager() {
 
                 endGame(deathCause);
                 return {
-                    ...updatedState,
+                    ...levelUpdatedState,
                     gameState: GameState.FINISHED,
                     isActive: false,
-                    stats: newStats,
                 };
             }
 
-            return {
-                ...updatedState,
-                stats: newStats,
-            };
+            return levelUpdatedState;
         });
 
         engineUpdateRef.current = requestAnimationFrame(updatePhysicsEngine);
@@ -279,26 +269,22 @@ export default function PhysicsGameManager() {
     const scheduleNextActivation = useCallback(() => {
         const currentState = gameStateRef.current;
 
-        if (!currentState.isActive || currentState.gameState !== GameState.PLAYING)
-            return;
+        if (!currentState.isActive || currentState.gameState !== GameState.PLAYING) return;
 
-        const delay =
-            Math.random() *
-            (currentState.config.initialActivationTimeMax - currentState.config.initialActivationTimeMin) +
-            currentState.config.initialActivationTimeMin;
+        const gameTime = Date.now() - (currentState.gameStartTime || Date.now());
+        const levelConfig = getPhysicsLevelConfig(gameTime);
+
+        const delay = levelConfig.activationTimeMin +
+            Math.random() * (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
 
         const timeout = setTimeout(() => {
-            if (
-                gameStateRef.current.isActive &&
-                gameStateRef.current.gameState === GameState.PLAYING
-            ) {
+            if (gameStateRef.current.isActive && gameStateRef.current.gameState === GameState.PLAYING) {
                 setGameState((prev) => {
-                    const newState = activateRandomCircle(
-                        prev,
-                        (circleId, isDecoy) => {
-                            console.log(
-                                `Activated circle: ${circleId}, Decoy: ${isDecoy}`,
-                            );
+                    const updatedState = updatePhysicsLevel(prev);
+                    const newState = activateRandomCircles(
+                        updatedState,
+                        (circleIds, decoyIds) => {
+                            console.log(`Activated circles: ${circleIds.join(", ")}, Decoys: ${decoyIds.join(", ")}`);
                         },
                         (circleId, wasDecoy) => {
                             console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
@@ -360,13 +346,13 @@ export default function PhysicsGameManager() {
             if (result === "correct") {
                 triggerHapticFeedback("success");
 
-                // ИСПРАВЛЕНИЕ: Применяем импульс СРАЗУ к текущему состоянию игры
-                const currentStateWithImpulse = applyImpulse(gameStateRef.current, circleId);
+                // Apply impulse effect immediately after correct click
+                const stateWithImpulse = applyImpulse(gameStateRef.current, circleId);
 
-                // Затем применяем обновленное состояние со статистикой
+                // Combine updated stats with impulse effects
                 setGameState({
                     ...newState,
-                    circles: currentStateWithImpulse.circles, // Используем круги с примененным импульсом
+                    circles: stateWithImpulse.circles,
                 });
 
                 setTimeout(() => {
@@ -377,10 +363,11 @@ export default function PhysicsGameManager() {
             } else if (result === "decoy" || result === "wrong") {
                 triggerHapticFeedback("error");
 
-                // ИСПРАВЛЕНИЕ: Стены удаляются ТОЛЬКО при ошибках
+                // Remove wall immediately upon mistake
                 const stateWithRemovedWall = removeWall(newState, newState.stats.currentMistakes);
                 setGameState(stateWithRemovedWall);
 
+                // Deactivate the clicked circle
                 setTimeout(() => {
                     setGameState((current) =>
                         deactivatePhysicsCircle(current, circleId),
@@ -486,19 +473,31 @@ export default function PhysicsGameManager() {
             <div className="flex items-center space-x-2 text-xs">
                 <span className="text-white/60">Стены:</span>
                 <span className={`${boundaries.top ? "text-green-400" : "text-red-400"}`}>
-                    Верх
+                    В
                 </span>
                 <span className={`${boundaries.left ? "text-green-400" : "text-red-400"}`}>
-                    Лево
+                    Л
                 </span>
                 <span className={`${boundaries.right ? "text-green-400" : "text-red-400"}`}>
-                    Право
+                    П
                 </span>
                 <span className={`${boundaries.bottom ? "text-green-400" : "text-red-400"}`}>
-                    Низ
+                    Н
                 </span>
             </div>
         );
+    };
+
+    const getCurrentLevelInfo = () => {
+        const gameTime = gameState.stats.gameTime;
+        const levelConfig = getPhysicsLevelConfig(gameTime);
+
+        return {
+            level: levelConfig.level,
+            description: levelConfig.description,
+            maxCircles: levelConfig.maxSimultaneousCircles,
+            activeCircles: gameState.activeCircleIds.length,
+        };
     };
 
     if (isConsumingAttempt) {
@@ -576,7 +575,7 @@ export default function PhysicsGameManager() {
                                     ФИНАЛЬНЫЙ СЧЁТ
                                 </div>
                                 <div className="text-xl font-bold text-purple-400">
-                                    {gameResult.finalScore}
+                                    {Math.round(gameResult.finalScore)}
                                 </div>
                             </div>
                         </div>
@@ -683,6 +682,8 @@ export default function PhysicsGameManager() {
         );
     }
 
+    const levelInfo = getCurrentLevelInfo();
+
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
             <div className="flex-1 flex items-center justify-center">
@@ -714,13 +715,25 @@ export default function PhysicsGameManager() {
 
                     <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center space-x-2">
+                                <TrendingUp className="text-purple-400" size={12} />
+                                <span className="text-purple-400/80">
+                                    Lv.{levelInfo.level} {levelInfo.description}
+                                </span>
+                            </div>
+                            <span className="text-purple-400/60">
+                                Активно: {levelInfo.activeCircles}/{levelInfo.maxCircles}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs">
                             <span className="text-purple-400/60">
                                 Ошибки: {gameState.stats.currentMistakes}/{gameState.config.maxMistakes}
                             </span>
                             <div className="flex items-center space-x-2">
                                 <Shield className="text-red-400" size={12} />
                                 <span className="text-red-300 uppercase tracking-wider">
-                                    ОДНА ОШИБКА = СТЕНА ПАДАЕТ
+                                    ОШИБКА = СТЕНА ПАДАЕТ
                                 </span>
                             </div>
                         </div>

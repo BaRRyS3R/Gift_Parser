@@ -28,6 +28,7 @@ export interface PhysicsGameStats {
     totalScore: number;
     gameStartTime?: number;
     lastHitTime?: number;
+    currentLevel: number;
 }
 
 export interface PhysicsGameResult extends BaseGameResult {
