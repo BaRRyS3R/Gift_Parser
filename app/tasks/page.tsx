@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Обновленная страница заданий с БД
+// src/app/tasks/page.tsx - Обновленная страница заданий с монохромными карточками
 
 "use client";
 
@@ -12,8 +12,15 @@ import {
     Check,
     Play,
     AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    Globe,
+    Camera
 } from "lucide-react";
+import {
+    SiTelegram,
+    SiX,
+    SiTwitter
+} from "react-icons/si";
 
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
@@ -23,6 +30,24 @@ import type { TaskWithCompletion, TaskType, TaskProcessingState } from "@/types/
 interface TaskProcessing {
     [taskId: string]: TaskProcessingState;
 }
+
+// Mapping task types to their respective icons
+const getTaskIcon = (taskType: TaskType) => {
+    switch (taskType) {
+        case 'telegram_channel':
+        case 'telegram_chat':
+            return SiTelegram;
+        case 'twitter_follow':
+        case 'twitter_repost':
+            return SiX;
+        case 'website_visit':
+            return Globe;
+        case 'story_share':
+            return Camera;
+        default:
+            return Globe;
+    }
+};
 
 export default function TasksPage() {
     const router = useRouter();
@@ -353,11 +378,11 @@ export default function TasksPage() {
 
                 {error && (
                     <div className="max-w-2xl mx-auto mb-6">
-                        <Card className="bg-red-500/20 border border-red-400/40">
+                        <Card className="bg-white/10 border border-white/20">
                             <CardBody className="p-4">
                                 <div className="flex items-center space-x-2">
-                                    <AlertCircle size={20} className="text-red-400" />
-                                    <span className="text-red-300">{error}</span>
+                                    <AlertCircle size={20} className="text-white" />
+                                    <span className="text-white">{error}</span>
                                 </div>
                             </CardBody>
                         </Card>
@@ -368,7 +393,7 @@ export default function TasksPage() {
                     {/* Story Task Section */}
                     {storyTasks.length > 0 && (
                         <div>
-                            <h2 className="text-lg font-bold mb-4 text-yellow-400">
+                            <h2 className="text-lg font-bold mb-4 text-white">
                                 {t('tasks.sections.story')}
                             </h2>
                             {storyTasks.map(task => (
@@ -410,7 +435,7 @@ export default function TasksPage() {
                     {completedTasks.length > 0 && (
                         <div>
                             <Divider className="bg-white/10 mb-4" />
-                            <h2 className="text-lg font-bold mb-4 text-green-400">
+                            <h2 className="text-lg font-bold mb-4 text-white">
                                 {t('tasks.sections.completed')}
                             </h2>
                             <div className="space-y-4">
@@ -443,7 +468,7 @@ export default function TasksPage() {
     );
 }
 
-// Компонент карточки задания
+// Компонент карточки задания с монохромным дизайном
 interface TaskCardProps {
     task: TaskWithCompletion;
     processing?: any;
@@ -464,23 +489,46 @@ function TaskCard({
     isCompleted = false
 }: TaskCardProps) {
     const buttonState = getButtonState(task);
+    const TaskIcon = getTaskIcon(task.type);
 
     return (
         <Card
             className={`
-        ${isSpecial
-                    ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-2 border-yellow-400/40'
-                    : `bg-gradient-to-r ${task.color} border border-white/20`
+                relative overflow-hidden
+                ${isSpecial
+                    ? 'bg-gradient-to-r from-white/20 to-white/15 border-2 border-white/40'
+                    : 'bg-gradient-to-r from-white/10 to-white/5 border border-white/20'
                 } 
-        hover:border-white/30 transition-all duration-200
-        ${isCompleted ? 'opacity-75' : ''}
-      `}
+                hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
+                transition-all duration-200
+                ${isCompleted ? 'opacity-75' : ''}
+            `}
         >
-            <CardBody className="p-4">
+            {/* Background Pattern with Icons */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {/* Diagonal pattern of icons */}
+                <div className="absolute -top-4 -right-4 transform rotate-12 opacity-5">
+                    <div className="grid grid-cols-3 gap-8">
+                        {Array.from({ length: 9 }).map((_, i) => (
+                            <TaskIcon key={i} size={32} className="text-white" />
+                        ))}
+                    </div>
+                </div>
+
+                {/* Large background icon on the right */}
+                <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-8">
+                    <TaskIcon size={80} className="text-white" />
+                </div>
+            </div>
+
+            <CardBody className="p-4 relative z-10">
                 <div className="flex items-center justify-between">
                     <div className="flex-1">
                         {/* Header */}
                         <div className="flex items-center space-x-3 mb-3">
+                            <div className="flex-shrink-0">
+                                <TaskIcon size={24} className="text-white" />
+                            </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2 mb-1">
                                     <h3 className="font-bold text-white truncate">
@@ -489,13 +537,7 @@ function TaskCard({
                                     <Chip
                                         size="sm"
                                         variant="flat"
-                                        className={`
-                      ${task.type === 'telegram_channel' ? 'bg-blue-500/20 text-blue-300' : ''}
-                      ${task.type === 'telegram_chat' ? 'bg-green-500/20 text-green-300' : ''}
-                      ${task.type === 'twitter_follow' || task.type === 'twitter_repost' ? 'bg-sky-500/20 text-sky-300' : ''}
-                      ${task.type === 'website_visit' ? 'bg-orange-500/20 text-orange-300' : ''}
-                      ${task.type === 'story_share' ? 'bg-yellow-500/20 text-yellow-300' : ''}
-                    `}
+                                        className="bg-white/20 text-white border border-white/30"
                                     >
                                         {t(`tasks.types.${task.type}`)}
                                     </Chip>
@@ -512,7 +554,10 @@ function TaskCard({
                                 <Progress
                                     value={((10000 - processing.countdown) / 10000) * 100}
                                     className="h-2"
-                                    color="primary"
+                                    classNames={{
+                                        track: "bg-white/20",
+                                        indicator: "bg-white"
+                                    }}
                                 />
                             </div>
                         )}
@@ -520,26 +565,32 @@ function TaskCard({
                         {/* Footer */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                                <Gift className="text-yellow-400" size={16} />
-                                <span className="text-yellow-400 font-bold">
+                                <Gift className="text-white" size={16} />
+                                <span className="text-white font-bold">
                                     +{task.reward_attempts} {task.reward_attempts === 1 ? 'попытка' : 'попыток'}
                                 </span>
                                 {isCompleted && (
-                                    <CheckCircle2 className="text-green-400 ml-2" size={16} />
+                                    <CheckCircle2 className="text-white ml-2" size={16} />
                                 )}
                             </div>
 
                             {!isCompleted && (
                                 <Button
                                     size="sm"
-                                    color={buttonState.color}
+                                    className={`
+                                        relative z-20
+                                        ${buttonState.color === 'success'
+                                            ? 'bg-white text-black hover:bg-white/90'
+                                            : buttonState.color === 'primary'
+                                                ? 'bg-white/20 text-white border border-white/40 hover:bg-white/30'
+                                                : buttonState.color === 'danger'
+                                                    ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                                                    : 'bg-white/10 text-white/60 border border-white/20'
+                                        }
+                                        ${buttonState.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
+                                    `}
                                     isLoading={buttonState.loading}
                                     isDisabled={buttonState.disabled}
-                                    className={`
-                    ${buttonState.color === 'success' ? 'bg-green-500 hover:bg-green-600' : ''}
-                    ${buttonState.color === 'primary' ? 'bg-blue-500 hover:bg-blue-600' : ''}
-                    ${buttonState.color === 'danger' ? 'bg-red-500 hover:bg-red-600' : ''}
-                  `}
                                     startContent={
                                         !buttonState.loading && buttonState.color === 'success' ? (
                                             <Check size={16} />
@@ -556,7 +607,7 @@ function TaskCard({
 
                         {/* Error message */}
                         {processing?.error && (
-                            <div className="mt-2 text-red-400 text-xs">
+                            <div className="mt-2 text-white/80 text-xs bg-white/10 rounded px-2 py-1 border border-white/20">
                                 {processing.error}
                             </div>
                         )}
