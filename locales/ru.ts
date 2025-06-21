@@ -59,45 +59,97 @@ export const ru = {
     // Задания
 
     tasks: {
+        // Основные элементы
         title: "ЗАДАНИЯ",
         subtitle: "Выполняйте задания для получения дополнительных попыток",
+
+        // Кнопки и статусы
         start: "НАЧАТЬ",
-        wait: "ОЖИДАНИЕ",
         checking: "ПРОВЕРКА...",
         claim: "ПОЛУЧИТЬ",
         completed: "ВЫПОЛНЕНО",
-        attempts: "попыток",
-        waitMinutes: "Ждите {minutes}м",
-        storyNotSupported: "Публикация в сторис не поддерживается в этой версии",
+        subscribe: "ПОДПИСАТЬСЯ",
+        visit: "ПОСЕТИТЬ",
+        follow: "ПОДПИСАТЬСЯ",
+        repost: "РЕПОСТ",
+        share: "ПОДЕЛИТЬСЯ",
 
-        // Task definitions
-        joinNewsChannel: {
-            name: "Подписаться на канал",
-            description: "Будьте в курсе последних новостей и объявлений"
+        // Статусы ожидания
+        waitSeconds: "Ждите {seconds}с",
+        waitMinutes: "Ждите {minutes}м",
+        verifying: "Проверяем...",
+
+        // Награды
+        reward: "+{count} попыток",
+        rewardSingle: "+1 попытка",
+        rewardMultiple: "+{count} попыток",
+
+        // Разделы
+        sections: {
+            story: "Специальное задание",
+            active: "Активные задания",
+            completed: "Выполненные задания"
         },
-        joinUpdatesChannel: {
-            name: "Подписаться на канал обновлений",
-            description: "Получайте уведомления об обновлениях и новых функциях игры"
+
+        // Типы заданий
+        types: {
+            telegram_channel: "Подписка",
+            telegram_chat: "Вступить",
+            twitter_follow: "Подписка",
+            twitter_repost: "Репост",
+            website_visit: "Посетить",
+            story_share: "Сторис"
         },
-        joinCommunityChat: {
-            name: "Присоединиться к чату",
-            description: "Общайтесь с другими игроками и делитесь стратегиями"
+
+        // Сообщения об ошибках
+        errors: {
+            notSubscribed: "Вы не подписаны на этот канал/чат",
+            taskNotFound: "Задание не найдено",
+            alreadyCompleted: "Задание уже выполнено",
+            cooldownActive: "Задание недоступно",
+            verificationFailed: "Проверка не удалась, попробуйте еще раз",
+            rewardClaimFailed: "Не удалось получить награду",
+            unknownError: "Произошла неизвестная ошибка"
         },
-        followTwitter: {
-            name: "Подписаться в Twitter",
-            description: "Подпишитесь на наш официальный аккаунт Twitter для обновлений"
+
+        // Сообщения об успехе
+        success: {
+            taskStarted: "Задание начато успешно",
+            taskCompleted: "Задание выполнено успешно",
+            rewardClaimed: "Награда получена! +{count} попыток добавлено",
+            subscriptionVerified: "Подписка успешно подтверждена"
         },
-        retweetPost: {
-            name: "Сделать ретвит",
-            description: "Помогите распространить информацию, сделав ретвит нашего поста"
+
+        // Описания заданий
+        descriptions: {
+            telegram_channel: "Подпишитесь на наш канал для получения обновлений",
+            telegram_chat: "Присоединитесь к нашему чату",
+            twitter_follow: "Подпишитесь на нас в Twitter",
+            twitter_repost: "Сделайте репост нашего твита",
+            website_visit: "Посетите наш веб-сайт",
+            story_share: "Поделитесь игрой в своих сторис Telegram"
         },
-        visitWebsite: {
-            name: "Посетить веб-сайт",
-            description: "Посетите наш официальный веб-сайт для получения дополнительной информации"
+
+        // Специальное задание
+        storyTask: {
+            title: "Поделиться в сторис",
+            description: "Делитесь игрой в сторис Telegram каждые 2 часа",
+            cooldownText: "Доступно снова через {time}",
+            notSupported: "Публикация в сторис не поддерживается в этой версии"
         },
-        shareStory: {
-            name: "Поделиться в сторис",
-            description: "Поделитесь игрой в своих сторис Telegram"
+
+        // Пустые состояния
+        empty: {
+            noActiveTasks: "Нет доступных заданий",
+            noCompletedTasks: "Пока нет выполненных заданий",
+            startCompleting: "Начните выполнять задания для получения попыток!"
+        },
+
+        // Информационные сообщения
+        info: {
+            telegramVerification: "Подписка будет проверена автоматически",
+            trustVerification: "Выполнение задания проверяется на основе доверия",
+            completionDelay: "Пожалуйста, подождите {seconds} секунд для проверки"
         }
     },
 

@@ -55,48 +55,100 @@ export const en = {
         tournament: "Tournament",
         tasks: "Tasks",
     },
-    
+
     // Tasks
     tasks: {
+        // Основные элементы
         title: "TASKS",
         subtitle: "Complete tasks to earn extra attempts",
+
+        // Кнопки и статусы
         start: "START",
-        wait: "WAIT",
         checking: "CHECKING...",
         claim: "CLAIM",
         completed: "COMPLETED",
-        attempts: "attempts",
-        waitMinutes: "Wait {minutes}m",
-        storyNotSupported: "Story sharing is not supported in this version",
+        subscribe: "SUBSCRIBE",
+        visit: "VISIT",
+        follow: "FOLLOW",
+        repost: "REPOST",
+        share: "SHARE",
 
-        // Task definitions
-        joinNewsChannel: {
-            name: "Join Channel",
-            description: "Stay updated with latest news and announcements"
+        // Статусы ожидания
+        waitSeconds: "Wait {seconds}s",
+        waitMinutes: "Wait {minutes}m",
+        verifying: "Verifying...",
+
+        // Награды
+        reward: "+{count} attempts",
+        rewardSingle: "+1 attempt",
+        rewardMultiple: "+{count} attempts",
+
+        // Разделы
+        sections: {
+            story: "Special Task",
+            active: "Active Tasks",
+            completed: "Completed Tasks"
         },
-        joinUpdatesChannel: {
-            name: "Join Updates Channel",
-            description: "Get notified about game updates and features"
+
+        // Типы заданий
+        types: {
+            telegram_channel: "Subscribe",
+            telegram_chat: "Join Chat",
+            twitter_follow: "Follow",
+            twitter_repost: "Repost",
+            website_visit: "Visit",
+            story_share: "Share Story"
         },
-        joinCommunityChat: {
-            name: "Join Chat",
-            description: "Connect with other players and share strategies"
+
+        // Сообщения об ошибках
+        errors: {
+            notSubscribed: "You are not subscribed to this channel/chat",
+            taskNotFound: "Task not found",
+            alreadyCompleted: "Task already completed",
+            cooldownActive: "Task is on cooldown",
+            verificationFailed: "Verification failed, please try again",
+            rewardClaimFailed: "Failed to claim reward",
+            unknownError: "An unknown error occurred"
         },
-        followTwitter: {
-            name: "Follow on Twitter",
-            description: "Follow our official Twitter account for updates"
+
+        // Сообщения об успехе
+        success: {
+            taskStarted: "Task started successfully",
+            taskCompleted: "Task completed successfully",
+            rewardClaimed: "Reward claimed! +{count} attempts added",
+            subscriptionVerified: "Subscription verified successfully"
         },
-        retweetPost: {
-            name: "Retweet Post",
-            description: "Help spread the word by retweeting our latest post"
+
+        // Описания заданий
+        descriptions: {
+            telegram_channel: "Subscribe to our channel for updates",
+            telegram_chat: "Join our community chat",
+            twitter_follow: "Follow us on Twitter",
+            twitter_repost: "Repost our latest tweet",
+            website_visit: "Visit our website",
+            story_share: "Share the game to your Telegram story"
         },
-        visitWebsite: {
-            name: "Visit Website",
-            description: "Check out our official website for more information"
+
+        // Специальное задание
+        storyTask: {
+            title: "Share to Story",
+            description: "Share the game in your Telegram story every 2 hours",
+            cooldownText: "Available again in {time}",
+            notSupported: "Story sharing is not supported in this version"
         },
-        shareStory: {
-            name: "Share to Story",
-            description: "Share the game to your Telegram story"
+
+        // Пустые состояния
+        empty: {
+            noActiveTasks: "No active tasks available",
+            noCompletedTasks: "No completed tasks yet",
+            startCompleting: "Start completing tasks to earn attempts!"
+        },
+
+        // Информационные сообщения
+        info: {
+            telegramVerification: "Subscription will be verified automatically",
+            trustVerification: "Task completion verified on trust basis",
+            completionDelay: "Please wait {seconds} seconds for verification"
         }
     },
 

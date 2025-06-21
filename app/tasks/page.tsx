@@ -1,335 +1,85 @@
-// src/app/tasks/page.tsx - Исправленная страница заданий
+// src/app/tasks/page.tsx - Обновленная страница заданий с БД
 
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, Button, Progress } from "@nextui-org/react";
-import { Clock, Gift, ExternalLink, Check, Play } from "lucide-react";
+import { Card, CardBody, Button, Progress, Chip, Divider } from "@nextui-org/react";
+import {
+    Clock,
+    Gift,
+    ExternalLink,
+    Check,
+    Play,
+    AlertCircle,
+    CheckCircle2
+} from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
-import { userService, supabase } from "@/lib/supabase";
-import { TASKS, type Task, type TaskType } from "@/config/tasks";
+import { taskService } from "@/lib/supabase_tasks";
+import type { TaskWithCompletion, TaskType, TaskProcessingState } from "@/types/tasks";
 
-interface TaskProgress {
-    [taskId: string]: {
-        status: 'available' | 'in_progress' | 'ready_to_claim' | 'completed';
-        startedAt?: number;
-        completedAt?: number;
-        lastClaimed?: number;
-    };
+interface TaskProcessing {
+    [taskId: string]: TaskProcessingState;
 }
-
-const TASK_COMPLETION_DELAY = 10000; // 10 секунд
-const STORAGE_KEY = 'task_progress';
 
 export default function TasksPage() {
     const router = useRouter();
     const { user, refreshUser, telegramUser } = useUser();
     const t = useT();
 
-    const [taskProgress, setTaskProgress] = useState<TaskProgress>({});
-    const [countdown, setCountdown] = useState<{ [taskId: string]: number }>({});
+    const [tasks, setTasks] = useState<TaskWithCompletion[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [processing, setProcessing] = useState<TaskProcessing>({});
+    const [error, setError] = useState<string | null>(null);
 
-    // Загрузка прогресса заданий из localStorage
-    useEffect(() => {
-        const savedProgress = localStorage.getItem(STORAGE_KEY);
-        if (savedProgress) {
-            try {
-                setTaskProgress(JSON.parse(savedProgress));
-            } catch (error) {
-                console.error('Error loading task progress:', error);
-            }
+    // Загрузка заданий
+    const loadTasks = async () => {
+        if (!user) return;
+
+        try {
+            setError(null);
+            const tasksData = await taskService.getTasksForUser(user.id);
+            setTasks(tasksData);
+        } catch (err) {
+            console.error('Error loading tasks:', err);
+            setError(t('tasks.errors.unknownError'));
+        } finally {
+            setLoading(false);
         }
-    }, []);
-
-    // Сохранение прогресса в localStorage
-    const saveProgress = (progress: TaskProgress) => {
-        setTaskProgress(progress);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-    };
-
-    // Проверка доступности задания story (кулдаун)
-    const isStoryTaskAvailable = (task: Task): boolean => {
-        if (task.type !== 'story' || !task.cooldown) return true;
-
-        const progress = taskProgress[task.id];
-        if (!progress?.lastClaimed) return true;
-
-        const timeSinceLastClaim = Date.now() - progress.lastClaimed;
-        return timeSinceLastClaim >= task.cooldown;
-    };
-
-    // Получение времени до следующего доступного выполнения story
-    const getStoryCooldownTime = (task: Task): number => {
-        if (task.type !== 'story' || !task.cooldown) return 0;
-
-        const progress = taskProgress[task.id];
-        if (!progress?.lastClaimed) return 0;
-
-        const timeSinceLastClaim = Date.now() - progress.lastClaimed;
-        const remaining = task.cooldown - timeSinceLastClaim;
-        return Math.max(0, remaining);
     };
 
     useEffect(() => {
-        // Setup Telegram WebApp back button
-        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-            const tg = window.Telegram.WebApp;
-            tg.BackButton.show();
-            tg.BackButton.onClick(() => {
-                router.push("/main");
-            });
+        loadTasks();
+    }, [user]);
 
-            return () => {
-                tg.BackButton.hide();
-                tg.BackButton.offClick(() => { });
-            };
-        }
-    }, [router]);
-
-    // Таймер обратного отсчета для заданий
+    // Таймер для обратного отсчета
     useEffect(() => {
         const interval = setInterval(() => {
-            const newCountdown: { [taskId: string]: number } = {};
-            let hasActiveCountdowns = false;
+            setProcessing(prev => {
+                const updated = { ...prev };
+                let hasActiveCountdowns = false;
 
-            Object.entries(taskProgress).forEach(([taskId, progress]) => {
-                if (progress.status === 'in_progress' && progress.startedAt) {
-                    const elapsed = Date.now() - progress.startedAt;
-                    const remaining = Math.max(0, TASK_COMPLETION_DELAY - elapsed);
-
-                    if (remaining > 0) {
-                        newCountdown[taskId] = remaining;
+                Object.keys(updated).forEach(taskId => {
+                    if (updated[taskId].countdown && updated[taskId].countdown! > 0) {
+                        updated[taskId].countdown! -= 1000;
                         hasActiveCountdowns = true;
-                    } else if (remaining === 0) {
-                        // Задание готово к получению награды
-                        const updatedProgress = {
-                            ...taskProgress,
-                            [taskId]: {
-                                ...progress,
-                                status: 'ready_to_claim' as const
-                            }
-                        };
-                        saveProgress(updatedProgress);
+
+                        if (updated[taskId].countdown! <= 0) {
+                            delete updated[taskId].countdown;
+                            // Автоматически проверяем задание после истечения таймера
+                            handleCheckTask(taskId);
+                        }
                     }
-                }
+                });
+
+                return hasActiveCountdowns ? updated : prev;
             });
-
-            setCountdown(newCountdown);
-
-            if (!hasActiveCountdowns) {
-                clearInterval(interval);
-            }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [taskProgress]);
-
-    // Метод для обновления попыток пользователя
-    const updateUserAttempts = async (reward: number): Promise<void> => {
-        if (!telegramUser || !user) return;
-
-        try {
-            const { error } = await supabase
-                .from('users')
-                .update({
-                    attempts_remaining: user.attempts_remaining + reward,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('telegram_id', telegramUser.id);
-
-            if (error) {
-                throw error;
-            }
-
-            await refreshUser();
-        } catch (error) {
-            console.error('Error updating user attempts:', error);
-            throw error;
-        }
-    };
-
-    // Обработка клика по заданию
-    const handleTaskClick = async (task: Task) => {
-        const currentProgress = taskProgress[task.id];
-
-        // Проверка доступности story задания
-        if (task.type === 'story' && !isStoryTaskAvailable(task)) {
-            return;
-        }
-
-        if (currentProgress?.status === 'ready_to_claim') {
-            await handleClaimReward(task);
-            return;
-        }
-
-        if (currentProgress?.status === 'in_progress' || currentProgress?.status === 'completed') {
-            return;
-        }
-
-        // Запуск задания
-        const updatedProgress = {
-            ...taskProgress,
-            [task.id]: {
-                status: 'in_progress' as const,
-                startedAt: Date.now()
-            }
-        };
-        saveProgress(updatedProgress);
-
-        // Открытие ссылки в зависимости от типа задания
-        if (task.type === 'story') {
-            handleStoryTask(task);
-        } else {
-            openTaskLink(task);
-        }
-    };
-
-    // Обработка story задания
-    const handleStoryTask = (task: Task) => {
-        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-            const tg = window.Telegram.WebApp;
-
-            if (tg.shareToStory) {
-                const storyUrl = `${window.location.origin}${task.url}`;
-                tg.shareToStory(storyUrl, {
-                    text: "s0mething",
-                    widget_link: {
-                        url: `https://t.me/marketaggregator_bot?startapp=${user?.referral_code || ''}`,
-                        name: "Play Game"
-                    }
-                });
-            } else {
-                // Fallback для старых версий
-                alert("Story sharing is not supported in this version");
-            }
-        }
-    };
-
-    // Открытие ссылки задания
-    const openTaskLink = (task: Task) => {
-        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-            const tg = window.Telegram.WebApp;
-
-            if (task.type === 'twitter' || task.type === 'website') {
-                tg.openLink(task.url);
-            } else {
-                tg.openTelegramLink(task.url);
-            }
-        } else {
-            window.open(task.url, '_blank');
-        }
-    };
-
-    // Получение награды
-    const handleClaimReward = async (task: Task) => {
-        try {
-            // Обновляем количество попыток пользователя
-            await updateUserAttempts(task.reward);
-
-            // Обновляем статус задания
-            const updatedProgress = {
-                ...taskProgress,
-                [task.id]: {
-                    ...taskProgress[task.id],
-                    status: task.type === 'story' ? 'available' as const : 'completed' as const,
-                    completedAt: Date.now(),
-                    lastClaimed: Date.now()
-                }
-            };
-            saveProgress(updatedProgress);
-
-            // Показываем уведомление
-            if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-                window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-            }
-
-        } catch (error) {
-            console.error('Error claiming task reward:', error);
-        }
-    };
-
-    // Получение текста кнопки
-    const getButtonText = (task: Task): string => {
-        const progress = taskProgress[task.id];
-
-        if (task.type === 'story' && !isStoryTaskAvailable(task)) {
-            const cooldownTime = getStoryCooldownTime(task);
-            const minutes = Math.ceil(cooldownTime / 60000);
-            return `Wait ${minutes}m`;
-        }
-
-        if (!progress || progress.status === 'available') {
-            return "START";
-        }
-
-        if (progress.status === 'in_progress') {
-            const remaining = countdown[task.id];
-            if (remaining) {
-                const seconds = Math.ceil(remaining / 1000);
-                return `WAIT ${seconds}s`;
-            }
-            return "CHECKING...";
-        }
-
-        if (progress.status === 'ready_to_claim') {
-            return "CLAIM";
-        }
-
-        if (progress.status === 'completed') {
-            return "COMPLETED";
-        }
-
-        return "START";
-    };
-
-    // Получение состояния кнопки
-    const getButtonState = (task: Task) => {
-        const progress = taskProgress[task.id];
-
-        if (task.type === 'story' && !isStoryTaskAvailable(task)) {
-            return { disabled: true, loading: false, color: 'default' as const };
-        }
-
-        if (!progress || progress.status === 'available') {
-            return { disabled: false, loading: false, color: 'primary' as const };
-        }
-
-        if (progress.status === 'in_progress') {
-            return { disabled: true, loading: true, color: 'default' as const };
-        }
-
-        if (progress.status === 'ready_to_claim') {
-            return { disabled: false, loading: false, color: 'success' as const };
-        }
-
-        if (progress.status === 'completed') {
-            return { disabled: true, loading: false, color: 'default' as const };
-        }
-
-        return { disabled: false, loading: false, color: 'primary' as const };
-    };
-
-    // Получение локализованного названия задания с ресурсом
-    const getTaskDisplayName = (task: Task): string => {
-        const actionMap = {
-            'channel': 'Подписаться на канал',
-            'chat': 'Присоединиться к чату',
-            'twitter': 'Посетить Твиттер',
-            'website': 'Посетить сайт',
-            'story': 'Сделать сторис'
-        };
-
-        const action = actionMap[task.type] || 'Выполнить задание';
-        return `${action} ${task.title}`;
-    };
-
-    // Получение описания задания
-    const getTaskDescription = (task: Task): string => {
-        return task.description;
-    };
+    }, []);
 
     // Setup Telegram WebApp back button
     useEffect(() => {
@@ -347,93 +97,472 @@ export default function TasksPage() {
         }
     }, [router]);
 
+    // Начало выполнения задания
+    const handleStartTask = async (task: TaskWithCompletion) => {
+        if (!user || !telegramUser) return;
+
+        setProcessing(prev => ({
+            ...prev,
+            [task.id]: { isStarting: true }
+        }));
+
+        try {
+            await taskService.startTask(user.id, task.id);
+
+            // Открываем ссылку в зависимости от типа задания
+            if (task.type === 'story_share') {
+                handleStoryTask(task);
+            } else {
+                openTaskLink(task);
+            }
+
+            // Для telegram заданий сразу проверяем, для остальных ставим таймер
+            if (task.type === 'telegram_channel' || task.type === 'telegram_chat') {
+                // Небольшая задержка для перехода пользователя
+                setTimeout(() => handleCheckTask(task.id), 3000);
+            } else if (task.type !== 'story_share') {
+                // 10 секунд ожидания для остальных типов
+                setProcessing(prev => ({
+                    ...prev,
+                    [task.id]: { countdown: 10000 }
+                }));
+            }
+
+            await loadTasks();
+        } catch (err) {
+            console.error('Error starting task:', err);
+            setProcessing(prev => ({
+                ...prev,
+                [task.id]: { error: t('tasks.errors.unknownError') }
+            }));
+        }
+    };
+
+    // Обработка story задания
+    const handleStoryTask = (task: TaskWithCompletion) => {
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            const tg = window.Telegram.WebApp;
+
+            if (tg.shareToStory) {
+                const storyUrl = `${window.location.origin}${task.url}`;
+                tg.shareToStory(storyUrl, {
+                    text: "Попробуйте эту игру на реакцию!",
+                    widget_link: {
+                        url: `https://t.me/marketaggregator_bot?startapp=${user?.referral_code || ''}`,
+                        name: "Играть"
+                    }
+                });
+
+                // Сразу завершаем story задание
+                setTimeout(() => handleCheckTask(task.id), 1000);
+            } else {
+                setProcessing(prev => ({
+                    ...prev,
+                    [task.id]: { error: t('tasks.storyTask.notSupported') }
+                }));
+            }
+        }
+    };
+
+    // Открытие ссылки задания
+    const openTaskLink = (task: TaskWithCompletion) => {
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            const tg = window.Telegram.WebApp;
+
+            if (task.type === 'twitter_follow' || task.type === 'twitter_repost' || task.type === 'website_visit') {
+                tg.openLink(task.url);
+            } else {
+                tg.openTelegramLink(task.url);
+            }
+        } else {
+            window.open(task.url, '_blank');
+        }
+    };
+
+    // Проверка выполнения задания
+    const handleCheckTask = async (taskId: string) => {
+        if (!user || !telegramUser) return;
+
+        setProcessing(prev => ({
+            ...prev,
+            [taskId]: { isChecking: true }
+        }));
+
+        try {
+            const isCompleted = await taskService.checkTaskCompletion(user.id, taskId, telegramUser.id);
+
+            if (isCompleted) {
+                await taskService.completeTask(user.id, taskId);
+                await loadTasks();
+
+                setProcessing(prev => ({
+                    ...prev,
+                    [taskId]: {}
+                }));
+            } else {
+                setProcessing(prev => ({
+                    ...prev,
+                    [taskId]: { error: t('tasks.errors.notSubscribed') }
+                }));
+            }
+        } catch (err) {
+            console.error('Error checking task:', err);
+            setProcessing(prev => ({
+                ...prev,
+                [taskId]: { error: t('tasks.errors.verificationFailed') }
+            }));
+        }
+    };
+
+    // Получение награды
+    const handleClaimReward = async (task: TaskWithCompletion) => {
+        if (!user || !telegramUser) return;
+
+        setProcessing(prev => ({
+            ...prev,
+            [task.id]: { isClaiming: true }
+        }));
+
+        try {
+            const result = await taskService.claimTaskReward(user.id, task.id, telegramUser.id);
+
+            // Показываем уведомление об успехе
+            if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+            }
+
+            await refreshUser();
+            await loadTasks();
+
+            setProcessing(prev => ({
+                ...prev,
+                [task.id]: {}
+            }));
+        } catch (err) {
+            console.error('Error claiming reward:', err);
+            setProcessing(prev => ({
+                ...prev,
+                [task.id]: { error: t('tasks.errors.rewardClaimFailed') }
+            }));
+        }
+    };
+
+    // Получение состояния кнопки
+    const getButtonState = (task: TaskWithCompletion) => {
+        const proc = processing[task.id];
+
+        if (proc?.isStarting) {
+            return { text: t('tasks.start'), disabled: true, loading: true, color: 'primary' as const };
+        }
+
+        if (proc?.isChecking) {
+            return { text: t('tasks.checking'), disabled: true, loading: true, color: 'primary' as const };
+        }
+
+        if (proc?.isClaiming) {
+            return { text: t('tasks.claim'), disabled: true, loading: true, color: 'success' as const };
+        }
+
+        if (proc?.countdown) {
+            const seconds = Math.ceil(proc.countdown / 1000);
+            return { text: t('tasks.waitSeconds', { seconds }), disabled: true, loading: false, color: 'default' as const };
+        }
+
+        if (proc?.error) {
+            return { text: t('tasks.start'), disabled: false, loading: false, color: 'danger' as const };
+        }
+
+        if (!task.can_complete) {
+            if (task.next_available_at) {
+                const nextAvailable = new Date(task.next_available_at);
+                const now = new Date();
+                const diffMs = nextAvailable.getTime() - now.getTime();
+                const diffMinutes = Math.ceil(diffMs / 60000);
+                return { text: t('tasks.waitMinutes', { minutes: diffMinutes }), disabled: true, loading: false, color: 'default' as const };
+            }
+            return { text: t('tasks.completed'), disabled: true, loading: false, color: 'default' as const };
+        }
+
+        if (!task.user_completion) {
+            return { text: t('tasks.start'), disabled: false, loading: false, color: 'primary' as const };
+        }
+
+        if (task.user_completion.status === 'started') {
+            return { text: t('tasks.checking'), disabled: false, loading: false, color: 'primary' as const };
+        }
+
+        if (task.user_completion.status === 'completed') {
+            return { text: t('tasks.claim'), disabled: false, loading: false, color: 'success' as const };
+        }
+
+        return { text: t('tasks.start'), disabled: false, loading: false, color: 'primary' as const };
+    };
+
+    // Обработка клика по заданию
+    const handleTaskClick = async (task: TaskWithCompletion) => {
+        const proc = processing[task.id];
+
+        if (proc?.error) {
+            // Сбрасываем ошибку и пробуем снова
+            setProcessing(prev => ({
+                ...prev,
+                [task.id]: {}
+            }));
+            return;
+        }
+
+        if (!task.user_completion) {
+            await handleStartTask(task);
+        } else if (task.user_completion.status === 'started') {
+            await handleCheckTask(task.id);
+        } else if (task.user_completion.status === 'completed') {
+            await handleClaimReward(task);
+        }
+    };
+
+    // Разделение заданий по категориям
+    const storyTasks = tasks.filter(task => task.type === 'story_share');
+    const activeTasks = tasks.filter(task =>
+        task.type !== 'story_share' &&
+        (task.can_complete || (task.user_completion && task.user_completion.status !== 'claimed'))
+    );
+    const completedTasks = tasks.filter(task =>
+        task.type !== 'story_share' &&
+        task.user_completion?.status === 'claimed'
+    );
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-black text-white flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-white/60">Загрузка заданий...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-black text-white">
             <div className="px-4 pt-20 pb-24">
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold mb-2">TASKS</h1>
-                    <p className="text-white/60 text-sm">Complete tasks to earn extra attempts</p>
+                    <h1 className="text-2xl font-bold mb-2">{t('tasks.title')}</h1>
+                    <p className="text-white/60 text-sm">{t('tasks.subtitle')}</p>
                 </div>
 
-                {/* Tasks List */}
-                <div className="max-w-2xl mx-auto space-y-4">
-                    {TASKS.map((task) => {
-                        const progress = taskProgress[task.id];
-                        const buttonState = getButtonState(task);
-                        const isStoryOnCooldown = task.type === 'story' && !isStoryTaskAvailable(task);
+                {error && (
+                    <div className="max-w-2xl mx-auto mb-6">
+                        <Card className="bg-red-500/20 border border-red-400/40">
+                            <CardBody className="p-4">
+                                <div className="flex items-center space-x-2">
+                                    <AlertCircle size={20} className="text-red-400" />
+                                    <span className="text-red-300">{error}</span>
+                                </div>
+                            </CardBody>
+                        </Card>
+                    </div>
+                )}
 
-                        return (
-                            <Card
-                                key={task.id}
-                                className={`bg-gradient-to-r ${task.color} border border-white/20 hover:border-white/30 transition-all duration-200 ${isStoryOnCooldown ? 'opacity-60' : ''
-                                    }`}
-                            >
-                                <CardBody className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex-1">
-                                            <div className="flex items-center space-x-3 mb-3">
-                                                <div className="text-2xl">{task.icon}</div>
-                                                <div>
-                                                    <h3 className="font-bold text-white">
-                                                        {getTaskDisplayName(task)}
-                                                    </h3>
-                                                    <p className="text-white/70 text-sm">
-                                                        {getTaskDescription(task)}
-                                                    </p>
-                                                </div>
-                                            </div>
+                <div className="max-w-2xl mx-auto space-y-8">
+                    {/* Story Task Section */}
+                    {storyTasks.length > 0 && (
+                        <div>
+                            <h2 className="text-lg font-bold mb-4 text-yellow-400">
+                                {t('tasks.sections.story')}
+                            </h2>
+                            {storyTasks.map(task => (
+                                <TaskCard
+                                    key={task.id}
+                                    task={task}
+                                    processing={processing[task.id]}
+                                    onTaskClick={handleTaskClick}
+                                    getButtonState={getButtonState}
+                                    t={t}
+                                    isSpecial={true}
+                                />
+                            ))}
+                        </div>
+                    )}
 
-                                            {/* Progress bar for in-progress tasks */}
-                                            {progress?.status === 'in_progress' && countdown[task.id] && (
-                                                <div className="mb-3">
-                                                    <Progress
-                                                        value={((TASK_COMPLETION_DELAY - countdown[task.id]) / TASK_COMPLETION_DELAY) * 100}
-                                                        className="h-2"
-                                                        color="primary"
-                                                    />
-                                                </div>
-                                            )}
+                    {/* Active Tasks Section */}
+                    {activeTasks.length > 0 && (
+                        <div>
+                            <h2 className="text-lg font-bold mb-4">
+                                {t('tasks.sections.active')}
+                            </h2>
+                            <div className="space-y-4">
+                                {activeTasks.map(task => (
+                                    <TaskCard
+                                        key={task.id}
+                                        task={task}
+                                        processing={processing[task.id]}
+                                        onTaskClick={handleTaskClick}
+                                        getButtonState={getButtonState}
+                                        t={t}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-2">
-                                                    <Gift className="text-yellow-400" size={16} />
-                                                    <span className="text-yellow-400 font-bold">
-                                                        +{task.reward} attempts
-                                                    </span>
-                                                </div>
+                    {/* Completed Tasks Section */}
+                    {completedTasks.length > 0 && (
+                        <div>
+                            <Divider className="bg-white/10 mb-4" />
+                            <h2 className="text-lg font-bold mb-4 text-green-400">
+                                {t('tasks.sections.completed')}
+                            </h2>
+                            <div className="space-y-4">
+                                {completedTasks.map(task => (
+                                    <TaskCard
+                                        key={task.id}
+                                        task={task}
+                                        processing={processing[task.id]}
+                                        onTaskClick={handleTaskClick}
+                                        getButtonState={getButtonState}
+                                        t={t}
+                                        isCompleted={true}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
-                                                <Button
-                                                    size="sm"
-                                                    color={buttonState.color}
-                                                    isLoading={buttonState.loading}
-                                                    isDisabled={buttonState.disabled}
-                                                    className={`
-                            ${buttonState.color === 'success' ? 'bg-green-500 hover:bg-green-600' : ''}
-                            ${buttonState.color === 'primary' ? 'bg-blue-500 hover:bg-blue-600' : ''}
-                          `}
-                                                    startContent={
-                                                        !buttonState.loading && progress?.status === 'ready_to_claim' ? (
-                                                            <Check size={16} />
-                                                        ) : !buttonState.loading && progress?.status === 'completed' ? (
-                                                            <Check size={16} />
-                                                        ) : !buttonState.loading && !progress ? (
-                                                            <Play size={16} />
-                                                        ) : null
-                                                    }
-                                                    onPress={() => handleTaskClick(task)}
-                                                >
-                                                    {getButtonText(task)}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
-                        );
-                    })}
+                    {/* Empty State */}
+                    {activeTasks.length === 0 && completedTasks.length === 0 && storyTasks.length === 0 && (
+                        <div className="text-center py-12">
+                            <div className="text-6xl mb-4">📋</div>
+                            <h3 className="text-lg font-bold mb-2">{t('tasks.empty.noActiveTasks')}</h3>
+                            <p className="text-white/60 text-sm">{t('tasks.empty.startCompleting')}</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
+    );
+}
+
+// Компонент карточки задания
+interface TaskCardProps {
+    task: TaskWithCompletion;
+    processing?: any;
+    onTaskClick: (task: TaskWithCompletion) => void;
+    getButtonState: (task: TaskWithCompletion) => any;
+    t: any;
+    isSpecial?: boolean;
+    isCompleted?: boolean;
+}
+
+function TaskCard({
+    task,
+    processing,
+    onTaskClick,
+    getButtonState,
+    t,
+    isSpecial = false,
+    isCompleted = false
+}: TaskCardProps) {
+    const buttonState = getButtonState(task);
+
+    return (
+        <Card
+            className={`
+        ${isSpecial
+                    ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-2 border-yellow-400/40'
+                    : `bg-gradient-to-r ${task.color} border border-white/20`
+                } 
+        hover:border-white/30 transition-all duration-200
+        ${isCompleted ? 'opacity-75' : ''}
+      `}
+        >
+            <CardBody className="p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                        {/* Header */}
+                        <div className="flex items-center space-x-3 mb-3">
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-1">
+                                    <h3 className="font-bold text-white truncate">
+                                        {task.name}
+                                    </h3>
+                                    <Chip
+                                        size="sm"
+                                        variant="flat"
+                                        className={`
+                      ${task.type === 'telegram_channel' ? 'bg-blue-500/20 text-blue-300' : ''}
+                      ${task.type === 'telegram_chat' ? 'bg-green-500/20 text-green-300' : ''}
+                      ${task.type === 'twitter_follow' || task.type === 'twitter_repost' ? 'bg-sky-500/20 text-sky-300' : ''}
+                      ${task.type === 'website_visit' ? 'bg-orange-500/20 text-orange-300' : ''}
+                      ${task.type === 'story_share' ? 'bg-yellow-500/20 text-yellow-300' : ''}
+                    `}
+                                    >
+                                        {t(`tasks.types.${task.type}`)}
+                                    </Chip>
+                                </div>
+                                <p className="text-white/70 text-sm">
+                                    {t(`tasks.descriptions.${task.type}`)}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Progress bar для заданий с таймером */}
+                        {processing?.countdown && (
+                            <div className="mb-3">
+                                <Progress
+                                    value={((10000 - processing.countdown) / 10000) * 100}
+                                    className="h-2"
+                                    color="primary"
+                                />
+                            </div>
+                        )}
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <Gift className="text-yellow-400" size={16} />
+                                <span className="text-yellow-400 font-bold">
+                                    +{task.reward_attempts} {task.reward_attempts === 1 ? 'попытка' : 'попыток'}
+                                </span>
+                                {isCompleted && (
+                                    <CheckCircle2 className="text-green-400 ml-2" size={16} />
+                                )}
+                            </div>
+
+                            {!isCompleted && (
+                                <Button
+                                    size="sm"
+                                    color={buttonState.color}
+                                    isLoading={buttonState.loading}
+                                    isDisabled={buttonState.disabled}
+                                    className={`
+                    ${buttonState.color === 'success' ? 'bg-green-500 hover:bg-green-600' : ''}
+                    ${buttonState.color === 'primary' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+                    ${buttonState.color === 'danger' ? 'bg-red-500 hover:bg-red-600' : ''}
+                  `}
+                                    startContent={
+                                        !buttonState.loading && buttonState.color === 'success' ? (
+                                            <Check size={16} />
+                                        ) : !buttonState.loading && buttonState.color !== 'danger' ? (
+                                            <Play size={16} />
+                                        ) : null
+                                    }
+                                    onPress={() => onTaskClick(task)}
+                                >
+                                    {buttonState.text}
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Error message */}
+                        {processing?.error && (
+                            <div className="mt-2 text-red-400 text-xs">
+                                {processing.error}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </CardBody>
+        </Card>
     );
 }
