@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Enhanced with Telegram back button
+// src/game-modes/reaction/ReactionGameManager.tsx - Enhanced with background click handling
 
 "use client";
 
@@ -10,6 +10,7 @@ import {
   initializeReactionGameState,
   activateRandomCircle,
   handleCircleClick,
+  handleBackgroundClick,
   createReactionGameResult,
   cleanupReactionGame,
   getRandomDelay,
@@ -81,7 +82,7 @@ export default function ReactionGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -243,6 +244,39 @@ export default function ReactionGameManager() {
         triggerHapticFeedback(
           newState.stats.missedTarget ? "error" : "success",
         );
+
+        const result = createReactionGameResult(newState);
+
+        setGameResult(result);
+        handleSaveGameResult(result);
+        cleanupReactionGame(newState);
+      }
+
+      setGameState(newState);
+    },
+    [triggerHapticFeedback, handleSaveGameResult],
+  );
+
+  // NEW: Handle clicks on background (outside circles)
+  const handleBackgroundClickEvent = useCallback(
+    (event: React.MouseEvent) => {
+      if (gameStateRef.current.gameState !== GameState.PLAYING) return;
+
+      // Check if the click was on a circle element
+      const target = event.target as HTMLElement;
+      const isCircleClick = target.closest('[data-circle-id]');
+
+      if (isCircleClick) {
+        // This click will be handled by handleCircleClickEvent
+        return;
+      }
+
+      console.log("Background clicked - game over");
+
+      const newState = handleBackgroundClick(gameStateRef.current);
+
+      if (newState.gameState === GameState.FINISHED) {
+        triggerHapticFeedback("error");
 
         const result = createReactionGameResult(newState);
 
@@ -454,94 +488,94 @@ export default function ReactionGameManager() {
             saveStatus.error ||
             saveStatus.isSuccess ||
             saveStatus.skipped) && (
-            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span className="font-bpdots text-sm text-white/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="font-bpdots text-sm text-white/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recordingReaction")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-white/60" size={14} />
-                        <span className="text-xs font-bpdots text-white/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-white/20 rounded-full h-1">
-                        <div
-                          className="bg-white h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recordingReaction")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="font-bpdots text-sm text-green-400">
-                      {t("save.savedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-white/60" size={14} />
+                          <span className="text-xs font-bpdots text-white/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-white/20 rounded-full h-1">
+                          <div
+                            className="bg-white h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 font-bpdots text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="font-bpdots text-sm text-green-400">
+                        {t("save.savedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 font-bpdots text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.skipped && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-orange-400 font-bpdots text-sm">
-                      {t("shop.attemptNotRecorded")}
-                    </span>
+                {saveStatus.skipped && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-orange-400 font-bpdots text-sm">
+                        {t("shop.attemptNotRecorded")}
+                      </span>
+                    </div>
+                    <div className="text-orange-400/60 font-bpdots text-xs">
+                      {t("shop.onlySuccessful")}
+                    </div>
                   </div>
-                  <div className="text-orange-400/60 font-bpdots text-xs">
-                    {t("shop.onlySuccessful")}
-                  </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 font-bpdots text-sm">
-                      {t("shop.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 font-bpdots text-sm">
+                        {t("shop.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 font-bpdots text-xs mb-3">
+                      {t("shop.recordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded font-bpdots text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("shop.retrySave")}
+                    </button>
                   </div>
-                  <div className="text-red-400/60 font-bpdots text-xs mb-3">
-                    {t("shop.recordedLocally")}
-                  </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded font-bpdots text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("shop.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           <div className="space-y-4">
             <button
@@ -567,7 +601,10 @@ export default function ReactionGameManager() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col text-white">
-      <div className="flex-1 flex items-center justify-center">
+      <div
+        className="flex-1 flex items-center justify-center"
+        onClick={handleBackgroundClickEvent}
+      >
         <GameGrid
           circles={gameState.circles}
           isGameActive={gameState.gameState === GameState.PLAYING}
@@ -582,11 +619,10 @@ export default function ReactionGameManager() {
             <div className="flex items-center justify-center space-x-2">
               {getInstructionIcon()}
               <span
-                className={`font-bpdots text-lg font-bold transition-colors duration-300 ${
-                  gameState.activeCircleId !== null
+                className={`font-bpdots text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null
                     ? "text-white animate-pulse"
                     : "text-white/80"
-                }`}
+                  }`}
               >
                 {getInstructionText()}
               </span>

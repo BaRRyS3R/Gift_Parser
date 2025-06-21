@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameLogic.ts - Updated with monochrome color scheme
+// src/game-modes/reaction/ReactionGameLogic.ts - Updated with background click handling
 
 import {
   ReactionGameConfig,
@@ -126,6 +126,28 @@ export const handleCircleClick = (
       },
     };
   }
+};
+
+// NEW: Handle background clicks (clicks outside circles)
+export const handleBackgroundClick = (
+  state: ReactionGameState,
+): ReactionGameState => {
+  const clickTime = Date.now();
+
+  console.log("Background click detected - ending game");
+
+  // Background click always results in a miss
+  return {
+    ...state,
+    gameState: GameState.FINISHED,
+    stats: {
+      ...state.stats,
+      clicked: true,
+      clickTime,
+      reactionTime: null,
+      missedTarget: true,
+    },
+  };
 };
 
 export const calculateReactionRating = (

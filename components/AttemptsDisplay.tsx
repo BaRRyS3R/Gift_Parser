@@ -1,16 +1,13 @@
-// src/components/AttemptsDisplay.tsx - Минималистичный текстовый показатель попыток
+// src/components/AttemptsDisplay.tsx - Minimal icon-based attempts display
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { Target, RotateCcw, Clock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { userService, type AttemptsStatus } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
-import {
-    Target,
-    Clock
-} from "lucide-react";
 
 interface AttemptsDisplayProps {
     className?: string;
@@ -46,7 +43,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => 
         checkAttempts();
     }, [checkAttempts]);
 
-    // Обновление таймера
+    // Timer update logic
     useEffect(() => {
         if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
             setTimeUntilReset("");
@@ -78,37 +75,31 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => 
 
     if (isLoading) {
         return (
-            <div className={`text-center ${className}`}>
-                <span className="text-white/60 text-sm">
-                    {t("common.loading")}
-                </span>
+            <div className={`flex items-center justify-center ${className}`}>
+                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
             </div>
         );
     }
 
     const isEmpty = attemptsStatus.attemptsRemaining === 0;
-    const isLow = attemptsStatus.attemptsRemaining <= 2 && attemptsStatus.attemptsRemaining > 0;
-
-    const getTextColor = () => {
-        if (isEmpty) return "text-red-400";
-        if (isLow) return "text-orange-400";
-        return "text-green-400";
-    };
 
     return (
-        <div className={`text-center ${className}`}>
+        <div className={`flex items-center justify-center space-x-2 ${className}`}>
             {isEmpty && timeUntilReset ? (
-                <div className="space-y-1">
-                    <div className="text-red-400 text-lg font-bold tabular-nums">
-                        <Clock size={24} className="text-red" /> {timeUntilReset}
-                    </div>
-                </div>
+                <>
+                    <RotateCcw className="text-red-400" size={18} />
+                    <span className="text-red-400 text-lg font-bold tabular-nums">
+                        {timeUntilReset}
+                    </span>
+                    <Clock className="text-red-400" size={18} />
+                </>
             ) : (
-                <div className="space-y-1">
-                    <div className={`${getTextColor()} text-lg font-bold tabular-nums`}>
-                        <Target size={24} className="text-white" /> {attemptsStatus.attemptsRemaining}
-                    </div>
-                </div>
+                <>
+                    <Target className="text-white" size={18} />
+                    <span className="text-white text-lg font-bold tabular-nums">
+                        {attemptsStatus.attemptsRemaining}
+                    </span>
+                </>
             )}
         </div>
     );

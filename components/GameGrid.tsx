@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Adaptive circle sizing based on screen dimensions
+// src/components/GameGrid.tsx - Updated with background click detection support
 
 "use client";
 
@@ -167,6 +167,7 @@ export default function GameGrid({
   const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
     if (!isGameActive) return;
 
+    // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
 
@@ -185,6 +186,7 @@ export default function GameGrid({
   };
 
   const handleTouchEnd = (circleId: number, event: React.TouchEvent) => {
+    // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
     touchStartTimeRef.current.delete(circleId);
@@ -200,6 +202,7 @@ export default function GameGrid({
       return;
     }
 
+    // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
     onCircleClick(circleId);
@@ -274,6 +277,7 @@ export default function GameGrid({
           return (
             <button
               key={circle.id}
+              data-circle-id={circle.id}
               aria-label={`Game circle ${circle.id + 1}${circle.isActive ? (circle.isDecoy ? " - trap target" : " - active target") : ""}`}
               className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
               disabled={getInteractionProps(circle).disabled}
