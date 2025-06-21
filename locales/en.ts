@@ -250,7 +250,7 @@ export const en = {
                     good: "Good reaction time!",
                     average: "Keep practicing!",
                     slow: "Could be faster...",
-                    missed: "Target missed or incorrect click.",
+                    missed: "Target missed or miss-click.",
                 },
             },
             survival: {

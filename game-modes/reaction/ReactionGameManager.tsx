@@ -471,15 +471,8 @@ export default function ReactionGameManager() {
             <div className="border-t border-white/30 pt-4">
               <div className="text-center">
                 <div className="text-sm font-bpdots text-white/80 mb-2">
-                  {getReactionRatingDescription(rating)}
+                  {getReactionRatingDescription(rating, t)}
                 </div>
-                {!gameResult.missed && (
-                  <div className="text-xs font-bpdots text-white/60">
-                    {t(
-                      `game.modes.reaction.ratingDescriptions.${rating.toLowerCase()}`,
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>

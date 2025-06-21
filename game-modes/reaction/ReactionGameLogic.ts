@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameLogic.ts - Updated with background click handling
+// src/game-modes/reaction/ReactionGameLogic.ts - Updated with localized rating descriptions
 
 import {
   ReactionGameConfig,
@@ -6,6 +6,7 @@ import {
   ReactionGameState,
 } from "@/types/game-modes/reaction";
 import { Circle, GameState, GameMode } from "@/types/game-modes/common";
+import type { TranslationFunction } from "@/types/localization";
 
 export const REACTION_CONFIG: ReactionGameConfig = {
   id: "reaction",
@@ -128,7 +129,7 @@ export const handleCircleClick = (
   }
 };
 
-// NEW: Handle background clicks (clicks outside circles)
+// Handle background clicks (clicks outside circles)
 export const handleBackgroundClick = (
   state: ReactionGameState,
 ): ReactionGameState => {
@@ -212,22 +213,24 @@ export const cleanupReactionGame = (state: ReactionGameState): void => {
   }
 };
 
+// Updated function to use localization
 export const getReactionRatingDescription = (
   rating: ReactionGameResult["rating"],
+  t: TranslationFunction,
 ): string => {
   switch (rating) {
     case "LIGHTNING":
-      return "Lightning fast reflexes!";
+      return t("game.modes.reaction.ratingDescriptions.lightning");
     case "EXCELLENT":
-      return "Excellent reaction time!";
+      return t("game.modes.reaction.ratingDescriptions.excellent");
     case "GOOD":
-      return "Good response speed!";
+      return t("game.modes.reaction.ratingDescriptions.good");
     case "AVERAGE":
-      return "Average reaction time.";
+      return t("game.modes.reaction.ratingDescriptions.average");
     case "SLOW":
-      return "Could be faster...";
+      return t("game.modes.reaction.ratingDescriptions.slow");
     case "MISSED":
-      return "Target missed or incorrect click.";
+      return t("game.modes.reaction.ratingDescriptions.missed");
   }
 };
 
