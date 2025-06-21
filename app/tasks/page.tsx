@@ -6,6 +6,9 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Button, Progress, Chip, Divider } from "@nextui-org/react";
 import {
+    Clock,
+    Gift,
+    ExternalLink,
     Check,
     Play,
     AlertCircle,
@@ -14,8 +17,8 @@ import {
     Camera,
     Target
 } from "lucide-react";
-import {
-    SiTelegram,
+import { 
+    SiTelegram, 
     SiX
 } from "react-icons/si";
 
@@ -501,22 +504,27 @@ function TaskCard({
                 ${isCompleted ? 'opacity-75' : ''}
             `}
         >
-            {/* Background Pattern with Icons on the Right Side with Gradient Opacity */}
+            {/* Background Pattern with Icons */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-0 right-0 h-full w-1/3 pr-4 flex items-center justify-end">
-                    <div className="grid grid-cols-4 gap-4">
-                        {Array.from({ length: 32 }).map((_, i) => {
-                            const column = i % 4; // 0, 1, 2, 3
-                            const opacitySteps = [0.1, 0.3, 0.6, 1.0];
-                            return (
-                                <TaskIcon
-                                    key={i}
-                                    size={24}
-                                    className="text-white"
-                                    style={{ opacity: opacitySteps[column] }}
-                                />
-                            );
-                        })}
+                {/* Right-side gradient pattern of icons */}
+                <div className="absolute -top-4 -right-4 w-2/3 h-full transform rotate-12">
+                    <div className="grid grid-cols-4 gap-3 w-full h-full">
+                        {/* Column 1 - Almost transparent */}
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <TaskIcon key={`col1-${i}`} size={20} className="text-white opacity-5" />
+                        ))}
+                        {/* Column 2 - Low opacity */}
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <TaskIcon key={`col2-${i}`} size={20} className="text-white opacity-10" />
+                        ))}
+                        {/* Column 3 - Medium opacity */}
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <TaskIcon key={`col3-${i}`} size={20} className="text-white opacity-15" />
+                        ))}
+                        {/* Column 4 - Higher opacity */}
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <TaskIcon key={`col4-${i}`} size={20} className="text-white opacity-20" />
+                        ))}
                     </div>
                 </div>
             </div>
@@ -565,13 +573,13 @@ function TaskCard({
                                     size="sm"
                                     className={`
                                         relative z-20
-                                        ${buttonState.color === 'success'
-                                            ? 'bg-white text-black hover:bg-white/90'
-                                            : buttonState.color === 'primary'
-                                                ? 'bg-white/20 text-white border border-white/40 hover:bg-white/30'
-                                                : buttonState.color === 'danger'
-                                                    ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
-                                                    : 'bg-white/10 text-white/60 border border-white/20'
+                                        ${buttonState.color === 'success' 
+                                            ? 'bg-white text-black hover:bg-white/90' 
+                                            : buttonState.color === 'primary' 
+                                            ? 'bg-white/20 text-white border border-white/40 hover:bg-white/30' 
+                                            : buttonState.color === 'danger' 
+                                            ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20' 
+                                            : 'bg-white/10 text-white/60 border border-white/20'
                                         }
                                         ${buttonState.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
                                     `}
