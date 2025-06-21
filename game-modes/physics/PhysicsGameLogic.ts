@@ -37,9 +37,9 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: PHYSICS_CONFIG.impulseForce,
-    radius: 100, // Increased impulse radius
-    falloff: 0.6, // Force reduction with distance
+    force: 0.012, // Увеличена сила для лучшего эффекта
+    radius: 120, // Увеличен радиус действия
+    falloff: 0.4, // Уменьшено затухание для большего эффекта
 };
 
 export const createPhysicsEngine = (): Matter.Engine => {
@@ -306,33 +306,30 @@ export const applyImpulse = (
     const clickedBody = state.engine.world.bodies.find(b => b.id === clickedCircle.matterBodyId);
     if (!clickedBody) return state;
 
-    console.log(`Applying impulse from circle ${clickedCircleId} at position:`, clickedBody.position);
+    console.log(`Применяем импульс от круга ${clickedCircleId} в позиции:`, clickedBody.position);
 
-    // Apply impulse to all other circles within radius
     let affectedCircles = 0;
 
+    // Применяем импульс ко всем другим кругам в радиусе действия
     state.circles.forEach((circle) => {
         if (circle.id === clickedCircleId) return;
 
         const body = state.engine.world.bodies.find(b => b.id === circle.matterBodyId);
         if (!body) return;
 
-        // Calculate distance and direction
         const dx = body.position.x - clickedBody.position.x;
         const dy = body.position.y - clickedBody.position.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // Apply force if within effective radius
         if (distance <= IMPULSE_CONFIG.radius && distance > 0) {
-            // Normalize direction vector
             const normalizedX = dx / distance;
             const normalizedY = dy / distance;
 
-            // Calculate force magnitude with distance falloff
-            const distanceRatio = 1 - (distance / IMPULSE_CONFIG.radius);
-            const forceMagnitude = IMPULSE_CONFIG.force * Math.pow(distanceRatio, IMPULSE_CONFIG.falloff);
+            // ИСПРАВЛЕНИЕ: Увеличена сила импульса для лучшего визуального эффекта
+            const distanceRatio = Math.max(0.1, 1 - (distance / IMPULSE_CONFIG.radius));
+            const forceMagnitude = IMPULSE_CONFIG.force * Math.pow(distanceRatio, 0.5) * 2; // Увеличен множитель
 
-            // Apply impulse force to body
+            // Применяем силу к телу
             Matter.Body.applyForce(body, body.position, {
                 x: normalizedX * forceMagnitude,
                 y: normalizedY * forceMagnitude,
@@ -342,9 +339,10 @@ export const applyImpulse = (
         }
     });
 
-    console.log(`Impulse affected ${affectedCircles} circles`);
+    console.log(`Импульс затронул ${affectedCircles} кругов`);
 
-    return state;
+    // Обновляем позиции после применения импульса
+    return updatePhysicsPositions(state);
 };
 
 export const handlePhysicsCircleClick = (
@@ -418,7 +416,7 @@ export const removeWall = (state: PhysicsGameState, mistakeCount: number): Physi
     const newBoundaries = { ...state.boundaries };
     let wallToRemove: keyof typeof state.wallBodies | null = null;
 
-    // Determine which wall to remove based on mistake count
+    // ИСПРАВЛЕНИЕ: Правильный порядок удаления стен (сначала верхняя)
     switch (mistakeCount) {
         case 1:
             if (newBoundaries.top && state.wallBodies.top) {
@@ -427,29 +425,29 @@ export const removeWall = (state: PhysicsGameState, mistakeCount: number): Physi
             }
             break;
         case 2:
-            if (newBoundaries.left && state.wallBodies.left) {
-                newBoundaries.left = false;
-                wallToRemove = "left";
-            }
-            break;
-        case 3:
-            if (newBoundaries.right && state.wallBodies.right) {
-                newBoundaries.right = false;
-                wallToRemove = "right";
-            }
-            break;
-        case 4:
             if (newBoundaries.bottom && state.wallBodies.bottom) {
                 newBoundaries.bottom = false;
                 wallToRemove = "bottom";
             }
             break;
+        case 3:
+            if (newBoundaries.left && state.wallBodies.left) {
+                newBoundaries.left = false;
+                wallToRemove = "left";
+            }
+            break;
+        case 4:
+            if (newBoundaries.right && state.wallBodies.right) {
+                newBoundaries.right = false;
+                wallToRemove = "right";
+            }
+            break;
     }
 
-    // Remove wall from physics world
     if (wallToRemove && state.wallBodies[wallToRemove]) {
-        console.log(`Removing wall: ${wallToRemove} due to mistake ${mistakeCount}`);
+        console.log(`Удаляем стену: ${wallToRemove} из-за ошибки ${mistakeCount}`);
 
+        // Удаляем стену из физического мира
         Matter.World.remove(state.world, state.wallBodies[wallToRemove]!);
 
         const newWallBodies = { ...state.wallBodies };
@@ -499,7 +497,7 @@ export const deactivatePhysicsCircle = (
 export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
     const containerWidth = state.config.containerWidth;
     const containerHeight = state.config.containerHeight;
-    const margin = 80; // Larger margin for escape detection
+    const margin = 100; // Увеличенная граница для определения ухода
 
     let escapedCount = 0;
 
@@ -514,9 +512,8 @@ export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
         }
     });
 
-    // Game ends when 60% of circles have escaped
-    const escapeThreshold = Math.floor(state.circles.length * 0.6);
-    return escapedCount >= escapeThreshold;
+    // ИСПРАВЛЕНИЕ: Игра заканчивается когда ВСЕ круги ушли за экран
+    return escapedCount >= state.circles.length;
 };
 
 export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {

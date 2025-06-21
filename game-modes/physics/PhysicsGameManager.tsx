@@ -360,9 +360,14 @@ export default function PhysicsGameManager() {
             if (result === "correct") {
                 triggerHapticFeedback("success");
 
-                // Apply impulse effect immediately after correct click
-                const stateWithImpulse = applyImpulse(newState, circleId);
-                setGameState(stateWithImpulse);
+                // ИСПРАВЛЕНИЕ: Применяем импульс СРАЗУ к текущему состоянию игры
+                const currentStateWithImpulse = applyImpulse(gameStateRef.current, circleId);
+
+                // Затем применяем обновленное состояние со статистикой
+                setGameState({
+                    ...newState,
+                    circles: currentStateWithImpulse.circles, // Используем круги с примененным импульсом
+                });
 
                 setTimeout(() => {
                     setGameState((current) =>
@@ -372,11 +377,10 @@ export default function PhysicsGameManager() {
             } else if (result === "decoy" || result === "wrong") {
                 triggerHapticFeedback("error");
 
-                // Remove wall immediately upon mistake
+                // ИСПРАВЛЕНИЕ: Стены удаляются ТОЛЬКО при ошибках
                 const stateWithRemovedWall = removeWall(newState, newState.stats.currentMistakes);
                 setGameState(stateWithRemovedWall);
 
-                // Deactivate the clicked circle
                 setTimeout(() => {
                     setGameState((current) =>
                         deactivatePhysicsCircle(current, circleId),
