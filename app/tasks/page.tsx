@@ -507,7 +507,7 @@ function TaskCard({
                 <div className="absolute -top-8 -left-8 w-full h-full transform rotate-12 opacity-5">
                     <div className="grid grid-cols-7 gap-4 w-full h-full">
                         {Array.from({ length: 49 }).map((_, i) => (
-                            <TaskIcon key={i} size={24} className="text-white" />
+                            <TaskIcon key={i} size={30} className="text-white" />
                         ))}
                     </div>
                 </div>
