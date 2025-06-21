@@ -91,15 +91,9 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                         </div>
                     )}
 
-                    {!isExpanded && !isEmpty && (
-                        <div className="text-center py-2">
-                            <span className="text-white/40 text-xs">Нажмите для просмотра статистики</span>
-                        </div>
-                    )}
-
                     {!isExpanded && isEmpty && (
                         <div className="text-center py-2">
-                            <span className="text-white/40 text-xs">Нет данных</span>
+                            <span className="text-white/40 text-xs">{t("profile.noPhysicsAttemptsYet")}</span>
                         </div>
                     )}
                 </CardBody>
@@ -114,7 +108,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                 <h3 className="text-lg font-semibold text-white">{t("profile.overallStats")}</h3>
                 <ExpandableStatsCard
                     id="overall"
-                    title="Общая статистика"
+                    title={t("profile.overallStats")}
                     icon={Activity}
                     iconColor="text-white"
                     bgColor="bg-white/5"
@@ -140,7 +134,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                 <h3 className="text-lg font-semibold text-white">{t("profile.reactionMode")}</h3>
                 <ExpandableStatsCard
                     id="reaction"
-                    title="Статистика реакции"
+                    title={t("profile.reactionMode")}
                     icon={Zap}
                     iconColor="text-white"
                     bgColor="bg-white/5"
@@ -159,7 +153,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                         <StatItem
                             icon={Clock}
                             label={t("profile.stats.bestTime")}
-                            value={`${user.reaction_best_time || 0}ms`}
+                            value={`${user.reaction_best_time || 0}`}
                         />
                         <StatItem
                             icon={Trophy}
@@ -169,7 +163,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                         <StatItem
                             icon={Target}
                             label={t("profile.stats.averageTime")}
-                            value={`${user.reaction_average_time || 0}ms`}
+                            value={`${user.reaction_average_time || 0}`}
                         />
                         <StatItem
                             icon={Activity}
@@ -185,7 +179,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                 <h3 className="text-lg font-semibold text-white">{t("profile.survivalMode")}</h3>
                 <ExpandableStatsCard
                     id="survival"
-                    title="Статистика выживания"
+                    title={t("profile.survivalMode")}
                     icon={Crosshair}
                     iconColor="text-red-400"
                     bgColor="bg-red-500/5"
@@ -230,7 +224,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                 <h3 className="text-lg font-semibold text-white">{t("profile.physicsMode")}</h3>
                 <ExpandableStatsCard
                     id="physics"
-                    title="Статистика физики"
+                    title={t("profile.physicsMode")}
                     icon={Atom}
                     iconColor="text-purple-400"
                     bgColor="bg-purple-500/5"

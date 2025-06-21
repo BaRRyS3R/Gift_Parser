@@ -188,7 +188,7 @@ export default function LeaderboardPage() {
 
         <div className="text-right space-y-1">
           <div className="text-lg font-bold text-white">
-            {entry.best_reaction_time}ms
+            {entry.best_reaction_time}
           </div>
           <div className="flex items-center space-x-2 text-xs text-white/80">
             <div
@@ -555,7 +555,7 @@ export default function LeaderboardPage() {
                 >
                   {currentLeaderboard[0]
                     ? isReactionTab
-                      ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}ms`
+                      ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}`
                       : isSurvivalTab
                         ? formatSurvivalTime(
                           (currentLeaderboard[0] as SurvivalLeaderboard)
