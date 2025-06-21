@@ -226,7 +226,7 @@ export default function PhysicsGameManager() {
 
             // Check win/loss conditions
             const escapedCircles = checkCirclesEscaped(updatedState);
-            const tooManyMistakes = newStats.currentMistakes >= PHYSICS_CONFIG.maxMistakes;
+            const tooManyMistakes = newStats.currentMistakes > PHYSICS_CONFIG.maxMistakes;
             const timeUp = gameTime >= PHYSICS_CONFIG.levelDuration * 1000;
 
             if (escapedCircles || tooManyMistakes || timeUp) {

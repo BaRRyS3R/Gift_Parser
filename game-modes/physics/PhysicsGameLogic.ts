@@ -416,38 +416,24 @@ export const removeWall = (state: PhysicsGameState, mistakeCount: number): Physi
     const newBoundaries = { ...state.boundaries };
     let wallToRemove: keyof typeof state.wallBodies | null = null;
 
-    // ИСПРАВЛЕНИЕ: Правильный порядок удаления стен (сначала верхняя)
-    switch (mistakeCount) {
-        case 1:
-            if (newBoundaries.top && state.wallBodies.top) {
-                newBoundaries.top = false;
-                wallToRemove = "top";
-            }
-            break;
-        case 2:
-            if (newBoundaries.bottom && state.wallBodies.bottom) {
-                newBoundaries.bottom = false;
-                wallToRemove = "bottom";
-            }
-            break;
-        case 3:
-            if (newBoundaries.left && state.wallBodies.left) {
-                newBoundaries.left = false;
-                wallToRemove = "left";
-            }
-            break;
-        case 4:
-            if (newBoundaries.right && state.wallBodies.right) {
-                newBoundaries.right = false;
-                wallToRemove = "right";
-            }
-            break;
+    // Удаляем стены в правильной последовательности
+    if (mistakeCount >= 1 && newBoundaries.top && state.wallBodies.top) {
+        newBoundaries.top = false;
+        wallToRemove = "top";
+    } else if (mistakeCount >= 2 && newBoundaries.bottom && state.wallBodies.bottom) {
+        newBoundaries.bottom = false;
+        wallToRemove = "bottom";
+    } else if (mistakeCount >= 3 && newBoundaries.left && state.wallBodies.left) {
+        newBoundaries.left = false;
+        wallToRemove = "left";
+    } else if (mistakeCount >= 4 && newBoundaries.right && state.wallBodies.right) {
+        newBoundaries.right = false;
+        wallToRemove = "right";
     }
 
     if (wallToRemove && state.wallBodies[wallToRemove]) {
         console.log(`Удаляем стену: ${wallToRemove} из-за ошибки ${mistakeCount}`);
 
-        // Удаляем стену из физического мира
         Matter.World.remove(state.world, state.wallBodies[wallToRemove]!);
 
         const newWallBodies = { ...state.wallBodies };
@@ -497,23 +483,29 @@ export const deactivatePhysicsCircle = (
 export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
     const containerWidth = state.config.containerWidth;
     const containerHeight = state.config.containerHeight;
-    const margin = 100; // Увеличенная граница для определения ухода
+    const margin = 120;
 
     let escapedCount = 0;
 
     state.circles.forEach((circle) => {
+        // Проверяем, вышел ли круг за границы с учетом отсутствующих стен
+        const leftBound = state.boundaries.left ? -margin : -containerWidth;
+        const rightBound = state.boundaries.right ? containerWidth + margin : containerWidth * 2;
+        const topBound = state.boundaries.top ? -margin : -containerHeight;
+        const bottomBound = state.boundaries.bottom ? containerHeight + margin : containerHeight * 2;
+
         if (
-            circle.x < -margin ||
-            circle.x > containerWidth + margin ||
-            circle.y < -margin ||
-            circle.y > containerHeight + margin
+            circle.x < leftBound ||
+            circle.x > rightBound ||
+            circle.y < topBound ||
+            circle.y > bottomBound
         ) {
             escapedCount++;
         }
     });
 
-    // ИСПРАВЛЕНИЕ: Игра заканчивается когда ВСЕ круги ушли за экран
-    return escapedCount >= state.circles.length;
+    // Игра заканчивается когда 80% кругов ушли за пределы
+    return escapedCount >= Math.floor(state.circles.length * 0.8);
 };
 
 export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {

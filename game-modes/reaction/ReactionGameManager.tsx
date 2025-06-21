@@ -421,7 +421,6 @@ export default function ReactionGameManager() {
             </h1>
 
             <div className="flex items-center justify-center space-x-2">
-              <Zap className="text-white" size={20} />
               <p className="text-lg text-white/80">
                 {t("game.modes.reaction.results.subtitle")}
               </p>

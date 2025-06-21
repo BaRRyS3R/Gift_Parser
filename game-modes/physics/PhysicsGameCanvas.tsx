@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameCanvas.tsx - Canvas для отрисовки физического режима
+// src/game-modes/physics/PhysicsGameCanvas.tsx - Complete fixed implementation with touch handling and visual boundary updates
 
 "use client";
 
@@ -22,7 +22,11 @@ export default function PhysicsGameCanvas({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationFrameRef = useRef<number>();
 
-    // Получение позиции клика относительно canvas
+    // Touch handling refs for preventing multiple touches
+    const touchProcessedRef = useRef<Set<number>>(new Set());
+    const lastTouchTimeRef = useRef<number>(0);
+
+    // Function to get click position relative to canvas
     const getClickPosition = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (!canvas) return null;
@@ -37,7 +41,7 @@ export default function PhysicsGameCanvas({
         };
     }, []);
 
-    // Проверка клика по кругу
+    // Function to check if click hit a circle
     const getClickedCircle = useCallback((
         clickX: number,
         clickY: number,
@@ -54,7 +58,7 @@ export default function PhysicsGameCanvas({
         return null;
     }, []);
 
-    // Обработка клика по canvas
+    // Canvas click handler
     const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
         if (!isGameActive) return;
 
@@ -67,7 +71,140 @@ export default function PhysicsGameCanvas({
         }
     }, [isGameActive, getClickPosition, getClickedCircle, gameState.circles, onCircleClick]);
 
-    // Функция отрисовки
+    // Enhanced touch handler with debouncing
+    const handleTouchStart = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
+        event.preventDefault();
+        if (!isGameActive || event.touches.length === 0) return;
+
+        const currentTime = Date.now();
+        // Prevent processing touches more frequently than every 200ms
+        if (currentTime - lastTouchTimeRef.current < 200) {
+            return;
+        }
+
+        const touch = event.touches[0];
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        const clickPos = {
+            x: (touch.clientX - rect.left) * scaleX,
+            y: (touch.clientY - rect.top) * scaleY,
+        };
+
+        const clickedCircle = getClickedCircle(clickPos.x, clickPos.y, gameState.circles);
+        if (clickedCircle && !touchProcessedRef.current.has(clickedCircle.id)) {
+            touchProcessedRef.current.add(clickedCircle.id);
+            lastTouchTimeRef.current = currentTime;
+
+            const syntheticEvent = {
+                preventDefault: () => { },
+                stopPropagation: () => { },
+            } as React.MouseEvent;
+
+            onCircleClick(clickedCircle.id, syntheticEvent);
+
+            // Clear processed touches after 300ms
+            setTimeout(() => {
+                touchProcessedRef.current.delete(clickedCircle.id);
+            }, 300);
+        }
+    }, [isGameActive, getClickedCircle, gameState.circles, onCircleClick]);
+
+    const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+    }, []);
+
+    // Function to draw boundaries with proper visual state
+    const drawBoundaries = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
+        const { boundaries } = gameState;
+
+        // Top boundary
+        if (boundaries.top) {
+            ctx.strokeStyle = "#ffffff80";
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(canvas.width, 0);
+            ctx.stroke();
+        } else {
+            // Wall destroyed - show faint broken line or skip entirely
+            ctx.strokeStyle = "#ff444420";
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(canvas.width, 0);
+            ctx.stroke();
+        }
+
+        // Bottom boundary
+        if (boundaries.bottom) {
+            ctx.strokeStyle = "#ffffff80";
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.stroke();
+        } else {
+            ctx.strokeStyle = "#ff444420";
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.stroke();
+        }
+
+        // Left boundary
+        if (boundaries.left) {
+            ctx.strokeStyle = "#ffffff80";
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, canvas.height);
+            ctx.stroke();
+        } else {
+            ctx.strokeStyle = "#ff444420";
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, canvas.height);
+            ctx.stroke();
+        }
+
+        // Right boundary
+        if (boundaries.right) {
+            ctx.strokeStyle = "#ffffff80";
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width, 0);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.stroke();
+        } else {
+            ctx.strokeStyle = "#ff444420";
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width, 0);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.stroke();
+        }
+
+        // Reset line dash for subsequent drawing
+        ctx.setLineDash([]);
+    }, [gameState.boundaries]);
+
+    // Main drawing function
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -75,122 +212,57 @@ export default function PhysicsGameCanvas({
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        // Очищаем canvas
+        // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Отрисовка границ контейнера
-        ctx.strokeStyle = "#ffffff40";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
+        // Draw boundaries with current state
+        drawBoundaries(ctx, canvas);
 
-        // Верхняя граница
-        if (gameState.boundaries.top) {
-            ctx.strokeStyle = "#ffffff60";
-            ctx.setLineDash([]);
-            ctx.lineWidth = 3;
-        } else {
-            ctx.strokeStyle = "#ff444440";
-            ctx.setLineDash([10, 10]);
-            ctx.lineWidth = 2;
-        }
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(canvas.width, 0);
-        ctx.stroke();
-
-        // Нижняя граница
-        if (gameState.boundaries.bottom) {
-            ctx.strokeStyle = "#ffffff60";
-            ctx.setLineDash([]);
-            ctx.lineWidth = 3;
-        } else {
-            ctx.strokeStyle = "#ff444440";
-            ctx.setLineDash([10, 10]);
-            ctx.lineWidth = 2;
-        }
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height);
-        ctx.lineTo(canvas.width, canvas.height);
-        ctx.stroke();
-
-        // Левая граница
-        if (gameState.boundaries.left) {
-            ctx.strokeStyle = "#ffffff60";
-            ctx.setLineDash([]);
-            ctx.lineWidth = 3;
-        } else {
-            ctx.strokeStyle = "#ff444440";
-            ctx.setLineDash([10, 10]);
-            ctx.lineWidth = 2;
-        }
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, canvas.height);
-        ctx.stroke();
-
-        // Правая граница
-        if (gameState.boundaries.right) {
-            ctx.strokeStyle = "#ffffff60";
-            ctx.setLineDash([]);
-            ctx.lineWidth = 3;
-        } else {
-            ctx.strokeStyle = "#ff444440";
-            ctx.setLineDash([10, 10]);
-            ctx.lineWidth = 2;
-        }
-        ctx.beginPath();
-        ctx.moveTo(canvas.width, 0);
-        ctx.lineTo(canvas.width, canvas.height);
-        ctx.stroke();
-
-        // Сброс настроек линии
-        ctx.setLineDash([]);
-
-        // Отрисовка кругов
+        // Draw circles
         gameState.circles.forEach((circle) => {
-            if (circle.isAnimating) return; // Не рисуем анимирующиеся круги
+            if (circle.isAnimating) return; // Skip animating circles
 
             ctx.save();
 
-            // Определяем цвет и стиль круга
+            // Determine circle color and style
             if (circle.isActive) {
                 if (circle.isDecoy) {
-                    // Красный круг (ловушка)
+                    // Red trap circle
                     ctx.fillStyle = "#ef4444";
                     ctx.strokeStyle = "#dc2626";
                     ctx.lineWidth = 3;
 
-                    // Эффект пульсации для красных кругов
+                    // Pulsing effect for red circles
                     const pulse = Math.sin(Date.now() * 0.01) * 0.1 + 1;
                     ctx.globalAlpha = 0.9;
                     ctx.scale(pulse, pulse);
                     ctx.translate((circle.x * (1 - pulse)) / pulse, (circle.y * (1 - pulse)) / pulse);
                 } else {
-                    // Белый активный круг
+                    // White active circle
                     ctx.fillStyle = "#ffffff";
                     ctx.strokeStyle = "#e5e5e5";
                     ctx.lineWidth = 3;
                     ctx.globalAlpha = 1;
 
-                    // Легкое свечение
+                    // Subtle glow effect
                     ctx.shadowColor = "#ffffff";
                     ctx.shadowBlur = 10;
                 }
             } else {
-                // Неактивный круг
+                // Inactive circle
                 ctx.fillStyle = "#ffffff20";
                 ctx.strokeStyle = "#ffffff40";
                 ctx.lineWidth = 2;
                 ctx.globalAlpha = 0.7;
             }
 
-            // Рисуем круг
+            // Draw circle
             ctx.beginPath();
             ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
 
-            // Добавляем индикатор скорости для движущихся кругов
+            // Add velocity indicator for moving circles
             if (circle.vx && circle.vy && (Math.abs(circle.vx) > 0.1 || Math.abs(circle.vy) > 0.1)) {
                 const velocity = Math.sqrt(circle.vx * circle.vx + circle.vy * circle.vy);
                 if (velocity > 0.5) {
@@ -216,7 +288,7 @@ export default function PhysicsGameCanvas({
             ctx.restore();
         });
 
-        // Отрисовка отладочной информации (только в dev режиме)
+        // Development debug information
         if (process.env.NODE_ENV === "development") {
             ctx.fillStyle = "#ffffff80";
             ctx.font = "12px monospace";
@@ -224,7 +296,7 @@ export default function PhysicsGameCanvas({
             ctx.fillText(`Active: ${gameState.activeCircleIds.length}`, 10, 35);
             ctx.fillText(`Mistakes: ${gameState.stats.currentMistakes}/${gameState.config.maxMistakes}`, 10, 50);
 
-            // Показываем состояние границ
+            // Show boundary states
             const boundaries = gameState.boundaries;
             ctx.fillText(
                 `Walls: T:${boundaries.top ? "✓" : "✗"} L:${boundaries.left ? "✓" : "✗"} R:${boundaries.right ? "✓" : "✗"} B:${boundaries.bottom ? "✓" : "✗"}`,
@@ -232,9 +304,9 @@ export default function PhysicsGameCanvas({
                 65
             );
         }
-    }, [gameState]);
+    }, [gameState, drawBoundaries]);
 
-    // Анимационный цикл
+    // Animation loop
     const animate = useCallback(() => {
         draw();
         if (showCanvas && isGameActive) {
@@ -242,7 +314,7 @@ export default function PhysicsGameCanvas({
         }
     }, [draw, showCanvas, isGameActive]);
 
-    // Запуск/остановка анимации
+    // Start/stop animation based on game state
     useEffect(() => {
         if (showCanvas && isGameActive) {
             animate();
@@ -259,7 +331,7 @@ export default function PhysicsGameCanvas({
         };
     }, [showCanvas, isGameActive, animate]);
 
-    // Обновление размеров canvas при изменении конфигурации
+    // Update canvas dimensions when configuration changes
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -268,44 +340,14 @@ export default function PhysicsGameCanvas({
         canvas.height = gameState.config.containerHeight;
     }, [gameState.config.containerWidth, gameState.config.containerHeight]);
 
-    // Обработка touch событий для мобильных устройств
-    const handleTouchStart = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
-        event.preventDefault();
-        if (!isGameActive || event.touches.length === 0) return;
-
-        const touch = event.touches[0];
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        const clickPos = {
-            x: (touch.clientX - rect.left) * scaleX,
-            y: (touch.clientY - rect.top) * scaleY,
-        };
-
-        const clickedCircle = getClickedCircle(clickPos.x, clickPos.y, gameState.circles);
-        if (clickedCircle) {
-            // Создаем синтетическое событие мыши для совместимости
-            const syntheticEvent = {
-                preventDefault: () => { },
-                stopPropagation: () => { },
-            } as React.MouseEvent;
-
-            onCircleClick(clickedCircle.id, syntheticEvent);
-        }
-    }, [isGameActive, getClickedCircle, gameState.circles, onCircleClick]);
-
     return (
         <div
             className={`
-        flex items-center justify-center transition-all duration-300
-        ${showCanvas ? "opacity-100" : "opacity-0"}
-      `}
+                flex items-center justify-center transition-all duration-300
+                ${showCanvas ? "opacity-100" : "opacity-0"}
+            `}
             style={{
-                width: gameState.config.containerWidth + 40, // +40 для отступов
+                width: gameState.config.containerWidth + 40, // +40 for margins
                 height: gameState.config.containerHeight + 40,
             }}
         >
@@ -314,15 +356,16 @@ export default function PhysicsGameCanvas({
                 width={gameState.config.containerWidth}
                 height={gameState.config.containerHeight}
                 className={`
-          border-2 border-white/20 rounded-lg bg-black/20 backdrop-blur-sm
-          cursor-crosshair transition-all duration-300
-          ${isGameActive ? "hover:border-white/40" : "opacity-50"}
-          ${showCanvas ? "scale-100" : "scale-95"}
-        `}
+                    border-2 border-white/20 rounded-lg bg-black/20 backdrop-blur-sm
+                    cursor-crosshair transition-all duration-300
+                    ${isGameActive ? "hover:border-white/40" : "opacity-50"}
+                    ${showCanvas ? "scale-100" : "scale-95"}
+                `}
                 onClick={handleCanvasClick}
                 onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
                 style={{
-                    touchAction: "none", // Предотвращает скролл на мобильных
+                    touchAction: "none", // Prevents scrolling on mobile
                 }}
             />
         </div>

@@ -231,7 +231,7 @@ export const en = {
                     title: "REACTION",
                     subtitle: "The fiasco has been digitalized. Our... condolences?",
                     reactionTime: "TIMING",
-                    missed: "Missed even here.",
+                    missed: "Missed. Loser.",
                     testAgain: "REPEAT",
                     backToMenu: "BACK TO MENU",
                     noAttemptsLeft: "NO ATTEMPTS",
@@ -242,7 +242,7 @@ export const en = {
                     good: "Not bad",
                     average: "So-so",
                     slow: "Blitz, Blitz!",
-                    missed: "Missed. Loser.",
+                    missed: "Missed even here.",
                 },
                 ratingDescriptions: {
                     lightning: "Two options: either you connected your brain via an optical cable, or you just farted from the strain and accidentally poked it.",
