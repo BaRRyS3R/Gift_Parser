@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Enhanced with complete localization
+// src/app/leaderboard/page.tsx - Updated with physics mode, no overall stats
 
 "use client";
 
@@ -16,33 +16,34 @@ import {
   Activity,
   Clock,
   Crosshair,
+  Atom,
 } from "lucide-react";
 
 import {
   userService,
-  type LeaderboardEntry,
   type ReactionLeaderboard,
   type SurvivalLeaderboard,
+  type PhysicsLeaderboard,
 } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
 import { formatSurvivalTime } from "@/game-modes/survival/SurvivalGameLogic";
 import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
 import { useT } from "@/contexts/LocalizationContext";
 
-type LeaderboardType = "overall" | "reaction" | "survival";
+type LeaderboardType = "reaction" | "survival" | "physics";
 
 export default function LeaderboardPage() {
   const { user } = useUser();
   const t = useT();
-  const [activeTab, setActiveTab] = useState<LeaderboardType>("overall");
-  const [overallLeaderboard, setOverallLeaderboard] = useState<
-    LeaderboardEntry[]
-  >([]);
+  const [activeTab, setActiveTab] = useState<LeaderboardType>("reaction");
   const [reactionLeaderboard, setReactionLeaderboard] = useState<
     ReactionLeaderboard[]
   >([]);
   const [survivalLeaderboard, setSurvivalLeaderboard] = useState<
     SurvivalLeaderboard[]
+  >([]);
+  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<
+    PhysicsLeaderboard[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,15 +54,15 @@ export default function LeaderboardPage() {
         setIsLoading(true);
         setError(null);
 
-        const [overall, reaction, survival] = await Promise.all([
-          userService.getLeaderboard(50),
+        const [reaction, survival, physics] = await Promise.all([
           userService.getReactionLeaderboard(50),
           userService.getSurvivalLeaderboard(50),
+          userService.getPhysicsLeaderboard(50),
         ]);
 
-        setOverallLeaderboard(overall);
         setReactionLeaderboard(reaction);
         setSurvivalLeaderboard(survival);
+        setPhysicsLeaderboard(physics);
       } catch (err) {
         console.error("Error loading leaderboards:", err);
         setError(t("leaderboard.failedToLoad"));
@@ -107,10 +108,6 @@ export default function LeaderboardPage() {
 
   const getTabColors = (tab: LeaderboardType, isActive: boolean) => {
     const colors = {
-      overall: {
-        active: "bg-white/20 text-white",
-        inactive: "text-white/60 hover:text-white/80",
-      },
       reaction: {
         active: "bg-white/20 text-white border border-white/30",
         inactive: "text-white/60 hover:text-white/80",
@@ -119,66 +116,13 @@ export default function LeaderboardPage() {
         active: "bg-red-500/20 text-red-300 border border-red-400/30",
         inactive: "text-red-400/60 hover:text-red-400/80",
       },
+      physics: {
+        active: "bg-purple-500/20 text-purple-300 border border-purple-400/30",
+        inactive: "text-purple-400/60 hover:text-purple-400/80",
+      },
     };
 
     return isActive ? colors[tab].active : colors[tab].inactive;
-  };
-
-  const renderOverallLeaderboardEntry = (
-    entry: LeaderboardEntry,
-    position: number,
-  ) => {
-    return (
-      <div
-        key={entry.id}
-        className={`
-                    flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
-                    ${getRankBg(position)}
-                    ${isCurrentUser(entry.telegram_id)
-            ? "ring-1 ring-white/40 bg-white/15"
-            : "hover:bg-white/10"
-          }
-                `}
-      >
-        <div className="flex items-center justify-center w-8">
-          {getRankIcon(position)}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center space-x-2">
-            <h3
-              className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id)
-                ? "text-white"
-                : "text-white/90"
-                }`}
-            >
-              {entry.first_name} {entry.last_name || ""}
-            </h3>
-            {entry.is_premium && (
-              <Star className="text-yellow-400 flex-shrink-0" size={12} />
-            )}
-            {isCurrentUser(entry.telegram_id) && (
-              <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded">
-                {t("leaderboard.you")}
-              </span>
-            )}
-          </div>
-          {entry.username && (
-            <p className="text-xs text-white/50 truncate">@{entry.username}</p>
-          )}
-        </div>
-
-        <div className="text-right space-y-1">
-          <div className="text-lg font-bold text-white">{entry.best_score}</div>
-          <div className="flex items-center space-x-2 text-xs text-white/60">
-            <div className="flex items-center space-x-1">
-              <Activity size={10} />
-              <span>{entry.total_games}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   const renderReactionLeaderboardEntry = (
@@ -190,7 +134,6 @@ export default function LeaderboardPage() {
       if (time <= 200) return "EXCELLENT";
       if (time <= 300) return "GOOD";
       if (time <= 500) return "AVERAGE";
-
       return "SLOW";
     };
 
@@ -200,16 +143,16 @@ export default function LeaderboardPage() {
       <div
         key={entry.id}
         className={`
-                    flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
-                    ${position <= 3
+          flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
+          ${position <= 3
             ? "bg-white/20 border-white/40"
             : "bg-white/10 border-white/30"
           }
-                    ${isCurrentUser(entry.telegram_id)
+          ${isCurrentUser(entry.telegram_id)
             ? "ring-1 ring-white/60 bg-white/25"
             : "hover:bg-white/15"
           }
-                `}
+        `}
       >
         <div className="flex items-center justify-center w-8">
           {position <= 3 ? (
@@ -271,16 +214,16 @@ export default function LeaderboardPage() {
       <div
         key={entry.id}
         className={`
-                    flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
-                    ${position <= 3
+          flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
+          ${position <= 3
             ? "bg-red-500/20 border-red-400/40"
             : "bg-red-500/10 border-red-400/30"
           }
-                    ${isCurrentUser(entry.telegram_id)
+          ${isCurrentUser(entry.telegram_id)
             ? "ring-1 ring-red-400/60 bg-red-500/25"
             : "hover:bg-red-500/15"
           }
-                `}
+        `}
       >
         <div className="flex items-center justify-center w-8">
           {position <= 3 ? (
@@ -341,6 +284,84 @@ export default function LeaderboardPage() {
     );
   };
 
+  const renderPhysicsLeaderboardEntry = (
+    entry: PhysicsLeaderboard,
+    position: number,
+  ) => {
+    return (
+      <div
+        key={entry.id}
+        className={`
+          flex items-center space-x-3 p-3 rounded-lg border transition-all duration-300 backdrop-blur-xl
+          ${position <= 3
+            ? "bg-purple-500/20 border-purple-400/40"
+            : "bg-purple-500/10 border-purple-400/30"
+          }
+          ${isCurrentUser(entry.telegram_id)
+            ? "ring-1 ring-purple-400/60 bg-purple-500/25"
+            : "hover:bg-purple-500/15"
+          }
+        `}
+      >
+        <div className="flex items-center justify-center w-8">
+          {position <= 3 ? (
+            getRankIcon(position)
+          ) : (
+            <span className="text-purple-300/80 text-sm font-bold">
+              #{position}
+            </span>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center space-x-2">
+            <h3
+              className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id)
+                ? "text-purple-200"
+                : "text-purple-300"
+                }`}
+            >
+              {entry.first_name} {entry.last_name || ""}
+            </h3>
+            {entry.is_premium && (
+              <Star className="text-yellow-400 flex-shrink-0" size={12} />
+            )}
+            {isCurrentUser(entry.telegram_id) && (
+              <span className="text-xs bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded border border-purple-400/30">
+                {t("leaderboard.you")}
+              </span>
+            )}
+          </div>
+          {entry.username && (
+            <p className="text-xs text-purple-300/60 truncate">
+              @{entry.username}
+            </p>
+          )}
+        </div>
+
+        <div className="text-right space-y-1">
+          <div className="text-lg font-bold text-purple-300">
+            {entry.best_physics_score}
+          </div>
+          <div className="flex items-center space-x-2 text-xs text-purple-400/80">
+            <div className="flex items-center space-x-1">
+              <Clock size={10} />
+              <span>{entry.best_physics_time}s</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Target size={10} />
+              <span>{entry.best_hits}</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Activity size={10} />
+              <span>{entry.physics_games}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -371,18 +392,19 @@ export default function LeaderboardPage() {
 
   const getCurrentLeaderboard = () => {
     switch (activeTab) {
-      case "overall":
-        return overallLeaderboard;
       case "reaction":
         return reactionLeaderboard;
       case "survival":
         return survivalLeaderboard;
+      case "physics":
+        return physicsLeaderboard;
     }
   };
 
   const currentLeaderboard = getCurrentLeaderboard();
   const isReactionTab = activeTab === "reaction";
   const isSurvivalTab = activeTab === "survival";
+  const isPhysicsTab = activeTab === "physics";
 
   const getLeaderboardTitle = () => {
     switch (activeTab) {
@@ -390,8 +412,8 @@ export default function LeaderboardPage() {
         return t("leaderboard.reaction");
       case "survival":
         return t("leaderboard.survival");
-      default:
-        return t("leaderboard.overall");
+      case "physics":
+        return t("leaderboard.physics");
     }
   };
 
@@ -401,19 +423,19 @@ export default function LeaderboardPage() {
         return <Zap className="text-white" size={20} />;
       case "survival":
         return <Crosshair className="text-red-400" size={20} />;
-      default:
-        return <Trophy className="text-white" size={20} />;
+      case "physics":
+        return <Atom className="text-purple-400" size={20} />;
     }
   };
 
   const getTabLabel = (tab: LeaderboardType) => {
     switch (tab) {
-      case "overall":
-        return t("leaderboard.overall").split(" ")[0]; // "OVERALL" or "ОБЩИЙ"
       case "reaction":
-        return t("leaderboard.reaction").split(" ")[0]; // "REACTION" or "РЕЙТИНГ"
+        return t("leaderboard.reaction").split(" ")[0];
       case "survival":
-        return t("leaderboard.survival").split(" ")[0]; // "SURVIVAL" or "РЕЙТИНГ"
+        return t("leaderboard.survival").split(" ")[0];
+      case "physics":
+        return t("leaderboard.physics").split(" ")[0];
     }
   };
 
@@ -432,9 +454,9 @@ export default function LeaderboardPage() {
       };
     } else {
       return {
-        icon: <TrendingUp className="text-white/40 mx-auto mb-3" size={32} />,
-        title: t("leaderboard.noPlayers"),
-        subtitle: t("leaderboard.beFirst"),
+        icon: <Atom className="text-purple-400/60 mx-auto mb-3" size={32} />,
+        title: t("leaderboard.noPhysicists"),
+        subtitle: t("leaderboard.tryPhysics"),
       };
     }
   };
@@ -445,7 +467,7 @@ export default function LeaderboardPage() {
     } else if (isSurvivalTab) {
       return t("leaderboard.survivalElite");
     } else {
-      return t("leaderboard.topPlayers");
+      return t("leaderboard.physicsElite");
     }
   };
 
@@ -457,20 +479,20 @@ export default function LeaderboardPage() {
           <div className="flex items-center justify-center space-x-3">
             <div
               className={`w-10 h-10 rounded-lg flex items-center justify-center ${isReactionTab
-                ? "bg-white/20 border border-white/30"
-                : isSurvivalTab
-                  ? "bg-red-500/20 border border-red-400/30"
-                  : "bg-white/20"
+                  ? "bg-white/20 border border-white/30"
+                  : isSurvivalTab
+                    ? "bg-red-500/20 border border-red-400/30"
+                    : "bg-purple-500/20 border border-purple-400/30"
                 }`}
             >
               {getLeaderboardIcon()}
             </div>
             <h1
               className={`text-2xl font-bold ${isReactionTab
-                ? "text-white"
-                : isSurvivalTab
-                  ? "text-red-300"
-                  : "text-white"
+                  ? "text-white"
+                  : isSurvivalTab
+                    ? "text-red-300"
+                    : "text-purple-300"
                 }`}
             >
               {getLeaderboardTitle()}
@@ -480,28 +502,28 @@ export default function LeaderboardPage() {
           {currentLeaderboard.length > 0 && (
             <div
               className={`flex items-center justify-center space-x-4 backdrop-blur-xl border rounded-lg p-2 text-sm ${isReactionTab
-                ? "bg-white/10 border-white/30"
-                : isSurvivalTab
-                  ? "bg-red-500/10 border-red-400/30"
-                  : "bg-white/10 border-white/20"
+                  ? "bg-white/10 border-white/30"
+                  : isSurvivalTab
+                    ? "bg-red-500/10 border-red-400/30"
+                    : "bg-purple-500/10 border-purple-400/30"
                 }`}
             >
               <div className="flex items-center space-x-1">
                 <Users
                   className={`${isReactionTab
-                    ? "text-white/80"
-                    : isSurvivalTab
-                      ? "text-red-400/80"
-                      : "text-white/60"
+                      ? "text-white/80"
+                      : isSurvivalTab
+                        ? "text-red-400/80"
+                        : "text-purple-400/80"
                     }`}
                   size={14}
                 />
                 <span
                   className={`font-bold ${isReactionTab
-                    ? "text-white"
-                    : isSurvivalTab
-                      ? "text-red-300"
-                      : "text-white"
+                      ? "text-white"
+                      : isSurvivalTab
+                        ? "text-red-300"
+                        : "text-purple-300"
                     }`}
                 >
                   {currentLeaderboard.length}
@@ -509,10 +531,10 @@ export default function LeaderboardPage() {
               </div>
               <div
                 className={`w-px h-4 ${isReactionTab
-                  ? "bg-white/30"
-                  : isSurvivalTab
-                    ? "bg-red-400/30"
-                    : "bg-white/20"
+                    ? "bg-white/30"
+                    : isSurvivalTab
+                      ? "bg-red-400/30"
+                      : "bg-purple-400/30"
                   }`}
               />
               <div className="flex items-center space-x-1">
@@ -521,14 +543,14 @@ export default function LeaderboardPage() {
                 ) : isSurvivalTab ? (
                   <Clock className="text-red-400/80" size={14} />
                 ) : (
-                  <Trophy className="text-white/60" size={14} />
+                  <Trophy className="text-purple-400/80" size={14} />
                 )}
                 <span
                   className={`font-bold ${isReactionTab
-                    ? "text-white"
-                    : isSurvivalTab
-                      ? "text-red-300"
-                      : "text-white"
+                      ? "text-white"
+                      : isSurvivalTab
+                        ? "text-red-300"
+                        : "text-purple-300"
                     }`}
                 >
                   {currentLeaderboard[0]
@@ -539,7 +561,7 @@ export default function LeaderboardPage() {
                           (currentLeaderboard[0] as SurvivalLeaderboard)
                             .best_survival_time,
                         )
-                        : (currentLeaderboard[0] as LeaderboardEntry).best_score
+                        : (currentLeaderboard[0] as PhysicsLeaderboard).best_physics_score
                     : "0"}
                 </span>
               </div>
@@ -552,19 +574,19 @@ export default function LeaderboardPage() {
       <div className="mb-4">
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1">
           <div className="flex space-x-1">
-            {(["overall", "reaction", "survival"] as const).map((tab) => (
+            {(["reaction", "survival", "physics"] as const).map((tab) => (
               <button
                 key={tab}
                 className={`
-                                    flex-1 px-3 py-2 rounded-lg text-sm font-bold transition-all duration-300
-                                    ${getTabColors(tab, activeTab === tab)}
-                                `}
+                  flex-1 px-3 py-2 rounded-lg text-sm font-bold transition-all duration-300
+                  ${getTabColors(tab, activeTab === tab)}
+                `}
                 onClick={() => setActiveTab(tab)}
               >
                 <div className="flex items-center justify-center space-x-1">
-                  {tab === "overall" && <Trophy size={12} />}
                   {tab === "reaction" && <Zap size={12} />}
                   {tab === "survival" && <Crosshair size={12} />}
+                  {tab === "physics" && <Atom size={12} />}
                   <span>{getTabLabel(tab)}</span>
                 </div>
               </button>
@@ -578,34 +600,33 @@ export default function LeaderboardPage() {
         {currentLeaderboard.length === 0 ? (
           <div
             className={`text-center py-8 backdrop-blur-xl border rounded-lg ${isReactionTab
-              ? "bg-white/10 border-white/30"
-              : isSurvivalTab
-                ? "bg-red-500/10 border-red-400/30"
-                : "bg-white/10 border-white/20"
+                ? "bg-white/10 border-white/30"
+                : isSurvivalTab
+                  ? "bg-red-500/10 border-red-400/30"
+                  : "bg-purple-500/10 border-purple-400/30"
               }`}
           >
             {(() => {
               const emptyState = getEmptyStateMessage();
-
               return (
                 <>
                   {emptyState.icon}
                   <p
                     className={`font-bold ${isReactionTab
-                      ? "text-white/80"
-                      : isSurvivalTab
-                        ? "text-red-300/80"
-                        : "text-white/60"
+                        ? "text-white/80"
+                        : isSurvivalTab
+                          ? "text-red-300/80"
+                          : "text-purple-300/80"
                       }`}
                   >
                     {emptyState.title}
                   </p>
                   <p
                     className={`text-sm mt-1 ${isReactionTab
-                      ? "text-white/60"
-                      : isSurvivalTab
-                        ? "text-red-400/60"
-                        : "text-white/40"
+                        ? "text-white/60"
+                        : isSurvivalTab
+                          ? "text-red-400/60"
+                          : "text-purple-400/60"
                       }`}
                   >
                     {emptyState.subtitle}
@@ -620,28 +641,28 @@ export default function LeaderboardPage() {
             {currentLeaderboard.slice(0, 3).length > 0 && (
               <div
                 className={`backdrop-blur-xl border rounded-lg p-4 mb-3 ${isReactionTab
-                  ? "bg-white/10 border-white/30"
-                  : isSurvivalTab
-                    ? "bg-red-500/10 border-red-400/30"
-                    : "bg-white/10 border-white/20"
+                    ? "bg-white/10 border-white/30"
+                    : isSurvivalTab
+                      ? "bg-red-500/10 border-red-400/30"
+                      : "bg-purple-500/10 border-purple-400/30"
                   }`}
               >
                 <div className="flex items-center space-x-2 mb-3">
                   <Crown
                     className={`${isReactionTab
-                      ? "text-white"
-                      : isSurvivalTab
-                        ? "text-red-400"
-                        : "text-white/80"
+                        ? "text-white"
+                        : isSurvivalTab
+                          ? "text-red-400"
+                          : "text-purple-400"
                       }`}
                     size={16}
                   />
                   <h3
                     className={`text-sm font-bold ${isReactionTab
-                      ? "text-white"
-                      : isSurvivalTab
-                        ? "text-red-300"
-                        : "text-white"
+                        ? "text-white"
+                        : isSurvivalTab
+                          ? "text-red-300"
+                          : "text-purple-300"
                       }`}
                   >
                     {getTopPlayersLabel()}
@@ -661,8 +682,8 @@ export default function LeaderboardPage() {
                             entry as SurvivalLeaderboard,
                             index + 1,
                           )
-                          : renderOverallLeaderboardEntry(
-                            entry as LeaderboardEntry,
+                          : renderPhysicsLeaderboardEntry(
+                            entry as PhysicsLeaderboard,
                             index + 1,
                           ),
                     )}
@@ -674,28 +695,28 @@ export default function LeaderboardPage() {
             {currentLeaderboard.length > 3 && (
               <div
                 className={`backdrop-blur-xl border rounded-lg p-4 ${isReactionTab
-                  ? "bg-white/10 border-white/30"
-                  : isSurvivalTab
-                    ? "bg-red-500/10 border-red-400/30"
-                    : "bg-white/10 border-white/20"
+                    ? "bg-white/10 border-white/30"
+                    : isSurvivalTab
+                      ? "bg-red-500/10 border-red-400/30"
+                      : "bg-purple-500/10 border-purple-400/30"
                   }`}
               >
                 <div className="flex items-center space-x-2 mb-3">
                   <Users
                     className={`${isReactionTab
-                      ? "text-white"
-                      : isSurvivalTab
-                        ? "text-red-400"
-                        : "text-white/80"
+                        ? "text-white"
+                        : isSurvivalTab
+                          ? "text-red-400"
+                          : "text-purple-400"
                       }`}
                     size={16}
                   />
                   <h3
                     className={`text-sm font-bold ${isReactionTab
-                      ? "text-white"
-                      : isSurvivalTab
-                        ? "text-red-300"
-                        : "text-white"
+                        ? "text-white"
+                        : isSurvivalTab
+                          ? "text-red-300"
+                          : "text-purple-300"
                       }`}
                   >
                     {t("leaderboard.allPlayers")}
@@ -715,8 +736,8 @@ export default function LeaderboardPage() {
                             entry as SurvivalLeaderboard,
                             index + 4,
                           )
-                          : renderOverallLeaderboardEntry(
-                            entry as LeaderboardEntry,
+                          : renderPhysicsLeaderboardEntry(
+                            entry as PhysicsLeaderboard,
                             index + 4,
                           ),
                     )}

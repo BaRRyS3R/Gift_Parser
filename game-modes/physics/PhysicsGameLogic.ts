@@ -54,7 +54,7 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
         impulseForce: 0.05,
-        maxMistakes: 6,
+        maxMistakes: 12,
         levelDuration: 180, // 3 minutes
     };
 };
@@ -578,8 +578,8 @@ export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
         }
     });
 
-    // Game ends when 80% of circles have escaped
-    return escapedCount >= Math.floor(state.circles.length * 0.8);
+    // Game ends when 90% of circles have escaped
+    return escapedCount >= Math.floor(state.circles.length * 0.9);
 };
 
 export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {
