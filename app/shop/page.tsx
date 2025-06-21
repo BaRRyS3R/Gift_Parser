@@ -270,23 +270,23 @@ export default function ShopPage() {
                 {/* Success Notification */}
                 {successNotification.show && (
                     <div className={`
-                        fixed bottom-0 left-0 right-0 z-50 px-4 pb-24
+                        fixed top-4 left-4 right-4 z-50
                         transform transition-all duration-500 ease-out
-                        ${successNotification.show ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}
+                        ${successNotification.show ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}
                     `}>
-                        <div className="bg-gradient-to-r from-green-500/90 to-emerald-500/90 backdrop-blur-md border border-green-400/30 rounded-t-2xl p-4 shadow-2xl">
-                            <div className="flex items-center space-x-4">
-                                <div className="flex-shrink-0 w-12 h-12 bg-green-400/20 rounded-full flex items-center justify-center">
-                                    {successNotification.icon}
+                        <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
+                            <CardBody className="p-4">
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                        {successNotification.icon}
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-green-400 text-lg">{successNotification.title}</h4>
+                                        <p className="text-green-300 text-sm mt-1">{successNotification.message}</p>
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <h4 className="font-bold text-white text-lg">{successNotification.title}</h4>
-                                    <p className="text-green-100 text-sm mt-1">{successNotification.message}</p>
-                                </div>
-                            </div>
-                            {/* Decorative elements */}
-                            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-green-300/50 rounded-b-full" />
-                        </div>
+                            </CardBody>
+                        </Card>
                     </div>
                 )}
             </div>
