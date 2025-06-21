@@ -14,9 +14,9 @@ export default function BottomNav() {
 
   const navItems = [
     {
-      name: t("nav.home"),
-      path: "/main",
-      icon: Gamepad2,
+      name: t("nav.profile"),
+      path: "/profile",
+      icon: User,
     },
     {
       name: t("nav.leaderboard"),
@@ -24,9 +24,9 @@ export default function BottomNav() {
       icon: Trophy,
     },
     {
-      name: t("nav.tasks"),
-      path: "/tasks",
-      icon: CheckSquare,
+      name: t("nav.home"),
+      path: "/main",
+      icon: Gamepad2,
     },
     {
       name: t("nav.shop"),
@@ -34,9 +34,9 @@ export default function BottomNav() {
       icon: ShoppingCart,
     },
     {
-      name: t("nav.profile"),
-      path: "/profile",
-      icon: User,
+      name: t("nav.tasks"),
+      path: "/tasks",
+      icon: CheckSquare,
     },
   ];
 

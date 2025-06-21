@@ -7,6 +7,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useUser } from "@/hooks/useUser";
 import { userService, type AttemptsStatus } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
+import {
+    Target,
+    Clock
+} from "lucide-react";
 
 interface AttemptsDisplayProps {
     className?: string;
@@ -96,22 +100,13 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => 
             {isEmpty && timeUntilReset ? (
                 <div className="space-y-1">
                     <div className="text-red-400 text-lg font-bold tabular-nums">
-                        {timeUntilReset}
-                    </div>
-                    <div className="text-red-400/80 text-xs uppercase tracking-wider">
-                        {t("attempts.resetTime")}
+                        <Clock size={24} className="text-red" /> {timeUntilReset}
                     </div>
                 </div>
             ) : (
                 <div className="space-y-1">
                     <div className={`${getTextColor()} text-lg font-bold tabular-nums`}>
-                        {attemptsStatus.attemptsRemaining}
-                    </div>
-                    <div className="text-white/60 text-xs uppercase tracking-wider">
-                        {attemptsStatus.attemptsRemaining === 1
-                            ? t("common.attempts").slice(0, -1)
-                            : t("common.attempts")
-                        }
+                        <Target size={24} className="text-white" /> {attemptsStatus.attemptsRemaining}
                     </div>
                 </div>
             )}

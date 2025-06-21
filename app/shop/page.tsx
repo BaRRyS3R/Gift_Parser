@@ -7,13 +7,9 @@ import { useRouter } from "next/navigation";
 import { Card, CardBody, CardFooter, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
-    Zap,
     AlertCircle,
     Star,
-    CreditCard,
     CheckCircle,
-    X,
-    ExternalLink,
     Clock,
     Crown,
     Gem,
