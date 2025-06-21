@@ -21,7 +21,7 @@ export const PHYSICS_CONFIG: PhysicsGameConfig = {
     initialActivationTimeMin: 1500,
     initialActivationTimeMax: 3000,
     circleActiveTime: 2500,
-    impulseForce: 0.008, // Increased for better visual feedback
+    impulseForce: 0.08, // Increased for better visual feedback
     maxMistakes: 4,
     levelDuration: 120, // 2 minutes
 };
@@ -37,15 +37,15 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.012, // Увеличена сила для лучшего эффекта
+    force: 0.2, // Увеличена сила для лучшего эффекта
     radius: 120, // Увеличен радиус действия
     falloff: 0.4, // Уменьшено затухание для большего эффекта
 };
 
 export const createPhysicsEngine = (): Matter.Engine => {
     const engine = Matter.Engine.create();
-    engine.world.gravity.x = PHYSICS_ENGINE_CONFIG.gravity.x;
-    engine.world.gravity.y = PHYSICS_ENGINE_CONFIG.gravity.y;
+    engine.gravity.x = PHYSICS_ENGINE_CONFIG.gravity.x;
+    engine.gravity.y = PHYSICS_ENGINE_CONFIG.gravity.y;
 
     // Configure engine timing for consistent physics
     engine.timing.timeScale = 1;
