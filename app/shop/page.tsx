@@ -184,7 +184,6 @@ export default function ShopPage() {
             case 'attempts_5': return { text: 'Popular', textKey: 'shop.badges.popular' };
             case 'attempts_10': return { text: 'Best Value', textKey: 'shop.badges.bestvalue' };
             case 'attempts_100': return { text: 'Ultimate', textKey: 'shop.badges.ultimate' };
-            case 'instant_reset': return { text: 'Instant', textKey: 'shop.badges.instant' };
             default: return null;
         }
     };
@@ -310,16 +309,11 @@ function ProductCard({
     getButtonText,
     t
 }: ProductCardProps) {
-    const isSpecial = productType === 'instant_reset';
 
     return (
         <Card
             className={`
                 relative overflow-hidden
-                ${isSpecial
-                    ? 'bg-gradient-to-r from-white/20 to-white/15 border-2 border-white/40'
-                    : 'bg-gradient-to-r from-white/10 to-white/5 border border-white/20'
-                } 
                 hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
                 transition-all duration-200
             `}
