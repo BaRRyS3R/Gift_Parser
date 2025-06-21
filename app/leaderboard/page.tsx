@@ -346,7 +346,7 @@ export default function LeaderboardPage() {
           <div className="flex items-center space-x-2 text-xs text-purple-400/80">
             <div className="flex items-center space-x-1">
               <Clock size={10} />
-              <span>{entry.best_physics_time}s</span>
+              <span>{formatPhysicsTime(entry.best_physics_time)}</span>
             </div>
             <div className="flex items-center space-x-1">
               <Target size={10} />
