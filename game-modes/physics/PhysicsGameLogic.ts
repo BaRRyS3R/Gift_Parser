@@ -37,8 +37,8 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.2, // Увеличена сила для лучшего эффекта
-    radius: 120, // Увеличен радиус действия
+    force: 0.1, // Увеличена сила для лучшего эффекта
+    radius: 60, // Увеличен радиус действия
     falloff: 0.4, // Уменьшено затухание для большего эффекта
 };
 
