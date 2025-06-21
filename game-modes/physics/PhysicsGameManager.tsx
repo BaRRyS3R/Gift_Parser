@@ -542,7 +542,7 @@ export default function PhysicsGameManager() {
                                 {formatPhysicsTime(gameResult.gameTime)}
                             </div>
                             <div className="text-lg text-purple-300">
-                                Очки: {gameResult.finalScore}
+                                Очки: {Math.round(gameResult.finalScore)}
                             </div>
                         </div>
 
@@ -707,7 +707,7 @@ export default function PhysicsGameManager() {
                         <div className="flex items-center space-x-2">
                             <Target className="text-white" size={18} />
                             <span className="text-lg font-bold text-white">
-                                {gameState.stats.totalScore}
+                                {Math.round(gameState.stats.totalScore)}
                             </span>
                         </div>
                     </div>

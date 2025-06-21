@@ -379,7 +379,7 @@ export const handlePhysicsCircleClick = (
             const newStats = {
                 ...stateWithImpulse.stats,
                 correctHits: stateWithImpulse.stats.correctHits + 1,
-                totalScore: stateWithImpulse.stats.totalScore + 100,
+                totalScore: Math.round(stateWithImpulse.stats.totalScore + 100), // Округляем
                 lastHitTime: clickTime,
             };
 
@@ -523,10 +523,11 @@ export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
 
 export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {
     const baseScore = stats.correctHits * 100;
-    const timeBonus = Math.max(0, stats.gameTime / 1000) * 5; // 5 points per second
+    const timeBonus = Math.max(0, Math.floor(stats.gameTime / 1000)) * 5; // Округляем время до целого
     const mistakePenalty = stats.currentMistakes * 50;
 
-    return Math.max(0, baseScore + timeBonus - mistakePenalty);
+    // Принудительно округляем финальный результат до целого числа
+    return Math.max(0, Math.round(baseScore + timeBonus - mistakePenalty));
 };
 
 export const createPhysicsGameResult = (
@@ -538,13 +539,13 @@ export const createPhysicsGameResult = (
 
     return {
         mode: GameMode.PHYSICS,
-        score: finalScore,
+        score: Math.round(finalScore), // Принудительное округление счета
         duration: Math.floor(finalState.stats.gameTime / 1000),
-        gameTime: Math.round(finalState.stats.gameTime), // Округляем время
+        gameTime: Math.round(finalState.stats.gameTime),
         totalHits: finalState.stats.correctHits,
         mistakesMade: finalState.stats.currentMistakes,
-        finalScore,
-        survivalTime: Math.round(finalState.stats.gameTime), // Округляем время выживания
+        finalScore: Math.round(finalScore), // Принудительное округление финального счета
+        survivalTime: Math.round(finalState.stats.gameTime),
         deathCause,
         createdAt: new Date().toISOString(),
     };
