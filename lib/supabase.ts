@@ -174,10 +174,9 @@ export const userService = {
     return code;
   },
 
-  // UPDATED create method
   async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
     const referralCodeToUse = await this.generateUniqueReferralCode();
-    let additionalAttempts = 5;
+    let additionalAttempts = 10; // ИЗМЕНЕНО: увеличено с 5 до 10 базовых попыток
     let referredBy = null;
 
     // Handle referral
@@ -185,7 +184,7 @@ export const userService = {
       const referrer = await this.findByReferralCode(referralCode);
       if (referrer) {
         referredBy = referralCode;
-        additionalAttempts += referrer.referral_bonus;
+        additionalAttempts += referrer.referral_bonus; // Добавляем бонус от реферера (по умолчанию 5)
 
         await supabase
           .from("users")
@@ -210,7 +209,7 @@ export const userService = {
       attempts_remaining: additionalAttempts,
       referral_code: referralCodeToUse,
       referred_by: referredBy,
-      referral_bonus: 1,
+      referral_bonus: 5, // По умолчанию каждый новый пользователь дает 5 бонусных попыток своим рефералам
       referral_count: 0,
     };
 
