@@ -15,7 +15,6 @@ export default function NavigationWrapper() {
     "/game", // Old game page (redirect)
     "/game/reaction", // Reaction game mode
     "/game/survival", // Survival game mode
-    "/shop", // Shop page
     "/tournament", // Tournament page
     "/tournament/play", // Tournament game page
   ];

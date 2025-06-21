@@ -1,10 +1,10 @@
-// src/app/shop/page.tsx - Новый дизайн магазина с карточками и уведомлениями
+// src/app/shop/page.tsx - Обновленный дизайн магазина с монохромными карточками в стиле заданий
 
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, CardFooter, Button } from "@nextui-org/react";
+import { Card, CardBody, CardFooter, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
     Zap,
@@ -17,7 +17,9 @@ import {
     Clock,
     Crown,
     Gem,
-    Flame
+    Flame,
+    ShoppingCart,
+    Target
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -69,8 +71,8 @@ export default function ShopPage() {
         }
     }, [purchaseState.error]);
 
+    // Setup Telegram WebApp back button
     useEffect(() => {
-        // Setup Telegram WebApp back button
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
             tg.BackButton.show();
@@ -114,13 +116,11 @@ export default function ShopPage() {
             icon
         });
 
-        // Показываем конфетти
         setIsExploding(true);
         setTimeout(() => {
             setIsExploding(false);
         }, 2000);
 
-        // Скрываем уведомление через 3 секунды
         setTimeout(() => {
             setSuccessNotification(prev => ({ ...prev, show: false }));
         }, 3000);
@@ -181,23 +181,14 @@ export default function ShopPage() {
         }
     };
 
-    const getProductIcon = (productType: ProductType) => {
-        switch (productType) {
-            case 'attempts_1': return <Zap className="text-blue-400" size={24} />;
-            case 'attempts_5': return <Flame className="text-orange-400" size={24} />;
-            case 'attempts_10': return <Gem className="text-purple-400" size={24} />;
-            case 'attempts_100': return <Crown className="text-yellow-400" size={24} />;
-            case 'instant_reset': return <Clock className="text-green-400" size={24} />;
-            default: return <Star className="text-white" size={24} />;
-        }
-    };
+
 
     const getProductBadge = (productType: ProductType) => {
         switch (productType) {
-            case 'attempts_5': return { text: 'Popular', color: 'bg-orange-500/20 text-orange-300 border-orange-400/30' };
-            case 'attempts_10': return { text: 'Best Value', color: 'bg-purple-500/20 text-purple-300 border-purple-400/30' };
-            case 'attempts_100': return { text: 'Ultimate', color: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30' };
-            case 'instant_reset': return { text: 'Instant', color: 'bg-green-500/20 text-green-300 border-green-400/30' };
+            case 'attempts_5': return { text: 'Popular', textKey: 'shop.badges.popular' };
+            case 'attempts_10': return { text: 'Best Value', textKey: 'shop.badges.bestvalue' };
+            case 'attempts_100': return { text: 'Ultimate', textKey: 'shop.badges.ultimate' };
+            case 'instant_reset': return { text: 'Instant', textKey: 'shop.badges.instant' };
             default: return null;
         }
     };
@@ -209,7 +200,15 @@ export default function ShopPage() {
 
     const getLoadingText = (productType: ProductType) => {
         if (purchaseState.loadingProduct !== productType) return null;
-        return purchaseState.isLoading ? 'Creating...' : 'Processing...';
+        return purchaseState.isLoading ? t('shop.creatingInvoice') : t('shop.processingPayment');
+    };
+
+    const getButtonText = (productType: ProductType) => {
+        const loading = isLoading(productType);
+        if (loading) {
+            return getLoadingText(productType);
+        }
+        return t('shop.buy');
     };
 
     return (
@@ -225,122 +224,47 @@ export default function ShopPage() {
                     />
                 </div>
             )}
-            
-            <div className="px-4 pt-20 pb-8">
+
+            <div className="px-4 pt-20 pb-24">
                 {/* Header */}
                 <div className="text-center mb-8">
                     <h1 className="text-2xl font-bold mb-2">{t('shop.title')}</h1>
                     <p className="text-white/60 text-sm">{t('shop.subtitle')}</p>
                 </div>
 
-                {/* Products Grid */}
-                <div className="max-w-4xl mx-auto">
-                    <div className="grid grid-cols-1 gap-4 mb-8">
-                        {/* TEST PRODUCT - REMOVE BEFORE PRODUCTION */}
-                        <Card 
-                            className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-400/30 hover:bg-purple-500/30 hover:border-purple-400/50 transition-all duration-200"
-                        >
+                {/* Error message */}
+                {purchaseState.error && (
+                    <div className="max-w-2xl mx-auto mb-6">
+                        <Card className="bg-white/10 border border-white/20">
                             <CardBody className="p-4">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <div className="flex items-center space-x-3 mb-2">
-                                            <div className="flex-shrink-0">
-                                                <div className="relative">
-                                                    <Star className="text-yellow-400 animate-pulse" size={24} />
-                                                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-ping" />
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-white">
-                                                    {t('shop.testProduct.title')}
-                                                </h3>
-                                                <p className="text-white/60 text-sm">
-                                                    {t('shop.testProduct.description')}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="px-2 py-1 rounded-full text-xs font-bold border bg-purple-500/20 text-purple-300 border-purple-400/30">
-                                        {t('shop.badges.test')}
-                                    </div>
+                                <div className="flex items-center space-x-2">
+                                    <AlertCircle size={20} className="text-white" />
+                                    <span className="text-white">{purchaseState.error}</span>
                                 </div>
                             </CardBody>
-                            <CardFooter className="px-4 py-3 bg-gradient-to-r from-purple-500/20 to-transparent backdrop-blur-sm">
-                                <div className="flex items-center justify-between w-full">
-                                    <div className="flex items-center space-x-1">
-                                        <Star className="text-yellow-400 animate-spin" size={16} />
-                                        <span className="text-white font-medium">999</span>
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        color="primary"
-                                        className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
-                                        onPress={() => {
-                                            setIsExploding(true);
-                                            setTimeout(() => setIsExploding(false), 2000);
-                                        }}
-                                    >
-                                        {t('shop.testProduct.button')}
-                                    </Button>
-                                </div>
-                            </CardFooter>
                         </Card>
-
-                        {Object.entries(PRODUCTS).map(([key, product]) => {
-                            const productType = key as ProductType;
-                            const badge = getProductBadge(productType);
-                            const loading = isLoading(productType);
-
-                            return (
-                                <Card 
-                                    key={productType}
-                                    className="bg-white/5 border border-white/20 hover:bg-white/10 hover:border-white/30 transition-all duration-200"
-                                >
-                                    <CardBody className="p-4">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <div className="flex items-center space-x-3 mb-2">
-                                                    <div className="flex-shrink-0">
-                                                        {getProductIcon(productType)}
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-white">
-                                                            {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.title`)}
-                                                        </h3>
-                                                        <p className="text-white/60 text-sm">
-                                                            {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.description`)}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {badge && (
-                                                <div className={`px-2 py-1 rounded-full text-xs font-bold border ${badge.color}`}>
-                                                    {t(`shop.badges.${badge.text.replace(/\s+/g, '').toLowerCase()}`)}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CardBody>
-                                    <CardFooter className="px-4 py-3 bg-gradient-to-r from-white/10 to-transparent backdrop-blur-sm">
-                                        <div className="flex items-center justify-between w-full">
-                                            <div className="flex items-center space-x-1">
-                                                <Star className="text-yellow-400" size={16} />
-                                                <span className="text-white font-medium">{product.price}</span>
-                                            </div>
-                                            <Button
-                                                size="sm"
-                                                color="primary"
-                                                isLoading={loading}
-                                                className="bg-gradient-to-r from-blue-500 to-purple-500"
-                                                onPress={() => handlePurchase(productType)}
-                                            >
-                                                {loading ? t('shop.loading') : t('shop.buy')}
-                                            </Button>
-                                        </div>
-                                    </CardFooter>
-                                </Card>
-                            );
-                        })}
                     </div>
+                )}
+
+                <div className="max-w-2xl mx-auto space-y-4">
+                    {Object.entries(PRODUCTS).map(([key, product]) => {
+                        const productType = key as ProductType;
+                        const badge = getProductBadge(productType);
+                        const loading = isLoading(productType);
+
+                        return (
+                            <ProductCard
+                                key={productType}
+                                productType={productType}
+                                product={product}
+                                badge={badge}
+                                loading={loading}
+                                onPurchase={handlePurchase}
+                                getButtonText={getButtonText}
+                                t={t}
+                            />
+                        );
+                    })}
                 </div>
 
                 {/* Success Notification */}
@@ -355,17 +279,112 @@ export default function ShopPage() {
                         </div>
                     </div>
                 )}
-
-                {/* Error Notification */}
-                {purchaseState.error && (
-                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-500/10 backdrop-blur-md border border-red-500/20 rounded-lg p-4 max-w-sm w-full mx-4 z-50">
-                        <div className="flex items-center space-x-3">
-                            <AlertCircle className="text-red-400" size={24} />
-                            <p className="text-white">{purchaseState.error}</p>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
+    );
+}
+
+// Компонент карточки продукта с монохромным дизайном
+interface ProductCardProps {
+    productType: ProductType;
+    product: any;
+    badge: { text: string; textKey: string } | null;
+    loading: boolean;
+    onPurchase: (productType: ProductType) => void;
+    getButtonText: (productType: ProductType) => string | null;
+    t: any;
+}
+
+function ProductCard({
+    productType,
+    product,
+    badge,
+    loading,
+    onPurchase,
+    getButtonText,
+    t
+}: ProductCardProps) {
+    const isSpecial = productType === 'instant_reset';
+
+    return (
+        <Card
+            className={`
+                relative overflow-hidden
+                ${isSpecial
+                    ? 'bg-gradient-to-r from-white/20 to-white/15 border-2 border-white/40'
+                    : 'bg-gradient-to-r from-white/10 to-white/5 border border-white/20'
+                } 
+                hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
+                transition-all duration-200
+            `}
+        >
+            {/* Background Pattern with Icons */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {/* Single large icon on the right side */}
+                <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
+                    <Target size={120} className="text-white" />
+                </div>
+            </div>
+
+            <CardBody className="p-4 relative z-10">
+                <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                        {/* Header */}
+                        <div className="flex items-center space-x-3 mb-3">
+                            <div className="flex-shrink-0">
+                                <Target size={24} className="text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-1">
+                                    <h3 className="font-bold text-white truncate">
+                                        {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.title`)}
+                                    </h3>
+                                    {badge && (
+                                        <Chip
+                                            size="sm"
+                                            variant="flat"
+                                            className="bg-white/20 text-white border border-white/30"
+                                        >
+                                            {t(badge.textKey)}
+                                        </Chip>
+                                    )}
+                                </div>
+                                <p className="text-white/70 text-sm">
+                                    {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.description`)}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <Star className="text-white" size={16} />
+                                <span className="text-white font-bold">
+                                    {product.price}
+                                </span>
+                            </div>
+
+                            <Button
+                                size="sm"
+                                className="
+                                    relative z-20 
+                                    bg-white/20 text-white border border-white/40 
+                                    hover:bg-white/30 hover:border-white/60
+                                    disabled:opacity-50 disabled:cursor-not-allowed
+                                "
+                                isLoading={loading}
+                                isDisabled={loading}
+                                startContent={
+                                    !loading ? <ShoppingCart size={16} /> : null
+                                }
+                                onPress={() => onPurchase(productType)}
+                            >
+                                {getButtonText(productType)}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </CardBody>
+        </Card>
     );
 }
