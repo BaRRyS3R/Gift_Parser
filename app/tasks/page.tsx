@@ -503,18 +503,13 @@ function TaskCard({
         >
             {/* Background Pattern with Icons */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {/* Diagonal pattern of icons */}
-                <div className="absolute -top-4 -right-4 transform rotate-12 opacity-5">
-                    <div className="grid grid-cols-3 gap-8">
-                        {Array.from({ length: 9 }).map((_, i) => (
-                            <TaskIcon key={i} size={32} className="text-white" />
+                {/* Full card diagonal pattern of icons */}
+                <div className="absolute -top-8 -left-8 w-full h-full transform rotate-12 opacity-5">
+                    <div className="grid grid-cols-6 gap-6 w-full h-full">
+                        {Array.from({ length: 24 }).map((_, i) => (
+                            <TaskIcon key={i} size={28} className="text-white" />
                         ))}
                     </div>
-                </div>
-
-                {/* Large background icon on the right */}
-                <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-8">
-                    <TaskIcon size={80} className="text-white" />
                 </div>
             </div>
 
@@ -544,20 +539,6 @@ function TaskCard({
                                 </p>
                             </div>
                         </div>
-
-                        {/* Progress bar для заданий с таймером */}
-                        {processing?.countdown && (
-                            <div className="mb-3">
-                                <Progress
-                                    value={((10000 - processing.countdown) / 10000) * 100}
-                                    className="h-2"
-                                    classNames={{
-                                        track: "bg-white/20",
-                                        indicator: "bg-white"
-                                    }}
-                                />
-                            </div>
-                        )}
 
                         {/* Footer */}
                         <div className="flex items-center justify-between">
