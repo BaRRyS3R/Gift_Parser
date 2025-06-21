@@ -328,7 +328,7 @@ function ProductCard({
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 {/* Single large icon on the right side */}
                 <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-                    <Target size={120} className="text-white" />
+                    ⚡
                 </div>
             </div>
 
@@ -338,7 +338,7 @@ function ProductCard({
                         {/* Header */}
                         <div className="flex items-center space-x-3 mb-3">
                             <div className="flex-shrink-0">
-                                <Target size={24} className="text-white" />
+                                ⚡
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2 mb-1">
