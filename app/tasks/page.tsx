@@ -501,14 +501,22 @@ function TaskCard({
                 ${isCompleted ? 'opacity-75' : ''}
             `}
         >
-            {/* Background Pattern with Icons */}
+            {/* Background Pattern with Icons on the Right Side with Gradient Opacity */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {/* Full card diagonal pattern of icons */}
-                <div className="absolute -top-8 -left-8 w-full h-full transform rotate-12 opacity-5">
-                    <div className="grid grid-cols-7 gap-4 w-full h-full">
-                        {Array.from({ length: 49 }).map((_, i) => (
-                            <TaskIcon key={i} size={30} className="text-white" />
-                        ))}
+                <div className="absolute top-0 right-0 h-full w-1/3 pr-4 flex items-center justify-end">
+                    <div className="grid grid-cols-4 gap-4">
+                        {Array.from({ length: 32 }).map((_, i) => {
+                            const column = i % 4; // 0, 1, 2, 3
+                            const opacitySteps = [0.1, 0.3, 0.6, 1.0];
+                            return (
+                                <TaskIcon
+                                    key={i}
+                                    size={24}
+                                    className="text-white"
+                                    style={{ opacity: opacitySteps[column] }}
+                                />
+                            );
+                        })}
                     </div>
                 </div>
             </div>
