@@ -15,7 +15,7 @@ export default function NavigationWrapper() {
     "/game", // Old game page (redirect)
     "/game/reaction", // Reaction game mode
     "/game/survival", // Survival game mode
-    "/game/physic", // Physic game
+    "/game/physics", // Physic game
     "/tournament", // Tournament page
     "/tournament/play", // Tournament game page
   ];
