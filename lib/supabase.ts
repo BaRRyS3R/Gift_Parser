@@ -458,11 +458,16 @@ export const userService = {
       const physicsResult = gameResult as PhysicsGameResult;
       updates.physics_games = user.physics_games + 1;
       updates.physics_best_score = Math.max(user.physics_best_score || 0, physicsResult.score);
-      updates.physics_best_time = Math.max(user.physics_best_time || 0, physicsResult.gameTime);
+
+      // Исправление: принудительное округление времени до целого числа
+      updates.physics_best_time = Math.max(
+        user.physics_best_time || 0,
+        Math.round(physicsResult.gameTime) // Округляем до целого
+      );
+
       updates.physics_total_hits = (user.physics_total_hits || 0) + physicsResult.totalHits;
       updates.physics_best_hits = Math.max(user.physics_best_hits || 0, physicsResult.totalHits);
 
-      // Track least mistakes (initialize with first game if no previous record)
       if (user.physics_least_mistakes === undefined || user.physics_least_mistakes === null) {
         updates.physics_least_mistakes = physicsResult.mistakesMade;
       } else {

@@ -416,19 +416,32 @@ export const removeWall = (state: PhysicsGameState, mistakeCount: number): Physi
     const newBoundaries = { ...state.boundaries };
     let wallToRemove: keyof typeof state.wallBodies | null = null;
 
-    // Удаляем стены в правильной последовательности
-    if (mistakeCount >= 1 && newBoundaries.top && state.wallBodies.top) {
-        newBoundaries.top = false;
-        wallToRemove = "top";
-    } else if (mistakeCount >= 2 && newBoundaries.bottom && state.wallBodies.bottom) {
-        newBoundaries.bottom = false;
-        wallToRemove = "bottom";
-    } else if (mistakeCount >= 3 && newBoundaries.left && state.wallBodies.left) {
-        newBoundaries.left = false;
-        wallToRemove = "left";
-    } else if (mistakeCount >= 4 && newBoundaries.right && state.wallBodies.right) {
-        newBoundaries.right = false;
-        wallToRemove = "right";
+    // Исправленная логика: точное соответствие номера ошибки
+    switch (mistakeCount) {
+        case 1:
+            if (newBoundaries.top && state.wallBodies.top) {
+                newBoundaries.top = false;
+                wallToRemove = "top";
+            }
+            break;
+        case 2:
+            if (newBoundaries.left && state.wallBodies.left) {
+                newBoundaries.left = false;
+                wallToRemove = "left";
+            }
+            break;
+        case 3:
+            if (newBoundaries.right && state.wallBodies.right) {
+                newBoundaries.right = false;
+                wallToRemove = "right";
+            }
+            break;
+        case 4:
+            if (newBoundaries.bottom && state.wallBodies.bottom) {
+                newBoundaries.bottom = false;
+                wallToRemove = "bottom";
+            }
+            break;
     }
 
     if (wallToRemove && state.wallBodies[wallToRemove]) {
@@ -527,11 +540,11 @@ export const createPhysicsGameResult = (
         mode: GameMode.PHYSICS,
         score: finalScore,
         duration: Math.floor(finalState.stats.gameTime / 1000),
-        gameTime: finalState.stats.gameTime,
+        gameTime: Math.round(finalState.stats.gameTime), // Округляем время
         totalHits: finalState.stats.correctHits,
         mistakesMade: finalState.stats.currentMistakes,
         finalScore,
-        survivalTime: finalState.stats.gameTime,
+        survivalTime: Math.round(finalState.stats.gameTime), // Округляем время выживания
         deathCause,
         createdAt: new Date().toISOString(),
     };
