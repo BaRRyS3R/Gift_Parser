@@ -121,12 +121,12 @@ export const ru = {
 
         // Описания заданий
         descriptions: {
-            telegram_channel: "Подпишитесь на наш канал для получения обновлений",
-            telegram_chat: "Присоединитесь к нашему чату",
-            twitter_follow: "Подпишитесь на нас в Twitter",
-            twitter_repost: "Сделайте репост нашего твита",
-            website_visit: "Посетите наш веб-сайт",
-            story_share: "Поделитесь игрой в своих сторис Telegram"
+            telegram_channel: "Подпишитесь на канал",
+            telegram_chat: "Присоединитесь к чату",
+            twitter_follow: "Подпишитесь в Twitter",
+            twitter_repost: "Сделайте репост твита",
+            website_visit: "Посетите веб-сайт",
+            story_share: "Поделитесь в своих сторис Telegram"
         },
 
         // Специальное задание

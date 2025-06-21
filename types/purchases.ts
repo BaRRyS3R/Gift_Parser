@@ -18,8 +18,7 @@ export type ProductType =
   | "attempts_1"
   | "attempts_5"
   | "attempts_10"
-  | "attempts_100"
-  | "instant_reset";
+  | "attempts_100";
 // ============================================================================
 
 export type PurchaseStatus = "pending" | "completed" | "failed" | "refunded";
@@ -119,21 +118,6 @@ export const PRODUCTS: Record<ProductType, ProductInfo> = {
       "Ultimate value pack",
       "Instant activation",
       "No expiration date",
-    ],
-  },
-  instant_reset: {
-    type: "instant_reset",
-    title: "Instant Reset",
-    description: "Instantly restore 10 attempts and reset cooldown",
-    price: 200, // 200 Telegram Stars
-    icon: "⏰",
-    attempts_bonus: 10,
-    is_instant_reset: true,
-    benefits: [
-      "Instant cooldown reset",
-      "10 attempts restored",
-      "Skip waiting time",
-      "Continue playing now",
     ],
   },
 };

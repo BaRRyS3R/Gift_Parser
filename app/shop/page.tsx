@@ -326,9 +326,9 @@ function ProductCard({
         >
             {/* Background Pattern with Icons */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {/* Single large icon on the right side */}
-                <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-                    ⚡
+                {/* Large lightning icon on the right side, extending beyond card boundaries */}
+                <div className="absolute -right-12 top-1/2 transform -translate-y-1/2 opacity-10">
+                    <div className="text-white text-[140px] leading-none">⚡</div>
                 </div>
             </div>
 
@@ -336,10 +336,7 @@ function ProductCard({
                 <div className="flex items-center justify-between">
                     <div className="flex-1">
                         {/* Header */}
-                        <div className="flex items-center space-x-3 mb-3">
-                            <div className="flex-shrink-0">
-                                ⚡
-                            </div>
+                        <div className="flex items-start space-x-3 mb-3">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2 mb-1">
                                     <h3 className="font-bold text-white truncate">
