@@ -1,4 +1,4 @@
-// src/components/Profile/ReferralModal.tsx - Referral information modal
+// src/components/Profile/ReferralModal.tsx - Compact referral information modal
 
 "use client";
 
@@ -8,7 +8,6 @@ import {
     ModalContent,
     ModalHeader,
     ModalBody,
-    ModalFooter,
     Button,
     Card,
     CardBody
@@ -19,8 +18,8 @@ import {
     Users,
     Gift,
     Check,
-    ExternalLink,
-    Star
+    Star,
+    X
 } from "lucide-react";
 import type { ReferralInfo } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
@@ -71,36 +70,44 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             onClose={onClose}
             size="lg"
             backdrop="blur"
+            hideCloseButton={true}
             classNames={{
                 backdrop: "bg-black/80",
                 base: "bg-black border border-white/20",
                 header: "border-b border-white/10",
-                body: "py-6",
-                footer: "border-t border-white/10"
+                body: "py-4"
             }}
         >
             <ModalContent>
-                <ModalHeader className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center">
-                        <Share2 className="text-white" size={20} />
+                <ModalHeader className="flex items-center justify-between p-4">
+                    <div className="flex-1 flex flex-col items-center space-y-2">
+                        <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center">
+                            <Share2 className="text-white" size={24} />
+                        </div>
+                        <div className="text-center">
+                            <h2 className="text-xl font-bold text-white">
+                                {t("profile.referrals.title")}
+                            </h2>
+                            <p className="text-white/60 text-sm">
+                                🤞❤️
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-white">
-                            {t("profile.referrals.title")}
-                        </h2>
-                        <p className="text-white/60 text-sm">
-                            ❤️🧔👧👨👱🧒👦❤️
-                        </p>
-                    </div>
+                    <button
+                        className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300"
+                        onClick={onClose}
+                    >
+                        <X size={20} />
+                    </button>
                 </ModalHeader>
 
-                <ModalBody className="space-y-6">
+                <ModalBody className="px-4 pb-4 space-y-4">
                     {/* Statistics Cards */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-3">
                         <Card className="bg-white/5 border border-white/20">
-                            <CardBody className="text-center p-4">
-                                <Users className="text-white mx-auto mb-2" size={24} />
-                                <div className="text-2xl font-bold text-white">
+                            <CardBody className="text-center p-3">
+                                <Users className="text-white mx-auto mb-1" size={20} />
+                                <div className="text-xl font-bold text-white">
                                     {referralInfo.referralCount}
                                 </div>
                                 <div className="text-xs text-white/60 uppercase tracking-wider">
@@ -110,9 +117,9 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                         </Card>
 
                         <Card className="bg-white/5 border border-white/20">
-                            <CardBody className="text-center p-4">
-                                <Gift className="text-white mx-auto mb-2" size={24} />
-                                <div className="text-2xl font-bold text-white">
+                            <CardBody className="text-center p-3">
+                                <Gift className="text-white mx-auto mb-1" size={20} />
+                                <div className="text-xl font-bold text-white">
                                     +{referralInfo.referralBonus}
                                 </div>
                                 <div className="text-xs text-white/60 uppercase tracking-wider">
@@ -123,13 +130,13 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                     </div>
 
                     {/* Referral Code Section */}
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         <h3 className="text-sm font-bold text-white">
                             {t("profile.referrals.yourReferralCode")}
                         </h3>
                         <Card className="bg-black/40 border border-white/30">
-                            <CardBody className="p-4">
-                                <div className="text-center font-mono text-2xl font-bold text-white tracking-wider">
+                            <CardBody className="p-3">
+                                <div className="text-center font-mono text-xl font-bold text-white tracking-wider">
                                     {referralInfo.referralCode}
                                 </div>
                             </CardBody>
@@ -137,12 +144,12 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                     </div>
 
                     {/* Referral Link Section */}
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         <h3 className="text-sm font-bold text-white">
                             {t("profile.referrals.referralLink")}
                         </h3>
                         <Card className="bg-black/40 border border-white/30">
-                            <CardBody className="p-3">
+                            <CardBody className="p-2">
                                 <div className="text-xs font-mono text-white/80 break-all">
                                     {referralInfo.referralLink}
                                 </div>
@@ -151,15 +158,16 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex space-x-3">
+                    <div className="flex space-x-2">
                         <Button
-                            className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
+                            className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20 text-sm"
                             variant="bordered"
+                            size="sm"
                             startContent={
                                 copySuccess ? (
-                                    <Check className="text-white" size={16} />
+                                    <Check className="text-white" size={14} />
                                 ) : (
-                                    <Copy className="text-white" size={16} />
+                                    <Copy className="text-white" size={14} />
                                 )
                             }
                             onPress={handleCopyReferralLink}
@@ -168,9 +176,10 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                         </Button>
 
                         <Button
-                            className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20"
+                            className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20 text-sm"
                             variant="bordered"
-                            startContent={<Share2 className="text-white" size={16} />}
+                            size="sm"
+                            startContent={<Share2 className="text-white" size={14} />}
                             onPress={handleShareReferralLink}
                         >
                             {t("profile.referrals.share")}
@@ -179,31 +188,26 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
 
                     {/* How it Works Section */}
                     <Card className="bg-white/5 border border-white/20">
-                        <CardBody className="p-4 space-y-3">
+                        <CardBody className="p-3 space-y-2">
                             <h4 className="text-sm font-bold text-white">
                                 {t("profile.referrals.howItWorks")}
                             </h4>
-                            <div className="space-y-2 text-xs text-white/70">
+                            <div className="space-y-1 text-xs text-white/70">
                                 <div className="flex items-start space-x-2">
-                                    <div className="w-1 h-1 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <div className="w-1 h-1 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                                     <span>{t("profile.referrals.shareWithFriends")}</span>
                                 </div>
                                 <div className="flex items-start space-x-2">
-                                    <div className="w-1 h-1 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <div className="w-1 h-1 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                                     <span>
                                         {t("profile.referrals.theyGetExtra", {
                                             bonus: referralInfo.referralBonus,
-                                            plural: referralInfo.referralBonus > 1 ? "s" : "",
                                         })}
                                     </span>
                                 </div>
                                 <div className="flex items-start space-x-2">
-                                    <div className="w-1 h-1 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <div className="w-1 h-1 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                                     <span>{t("profile.referrals.youGetRecognition")}</span>
-                                </div>
-                                <div className="flex items-start space-x-2">
-                                    <div className="w-1 h-1 rounded-full bg-white/40 mt-2 flex-shrink-0" />
-                                    <span>{t("profile.referrals.helpGrow")}</span>
                                 </div>
                             </div>
                         </CardBody>
@@ -212,30 +216,20 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                     {/* Referred By Section */}
                     {referralInfo.referredBy && (
                         <Card className="bg-white/5 border border-white/20">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-2 mb-2">
-                                    <Star className="text-white" size={16} />
+                            <CardBody className="p-3">
+                                <div className="flex items-center space-x-2 mb-1">
+                                    <Star className="text-white" size={14} />
                                     <h4 className="text-sm font-bold text-white">
                                         {t("profile.referrals.referredBy")}
                                     </h4>
                                 </div>
-                                <div className="text-white font-mono font-bold">
+                                <div className="text-white font-mono font-bold text-sm">
                                     {referralInfo.referredByName || referralInfo.referredBy}
                                 </div>
                             </CardBody>
                         </Card>
                     )}
                 </ModalBody>
-
-                <ModalFooter>
-                    <Button
-                        className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
-                        variant="bordered"
-                        onPress={onClose}
-                    >
-                        {t("common.close")}
-                    </Button>
-                </ModalFooter>
             </ModalContent>
         </Modal>
     );
