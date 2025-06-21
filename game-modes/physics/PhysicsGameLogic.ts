@@ -53,8 +53,8 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
-        impulseForce: 0.1,
-        maxMistakes: 4,
+        impulseForce: 0.05,
+        maxMistakes: 6,
         levelDuration: 180, // 3 minutes
     };
 };
@@ -66,11 +66,11 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
     gravity: { x: 0, y: 0.4 },
     restitution: 0.8,
     friction: 0.01,
-    frictionAir: 0.015,
+    frictionAir: 0.035,
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.1,
+    force: 0.05,
     radius: 120,
     falloff: 0.4,
 };
