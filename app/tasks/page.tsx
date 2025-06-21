@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { 
     SiTelegram, 
-    SiX
+    SiX 
 } from "react-icons/si";
 
 import { useT, useLanguage } from "@/contexts/LocalizationContext";
@@ -358,7 +358,7 @@ export default function TasksPage() {
             <div className="min-h-screen bg-black text-white flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/60">{t("tasks.loading")}</p>
+                    <p className="text-white/60">Загрузка заданий...</p>
                 </div>
             </div>
         );
@@ -503,24 +503,11 @@ function TaskCard({
         >
             {/* Background Pattern with Icons */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {/* Right-side gradient pattern of icons */}
-                <div className="absolute -top-4 -right-4 w-2/3 h-full transform rotate-12">
-                    <div className="grid grid-cols-4 gap-3 w-full h-full">
-                        {/* Column 1 - Almost transparent */}
-                        {Array.from({ length: 8 }).map((_, i) => (
-                            <TaskIcon key={`col1-${i}`} size={20} className="text-white opacity-5" />
-                        ))}
-                        {/* Column 2 - Low opacity */}
-                        {Array.from({ length: 8 }).map((_, i) => (
-                            <TaskIcon key={`col2-${i}`} size={20} className="text-white opacity-10" />
-                        ))}
-                        {/* Column 3 - Medium opacity */}
-                        {Array.from({ length: 8 }).map((_, i) => (
-                            <TaskIcon key={`col3-${i}`} size={20} className="text-white opacity-15" />
-                        ))}
-                        {/* Column 4 - Higher opacity */}
-                        {Array.from({ length: 8 }).map((_, i) => (
-                            <TaskIcon key={`col4-${i}`} size={20} className="text-white opacity-20" />
+                {/* Full card pattern with blur */}
+                <div className="absolute -top-8 -left-8 w-full h-full transform rotate-12 opacity-10 blur-sm">
+                    <div className="grid grid-cols-8 gap-4 w-full h-full">
+                        {Array.from({ length: 64 }).map((_, i) => (
+                            <TaskIcon key={i} size={24} className="text-white" />
                         ))}
                     </div>
                 </div>
