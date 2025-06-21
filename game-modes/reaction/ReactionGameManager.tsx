@@ -398,7 +398,7 @@ export default function ReactionGameManager() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white font-bpdots">
+          <p className="text-white">
             {t("game.general.initializingGame")}
           </p>
         </div>
@@ -416,13 +416,13 @@ export default function ReactionGameManager() {
           <div className="text-center space-y-4">
             <div className="text-6xl mb-4">⚡</div>
 
-            <h1 className="text-4xl font-bold font-bpdots text-white">
+            <h1 className="text-4xl font-bold text-white">
               {t("game.modes.reaction.results.title")}
             </h1>
 
             <div className="flex items-center justify-center space-x-2">
               <Zap className="text-white" size={20} />
-              <p className="text-lg font-bpdots text-white/80">
+              <p className="text-lg text-white/80">
                 {t("game.modes.reaction.results.subtitle")}
               </p>
             </div>
@@ -430,19 +430,19 @@ export default function ReactionGameManager() {
 
           <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-6 space-y-6">
             <div className="text-center space-y-2">
-              <div className="text-sm font-bpdots text-white/60">
+              <div className="text-sm text-white/60">
                 {t("game.modes.reaction.results.reactionTime")}
               </div>
               {gameResult.missed ? (
-                <div className="text-4xl font-bold font-bpdots text-red-400">
+                <div className="text-4xl font-bold text-red-400">
                   {t("game.modes.reaction.results.missed")}
                 </div>
               ) : (
-                <div className="text-4xl font-bold font-bpdots text-white">
+                <div className="text-4xl font-bold text-white">
                   {t("time.milliseconds", { time: gameResult.reactionTime })}
                 </div>
               )}
-              <div className={`text-lg font-bpdots ${ratingColor}`}>
+              <div className={`text-lg ${ratingColor}`}>
                 {t(`game.modes.reaction.ratings.${rating.toLowerCase()}`)}
               </div>
             </div>
@@ -450,19 +450,19 @@ export default function ReactionGameManager() {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-3 bg-white/20 rounded-lg border border-white/30">
                 <Target className="text-white mx-auto mb-1" size={16} />
-                <div className="text-xl font-bold font-bpdots text-white">
+                <div className="text-xl font-bold text-white">
                   {gameResult.score}
                 </div>
-                <div className="text-xs font-bpdots text-white/60">
+                <div className="text-xs text-white/60">
                   {t("common.score")}
                 </div>
               </div>
               <div className="text-center p-3 bg-white/20 rounded-lg border border-white/30">
                 <Zap className="text-green-400 mx-auto mb-1" size={16} />
-                <div className="text-xl font-bold font-bpdots text-green-400">
+                <div className="text-xl font-bold text-green-400">
                   {attemptsRemaining}
                 </div>
-                <div className="text-xs font-bpdots text-white/60">
+                <div className="text-xs text-white/60">
                   {t("attempts.remaining")}
                 </div>
               </div>
@@ -470,7 +470,7 @@ export default function ReactionGameManager() {
 
             <div className="border-t border-white/30 pt-4">
               <div className="text-center">
-                <div className="text-sm font-bpdots text-white/80 mb-2">
+                <div className="text-sm text-white/80 mb-2">
                   {getReactionRatingDescription(rating, t)}
                 </div>
               </div>
@@ -486,7 +486,7 @@ export default function ReactionGameManager() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-center space-x-3">
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span className="font-bpdots text-sm text-white/80">
+                      <span className="text-sm text-white/80">
                         {saveStatus.showRetryDetails
                           ? t("save.retrying", {
                             attempt: saveStatus.attempt,
@@ -500,7 +500,7 @@ export default function ReactionGameManager() {
                       <div className="text-center">
                         <div className="flex items-center justify-center space-x-2 mb-2">
                           <RotateCcw className="text-white/60" size={14} />
-                          <span className="text-xs font-bpdots text-white/60">
+                          <span className="text-xs text-white/60">
                             {t("save.connectionIssue")}
                           </span>
                         </div>
@@ -520,11 +520,11 @@ export default function ReactionGameManager() {
                 {saveStatus.isSuccess && !saveStatus.isLoading && (
                   <div className="text-center">
                     <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="font-bpdots text-sm text-green-400">
+                      <span className="text-sm text-green-400">
                         {t("save.savedSuccessfully")}
                       </span>
                     </div>
-                    <div className="text-green-400/60 font-bpdots text-xs">
+                    <div className="text-green-400/60 text-xs">
                       {saveStatus.attempt > 1
                         ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
@@ -537,11 +537,11 @@ export default function ReactionGameManager() {
                 {saveStatus.skipped && !saveStatus.isLoading && (
                   <div className="text-center">
                     <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-orange-400 font-bpdots text-sm">
+                      <span className="text-orange-400 text-sm">
                         {t("shop.attemptNotRecorded")}
                       </span>
                     </div>
-                    <div className="text-orange-400/60 font-bpdots text-xs">
+                    <div className="text-orange-400/60 text-xs">
                       {t("shop.onlySuccessful")}
                     </div>
                   </div>
@@ -550,17 +550,17 @@ export default function ReactionGameManager() {
                 {saveStatus.error && !saveStatus.isLoading && (
                   <div className="text-center">
                     <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 font-bpdots text-sm">
+                      <span className="text-red-400 text-sm">
                         {t("shop.saveFailed", {
                           attempts: saveStatus.maxAttempts,
                         })}
                       </span>
                     </div>
-                    <div className="text-red-400/60 font-bpdots text-xs mb-3">
+                    <div className="text-red-400/60 text-xs mb-3">
                       {t("shop.recordedLocally")}
                     </div>
                     <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded font-bpdots text-xs hover:bg-red-400/30 transition-colors"
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
                       onClick={() => handleSaveGameResult(gameResult)}
                     >
                       {t("shop.retrySave")}
@@ -572,7 +572,7 @@ export default function ReactionGameManager() {
 
           <div className="space-y-4">
             <button
-              className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl font-bpdots text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={
                 saveStatus.isLoading ||
                 attemptsRemaining <= 0 ||
@@ -612,7 +612,7 @@ export default function ReactionGameManager() {
             <div className="flex items-center justify-center space-x-2">
               {getInstructionIcon()}
               <span
-                className={`font-bpdots text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null
+                className={`text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null
                     ? "text-white animate-pulse"
                     : "text-white/80"
                   }`}
@@ -621,7 +621,7 @@ export default function ReactionGameManager() {
               </span>
             </div>
 
-            <div className="text-xs font-bpdots text-white/60 uppercase tracking-wider">
+            <div className="text-xs text-white/60 uppercase tracking-wider">
               {getSubInstructionText()}
             </div>
           </div>

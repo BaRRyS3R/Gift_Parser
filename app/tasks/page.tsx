@@ -11,8 +11,7 @@ import {
     AlertCircle,
     CheckCircle2,
     Globe,
-    Camera,
-    Target
+    Camera
 } from "lucide-react";
 import { 
     SiTelegram, 
@@ -539,9 +538,8 @@ function TaskCard({
                         {/* Footer */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                                <Target className="text-white" size={16} />
                                 <span className="text-white font-bold">
-                                    +{task.reward_attempts}
+                                    ⚡ +{task.reward_attempts}
                                 </span>
                                 {isCompleted && (
                                     <CheckCircle2 className="text-white ml-2" size={16} />

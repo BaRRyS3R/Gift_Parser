@@ -173,13 +173,12 @@ const AttemptsDisplay = ({
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
-          <Battery className={getBatteryColor()} size={18} />
           <span className={`text-sm font-bold ${getBatteryColor()}`}>
             {t("attempts.current")}
           </span>
         </div>
         <span className={`text-lg font-bold ${getBatteryColor()}`}>
-          {attemptsRemaining}
+          {attemptsRemaining} ⚡
         </span>
       </div>
 
@@ -227,7 +226,6 @@ const AttemptsDisplay = ({
         <div className="space-y-3">
           <div className="text-center space-y-2">
             <div className="flex items-center justify-center space-x-2 mb-2">
-              ⚡
               <span className="text-sm font-bold text-red-300">
                 {t("game.general.attemptsUsed")}
               </span>

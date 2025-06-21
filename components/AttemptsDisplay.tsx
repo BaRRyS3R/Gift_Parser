@@ -95,9 +95,8 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => 
                 </>
             ) : (
                 <>
-                    ⚡
                     <span className="text-white text-lg font-bold tabular-nums">
-                        {attemptsStatus.attemptsRemaining}
+                        {attemptsStatus.attemptsRemaining} ⚡
                     </span>
                 </>
             )}
