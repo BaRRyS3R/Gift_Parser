@@ -1,4 +1,4 @@
-// src/contexts/LocalizationContext.tsx - Fixed localization context
+// src/contexts/LocalizationContext.tsx - Updated for modular localization
 
 "use client";
 
@@ -8,7 +8,7 @@ import type {
   TranslationKey,
   TranslationParams,
   TranslationFunction,
-} from "@/types/localization";
+} from "@/locales/types";
 
 import React, {
   createContext,
@@ -18,20 +18,13 @@ import React, {
   useCallback,
 } from "react";
 
-import { en } from "@/locales/en";
-import { ru } from "@/locales/ru";
 import {
+  translations,
   getNestedValue,
   interpolateString,
   detectLanguageFromTelegram,
   STORAGE_KEYS,
-} from "@/types/localization";
-
-// Translation dictionaries
-const translations = {
-  en,
-  ru,
-} as const;
+} from "@/locales";
 
 // Create the context
 const LocalizationContext = createContext<LocalizationContextValue | undefined>(
