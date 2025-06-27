@@ -13,6 +13,7 @@ export const leaderboard = {
     longest: "LONGEST",
     experimental: "EXPERIMENTAL",
     top: "TOP",
+    tournamentStats: "Tournament Statistics",
     you: "YOU",
     noSpeedDemons: "NO SPEED DEMONS YET",
     noSurvivors: "NO SURVIVORS YET",

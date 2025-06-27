@@ -1,5 +1,4 @@
-// src/locales/en/tournament.ts - Tournament system
-
+// src/locales/en/tournament.ts - English translations update
 export const tournament = {
     title: "TOURNAMENT",
     noActiveTournament: "No Active Tournament",
@@ -16,7 +15,7 @@ export const tournament = {
     otherParticipants: "OTHER PARTICIPANTS",
     noParticipants: "No participants yet",
     beFirstParticipant: "Be the first to enter the tournament!",
-    yourBestResult: "YOUR BEST RESULT",
+    yourBestResult: "YOUR TOURNAMENT PROGRESS",
     rank: "RANK",
     maxLevel: "MAX LEVEL",
     bestTime: "BEST TIME",
@@ -24,6 +23,17 @@ export const tournament = {
     tournamentScore: "TOURNAMENT SCORE",
     perfectStreak: "PERFECT STREAK",
     correctHits: "CORRECT HITS",
+    totalHits: "TOTAL HITS",
+    totalPoints: "TOTAL POINTS", // NEW
+    topPoints: "TOP POINTS", // NEW
+    pointsEarned: "POINTS EARNED",
+    addedToTotal: "Added to your tournament total",
+    pointsAccumulated: "Points accumulate across all games",
+    pointsAddedToTotal: "Points added to tournament total",
+    earnOnePointPerHit: "Earn 1 point per correct hit",
+    earnMorePoints: "Play again to earn more points!",
+    pointsBasedCompetition: "Points-Based Competition", // NEW
+    earnPointsMessage: "Earn 1 point for each correct hit!", // NEW
     levelsCompleted: "levels completed",
     savingResult: "Saving tournament result...",
     resultSaved: "Tournament result saved successfully",
@@ -53,20 +63,20 @@ export const tournament = {
             title: "Competition Rules",
             description: "Core tournament competition guidelines",
             detail1: "Each game consumes one attempt from your account balance",
-            detail2: "Only your best result counts for the leaderboard ranking",
-            detail3: "Click white circles to score points and progress",
+            detail2: "Your points accumulate across all tournament games",
+            detail3: "Click white circles to earn points and progress",
             detail4: "Avoid red trap circles at all costs - they end the game",
             detail5: "Missing any target ends the game immediately",
             detail6: "Tournament runs for a limited time period only"
         },
         scoring: {
-            title: "Scoring System",
+            title: "Points System", // UPDATED
             description: "How tournament rankings are determined",
-            detail1: "Survival Time is the primary ranking factor",
-            detail2: "Player with the longest survival time wins",
-            detail3: "Level Reached serves as a secondary ranking factor",
-            detail4: "Perfect Streak shows consecutive successful hits",
-            detail5: "In case of tied survival times, highest level reached wins",
+            detail1: "Total Points is the primary ranking factor", // UPDATED
+            detail2: "Earn 1 point for each correct hit on white circles", // UPDATED
+            detail3: "Points accumulate across all your tournament games", // UPDATED
+            detail4: "Survival Time serves as a secondary ranking factor", // UPDATED
+            detail5: "In case of tied points, longest survival time wins", // UPDATED
             detail6: "Real-time leaderboard updates after each game"
         },
         format: {
@@ -92,11 +102,11 @@ export const tournament = {
             title: "Pro Tips",
             description: "Strategies for tournament success",
             detail1: "Practice in regular survival mode before competing",
-            detail2: "Focus on accuracy over speed to avoid mistakes",
+            detail2: "Focus on accuracy over speed to maximize points", // UPDATED
             detail3: "Stay calm as levels increase in difficulty",
             detail4: "Watch for color changes carefully under pressure",
             detail5: "Develop your peripheral vision for multiple targets",
-            detail6: "Manage your attempts strategically during tournament period"
+            detail6: "Play multiple games to accumulate more points" // UPDATED
         }
     }
 } as const;

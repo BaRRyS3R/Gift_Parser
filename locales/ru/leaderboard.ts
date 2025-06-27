@@ -12,6 +12,7 @@ export const leaderboard = {
     longest: "ДЛИТЕЛЬНЫЙ",
     experimental: "ЭКСПЕРИМЕНТАЛЬНЫЙ",
     top: "ТОП",
+    tournamentStats: "Статистика Турнира",
     you: "ВЫ",
     noSpeedDemons: "ЕЩЁ НЕТ ДЕМОНОВ СКОРОСТИ",
     noSurvivors: "ЕЩЁ НЕТ ВЫЖИВШИХ",

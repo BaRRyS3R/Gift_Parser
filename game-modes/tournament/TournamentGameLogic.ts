@@ -1,4 +1,4 @@
-// src/game-modes/tournament/TournamentGameLogic.ts - Updated scoring system
+// src/game-modes/tournament/TournamentGameLogic.ts - Updated with points-based scoring
 
 import {
     SurvivalGameConfig,
@@ -346,7 +346,7 @@ export const handleTournamentCircleClick = (
                 result: "decoy",
             };
         } else {
-            // Correct white circle click
+            // Correct white circle click - award 1 point
             const newStats = {
                 ...updatedState.stats,
                 correctHits: updatedState.stats.correctHits + 1,
@@ -357,6 +357,8 @@ export const handleTournamentCircleClick = (
             const newCircles = updatedState.circles.map((c) =>
                 c.id === clickedCircleId ? { ...c, isAnimating: true } : c,
             );
+
+            console.log(`Tournament point awarded! Total points in this game: ${newStats.correctHits}`);
 
             return {
                 newState: {
@@ -412,13 +414,18 @@ export const deactivateTournamentCircle = (
     };
 };
 
-// NEW SCORING SYSTEM: Simple points based on correct hits only
+// Updated tournament scoring to emphasize points over time
 export const calculateTournamentScore = (
     stats: SurvivalGameStats,
     level: number,
 ): number => {
-    // New scoring system: 1 point per correct hit
-    return stats.correctHits;
+    // Tournament scoring prioritizes points earned (correct hits)
+    const pointsScore = stats.correctHits * 100; // Base 100 points per correct hit for final score calculation
+    const streakBonus = stats.perfectStreak * 10; // Bonus for consistency
+    const levelBonus = Math.floor(level * 50); // Bonus for reaching higher levels
+    const timeBonus = Math.floor(stats.survivalTime / 10000); // Small bonus for survival time
+
+    return pointsScore + streakBonus + levelBonus + timeBonus;
 };
 
 export const getTournamentDeathCause = (
@@ -438,6 +445,16 @@ export const createTournamentGameResult = (
     const finalScore = calculateTournamentScore(finalState.stats, finalState.currentLevel);
     const deathCause = getTournamentDeathCause(finalState.stats);
 
+    // Points for tournament are the correct hits (1 point per hit)
+    const tournamentPoints = finalState.stats.correctHits;
+
+    console.log('Creating tournament game result:', {
+        pointsEarned: tournamentPoints,
+        survivalTime: finalState.stats.survivalTime,
+        maxLevel: finalState.currentLevel,
+        finalScore
+    });
+
     return {
         mode: GameMode.SURVIVAL,
         score: finalScore,
@@ -445,7 +462,7 @@ export const createTournamentGameResult = (
         survivalTime: finalState.stats.survivalTime,
         maxLevelReached: finalState.currentLevel,
         perfectStreak: finalState.stats.perfectStreak,
-        correctHits: finalState.stats.correctHits,
+        correctHits: tournamentPoints, // This becomes the tournament points
         deathCause,
         createdAt: new Date().toISOString(),
     };
@@ -477,4 +494,14 @@ export const formatTournamentTime = (milliseconds: number): string => {
     }
 
     return `${seconds}.${ms.toString().padStart(3, "0")}s`;
+};
+
+// New utility function for formatting tournament points
+export const formatTournamentPoints = (points: number): string => {
+    if (points >= 1000000) {
+        return `${(points / 1000000).toFixed(1)}M`;
+    } else if (points >= 1000) {
+        return `${(points / 1000).toFixed(1)}K`;
+    }
+    return points.toString();
 };
