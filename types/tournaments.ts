@@ -1,4 +1,4 @@
-// src/types/tournaments.ts - Updated tournament system types with points-based leaderboard
+// src/types/tournaments.ts - Tournament system types
 
 import { SurvivalGameResult } from "./game-modes/survival";
 
@@ -28,12 +28,11 @@ export interface TournamentLeaderboardEntry {
   last_name?: string;
   username?: string;
   is_premium: boolean;
-  survival_time: number; // milliseconds - best survival time
-  survival_score: number; // best single game score
-  max_level_reached: number; // highest level achieved
-  perfect_streak: number; // best perfect streak achieved
-  correct_hits: number; // total correct hits across all tournament games
-  total_points: number; // NEW: total accumulated points (primary ranking)
+  survival_time: number; // milliseconds
+  survival_score: number;
+  max_level_reached: number;
+  perfect_streak: number;
+  correct_hits: number;
   death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
   created_at: string;
   rank: number;
@@ -48,7 +47,6 @@ export interface TournamentResult {
   max_level_reached: number;
   perfect_streak: number;
   correct_hits: number;
-  total_points: number; // NEW: total accumulated points
   death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
   rank?: number;
   created_at?: string;
@@ -63,19 +61,6 @@ export interface TournamentStatus {
 
 export interface TournamentGameResult extends SurvivalGameResult {
   tournamentId: string;
-}
-
-// Tournament game session tracking
-export interface TournamentSession {
-  tournamentId: string;
-  userId: string;
-  gamesPlayed: number;
-  totalPointsEarned: number;
-  bestSingleGameScore: number;
-  bestSurvivalTime: number;
-  totalCorrectHits: number;
-  sessionStartTime: string;
-  lastGameTime?: string;
 }
 
 // Utility functions for tournament time formatting
@@ -93,6 +78,7 @@ export const formatTournamentTime = (milliseconds: number): string => {
 };
 
 export const parseTournamentTime = (timeString: string): number => {
+  // Parse time strings like "1:23.456" or "45.123s" back to milliseconds
   const timePattern = /^(?:(\d+):)?(\d+)\.(\d{3})s?$/;
   const match = timeString.match(timePattern);
 
@@ -139,19 +125,4 @@ export const formatTimeRemaining = (milliseconds: number): string => {
   } else {
     return `${totalSeconds}s`;
   }
-};
-
-// Points calculation utilities
-export const calculateRoundPoints = (correctHits: number): number => {
-  // Simple 1:1 ratio - 1 point per correct hit
-  return correctHits;
-};
-
-export const formatPoints = (points: number): string => {
-  if (points >= 1000000) {
-    return `${(points / 1000000).toFixed(1)}M`;
-  } else if (points >= 1000) {
-    return `${(points / 1000).toFixed(1)}K`;
-  }
-  return points.toString();
 };

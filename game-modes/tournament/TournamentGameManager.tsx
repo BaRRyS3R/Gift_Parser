@@ -1,4 +1,4 @@
-// src/game-modes/tournament/TournamentGameManager.tsx - Updated with points-based display
+// src/game-modes/tournament/TournamentGameManager.tsx - Updated with dedicated tournament logic
 
 "use client";
 
@@ -11,8 +11,6 @@ import {
     Target,
     RotateCcw,
     Trophy,
-    Star,
-    TrendingUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -27,7 +25,6 @@ import {
     cleanupTournamentGame,
     getTournamentLevelConfig,
     formatTournamentTime,
-    formatTournamentPoints,
 } from "./TournamentGameLogic";
 
 import { useUser } from "@/hooks/useUser";
@@ -167,13 +164,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 }
 
                 try {
-                    console.log('Saving tournament result with points:', {
-                        tournamentId: tournament.id,
-                        pointsEarned: result.correctHits,
-                        survivalTime: result.survivalTime,
-                        maxLevel: result.maxLevelReached
-                    });
-
                     await saveTournamentResult(tournament.id, result);
 
                     setSaveStatus((prev) => ({
@@ -239,14 +229,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 };
 
                 const result = createTournamentGameResult(finalGameState);
-                
-                console.log('Tournament game ended with result:', {
-                    pointsEarned: result.correctHits,
-                    survivalTime: result.survivalTime,
-                    maxLevel: result.maxLevelReached,
-                    cause
-                });
-
                 setGameResult(result);
                 handleSaveTournamentResult(result);
                 cleanupTournamentGame(finalGameState);
@@ -324,9 +306,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
             if (result === "correct") {
                 triggerHapticFeedback("success");
                 setGameState(newState);
-
-                // Log points progress
-                console.log(`Point earned! Current game points: ${newState.stats.correctHits}`);
 
                 setTimeout(() => {
                     setGameState((current) =>
@@ -442,7 +421,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 <div className="text-center space-y-4">
                     <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
                     <p className="text-white">{t("game.general.initializingGame")}</p>
-                    <p className="text-yellow-400/80 text-sm">Tournament Mode</p>
+                    <p className="text-white/60 text-sm">Tournament Mode</p>
                 </div>
             </div>
         );
@@ -468,38 +447,25 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                     </div>
 
                     <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-4">
-                        {/* Primary metric: Points earned */}
-                        <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-400/40 rounded-lg p-4 text-center">
-                            <div className="flex items-center justify-center space-x-2 mb-2">
-                                <Star className="text-yellow-400" size={20} />
-                                <span className="text-sm text-yellow-400/80 uppercase tracking-wider">
-                                    {t("tournament.pointsEarned")}
-                                </span>
+                        <div className="text-center space-y-2">
+                            <div className="text-sm text-white/60 uppercase tracking-wider">
+                                {t("tournament.survivalTime")}
                             </div>
-                            <div className="text-3xl font-bold text-yellow-400 mb-1">
-                                +{formatTournamentPoints(gameResult.correctHits)}
+                            <div className="text-3xl font-bold text-white">
+                                {formatTournamentTime(gameResult.survivalTime)}
                             </div>
-                            <div className="text-xs text-yellow-400/60">
-                                {t("tournament.addedToTotal")}
+                            <div className="text-lg text-white/80">
+                                {t("common.level")} {gameResult.maxLevelReached}
                             </div>
                         </div>
 
-                        {/* Secondary metrics */}
                         <div className="grid grid-cols-2 gap-4 text-center">
                             <div className="space-y-1">
                                 <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("tournament.survivalTime")}
+                                    {t("tournament.tournamentScore")}
                                 </div>
                                 <div className="text-xl font-bold text-white">
-                                    {formatTournamentTime(gameResult.survivalTime)}
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("tournament.maxLevel")}
-                                </div>
-                                <div className="text-xl font-bold text-white">
-                                    L{gameResult.maxLevelReached}
+                                    {gameResult.score}
                                 </div>
                             </div>
                             <div className="space-y-1">
@@ -518,6 +484,14 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                                     {gameResult.perfectStreak}
                                 </div>
                             </div>
+                            <div className="space-y-1">
+                                <div className="text-xs text-white/60 uppercase tracking-wider">
+                                    {t("tournament.correctHits")}
+                                </div>
+                                <div className="text-xl font-bold text-blue-400">
+                                    {gameResult.correctHits}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="border-t border-white/20 pt-4 text-center">
@@ -526,9 +500,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                             </div>
                             <div className="text-xs text-white/40">
                                 {gameResult.maxLevelReached}/12 {t("tournament.levelsCompleted")}
-                            </div>
-                            <div className="text-xs text-yellow-400/60 mt-1">
-                                {t("tournament.pointsAccumulated")}
                             </div>
                         </div>
                     </div>
@@ -577,7 +548,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                                     <div className="text-green-400/60 text-xs">
                                         {saveStatus.attempt > 1
                                             ? t("tournament.resultSavedAfterRetries", { attempts: saveStatus.attempt })
-                                            : t("tournament.pointsAddedToTotal")}
+                                            : t("tournament.dataSynchronized")}
                                     </div>
                                 </div>
                             )}
@@ -615,12 +586,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                                     ? t("tournament.playTournamentAgain")
                                     : t("game.general.noAttemptsLeft")}
                         </button>
-                        
-                        {attemptsRemaining > 0 && (
-                            <p className="text-center text-xs text-yellow-400/60">
-                                {t("tournament.earnMorePoints")}
-                            </p>
-                        )}
                     </div>
                 </div>
             </div>
@@ -640,31 +605,19 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
 
             <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/20 safe-area-inset-bottom">
                 <div className="px-6 py-4">
-                    {/* Current points display */}
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
-                            <Trophy className="text-yellow-400" size={18} />
+                            <Trophy className="text-white" size={18} />
                             <span className="text-lg font-bold text-white">
                                 {t("tournament.tournamentMode")}
                             </span>
                         </div>
 
-                        <div className="flex items-center space-x-4">
-                            {/* Points earned this game */}
-                            <div className="flex items-center space-x-2 bg-yellow-500/20 border border-yellow-400/40 rounded-lg px-3 py-1">
-                                <Star className="text-yellow-400" size={16} />
-                                <span className="text-yellow-400 font-bold">
-                                    {formatTournamentPoints(gameState.stats.correctHits)}
-                                </span>
-                            </div>
-
-                            {/* Time display */}
-                            <div className="flex items-center space-x-2">
-                                <Clock className="text-white" size={16} />
-                                <span className="text-lg font-bold text-white">
-                                    {formatTournamentTime(gameState.stats.survivalTime)}
-                                </span>
-                            </div>
+                        <div className="flex items-center space-x-2">
+                            <Clock className="text-white" size={18} />
+                            <span className="text-lg font-bold text-white">
+                                {formatTournamentTime(gameState.stats.survivalTime)}
+                            </span>
                         </div>
                     </div>
 
@@ -677,16 +630,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                                 <AlertTriangle className="text-red-400" size={12} />
                                 <span className="text-red-300 uppercase tracking-wider">
                                     {t("game.modes.survival.instructions.oneMistakeDeath")}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        {/* Points instruction */}
-                        <div className="text-center">
-                            <div className="flex items-center justify-center space-x-2">
-                                <Zap className="text-yellow-400" size={12} />
-                                <span className="text-xs text-yellow-400/80">
-                                    {t("tournament.earnOnePointPerHit")}
                                 </span>
                             </div>
                         </div>

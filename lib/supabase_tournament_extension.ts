@@ -1,12 +1,11 @@
-// src/lib/supabase_tournament_extension.ts - Updated tournament functions with points-based system
+// src/lib/supabase_tournament_extension.ts - Tournament functions integration with time fix
 
 import { supabase } from "./supabase";
 import type {
     Tournament,
     TournamentLeaderboardEntry,
     TournamentResult,
-    TournamentStatus,
-    calculateRoundPoints
+    TournamentStatus
 } from "@/types/tournaments";
 
 // Tournament service functions to integrate with existing userService object
@@ -69,7 +68,7 @@ export const tournamentService = {
     },
 
     /**
-     * Get tournament leaderboard (sorted by total points, then survival time)
+     * Get tournament leaderboard
      */
     async getTournamentLeaderboard(tournamentId: string, limit: number = 50): Promise<TournamentLeaderboardEntry[]> {
         try {
@@ -91,7 +90,7 @@ export const tournamentService = {
     },
 
     /**
-     * Get user's tournament result and rank (based on points)
+     * Get user's tournament result and rank
      */
     async getUserTournamentResult(tournamentId: string, userId: string): Promise<TournamentResult | null> {
         try {
@@ -113,7 +112,7 @@ export const tournamentService = {
     },
 
     /**
-     * Save tournament game result with points accumulation
+     * Save tournament game result
      */
     async saveTournamentResult(
         tournamentId: string,
@@ -129,11 +128,10 @@ export const tournamentService = {
         }
     ): Promise<string | null> {
         try {
-            console.log('Saving tournament result with points system:', {
+            console.log('Saving tournament result:', {
                 tournamentId,
                 userId,
-                gameResult,
-                pointsEarned: gameResult.correctHits // 1 point per correct hit
+                gameResult
             });
 
             const { data, error } = await supabase.rpc('save_tournament_result', {
@@ -153,70 +151,11 @@ export const tournamentService = {
                 throw error;
             }
 
-            console.log('Tournament result saved successfully with points:', {
-                resultId: data,
-                pointsAdded: gameResult.correctHits
-            });
+            console.log('Tournament result saved successfully:', data);
             return data;
         } catch (error) {
             console.error('Error saving tournament result:', error);
             throw error;
-        }
-    },
-
-    /**
-     * Get tournament statistics including total points and participants
-     */
-    async getTournamentStatistics(tournamentId: string): Promise<{
-        totalParticipants: number;
-        totalPointsAwarded: number;
-        averagePointsPerPlayer: number;
-        topScore: number;
-        topSurvivalTime: number;
-    }> {
-        try {
-            const { data, error } = await supabase
-                .from('tournament_leaderboard')
-                .select('total_points, survival_time')
-                .eq('tournament_id', tournamentId);
-
-            if (error) {
-                console.error('Error fetching tournament statistics:', error);
-                throw error;
-            }
-
-            if (!data || data.length === 0) {
-                return {
-                    totalParticipants: 0,
-                    totalPointsAwarded: 0,
-                    averagePointsPerPlayer: 0,
-                    topScore: 0,
-                    topSurvivalTime: 0,
-                };
-            }
-
-            const totalParticipants = data.length;
-            const totalPointsAwarded = data.reduce((sum, entry) => sum + (entry.total_points || 0), 0);
-            const averagePointsPerPlayer = Math.round(totalPointsAwarded / totalParticipants);
-            const topScore = Math.max(...data.map(entry => entry.total_points || 0));
-            const topSurvivalTime = Math.max(...data.map(entry => entry.survival_time || 0));
-
-            return {
-                totalParticipants,
-                totalPointsAwarded,
-                averagePointsPerPlayer,
-                topScore,
-                topSurvivalTime,
-            };
-        } catch (error) {
-            console.error('Error getting tournament statistics:', error);
-            return {
-                totalParticipants: 0,
-                totalPointsAwarded: 0,
-                averagePointsPerPlayer: 0,
-                topScore: 0,
-                topSurvivalTime: 0,
-            };
         }
     },
 
@@ -243,43 +182,6 @@ export const tournamentService = {
         } catch (error) {
             console.error('Error checking user participation:', error);
             return false;
-        }
-    },
-
-    /**
-     * Get user's tournament progress including points earned
-     */
-    async getUserTournamentProgress(tournamentId: string, userId: string): Promise<{
-        totalPoints: number;
-        gamesPlayed: number;
-        averagePointsPerGame: number;
-        bestSingleGameScore: number;
-        bestSurvivalTime: number;
-        currentRank: number;
-    } | null> {
-        try {
-            const userResult = await this.getUserTournamentResult(tournamentId, userId);
-            
-            if (!userResult) {
-                return null;
-            }
-
-            // Estimate games played based on total hits and average hits per game
-            // This is an approximation since we don't store games count directly
-            const estimatedGamesPlayed = Math.max(1, Math.ceil(userResult.correct_hits / 20)); // Assume ~20 hits per game average
-            const averagePointsPerGame = Math.round(userResult.total_points / estimatedGamesPlayed);
-
-            return {
-                totalPoints: userResult.total_points,
-                gamesPlayed: estimatedGamesPlayed,
-                averagePointsPerGame,
-                bestSingleGameScore: userResult.survival_score,
-                bestSurvivalTime: userResult.survival_time,
-                currentRank: userResult.rank || 0,
-            };
-        } catch (error) {
-            console.error('Error getting user tournament progress:', error);
-            return null;
         }
     },
 
@@ -329,13 +231,15 @@ export const tournamentService = {
     }
 };
 
-// Updated function for formatting tournament survival time with proper error handling
+// ИСПРАВЛЕННАЯ функция для форматирования времени турнира с обработкой отрицательных значений
 export const formatTournamentSurvivalTime = (milliseconds: number): string => {
+    // Обрабатываем отрицательные значения
     if (milliseconds < 0) {
         console.warn('Negative survival time detected:', milliseconds);
         return "0.000s";
     }
 
+    // Убеждаемся, что значение является числом
     if (isNaN(milliseconds) || !isFinite(milliseconds)) {
         console.warn('Invalid survival time value:', milliseconds);
         return "0.000s";
@@ -351,14 +255,4 @@ export const formatTournamentSurvivalTime = (milliseconds: number): string => {
     }
 
     return `${seconds}.${ms.toString().padStart(3, "0")}s`;
-};
-
-// New utility function for formatting points with appropriate suffixes
-export const formatTournamentPoints = (points: number): string => {
-    if (points >= 1000000) {
-        return `${(points / 1000000).toFixed(1)}M`;
-    } else if (points >= 1000) {
-        return `${(points / 1000).toFixed(1)}K`;
-    }
-    return points.toString();
 };
