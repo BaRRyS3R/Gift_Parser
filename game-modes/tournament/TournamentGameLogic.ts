@@ -1,4 +1,4 @@
-// src/game-modes/tournament/TournamentGameLogic.ts - Tournament-specific game logic with optimized settings
+// src/game-modes/tournament/TournamentGameLogic.ts - Updated scoring system
 
 import {
     SurvivalGameConfig,
@@ -412,16 +412,13 @@ export const deactivateTournamentCircle = (
     };
 };
 
+// NEW SCORING SYSTEM: Simple points based on correct hits only
 export const calculateTournamentScore = (
     stats: SurvivalGameStats,
     level: number,
 ): number => {
-    // Tournament scoring emphasizes survival time and consistency
-    const baseScore = Math.floor(stats.survivalTime / 1000);
-    const streakBonus = stats.perfectStreak * 5; // Higher streak bonus for tournaments
-    const levelBonus = Math.floor(level * 20); // Higher level bonus
-
-    return baseScore + streakBonus + levelBonus;
+    // New scoring system: 1 point per correct hit
+    return stats.correctHits;
 };
 
 export const getTournamentDeathCause = (
