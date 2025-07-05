@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Монохромная версия страницы турниров
+// src/app/tournament/page.tsx - Стильная версия страницы турниров
 
 "use client";
 
@@ -18,6 +18,10 @@ import {
     CalendarDays,
     Timer,
     Info,
+    Zap,
+    Target,
+    TrendingUp,
+    Star,
 } from "lucide-react";
 
 import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
@@ -94,44 +98,50 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
         }
     }, [isExpanded, tournament.status, tournament.id, tournament.prizes.length, winners.length]);
 
-    const getStatusColor = () => {
+    const getStatusConfig = () => {
         switch (tournament.status) {
             case "active":
                 return {
                     bg: "bg-white/15 border-white/40",
                     text: "text-white",
-                    icon: "text-white/80",
-                    button: "bg-white/20 hover:bg-white/30 border-white/50 text-white"
+                    icon: "text-white/90",
+                    button: "bg-white/20 hover:bg-white/30 border-white/50 text-white hover:scale-105",
+                    accent: "bg-white/10",
+                    statusIcon: Zap,
+                    bgIcon: Trophy,
+                    statusLabel: t("tournament.tournamentActive"),
+                    pulse: true
                 };
             case "upcoming":
                 return {
                     bg: "bg-white/10 border-white/30",
                     text: "text-white/90",
                     icon: "text-white/70",
-                    button: "bg-white/15 hover:bg-white/25 border-white/40 text-white/90"
+                    button: "bg-white/15 hover:bg-white/25 border-white/40 text-white/90",
+                    accent: "bg-white/8",
+                    statusIcon: Timer,
+                    bgIcon: Calendar,
+                    statusLabel: t("tournament.upcoming"),
+                    pulse: false
                 };
             case "completed":
                 return {
                     bg: "bg-white/5 border-white/20",
-                    text: "text-white/80",
-                    icon: "text-white/60",
-                    button: "bg-white/10 hover:bg-white/15 border-white/30 text-white/80"
+                    text: "text-white/70",
+                    icon: "text-white/50",
+                    button: "bg-white/10 hover:bg-white/15 border-white/30 text-white/70",
+                    accent: "bg-white/5",
+                    statusIcon: Star,
+                    bgIcon: Award,
+                    statusLabel: t("tournament.completed"),
+                    pulse: false
                 };
         }
     };
 
-    const getStatusText = () => {
-        switch (tournament.status) {
-            case "active":
-                return t("tournament.tournamentActive");
-            case "upcoming":
-                return t("tournament.upcoming");
-            case "completed":
-                return t("tournament.ended");
-        }
-    };
-
-    const colors = getStatusColor();
+    const config = getStatusConfig();
+    const StatusIcon = config.statusIcon;
+    const BgIcon = config.bgIcon;
 
     const getRankIcon = (position: number) => {
         switch (position) {
@@ -147,26 +157,43 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
     };
 
     return (
-        <div className={`backdrop-blur-sm border rounded-xl transition-all duration-300 ${colors.bg}`}>
-            <div className="p-4">
+        <div className={`
+            group relative backdrop-blur-sm border rounded-xl transition-all duration-300 overflow-hidden
+            ${config.bg} hover:border-white/50 hover:bg-white/20 hover:scale-[1.01] active:scale-[0.99]
+            ${config.pulse ? 'animate-pulse-subtle' : ''}
+        `}>
+            {/* Background Decorative Icon */}
+            <div className="absolute right-0 top-1/2 transform translate-x-1/4 -translate-y-1/2 pointer-events-none opacity-5">
+                <BgIcon size={100} className="text-white transform rotate-12" />
+            </div>
+
+            <div className="p-5 relative z-10">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 border rounded-lg flex items-center justify-center ${colors.bg}`}>
-                            <Trophy className={colors.icon} size={20} />
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-4">
+                        <div className={`relative w-12 h-12 border rounded-xl flex items-center justify-center ${config.accent} border-white/30 group-hover:border-white/50 transition-all duration-300`}>
+                            <Trophy className={`${config.icon} group-hover:scale-110 transition-transform duration-300`} size={22} />
+                            {tournament.status === "active" && (
+                                <div className="absolute -top-1 -right-1">
+                                    <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+                                </div>
+                            )}
                         </div>
-                        <div>
-                            <h3 className={`text-lg font-bold ${colors.text}`}>
+                        <div className="flex-1">
+                            <h3 className={`text-xl font-bold ${config.text} group-hover:text-white transition-colors duration-300 tracking-wide`}>
                                 {tournament.name}
                             </h3>
-                            <div className="flex items-center space-x-2 text-sm">
-                                <span className={colors.text}>{getStatusText()}</span>
+                            <div className="flex items-center space-x-3 text-sm mt-1">
+                                <div className="flex items-center space-x-1">
+                                    <StatusIcon className={config.icon} size={14} />
+                                    <span className={`${config.text} font-medium`}>{config.statusLabel}</span>
+                                </div>
                                 {timeDisplay && (
                                     <>
                                         <div className="w-1 h-1 rounded-full bg-white/40" />
                                         <div className="flex items-center space-x-1">
-                                            <Clock className={colors.icon} size={12} />
-                                            <span className={colors.text}>{timeDisplay}</span>
+                                            <Clock className={config.icon} size={12} />
+                                            <span className={`${config.text} font-mono`}>{timeDisplay}</span>
                                         </div>
                                     </>
                                 )}
@@ -178,10 +205,10 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                         {tournament.status === "active" && (
                             <button
                                 onClick={() => onViewDetails(tournament)}
-                                className={`px-3 py-1.5 border rounded-lg transition-all duration-300 ${colors.button} text-sm font-medium`}
+                                className={`px-4 py-2 border rounded-lg transition-all duration-300 ${config.button} text-sm font-bold tracking-wide shadow-lg hover:shadow-xl`}
                             >
-                                <div className="flex items-center space-x-1">
-                                    <Play size={12} />
+                                <div className="flex items-center space-x-2">
+                                    <Play size={14} />
                                     <span>{t("tournament.enter")}</span>
                                 </div>
                             </button>
@@ -190,100 +217,141 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                         {tournament.status === "completed" && (
                             <button
                                 onClick={onToggleExpand}
-                                className={`p-2 rounded-lg transition-all duration-300 ${colors.button}`}
+                                className={`p-2 rounded-lg transition-all duration-300 ${config.button}`}
                             >
                                 {isExpanded ? (
-                                    <ChevronUp className={colors.icon} size={16} />
+                                    <ChevronUp className={config.icon} size={18} />
                                 ) : (
-                                    <ChevronDown className={colors.icon} size={16} />
+                                    <ChevronDown className={config.icon} size={18} />
                                 )}
                             </button>
                         )}
                     </div>
                 </div>
 
+                {/* Tournament Stats Bar */}
+                <div className={`${config.accent} border border-white/10 rounded-lg p-3 mb-4`}>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-center space-x-1">
+                                <Trophy className="text-white/60" size={14} />
+                                <span className="text-xs text-white/60 uppercase tracking-wider font-medium">Призы</span>
+                            </div>
+                            <div className={`text-lg font-bold ${config.text}`}>{tournament.prizes.length}</div>
+                        </div>
+
+                        {tournament.status === "completed" && (
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-center space-x-1">
+                                    <Users className="text-white/60" size={14} />
+                                    <span className="text-xs text-white/60 uppercase tracking-wider font-medium">Участники</span>
+                                </div>
+                                <div className={`text-lg font-bold ${config.text}`}>{tournament.participants_count || 0}</div>
+                            </div>
+                        )}
+
+                        <div className="space-y-1">
+                            <div className="flex items-center justify-center space-x-1">
+                                <CalendarDays className="text-white/60" size={14} />
+                                <span className="text-xs text-white/60 uppercase tracking-wider font-medium">Статус</span>
+                            </div>
+                            <div className={`text-sm font-bold ${config.text} capitalize`}>
+                                {config.statusLabel}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Tournament Dates for Upcoming */}
                 {tournament.status === "upcoming" && (
-                    <div className="bg-white/5 border border-white/20 rounded-lg p-3 mb-3">
-                        <div className="flex items-center space-x-2 mb-2">
-                            <CalendarDays className="text-white/80" size={14} />
-                            <span className="text-sm font-medium text-white/80">{t("tournament.conductionDate")}</span>
+                    <div className="bg-white/5 border border-white/15 rounded-lg p-4 mb-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <CalendarDays className="text-white/80" size={16} />
+                            <span className="text-sm font-bold text-white/80 uppercase tracking-wider">{t("tournament.conductionDate")}</span>
                         </div>
-                        <div className="text-sm text-white/70">
-                            <div>
-                                <strong>{t("tournament.start")}:</strong> {new Date(tournament.start_date).toLocaleString('ru-RU')}
+                        <div className="space-y-2 text-sm text-white/70">
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium">{t("tournament.start")}:</span>
+                                <span className="font-mono">{new Date(tournament.start_date).toLocaleString('ru-RU')}</span>
                             </div>
-                            <div>
-                                <strong>{t("tournament.end")}:</strong> {new Date(tournament.end_date).toLocaleString('ru-RU')}
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium">{t("tournament.end")}:</span>
+                                <span className="font-mono">{new Date(tournament.end_date).toLocaleString('ru-RU')}</span>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Tournament Info */}
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                        <span className="text-white/60">{t("tournament.prizes")}:</span>
-                        <span className={colors.text}>{tournament.prizes.length}</span>
-                    </div>
-
-                    {tournament.status === "completed" && (
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-white/60">{t("tournament.participants")}:</span>
-                            <span className={colors.text}>{tournament.participants_count || 0}</span>
-                        </div>
-                    )}
-                </div>
-
                 {/* Expanded Content for Completed Tournaments */}
                 {isExpanded && tournament.status === "completed" && (
                     <div className="mt-4 space-y-4 animate-fade-in">
                         {/* Tournament Dates */}
-                        <div className="bg-white/5 border border-white/20 rounded-lg p-3">
-                            <h4 className="text-sm font-medium text-white mb-2">{t("tournament.tournamentDates")}</h4>
-                            <div className="text-sm text-white/70 space-y-1">
-                                <div>
-                                    <strong>{t("tournament.start")}:</strong> {new Date(tournament.start_date).toLocaleString('ru-RU')}
+                        <div className="bg-white/5 border border-white/15 rounded-lg p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <CalendarDays className="text-white/80" size={16} />
+                                <span className="text-sm font-bold text-white uppercase tracking-wider">{t("tournament.tournamentDates")}</span>
+                            </div>
+                            <div className="space-y-2 text-sm text-white/70">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium">{t("tournament.start")}:</span>
+                                    <span className="font-mono">{new Date(tournament.start_date).toLocaleString('ru-RU')}</span>
                                 </div>
-                                <div>
-                                    <strong>{t("tournament.end")}:</strong> {new Date(tournament.end_date).toLocaleString('ru-RU')}
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium">{t("tournament.end")}:</span>
+                                    <span className="font-mono">{new Date(tournament.end_date).toLocaleString('ru-RU')}</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Winners */}
-                        <div className="bg-white/5 border border-white/20 rounded-lg p-3">
-                            <h4 className="text-sm font-medium text-white mb-3">
-                                {t("tournament.prizeWinners")} ({tournament.prizes.length})
-                            </h4>
+                        <div className="bg-white/5 border border-white/15 rounded-lg p-4">
+                            <div className="flex items-center space-x-2 mb-4">
+                                <Crown className="text-white/80" size={16} />
+                                <span className="text-sm font-bold text-white uppercase tracking-wider">
+                                    {t("tournament.prizeWinners")} ({tournament.prizes.length})
+                                </span>
+                            </div>
 
                             {isLoadingWinners ? (
-                                <div className="flex items-center justify-center space-x-2 py-4">
-                                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                    <span className="text-white/60 text-sm">{t("tournament.loadingWinners")}</span>
+                                <div className="flex items-center justify-center space-x-3 py-6">
+                                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                    <span className="text-white/60 text-sm font-medium">{t("tournament.loadingWinners")}</span>
                                 </div>
                             ) : winners.length > 0 ? (
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     {winners.map((winner, index) => (
                                         <div
                                             key={winner.id}
-                                            className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/10"
+                                            className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300"
                                         >
-                                            <div className="flex items-center space-x-3">
-                                                <div className="flex items-center justify-center w-6">
+                                            <div className="flex items-center space-x-4">
+                                                <div className="flex items-center justify-center w-8">
                                                     {getRankIcon(index + 1)}
                                                 </div>
                                                 <div>
-                                                    <div className="text-sm font-medium text-white">
+                                                    <div className="text-sm font-bold text-white">
                                                         {winner.first_name} {winner.last_name || ""}
                                                     </div>
-                                                    <div className="text-xs text-white/60">
-                                                        {formatTournamentSurvivalTime(winner.survival_time)} • L{winner.max_level_reached}
+                                                    <div className="flex items-center space-x-2 text-xs text-white/60">
+                                                        <div className="flex items-center space-x-1">
+                                                            <Clock size={10} />
+                                                            <span className="font-mono">{formatTournamentSurvivalTime(winner.survival_time)}</span>
+                                                        </div>
+                                                        <div className="w-1 h-1 rounded-full bg-white/40" />
+                                                        <div className="flex items-center space-x-1">
+                                                            <TrendingUp size={10} />
+                                                            <span>L{winner.max_level_reached}</span>
+                                                        </div>
+                                                        <div className="w-1 h-1 rounded-full bg-white/40" />
+                                                        <div className="flex items-center space-x-1">
+                                                            <Target size={10} />
+                                                            <span>{winner.correct_hits}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-sm font-medium text-white">
+                                                <div className="text-sm font-bold text-white">
                                                     {tournament.prizes[index]}
                                                 </div>
                                             </div>
@@ -291,9 +359,9 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-center py-4">
-                                    <Trophy className="text-white/40 mx-auto mb-2" size={24} />
-                                    <p className="text-white/60 text-sm">{t("tournament.noWinnersData")}</p>
+                                <div className="text-center py-6">
+                                    <Trophy className="text-white/30 mx-auto mb-3" size={32} />
+                                    <p className="text-white/50 text-sm font-medium">{t("tournament.noWinnersData")}</p>
                                 </div>
                             )}
                         </div>
@@ -303,6 +371,27 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
         </div>
     );
 };
+
+const SectionHeader: React.FC<{
+    icon: React.ComponentType<any>;
+    title: string;
+    count?: number;
+    opacity?: string;
+}> = ({ icon: Icon, title, count, opacity = "text-white" }) => (
+    <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                <Icon className={opacity} size={20} />
+            </div>
+            <div>
+                <h2 className={`text-xl font-bold ${opacity} tracking-wide`}>{title}</h2>
+                {count !== undefined && (
+                    <p className="text-white/50 text-sm">{count} турниров</p>
+                )}
+            </div>
+        </div>
+    </div>
+);
 
 export default function TournamentsPage() {
     const router = useRouter();
@@ -371,9 +460,15 @@ export default function TournamentsPage() {
     if (isLoading) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-                    <p className="text-white">{t("tournament.loadingTournament")}</p>
+                <div className="text-center space-y-6">
+                    <div className="relative">
+                        <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                        <Trophy className="absolute inset-0 m-auto text-white/30" size={20} />
+                    </div>
+                    <div>
+                        <p className="text-white text-lg font-medium">{t("tournament.loadingTournament")}</p>
+                        <p className="text-white/60 text-sm">Получение данных турниров...</p>
+                    </div>
                 </div>
             </div>
         );
@@ -382,11 +477,16 @@ export default function TournamentsPage() {
     if (error) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <Trophy className="text-white/40 mx-auto" size={32} />
-                    <p className="text-white/60">{error}</p>
+                <div className="text-center space-y-6 max-w-md mx-auto px-6">
+                    <div className="w-16 h-16 bg-white/5 border border-white/20 rounded-xl flex items-center justify-center mx-auto">
+                        <Trophy className="text-white/40" size={32} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white mb-2">{error}</h2>
+                        <p className="text-white/60 text-sm">Попробуйте перезагрузить страницу</p>
+                    </div>
                     <button
-                        className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/20"
+                        className="px-6 py-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all duration-300 border border-white/20 hover:border-white/30 hover:scale-105 active:scale-95"
                         onClick={() => window.location.reload()}
                     >
                         {t("common.retry")}
@@ -401,12 +501,21 @@ export default function TournamentsPage() {
     if (!hasAnyTournaments) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center space-y-6 max-w-md mx-auto px-6">
-                    <div className="text-4xl mb-4">🏆</div>
-                    <h1 className="text-2xl font-medium text-white">{t("tournament.noTournamentsAvailable")}</h1>
-                    <p className="text-white/60 text-sm leading-relaxed">
-                        {t("tournament.checkBackLater")}
-                    </p>
+                <div className="text-center space-y-8 max-w-md mx-auto px-6">
+                    <div className="relative">
+                        <div className="w-20 h-20 bg-white/5 border border-white/20 rounded-2xl flex items-center justify-center mx-auto">
+                            <Trophy className="text-white/40" size={40} />
+                        </div>
+                        <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                            <Calendar className="text-white/60" size={16} />
+                        </div>
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-white mb-3">{t("tournament.noTournamentsAvailable")}</h1>
+                        <p className="text-white/60 text-sm leading-relaxed">
+                            {t("tournament.checkBackLater")}
+                        </p>
+                    </div>
                 </div>
             </div>
         );
@@ -414,29 +523,34 @@ export default function TournamentsPage() {
 
     return (
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-            {/* Header */}
-            <div className="mb-6">
-                <div className="text-center space-y-4">
-                    <div className="flex items-center justify-center space-x-3">
-                        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
-                            <Trophy className="text-white" size={24} />
+            {/* Enhanced Header */}
+            <div className="mb-8">
+                <div className="text-center space-y-6">
+                    <div className="relative inline-block">
+                        <div className="w-16 h-16 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300">
+                            <Trophy className="text-white" size={32} />
                         </div>
-                        <div>
-                            <h1 className="text-2xl font-medium text-white">{t("tournament.title")}</h1>
-                            <p className="text-white/60 text-sm">{t("tournament.tournamentsList")}</p>
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-white/20 border border-white/30 rounded-lg flex items-center justify-center">
+                            <Crown className="text-white/80" size={12} />
                         </div>
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-bold text-white tracking-wide">{t("tournament.title")}</h1>
+                        <p className="text-white/60 text-sm uppercase tracking-[0.2em] mt-2">{t("tournament.tournamentsList")}</p>
                     </div>
                 </div>
             </div>
 
             {/* Active Tournaments */}
             {tournaments.active.length > 0 && (
-                <div className="mb-8">
-                    <div className="flex items-center space-x-2 mb-4">
-                        <Trophy className="text-white" size={18} />
-                        <h2 className="text-lg font-bold text-white">{t("tournament.activeTournaments")}</h2>
-                    </div>
-                    <div className="space-y-3">
+                <div className="mb-10">
+                    <SectionHeader
+                        icon={Zap}
+                        title={t("tournament.activeTournaments")}
+                        count={tournaments.active.length}
+                        opacity="text-white"
+                    />
+                    <div className="space-y-4">
                         {tournaments.active.map((tournament) => (
                             <TournamentCard
                                 key={tournament.id}
@@ -452,12 +566,14 @@ export default function TournamentsPage() {
 
             {/* Upcoming Tournaments */}
             {tournaments.upcoming.length > 0 && (
-                <div className="mb-8">
-                    <div className="flex items-center space-x-2 mb-4">
-                        <Calendar className="text-white/80" size={18} />
-                        <h2 className="text-lg font-bold text-white/80">{t("tournament.upcomingTournaments")}</h2>
-                    </div>
-                    <div className="space-y-3">
+                <div className="mb-10">
+                    <SectionHeader
+                        icon={Timer}
+                        title={t("tournament.upcomingTournaments")}
+                        count={tournaments.upcoming.length}
+                        opacity="text-white/80"
+                    />
+                    <div className="space-y-4">
                         {tournaments.upcoming.map((tournament) => (
                             <TournamentCard
                                 key={tournament.id}
@@ -474,11 +590,13 @@ export default function TournamentsPage() {
             {/* Completed Tournaments */}
             {tournaments.completed.length > 0 && (
                 <div className="mb-8">
-                    <div className="flex items-center space-x-2 mb-4">
-                        <Trophy className="text-white/60" size={18} />
-                        <h2 className="text-lg font-bold text-white/60">{t("tournament.completedTournaments")}</h2>
-                    </div>
-                    <div className="space-y-3">
+                    <SectionHeader
+                        icon={Star}
+                        title={t("tournament.completedTournaments")}
+                        count={tournaments.completed.length}
+                        opacity="text-white/60"
+                    />
+                    <div className="space-y-4">
                         {tournaments.completed.map((tournament) => (
                             <TournamentCard
                                 key={tournament.id}
