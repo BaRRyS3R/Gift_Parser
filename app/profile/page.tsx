@@ -108,7 +108,7 @@ export default function MinimalistProfilePage() {
         </h1>
       </div>
 
-      <div className="max-w-md mx-auto space-y-4 mb-8">
+      <div className="max-w-md mx-auto">
         {/* Profile Header - No Container */}
         <MinimalistProfileHeader user={user} />
 
