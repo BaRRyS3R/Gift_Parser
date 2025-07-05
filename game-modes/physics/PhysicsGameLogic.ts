@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameLogic.ts - Complete implementation with progressive difficulty and adaptive sizing
+// src/game-modes/physics/PhysicsGameLogic.ts - Updated with screen boundaries and new game ending logic
 
 import * as Matter from "matter-js";
 import {
@@ -39,22 +39,22 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 350;
     const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 500;
 
-    // Calculate container dimensions based on screen size
-    const containerWidth = Math.min(screenWidth - 40, 500);
-    const containerHeight = Math.min(screenHeight - 180, 600); // Account for bottom info panel
+    // Calculate container dimensions to fill screen, accounting for bottom info panel
+    const containerWidth = screenWidth;
+    const containerHeight = screenHeight - 120; // Reserve 120px for bottom info panel
 
     return {
         id: "physics",
         name: "PHYSICS MODE",
         circleCount: 25,
-        circleRadius: Math.max(20, Math.min(30, containerWidth / 20)),
+        circleRadius: Math.max(18, Math.min(28, containerWidth / 22)),
         containerWidth,
         containerHeight,
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
         impulseForce: 0.05,
-        maxMistakes: 12,
+        maxMistakes: 5, // Changed from 12 to 5
         levelDuration: 180, // 3 minutes
     };
 };
@@ -62,7 +62,7 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
 export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
     containerWidth: 350, // Will be overridden by adaptive config
     containerHeight: 500, // Will be overridden by adaptive config
-    wallThickness: 10,
+    wallThickness: 20, // Increased thickness for screen boundaries
     gravity: { x: 0, y: 0.4 },
     restitution: 0.8,
     friction: 0.01,
@@ -149,6 +149,7 @@ export const createPhysicsCircles = (
     return circles;
 };
 
+// Updated boundary walls function - creates invisible walls at screen edges
 export const createBoundaryWalls = (
     containerWidth: number,
     containerHeight: number,
@@ -164,7 +165,7 @@ export const createBoundaryWalls = (
             {
                 isStatic: true,
                 label: "wall_top",
-                render: { fillStyle: "#ffffff40" }
+                render: { visible: false } // Make walls invisible
             }
         ),
         bottom: Matter.Bodies.rectangle(
@@ -175,7 +176,7 @@ export const createBoundaryWalls = (
             {
                 isStatic: true,
                 label: "wall_bottom",
-                render: { fillStyle: "#ffffff40" }
+                render: { visible: false }
             }
         ),
         left: Matter.Bodies.rectangle(
@@ -186,7 +187,7 @@ export const createBoundaryWalls = (
             {
                 isStatic: true,
                 label: "wall_left",
-                render: { fillStyle: "#ffffff40" }
+                render: { visible: false }
             }
         ),
         right: Matter.Bodies.rectangle(
@@ -197,7 +198,7 @@ export const createBoundaryWalls = (
             {
                 isStatic: true,
                 label: "wall_right",
-                render: { fillStyle: "#ffffff40" }
+                render: { visible: false }
             }
         ),
     };
@@ -425,6 +426,7 @@ export const handlePhysicsCircleClick = (
 
     if (clickedCircle.isActive && !clickedCircle.isAnimating) {
         if (clickedCircle.isDecoy) {
+            // Hit decoy circle - count as mistake
             return {
                 newState: {
                     ...updatedState,
@@ -437,6 +439,7 @@ export const handlePhysicsCircleClick = (
                 result: "decoy",
             };
         } else {
+            // Hit correct circle - apply impulse and add score
             const stateWithImpulse = applyImpulse(updatedState, clickedCircleId);
 
             const newStats = {
@@ -460,6 +463,7 @@ export const handlePhysicsCircleClick = (
             };
         }
     } else {
+        // Hit inactive circle - count as mistake
         return {
             newState: {
                 ...updatedState,
@@ -474,58 +478,7 @@ export const handlePhysicsCircleClick = (
     }
 };
 
-export const removeWall = (state: PhysicsGameState, mistakeCount: number): PhysicsGameState => {
-    const newBoundaries = { ...state.boundaries };
-    let wallToRemove: keyof typeof state.wallBodies | null = null;
-
-    // Correct sequence: top -> left -> right -> bottom
-    switch (mistakeCount) {
-        case 1:
-            if (newBoundaries.top && state.wallBodies.top) {
-                newBoundaries.top = false;
-                wallToRemove = "top";
-            }
-            break;
-        case 2:
-            if (newBoundaries.left && state.wallBodies.left) {
-                newBoundaries.left = false;
-                wallToRemove = "left";
-            }
-            break;
-        case 3:
-            if (newBoundaries.right && state.wallBodies.right) {
-                newBoundaries.right = false;
-                wallToRemove = "right";
-            }
-            break;
-        case 4:
-            if (newBoundaries.bottom && state.wallBodies.bottom) {
-                newBoundaries.bottom = false;
-                wallToRemove = "bottom";
-            }
-            break;
-    }
-
-    if (wallToRemove && state.wallBodies[wallToRemove]) {
-        console.log(`Removing wall: ${wallToRemove} due to mistake ${mistakeCount}`);
-
-        Matter.World.remove(state.world, state.wallBodies[wallToRemove]!);
-
-        const newWallBodies = { ...state.wallBodies };
-        delete newWallBodies[wallToRemove];
-
-        return {
-            ...state,
-            boundaries: newBoundaries,
-            wallBodies: newWallBodies,
-        };
-    }
-
-    return {
-        ...state,
-        boundaries: newBoundaries,
-    };
-};
+// Removed removeWall function - no longer needed
 
 export const deactivatePhysicsCircle = (
     state: PhysicsGameState,
@@ -555,31 +508,28 @@ export const deactivatePhysicsCircle = (
     };
 };
 
+// Updated function to check if game should end based on escaped circles
 export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
     const containerWidth = state.config.containerWidth;
     const containerHeight = state.config.containerHeight;
-    const margin = 120;
+    const margin = 50; // Smaller margin since walls are at screen edges
 
     let escapedCount = 0;
 
     state.circles.forEach((circle) => {
-        const leftBound = state.boundaries.left ? -margin : -containerWidth;
-        const rightBound = state.boundaries.right ? containerWidth + margin : containerWidth * 2;
-        const topBound = state.boundaries.top ? -margin : -containerHeight;
-        const bottomBound = state.boundaries.bottom ? containerHeight + margin : containerHeight * 2;
-
+        // Check if circle is outside screen boundaries
         if (
-            circle.x < leftBound ||
-            circle.x > rightBound ||
-            circle.y < topBound ||
-            circle.y > bottomBound
+            circle.x < -margin ||
+            circle.x > containerWidth + margin ||
+            circle.y < -margin ||
+            circle.y > containerHeight + margin
         ) {
             escapedCount++;
         }
     });
 
-    // Game ends when 90% of circles have escaped
-    return escapedCount >= Math.floor(state.circles.length * 0.9);
+    // Game ends when 80% of circles have escaped (reduced threshold)
+    return escapedCount >= Math.floor(state.circles.length * 0.8);
 };
 
 export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {

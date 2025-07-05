@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameCanvas.tsx - Complete fixed implementation with touch handling and visual boundary updates
+// src/game-modes/physics/PhysicsGameCanvas.tsx - Updated implementation without visible boundaries
 
 "use client";
 
@@ -23,8 +23,13 @@ export default function PhysicsGameCanvas({
     const animationFrameRef = useRef<number>();
 
     // Touch handling refs for preventing multiple touches
-    const touchProcessedRef = useRef<Set<number>>(new Set());
-    const lastTouchTimeRef = useRef<number>(0);
+    const activeTouchesRef = useRef<Map<number, {
+        startTime: number;
+        startPosition: { x: number; y: number };
+        currentPosition: { x: number; y: number };
+        circleId?: number;
+        processed: boolean;
+    }>>(new Map());
 
     // Function to get click position relative to canvas
     const getClickPosition = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -57,14 +62,6 @@ export default function PhysicsGameCanvas({
         }
         return null;
     }, []);
-
-    const activeTouchesRef = useRef<Map<number, {
-        startTime: number;
-        startPosition: { x: number; y: number };
-        currentPosition: { x: number; y: number };
-        circleId?: number;
-        processed: boolean;
-    }>>(new Map());
 
     // Canvas click handler
     const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -182,92 +179,7 @@ export default function PhysicsGameCanvas({
         }
     }, []);
 
-    // Function to draw boundaries with proper visual state
-    const drawBoundaries = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
-        const { boundaries } = gameState;
-
-        // Top boundary
-        if (boundaries.top) {
-            ctx.strokeStyle = "#ffffff80";
-            ctx.setLineDash([]);
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(canvas.width, 0);
-            ctx.stroke();
-        } else {
-            // Wall destroyed - show faint broken line or skip entirely
-            ctx.strokeStyle = "#ff444420";
-            ctx.setLineDash([10, 10]);
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(canvas.width, 0);
-            ctx.stroke();
-        }
-
-        // Bottom boundary
-        if (boundaries.bottom) {
-            ctx.strokeStyle = "#ffffff80";
-            ctx.setLineDash([]);
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(0, canvas.height);
-            ctx.lineTo(canvas.width, canvas.height);
-            ctx.stroke();
-        } else {
-            ctx.strokeStyle = "#ff444420";
-            ctx.setLineDash([10, 10]);
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(0, canvas.height);
-            ctx.lineTo(canvas.width, canvas.height);
-            ctx.stroke();
-        }
-
-        // Left boundary
-        if (boundaries.left) {
-            ctx.strokeStyle = "#ffffff80";
-            ctx.setLineDash([]);
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, canvas.height);
-            ctx.stroke();
-        } else {
-            ctx.strokeStyle = "#ff444420";
-            ctx.setLineDash([10, 10]);
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, canvas.height);
-            ctx.stroke();
-        }
-
-        // Right boundary
-        if (boundaries.right) {
-            ctx.strokeStyle = "#ffffff80";
-            ctx.setLineDash([]);
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(canvas.width, 0);
-            ctx.lineTo(canvas.width, canvas.height);
-            ctx.stroke();
-        } else {
-            ctx.strokeStyle = "#ff444420";
-            ctx.setLineDash([10, 10]);
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(canvas.width, 0);
-            ctx.lineTo(canvas.width, canvas.height);
-            ctx.stroke();
-        }
-
-        // Reset line dash for subsequent drawing
-        ctx.setLineDash([]);
-    }, [gameState.boundaries]);
-
-    // Main drawing function
+    // Main drawing function - removed boundary drawing
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -275,13 +187,10 @@ export default function PhysicsGameCanvas({
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        // Clear canvas
+        // Clear canvas with transparent background
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Draw boundaries with current state
-        drawBoundaries(ctx, canvas);
-
-        // Draw circles
+        // Draw circles only - no boundaries
         gameState.circles.forEach((circle) => {
             if (circle.isAnimating) return; // Skip animating circles
 
@@ -358,16 +267,8 @@ export default function PhysicsGameCanvas({
             ctx.fillText(`Circles: ${gameState.circles.length}`, 10, 20);
             ctx.fillText(`Active: ${gameState.activeCircleIds.length}`, 10, 35);
             ctx.fillText(`Mistakes: ${gameState.stats.currentMistakes}/${gameState.config.maxMistakes}`, 10, 50);
-
-            // Show boundary states
-            const boundaries = gameState.boundaries;
-            ctx.fillText(
-                `Walls: T:${boundaries.top ? "✓" : "✗"} L:${boundaries.left ? "✓" : "✗"} R:${boundaries.right ? "✓" : "✗"} B:${boundaries.bottom ? "✓" : "✗"}`,
-                10,
-                65
-            );
         }
-    }, [gameState, drawBoundaries]);
+    }, [gameState]);
 
     // Animation loop
     const animate = useCallback(() => {
@@ -381,7 +282,6 @@ export default function PhysicsGameCanvas({
         // Clear all active touches when game becomes inactive
         if (!isGameActive) {
             activeTouchesRef.current.clear();
-            lastTouchTimeRef.current = 0;
         }
     }, [isGameActive]);
 
@@ -421,24 +321,19 @@ export default function PhysicsGameCanvas({
     return (
         <div
             className={`
-                flex items-center justify-center transition-all duration-300
+                flex items-center justify-center transition-all duration-300 w-full h-full
                 ${showCanvas ? "opacity-100" : "opacity-0"}
             `}
-            style={{
-                width: gameState.config.containerWidth + 40, // +40 for margins
-                height: gameState.config.containerHeight + 40,
-            }}
         >
             <canvas
                 ref={canvasRef}
                 width={gameState.config.containerWidth}
                 height={gameState.config.containerHeight}
                 className={`
-    border-2 border-white/20 rounded-lg bg-black/20 backdrop-blur-sm
-    cursor-crosshair transition-all duration-300
-    ${isGameActive ? "hover:border-white/40" : "opacity-50"}
-    ${showCanvas ? "scale-100" : "scale-95"}
-  `}
+                    w-full h-full cursor-crosshair transition-all duration-300 bg-transparent
+                    ${isGameActive ? "opacity-100" : "opacity-50"}
+                    ${showCanvas ? "scale-100" : "scale-95"}
+                `}
                 onClick={handleCanvasClick}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}

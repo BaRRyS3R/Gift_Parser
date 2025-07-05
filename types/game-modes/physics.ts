@@ -1,4 +1,4 @@
-// src/types/game-modes/physics.ts - Типы для физического режима
+// src/types/game-modes/physics.ts - Updated types with simplified boundary logic
 
 import { BaseGameResult, GameState, GameMode, PhysicsCircle, BoundaryState } from "./common";
 import * as Matter from "matter-js";
@@ -6,15 +6,15 @@ import * as Matter from "matter-js";
 export interface PhysicsGameConfig {
     id: string;
     name: string;
-    circleCount: number; // 20 кругов
+    circleCount: number; // 25 кругов
     circleRadius: number; // Радиус кругов
-    containerWidth: number; // Ширина контейнера
-    containerHeight: number; // Высота контейнера
+    containerWidth: number; // Ширина контейнера (теперь = ширине экрана)
+    containerHeight: number; // Высота контейнера (экран - нижняя панель)
     initialActivationTimeMin: number; // Минимальное время активации
     initialActivationTimeMax: number; // Максимальное время активации
     circleActiveTime: number; // Время активности круга
     impulseForce: number; // Сила импульса при правильном клике
-    maxMistakes: number; // Максимум ошибок (4 - по количеству стен)
+    maxMistakes: number; // Максимум ошибок (теперь 5)
     levelDuration: number; // Длительность уровня в секундах
 }
 
@@ -41,12 +41,20 @@ export interface PhysicsGameResult extends BaseGameResult {
     deathCause: "mistakes" | "escaped_circles" | "timeout";
 }
 
+// Simplified boundary state - now just represents screen edges
+export interface SimplifiedBoundaryState {
+    screenBounds: {
+        width: number;
+        height: number;
+    };
+}
+
 export interface PhysicsGameState {
     config: PhysicsGameConfig;
     gameState: GameState;
     stats: PhysicsGameStats;
     circles: PhysicsCircle[];
-    boundaries: BoundaryState;
+    boundaries: BoundaryState; 
     activeCircleIds: number[];
     circleTimeouts: Map<number, NodeJS.Timeout>;
     activationTimeout: NodeJS.Timeout | null;
@@ -58,7 +66,7 @@ export interface PhysicsGameState {
     render?: Matter.Render;
     world: Matter.World;
 
-    // Физические тела
+    // Физические тела границ (невидимые стены по краям экрана)
     wallBodies: {
         top?: Matter.Body;
         left?: Matter.Body;
