@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Обновленная страница заданий с монохромными карточками
+// src/app/tasks/page.tsx - Исправленная версия с правильным отступом снизу
 
 "use client";
 
@@ -57,8 +57,8 @@ export default function TasksPage() {
 
     // Загрузка заданий
     const loadTasks = useCallback(async () => {
-  
-        
+
+
         if (!user) {
             // Если пользователь не загружен, попробуем обновить его данные
             if (telegramUser) {
@@ -388,7 +388,7 @@ export default function TasksPage() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset pb-24">
+        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset pb-32">
             {/* Header */}
             <div className="text-center space-y-4 mb-8">
                 <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
