@@ -64,7 +64,9 @@ export const taskService = {
     },
 
     // Получение заданий с информацией о выполнении для пользователя
+    // Получение заданий с информацией о выполнении для пользователя
     async getTasksForUser(userId: string): Promise<TaskWithCompletion[]> {
+        // Получаем активные задания
         const { data: tasks, error: tasksError } = await supabase
             .from('tasks')
             .select('*')
@@ -78,7 +80,7 @@ export const taskService = {
 
         if (!tasks) return [];
 
-        // Получаем информацию о выполнении заданий пользователем
+        // Получаем выполнения заданий только для текущего пользователя
         const { data: completions, error: completionsError } = await supabase
             .from('user_task_completions')
             .select('*')
@@ -105,19 +107,22 @@ export const taskService = {
             let canComplete = true;
             let nextAvailableAt: string | undefined;
 
-            // Проверяем кулдаун для story заданий
-            if (task.type === 'story_share' && task.cooldown_minutes && latestCompletion?.claimed_at) {
-                const lastClaimedAt = new Date(latestCompletion.claimed_at);
-                const cooldownMs = task.cooldown_minutes * 60 * 1000;
-                const nextAvailable = new Date(lastClaimedAt.getTime() + cooldownMs);
+            if (task.type === 'story_share') {
+                if (task.cooldown_minutes && latestCompletion?.claimed_at) {
+                    const lastClaimedAt = new Date(latestCompletion.claimed_at);
+                    const cooldownMs = task.cooldown_minutes * 60 * 1000;
+                    const nextAvailable = new Date(lastClaimedAt.getTime() + cooldownMs);
 
-                if (new Date() < nextAvailable) {
-                    canComplete = false;
-                    nextAvailableAt = nextAvailable.toISOString();
+                    if (new Date() < nextAvailable) {
+                        canComplete = false;
+                        nextAvailableAt = nextAvailable.toISOString();
+                    }
                 }
-            } else if (task.type !== 'story_share' && latestCompletion?.status === 'claimed') {
-                // Для остальных заданий - можно выполнить только один раз
-                canComplete = false;
+            } else {
+                // Для всех остальных заданий: только одно выполнение
+                if (latestCompletion?.status === 'claimed') {
+                    canComplete = false;
+                }
             }
 
             return {
