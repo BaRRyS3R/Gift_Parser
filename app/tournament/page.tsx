@@ -234,7 +234,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                         <div className="space-y-1">
                             <div className="flex items-center justify-center space-x-1">
                                 <Trophy className="text-white/60" size={14} />
-                                <span className="text-xs text-white/60 uppercase tracking-wider font-medium">Призы</span>
+                                <span className="text-xs text-white/60 uppercase tracking-wider font-medium">{t("tournament.prizes")}</span>
                             </div>
                             <div className={`text-lg font-bold ${config.text}`}>{tournament.prizes.length}</div>
                         </div>
@@ -243,7 +243,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                             <div className="space-y-1">
                                 <div className="flex items-center justify-center space-x-1">
                                     <Users className="text-white/60" size={14} />
-                                    <span className="text-xs text-white/60 uppercase tracking-wider font-medium">Участники</span>
+                                    <span className="text-xs text-white/60 uppercase tracking-wider font-medium">{t("tournament.participants")}</span>
                                 </div>
                                 <div className={`text-lg font-bold ${config.text}`}>{tournament.participants_count || 0}</div>
                             </div>
@@ -252,7 +252,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                         <div className="space-y-1">
                             <div className="flex items-center justify-center space-x-1">
                                 <CalendarDays className="text-white/60" size={14} />
-                                <span className="text-xs text-white/60 uppercase tracking-wider font-medium">Статус</span>
+                                <span className="text-xs text-white/60 uppercase tracking-wider font-medium">{t("tournament.status")}</span>
                             </div>
                             <div className={`text-sm font-bold ${config.text} capitalize`}>
                                 {config.statusLabel}
@@ -525,14 +525,6 @@ export default function TournamentsPage() {
             {/* Enhanced Header */}
             <div className="mb-8">
                 <div className="text-center space-y-6">
-                    <div className="relative inline-block">
-                        <div className="w-16 h-16 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300">
-                            <Trophy className="text-white" size={32} />
-                        </div>
-                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-white/20 border border-white/30 rounded-lg flex items-center justify-center">
-                            <Crown className="text-white/80" size={12} />
-                        </div>
-                    </div>
                     <div>
                         <h1 className="text-3xl font-bold text-white tracking-wide">{t("tournament.title")}</h1>
                         <p className="text-white/60 text-sm uppercase tracking-[0.2em] mt-2">{t("tournament.tournamentsList")}</p>

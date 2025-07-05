@@ -20,7 +20,6 @@ export default function TournamentPlayPage() {
     const t = useT();
 
     useEffect(() => {
-        // Setup Telegram WebApp back button
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
 
