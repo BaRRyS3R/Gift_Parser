@@ -3,8 +3,6 @@
 export const about = {
     title: "CIRCUSLE",
     subtitle: "A guide to turning time into disappointment",
-    close: "CLOSE AND START SUFFERING",
-
     sections: {
         gameModes: {
             title: "Game Modes",

@@ -461,17 +461,6 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                         </p>
                     </div>
                 </ModalBody>
-
-                <ModalFooter>
-                    <Button
-                        color="primary"
-                        variant="flat"
-                        onPress={onClose}
-                        className="w-full"
-                    >
-                        {t("about.close")}
-                    </Button>
-                </ModalFooter>
             </ModalContent>
         </Modal>
     );

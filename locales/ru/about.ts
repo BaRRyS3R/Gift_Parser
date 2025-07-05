@@ -3,8 +3,6 @@
 export const about = {
     title: "CIRCUSLE",
     subtitle: "Руководство по превращению времени в разочарование",
-    close: "ЗАКРЫТЬ И НАЧАТЬ СТРАДАТЬ",
-
     sections: {
         gameModes: {
             title: "Игровые Режимы",

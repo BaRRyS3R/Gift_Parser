@@ -7,9 +7,6 @@ import { useRouter } from "next/navigation";
 import {
   Zap,
   Crosshair,
-  Target,
-  AlertTriangle,
-  Clock,
   Play,
   Shield,
   ShoppingCart,
