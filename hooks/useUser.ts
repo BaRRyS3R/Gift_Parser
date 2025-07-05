@@ -81,9 +81,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // Автоматическая инициализация telegramUser при первом рендере
   useEffect(() => {
+    console.log('=== useUser: Auto-init telegramUser effect ===');
+    console.log('Current telegramUser:', telegramUser);
+    console.log('Window Telegram WebApp available:', typeof window !== "undefined" && !!window.Telegram?.WebApp);
+    
     if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
+      
+      console.log('Telegram WebApp user data:', user);
 
       if (user && user.id) {
         const telegramUserData = {
@@ -94,10 +100,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           language_code: user.language_code,
           is_premium: user.is_premium,
         };
+        console.log('Setting telegramUser data:', telegramUserData);
         setTelegramUserState(telegramUserData);
         console.log("useUser - Auto-initialized telegram user:", telegramUserData);
+      } else {
+        console.log('No valid user data in Telegram WebApp');
       }
+    } else {
+      console.log('Auto-init conditions not met:', {
+        hasTelegramUser: !!telegramUser,
+        windowAvailable: typeof window !== "undefined",
+        telegramWebAppAvailable: typeof window !== "undefined" && !!window.Telegram?.WebApp
+      });
     }
+    console.log('=== useUser: Auto-init telegramUser effect END ===');
   }, [telegramUser]);
 
   // Метод для установки Telegram пользователя в контекст
@@ -116,9 +132,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, []);
 
   const refreshUser = useCallback(async (): Promise<void> => {
+    console.log('=== useUser: refreshUser START ===');
+    console.log('Current telegramUser:', telegramUser);
+    
     if (!telegramUser) {
       console.log("useUser - No telegram user available for refresh");
-
+      console.log('=== useUser: refreshUser END (no telegramUser) ===');
       return;
     }
 
@@ -128,9 +147,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setError(null);
 
       // Однократная попытка поиска пользователя в БД
+      console.log('Calling userService.findByTelegramId...');
       const dbUser = await userService.findByTelegramId(telegramUser.id);
 
-      console.log("useUser - DB User:", dbUser);
+      console.log("useUser - DB User:", dbUser ? {
+        id: dbUser.id,
+        telegram_id: dbUser.telegram_id,
+        first_name: dbUser.first_name,
+        attempts_remaining: dbUser.attempts_remaining
+      } : null);
 
       if (dbUser) {
         console.log("useUser - User found, updating context");
@@ -145,17 +170,30 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
       console.log("useUser - refreshUser completed");
+      console.log('=== useUser: refreshUser END ===');
     }
   }, [telegramUser]);
 
   // Автоматическая загрузка пользователя из БД при установке telegramUser
   useEffect(() => {
+    console.log('=== useUser: Auto-load effect ===');
+    console.log('telegramUser:', telegramUser);
+    console.log('user:', user);
+    console.log('isLoading:', isLoading);
+    
     if (telegramUser && !user && !isLoading) {
       console.log("useUser - Auto-loading user from DB for telegram user:", telegramUser.id);
       refreshUser().catch(err => {
         console.error("useUser - Failed to auto-load user:", err);
       });
+    } else {
+      console.log('Auto-load conditions not met:', {
+        hasTelegramUser: !!telegramUser,
+        hasUser: !!user,
+        isLoading
+      });
     }
+    console.log('=== useUser: Auto-load effect END ===');
   }, [telegramUser, user, isLoading, refreshUser]);
 
   const saveGameResult = useCallback(

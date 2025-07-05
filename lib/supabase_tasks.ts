@@ -66,7 +66,11 @@ export const taskService = {
     // Получение заданий с информацией о выполнении для пользователя
     // Получение заданий с информацией о выполнении для пользователя
     async getTasksForUser(userId: string): Promise<TaskWithCompletion[]> {
+        console.log('=== TASK SERVICE: getTasksForUser START ===');
+        console.log('User ID:', userId);
+        
         // Получаем активные задания
+        console.log('Fetching active tasks...');
         const { data: tasks, error: tasksError } = await supabase
             .from('tasks')
             .select('*')
@@ -78,9 +82,16 @@ export const taskService = {
             throw tasksError;
         }
 
-        if (!tasks) return [];
+        console.log('Active tasks found:', tasks?.length || 0);
+        console.log('Tasks:', tasks?.map(t => ({ id: t.id, name: t.name, type: t.type })));
+
+        if (!tasks) {
+            console.log('No tasks found, returning empty array');
+            return [];
+        }
 
         // Получаем выполнения заданий только для текущего пользователя
+        console.log('Fetching user completions for user ID:', userId);
         const { data: completions, error: completionsError } = await supabase
             .from('user_task_completions')
             .select('*')
@@ -91,6 +102,13 @@ export const taskService = {
             throw completionsError;
         }
 
+        console.log('User completions found:', completions?.length || 0);
+        console.log('Completions:', completions?.map(c => ({ 
+            task_id: c.task_id, 
+            status: c.status, 
+            claimed_at: c.claimed_at 
+        })));
+
         const completionsMap = new Map<string, UserTaskCompletion[]>();
         (completions || []).forEach(completion => {
             if (!completionsMap.has(completion.task_id)) {
@@ -99,7 +117,9 @@ export const taskService = {
             completionsMap.get(completion.task_id)!.push(completion);
         });
 
-        return tasks.map(task => {
+        console.log('Completions map keys:', Array.from(completionsMap.keys()));
+
+        const result = tasks.map(task => {
             const userCompletions = completionsMap.get(task.id) || [];
             const latestCompletion = userCompletions
                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
@@ -125,13 +145,34 @@ export const taskService = {
                 }
             }
 
-            return {
+            const taskWithCompletion = {
                 ...task,
                 user_completion: latestCompletion,
                 can_complete: canComplete,
                 next_available_at: nextAvailableAt
             };
+
+            console.log(`Task ${task.id} (${task.name}):`, {
+                type: task.type,
+                can_complete: canComplete,
+                user_completion: latestCompletion ? {
+                    status: latestCompletion.status,
+                    claimed_at: latestCompletion.claimed_at
+                } : null,
+                next_available_at: nextAvailableAt
+            });
+
+            return taskWithCompletion;
         });
+
+        console.log('Final result:', result.map(t => ({ 
+            id: t.id, 
+            name: t.name, 
+            can_complete: t.can_complete 
+        })));
+        console.log('=== TASK SERVICE: getTasksForUser END ===');
+        
+        return result;
     },
 
     // Начало выполнения задания
