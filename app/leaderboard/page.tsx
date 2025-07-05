@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Updated with physics mode, no overall stats
+// src/app/leaderboard/page.tsx - Updated with unified header design
 
 "use client";
 
@@ -417,17 +417,6 @@ export default function LeaderboardPage() {
     }
   };
 
-  const getLeaderboardIcon = () => {
-    switch (activeTab) {
-      case "reaction":
-        return <Zap className="text-white" size={20} />;
-      case "survival":
-        return <Crosshair className="text-red-400" size={20} />;
-      case "physics":
-        return <Atom className="text-purple-400" size={20} />;
-    }
-  };
-
   const getTabLabel = (tab: LeaderboardType) => {
     switch (tab) {
       case "reaction":
@@ -473,102 +462,84 @@ export default function LeaderboardPage() {
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="text-center space-y-3">
-          <div className="flex items-center justify-center space-x-3">
-            <div
-              className={`w-10 h-10 rounded-lg flex items-center justify-center ${isReactionTab
-                ? "bg-white/20 border border-white/30"
-                : isSurvivalTab
-                  ? "bg-red-500/20 border border-red-400/30"
-                  : "bg-purple-500/20 border border-purple-400/30"
-                }`}
-            >
-              {getLeaderboardIcon()}
-            </div>
-            <h1
-              className={`text-2xl font-bold ${isReactionTab
-                ? "text-white"
-                : isSurvivalTab
-                  ? "text-red-300"
-                  : "text-purple-300"
-                }`}
-            >
-              {getLeaderboardTitle()}
-            </h1>
-          </div>
-
-          {currentLeaderboard.length > 0 && (
-            <div
-              className={`flex items-center justify-center space-x-4 backdrop-blur-xl border rounded-lg p-2 text-sm ${isReactionTab
-                ? "bg-white/10 border-white/30"
-                : isSurvivalTab
-                  ? "bg-red-500/10 border-red-400/30"
-                  : "bg-purple-500/10 border-purple-400/30"
-                }`}
-            >
-              <div className="flex items-center space-x-1">
-                <Users
-                  className={`${isReactionTab
-                    ? "text-white/80"
-                    : isSurvivalTab
-                      ? "text-red-400/80"
-                      : "text-purple-400/80"
-                    }`}
-                  size={14}
-                />
-                <span
-                  className={`font-bold ${isReactionTab
-                    ? "text-white"
-                    : isSurvivalTab
-                      ? "text-red-300"
-                      : "text-purple-300"
-                    }`}
-                >
-                  {currentLeaderboard.length}
-                </span>
-              </div>
-              <div
-                className={`w-px h-4 ${isReactionTab
-                  ? "bg-white/30"
-                  : isSurvivalTab
-                    ? "bg-red-400/30"
-                    : "bg-purple-400/30"
-                  }`}
-              />
-              <div className="flex items-center space-x-1">
-                {isReactionTab ? (
-                  <Clock className="text-white/80" size={14} />
-                ) : isSurvivalTab ? (
-                  <Clock className="text-red-400/80" size={14} />
-                ) : (
-                  <Trophy className="text-purple-400/80" size={14} />
-                )}
-                <span
-                  className={`font-bold ${isReactionTab
-                    ? "text-white"
-                    : isSurvivalTab
-                      ? "text-red-300"
-                      : "text-purple-300"
-                    }`}
-                >
-                  {currentLeaderboard[0]
-                    ? isReactionTab
-                      ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}`
-                      : isSurvivalTab
-                        ? formatSurvivalTime(
-                          (currentLeaderboard[0] as SurvivalLeaderboard)
-                            .best_survival_time,
-                        )
-                        : formatPhysicsTime((currentLeaderboard[0] as PhysicsLeaderboard).best_physics_time)
-                    : "0"}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Header - Unified with Game Page */}
+      <div className="text-center space-y-4 mb-8">
+        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+          {t("leaderboard.title")}
+        </h1>
       </div>
+
+      {/* Current Leaderboard Stats */}
+      {currentLeaderboard.length > 0 && (
+        <div className="mb-6">
+          <div
+            className={`flex items-center justify-center space-x-4 backdrop-blur-xl border rounded-lg p-2 text-sm ${isReactionTab
+              ? "bg-white/10 border-white/30"
+              : isSurvivalTab
+                ? "bg-red-500/10 border-red-400/30"
+                : "bg-purple-500/10 border-purple-400/30"
+              }`}
+          >
+            <div className="flex items-center space-x-1">
+              <Users
+                className={`${isReactionTab
+                  ? "text-white/80"
+                  : isSurvivalTab
+                    ? "text-red-400/80"
+                    : "text-purple-400/80"
+                  }`}
+                size={14}
+              />
+              <span
+                className={`font-bold ${isReactionTab
+                  ? "text-white"
+                  : isSurvivalTab
+                    ? "text-red-300"
+                    : "text-purple-300"
+                  }`}
+              >
+                {currentLeaderboard.length}
+              </span>
+            </div>
+            <div
+              className={`w-px h-4 ${isReactionTab
+                ? "bg-white/30"
+                : isSurvivalTab
+                  ? "bg-red-400/30"
+                  : "bg-purple-400/30"
+                }`}
+            />
+            <div className="flex items-center space-x-1">
+              {isReactionTab ? (
+                <Clock className="text-white/80" size={14} />
+              ) : isSurvivalTab ? (
+                <Clock className="text-red-400/80" size={14} />
+              ) : (
+                <Trophy className="text-purple-400/80" size={14} />
+              )}
+              <span
+                className={`font-bold ${isReactionTab
+                  ? "text-white"
+                  : isSurvivalTab
+                    ? "text-red-300"
+                    : "text-purple-300"
+                  }`}
+              >
+                {currentLeaderboard[0]
+                  ? isReactionTab
+                    ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}`
+                    : isSurvivalTab
+                      ? formatSurvivalTime(
+                        (currentLeaderboard[0] as SurvivalLeaderboard)
+                          .best_survival_time,
+                      )
+                      : formatPhysicsTime((currentLeaderboard[0] as PhysicsLeaderboard).best_physics_time)
+                  : "0"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mb-4">
