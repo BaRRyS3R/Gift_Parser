@@ -259,7 +259,7 @@ const CompactGameModeCard = ({
       {/* Background Gamepad Icon */}
       <div className="absolute right-0 top-1/2 transform translate-x-1/3 -translate-y-1/2 pointer-events-none">
         <Gamepad2
-          className="text-white/3"
+          className="text-white/5"
           size={120}
           style={{
             transform: 'rotate(15deg)' // Rotation angle - can be adjusted for visual preference
