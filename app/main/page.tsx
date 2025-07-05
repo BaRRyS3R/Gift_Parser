@@ -23,21 +23,26 @@ export default function MainPage() {
   const t = useT();
 
   /* -------------------------------------------------
-   * Animation control - NEW: First visit detection
+   * Animation control - NEW: First visit detection (синхронная проверка)
    * -------------------------------------------------*/
-  const [isFirstVisit, setIsFirstVisit] = useState(false);
-  const [hasSeenAnimations, setHasSeenAnimations] = useState(true); // По умолчанию true, чтобы не показывать анимации
+  // Функция для синхронной проверки первого посещения
+  const checkFirstVisit = () => {
+    if (typeof window === "undefined") return false;
+    return !sessionStorage.getItem("mainPageVisited");
+  };
+
+  const isFirstVisit = checkFirstVisit();
 
   /* -------------------------------------------------
-   * UI state
+   * UI state - инициализация в зависимости от первого посещения
    * -------------------------------------------------*/
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
-  const [titleText, setTitleText] = useState("circusle"); // Начинаем с полного названия
-  const [showButton, setShowButton] = useState(true); // По умолчанию показываем
-  const [showGreeting, setShowGreeting] = useState(true); // По умолчанию показываем
+  const [titleText, setTitleText] = useState(isFirstVisit ? "|" : "circusle");
+  const [showButton, setShowButton] = useState(!isFirstVisit);
+  const [showGreeting, setShowGreeting] = useState(!isFirstVisit);
   const [greetingText, setGreetingText] = useState("");
-  const [showTopButtons, setShowTopButtons] = useState(true); // По умолчанию показываем
+  const [showTopButtons, setShowTopButtons] = useState(!isFirstVisit);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
@@ -64,33 +69,20 @@ export default function MainPage() {
     }
   }, []);
 
-  // NEW: Проверка первого посещения
+  // NEW: Отметка посещения главной страницы (только при первом посещении)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const hasVisitedMainBefore = sessionStorage.getItem("mainPageVisited");
-      const isFirstSession = !hasVisitedMainBefore;
-
-      setIsFirstVisit(isFirstSession);
-      setHasSeenAnimations(!isFirstSession);
-
-      // Если это первое посещение, сбрасываем UI состояния для анимации
-      if (isFirstSession) {
-        setTitleText("|");
-        setShowButton(false);
-        setShowGreeting(false);
-        setShowTopButtons(false);
-
-        // Отмечаем, что страница была посещена
-        sessionStorage.setItem("mainPageVisited", "true");
-      } else {
-        // Если не первое посещение, сразу показываем полный интерфейс
-        const username = user?.first_name || "unknown";
-        const fullGreeting = t("main.greeting", { name: username });
-        setTitleText("circusle");
-        setGreetingText(fullGreeting);
-      }
+    if (isFirstVisit && typeof window !== "undefined") {
+      sessionStorage.setItem("mainPageVisited", "true");
     }
-  }, [user?.first_name, t]);
+  }, [isFirstVisit]);
+
+  // Инициализация приветствия для не первого посещения
+  useEffect(() => {
+    if (!isFirstVisit && user?.first_name) {
+      const fullGreeting = t("main.greeting", { name: user.first_name });
+      setGreetingText(fullGreeting);
+    }
+  }, [isFirstVisit, user?.first_name, t]);
 
   // Инициализация telegramUser если он не установлен
   useEffect(() => {
@@ -221,7 +213,7 @@ export default function MainPage() {
 
   // Title animation - только для первого посещения
   useEffect(() => {
-    if (!pageLoaded || !isFirstVisit || hasSeenAnimations) return;
+    if (!pageLoaded || !isFirstVisit) return;
 
     const titleAnimationTimer = setTimeout(() => {
       let currentStep = 0;
@@ -242,15 +234,11 @@ export default function MainPage() {
     }, 800);
 
     return () => clearTimeout(titleAnimationTimer);
-  }, [pageLoaded, isFirstVisit, hasSeenAnimations]);
+  }, [pageLoaded, isFirstVisit]);
 
   // Greeting typing animation - только для первого посещения
   useEffect(() => {
-    if (!showGreeting || userLoading || !isFirstVisit || hasSeenAnimations) {
-      // Если не первое посещение, сразу показываем полное приветствие
-      if (!isFirstVisit && !userLoading) {
-        setGreetingText(fullGreeting);
-      }
+    if (!showGreeting || userLoading || !isFirstVisit) {
       return;
     }
 
@@ -265,7 +253,7 @@ export default function MainPage() {
     }, 60);
 
     return () => clearInterval(typingInterval);
-  }, [showGreeting, fullGreeting, userLoading, isFirstVisit, hasSeenAnimations]);
+  }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
 
   /* -------------------------------------------------
    * Handlers
@@ -335,7 +323,7 @@ export default function MainPage() {
 
       {/* Top Navigation Icons - UPDATED: Conditional animation */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit && !hasSeenAnimations
+        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-8"
@@ -417,7 +405,7 @@ export default function MainPage() {
 
         {/* Action Button - UPDATED: Conditional animation */}
         <div
-          className={`${isFirstVisit && !hasSeenAnimations
+          className={`${isFirstVisit
             ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
             : "opacity-100 translate-y-0"
             }`}
@@ -445,7 +433,7 @@ export default function MainPage() {
 
         {/* User Greeting - UPDATED: Conditional animation */}
         <div
-          className={`${isFirstVisit && !hasSeenAnimations
+          className={`${isFirstVisit
             ? `transition-all duration-1000 transform ${showGreeting
               ? "opacity-100 translate-y-0"
               : "opacity-0 translate-y-8"
@@ -468,7 +456,7 @@ export default function MainPage() {
           ) : (
             <p className="text-xl text-white/80 tracking-wider">
               {greetingText}
-              {isFirstVisit && !hasSeenAnimations && greetingText.length < fullGreeting.length && (
+              {isFirstVisit && greetingText.length < fullGreeting.length && (
                 <span className="animate-pulse">|</span>
               )}
             </p>
@@ -484,7 +472,7 @@ export default function MainPage() {
 
       {/* Attempts Display - UPDATED: Conditional animation */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit && !hasSeenAnimations
+        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-8"

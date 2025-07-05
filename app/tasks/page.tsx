@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Исправленная версия с правильным отступом снизу
+// src/app/tasks/page.tsx - Исправленная версия с корректными отступами
 
 "use client";
 
@@ -388,59 +388,40 @@ export default function TasksPage() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset pb-40">
-            {/* Header */}
-            <div className="text-center space-y-4 mb-8">
-                <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-                    {t("tasks.title")}
-                </h1>
-                <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-                    {t("tasks.subtitle")}
-                </p>
-            </div>
-
-            {error && (
-                <div className="max-w-2xl mx-auto mb-6">
-                    <Card className="bg-white/10 border border-white/20">
-                        <CardBody className="p-4">
-                            <div className="flex items-center space-x-2">
-                                <AlertCircle size={20} className="text-white" />
-                                <span className="text-white">{error}</span>
-                            </div>
-                        </CardBody>
-                    </Card>
+        <div className="min-h-screen bg-black text-white">
+            {/* Main content container with proper bottom padding */}
+            <div className="px-4 pt-6 pb-32 safe-area-inset-bottom">
+                {/* Header */}
+                <div className="text-center space-y-4 mb-8">
+                    <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+                        {t("tasks.title")}
+                    </h1>
+                    <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
+                        {t("tasks.subtitle")}
+                    </p>
                 </div>
-            )}
 
-            <div className="max-w-2xl mx-auto space-y-8">
-                {/* Story Task Section */}
-                {storyTasks.length > 0 && (
-                    <div>
-                        <h2 className="text-lg font-bold mb-4 text-white">
-                            {t('tasks.sections.story')}
-                        </h2>
-                        {storyTasks.map(task => (
-                            <TaskCard
-                                key={task.id}
-                                task={task}
-                                processing={processing[task.id]}
-                                onTaskClick={handleTaskClick}
-                                getButtonState={getButtonState}
-                                t={t}
-                                isSpecial={true}
-                            />
-                        ))}
+                {error && (
+                    <div className="max-w-2xl mx-auto mb-6">
+                        <Card className="bg-white/10 border border-white/20">
+                            <CardBody className="p-4">
+                                <div className="flex items-center space-x-2">
+                                    <AlertCircle size={20} className="text-white" />
+                                    <span className="text-white">{error}</span>
+                                </div>
+                            </CardBody>
+                        </Card>
                     </div>
                 )}
 
-                {/* Active Tasks Section */}
-                {activeTasks.length > 0 && (
-                    <div>
-                        <h2 className="text-lg font-bold mb-4">
-                            {t('tasks.sections.active')}
-                        </h2>
-                        <div className="space-y-4">
-                            {activeTasks.map(task => (
+                <div className="max-w-2xl mx-auto space-y-8">
+                    {/* Story Task Section */}
+                    {storyTasks.length > 0 && (
+                        <div>
+                            <h2 className="text-lg font-bold mb-4 text-white">
+                                {t('tasks.sections.story')}
+                            </h2>
+                            {storyTasks.map(task => (
                                 <TaskCard
                                     key={task.id}
                                     task={task}
@@ -448,43 +429,65 @@ export default function TasksPage() {
                                     onTaskClick={handleTaskClick}
                                     getButtonState={getButtonState}
                                     t={t}
+                                    isSpecial={true}
                                 />
                             ))}
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Completed Tasks Section */}
-                {completedTasks.length > 0 && (
-                    <div>
-                        <Divider className="bg-white/10 mb-4" />
-                        <h2 className="text-lg font-bold mb-4 text-white">
-                            {t('tasks.sections.completed')}
-                        </h2>
-                        <div className="space-y-4">
-                            {completedTasks.map(task => (
-                                <TaskCard
-                                    key={task.id}
-                                    task={task}
-                                    processing={processing[task.id]}
-                                    onTaskClick={handleTaskClick}
-                                    getButtonState={getButtonState}
-                                    t={t}
-                                    isCompleted={true}
-                                />
-                            ))}
+                    {/* Active Tasks Section */}
+                    {activeTasks.length > 0 && (
+                        <div>
+                            <h2 className="text-lg font-bold mb-4">
+                                {t('tasks.sections.active')}
+                            </h2>
+                            <div className="space-y-4">
+                                {activeTasks.map(task => (
+                                    <TaskCard
+                                        key={task.id}
+                                        task={task}
+                                        processing={processing[task.id]}
+                                        onTaskClick={handleTaskClick}
+                                        getButtonState={getButtonState}
+                                        t={t}
+                                    />
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Empty State */}
-                {activeTasks.length === 0 && completedTasks.length === 0 && storyTasks.length === 0 && (
-                    <div className="text-center py-12">
-                        <div className="text-6xl mb-4">📋</div>
-                        <h3 className="text-lg font-bold mb-2">{t('tasks.empty.noActiveTasks')}</h3>
-                        <p className="text-white/60 text-sm">{t('tasks.empty.startCompleting')}</p>
-                    </div>
-                )}
+                    {/* Completed Tasks Section */}
+                    {completedTasks.length > 0 && (
+                        <div>
+                            <Divider className="bg-white/10 mb-4" />
+                            <h2 className="text-lg font-bold mb-4 text-white">
+                                {t('tasks.sections.completed')}
+                            </h2>
+                            <div className="space-y-4">
+                                {completedTasks.map(task => (
+                                    <TaskCard
+                                        key={task.id}
+                                        task={task}
+                                        processing={processing[task.id]}
+                                        onTaskClick={handleTaskClick}
+                                        getButtonState={getButtonState}
+                                        t={t}
+                                        isCompleted={true}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Empty State */}
+                    {activeTasks.length === 0 && completedTasks.length === 0 && storyTasks.length === 0 && (
+                        <div className="text-center py-12">
+                            <div className="text-6xl mb-4">📋</div>
+                            <h3 className="text-lg font-bold mb-2">{t('tasks.empty.noActiveTasks')}</h3>
+                            <p className="text-white/60 text-sm">{t('tasks.empty.startCompleting')}</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

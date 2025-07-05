@@ -12,7 +12,7 @@ import { Circle, GameState, GameMode } from "@/types/game-modes/common";
 export const SURVIVAL_CONFIG: SurvivalGameConfig = {
   id: "survival",
   name: "SURVIVAL MODE",
-  circleCount: 49, // 7x7 grid
+  circleCount: 36, // 7x7 grid
   initialActivationTimeMin: 1000,
   initialActivationTimeMax: 1800,
   initialCircleActiveTime: 2000,
