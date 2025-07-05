@@ -282,37 +282,37 @@ export default function MainPage() {
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
-          {/* Settings Button - Left */}
-          <button
-            aria-label={t("common.settings")}
-            className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isTransitioning}
-            onClick={handleOpenSettings}
-          >
-            <div className="flex items-center justify-center">
-              <SettingsIcon
-                className="text-white group-hover:rotate-90 transition-transform duration-300"
-                size={20}
-              />
-            </div>
-            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              aria-label={t("common.settings")}
+              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              onClick={handleOpenSettings}
+            >
+              <div className="flex items-center justify-center">
+                <SettingsIcon
+                  className="text-white group-hover:rotate-90 transition-transform duration-300"
+                  size={20}
+                />
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+            </button>
 
-          <button
-            aria-label="About"
-            className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isTransitioning}
-            onClick={handleOpenAbout}
-          >
-            <div className="flex items-center justify-center">
-              <Info
-                className="text-white group-hover:rotate-90 transition-transform duration-300"
-                size={20}
-              />
-            </div>
-            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-          </button>
-
+            <button
+              aria-label="About"
+              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              onClick={handleOpenAbout}
+            >
+              <div className="flex items-center justify-center">
+                <Info
+                  className="text-white group-hover:rotate-90 transition-transform duration-300"
+                  size={20}
+                />
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+            </button>
+          </div>
           {/* Tournament Button - Right (перемещена с места магазина) */}
           {showTournamentButton && activeTournament && (
             <button
