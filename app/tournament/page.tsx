@@ -224,7 +224,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                 <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                         <span className="text-white/60">{t("tournament.prizes")}:</span>
-                        <span className={colors.text}>{tournament.prizes.length} мест</span>
+                        <span className={colors.text}>{tournament.prizes.length}</span>
                     </div>
 
                     {tournament.status === "completed" && (
