@@ -531,7 +531,7 @@ export default function GamePage() {
       </div>
 
       {/* Tournament Card - Low Priority (если нет активного турнира) */}
-      <div className="mb-8 animate-fade-in">
+      <div className="mb-8n">
         <TournamentCard priority="low" />
       </div>
 
