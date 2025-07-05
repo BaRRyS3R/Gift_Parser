@@ -84,7 +84,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
         <div className="space-y-6 px-4">
             <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
                 <BarChart3 className="text-white/80" size={18} />
-                <span>Игровая статистика</span>
+                <span>{t("profile.overallStats")}</span>
             </h3>
 
             <Card className="bg-black/40 border border-white/20">

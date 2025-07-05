@@ -41,12 +41,6 @@ interface LocalizationProviderProps {
 const getTelegramLanguage = (): string | undefined => {
   if (typeof window === "undefined") return undefined;
 
-  // For development, you can simulate different languages
-  if (process.env.NODE_ENV === "development") {
-    // You can hardcode 'ru' here for testing
-    // return 'ru';
-  }
-
   if (window.Telegram?.WebApp) {
     const tg = window.Telegram.WebApp;
     const user = tg.initDataUnsafe?.user;
@@ -207,7 +201,7 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white font-bpdots">INITIALIZING...</p>
+          <p className="text-white font-bpdots">INIT...</p>
         </div>
       </div>
     );

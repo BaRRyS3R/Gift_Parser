@@ -1,101 +1,107 @@
 // src/locales/en/game.ts - Game modes and gameplay
-
 export const game = {
     modes: {
         title: "MODE",
         subtitle: "Choose your challenge",
         reaction: {
-            name: "REACTION SPEED",
-            description: "Test lightning reflexes with precise timing",
-            difficulty: "Medium",
+            name: "REACTION",
+            description: "Hopefully you'll hit at least here.",
+            difficulty: "Zero",
             duration: "~10 seconds",
             objective:
-                "Click on the target circle as fast as possible when it appears to measure your reaction time.",
+                "Faster click = cooler reaction. Obviously, silly))",
             features: [
-                "Single target precision",
+                "One circle (not Mikhail)",
                 "Random timing (3-5s)",
                 "Speed measurement",
-                "Performance rating",
+                "Performance rating"
             ],
+            instructions: {
+                ready: "Get ready",
+                waiting: "Waiting...",
+                clickNow: "Go go!",
+                targetWillAppear: "Target appears in 3-5 seconds",
+                lightningFast: "Lightning-fast reflexes n-needed?",
+                preparing: "Preparing"
+            },
             results: {
                 title: "REACTION",
-                subtitle: "The fiasco has been digitalized. Our... condolences?",
+                subtitle: "Failure digitized. Please accept our... condolences?",
                 reactionTime: "TIMING",
-                missed: "Missed. Loser.",
-                testAgain: "REPEAT",
+                missed: "Missed. Loser",
+                testAgain: "TRY AGAIN",
                 backToMenu: "BACK TO MENU",
-                noAttemptsLeft: "NO ATTEMPTS",
+                noAttemptsLeft: "NO ATTEMPTS LEFT"
             },
             ratings: {
-                lightning: "Flash",
-                excellent: "Belissimo",
-                good: "Not bad",
-                average: "So-so",
-                slow: "Blitz, Blitz!",
-                missed: "Missed even here.",
+                lightning: "Lightning Fast",
+                excellent: "Bellissimo",
+                good: "Decent",
+                average: "Meh",
+                slow: "Blitz! Blitz!",
+                missed: "Missed even here."
             },
             ratingDescriptions: {
-                lightning: "Two options: either you connected your brain via an optical cable, or you just farted from the strain and accidentally poked it.",
-                excellent: "You won. The circle is conquered. The universe gasped at the audacity of your accidental triumph. Enjoy.",
-                good: "Did your hand move? Seriously? I thought it was a cramp. Tip: tie your finger to a fan - it will be more effective.",
-                average: "Your click is the quintessence of disappointment. It's like you're trying to catch Alzheimer's thoughts in a sieve. Try it with your foot?",
-                slow: "Oh my god, this is a living demonstration of the theory of relativity! The click is somewhere in the past!",
-                missed: "Explain it to me: CIRCLE. YOUR FINGER. THE SPACE VOID BETWEEN. You missed a target the size of your future. Hmm.",
-            },
+                lightning: "Two options: either you connected your brain via fiber optics, or you farted from tension and accidentally clicked.",
+                excellent: "You won. The circle is conquered. The universe gasped at your audacity. Enjoy.",
+                good: "Was that your hand moving? Seriously? I thought it was a spasm. Pro tip: tie your finger to a fan - more efficient.",
+                average: "Your click is the quintessence of disappointment. Like trying to catch an Alzheimer's thought in a sieve. Try using your foot?",
+                slow: "God, this is a live demo of relativity theory! Your click is somewhere in the past!",
+                missed: "Explain this to me: CIRCLE. YOUR FINGER. COSMIC VOID BETWEEN THEM. You missed a target the size of your future. Smh."
+            }
         },
         survival: {
             name: "SURVIVAL",
-            description:
-                "Survive escalating precision challenges with deadly traps",
+            description: "Survive. As long as you can.",
             difficulty: "Extreme",
             duration: "Until failure",
             objective:
-                "Survive as long as possible by clicking white circles and avoiding red trap circles through increasingly difficult levels.",
+                "Click on the white ones. Click click click, faster, even faster! Oops, you lost.",
             features: [
                 "15 escalating levels",
                 "Multiple targets",
                 "Trap circles (red)",
-                "One mistake = death",
+                "Make a mistake - you lose. As always."
             ],
             instructions: {
-                oneMistakeDeath: "ONE MISTAKE = DEATH",
+                oneMistakeDeath: "ONE MISTAKE = DEATH"
             },
             results: {
-                title: "END OF SURVIVAL",
+                title: "SURVIVAL ENDED",
                 survivalTime: "SURVIVAL TIME",
                 finalScore: "FINAL SCORE",
                 attemptsLeft: "ATTEMPTS LEFT",
                 perfectStreak: "PERFECT STREAK",
-                correctHits: "CORRECT HITS",
-                levelProgress: "Level Progress",
+                correctHits: "ACCURATE HITS",
+                levelProgress: "Level progress",
                 levelsCompleted: "LEVELS COMPLETED",
-                surviveAgain: "REPEAT",
+                surviveAgain: "RETRY",
                 escapeToMenu: "BACK TO MENU",
-                starting: "START...",
+                starting: "STARTING..."
             },
             deathCauses: {
-                miss: "The circle has faded. And so has your self-esteem.",
-                wrongClick: "Where are you poking, the circle hasn't activated yet. It's even messed up here.",
-                decoyHit: "2 colors. Red and white. Guess where you poked?!",
-                default: "Survival End",
+                miss: "Circle faded. And you.. )) No negativity.",
+                wrongClick: "Where are you clicking? Circle isn't active yet. Failed even here.",
+                decoyHit: "Two colors. Red and white. Guess where you clicked?!",
+                default: "Survival ended"
             },
             levels: {
-                warmingUp: "WARM UP",
+                warmingUp: "WARM-UP",
                 gettingStarted: "GETTING STARTED",
                 basicPrecision: "BASIC PRECISION",
-                focusRequired: "CONCENTRATION REQUIRED",
+                focusRequired: "FOCUS REQUIRED",
                 multiTarget: "MULTI-TARGET",
-                enhancedDifficulty: "INTENSIVE DIFFICULTY",
-                intenseFocus: "INTENSIVE FOCUS",
+                enhancedDifficulty: "ENHANCED DIFFICULTY",
+                intenseFocus: "INTENSE FOCUS",
                 overwhelming: "OVERWHELMING",
                 chaosManagement: "CHAOS MANAGEMENT",
                 expertPrecision: "EXPERT PRECISION",
                 masterLevel: "MASTER LEVEL",
-                legandarySkill: "LEGENDARY MASTERY",
+                legandarySkill: "LEGENDARY SKILL",
                 superhuman: "SUPERHUMAN",
                 beyondLimits: "BEYOND LIMITS",
-                perfectMachine: "PERFECT MACHINE",
-            },
+                perfectMachine: "PERFECT MACHINE"
+            }
         },
         physics: {
             name: "PHYSICS",
@@ -103,38 +109,38 @@ export const game = {
             difficulty: "Experimental",
             duration: "~2 minutes",
             objective:
-                "Survive by clicking on white circles to create impulses that push other circles away. Avoid mistakes or watch as the walls disappear one by one.",
+                "Click on white circles, don't miss. Don't click red ones either. Honestly, you can just sit there doing nothing - you'll lose anyway.",
             features: [
                 "Physics is cool.",
                 "Impulses are cool.",
-                "Make a mistake and the walls disappear.",
-                "That's how it is.",
+                "Mistakes are lessons. Too bad not for you.",
+                "Such is life."
             ],
             results: {
-                title: "E=mc²",
+                title: "F = ma",
                 gameTime: "GAME TIME",
                 finalScore: "FINAL SCORE",
                 totalHits: "TOTAL HITS",
                 mistakesMade: "MISTAKES",
                 survivalTime: "SURVIVAL TIME",
-                playAgain: "AGAIN",
-                backToMenu: "BACK TO MENU",
+                playAgain: "PLAY AGAIN",
+                backToMenu: "BACK TO MENU"
             },
             deathCauses: {
-                mistakes: "The walls have fallen, my lord!",
-                escapedCircles: "The circles have escaped from the container. Away from you.",
-                timeout: "Time is up. We have no idea how, since it's infinite.",
-                default: "Fucked physics to the fullest. Well done.",
-            },
-        },
+                mistakes: "So many mistakes... Just like your life.",
+                escapedCircles: "Circles escaped the container. Getting away from you.",
+                timeout: "Time's up. No idea how, since it's infinite.",
+                default: "Totally owned physics. Well done."
+            }
+        }
     },
     general: {
         initializingGame: "INITIALIZING GAME...",
         noAttempts: "NO ATTEMPTS",
-        noAttemptsLeft: "NO ATTEMPTS",
+        noAttemptsLeft: "NO ATTEMPTS LEFT",
         attemptsUsed: "All attempts used",
         waitForReset:
-            "Wait for automatic reset or buy more attempts",
+            "Wait for auto-reset or buy more attempts",
         resetIn: "Reset in:",
         automaticReset: "Attempts reset automatically every 2 hours",
         useWisely: "Use attempts wisely - every game counts!",
@@ -145,6 +151,6 @@ export const game = {
         difficulty: "Difficulty",
         duration: "Duration",
         startPlaying: "START PLAYING",
-        checkingAttempts: "CHECKING ATTEMPTS...",
-    },
+        checkingAttempts: "CHECKING ATTEMPTS..."
+    }
 } as const;
