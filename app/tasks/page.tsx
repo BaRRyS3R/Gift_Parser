@@ -13,8 +13,8 @@ import {
     Globe,
     Camera
 } from "lucide-react";
-import { 
-    SiTelegram, 
+import {
+    SiTelegram,
     SiX
 } from "react-icons/si";
 
@@ -367,9 +367,13 @@ export default function TasksPage() {
         <div className="min-h-screen bg-black text-white">
             <div className="px-4 pt-20 pb-24">
                 {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold mb-2">{t('tasks.title')}</h1>
-                    <p className="text-white/60 text-sm">{t('tasks.subtitle')}</p>
+                <div className="text-center space-y-4 mb-8">
+                    <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+                        {t("tasks.title")}
+                    </h1>
+                    <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
+                        {t("tasks.subtitle")}
+                    </p>
                 </div>
 
                 {error && (
@@ -551,13 +555,13 @@ function TaskCard({
                                     size="sm"
                                     className={`
                                         relative z-20
-                                        ${buttonState.color === 'success' 
-                                            ? 'bg-white text-black hover:bg-white/90' 
-                                            : buttonState.color === 'primary' 
-                                            ? 'bg-white/20 text-white border border-white/40 hover:bg-white/30' 
-                                            : buttonState.color === 'danger' 
-                                            ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20' 
-                                            : 'bg-white/10 text-white/60 border border-white/20'
+                                        ${buttonState.color === 'success'
+                                            ? 'bg-white text-black hover:bg-white/90'
+                                            : buttonState.color === 'primary'
+                                                ? 'bg-white/20 text-white border border-white/40 hover:bg-white/30'
+                                                : buttonState.color === 'danger'
+                                                    ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
+                                                    : 'bg-white/10 text-white/60 border border-white/20'
                                         }
                                         ${buttonState.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
                                     `}

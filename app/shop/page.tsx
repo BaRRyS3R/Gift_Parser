@@ -218,9 +218,13 @@ export default function ShopPage() {
 
             <div className="px-4 pt-20 pb-24">
                 {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold mb-2">{t('shop.title')}</h1>
-                    <p className="text-white/60 text-sm">{t('shop.subtitle')}</p>
+                <div className="text-center space-y-4 mb-8">
+                    <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+                        {t("shop.title")}
+                    </h1>
+                    <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
+                        {t("shop.subtitle")}
+                    </p>
                 </div>
 
                 {/* Error message */}
