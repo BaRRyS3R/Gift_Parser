@@ -1,10 +1,10 @@
-// src/app/main/page.tsx - Оригинальная главная страница с добавленной кнопкой информации
+// src/app/main/page.tsx - Обновленная главная страница с перемещенной кнопкой турнира
 
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Settings as SettingsIcon, Trophy, Clock, Info } from "lucide-react";
+import { Play, Settings as SettingsIcon, Info, Trophy, Clock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -246,65 +246,71 @@ export default function MainPage() {
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : pageLoaded
-            ? "opacity-100"
-            : "opacity-0"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : pageLoaded
+          ? "opacity-100 transition-opacity duration-1000 ease-out"
+          : "opacity-0"
         }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-30 blur-sm scale-110"
+        <div
+          className="fixed top-0 left-0 w-full h-full z-0"
+          style={{
+            filter: "brightness(0.15) contrast(1.2) grayscale(1)",
+          }}
         >
-          <source src="/videos/bg-video.mp4" type="video/mp4" />
-        </video>
+          <video
+            ref={videoRef}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source src="/videos/mainbg.mp4" type="video/mp4" />
+          </video>
+        </div>
       )}
 
-      {/* Gradient overlays for better text readability */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black/60 to-blue-900/20" />
-      <div className="absolute inset-0 bg-black/40" />
-
-      {/* Top controls container */}
+      {/* Top Navigation Icons - Updated layout */}
       <div
-        className={`absolute top-0 left-0 right-0 z-30 flex justify-between items-start p-4 transition-all duration-1000 transform ${showTopButtons ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-8"
+        className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 -translate-y-8"
           }`}
-        style={{ marginTop: `${headerOffset}px` }}
+        style={{ top: headerOffset }}
       >
-        {/* Left side - placeholder for future controls */}
-        <div className="flex space-x-2">
-          {/* Could add more controls here in future */}
-        </div>
-
-        {/* Right side - Settings and About buttons */}
-        <div className="flex space-x-2">
-          {/* About Button */}
+        <div className="flex items-center justify-between">
+          {/* Settings Button - Left */}
           <button
-            aria-label="About"
-            className="relative px-4 py-2 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white/50 hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95"
-            onClick={handleOpenAbout}
-          >
-            <Info
-              className="text-white group-hover:scale-110 transition-transform duration-300"
-              size={16}
-            />
-          </button>
-
-          {/* Settings Button */}
-          <button
-            aria-label="Settings"
-            className="relative px-4 py-2 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white/50 hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95"
+            aria-label={t("common.settings")}
+            className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isTransitioning}
             onClick={handleOpenSettings}
           >
-            <SettingsIcon
-              className="text-white group-hover:scale-110 transition-transform duration-300"
-              size={16}
-            />
+            <div className="flex items-center justify-center">
+              <SettingsIcon
+                className="text-white group-hover:rotate-90 transition-transform duration-300"
+                size={20}
+              />
+            </div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+          </button>
+
+          <button
+            aria-label="About"
+            className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isTransitioning}
+            onClick={handleOpenAbout}
+          >
+            <div className="flex items-center justify-center">
+              <Info
+                className="text-white group-hover:rotate-90 transition-transform duration-300"
+                size={20}
+              />
+            </div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
           </button>
 
           {/* Tournament Button - Right (перемещена с места магазина) */}
@@ -348,9 +354,7 @@ export default function MainPage() {
 
         {/* Action Button */}
         <div
-          className={`transition-all duration-1000 transform ${showButton
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
+          className={`transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
         >
           <div className="relative group">
@@ -377,8 +381,8 @@ export default function MainPage() {
         {/* User Greeting */}
         <div
           className={`transition-all duration-1000 transform ${showGreeting
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
             }`}
         >
           {userLoading ? (
@@ -413,8 +417,8 @@ export default function MainPage() {
       {/* Attempts Display - Bottom Above Navigation */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-8"
           }`}
         style={{ paddingBottom: "96px" }} // Space for navigation menu
       >
