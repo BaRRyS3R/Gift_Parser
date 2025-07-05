@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Обновленная главная страница с перемещенной кнопкой турнира
+// src/app/main/page.tsx - Обновленная главная страница с условными анимациями
 
 "use client";
 
@@ -23,15 +23,21 @@ export default function MainPage() {
   const t = useT();
 
   /* -------------------------------------------------
+   * Animation control - NEW: First visit detection
+   * -------------------------------------------------*/
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [hasSeenAnimations, setHasSeenAnimations] = useState(true); // По умолчанию true, чтобы не показывать анимации
+
+  /* -------------------------------------------------
    * UI state
    * -------------------------------------------------*/
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
-  const [titleText, setTitleText] = useState("|");
-  const [showButton, setShowButton] = useState(false);
-  const [showGreeting, setShowGreeting] = useState(false);
+  const [titleText, setTitleText] = useState("circusle"); // Начинаем с полного названия
+  const [showButton, setShowButton] = useState(true); // По умолчанию показываем
+  const [showGreeting, setShowGreeting] = useState(true); // По умолчанию показываем
   const [greetingText, setGreetingText] = useState("");
-  const [showTopButtons, setShowTopButtons] = useState(false);
+  const [showTopButtons, setShowTopButtons] = useState(true); // По умолчанию показываем
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
@@ -57,6 +63,34 @@ export default function MainPage() {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
   }, []);
+
+  // NEW: Проверка первого посещения
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hasVisitedMainBefore = sessionStorage.getItem("mainPageVisited");
+      const isFirstSession = !hasVisitedMainBefore;
+
+      setIsFirstVisit(isFirstSession);
+      setHasSeenAnimations(!isFirstSession);
+
+      // Если это первое посещение, сбрасываем UI состояния для анимации
+      if (isFirstSession) {
+        setTitleText("|");
+        setShowButton(false);
+        setShowGreeting(false);
+        setShowTopButtons(false);
+
+        // Отмечаем, что страница была посещена
+        sessionStorage.setItem("mainPageVisited", "true");
+      } else {
+        // Если не первое посещение, сразу показываем полный интерфейс
+        const username = user?.first_name || "unknown";
+        const fullGreeting = t("main.greeting", { name: username });
+        setTitleText("circusle");
+        setGreetingText(fullGreeting);
+      }
+    }
+  }, [user?.first_name, t]);
 
   // Инициализация telegramUser если он не установлен
   useEffect(() => {
@@ -175,7 +209,7 @@ export default function MainPage() {
   }, [settings.showBackgroundVideo]);
 
   /* -------------------------------------------------
-   * Mount / animation logic
+   * Mount / animation logic - UPDATED: Only for first visit
    * -------------------------------------------------*/
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
@@ -185,9 +219,9 @@ export default function MainPage() {
     return () => clearTimeout(pageLoadTimer);
   }, []);
 
-  // Title animation
+  // Title animation - только для первого посещения
   useEffect(() => {
-    if (!pageLoaded) return;
+    if (!pageLoaded || !isFirstVisit || hasSeenAnimations) return;
 
     const titleAnimationTimer = setTimeout(() => {
       let currentStep = 0;
@@ -208,11 +242,17 @@ export default function MainPage() {
     }, 800);
 
     return () => clearTimeout(titleAnimationTimer);
-  }, [pageLoaded]);
+  }, [pageLoaded, isFirstVisit, hasSeenAnimations]);
 
-  // Greeting typing animation
+  // Greeting typing animation - только для первого посещения
   useEffect(() => {
-    if (!showGreeting || userLoading) return;
+    if (!showGreeting || userLoading || !isFirstVisit || hasSeenAnimations) {
+      // Если не первое посещение, сразу показываем полное приветствие
+      if (!isFirstVisit && !userLoading) {
+        setGreetingText(fullGreeting);
+      }
+      return;
+    }
 
     let currentChar = 0;
     const typingInterval = setInterval(() => {
@@ -225,7 +265,7 @@ export default function MainPage() {
     }, 60);
 
     return () => clearInterval(typingInterval);
-  }, [showGreeting, fullGreeting, userLoading]);
+  }, [showGreeting, fullGreeting, userLoading, isFirstVisit, hasSeenAnimations]);
 
   /* -------------------------------------------------
    * Handlers
@@ -293,11 +333,14 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* Top Navigation Icons - Updated layout */}
+      {/* Top Navigation Icons - UPDATED: Conditional animation */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 transition-all duration-1000 transform ${showTopButtons
-          ? "opacity-100 translate-y-0"
-          : "opacity-0 -translate-y-8"
+        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit && !hasSeenAnimations
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           }`}
         style={{ top: headerOffset }}
       >
@@ -333,7 +376,7 @@ export default function MainPage() {
               <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
             </button>
           </div>
-          {/* Tournament Button - Right (перемещена с места магазина) */}
+          {/* Tournament Button */}
           {showTournamentButton && activeTournament && (
             <button
               aria-label="Active Tournament"
@@ -372,9 +415,11 @@ export default function MainPage() {
           </h1>
         </div>
 
-        {/* Action Button */}
+        {/* Action Button - UPDATED: Conditional animation */}
         <div
-          className={`transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+          className={`${isFirstVisit && !hasSeenAnimations
+            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+            : "opacity-100 translate-y-0"
             }`}
         >
           <div className="relative group">
@@ -398,11 +443,14 @@ export default function MainPage() {
           </div>
         </div>
 
-        {/* User Greeting */}
+        {/* User Greeting - UPDATED: Conditional animation */}
         <div
-          className={`transition-all duration-1000 transform ${showGreeting
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
+          className={`${isFirstVisit && !hasSeenAnimations
+            ? `transition-all duration-1000 transform ${showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
             }`}
         >
           {userLoading ? (
@@ -420,7 +468,7 @@ export default function MainPage() {
           ) : (
             <p className="text-xl text-white/80 tracking-wider">
               {greetingText}
-              {greetingText.length < fullGreeting.length && (
+              {isFirstVisit && !hasSeenAnimations && greetingText.length < fullGreeting.length && (
                 <span className="animate-pulse">|</span>
               )}
             </p>
@@ -434,11 +482,14 @@ export default function MainPage() {
       {/* About Modal */}
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
 
-      {/* Attempts Display - Bottom Above Navigation */}
+      {/* Attempts Display - UPDATED: Conditional animation */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 transition-all duration-1000 transform ${showTopButtons
-          ? "opacity-100 translate-y-0"
-          : "opacity-0 translate-y-8"
+        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit && !hasSeenAnimations
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           }`}
         style={{ paddingBottom: "96px" }} // Space for navigation menu
       >

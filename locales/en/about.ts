@@ -80,7 +80,7 @@ export const about = {
         },
         tasks: {
             name: "Task System",
-            description: "Social tasks for extra attempts",
+            description: "Extra attempts for social tasks",
             details: "Channel subscriptions, reposts, site visits. Working for attempts like a digital peasant.",
         },
         shop: {
