@@ -1,147 +1,147 @@
-// src/locales/en/about.ts - About modal English localization
+// src/locales/en/about.ts - About modal English localization (translated from Russian)
 
 export const about = {
-    title: "ABOUT THE APP",
-    subtitle: "Your guide to understanding the application features",
-    close: "CLOSE",
+    title: "CIRCUSLE",
+    subtitle: "A guide to turning time into disappointment",
+    close: "CLOSE AND START SUFFERING",
 
     sections: {
         gameModes: {
             title: "Game Modes",
-            description: "Three distinct game modes designed to test different aspects of player reaction and skill.",
+            description: "Three unique ways to realize your digital inadequacy. Each mode is a separate universe of pain.",
         },
         systems: {
             title: "Systems and Mechanics",
-            description: "Core application systems that manage user progression, engagement, and monetization.",
+            description: "Complex algorithms for converting your free time into failure statistics. Scientifically proven disappointment.",
         },
         monetization: {
             title: "Monetization",
-            description: "Revenue model based on optional premium features and time-saving purchases.",
+            description: "How we turn your despair into our profit. Honestly, transparently, and shamelessly.",
         },
         tips: {
             title: "Tips and Strategies",
-            description: "Professional recommendations to improve performance and maximize success rates.",
+            description: "Professional advice from those who've already lost all hope but keep playing anyway.",
         },
     },
 
     gameModes: {
-        features: "Mode features",
+        features: "Mode Features",
         reaction: {
             name: "REACTION MODE",
-            description: "Test your reaction speed with precise timing challenges.",
-            difficulty: "Beginner",
+            description: "A reflex test for those who think they're quick. Spoiler: you're not.",
+            difficulty: "Zero",
             duration: "~10 seconds",
             features: {
-                first: "Single target appears after 3-5 second delay",
-                second: "Millisecond-precise reaction time measurement",
-                third: "Performance rating system with detailed feedback",
-                fourth: "Progressive difficulty adjustment based on performance",
+                first: "Circle activates after 3-5 seconds",
+                second: "Measures milliseconds of your failure",
+                third: "Grading system. Like school all over again",
+                fourth: "Miss targets as big as your screen",
             },
         },
         survival: {
             name: "SURVIVAL MODE",
-            description: "Navigate through 15 increasingly challenging levels with zero error tolerance.",
-            difficulty: "Advanced",
-            duration: "Variable based on performance",
+            description: "15 levels of escalating chaos. One mistake = game over. Just like real life.",
+            difficulty: "Extreme 💀",
+            duration: "Until first failure",
             features: {
-                first: "15 progressive difficulty levels",
-                second: "Multiple simultaneous targets with decoy elements",
-                third: "Single mistake elimination mechanic",
-                fourth: "Advanced level progression system",
+                first: "15 progressively intense levels",
+                second: "Multiple white targets + red traps",
+                third: "One mistake = you screwed up",
+                fourth: "Level system like Tetris, but worse",
             },
         },
         physics: {
             name: "PHYSICS MODE",
-            description: "Experimental mode incorporating realistic physics mechanics and object interactions.",
-            difficulty: "Expert",
+            description: "Experimental physics-based mode. Newton got an apple. You get disappointment. And we get your money.",
+            difficulty: "Experimental 🧪",
             duration: "~2 minutes",
             features: {
-                first: "Physics-based circle movement and collisions",
-                second: "Time-limited gameplay with escalating complexity",
-                third: "Comprehensive performance tracking and analytics",
-                fourth: "Advanced scoring system with multiple metrics",
+                first: "Circles with physics properties and momentum",
+                second: "Difficulty increases while you don't",
+                third: "Tracks hits, misses, and failures",
+                fourth: "Scientific approach to measuring failure",
             },
         },
     },
 
     systems: {
         attempts: {
-            name: "Attempts System",
-            description: "Fair-play mechanism that manages gaming frequency",
-            details: "10 base attempts with automatic 2-hour reset cycle. Additional attempts available through purchase or referral program.",
+            name: "Attempt System",
+            description: "Brilliant scheme to limit your suffering",
+            details: "10 base attempts, resets every 2 hours. Either wait or pay. Capitalism at its finest.",
         },
         referral: {
-            name: "Referral Program",
-            description: "Community growth incentive system",
-            details: "Invite friends to earn +5 attempts. New users receive +15 attempts when joining through referral links.",
+            name: "Referral System",
+            description: "Turning friendship into attempts",
+            details: "Invite a friend: you get +5 attempts, they get +5. The math of friendship.",
         },
         tournaments: {
             name: "Tournament System",
-            description: "Competitive events with ranking and prizes",
-            details: "Time-limited competitive events in survival mode featuring leaderboards and prize distribution.",
+            description: "Competitions for those who need more public failure",
+            details: "Time-limited survival tournaments. Prizes for top losers.",
         },
         tasks: {
-            name: "Social Tasks",
-            description: "Community engagement missions for additional attempts",
-            details: "Complete social media interactions, channel subscriptions, and website visits to earn extra gameplay attempts.",
+            name: "Task System",
+            description: "Social tasks for extra attempts",
+            details: "Channel subscriptions, reposts, site visits. Working for attempts like a digital peasant.",
         },
         shop: {
-            name: "In-App Shop",
-            description: "Premium features and time-saving options",
-            details: "Purchase additional attempts using Telegram Stars. Various packages available from individual attempts to bulk purchases.",
+            name: "In-Game Store",
+            description: "Turning your Telegram Stars into our income",
+            details: "Buy attempts with Telegram Stars. Could've bought pizza, bought failure instead.",
         },
         leaderboard: {
-            name: "Leaderboard System",
-            description: "Global and mode-specific rankings",
-            details: "Comprehensive ranking system across all game modes with real-time updates and performance analytics.",
+            name: "Rating System",
+            description: "Public ranking of failures",
+            details: "Global and mode-specific leaderboards. See who fails better than you.",
         },
     },
 
     monetization: {
         telegramStars: {
             title: "Telegram Stars",
-            description: "Secure payment system integrated with Telegram ecosystem",
+            description: "Official disappointment currency in the Telegram ecosystem",
             features: {
-                first: "Secure transactions through Telegram platform",
-                second: "Instant delivery of purchased attempts",
-                third: "Flexible package options from 1 to 100 attempts",
+                first: "Secure payments via Telegram",
+                second: "Instant attempts after payment",
+                third: "Pay up, buttercup",
             },
         },
         freeToPlay: {
             title: "Free-to-Play Model",
-            description: "Core game features available at no cost with optional premium enhancements.",
+            description: "Play for free, suffer on schedule. Want more pain? Pay up.",
         },
     },
 
     tips: {
         first: {
-            title: "Study target appearance patterns",
-            description: "In survival mode, targets follow specific timing patterns. Understanding these patterns significantly improves performance and progression.",
+            title: "Study circle spawn patterns",
+            description: "In survival mode, circles follow specific logic. Just kidding, there's no logic here.",
         },
         second: {
-            title: "Optimize reaction timing",
-            description: "In reaction mode, wait for target activation rather than anticipating. Premature clicks result in missed attempts and reduced scores.",
+            title: "Don't rush in reaction mode",
+            description: "Better to wait and click accurately than click early. Either way, you'll fail.",
         },
         third: {
-            title: "Develop peripheral vision awareness",
-            description: "Survival mode requires simultaneous monitoring of multiple screen areas. Practice scanning techniques to track multiple targets effectively.",
+            title: "Develop peripheral vision",
+            description: "In survival mode, watch the whole screen. Like real life - danger everywhere.",
         },
         fourth: {
-            title: "Manage attempts strategically",
-            description: "With only 10 attempts per 2-hour cycle, plan gaming sessions carefully. Consider practice sessions during high-energy periods.",
+            title: "Use attempts wisely",
+            description: "You only get 10, and they recharge in 2 hours. Plan your failure in advance.",
         },
         fifth: {
-            title: "Master color recognition",
-            description: "White targets are valid, red targets are elimination traps. Develop quick color discrimination skills for consistent performance.",
+            title: "Learn the colors carefully",
+            description: "White = good, red = bad. Simple as a traffic light, but you'll still mess up.",
         },
         sixth: {
-            title: "Maintain consistent practice schedule",
-            description: "Regular practice sessions improve muscle memory and reaction times. Consistent engagement leads to measurable skill improvement.",
+            title: "Practice regularly",
+            description: "Regular practice improves skills. Doesn't actually help here, but try anyway.",
         },
     },
 
     meta: {
-        version: "Version 1.0 - Initial Release",
-        disclaimer: "Application designed for entertainment purposes. Practice responsible gaming habits and take regular breaks.",
+        version: "Version 42.loser.404",
+        disclaimer: "Warning: thanks for your attention.",
     },
 } as const;
