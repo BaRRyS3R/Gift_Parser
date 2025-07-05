@@ -1,4 +1,4 @@
-// src/types/game-modes/physics.ts - Updated types with simplified boundary logic
+// src/types/game-modes/physics.ts - Updated types with screen boundary logic
 
 import { BaseGameResult, GameState, GameMode, PhysicsCircle, BoundaryState } from "./common";
 import * as Matter from "matter-js";
@@ -9,7 +9,7 @@ export interface PhysicsGameConfig {
     circleCount: number; // 25 кругов
     circleRadius: number; // Радиус кругов
     containerWidth: number; // Ширина контейнера (теперь = ширине экрана)
-    containerHeight: number; // Высота контейнера (экран - нижняя панель)
+    containerHeight: number; // Высота контейнера (до верхней границы информационной панели)
     initialActivationTimeMin: number; // Минимальное время активации
     initialActivationTimeMax: number; // Максимальное время активации
     circleActiveTime: number; // Время активности круга
@@ -41,20 +41,12 @@ export interface PhysicsGameResult extends BaseGameResult {
     deathCause: "mistakes" | "escaped_circles" | "timeout";
 }
 
-// Simplified boundary state - now just represents screen edges
-export interface SimplifiedBoundaryState {
-    screenBounds: {
-        width: number;
-        height: number;
-    };
-}
-
 export interface PhysicsGameState {
     config: PhysicsGameConfig;
     gameState: GameState;
     stats: PhysicsGameStats;
     circles: PhysicsCircle[];
-    boundaries: BoundaryState; 
+    boundaries: BoundaryState; // Screen boundaries (edges + info panel top)
     activeCircleIds: number[];
     circleTimeouts: Map<number, NodeJS.Timeout>;
     activationTimeout: NodeJS.Timeout | null;

@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Updated implementation with new game ending logic
+// src/game-modes/physics/PhysicsGameManager.tsx - Updated implementation with proper boundary positioning and mistake-based ending
 
 "use client";
 
@@ -217,7 +217,7 @@ export default function PhysicsGameManager() {
             const updatedState = updatePhysicsPositions(prev);
             const levelUpdatedState = updatePhysicsLevel(updatedState);
 
-            // Check win/loss conditions - updated logic
+            // Check win/loss conditions - mistakes first priority
             const tooManyMistakes = levelUpdatedState.stats.currentMistakes >= levelUpdatedState.config.maxMistakes;
             const escapedCircles = checkCirclesEscaped(levelUpdatedState);
             const timeUp = levelUpdatedState.stats.gameTime >= levelUpdatedState.config.levelDuration * 1000;
@@ -531,7 +531,7 @@ export default function PhysicsGameManager() {
                             </div>
                             <div className="text-center space-y-1">
                                 <div className="text-xs text-purple-400/60">
-                                    {t("attempts.current")}
+                                    ПОПЫТОК ОСТАЛОСЬ
                                 </div>
                                 <div className="text-xl font-bold text-green-400">
                                     {attemptsRemaining}
@@ -658,8 +658,12 @@ export default function PhysicsGameManager() {
     const levelInfo = getCurrentLevelInfo();
 
     return (
-        <div className="min-h-screen bg-black flex flex-col text-white">
-            <div className="flex-1 flex items-center justify-center p-0">
+        <div className="min-h-screen bg-black text-white flex flex-col">
+            {/* Game area - fills screen minus info panel */}
+            <div
+                className="flex-1 flex items-start justify-center"
+                style={{ height: `calc(100vh - 140px)` }}
+            >
                 <PhysicsGameCanvas
                     gameState={gameState}
                     isGameActive={gameState.gameState === GameState.PLAYING}
@@ -668,8 +672,12 @@ export default function PhysicsGameManager() {
                 />
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/90 backdrop-blur-sm border-t border-purple-400/30 safe-area-inset-bottom">
-                <div className="px-6 py-4">
+            {/* Fixed info panel - exactly 140px height */}
+            <div
+                className="fixed bottom-0 left-0 right-0 z-10 bg-black/95 backdrop-blur-sm border-t border-purple-400/30 safe-area-inset-bottom"
+                style={{ height: '140px' }}
+            >
+                <div className="px-6 py-4 h-full flex flex-col justify-center">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-2">
                             <Zap className="text-purple-400" size={18} />

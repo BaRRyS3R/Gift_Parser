@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameLogic.ts - Updated with screen boundaries and new game ending logic
+// src/game-modes/physics/PhysicsGameLogic.ts - Updated with info panel boundary positioning
 
 import * as Matter from "matter-js";
 import {
@@ -39,9 +39,10 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 350;
     const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 500;
 
-    // Calculate container dimensions to fill screen, accounting for bottom info panel
+    // Calculate container dimensions to end at info panel top
+    const infoBarHeight = 140; // Height of bottom info panel
     const containerWidth = screenWidth;
-    const containerHeight = screenHeight - 120; // Reserve 120px for bottom info panel
+    const containerHeight = screenHeight - infoBarHeight; // Stop at info panel top
 
     return {
         id: "physics",
@@ -54,7 +55,7 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
         impulseForce: 0.05,
-        maxMistakes: 5, // Changed from 12 to 5
+        maxMistakes: 5, // Maximum 5 mistakes
         levelDuration: 180, // 3 minutes
     };
 };
@@ -149,7 +150,7 @@ export const createPhysicsCircles = (
     return circles;
 };
 
-// Updated boundary walls function - creates invisible walls at screen edges
+// Create invisible boundary walls at screen edges and info panel top
 export const createBoundaryWalls = (
     containerWidth: number,
     containerHeight: number,
@@ -165,7 +166,7 @@ export const createBoundaryWalls = (
             {
                 isStatic: true,
                 label: "wall_top",
-                render: { visible: false } // Make walls invisible
+                render: { visible: false } // Invisible wall
             }
         ),
         bottom: Matter.Bodies.rectangle(
@@ -176,7 +177,7 @@ export const createBoundaryWalls = (
             {
                 isStatic: true,
                 label: "wall_bottom",
-                render: { visible: false }
+                render: { visible: false } // Wall at info panel top
             }
         ),
         left: Matter.Bodies.rectangle(
@@ -478,8 +479,6 @@ export const handlePhysicsCircleClick = (
     }
 };
 
-// Removed removeWall function - no longer needed
-
 export const deactivatePhysicsCircle = (
     state: PhysicsGameState,
     circleId: number,
@@ -508,16 +507,16 @@ export const deactivatePhysicsCircle = (
     };
 };
 
-// Updated function to check if game should end based on escaped circles
+// Check if game should end based on escaped circles
 export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
     const containerWidth = state.config.containerWidth;
     const containerHeight = state.config.containerHeight;
-    const margin = 50; // Smaller margin since walls are at screen edges
+    const margin = 50; // Margin for escaped detection
 
     let escapedCount = 0;
 
     state.circles.forEach((circle) => {
-        // Check if circle is outside screen boundaries
+        // Check if circle is outside game boundaries
         if (
             circle.x < -margin ||
             circle.x > containerWidth + margin ||
@@ -528,7 +527,7 @@ export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
         }
     });
 
-    // Game ends when 80% of circles have escaped (reduced threshold)
+    // Game ends when 80% of circles have escaped
     return escapedCount >= Math.floor(state.circles.length * 0.8);
 };
 

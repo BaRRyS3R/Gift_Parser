@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameCanvas.tsx - Updated implementation without visible boundaries
+// src/game-modes/physics/PhysicsGameCanvas.tsx - Updated implementation without visible boundaries and proper screen positioning
 
 "use client";
 
@@ -179,7 +179,7 @@ export default function PhysicsGameCanvas({
         }
     }, []);
 
-    // Main drawing function - removed boundary drawing
+    // Main drawing function - no boundary drawing, just circles
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -267,6 +267,7 @@ export default function PhysicsGameCanvas({
             ctx.fillText(`Circles: ${gameState.circles.length}`, 10, 20);
             ctx.fillText(`Active: ${gameState.activeCircleIds.length}`, 10, 35);
             ctx.fillText(`Mistakes: ${gameState.stats.currentMistakes}/${gameState.config.maxMistakes}`, 10, 50);
+            ctx.fillText(`Canvas: ${canvas.width}x${canvas.height}`, 10, 65);
         }
     }, [gameState]);
 
@@ -321,9 +322,13 @@ export default function PhysicsGameCanvas({
     return (
         <div
             className={`
-                flex items-center justify-center transition-all duration-300 w-full h-full
+                w-full h-full transition-all duration-300
                 ${showCanvas ? "opacity-100" : "opacity-0"}
             `}
+            style={{
+                height: `${gameState.config.containerHeight}px`,
+                width: `${gameState.config.containerWidth}px`,
+            }}
         >
             <canvas
                 ref={canvasRef}
@@ -341,6 +346,7 @@ export default function PhysicsGameCanvas({
                 onTouchCancel={handleTouchCancel}
                 style={{
                     touchAction: "none",
+                    display: "block",
                 }}
             />
         </div>
