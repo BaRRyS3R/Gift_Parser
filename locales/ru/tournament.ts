@@ -71,6 +71,13 @@ export const tournament = {
     noWinnersData: "Нет данных о победителях",
     loadingWinners: "Загрузка победителей...",
     backToTournaments: "Назад к турнирам",
+    conductionDate: "Дата проведения",
+    start: "Начало",
+    end: "Окончание",
+    enter: "Войти",
+    errorLoadingTournaments: "Ошибка загрузки турниров",
+    noTournamentsAvailable: "Нет доступных турниров",
+    checkBackLater: "Проверьте позже для получения информации о предстоящих турнирах",
 
     rules: {
         gameMode: {

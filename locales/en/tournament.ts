@@ -71,6 +71,13 @@ export const tournament = {
     noWinnersData: "No winners data available",
     loadingWinners: "Loading winners...",
     backToTournaments: "Back to Tournaments",
+    conductionDate: "Conduction Date",
+    start: "Start",
+    end: "End",
+    enter: "Enter",
+    errorLoadingTournaments: "Error loading tournaments",
+    noTournamentsAvailable: "No tournaments available",
+    checkBackLater: "Check back later for upcoming tournaments information",
 
     rules: {
         gameMode: {
