@@ -1,4 +1,4 @@
-// src/locales/en/tournament.ts - English translations update
+// src/locales/en/tournament.ts - Обновленная английская локализация
 export const tournament = {
     title: "TOURNAMENT",
     noActiveTournament: "No Active Tournament",
@@ -24,16 +24,16 @@ export const tournament = {
     perfectStreak: "PERFECT STREAK",
     correctHits: "CORRECT HITS",
     totalHits: "TOTAL HITS",
-    totalPoints: "TOTAL POINTS", // NEW
-    topPoints: "TOP POINTS", // NEW
+    totalPoints: "TOTAL POINTS",
+    topPoints: "TOP POINTS",
     pointsEarned: "POINTS EARNED",
     addedToTotal: "Added to your tournament total",
     pointsAccumulated: "Points accumulate across all games",
     pointsAddedToTotal: "Points added to tournament total",
     earnOnePointPerHit: "Earn 1 point per correct hit",
     earnMorePoints: "Play again to earn more points!",
-    pointsBasedCompetition: "Points-Based Competition", // NEW
-    earnPointsMessage: "Earn 1 point for each correct hit!", // NEW
+    pointsBasedCompetition: "Points-Based Competition",
+    earnPointsMessage: "Earn 1 point for each correct hit!",
     levelsCompleted: "levels completed",
     savingResult: "Saving tournament result...",
     resultSaved: "Tournament result saved successfully",
@@ -51,6 +51,27 @@ export const tournament = {
     rulesTitle: "Tournament Rules",
     rulesSubtitle: "Competition Guidelines & Regulations",
     rulesButton: "Tournament Rules & Guidelines",
+
+    // New strings for updated tournament system
+    tournamentsList: "Tournaments List",
+    activeTournaments: "Active Tournaments",
+    upcomingTournaments: "Upcoming Tournaments",
+    completedTournaments: "Completed Tournaments",
+    upcoming: "Upcoming",
+    completed: "Completed",
+    startDate: "Start Date",
+    endDate: "End Date",
+    duration: "Duration",
+    enterActive: "Enter",
+    viewDetails: "View Details",
+    tournamentDates: "Tournament Dates",
+    startTime: "Start",
+    endTime: "End",
+    prizeWinners: "Prize Winners",
+    noWinnersData: "No winners data available",
+    loadingWinners: "Loading winners...",
+    backToTournaments: "Back to Tournaments",
+
     rules: {
         gameMode: {
             title: "Game Mode",
@@ -70,13 +91,13 @@ export const tournament = {
             detail6: "Tournament runs for a limited time period only"
         },
         scoring: {
-            title: "Points System", // UPDATED
+            title: "Points System",
             description: "How tournament rankings are determined",
-            detail1: "Total Points is the primary ranking factor", // UPDATED
-            detail2: "Earn 1 point for each correct hit on white circles", // UPDATED
-            detail3: "Points accumulate across all your tournament games", // UPDATED
-            detail4: "Survival Time serves as a secondary ranking factor", // UPDATED
-            detail5: "In case of tied points, longest survival time wins", // UPDATED
+            detail1: "Total Points is the primary ranking factor",
+            detail2: "Earn 1 point for each correct hit on white circles",
+            detail3: "Points accumulate across all your tournament games",
+            detail4: "Survival Time serves as a secondary ranking factor",
+            detail5: "In case of tied points, longest survival time wins",
             detail6: "Real-time leaderboard updates after each game"
         },
         format: {
@@ -102,11 +123,11 @@ export const tournament = {
             title: "Pro Tips",
             description: "Strategies for tournament success",
             detail1: "Practice in regular survival mode before competing",
-            detail2: "Focus on accuracy over speed to maximize points", // UPDATED
+            detail2: "Focus on accuracy over speed to maximize points",
             detail3: "Stay calm as levels increase in difficulty",
             detail4: "Watch for color changes carefully under pressure",
             detail5: "Develop your peripheral vision for multiple targets",
-            detail6: "Play multiple games to accumulate more points" // UPDATED
+            detail6: "Play multiple games to accumulate more points"
         }
     }
 } as const;

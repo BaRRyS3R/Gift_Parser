@@ -1,4 +1,4 @@
-// src/lib/supabase_tournament_extension.ts - Tournament functions integration with time fix
+// src/lib/supabase_tournament_extension.ts - Расширенный сервис с поддержкой всех турниров
 
 import { supabase } from "./supabase";
 import type {
@@ -7,6 +7,22 @@ import type {
     TournamentResult,
     TournamentStatus
 } from "@/types/tournaments";
+
+// Re-export types for external use
+export type { TournamentLeaderboardEntry, Tournament, TournamentResult, TournamentStatus } from "@/types/tournaments";
+
+export interface TournamentWithStatus extends Tournament {
+    status: 'upcoming' | 'active' | 'completed';
+    participants_count?: number;
+    time_until_start?: number;
+    time_until_end?: number;
+}
+
+export interface TournamentListResponse {
+    active: TournamentWithStatus[];
+    upcoming: TournamentWithStatus[];
+    completed: TournamentWithStatus[];
+}
 
 // Tournament service functions to integrate with existing userService object
 export const tournamentService = {
@@ -27,6 +43,97 @@ export const tournamentService = {
         } catch (error) {
             console.error('Error getting active tournament:', error);
             return null;
+        }
+    },
+
+    /**
+     * Get all tournaments categorized by status
+     */
+    async getAllTournaments(): Promise<TournamentListResponse> {
+        try {
+            const allTournaments = await this.getAllTournamentsRaw();
+            const now = new Date();
+
+            const categorized: TournamentListResponse = {
+                active: [],
+                upcoming: [],
+                completed: []
+            };
+
+            for (const tournament of allTournaments) {
+                const startDate = new Date(tournament.start_date);
+                const endDate = new Date(tournament.end_date);
+
+                let status: 'upcoming' | 'active' | 'completed';
+                let timeUntilStart: number | undefined;
+                let timeUntilEnd: number | undefined;
+
+                if (now < startDate) {
+                    status = 'upcoming';
+                    timeUntilStart = startDate.getTime() - now.getTime();
+                } else if (now >= startDate && now < endDate) {
+                    status = 'active';
+                    timeUntilEnd = endDate.getTime() - now.getTime();
+                } else {
+                    status = 'completed';
+                }
+
+                const tournamentWithStatus: TournamentWithStatus = {
+                    ...tournament,
+                    status,
+                    time_until_start: timeUntilStart,
+                    time_until_end: timeUntilEnd
+                };
+
+                // Get participants count for completed tournaments
+                if (status === 'completed') {
+                    try {
+                        const leaderboard = await this.getTournamentLeaderboard(tournament.id, 1000);
+                        tournamentWithStatus.participants_count = leaderboard.length;
+                    } catch (error) {
+                        console.error(`Error getting participants count for tournament ${tournament.id}:`, error);
+                        tournamentWithStatus.participants_count = 0;
+                    }
+                }
+
+                categorized[status].push(tournamentWithStatus);
+            }
+
+            // Sort tournaments
+            categorized.active.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+            categorized.upcoming.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+            categorized.completed.sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+
+            return categorized;
+        } catch (error) {
+            console.error('Error getting all tournaments:', error);
+            return {
+                active: [],
+                upcoming: [],
+                completed: []
+            };
+        }
+    },
+
+    /**
+     * Get all tournaments (raw from database)
+     */
+    async getAllTournamentsRaw(): Promise<Tournament[]> {
+        try {
+            const { data, error } = await supabase
+                .from('tournaments')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching all tournaments:', error);
+                throw error;
+            }
+
+            return data || [];
+        } catch (error) {
+            console.error('Error getting all tournaments:', error);
+            return [];
         }
     },
 
@@ -86,6 +193,19 @@ export const tournamentService = {
         } catch (error) {
             console.error('Error getting tournament leaderboard:', error);
             throw error;
+        }
+    },
+
+    /**
+     * Get tournament winners (top N based on prize count)
+     */
+    async getTournamentWinners(tournamentId: string, prizeCount: number): Promise<TournamentLeaderboardEntry[]> {
+        try {
+            const leaderboard = await this.getTournamentLeaderboard(tournamentId, prizeCount);
+            return leaderboard.slice(0, prizeCount);
+        } catch (error) {
+            console.error('Error getting tournament winners:', error);
+            return [];
         }
     },
 
@@ -160,19 +280,6 @@ export const tournamentService = {
     },
 
     /**
-     * Get top winners for a tournament (based on prize count)
-     */
-    async getTournamentWinners(tournamentId: string, prizeCount: number): Promise<TournamentLeaderboardEntry[]> {
-        try {
-            const leaderboard = await this.getTournamentLeaderboard(tournamentId, prizeCount);
-            return leaderboard.slice(0, prizeCount);
-        } catch (error) {
-            console.error('Error getting tournament winners:', error);
-            return [];
-        }
-    },
-
-    /**
      * Check if user has participated in tournament
      */
     async hasUserParticipated(tournamentId: string, userId: string): Promise<boolean> {
@@ -205,28 +312,6 @@ export const tournamentService = {
         } catch (error) {
             console.error('Error getting tournament by ID:', error);
             return null;
-        }
-    },
-
-    /**
-     * Get all tournaments (for admin purposes)
-     */
-    async getAllTournaments(): Promise<Tournament[]> {
-        try {
-            const { data, error } = await supabase
-                .from('tournaments')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('Error fetching all tournaments:', error);
-                throw error;
-            }
-
-            return data || [];
-        } catch (error) {
-            console.error('Error getting all tournaments:', error);
-            return [];
         }
     }
 };

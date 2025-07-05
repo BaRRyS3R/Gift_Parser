@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Compact expandable game mode cards with gamepad background icons
+// src/app/game/page.tsx - Обновленная с компонентом турнира
 
 "use client";
 
@@ -20,6 +20,7 @@ import {
 import { useUser } from "@/hooks/useUser";
 import { userService, type AttemptsStatus } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
+import TournamentCard from "@/components/TournamentCard/TournamentCard";
 
 interface GameMode {
   id: string;
@@ -259,7 +260,7 @@ const CompactGameModeCard = ({
           className="text-white/5"
           size={120}
           style={{
-            transform: 'rotate(15deg)' // Rotation angle - can be adjusted for visual preference
+            transform: 'rotate(15deg)'
           }}
         />
       </div>
@@ -509,6 +510,11 @@ export default function GamePage() {
         />
       </div>
 
+      {/* Tournament Card - High Priority (если есть активный турнир) */}
+      <div className="mb-8 animate-fade-in">
+        <TournamentCard priority="high" />
+      </div>
+
       {/* Game Mode Cards */}
       <div className="space-y-4 mb-8">
         {GAME_MODES.map((mode) => (
@@ -522,6 +528,11 @@ export default function GamePage() {
             isTransitioning={isTransitioning}
           />
         ))}
+      </div>
+
+      {/* Tournament Card - Low Priority (если нет активного турнира) */}
+      <div className="mb-8 animate-fade-in">
+        <TournamentCard priority="low" />
       </div>
 
       {/* Footer Message */}
