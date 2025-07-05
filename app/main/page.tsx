@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Обновленная главная страница с кнопкой информации о приложении
+// src/app/main/page.tsx - Оригинальная главная страница с добавленной кнопкой информации
 
 "use client";
 
@@ -70,31 +70,36 @@ export default function MainPage() {
           setActiveTournament(tournamentStatus.activeTournament);
           setShowTournamentButton(true);
 
-          // Initialize countdown timer - исправляем расчет времени
-          const updateCountdown = () => {
-            if (tournamentStatus.activeTournament) {
-              const now = new Date();
-              const endDate = new Date(tournamentStatus.activeTournament.end_date);
-              const timeLeft = endDate.getTime() - now.getTime();
+          // Initialize countdown timer
+          if (tournamentStatus.timeRemaining) {
+            setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
 
-              if (timeLeft <= 0) {
-                setTournamentTimeRemaining("Ended");
+            // Update countdown every second
+            const interval = setInterval(() => {
+              const now = new Date();
+              const endDate = new Date(tournamentStatus.activeTournament!.end_date);
+              const diff = endDate.getTime() - now.getTime();
+
+              if (diff <= 0) {
                 setActiveTournament(null);
                 setShowTournamentButton(false);
+                setTournamentTimeRemaining("");
+                clearInterval(interval);
               } else {
-                const remaining = formatTimeRemaining(timeLeft);
-                setTournamentTimeRemaining(remaining);
+                setTournamentTimeRemaining(formatTimeRemaining(diff));
               }
-            }
-          };
+            }, 1000);
 
-          updateCountdown();
-          const interval = setInterval(updateCountdown, 1000);
-
-          return () => clearInterval(interval);
+            return () => clearInterval(interval);
+          }
+        } else {
+          setActiveTournament(null);
+          setShowTournamentButton(false);
         }
       } catch (error) {
         console.error("Error loading tournament status:", error);
+        setActiveTournament(null);
+        setShowTournamentButton(false);
       }
     };
 
@@ -102,91 +107,121 @@ export default function MainPage() {
   }, []);
 
   /* -------------------------------------------------
-   * Page animations and loading
+   * Refs & helpers
+   * -------------------------------------------------*/
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const animationSteps = [
+    "|",
+    "c|",
+    "ci-",
+    "cir|",
+    "cir=/",
+    "circ|",
+    "circu|",
+    "circus///",
+    "circusl¿",
+    "circusle?",
+    "circusle",
+  ];
+
+  const username = user?.first_name || "unknown";
+  const fullGreeting = t("main.greeting", { name: username });
+
+  /* -------------------------------------------------
+   * Background video logic
    * -------------------------------------------------*/
   useEffect(() => {
-    if (!userLoading && user) {
-      const timer = setTimeout(() => {
-        setPageLoaded(true);
-      }, 100);
+    const video = videoRef.current;
 
-      return () => clearTimeout(timer);
-    }
-  }, [userLoading, user]);
+    if (!video || !settings.showBackgroundVideo) return;
 
+    const handleLoadedMetadata = () => {
+      video.play().catch(console.error);
+    };
+
+    const handleCanPlay = () => {
+      video.play().catch(console.error);
+    };
+
+    video.addEventListener("loadedmetadata", handleLoadedMetadata);
+    video.addEventListener("canplay", handleCanPlay);
+    video.load();
+
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      video.removeEventListener("canplay", handleCanPlay);
+    };
+  }, [settings.showBackgroundVideo]);
+
+  /* -------------------------------------------------
+   * Mount / animation logic
+   * -------------------------------------------------*/
+  useEffect(() => {
+    const pageLoadTimer = setTimeout(() => {
+      setPageLoaded(true);
+    }, 300);
+
+    return () => clearTimeout(pageLoadTimer);
+  }, []);
+
+  // Title animation
   useEffect(() => {
     if (!pageLoaded) return;
 
-    const animateTitle = () => {
-      const title = "SOMETHING";
-      let currentIndex = 0;
+    const titleAnimationTimer = setTimeout(() => {
+      let currentStep = 0;
 
-      const typeText = () => {
-        if (currentIndex <= title.length) {
-          setTitleText(title.slice(0, currentIndex) + "|");
-          currentIndex++;
-          setTimeout(typeText, 150);
+      const titleInterval = setInterval(() => {
+        if (currentStep < animationSteps.length) {
+          setTitleText(animationSteps[currentStep]);
+          currentStep++;
         } else {
-          setTimeout(() => {
-            setTitleText(title);
-            setShowButton(true);
-          }, 500);
+          clearInterval(titleInterval);
+          setTimeout(() => setShowButton(true), 300);
+          setTimeout(() => setShowGreeting(true), 600);
+          setTimeout(() => setShowTopButtons(true), 900);
         }
-      };
+      }, 80);
 
-      typeText();
-    };
+      return () => clearInterval(titleInterval);
+    }, 800);
 
-    animateTitle();
+    return () => clearTimeout(titleAnimationTimer);
   }, [pageLoaded]);
 
+  // Greeting typing animation
   useEffect(() => {
-    if (!showButton) return;
+    if (!showGreeting || userLoading) return;
 
-    const timer = setTimeout(() => {
-      if (user?.first_name) {
-        const greeting = t("main.greeting", { name: user.first_name });
-        let currentIndex = 0;
-
-        const typeGreeting = () => {
-          if (currentIndex <= greeting.length) {
-            setGreetingText(greeting.slice(0, currentIndex));
-            currentIndex++;
-            setTimeout(typeGreeting, 50);
-          } else {
-            setTimeout(() => {
-              setShowTopButtons(true);
-            }, 500);
-          }
-        };
-
-        setShowGreeting(true);
-        typeGreeting();
+    let currentChar = 0;
+    const typingInterval = setInterval(() => {
+      if (currentChar <= fullGreeting.length) {
+        setGreetingText(fullGreeting.slice(0, currentChar));
+        currentChar++;
       } else {
-        setTimeout(() => {
-          setShowTopButtons(true);
-        }, 500);
+        clearInterval(typingInterval);
       }
-    }, 1000);
+    }, 60);
 
-    return () => clearTimeout(timer);
-  }, [showButton, user, t]);
+    return () => clearInterval(typingInterval);
+  }, [showGreeting, fullGreeting, userLoading]);
 
   /* -------------------------------------------------
-   * Event handlers
+   * Handlers
    * -------------------------------------------------*/
   const handleStartGame = () => {
-    if (isTransitioning) return;
-
     setIsTransitioning(true);
-    router.push("/game");
+    setTimeout(() => {
+      router.push("/game");
+    }, 600);
   };
 
-  const handleTournamentClick = () => {
-    if (isTransitioning || !activeTournament) return;
-
+  const handleOpenTournament = () => {
     setIsTransitioning(true);
-    router.push(`/tournament/${activeTournament.id}`);
+    setTimeout(() => {
+      router.push("/tournament");
+    }, 600);
   };
 
   const handleOpenSettings = () => {
@@ -208,119 +243,183 @@ export default function MainPage() {
   /* -------------------------------------------------
    * Render
    * -------------------------------------------------*/
-  if (userLoading || !user) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/60">{t("main.loading")}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
-      {/* Background Effects */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-blue-900/20" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(120,119,198,0.3),transparent_70%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(74,144,226,0.2),transparent_70%)]" />
+    <div
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : pageLoaded
+            ? "opacity-100"
+            : "opacity-0"
+        }`}
+    >
+      {/* Background Video */}
+      {settings.showBackgroundVideo && (
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-30 blur-sm scale-110"
+        >
+          <source src="/videos/bg-video.mp4" type="video/mp4" />
+        </video>
+      )}
 
-      {/* Top Controls */}
+      {/* Gradient overlays for better text readability */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black/60 to-blue-900/20" />
+      <div className="absolute inset-0 bg-black/40" />
+
+      {/* Top controls container */}
       <div
-        className="relative z-10 w-full flex justify-end items-center p-4 gap-3"
+        className={`absolute top-0 left-0 right-0 z-30 flex justify-between items-start p-4 transition-all duration-1000 transform ${showTopButtons ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-8"
+          }`}
         style={{ marginTop: `${headerOffset}px` }}
       >
-        {showTopButtons && (
-          <div className="flex gap-3 animate-fade-in">
+        {/* Left side - placeholder for future controls */}
+        <div className="flex space-x-2">
+          {/* Could add more controls here in future */}
+        </div>
+
+        {/* Right side - Settings and About buttons */}
+        <div className="flex space-x-2">
+          {/* About Button */}
+          <button
+            aria-label="About"
+            className="relative px-4 py-2 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white/50 hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95"
+            onClick={handleOpenAbout}
+          >
+            <Info
+              className="text-white group-hover:scale-110 transition-transform duration-300"
+              size={16}
+            />
+          </button>
+
+          {/* Settings Button */}
+          <button
+            aria-label="Settings"
+            className="relative px-4 py-2 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white/50 hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95"
+            onClick={handleOpenSettings}
+          >
+            <SettingsIcon
+              className="text-white group-hover:scale-110 transition-transform duration-300"
+              size={16}
+            />
+          </button>
+
+          {/* Tournament Button - Right (перемещена с места магазина) */}
+          {showTournamentButton && activeTournament && (
             <button
-              onClick={handleOpenAbout}
-              className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center hover:bg-white/20 transition-all duration-300 hover:scale-110"
-              aria-label="About"
+              aria-label="Active Tournament"
+              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              onClick={handleOpenTournament}
             >
-              <Info className="w-5 h-5" />
+              <div className="flex items-center space-x-2">
+                <Trophy
+                  className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
+                  size={16}
+                />
+                <div className="text-xs">
+                  <div className="font-bold text-yellow-300">TOURNAMENT</div>
+                  {tournamentTimeRemaining && (
+                    <div className="text-yellow-400/80 flex items-center space-x-1">
+                      <Clock size={10} />
+                      <span>{tournamentTimeRemaining}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+              <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
             </button>
-            <button
-              onClick={handleOpenSettings}
-              className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center hover:bg-white/20 transition-all duration-300 hover:scale-110"
-              aria-label="Settings"
-            >
-              <SettingsIcon className="w-5 h-5" />
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 relative z-10">
-        {/* Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-300 to-blue-400 bg-clip-text text-transparent mb-4">
+      <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
+        {/* Title Section */}
+        <div className="relative">
+          <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
             {titleText}
           </h1>
-
-          {/* Greeting */}
-          {showGreeting && (
-            <div className="min-h-[2rem] flex items-center justify-center">
-              <p className="text-lg text-white/80 animate-fade-in">
-                {greetingText}
-              </p>
-            </div>
-          )}
         </div>
 
-        {/* Attempts Display */}
-        {showButton && (
-          <div className="mb-8 animate-slide-up">
-            <AttemptsDisplay />
-          </div>
-        )}
+        {/* Action Button */}
+        <div
+          className={`transition-all duration-1000 transform ${showButton
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`}
+        >
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
 
-        {/* Action Buttons */}
-        <div className="flex flex-col items-center gap-4 w-full max-w-xs">
-          {/* Main Game Button */}
-          {showButton && (
             <button
+              className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:bg-white/5"
+              disabled={isTransitioning}
               onClick={handleStartGame}
-              disabled={isTransitioning}
-              className="group relative w-full h-14 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl font-semibold text-white border border-white/20 overflow-hidden transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 animate-slide-up"
-              style={{ animationDelay: "0.2s" }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="relative z-10 flex items-center justify-center gap-3">
-                <Play className="w-5 h-5" />
-                <span>{t("main.startGame")}</span>
+              <div className="flex items-center justify-center space-x-4">
+                <Play
+                  className="text-white group-hover:translate-x-1 transition-transform duration-300"
+                  size={24}
+                />
+                <span className="tracking-wider">
+                  {isTransitioning ? t("main.loading") : t("main.startGame")}
+                </span>
               </div>
             </button>
-          )}
+          </div>
+        </div>
 
-          {/* Tournament Button */}
-          {showTournamentButton && activeTournament && (
-            <button
-              onClick={handleTournamentClick}
-              disabled={isTransitioning}
-              className="group relative w-full h-14 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl font-semibold text-white border border-white/20 overflow-hidden transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 animate-slide-up"
-              style={{ animationDelay: "0.4s" }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-600 to-orange-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="relative z-10 flex items-center justify-center gap-3">
-                <Trophy className="w-5 h-5" />
-                <div className="text-center">
-                  <div className="text-sm">{activeTournament.name}</div>
-                  <div className="text-xs opacity-80 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {tournamentTimeRemaining}
-                  </div>
-                </div>
-              </div>
-            </button>
+        {/* User Greeting */}
+        <div
+          className={`transition-all duration-1000 transform ${showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`}
+        >
+          {userLoading ? (
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
+              <div
+                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
+                style={{ animationDelay: "0.2s" }}
+              />
+              <div
+                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
+                style={{ animationDelay: "0.4s" }}
+              />
+            </div>
+          ) : (
+            <p className="text-xl text-white/80 tracking-wider">
+              {greetingText}
+              {greetingText.length < fullGreeting.length && (
+                <span className="animate-pulse">|</span>
+              )}
+            </p>
           )}
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Settings Modal */}
       <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
+
+      {/* About Modal */}
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
+
+      {/* Attempts Display - Bottom Above Navigation */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-40 transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`}
+        style={{ paddingBottom: "96px" }} // Space for navigation menu
+      >
+        <AttemptsDisplay />
+      </div>
     </div>
   );
 }
