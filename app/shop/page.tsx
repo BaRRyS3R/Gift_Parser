@@ -216,75 +216,73 @@ export default function ShopPage() {
                 </div>
             )}
 
-            <div className="px-4 pt-20 pb-24">
-                {/* Header */}
-                <div className="text-center space-y-4 mb-8">
-                    <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-                        {t("shop.title")}
-                    </h1>
-                    <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-                        {t("shop.subtitle")}
-                    </p>
+            {/* Header */}
+            <div className="text-center space-y-4 mb-8">
+                <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+                    {t("shop.title")}
+                </h1>
+                <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
+                    {t("shop.subtitle")}
+                </p>
+            </div>
+            
+            {/* Error message */}
+            {purchaseState.error && (
+                <div className="max-w-2xl mx-auto mb-6">
+                    <Card className="bg-white/10 border border-white/20">
+                        <CardBody className="p-4">
+                            <div className="flex items-center space-x-2">
+                                <AlertCircle size={20} className="text-white" />
+                                <span className="text-white">{purchaseState.error}</span>
+                            </div>
+                        </CardBody>
+                    </Card>
                 </div>
+            )}
 
-                {/* Error message */}
-                {purchaseState.error && (
-                    <div className="max-w-2xl mx-auto mb-6">
-                        <Card className="bg-white/10 border border-white/20">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-2">
-                                    <AlertCircle size={20} className="text-white" />
-                                    <span className="text-white">{purchaseState.error}</span>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </div>
-                )}
+            <div className="max-w-2xl mx-auto space-y-4">
+                {Object.entries(PRODUCTS).map(([key, product]) => {
+                    const productType = key as ProductType;
+                    const badge = getProductBadge(productType);
+                    const loading = isLoading(productType);
 
-                <div className="max-w-2xl mx-auto space-y-4">
-                    {Object.entries(PRODUCTS).map(([key, product]) => {
-                        const productType = key as ProductType;
-                        const badge = getProductBadge(productType);
-                        const loading = isLoading(productType);
+                    return (
+                        <ProductCard
+                            key={productType}
+                            productType={productType}
+                            product={product}
+                            badge={badge}
+                            loading={loading}
+                            onPurchase={handlePurchase}
+                            getButtonText={getButtonText}
+                            t={t}
+                        />
+                    );
+                })}
+            </div>
 
-                        return (
-                            <ProductCard
-                                key={productType}
-                                productType={productType}
-                                product={product}
-                                badge={badge}
-                                loading={loading}
-                                onPurchase={handlePurchase}
-                                getButtonText={getButtonText}
-                                t={t}
-                            />
-                        );
-                    })}
-                </div>
-
-                {/* Success Notification */}
-                {successNotification.show && (
-                    <div className={`
+            {/* Success Notification */}
+            {successNotification.show && (
+                <div className={`
                         fixed top-4 left-4 right-4 z-50
                         transform transition-all duration-500 ease-out
                         ${successNotification.show ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}
                     `}>
-                        <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-4">
-                                    <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                                        {successNotification.icon}
-                                    </div>
-                                    <div className="flex-1">
-                                        <h4 className="font-bold text-green-400 text-lg">{successNotification.title}</h4>
-                                        <p className="text-green-300 text-sm mt-1">{successNotification.message}</p>
-                                    </div>
+                    <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
+                        <CardBody className="p-4">
+                            <div className="flex items-center space-x-4">
+                                <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                    {successNotification.icon}
                                 </div>
-                            </CardBody>
-                        </Card>
-                    </div>
-                )}
-            </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-green-400 text-lg">{successNotification.title}</h4>
+                                    <p className="text-green-300 text-sm mt-1">{successNotification.message}</p>
+                                </div>
+                            </div>
+                        </CardBody>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }

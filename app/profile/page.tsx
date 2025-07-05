@@ -102,11 +102,13 @@ export default function MinimalistProfilePage() {
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {/* Header - Unified with Game Page */}
-      <div className="text-center space-y-4 mb-8">
+      <div className="text-center">
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
           {t("profile.title")}
         </h1>
       </div>
+
+      <MinimalistDivider />
 
       <div className="max-w-md mx-auto">
         {/* Profile Header - No Container */}
