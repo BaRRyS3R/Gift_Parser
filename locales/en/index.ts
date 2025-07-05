@@ -1,4 +1,4 @@
-// src/locales/ru/index.ts - Russian translations assembly (обновлено с about)
+// src/locales/en/index.ts - English translations assembly
 
 import { common } from './common';
 import { navigation } from './navigation';
@@ -16,7 +16,7 @@ import { errors } from './errors';
 import { time } from './time';
 import { about } from './about';
 
-export const ru = {
+export const en = {
     // Common UI elements
     common,
 
