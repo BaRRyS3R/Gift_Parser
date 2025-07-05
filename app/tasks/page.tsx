@@ -388,7 +388,7 @@ export default function TasksPage() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset pb-32">
+        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset pb-40">
             {/* Header */}
             <div className="text-center space-y-4 mb-8">
                 <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
