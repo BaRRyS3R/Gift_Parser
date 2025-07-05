@@ -50,6 +50,7 @@ export const tasks = {
         cooldownActive: "Task is on cooldown",
         verificationFailed: "Verification failed, please try again",
         rewardClaimFailed: "Failed to claim reward",
+        userNotFound: "User not found",
         unknownError: "An unknown error occurred"
     },
 

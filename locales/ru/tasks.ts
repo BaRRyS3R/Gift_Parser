@@ -36,6 +36,7 @@ export const tasks = {
         cooldownActive: "Задание недоступно",
         verificationFailed: "Проверка не удалась, попробуйте еще раз",
         rewardClaimFailed: "Не удалось получить награду",
+        userNotFound: "Пользователь не найден",
         unknownError: "Произошла неизвестная ошибка"
     },
     success: {

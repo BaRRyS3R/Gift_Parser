@@ -18,7 +18,7 @@ import AttemptsDisplay from "@/components/AttemptsDisplay";
 
 export default function MainPage() {
   const router = useRouter();
-  const { user, isLoading: userLoading } = useUser();
+  const { user, isLoading: userLoading, telegramUser, setTelegramUser } = useUser();
   const { settings } = useSettings();
   const t = useT();
 
@@ -57,6 +57,26 @@ export default function MainPage() {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
   }, []);
+
+  // Инициализация telegramUser если он не установлен
+  useEffect(() => {
+    if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      const user = tg.initDataUnsafe?.user;
+
+      if (user && user.id) {
+        const telegramUserData = {
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          username: user.username,
+          language_code: user.language_code,
+          is_premium: user.is_premium,
+        };
+        setTelegramUser(telegramUserData);
+      }
+    }
+  }, [telegramUser, setTelegramUser]);
 
   /* -------------------------------------------------
    * Tournament data loading

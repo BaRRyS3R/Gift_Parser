@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useCallback, useContext, createContext } from "react";
+import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
 
 import { userService, type User, type TelegramUser } from "@/lib/supabase";
 import { tournamentService } from "@/lib/supabase_tournament_extension";
@@ -79,6 +79,27 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Автоматическая инициализация telegramUser при первом рендере
+  useEffect(() => {
+    if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      const user = tg.initDataUnsafe?.user;
+
+      if (user && user.id) {
+        const telegramUserData = {
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          username: user.username,
+          language_code: user.language_code,
+          is_premium: user.is_premium,
+        };
+        setTelegramUserState(telegramUserData);
+        console.log("useUser - Auto-initialized telegram user:", telegramUserData);
+      }
+    }
+  }, [telegramUser]);
+
   // Метод для установки Telegram пользователя в контекст
   const setTelegramUserData = useCallback((tgUserData: TelegramUser) => {
     console.log("useUser - Setting telegram user data:", tgUserData);
@@ -126,6 +147,16 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       console.log("useUser - refreshUser completed");
     }
   }, [telegramUser]);
+
+  // Автоматическая загрузка пользователя из БД при установке telegramUser
+  useEffect(() => {
+    if (telegramUser && !user && !isLoading) {
+      console.log("useUser - Auto-loading user from DB for telegram user:", telegramUser.id);
+      refreshUser().catch(err => {
+        console.error("useUser - Failed to auto-load user:", err);
+      });
+    }
+  }, [telegramUser, user, isLoading, refreshUser]);
 
   const saveGameResult = useCallback(
     async (gameResult: GameResult): Promise<void> => {

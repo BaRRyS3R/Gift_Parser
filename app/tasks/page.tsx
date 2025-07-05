@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Button, Progress, Chip, Divider } from "@nextui-org/react";
 import {
@@ -56,8 +56,26 @@ export default function TasksPage() {
     const [error, setError] = useState<string | null>(null);
 
     // Загрузка заданий
-    const loadTasks = async () => {
-        if (!user) return;
+    const loadTasks = useCallback(async () => {
+        if (!user) {
+            // Если пользователь не загружен, попробуем обновить его данные
+            if (telegramUser) {
+                try {
+                    await refreshUser();
+                    // После обновления пользователя, loadTasks будет вызван снова через useEffect
+                    return;
+                } catch (err) {
+                    console.error('Error refreshing user:', err);
+                    setError(t('tasks.errors.userNotFound'));
+                    setLoading(false);
+                    return;
+                }
+            } else {
+                setError(t('tasks.errors.userNotFound'));
+                setLoading(false);
+                return;
+            }
+        }
 
         try {
             setError(null);
@@ -69,11 +87,11 @@ export default function TasksPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user, telegramUser, refreshUser, t]);
 
     useEffect(() => {
         loadTasks();
-    }, [user]);
+    }, [loadTasks]);
 
     // Таймер для обратного отсчета
     useEffect(() => {
