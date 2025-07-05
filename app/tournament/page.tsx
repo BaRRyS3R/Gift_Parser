@@ -28,8 +28,8 @@ import {
 } from "lucide-react";
 
 import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
-import type { 
-    TournamentWithStatus, 
+import type {
+    TournamentWithStatus,
     TournamentListResponse
 } from "@/lib/supabase_tournament_extension";
 import type { TournamentLeaderboardEntry } from "@/types/tournaments";
@@ -65,7 +65,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
 
         const updateTime = () => {
             const now = new Date();
-            
+
             if (tournament.status === "upcoming") {
                 const startDate = new Date(tournament.start_date);
                 const diff = startDate.getTime() - now.getTime();
@@ -165,7 +165,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
     };
 
     return (
-        <div 
+        <div
             className={`
                 group relative backdrop-blur-sm border rounded-2xl transition-all duration-500 overflow-hidden
                 ${config.bg} hover:border-opacity-60 hover:scale-[1.02] active:scale-[0.99]
@@ -250,7 +250,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                                 </div>
                             </button>
                         )}
-                        
+
                         {tournament.status === "completed" && (
                             <button
                                 onClick={onToggleExpand}
@@ -284,7 +284,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                                 {tournament.prizes.length}
                             </div>
                         </div>
-                        
+
                         {tournament.status === "completed" && (
                             <div className="space-y-2 group/stat">
                                 <div className="flex items-center justify-center space-x-2">
@@ -298,7 +298,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                                 </div>
                             </div>
                         )}
-                        
+
                         <div className="space-y-2 group/stat">
                             <div className="flex items-center justify-center space-x-2">
                                 <div className={`w-8 h-8 ${config.accent} rounded-lg flex items-center justify-center border border-white/10 group-hover/stat:scale-110 transition-transform duration-300`}>
@@ -371,7 +371,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                                     <p className="text-xs text-amber-200/70 mt-1">{tournament.prizes.length} {t("tournament.prizePositions")}</p>
                                 </div>
                             </div>
-                            
+
                             {isLoadingWinners ? (
                                 <div className="flex items-center justify-center space-x-4 py-8">
                                     <div className="relative">
@@ -515,7 +515,7 @@ export default function TournamentsPage() {
 
             return () => {
                 tg.BackButton.hide();
-                tg.BackButton.offClick(() => {});
+                tg.BackButton.offClick(() => { });
             };
         }
     }, [router]);
@@ -635,8 +635,8 @@ export default function TournamentsPage() {
             {/* Active Tournaments */}
             {tournaments.active.length > 0 && (
                 <div className="mb-12">
-                    <SectionHeader 
-                        icon={Zap} 
+                    <SectionHeader
+                        icon={Zap}
                         title={t("tournament.activeTournaments")}
                         subtitle={t("tournament.joinAndCompete")}
                         count={tournaments.active.length}
@@ -661,8 +661,8 @@ export default function TournamentsPage() {
             {/* Upcoming Tournaments */}
             {tournaments.upcoming.length > 0 && (
                 <div className="mb-12">
-                    <SectionHeader 
-                        icon={Timer} 
+                    <SectionHeader
+                        icon={Timer}
                         title={t("tournament.upcomingTournaments")}
                         subtitle={t("tournament.prepareForBattle")}
                         count={tournaments.upcoming.length}
@@ -687,8 +687,8 @@ export default function TournamentsPage() {
             {/* Completed Tournaments */}
             {tournaments.completed.length > 0 && (
                 <div className="mb-8">
-                    <SectionHeader 
-                        icon={Star} 
+                    <SectionHeader
+                        icon={Star}
                         title={t("tournament.completedTournaments")}
                         subtitle={t("tournament.hallOfFame")}
                         count={tournaments.completed.length}
@@ -712,75 +712,3 @@ export default function TournamentsPage() {
         </div>
     );
 }
-
-/* Enhanced CSS Animations */
-<style jsx>{`
-    @keyframes slide-in-up {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes fade-in-up {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    @keyframes pulse-gentle {
-        0%, 100% {
-            opacity: 1;
-        }
-        50% {
-            opacity: 0.8;
-        }
-    }
-
-    @keyframes pulse-slow {
-        0%, 100% {
-            opacity: 0.3;
-        }
-        50% {
-            opacity: 0.1;
-        }
-    }
-
-    @keyframes spin-slow {
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
-    }
-
-    .animate-slide-in-up {
-        animation: slide-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-    .animate-fade-in-up {
-        animation: fade-in-up 0.4s ease-out forwards;
-    }
-
-    .animate-pulse-gentle {
-        animation: pulse-gentle 2s ease-in-out infinite;
-    }
-
-    .animate-pulse-slow {
-        animation: pulse-slow 4s ease-in-out infinite;
-    }
-
-    .animate-spin-slow {
-        animation: spin-slow 3s linear infinite;
-    }
-`}</style>
