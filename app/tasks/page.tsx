@@ -364,7 +364,7 @@ export default function TasksPage() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white">
+        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
             <div className="px-4 pt-20 pb-24">
                 {/* Header */}
                 <div className="text-center space-y-4 mb-8">
