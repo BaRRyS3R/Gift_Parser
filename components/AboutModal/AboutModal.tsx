@@ -45,19 +45,46 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
     const gameModes = [
         {
             icon: Target,
-            key: "reaction",
+            name: t("about.gameModes.reaction.name"),
+            description: t("about.gameModes.reaction.description"),
+            difficulty: t("about.gameModes.reaction.difficulty"),
+            duration: t("about.gameModes.reaction.duration"),
+            features: [
+                t("about.gameModes.reaction.features.first"),
+                t("about.gameModes.reaction.features.second"),
+                t("about.gameModes.reaction.features.third"),
+                t("about.gameModes.reaction.features.fourth"),
+            ],
             color: "bg-blue-500/5 border-blue-400/20",
             iconColor: "text-blue-400",
         },
         {
             icon: Crosshair,
-            key: "survival",
+            name: t("about.gameModes.survival.name"),
+            description: t("about.gameModes.survival.description"),
+            difficulty: t("about.gameModes.survival.difficulty"),
+            duration: t("about.gameModes.survival.duration"),
+            features: [
+                t("about.gameModes.survival.features.first"),
+                t("about.gameModes.survival.features.second"),
+                t("about.gameModes.survival.features.third"),
+                t("about.gameModes.survival.features.fourth"),
+            ],
             color: "bg-red-500/5 border-red-400/20",
             iconColor: "text-red-400",
         },
         {
             icon: Atom,
-            key: "physics",
+            name: t("about.gameModes.physics.name"),
+            description: t("about.gameModes.physics.description"),
+            difficulty: t("about.gameModes.physics.difficulty"),
+            duration: t("about.gameModes.physics.duration"),
+            features: [
+                t("about.gameModes.physics.features.first"),
+                t("about.gameModes.physics.features.second"),
+                t("about.gameModes.physics.features.third"),
+                t("about.gameModes.physics.features.fourth"),
+            ],
             color: "bg-purple-500/5 border-purple-400/20",
             iconColor: "text-purple-400",
         },
@@ -66,39 +93,78 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
     const systemFeatures = [
         {
             icon: Clock,
-            key: "attempts",
+            name: t("about.systems.attempts.name"),
+            description: t("about.systems.attempts.description"),
+            details: t("about.systems.attempts.details"),
             color: "bg-orange-500/5 border-orange-400/20",
             iconColor: "text-orange-400",
         },
         {
             icon: Gift,
-            key: "referral",
+            name: t("about.systems.referral.name"),
+            description: t("about.systems.referral.description"),
+            details: t("about.systems.referral.details"),
             color: "bg-green-500/5 border-green-400/20",
             iconColor: "text-green-400",
         },
         {
             icon: Trophy,
-            key: "tournaments",
+            name: t("about.systems.tournaments.name"),
+            description: t("about.systems.tournaments.description"),
+            details: t("about.systems.tournaments.details"),
             color: "bg-yellow-500/5 border-yellow-400/20",
             iconColor: "text-yellow-400",
         },
         {
             icon: Users,
-            key: "tasks",
+            name: t("about.systems.tasks.name"),
+            description: t("about.systems.tasks.description"),
+            details: t("about.systems.tasks.details"),
             color: "bg-cyan-500/5 border-cyan-400/20",
             iconColor: "text-cyan-400",
         },
         {
             icon: ShoppingCart,
-            key: "shop",
+            name: t("about.systems.shop.name"),
+            description: t("about.systems.shop.description"),
+            details: t("about.systems.shop.details"),
             color: "bg-pink-500/5 border-pink-400/20",
             iconColor: "text-pink-400",
         },
         {
             icon: Medal,
-            key: "leaderboard",
+            name: t("about.systems.leaderboard.name"),
+            description: t("about.systems.leaderboard.description"),
+            details: t("about.systems.leaderboard.details"),
             color: "bg-indigo-500/5 border-indigo-400/20",
             iconColor: "text-indigo-400",
+        },
+    ];
+
+    const tips = [
+        {
+            title: t("about.tips.first.title"),
+            description: t("about.tips.first.description"),
+        },
+        {
+            title: t("about.tips.second.title"),
+            description: t("about.tips.second.description"),
+        },
+        {
+            title: t("about.tips.third.title"),
+            description: t("about.tips.third.description"),
+        },
+        {
+            title: t("about.tips.fourth.title"),
+            description: t("about.tips.fourth.description"),
+        },
+        {
+            title: t("about.tips.fifth.title"),
+            description: t("about.tips.fifth.description"),
+        },
+        {
+            title: t("about.tips.sixth.title"),
+            description: t("about.tips.sixth.description"),
         },
     ];
 
@@ -134,7 +200,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
 
                 <ModalBody className="text-white">
                     <Accordion variant="splitted" className="px-0">
-                        {/* Игровые режимы */}
+                        {/* Game Modes Section */}
                         <AccordionItem
                             key="game-modes"
                             aria-label={t("about.sections.gameModes.title")}
@@ -160,11 +226,11 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                                     {t("about.sections.gameModes.description")}
                                 </p>
 
-                                {gameModes.map((mode) => {
+                                {gameModes.map((mode, index) => {
                                     const Icon = mode.icon;
                                     return (
                                         <div
-                                            key={mode.key}
+                                            key={index}
                                             className={`p-4 rounded-lg border ${mode.color}`}
                                         >
                                             <div className="flex items-start gap-3">
@@ -173,18 +239,18 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                                                 </div>
                                                 <div className="flex-1">
                                                     <h4 className="font-semibold text-white mb-2">
-                                                        {t(`about.gameModes.${mode.key}.name`)}
+                                                        {mode.name}
                                                     </h4>
                                                     <p className="text-sm text-white/70 mb-3">
-                                                        {t(`about.gameModes.${mode.key}.description`)}
+                                                        {mode.description}
                                                     </p>
 
                                                     <div className="flex gap-2 mb-3">
                                                         <Chip size="sm" variant="flat" color="default">
-                                                            {t(`about.gameModes.${mode.key}.difficulty`)}
+                                                            {mode.difficulty}
                                                         </Chip>
                                                         <Chip size="sm" variant="flat" color="secondary">
-                                                            {t(`about.gameModes.${mode.key}.duration`)}
+                                                            {mode.duration}
                                                         </Chip>
                                                     </div>
 
@@ -193,10 +259,10 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                                                             {t("about.gameModes.features")}
                                                         </h5>
                                                         <ul className="text-xs text-white/60 space-y-1">
-                                                            {Array.from({ length: 4 }, (_, i) => (
-                                                                <li key={i} className="flex items-center gap-2">
+                                                            {mode.features.map((feature, featureIndex) => (
+                                                                <li key={featureIndex} className="flex items-center gap-2">
                                                                     <div className="w-1 h-1 rounded-full bg-white/40" />
-                                                                    {t(`about.gameModes.${mode.key}.features.${i}`)}
+                                                                    {feature}
                                                                 </li>
                                                             ))}
                                                         </ul>
@@ -209,7 +275,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                             </div>
                         </AccordionItem>
 
-                        {/* Системы и механики */}
+                        {/* Systems and Mechanics Section */}
                         <AccordionItem
                             key="systems"
                             aria-label={t("about.sections.systems.title")}
@@ -236,11 +302,11 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                                 </p>
 
                                 <div className="grid gap-3">
-                                    {systemFeatures.map((feature) => {
+                                    {systemFeatures.map((feature, index) => {
                                         const Icon = feature.icon;
                                         return (
                                             <div
-                                                key={feature.key}
+                                                key={index}
                                                 className={`p-3 rounded-lg border ${feature.color}`}
                                             >
                                                 <div className="flex items-start gap-3">
@@ -249,13 +315,13 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <h4 className="font-medium text-white text-sm mb-1">
-                                                            {t(`about.systems.${feature.key}.name`)}
+                                                            {feature.name}
                                                         </h4>
                                                         <p className="text-xs text-white/60 mb-2">
-                                                            {t(`about.systems.${feature.key}.description`)}
+                                                            {feature.description}
                                                         </p>
                                                         <div className="text-xs text-white/50">
-                                                            {t(`about.systems.${feature.key}.details`)}
+                                                            {feature.details}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -266,7 +332,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                             </div>
                         </AccordionItem>
 
-                        {/* Монетизация */}
+                        {/* Monetization Section */}
                         <AccordionItem
                             key="monetization"
                             aria-label={t("about.sections.monetization.title")}
@@ -304,12 +370,18 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                                             {t("about.monetization.telegramStars.description")}
                                         </p>
                                         <ul className="text-xs text-white/50 space-y-1">
-                                            {Array.from({ length: 3 }, (_, i) => (
-                                                <li key={i} className="flex items-center gap-2">
-                                                    <div className="w-1 h-1 rounded-full bg-green-400/60" />
-                                                    {t(`about.monetization.telegramStars.features.${i}`)}
-                                                </li>
-                                            ))}
+                                            <li className="flex items-center gap-2">
+                                                <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                                                {t("about.monetization.telegramStars.features.first")}
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                                                {t("about.monetization.telegramStars.features.second")}
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                                                {t("about.monetization.telegramStars.features.third")}
+                                            </li>
                                         </ul>
                                     </div>
 
@@ -328,7 +400,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                             </div>
                         </AccordionItem>
 
-                        {/* Советы и стратегии */}
+                        {/* Tips and Strategies Section */}
                         <AccordionItem
                             key="tips"
                             aria-label={t("about.sections.tips.title")}
@@ -354,20 +426,20 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                                     {t("about.sections.tips.description")}
                                 </p>
 
-                                {Array.from({ length: 6 }, (_, i) => (
-                                    <div key={i} className="p-3 rounded-lg bg-orange-500/5 border border-orange-400/10">
+                                {tips.map((tip, index) => (
+                                    <div key={index} className="p-3 rounded-lg bg-orange-500/5 border border-orange-400/10">
                                         <div className="flex items-start gap-3">
                                             <div className="w-6 h-6 rounded-full bg-orange-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                                                 <span className="text-xs font-bold text-orange-400">
-                                                    {i + 1}
+                                                    {index + 1}
                                                 </span>
                                             </div>
                                             <div>
                                                 <h4 className="font-medium text-white text-sm mb-1">
-                                                    {t(`about.tips.${i}.title`)}
+                                                    {tip.title}
                                                 </h4>
                                                 <p className="text-xs text-white/60">
-                                                    {t(`about.tips.${i}.description`)}
+                                                    {tip.description}
                                                 </p>
                                             </div>
                                         </div>
@@ -379,7 +451,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
 
                     <Divider className="my-4 bg-white/10" />
 
-                    {/* Мета информация */}
+                    {/* Meta Information */}
                     <div className="text-center space-y-2">
                         <p className="text-xs text-white/40">
                             {t("about.meta.version")}
