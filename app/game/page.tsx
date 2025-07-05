@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Compact expandable game mode cards
+// src/app/game/page.tsx - Compact expandable game mode cards with gamepad background icons
 
 "use client";
 
@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Battery,
+  Gamepad2,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -249,14 +250,25 @@ const CompactGameModeCard = ({
   return (
     <div
       className={`
-        relative backdrop-blur-sm border rounded-xl transition-all duration-300
+        relative backdrop-blur-sm border rounded-xl transition-all duration-300 overflow-hidden
         ${mode.color.background} ${mode.color.border}
         ${isDisabled ? "opacity-50" : mode.color.hover}
         ${isExpanded ? "ring-1 ring-white/20" : ""}
       `}
     >
+      {/* Background Gamepad Icon */}
+      <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 pointer-events-none">
+        <Gamepad2
+          className="text-white/5"
+          size={120}
+          style={{
+            transform: 'rotate(15deg)' // Rotation angle - can be adjusted for visual preference
+          }}
+        />
+      </div>
+
       {/* Main Card Content */}
-      <div className="p-4">
+      <div className="p-4 relative z-10">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-3">
             <div
@@ -289,7 +301,7 @@ const CompactGameModeCard = ({
 
           <button
             onClick={onToggleExpand}
-            className={`p-2 rounded-lg transition-all duration-300 ${mode.color.background} hover:bg-white/10`}
+            className={`p-2 rounded-lg transition-all duration-300 ${mode.color.background} hover:bg-white/10 relative z-20`}
           >
             {isExpanded ? (
               <ChevronUp className={mode.color.accent} size={16} />
@@ -337,7 +349,7 @@ const CompactGameModeCard = ({
           onClick={onStart}
           disabled={isTransitioning || isDisabled}
           className={`
-            w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg
+            w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg relative z-20
             text-sm font-bold transition-all duration-300
             ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
             ${isDisabled
@@ -359,7 +371,7 @@ const CompactGameModeCard = ({
 
       {/* Disabled Overlay */}
       {isDisabled && (
-        <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
           <div className="text-center space-y-2">
             <Shield className="text-white/60 mx-auto" size={24} />
             <p className="text-white/80 text-sm font-bold">
