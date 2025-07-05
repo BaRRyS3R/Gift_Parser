@@ -1,34 +1,59 @@
-// src/components/Navigation/NavigationWrapper.tsx - Updated for new game structure and shop
-
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-
 import BottomNav from "./BottomNav";
+
+const hiddenPaths = [
+  "/", "/game", "/game/reaction", "/game/survival", "/game/physics",
+  "/tournament", "/tournament/play", "/tournament/active"
+];
 
 export default function NavigationWrapper() {
   const pathname = usePathname();
+  const [visible, setVisible] = useState(false);
+  const [rendered, setRendered] = useState(false); // для размонтирования после fade-out
+  const [animationClass, setAnimationClass] = useState("");
+  const prevPathRef = useRef<string | null>(null);
 
-  // Определяем страницы, где НЕ нужно показывать нижнее меню
-  const hideNavOnPages = [
-    "/", // Intro page
-    "/game", // Old game page (redirect)
-    "/game/reaction", // Reaction game mode
-    "/game/survival", // Survival game mode
-    "/game/physics", // Physic game
-    "/tournament", // Tournament page
-    "/tournament/play", // Tournament game page
-  ];
+  const shouldShowNav = !hiddenPaths.includes(pathname);
 
-  const shouldHideNav = hideNavOnPages.includes(pathname);
+  useEffect(() => {
+    const prevShouldShow = !hiddenPaths.includes(prevPathRef.current || "");
 
-  console.log("NavigationWrapper - Current pathname:", pathname);
-  console.log("NavigationWrapper - Should hide nav:", shouldHideNav);
+    if (shouldShowNav && !prevShouldShow) {
+      // Появление
+      setRendered(true);
+      requestAnimationFrame(() => {
+        setAnimationClass("animate-fade-in-up");
+        setVisible(true);
+      });
+    } else if (!shouldShowNav && prevShouldShow) {
+      // Исчезновение
+      setAnimationClass("animate-fade-out-down");
+      setVisible(false);
 
-  // Условное отображение навигационного меню
-  if (shouldHideNav) {
-    return null;
-  }
+      // Подождать, пока анимация завершится
+      setTimeout(() => {
+        setRendered(false);
+      }, 400);
+    }
 
-  return <BottomNav />;
+    // Обновление маршрута
+    prevPathRef.current = pathname;
+  }, [pathname, shouldShowNav]);
+
+  if (!rendered) return null;
+
+  return (
+    <div
+      className={`
+        fixed bottom-0 left-0 right-0 z-50 
+        transition-transform duration-500
+        ${animationClass}
+      `}
+    >
+      <BottomNav />
+    </div>
+  );
 }

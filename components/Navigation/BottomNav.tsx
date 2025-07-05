@@ -55,7 +55,7 @@ export default function BottomNav() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm border-t border-white/5 safe-area-inset-bottom">
+    <div className="bg-black/50 backdrop-blur-sm border-t border-white/5 safe-area-inset-bottom">
       <div className="w-full px-4">
         <div className="flex items-center justify-between h-14">
           {navItems.map((item) => {
