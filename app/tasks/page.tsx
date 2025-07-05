@@ -55,37 +55,15 @@ export default function TasksPage() {
     const [processing, setProcessing] = useState<TaskProcessing>({});
     const [error, setError] = useState<string | null>(null);
 
-    // Логирование состояния компонента
-    useEffect(() => {
-        console.log('=== TASKS PAGE DEBUG ===');
-        console.log('User state:', {
-            user: user ? { id: user.id, telegram_id: user.telegram_id, first_name: user.first_name } : null,
-            telegramUser: telegramUser ? { id: telegramUser.id, first_name: telegramUser.first_name } : null,
-            loading,
-            error
-        });
-        console.log('Tasks state:', {
-            tasksCount: tasks.length,
-            tasks: tasks.map(t => ({ id: t.id, name: t.name, type: t.type, can_complete: t.can_complete }))
-        });
-        console.log('=======================');
-    }, [user, telegramUser, loading, error, tasks]);
-
     // Загрузка заданий
     const loadTasks = useCallback(async () => {
-        console.log('=== LOAD TASKS START ===');
-        console.log('Current user:', user);
-        console.log('Current telegramUser:', telegramUser);
+  
         
         if (!user) {
-            console.log('No user found, attempting to refresh...');
             // Если пользователь не загружен, попробуем обновить его данные
             if (telegramUser) {
                 try {
-                    console.log('Calling refreshUser with telegramUser:', telegramUser.id);
                     await refreshUser();
-                    console.log('refreshUser completed, loadTasks will be called again via useEffect');
-                    // После обновления пользователя, loadTasks будет вызван снова через useEffect
                     return;
                 } catch (err) {
                     console.error('Error refreshing user:', err);
@@ -100,33 +78,15 @@ export default function TasksPage() {
                 return;
             }
         }
-
-        console.log('User found, loading tasks for user ID:', user.id);
         try {
             setError(null);
-            console.log('Calling taskService.getTasksForUser...');
             const tasksData = await taskService.getTasksForUser(user.id);
-            console.log('Tasks loaded from service:', tasksData);
-            console.log('Tasks count:', tasksData.length);
-            console.log('Tasks details:', tasksData.map(t => ({
-                id: t.id,
-                name: t.name,
-                type: t.type,
-                can_complete: t.can_complete,
-                user_completion: t.user_completion ? {
-                    status: t.user_completion.status,
-                    started_at: t.user_completion.started_at,
-                    completed_at: t.user_completion.completed_at,
-                    claimed_at: t.user_completion.claimed_at
-                } : null
-            })));
             setTasks(tasksData);
         } catch (err) {
             console.error('Error loading tasks:', err);
             setError(t('tasks.errors.unknownError'));
         } finally {
             setLoading(false);
-            console.log('=== LOAD TASKS END ===');
         }
     }, [user, telegramUser, refreshUser, t]);
 
@@ -428,7 +388,7 @@ export default function TasksPage() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
+        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset pb-24">
             {/* Header */}
             <div className="text-center space-y-4 mb-8">
                 <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
@@ -437,19 +397,6 @@ export default function TasksPage() {
                 <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
                     {t("tasks.subtitle")}
                 </p>
-            </div>
-
-            {/* Debug Info */}
-            <div className="max-w-2xl mx-auto mb-4">
-                <Card className="bg-white/5 border border-white/10">
-                    <CardBody className="p-3">
-                        <div className="text-xs text-white/60 space-y-1">
-                            <p>Debug: User={user ? `ID:${user.id}` : 'null'}, TelegramUser={telegramUser ? `ID:${telegramUser.id}` : 'null'}</p>
-                            <p>Tasks loaded: {tasks.length}, Loading: {loading.toString()}</p>
-                            <p>Story: {storyTasks.length}, Active: {activeTasks.length}, Completed: {completedTasks.length}</p>
-                        </div>
-                    </CardBody>
-                </Card>
             </div>
 
             {error && (

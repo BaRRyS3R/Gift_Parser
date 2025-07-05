@@ -103,9 +103,6 @@ export const userService = {
   },
 
   async findByTelegramId(telegramId: number): Promise<User | null> {
-    console.log('=== userService: findByTelegramId START ===');
-    console.log('Looking for user with telegram_id:', telegramId);
-    
     const { data, error } = await supabase
       .from("users")
       .select("*")
@@ -116,14 +113,6 @@ export const userService = {
       console.error("Error finding user:", error);
       throw error;
     }
-
-    console.log('User found:', data ? {
-      id: data.id,
-      telegram_id: data.telegram_id,
-      first_name: data.first_name,
-      attempts_remaining: data.attempts_remaining
-    } : null);
-    console.log('=== userService: findByTelegramId END ===');
 
     return data;
   },
