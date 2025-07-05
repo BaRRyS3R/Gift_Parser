@@ -511,8 +511,8 @@ export default function GamePage() {
       </div>
 
       {/* Tournament Card - High Priority (если есть активный турнир) */}
-      <div className="mb-8 animate-fade-in">
-        <TournamentCard priority="high" />
+      <div className="mb-8">
+        <TournamentCard />
       </div>
 
       {/* Game Mode Cards */}
@@ -528,11 +528,6 @@ export default function GamePage() {
             isTransitioning={isTransitioning}
           />
         ))}
-      </div>
-
-      {/* Tournament Card - Low Priority (если нет активного турнира) */}
-      <div className="mb-8n">
-        <TournamentCard priority="low" />
       </div>
 
       {/* Footer Message */}
