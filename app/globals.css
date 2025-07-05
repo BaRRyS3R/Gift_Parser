@@ -1,4 +1,4 @@
-/* src/app/globals.css */
+/* src/app/globals.css - Enhanced with premium animations */
 
 @tailwind base;
 @tailwind components;
@@ -56,7 +56,7 @@ body {
   font-family: "BPDots Diamond", monospace;
 }
 
-/* Animation keyframes */
+/* Basic Animation keyframes */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -104,12 +104,97 @@ body {
   }
 }
 
-.activation-pulse {
-  animation: activation-pulse 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+/* Enhanced Premium Animations for Tournaments */
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.activation-pulse-red {
-  animation: activation-pulse-red 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-gentle {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+
+  50% {
+    opacity: 0.1;
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float-gentle {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+  }
+
+  50% {
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Animation utility classes */
@@ -125,6 +210,46 @@ body {
   animation: fade-in 0.3s ease-out forwards;
 }
 
+.animate-slide-in-up {
+  animation: slide-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out forwards;
+}
+
+.animate-pulse-gentle {
+  animation: pulse-gentle 2s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+.animate-float-gentle {
+  animation: float-gentle 3s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+.activation-pulse {
+  animation: activation-pulse 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.activation-pulse-red {
+  animation: activation-pulse-red 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
 /* Safe Area Classes */
 .safe-area-inset {
   padding-top: max(48px, env(safe-area-inset-top) + 16px);
@@ -138,7 +263,7 @@ body {
   padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
 }
 
-/* Loader styles */
+/* Enhanced Loader styles */
 .loader-container {
   position: fixed;
   top: 0;
@@ -164,11 +289,12 @@ body {
 
 .progress-bar-fill {
   height: 100%;
-  background: #fff;
+  background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0.8), #fff);
   transition: width 0.3s ease;
+  animation: shimmer 2s ease-in-out infinite;
 }
 
-/* Video container styles */
+/* Enhanced Video container styles */
 .video-container {
   position: fixed;
   top: 0;
@@ -189,6 +315,38 @@ body {
   object-fit: cover;
 }
 
+/* Gradient overlays for premium effects */
+.gradient-overlay-emerald {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 50%, rgba(16, 185, 129, 0.1) 100%);
+}
+
+.gradient-overlay-sky {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(2, 132, 199, 0.04) 50%, rgba(14, 165, 233, 0.08) 100%);
+}
+
+.gradient-overlay-amber {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.04) 50%, rgba(245, 158, 11, 0.08) 100%);
+}
+
+/* Custom scrollbar for enhanced sections */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 /* For portrait orientation - scale video to fill height */
 @media (orientation: portrait) {
   .video-player {
@@ -204,5 +362,16 @@ body {
     width: 100%;
     height: auto;
     min-height: 100%;
+  }
+}
+
+/* Responsive enhancements for mobile */
+@media (max-width: 640px) {
+  .animate-slide-in-up {
+    animation-duration: 0.4s;
+  }
+
+  .animate-pulse-gentle {
+    animation-duration: 1.5s;
   }
 }
