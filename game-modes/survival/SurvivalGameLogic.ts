@@ -316,7 +316,6 @@ export const activateSurvivalCircles = (
         ...circle,
         isActive: true,
         isDecoy: redIds.includes(circle.id),
-        isAnimating: true, // Добавляем импульсный эффект при активации
       };
     }
     return circle;

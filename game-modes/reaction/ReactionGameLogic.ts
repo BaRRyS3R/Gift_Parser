@@ -70,7 +70,7 @@ export const activateRandomCircle = (
       startTime: activationTime,
     },
     circles: state.circles.map((circle) =>
-      circle.id === circleId ? { ...circle, isActive: true, isAnimating: true } : circle,
+      circle.id === circleId ? { ...circle, isActive: true } : circle,
     ),
   };
 

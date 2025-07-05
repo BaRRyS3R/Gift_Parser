@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Исправлено для точного учета времени
+// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with activation pulse support
 
 "use client";
 
@@ -53,8 +53,8 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
-// ИЗМЕНЕНО: Увеличена частота обновления для более точного времени
-const LEVEL_UPDATE_INTERVAL = 16; // ~60fps для плавного обновления времени
+// Increased update frequency for more accurate timing
+const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
 
 export default function SurvivalGameManager() {
   const { saveGameResult, telegramUser } = useUser();
@@ -71,6 +71,10 @@ export default function SurvivalGameManager() {
   const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] =
     useState(false);
   const [isRestartLoading, setIsRestartLoading] = useState(false);
+
+  // NEW: State for activation pulse effects
+  const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
+  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
 
   const gameStateRef = useRef<SurvivalGameState>(gameState);
 
@@ -199,7 +203,7 @@ export default function SurvivalGameManager() {
       console.log("Survival game ended:", cause);
 
       setGameState((prev) => {
-        // ИСПРАВЛЕНО: Обновляем время до финального момента
+        // Update time to final moment
         const finalState = updateSurvivalLevel(prev, Date.now());
 
         let updatedStats = { ...finalState.stats };
@@ -254,10 +258,21 @@ export default function SurvivalGameManager() {
         setGameState((prev) => {
           const newState = activateSurvivalCircles(
             prev,
+            // UPDATED: Enhanced callback with activation pulse support
             (circleIds, redCircleIds) => {
               console.log(
                 `Activated circles: ${circleIds.join(", ")}, Red: ${redCircleIds.join(", ")}`,
               );
+
+              // NEW: Trigger activation pulse effect
+              const timestamp = Date.now();
+              setActivatedCircles(circleIds);
+              setLastActivationTimestamp(timestamp);
+
+              // Clear activation state after pulse animation completes
+              setTimeout(() => {
+                setActivatedCircles([]);
+              }, 450);
             },
             (circleId, wasDecoy) => {
               console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
@@ -291,11 +306,11 @@ export default function SurvivalGameManager() {
 
       console.log("Survival circle clicked:", circleId);
 
-      const clickTime = Date.now(); // ТОЧНОЕ время клика
+      const clickTime = Date.now(); // Precise click time
       const { newState, result } = handleSurvivalCircleClick(
         gameStateRef.current,
         circleId,
-        clickTime, // Передаем точное время
+        clickTime, // Pass precise time
       );
 
       if (result === "correct") {
@@ -324,6 +339,9 @@ export default function SurvivalGameManager() {
     setGameState(initializeSurvivalGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
+    // NEW: Reset activation pulse state
+    setActivatedCircles([]);
+    setLastActivationTimestamp(0);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -332,7 +350,7 @@ export default function SurvivalGameManager() {
     setTimeout(() => {
       setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-      // ИЗМЕНЕНО: Более частое обновление для точного времени
+      // More frequent updates for precise timing
       const levelInterval = setInterval(() => {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
@@ -340,7 +358,7 @@ export default function SurvivalGameManager() {
             return current;
           }
 
-          // ИЗМЕНЕНО: Используем реальное время вместо deltaTime
+          // Use real time instead of deltaTime
           return updateSurvivalLevel(current, Date.now());
         });
       }, LEVEL_UPDATE_INTERVAL);
@@ -609,11 +627,14 @@ export default function SurvivalGameManager() {
   return (
     <div className="min-h-screen bg-black flex flex-col text-white">
       <div className="flex-1 flex items-center justify-center">
+        {/* UPDATED: GameGrid with activation pulse support */}
         <GameGrid
           circles={gameState.circles}
           isGameActive={gameState.gameState === GameState.PLAYING}
           showCircles={showCircles}
           onCircleClick={handleCircleClickEvent}
+          onActivatedCircles={activatedCircles}
+          lastActivationTimestamp={lastActivationTimestamp}
         />
       </div>
 

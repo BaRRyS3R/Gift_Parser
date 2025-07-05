@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Updated with background click detection support
+// src/components/GameGrid.tsx - Updated with fast activation pulse effects
 
 "use client";
 
@@ -11,6 +11,15 @@ interface GameGridProps {
   onCircleClick: (circleId: number) => void;
   isGameActive: boolean;
   showCircles: boolean;
+  // NEW: Props for activation pulse notifications
+  onActivatedCircles?: number[]; // Array of circle IDs that were just activated
+  lastActivationTimestamp?: number; // Timestamp to trigger re-render when activations occur
+}
+
+interface ActivePulse {
+  circleId: number;
+  isRed: boolean;
+  timestamp: number;
 }
 
 // Utility function to determine grid dimensions based on circle count
@@ -38,6 +47,8 @@ export default function GameGrid({
   onCircleClick,
   isGameActive,
   showCircles,
+  onActivatedCircles = [],
+  lastActivationTimestamp = 0,
 }: GameGridProps) {
   const { cols, rows } = getGridDimensions(circles.length);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
@@ -46,6 +57,33 @@ export default function GameGrid({
   // State for dynamic sizing
   const [circleSize, setCircleSize] = useState(40);
   const [gapSize, setGapSize] = useState(4);
+
+  // NEW: State for tracking active activation pulses
+  const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
+
+  // NEW: Effect to handle activation pulses
+  useEffect(() => {
+    if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
+      // Create new pulses for activated circles
+      const newPulses: ActivePulse[] = onActivatedCircles.map(circleId => {
+        const circle = circles.find(c => c.id === circleId);
+        return {
+          circleId,
+          isRed: circle?.isDecoy || false,
+          timestamp: lastActivationTimestamp,
+        };
+      });
+
+      setActivePulses(prev => [...prev, ...newPulses]);
+
+      // Remove pulses after animation completes (400ms + small buffer)
+      setTimeout(() => {
+        setActivePulses(prev =>
+          prev.filter(pulse => pulse.timestamp !== lastActivationTimestamp)
+        );
+      }, 450);
+    }
+  }, [onActivatedCircles, lastActivationTimestamp, circles]);
 
   // Calculate adaptive sizes based on screen dimensions
   useEffect(() => {
@@ -227,6 +265,7 @@ export default function GameGrid({
     };
   };
 
+  // Existing continuous pulse effect (unchanged)
   const renderPulseEffect = (circle: Circle) => {
     if (!circle.isActive || circle.isAnimating) return null;
 
@@ -238,6 +277,24 @@ export default function GameGrid({
         className={`absolute inset-0 rounded-full border-2 ${pulseColor} opacity-50`}
         style={{
           animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
+        }}
+      />
+    );
+  };
+
+  // NEW: Fast activation pulse effect (single burst on activation)
+  const renderActivationPulse = (circle: Circle) => {
+    const activePulse = activePulses.find(pulse => pulse.circleId === circle.id);
+    if (!activePulse) return null;
+
+    const pulseClass = activePulse.isRed ? 'activation-pulse-red' : 'activation-pulse';
+    const pulseColor = activePulse.isRed ? 'border-red-400' : 'border-white';
+
+    return (
+      <div
+        className={`absolute inset-0 rounded-full border-2 ${pulseColor} ${pulseClass} pointer-events-none`}
+        style={{
+          zIndex: 10,
         }}
       />
     );
@@ -291,7 +348,10 @@ export default function GameGrid({
               onTouchEnd={getInteractionProps(circle).onTouchEnd}
               onTouchStart={getInteractionProps(circle).onTouchStart}
             >
+              {/* Existing continuous pulse effect */}
               {renderPulseEffect(circle)}
+              {/* NEW: Fast activation pulse effect */}
+              {renderActivationPulse(circle)}
               {/* Debug info for development */}
               {process.env.NODE_ENV === "development" && circle.isActive && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">

@@ -69,6 +69,49 @@ body {
   }
 }
 
+/* NEW: Fast activation pulse animation */
+@keyframes activation-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(2.2);
+    opacity: 0.4;
+  }
+
+  100% {
+    transform: scale(3.5);
+    opacity: 0;
+  }
+}
+
+@keyframes activation-pulse-red {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+
+  50% {
+    transform: scale(2.2);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(3.5);
+    opacity: 0;
+  }
+}
+
+.activation-pulse {
+  animation: activation-pulse 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.activation-pulse-red {
+  animation: activation-pulse-red 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
 /* Animation utility classes */
 .animate-fade-in {
   animation: fade-in 0.5s ease-out forwards;

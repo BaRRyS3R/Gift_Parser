@@ -182,7 +182,90 @@ export default function PhysicsGameCanvas({
         }
     }, []);
 
+    // Function to draw boundaries with proper visual state
+    const drawBoundaries = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
+        const { boundaries } = gameState;
 
+        // Top boundary
+        if (boundaries.top) {
+            ctx.strokeStyle = "#ffffff80";
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(canvas.width, 0);
+            ctx.stroke();
+        } else {
+            // Wall destroyed - show faint broken line or skip entirely
+            ctx.strokeStyle = "#ff444420";
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(canvas.width, 0);
+            ctx.stroke();
+        }
+
+        // Bottom boundary
+        if (boundaries.bottom) {
+            ctx.strokeStyle = "#ffffff80";
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.stroke();
+        } else {
+            ctx.strokeStyle = "#ff444420";
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.stroke();
+        }
+
+        // Left boundary
+        if (boundaries.left) {
+            ctx.strokeStyle = "#ffffff80";
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, canvas.height);
+            ctx.stroke();
+        } else {
+            ctx.strokeStyle = "#ff444420";
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, canvas.height);
+            ctx.stroke();
+        }
+
+        // Right boundary
+        if (boundaries.right) {
+            ctx.strokeStyle = "#ffffff80";
+            ctx.setLineDash([]);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width, 0);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.stroke();
+        } else {
+            ctx.strokeStyle = "#ff444420";
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width, 0);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.stroke();
+        }
+
+        // Reset line dash for subsequent drawing
+        ctx.setLineDash([]);
+    }, [gameState.boundaries]);
 
     // Main drawing function
     const draw = useCallback(() => {
@@ -194,6 +277,9 @@ export default function PhysicsGameCanvas({
 
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw boundaries with current state
+        drawBoundaries(ctx, canvas);
 
         // Draw circles
         gameState.circles.forEach((circle) => {
@@ -281,7 +367,7 @@ export default function PhysicsGameCanvas({
                 65
             );
         }
-    }, [gameState]);
+    }, [gameState, drawBoundaries]);
 
     // Animation loop
     const animate = useCallback(() => {

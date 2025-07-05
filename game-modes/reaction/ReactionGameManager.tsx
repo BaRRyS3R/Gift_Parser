@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Enhanced with background click handling
+// src/game-modes/reaction/ReactionGameManager.tsx - Enhanced with activation pulse support
 
 "use client";
 
@@ -63,6 +63,10 @@ export default function ReactionGameManager() {
   const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] =
     useState(false);
   const [isRestartLoading, setIsRestartLoading] = useState(false);
+
+  // NEW: State for activation pulse effects
+  const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
+  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
 
   const gameStateRef = useRef<ReactionGameState>(gameState);
 
@@ -224,9 +228,21 @@ export default function ReactionGameManager() {
     });
   }, [handleSaveGameResult]);
 
+  // UPDATED: Enhanced handleCircleActivated with pulse effect
   const handleCircleActivated = useCallback(
     (circleId: number) => {
       console.log(`Circle ${circleId} activated, waiting for click...`);
+
+      // NEW: Trigger activation pulse effect
+      const timestamp = Date.now();
+      setActivatedCircles([circleId]);
+      setLastActivationTimestamp(timestamp);
+
+      // Clear activation state after pulse animation completes
+      setTimeout(() => {
+        setActivatedCircles([]);
+      }, 450);
+
       triggerHapticFeedback("success");
     },
     [triggerHapticFeedback],
@@ -257,7 +273,7 @@ export default function ReactionGameManager() {
     [triggerHapticFeedback, handleSaveGameResult],
   );
 
-  // NEW: Handle clicks on background (outside circles)
+  // Handle clicks on background (outside circles)
   const handleBackgroundClickEvent = useCallback(
     (event: React.MouseEvent) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
@@ -296,6 +312,9 @@ export default function ReactionGameManager() {
     setGameState(initializeReactionGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
+    // NEW: Reset activation pulse state
+    setActivatedCircles([]);
+    setLastActivationTimestamp(0);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -597,11 +616,14 @@ export default function ReactionGameManager() {
         className="flex-1 flex items-center justify-center"
         onClick={handleBackgroundClickEvent}
       >
+        {/* UPDATED: GameGrid with activation pulse support */}
         <GameGrid
           circles={gameState.circles}
           isGameActive={gameState.gameState === GameState.PLAYING}
           showCircles={showCircles}
           onCircleClick={handleCircleClickEvent}
+          onActivatedCircles={activatedCircles}
+          lastActivationTimestamp={lastActivationTimestamp}
         />
       </div>
 
@@ -612,8 +634,8 @@ export default function ReactionGameManager() {
               {getInstructionIcon()}
               <span
                 className={`text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null
-                    ? "text-white animate-pulse"
-                    : "text-white/80"
+                  ? "text-white animate-pulse"
+                  : "text-white/80"
                   }`}
               >
                 {getInstructionText()}
