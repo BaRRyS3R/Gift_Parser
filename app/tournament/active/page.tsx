@@ -793,17 +793,10 @@ export default function ActiveTournamentPage() {
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
             {/* Header with Back Button */}
             <div className="mb-6">
-                <div className="flex items-center space-x-3 mb-4">
-                    <button
-                        onClick={handleBackToTournaments}
-                        className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center hover:bg-white/15 hover:border-white/30 transition-all duration-300"
-                    >
-                        <ArrowLeft className="text-white/80" size={18} />
-                    </button>
-                    <div className="flex-1">
-                        <h1 className="text-xl font-medium text-white">{tournament.name}</h1>
-                        <p className="text-white/60 text-sm">{t("tournament.tournamentActive")}</p>
-                    </div>
+                {/* Центрированный заголовок */}
+                <div className="mb-4 text-center">
+                    <h1 className="text-xl font-medium text-white">{tournament.name}</h1>
+                    <p className="text-green-400 text-sm">{t("tournament.tournamentActive")}</p>
                 </div>
 
                 {timeRemaining && (
