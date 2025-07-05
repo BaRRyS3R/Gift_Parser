@@ -11,9 +11,10 @@ interface GameGridProps {
   onCircleClick: (circleId: number) => void;
   isGameActive: boolean;
   showCircles: boolean;
-  // NEW: Props for activation pulse notifications
+  // Props for activation pulse notifications
   onActivatedCircles?: number[]; // Array of circle IDs that were just activated
   lastActivationTimestamp?: number; // Timestamp to trigger re-render when activations occur
+  gameMode?: 'reaction' | 'survival' | 'physics'; // NEW: Game mode for styling differences
 }
 
 interface ActivePulse {
@@ -49,6 +50,7 @@ export default function GameGrid({
   showCircles,
   onActivatedCircles = [],
   lastActivationTimestamp = 0,
+  gameMode = 'reaction',
 }: GameGridProps) {
   const { cols, rows } = getGridDimensions(circles.length);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
@@ -290,11 +292,15 @@ export default function GameGrid({
     const pulseClass = activePulse.isRed ? 'activation-pulse-red' : 'activation-pulse';
     const pulseColor = activePulse.isRed ? 'border-red-400' : 'border-white';
 
+    // Different z-index for different game modes
+    // In survival mode, pulse goes behind circles; in reaction mode, it goes above
+    const zIndex = gameMode === 'survival' ? -1 : 10;
+
     return (
       <div
         className={`absolute inset-0 rounded-full border-2 ${pulseColor} ${pulseClass} pointer-events-none`}
         style={{
-          zIndex: 10,
+          zIndex: zIndex,
         }}
       />
     );

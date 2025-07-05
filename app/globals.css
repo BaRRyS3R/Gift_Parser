@@ -69,7 +69,7 @@ body {
   }
 }
 
-/* NEW: Fast activation pulse animation */
+/* NEW: Fast activation pulse animation - smaller size */
 @keyframes activation-pulse {
   0% {
     transform: scale(1);
@@ -77,12 +77,12 @@ body {
   }
 
   50% {
-    transform: scale(2.2);
+    transform: scale(1.6);
     opacity: 0.4;
   }
 
   100% {
-    transform: scale(3.5);
+    transform: scale(2.2);
     opacity: 0;
   }
 }
@@ -94,12 +94,12 @@ body {
   }
 
   50% {
-    transform: scale(2.2);
+    transform: scale(1.6);
     opacity: 0.5;
   }
 
   100% {
-    transform: scale(3.5);
+    transform: scale(2.2);
     opacity: 0;
   }
 }

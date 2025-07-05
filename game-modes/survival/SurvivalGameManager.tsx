@@ -635,6 +635,7 @@ export default function SurvivalGameManager() {
           onCircleClick={handleCircleClickEvent}
           onActivatedCircles={activatedCircles}
           lastActivationTimestamp={lastActivationTimestamp}
+          gameMode="survival"
         />
       </div>
 

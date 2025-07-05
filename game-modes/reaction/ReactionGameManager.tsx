@@ -624,6 +624,7 @@ export default function ReactionGameManager() {
           onCircleClick={handleCircleClickEvent}
           onActivatedCircles={activatedCircles}
           lastActivationTimestamp={lastActivationTimestamp}
+          gameMode="reaction"
         />
       </div>
 
