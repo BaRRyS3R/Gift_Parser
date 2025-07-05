@@ -1,4 +1,4 @@
-// src/locales/ru/index.ts - Russian translations assembly
+// src/locales/en/index.ts - English translations assembly (обновлено с about)
 
 import { common } from './common';
 import { navigation } from './navigation';
@@ -14,8 +14,9 @@ import { shop } from './shop';
 import { save } from './save';
 import { errors } from './errors';
 import { time } from './time';
+import { about } from './about';
 
-export const ru = {
+export const en = {
     // Common UI elements
     common,
 
@@ -57,4 +58,7 @@ export const ru = {
 
     // Time formatting
     time,
-} as const;
+
+    // About modal
+    about,
+} as const; 
