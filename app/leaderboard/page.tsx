@@ -529,7 +529,7 @@ export default function LeaderboardPage() {
               })()}
             </div>
           ) : (
-            <div className="animate-fade-in space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            <div className="animate-fade-in space-y-3 max-h-[70vh] overflow-y-auto">
               {currentLeaderboard.map((entry, index) =>
                 isReactionTab
                   ? renderReactionLeaderboardEntry(entry as ReactionLeaderboard, index + 1)
