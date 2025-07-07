@@ -1,7 +1,7 @@
-// src/components/AboutModal/AboutModal.tsx - Оптимизированная версия
+// src/components/AboutModal/AboutModal.tsx - Исправленная оптимизированная версия
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -10,13 +10,31 @@ interface AboutModalProps {
     onClose: () => void;
 }
 
-// Мемоизированный компонент секции для предотвращения лишних ре-рендеров
-const Section = React.memo<{
+interface SectionProps {
     title: string;
     isOpen: boolean;
     onToggle: () => void;
     children: React.ReactNode;
-}>(({ title, isOpen, onToggle, children }) => (
+}
+
+interface GameModeCardProps {
+    name: string;
+    description: string;
+    difficulty: string;
+    duration: string;
+    features: string[];
+    colorClass: string;
+}
+
+interface SystemCardProps {
+    name: string;
+    description: string;
+    details: string;
+    colorClass: string;
+}
+
+// Мемоизированный компонент секции
+const Section: React.FC<SectionProps> = React.memo(({ title, isOpen, onToggle, children }) => (
     <div className="border-b border-white/10 last:border-b-0">
         <button
             onClick={onToggle}
@@ -40,14 +58,14 @@ const Section = React.memo<{
 Section.displayName = "Section";
 
 // Компонент для игрового режима
-const GameModeCard = React.memo<{
-    name: string;
-    description: string;
-    difficulty: string;
-    duration: string;
-    features: string[];
-    colorClass: string;
-}>(({ name, description, difficulty, duration, features, colorClass }) => (
+const GameModeCard: React.FC<GameModeCardProps> = React.memo(({
+    name,
+    description,
+    difficulty,
+    duration,
+    features,
+    colorClass
+}) => (
     <div className={`p-3 rounded-lg border ${colorClass} mb-3`}>
         <h4 className="font-semibold text-white mb-2">{name}</h4>
         <p className="text-sm text-white/70 mb-3">{description}</p>
@@ -75,12 +93,12 @@ const GameModeCard = React.memo<{
 GameModeCard.displayName = "GameModeCard";
 
 // Компонент для системной функции
-const SystemCard = React.memo<{
-    name: string;
-    description: string;
-    details: string;
-    colorClass: string;
-}>(({ name, description, details, colorClass }) => (
+const SystemCard: React.FC<SystemCardProps> = React.memo(({
+    name,
+    description,
+    details,
+    colorClass
+}) => (
     <div className={`p-3 rounded-lg border ${colorClass} mb-2`}>
         <h4 className="font-medium text-white text-sm mb-1">{name}</h4>
         <p className="text-xs text-white/60 mb-2">{description}</p>
@@ -90,7 +108,7 @@ const SystemCard = React.memo<{
 
 SystemCard.displayName = "SystemCard";
 
-export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
+const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
     const t = useT();
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
@@ -123,8 +141,8 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
         }));
     }, []);
 
-    // Мемоизированные данные для игровых режимов
-    const gameModes = useMemo(() => [
+    // Данные для игровых режимов
+    const gameModes = [
         {
             name: t("about.gameModes.reaction.name"),
             description: t("about.gameModes.reaction.description"),
@@ -164,10 +182,10 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             ],
             colorClass: "bg-purple-500/5 border-purple-400/20",
         },
-    ], [t]);
+    ];
 
-    // Мемоизированные данные для системных функций
-    const systemFeatures = useMemo(() => [
+    // Данные для системных функций
+    const systemFeatures = [
         {
             name: t("about.systems.attempts.name"),
             description: t("about.systems.attempts.description"),
@@ -204,10 +222,10 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             details: t("about.systems.leaderboard.details"),
             colorClass: "bg-indigo-500/5 border-indigo-400/20",
         },
-    ], [t]);
+    ];
 
-    // Мемоизированные советы
-    const tips = useMemo(() => [
+    // Советы
+    const tips = [
         {
             title: t("about.tips.first.title"),
             description: t("about.tips.first.description"),
@@ -232,7 +250,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             title: t("about.tips.sixth.title"),
             description: t("about.tips.sixth.description"),
         },
-    ], [t]);
+    ];
 
     if (!isOpen) return null;
 
@@ -258,17 +276,21 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                     <button
                         onClick={onClose}
                         className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors duration-200"
+                        aria-label="Close modal"
                     >
                         <X className="w-5 h-5 text-white/60" />
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="overflow-y-auto max-h-[calc(90vh-80px)] custom-scrollbar">
+                <div className="overflow-y-auto max-h-[calc(90vh-80px)]" style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent'
+                }}>
                     {/* Game Modes Section */}
                     <Section
                         title={`${t("about.sections.gameModes.title")} (3)`}
-                        isOpen={openSections.gameModes}
+                        isOpen={openSections.gameModes || false}
                         onToggle={() => toggleSection("gameModes")}
                     >
                         <p className="text-white/70 text-sm mb-4">
@@ -282,7 +304,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                     {/* Systems Section */}
                     <Section
                         title={`${t("about.sections.systems.title")} (6)`}
-                        isOpen={openSections.systems}
+                        isOpen={openSections.systems || false}
                         onToggle={() => toggleSection("systems")}
                     >
                         <p className="text-white/70 text-sm mb-4">
@@ -296,7 +318,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                     {/* Monetization Section */}
                     <Section
                         title={t("about.sections.monetization.title")}
-                        isOpen={openSections.monetization}
+                        isOpen={openSections.monetization || false}
                         onToggle={() => toggleSection("monetization")}
                     >
                         <p className="text-white/70 text-sm mb-4">
@@ -312,16 +334,18 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                                     {t("about.monetization.telegramStars.description")}
                                 </p>
                                 <div className="space-y-1">
-                                    {[
-                                        t("about.monetization.telegramStars.features.first"),
-                                        t("about.monetization.telegramStars.features.second"),
-                                        t("about.monetization.telegramStars.features.third"),
-                                    ].map((feature, index) => (
-                                        <div key={index} className="flex items-center gap-2 text-xs text-white/50">
-                                            <div className="w-1 h-1 rounded-full bg-green-400/60" />
-                                            {feature}
-                                        </div>
-                                    ))}
+                                    <div className="flex items-center gap-2 text-xs text-white/50">
+                                        <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                                        {t("about.monetization.telegramStars.features.first")}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-white/50">
+                                        <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                                        {t("about.monetization.telegramStars.features.second")}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-white/50">
+                                        <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                                        {t("about.monetization.telegramStars.features.third")}
+                                    </div>
                                 </div>
                             </div>
 
@@ -339,7 +363,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                     {/* Tips Section */}
                     <Section
                         title={`${t("about.sections.tips.title")} (6)`}
-                        isOpen={openSections.tips}
+                        isOpen={openSections.tips || false}
                         onToggle={() => toggleSection("tips")}
                     >
                         <p className="text-white/70 text-sm mb-4">
@@ -379,4 +403,6 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             </div>
         </div>
     );
-}
+};
+
+export default AboutModal;
