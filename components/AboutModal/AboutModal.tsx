@@ -1,37 +1,8 @@
-// src/components/AboutModal/AboutModal.tsx
+// src/components/AboutModal/AboutModal.tsx - Оптимизированная версия
 "use client";
 
-import React, { useState } from "react";
-import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Button,
-    Accordion,
-    AccordionItem,
-    Chip,
-    Divider,
-} from "@nextui-org/react";
-import {
-    Info,
-    Target,
-    Crosshair,
-    Atom,
-    Trophy,
-    ShoppingCart,
-    Users,
-    Gift,
-    Clock,
-    Star,
-    Gamepad2,
-    Heart,
-    Zap,
-    Medal,
-    DollarSign,
-} from "lucide-react";
-
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { X, ChevronDown, ChevronRight } from "lucide-react";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface AboutModalProps {
@@ -39,12 +10,122 @@ interface AboutModalProps {
     onClose: () => void;
 }
 
+// Мемоизированный компонент секции для предотвращения лишних ре-рендеров
+const Section = React.memo<{
+    title: string;
+    isOpen: boolean;
+    onToggle: () => void;
+    children: React.ReactNode;
+}>(({ title, isOpen, onToggle, children }) => (
+    <div className="border-b border-white/10 last:border-b-0">
+        <button
+            onClick={onToggle}
+            className="w-full p-4 text-left flex items-center justify-between hover:bg-white/5 transition-colors duration-200"
+        >
+            <span className="font-semibold text-white">{title}</span>
+            {isOpen ? (
+                <ChevronDown className="w-5 h-5 text-white/60" />
+            ) : (
+                <ChevronRight className="w-5 h-5 text-white/60" />
+            )}
+        </button>
+        {isOpen && (
+            <div className="px-4 pb-4 animate-fade-in-fast">
+                {children}
+            </div>
+        )}
+    </div>
+));
+
+Section.displayName = "Section";
+
+// Компонент для игрового режима
+const GameModeCard = React.memo<{
+    name: string;
+    description: string;
+    difficulty: string;
+    duration: string;
+    features: string[];
+    colorClass: string;
+}>(({ name, description, difficulty, duration, features, colorClass }) => (
+    <div className={`p-3 rounded-lg border ${colorClass} mb-3`}>
+        <h4 className="font-semibold text-white mb-2">{name}</h4>
+        <p className="text-sm text-white/70 mb-3">{description}</p>
+
+        <div className="flex gap-2 mb-3">
+            <span className="px-2 py-1 text-xs bg-white/10 text-white/80 rounded">
+                {difficulty}
+            </span>
+            <span className="px-2 py-1 text-xs bg-white/10 text-white/80 rounded">
+                {duration}
+            </span>
+        </div>
+
+        <div className="space-y-1">
+            {features.map((feature, index) => (
+                <div key={index} className="flex items-center gap-2 text-xs text-white/60">
+                    <div className="w-1 h-1 rounded-full bg-white/40 flex-shrink-0" />
+                    {feature}
+                </div>
+            ))}
+        </div>
+    </div>
+));
+
+GameModeCard.displayName = "GameModeCard";
+
+// Компонент для системной функции
+const SystemCard = React.memo<{
+    name: string;
+    description: string;
+    details: string;
+    colorClass: string;
+}>(({ name, description, details, colorClass }) => (
+    <div className={`p-3 rounded-lg border ${colorClass} mb-2`}>
+        <h4 className="font-medium text-white text-sm mb-1">{name}</h4>
+        <p className="text-xs text-white/60 mb-2">{description}</p>
+        <p className="text-xs text-white/50">{details}</p>
+    </div>
+));
+
+SystemCard.displayName = "SystemCard";
+
 export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
     const t = useT();
+    const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
-    const gameModes = [
+    // Закрытие модального окна при нажатии Escape
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && isOpen) {
+                onClose();
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener("keydown", handleEscape);
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "unset";
+        }
+
+        return () => {
+            document.removeEventListener("keydown", handleEscape);
+            document.body.style.overflow = "unset";
+        };
+    }, [isOpen, onClose]);
+
+    // Обработчик переключения секций
+    const toggleSection = useCallback((sectionId: string) => {
+        setOpenSections(prev => ({
+            ...prev,
+            [sectionId]: !prev[sectionId]
+        }));
+    }, []);
+
+    // Мемоизированные данные для игровых режимов
+    const gameModes = useMemo(() => [
         {
-            icon: Target,
             name: t("about.gameModes.reaction.name"),
             description: t("about.gameModes.reaction.description"),
             difficulty: t("about.gameModes.reaction.difficulty"),
@@ -55,11 +136,9 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                 t("about.gameModes.reaction.features.third"),
                 t("about.gameModes.reaction.features.fourth"),
             ],
-            color: "bg-blue-500/5 border-blue-400/20",
-            iconColor: "text-blue-400",
+            colorClass: "bg-blue-500/5 border-blue-400/20",
         },
         {
-            icon: Crosshair,
             name: t("about.gameModes.survival.name"),
             description: t("about.gameModes.survival.description"),
             difficulty: t("about.gameModes.survival.difficulty"),
@@ -70,11 +149,9 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                 t("about.gameModes.survival.features.third"),
                 t("about.gameModes.survival.features.fourth"),
             ],
-            color: "bg-red-500/5 border-red-400/20",
-            iconColor: "text-red-400",
+            colorClass: "bg-red-500/5 border-red-400/20",
         },
         {
-            icon: Atom,
             name: t("about.gameModes.physics.name"),
             description: t("about.gameModes.physics.description"),
             difficulty: t("about.gameModes.physics.difficulty"),
@@ -85,63 +162,52 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                 t("about.gameModes.physics.features.third"),
                 t("about.gameModes.physics.features.fourth"),
             ],
-            color: "bg-purple-500/5 border-purple-400/20",
-            iconColor: "text-purple-400",
+            colorClass: "bg-purple-500/5 border-purple-400/20",
         },
-    ];
+    ], [t]);
 
-    const systemFeatures = [
+    // Мемоизированные данные для системных функций
+    const systemFeatures = useMemo(() => [
         {
-            icon: Clock,
             name: t("about.systems.attempts.name"),
             description: t("about.systems.attempts.description"),
             details: t("about.systems.attempts.details"),
-            color: "bg-orange-500/5 border-orange-400/20",
-            iconColor: "text-orange-400",
+            colorClass: "bg-orange-500/5 border-orange-400/20",
         },
         {
-            icon: Gift,
             name: t("about.systems.referral.name"),
             description: t("about.systems.referral.description"),
             details: t("about.systems.referral.details"),
-            color: "bg-green-500/5 border-green-400/20",
-            iconColor: "text-green-400",
+            colorClass: "bg-green-500/5 border-green-400/20",
         },
         {
-            icon: Trophy,
             name: t("about.systems.tournaments.name"),
             description: t("about.systems.tournaments.description"),
             details: t("about.systems.tournaments.details"),
-            color: "bg-yellow-500/5 border-yellow-400/20",
-            iconColor: "text-yellow-400",
+            colorClass: "bg-yellow-500/5 border-yellow-400/20",
         },
         {
-            icon: Users,
             name: t("about.systems.tasks.name"),
             description: t("about.systems.tasks.description"),
             details: t("about.systems.tasks.details"),
-            color: "bg-cyan-500/5 border-cyan-400/20",
-            iconColor: "text-cyan-400",
+            colorClass: "bg-cyan-500/5 border-cyan-400/20",
         },
         {
-            icon: ShoppingCart,
             name: t("about.systems.shop.name"),
             description: t("about.systems.shop.description"),
             details: t("about.systems.shop.details"),
-            color: "bg-pink-500/5 border-pink-400/20",
-            iconColor: "text-pink-400",
+            colorClass: "bg-pink-500/5 border-pink-400/20",
         },
         {
-            icon: Medal,
             name: t("about.systems.leaderboard.name"),
             description: t("about.systems.leaderboard.description"),
             details: t("about.systems.leaderboard.details"),
-            color: "bg-indigo-500/5 border-indigo-400/20",
-            iconColor: "text-indigo-400",
+            colorClass: "bg-indigo-500/5 border-indigo-400/20",
         },
-    ];
+    ], [t]);
 
-    const tips = [
+    // Мемоизированные советы
+    const tips = useMemo(() => [
         {
             title: t("about.tips.first.title"),
             description: t("about.tips.first.description"),
@@ -166,293 +232,142 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             title: t("about.tips.sixth.title"),
             description: t("about.tips.sixth.description"),
         },
-    ];
+    ], [t]);
+
+    if (!isOpen) return null;
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            size="2xl"
-            scrollBehavior="inside"
-            classNames={{
-                base: "bg-black/95 backdrop-blur-xl border border-white/10",
-                header: "border-b border-white/10",
-                body: "py-6",
-                footer: "border-t border-white/10",
-            }}
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
+            onClick={onClose}
         >
-            <ModalContent>
-                <ModalHeader className="flex flex-col gap-1">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
-                            <Info className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-white">
-                                {t("about.title")}
-                            </h2>
-                            <p className="text-sm text-white/60">
-                                {t("about.subtitle")}
-                            </p>
-                        </div>
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+
+            {/* Modal Content */}
+            <div
+                className="relative w-full max-w-2xl mx-4 max-h-[90vh] bg-black/95 border border-white/10 rounded-xl overflow-hidden animate-slide-in-up"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                    <div>
+                        <h2 className="text-xl font-bold text-white">{t("about.title")}</h2>
+                        <p className="text-sm text-white/60">{t("about.subtitle")}</p>
                     </div>
-                </ModalHeader>
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors duration-200"
+                    >
+                        <X className="w-5 h-5 text-white/60" />
+                    </button>
+                </div>
 
-                <ModalBody className="text-white">
-                    <Accordion variant="splitted" className="px-0">
-                        {/* Game Modes Section */}
-                        <AccordionItem
-                            key="game-modes"
-                            aria-label={t("about.sections.gameModes.title")}
-                            title={
-                                <div className="flex items-center gap-3">
-                                    <Gamepad2 className="w-5 h-5 text-blue-400" />
-                                    <span className="font-semibold">
-                                        {t("about.sections.gameModes.title")}
-                                    </span>
-                                    <Chip size="sm" color="primary" variant="flat">
-                                        3
-                                    </Chip>
-                                </div>
-                            }
-                            classNames={{
-                                base: "!bg-white/5 border border-white/10",
-                                title: "text-white",
-                                content: "text-white/80",
-                            }}
-                        >
-                            <div className="space-y-4">
-                                <p className="text-white/70 text-sm mb-4">
-                                    {t("about.sections.gameModes.description")}
+                {/* Content */}
+                <div className="overflow-y-auto max-h-[calc(90vh-80px)] custom-scrollbar">
+                    {/* Game Modes Section */}
+                    <Section
+                        title={`${t("about.sections.gameModes.title")} (3)`}
+                        isOpen={openSections.gameModes}
+                        onToggle={() => toggleSection("gameModes")}
+                    >
+                        <p className="text-white/70 text-sm mb-4">
+                            {t("about.sections.gameModes.description")}
+                        </p>
+                        {gameModes.map((mode, index) => (
+                            <GameModeCard key={index} {...mode} />
+                        ))}
+                    </Section>
+
+                    {/* Systems Section */}
+                    <Section
+                        title={`${t("about.sections.systems.title")} (6)`}
+                        isOpen={openSections.systems}
+                        onToggle={() => toggleSection("systems")}
+                    >
+                        <p className="text-white/70 text-sm mb-4">
+                            {t("about.sections.systems.description")}
+                        </p>
+                        {systemFeatures.map((feature, index) => (
+                            <SystemCard key={index} {...feature} />
+                        ))}
+                    </Section>
+
+                    {/* Monetization Section */}
+                    <Section
+                        title={t("about.sections.monetization.title")}
+                        isOpen={openSections.monetization}
+                        onToggle={() => toggleSection("monetization")}
+                    >
+                        <p className="text-white/70 text-sm mb-4">
+                            {t("about.sections.monetization.description")}
+                        </p>
+
+                        <div className="space-y-3">
+                            <div className="p-3 rounded-lg bg-green-500/5 border border-green-400/20">
+                                <h4 className="font-medium text-white text-sm mb-2">
+                                    {t("about.monetization.telegramStars.title")}
+                                </h4>
+                                <p className="text-xs text-white/60 mb-2">
+                                    {t("about.monetization.telegramStars.description")}
                                 </p>
-
-                                {gameModes.map((mode, index) => {
-                                    const Icon = mode.icon;
-                                    return (
-                                        <div
-                                            key={index}
-                                            className={`p-4 rounded-lg border ${mode.color}`}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
-                                                    <Icon className={`w-4 h-4 ${mode.iconColor}`} />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <h4 className="font-semibold text-white mb-2">
-                                                        {mode.name}
-                                                    </h4>
-                                                    <p className="text-sm text-white/70 mb-3">
-                                                        {mode.description}
-                                                    </p>
-
-                                                    <div className="flex gap-2 mb-3">
-                                                        <Chip size="sm" variant="flat" color="default">
-                                                            {mode.difficulty}
-                                                        </Chip>
-                                                        <Chip size="sm" variant="flat" color="secondary">
-                                                            {mode.duration}
-                                                        </Chip>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <h5 className="text-xs font-medium text-white/60 uppercase tracking-wide">
-                                                            {t("about.gameModes.features")}
-                                                        </h5>
-                                                        <ul className="text-xs text-white/60 space-y-1">
-                                                            {mode.features.map((feature, featureIndex) => (
-                                                                <li key={featureIndex} className="flex items-center gap-2">
-                                                                    <div className="w-1 h-1 rounded-full bg-white/40" />
-                                                                    {feature}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                <div className="space-y-1">
+                                    {[
+                                        t("about.monetization.telegramStars.features.first"),
+                                        t("about.monetization.telegramStars.features.second"),
+                                        t("about.monetization.telegramStars.features.third"),
+                                    ].map((feature, index) => (
+                                        <div key={index} className="flex items-center gap-2 text-xs text-white/50">
+                                            <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                                            {feature}
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        </AccordionItem>
-
-                        {/* Systems and Mechanics Section */}
-                        <AccordionItem
-                            key="systems"
-                            aria-label={t("about.sections.systems.title")}
-                            title={
-                                <div className="flex items-center gap-3">
-                                    <Zap className="w-5 h-5 text-purple-400" />
-                                    <span className="font-semibold">
-                                        {t("about.sections.systems.title")}
-                                    </span>
-                                    <Chip size="sm" color="secondary" variant="flat">
-                                        6
-                                    </Chip>
-                                </div>
-                            }
-                            classNames={{
-                                base: "!bg-white/5 border border-white/10",
-                                title: "text-white",
-                                content: "text-white/80",
-                            }}
-                        >
-                            <div className="space-y-4">
-                                <p className="text-white/70 text-sm mb-4">
-                                    {t("about.sections.systems.description")}
-                                </p>
-
-                                <div className="grid gap-3">
-                                    {systemFeatures.map((feature, index) => {
-                                        const Icon = feature.icon;
-                                        return (
-                                            <div
-                                                key={index}
-                                                className={`p-3 rounded-lg border ${feature.color}`}
-                                            >
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                                                        <Icon className={`w-3.5 h-3.5 ${feature.iconColor}`} />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="font-medium text-white text-sm mb-1">
-                                                            {feature.name}
-                                                        </h4>
-                                                        <p className="text-xs text-white/60 mb-2">
-                                                            {feature.description}
-                                                        </p>
-                                                        <div className="text-xs text-white/50">
-                                                            {feature.details}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                    ))}
                                 </div>
                             </div>
-                        </AccordionItem>
 
-                        {/* Monetization Section */}
-                        <AccordionItem
-                            key="monetization"
-                            aria-label={t("about.sections.monetization.title")}
-                            title={
-                                <div className="flex items-center gap-3">
-                                    <DollarSign className="w-5 h-5 text-green-400" />
-                                    <span className="font-semibold">
-                                        {t("about.sections.monetization.title")}
-                                    </span>
-                                    <Chip size="sm" color="success" variant="flat">
-                                        ⭐
-                                    </Chip>
-                                </div>
-                            }
-                            classNames={{
-                                base: "!bg-white/5 border border-white/10",
-                                title: "text-white",
-                                content: "text-white/80",
-                            }}
-                        >
-                            <div className="space-y-4">
-                                <p className="text-white/70 text-sm mb-4">
-                                    {t("about.sections.monetization.description")}
+                            <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-400/20">
+                                <h4 className="font-medium text-white text-sm mb-2">
+                                    {t("about.monetization.freeToPlay.title")}
+                                </h4>
+                                <p className="text-xs text-white/60">
+                                    {t("about.monetization.freeToPlay.description")}
                                 </p>
+                            </div>
+                        </div>
+                    </Section>
 
-                                <div className="space-y-3">
-                                    <div className="p-3 rounded-lg bg-green-500/5 border border-green-400/20">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Star className="w-4 h-4 text-yellow-400" />
-                                            <span className="font-medium text-white text-sm">
-                                                {t("about.monetization.telegramStars.title")}
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-white/60 mb-2">
-                                            {t("about.monetization.telegramStars.description")}
-                                        </p>
-                                        <ul className="text-xs text-white/50 space-y-1">
-                                            <li className="flex items-center gap-2">
-                                                <div className="w-1 h-1 rounded-full bg-green-400/60" />
-                                                {t("about.monetization.telegramStars.features.first")}
-                                            </li>
-                                            <li className="flex items-center gap-2">
-                                                <div className="w-1 h-1 rounded-full bg-green-400/60" />
-                                                {t("about.monetization.telegramStars.features.second")}
-                                            </li>
-                                            <li className="flex items-center gap-2">
-                                                <div className="w-1 h-1 rounded-full bg-green-400/60" />
-                                                {t("about.monetization.telegramStars.features.third")}
-                                            </li>
-                                        </ul>
+                    {/* Tips Section */}
+                    <Section
+                        title={`${t("about.sections.tips.title")} (6)`}
+                        isOpen={openSections.tips}
+                        onToggle={() => toggleSection("tips")}
+                    >
+                        <p className="text-white/70 text-sm mb-4">
+                            {t("about.sections.tips.description")}
+                        </p>
+                        {tips.map((tip, index) => (
+                            <div key={index} className="p-3 rounded-lg bg-orange-500/5 border border-orange-400/10 mb-2">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-6 h-6 rounded-full bg-orange-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <span className="text-xs font-bold text-orange-400">
+                                            {index + 1}
+                                        </span>
                                     </div>
-
-                                    <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-400/20">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Heart className="w-4 h-4 text-red-400" />
-                                            <span className="font-medium text-white text-sm">
-                                                {t("about.monetization.freeToPlay.title")}
-                                            </span>
-                                        </div>
+                                    <div>
+                                        <h4 className="font-medium text-white text-sm mb-1">
+                                            {tip.title}
+                                        </h4>
                                         <p className="text-xs text-white/60">
-                                            {t("about.monetization.freeToPlay.description")}
+                                            {tip.description}
                                         </p>
                                     </div>
                                 </div>
                             </div>
-                        </AccordionItem>
-
-                        {/* Tips and Strategies Section */}
-                        <AccordionItem
-                            key="tips"
-                            aria-label={t("about.sections.tips.title")}
-                            title={
-                                <div className="flex items-center gap-3">
-                                    <Target className="w-5 h-5 text-orange-400" />
-                                    <span className="font-semibold">
-                                        {t("about.sections.tips.title")}
-                                    </span>
-                                    <Chip size="sm" color="warning" variant="flat">
-                                        Pro
-                                    </Chip>
-                                </div>
-                            }
-                            classNames={{
-                                base: "!bg-white/5 border border-white/10",
-                                title: "text-white",
-                                content: "text-white/80",
-                            }}
-                        >
-                            <div className="space-y-3">
-                                <p className="text-white/70 text-sm mb-4">
-                                    {t("about.sections.tips.description")}
-                                </p>
-
-                                {tips.map((tip, index) => (
-                                    <div key={index} className="p-3 rounded-lg bg-orange-500/5 border border-orange-400/10">
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-6 h-6 rounded-full bg-orange-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                                <span className="text-xs font-bold text-orange-400">
-                                                    {index + 1}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <h4 className="font-medium text-white text-sm mb-1">
-                                                    {tip.title}
-                                                </h4>
-                                                <p className="text-xs text-white/60">
-                                                    {tip.description}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </AccordionItem>
-                    </Accordion>
-
-                    <Divider className="my-4 bg-white/10" />
+                        ))}
+                    </Section>
 
                     {/* Meta Information */}
-                    <div className="text-center space-y-2">
+                    <div className="p-4 text-center space-y-2 border-t border-white/10">
                         <p className="text-xs text-white/40">
                             {t("about.meta.version")}
                         </p>
@@ -460,8 +375,8 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                             {t("about.meta.disclaimer")}
                         </p>
                     </div>
-                </ModalBody>
-            </ModalContent>
-        </Modal>
+                </div>
+            </div>
+        </div>
     );
 }
