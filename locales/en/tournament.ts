@@ -6,16 +6,16 @@ export const tournament = {
     noActiveTournamentDesc: "There are currently no active tournaments. Check back later for upcoming tournaments!",
     tournamentActive: "Tournament Active",
     timeRemaining: "remaining",
-    enterTournament: "ENTER TOURNAMENT",
-    playTournamentAgain: "PLAY TOURNAMENT AGAIN",
-    tournamentEnd: "TOURNAMENT END",
+    enterTournament: "PLAY",
+    playTournamentAgain: "PLAY AGAIN",
+    tournamentEnd: "END",
     tournamentMode: "Tournament Mode",
     prizes: "TOURNAMENT PRIZES",
     winners: "PRIZE WINNERS",
     participants: "PARTICIPANTS",
     noParticipants: "No participants yet",
     beFirstParticipant: "Be the first to enter the tournament!",
-    
+
     // User position
     yourProgress: "YOUR PROGRESS",
     yourPosition: "Your Position",
@@ -23,22 +23,22 @@ export const tournament = {
     notParticipating: "You are not participating in the tournament yet",
     playToJoinLeaderboard: "Play to join the leaderboard",
     outOf: "out of",
-    
+
     // Modal windows
     allParticipants: "All Participants",
     totalParticipants: "total participants",
     tournamentPrizes: "Tournament Prizes",
     place: "place",
-    
+
     // Statistics
     tournamentStats: "Tournament Statistics",
     topParticipants: "Top Participants",
     topScore: "Top Score",
-    
+
     // Time data
     startDate: "Start Date",
     endDate: "End Date",
-    
+
     // Main results
     rank: "RANK",
     maxLevel: "MAX LEVEL",
@@ -56,7 +56,7 @@ export const tournament = {
     earnOnePointPerHit: "Earn 1 point per correct hit",
     earnMorePoints: "Play again to earn more points!",
     levelsCompleted: "levels completed",
-    
+
     // Saving results
     savingResult: "Saving tournament result...",
     resultSaved: "Tournament result saved successfully",
@@ -67,13 +67,13 @@ export const tournament = {
     retrySave: "RETRY SAVE",
     connectionIssue: "Connection issue - automatic retry",
     retryingSave: "Retrying save ({attempt}/{max})...",
-    
+
     // Loading
     loadingTournament: "Loading tournament...",
     tournamentNotFound: "Tournament not found",
     redirectingToTournament: "Redirecting to tournament page...",
     ended: "Ended",
-    
+
     // Statistics and progress
     gamesPlayed: "Games Played",
     totalAccumulated: "Total Accumulated",
@@ -85,7 +85,7 @@ export const tournament = {
     accumulatedScore: "Accumulated Score",
     lastGameScore: "Last Game",
     tournamentProgress: "Tournament Progress",
-    
+
     // Completed tournaments
     completed: "Completed",
     duration: "Duration",
@@ -101,7 +101,7 @@ export const tournament = {
     noChampionsData: "No champions data available",
     tournaments: "tournaments",
     status: "Status",
-    
+
     // Errors and loading states
     errorLoadingTournaments: "Error loading tournaments",
     noTournamentsAvailable: "No tournaments available",
@@ -113,35 +113,35 @@ export const tournament = {
     hallOfFame: "Hall of Fame",
     loadingTournaments: "Loading tournaments...",
     fetchingData: "Fetching tournament data...",
-    
+
     // "King of the Hill" Tournament Rules
     rulesAndStrategy: "Rules & Strategy",
     kingOfTheHillRules: "King of the Hill Rules",
     competitionFormat: "Competition Format",
-    
+
     conceptTitle: "King of the Hill Concept",
     conceptSubtitle: "Point accumulation competition",
     conceptDescription: "The tournament operates on a 'King of the Hill' principle — each game awards points that accumulate in your overall score. The winner is whoever accumulates the most points across all their tournament games.",
-    
+
     howToPlay: "How to Play",
     playRule1: "Click white circles to earn points",
     playRule2: "Avoid red trap circles",
     playRule3: "Don't miss active targets",
-    
+
     scoringSystem: "Scoring System",
     scoringRule1: "1 point for each correct hit",
     scoringRule2: "Points accumulate across all games",
     scoringRule3: "Total score determines tournament ranking",
-    
+
     winningStrategy: "Winning Strategy",
     strategyRule1: "Play multiple games to accumulate points",
     strategyRule2: "Accuracy is more important than speed",
     strategyRule3: "Each game increases your total score",
-    
+
     timeConstraints: "Time Constraints",
     timeRule1: "Tournament runs for a limited time period",
     timeRule2: "Each game consumes one attempt",
-    
+
     importantNotes: "Important Notes",
     finalNote: "Remember: in King of the Hill tournaments, the number of games can be a key success factor. The more points you accumulate, the higher your position in the final leaderboard.",
 
