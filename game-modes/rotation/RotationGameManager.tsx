@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Fixed circle rotation updates
+// src/game-modes/rotation/RotationGameManager.tsx - Simplified without JS position updates
 
 "use client";
 
@@ -23,7 +23,6 @@ import {
     cleanupRotationGame,
     getLevelConfig,
     formatRotationTime,
-    updateCirclePositions,
 } from "./RotationGameLogic";
 
 import { useUser } from "@/hooks/useUser";
@@ -53,7 +52,7 @@ const initialSaveStatus: SaveStatus = {
     showRetryDetails: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
+const LEVEL_UPDATE_INTERVAL = 100; // Update level/time every 100ms
 
 export default function RotationGameManager() {
     const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
@@ -76,7 +75,6 @@ export default function RotationGameManager() {
     const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
 
     const gameStateRef = useRef<RotationGameState>(gameState);
-    const rotationAnimationRef = useRef<number | null>(null);
 
     useEffect(() => {
         gameStateRef.current = gameState;
@@ -325,51 +323,11 @@ export default function RotationGameManager() {
         [triggerHapticFeedback, endGame],
     );
 
-    // Fixed rotation animation loop
-    const updateRotation = useCallback(() => {
-        setGameState((prevState) => {
-            if (!prevState.isActive || prevState.gameState !== GameState.PLAYING) {
-                return prevState;
-            }
-
-            // Update all circle positions using the rotation logic
-            const updatedCircles = updateCirclePositions(
-                prevState.circles,
-                prevState.currentRotationSpeed
-            );
-
-            return {
-                ...prevState,
-                circles: updatedCircles,
-            };
-        });
-
-        // Continue animation if game is active
-        if (gameStateRef.current.isActive && gameStateRef.current.gameState === GameState.PLAYING) {
-            rotationAnimationRef.current = requestAnimationFrame(updateRotation);
-        }
-    }, []);
-
-    // Cleanup rotation animation
-    useEffect(() => {
-        return () => {
-            if (rotationAnimationRef.current) {
-                cancelAnimationFrame(rotationAnimationRef.current);
-                rotationAnimationRef.current = null;
-            }
-        };
-    }, []);
-
     const startGame = useCallback(() => {
         console.log("Starting Rotation Game...");
 
-        // Cleanup any existing animation
-        if (rotationAnimationRef.current) {
-            cancelAnimationFrame(rotationAnimationRef.current);
-            rotationAnimationRef.current = null;
-        }
-
-        setGameState(initializeRotationGameState());
+        const initialState = initializeRotationGameState();
+        setGameState(initialState);
         setGameResult(null);
         setSaveStatus(initialSaveStatus);
         setActivatedCircles([]);
@@ -382,7 +340,7 @@ export default function RotationGameManager() {
         setTimeout(() => {
             setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-            // Start level update interval
+            // Start level update interval (for time tracking and level progression)
             const levelInterval = setInterval(() => {
                 setGameState((current) => {
                     if (!current.isActive || current.gameState !== GameState.PLAYING) {
@@ -394,9 +352,6 @@ export default function RotationGameManager() {
                 });
             }, LEVEL_UPDATE_INTERVAL);
 
-            // Start rotation animation
-            rotationAnimationRef.current = requestAnimationFrame(updateRotation);
-
             setTimeout(() => {
                 scheduleNextActivation();
             }, 1000);
@@ -404,10 +359,9 @@ export default function RotationGameManager() {
             setGameState((prev) => ({
                 ...prev,
                 levelUpdateInterval: levelInterval,
-                rotationAnimationFrame: rotationAnimationRef.current,
             }));
         }, 800);
-    }, [scheduleNextActivation, updateRotation]);
+    }, [scheduleNextActivation]);
 
     const restartGame = useCallback(async () => {
         if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
@@ -436,9 +390,6 @@ export default function RotationGameManager() {
     useEffect(() => {
         return () => {
             cleanupRotationGame(gameStateRef.current);
-            if (rotationAnimationRef.current) {
-                cancelAnimationFrame(rotationAnimationRef.current);
-            }
         };
     }, []);
 

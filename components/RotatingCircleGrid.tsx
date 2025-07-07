@@ -1,4 +1,4 @@
-// src/components/RotatingCircleGrid.tsx - Fixed without axis visual and improved circle rendering
+// src/components/RotatingCircleGrid.tsx - CSS-based rotation animation
 
 "use client";
 
@@ -33,6 +33,7 @@ export default function RotatingCircleGrid({
     lastActivationTimestamp = 0,
 }: RotatingCircleGridProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const rotatingContainerRef = useRef<HTMLDivElement>(null);
     const touchStartTimeRef = useRef<Map<number, number>>(new Map());
     const processedTouchesRef = useRef<Set<number>>(new Set());
 
@@ -42,6 +43,9 @@ export default function RotatingCircleGrid({
 
     // State for tracking active activation pulses
     const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
+
+    // Calculate rotation duration based on speed
+    const rotationDurationMs = rotationSpeed > 0 ? (2 * Math.PI / rotationSpeed) * 16 : 10000; // 16ms per frame
 
     // Effect to handle activation pulses
     useEffect(() => {
@@ -94,16 +98,24 @@ export default function RotatingCircleGrid({
         };
     }, []);
 
-    // Calculate position for each circle based on game logic
-    const getCirclePosition = useCallback((circle: RotationCircle) => {
-        const centerX = containerSize / 2;
-        const centerY = containerSize / 2;
-        // Use consistent radius scaling
+    // Update CSS animation when rotation speed changes
+    useEffect(() => {
+        if (rotatingContainerRef.current && isGameActive) {
+            const duration = rotationDurationMs;
+            rotatingContainerRef.current.style.animationDuration = `${duration}ms`;
+            rotatingContainerRef.current.style.animationPlayState = 'running';
+        } else if (rotatingContainerRef.current) {
+            rotatingContainerRef.current.style.animationPlayState = 'paused';
+        }
+    }, [rotationDurationMs, isGameActive]);
+
+    // Calculate static position for each circle (relative to rotating container)
+    const getCircleStaticPosition = useCallback((circle: RotationCircle) => {
         const scaledRadius = (containerSize * 0.35);
 
-        // Use angle from circle data (updated by game logic)
-        const x = centerX + Math.cos(circle.angle) * scaledRadius - circleSize / 2;
-        const y = centerY + Math.sin(circle.angle) * scaledRadius - circleSize / 2;
+        // Use initial angle from circle data (static relative to container)
+        const x = Math.cos(circle.angle) * scaledRadius - circleSize / 2;
+        const y = Math.sin(circle.angle) * scaledRadius - circleSize / 2;
 
         return { x, y };
     }, [containerSize, circleSize]);
@@ -229,7 +241,7 @@ export default function RotatingCircleGrid({
                     WebkitTouchCallout: "none",
                 }}
             >
-                {/* Central rotation indicator (just a dot) */}
+                {/* Central rotation indicator */}
                 <div className="absolute inset-0 flex items-center justify-center">
                     <div
                         className="w-2 h-2 bg-white/30 rounded-full animate-pulse"
@@ -239,61 +251,71 @@ export default function RotatingCircleGrid({
                     />
                 </div>
 
-                {/* Circles - positioned using game logic data */}
-                {circles.map((circle) => {
-                    const circleStyleConfig = getCircleStyles(circle);
-                    const position = getCirclePosition(circle);
+                {/* Rotating container for all circles */}
+                <div
+                    ref={rotatingContainerRef}
+                    className="absolute inset-0"
+                    style={{
+                        animation: `spin ${rotationDurationMs}ms linear infinite`,
+                        animationPlayState: isGameActive ? 'running' : 'paused',
+                        transformOrigin: 'center center',
+                    }}
+                >
+                    {/* Circles - positioned statically within rotating container */}
+                    {circles.map((circle) => {
+                        const circleStyleConfig = getCircleStyles(circle);
+                        const staticPosition = getCircleStaticPosition(circle);
 
-                    return (
-                        <button
-                            key={circle.id}
-                            data-circle-id={circle.id}
-                            aria-label={`Rotating circle ${circle.id + 1}${circle.isActive
-                                ? (circle.isDecoy ? " - trap target" : " - active target")
-                                : ""
-                                }`}
-                            className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
-                            disabled={!isGameActive}
-                            style={{
-                                width: `${circleSize}px`,
-                                height: `${circleSize}px`,
-                                minWidth: `${circleSize}px`,
-                                minHeight: `${circleSize}px`,
-                                // Use calculated position from circle angle
-                                left: `${position.x}px`,
-                                top: `${position.y}px`,
-                                transitionDelay: showCircles ? `${circle.id * 30}ms` : "0ms",
-                                touchAction: "manipulation",
-                                // Force re-render when position changes
-                                transform: `translate3d(0, 0, 0)`,
-                            }}
-                            type="button"
-                            onClick={(event) => handleClick(circle.id, event)}
-                            onContextMenu={(event) => event.preventDefault()}
-                            onTouchEnd={(event) => handleTouchEnd(circle.id, event)}
-                            onTouchStart={(event) => handleTouchStart(circle.id, event)}
-                        >
-                            {/* Continuous pulse effect */}
-                            {renderPulseEffect(circle)}
-                            {/* Activation pulse effect */}
-                            {renderActivationPulse(circle)}
+                        return (
+                            <button
+                                key={circle.id}
+                                data-circle-id={circle.id}
+                                aria-label={`Rotating circle ${circle.id + 1}${circle.isActive
+                                    ? (circle.isDecoy ? " - trap target" : " - active target")
+                                    : ""
+                                    }`}
+                                className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
+                                disabled={!isGameActive}
+                                style={{
+                                    width: `${circleSize}px`,
+                                    height: `${circleSize}px`,
+                                    minWidth: `${circleSize}px`,
+                                    minHeight: `${circleSize}px`,
+                                    // Static position within rotating container
+                                    left: `50%`,
+                                    top: `50%`,
+                                    transform: `translate(calc(-50% + ${staticPosition.x}px), calc(-50% + ${staticPosition.y}px))`,
+                                    transitionDelay: showCircles ? `${circle.id * 30}ms` : "0ms",
+                                    touchAction: "manipulation",
+                                }}
+                                type="button"
+                                onClick={(event) => handleClick(circle.id, event)}
+                                onContextMenu={(event) => event.preventDefault()}
+                                onTouchEnd={(event) => handleTouchEnd(circle.id, event)}
+                                onTouchStart={(event) => handleTouchStart(circle.id, event)}
+                            >
+                                {/* Continuous pulse effect */}
+                                {renderPulseEffect(circle)}
+                                {/* Activation pulse effect */}
+                                {renderActivationPulse(circle)}
 
-                            {/* Debug info for development */}
-                            {process.env.NODE_ENV === "development" && (
-                                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
-                                    {circle.id}
-                                </div>
-                            )}
-                        </button>
-                    );
-                })}
+                                {/* Debug info for development */}
+                                {process.env.NODE_ENV === "development" && (
+                                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
+                                        {circle.id}
+                                    </div>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
 
                 {/* Rotation direction indicator */}
                 <div className="absolute bottom-2 right-2">
                     <div
                         className="w-6 h-6 border-2 border-white/20 rounded-full relative"
                         style={{
-                            animation: `spin-slow ${6 / (rotationSpeed * 100)}s linear infinite`,
+                            animation: `spin ${rotationDurationMs}ms linear infinite`,
                         }}
                     >
                         <div className="absolute top-0 left-1/2 w-1 h-1 bg-white/40 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
