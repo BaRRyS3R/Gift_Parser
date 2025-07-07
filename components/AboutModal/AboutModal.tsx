@@ -257,20 +257,32 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
             onClick={onClose}
+            onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                    onClose();
+                }
+            }}
         >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            <div
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                aria-hidden="true"
+            />
 
             {/* Modal Content */}
             <div
                 className="relative w-full max-w-2xl mx-4 max-h-[90vh] bg-black/95 border border-white/10 rounded-xl overflow-hidden animate-slide-in-up"
                 onClick={(e) => e.stopPropagation()}
+                role="document"
             >
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
                     <div>
-                        <h2 className="text-xl font-bold text-white">{t("about.title")}</h2>
+                        <h2 id="modal-title" className="text-xl font-bold text-white">{t("about.title")}</h2>
                         <p className="text-sm text-white/60">{t("about.subtitle")}</p>
                     </div>
                     <button
