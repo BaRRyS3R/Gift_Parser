@@ -28,6 +28,10 @@ export const tournament = {
     totalPoints: "ВСЕГО ОЧКОВ",
     topPoints: "ЛУЧШИЙ РЕЗУЛЬТАТ",
     pointsEarned: "ОЧКОВ ПОЛУЧЕНО",
+    tournamentStats: "Статистика Турнира",
+    topScore: "Топ оп Очкам",
+    topParticipants: "Топ Участников",
+
     addedToTotal: "Добавлено к вашему турнирному результату",
     pointsAccumulated: "Очки накапливаются во всех играх",
     pointsAddedToTotal: "Очки добавлены к турнирному результату",

@@ -28,6 +28,11 @@ export const tournament = {
     totalPoints: "TOTAL POINTS",
     topPoints: "TOP POINTS",
     pointsEarned: "POINTS EARNED",
+
+    tournamentStats: "Tournament Stats",
+    topScore: "Top Score",
+    topParticipants: "Top Participants",
+    
     addedToTotal: "Added to your tournament total",
     pointsAccumulated: "Points accumulate across all games",
     pointsAddedToTotal: "Points added to tournament total",
