@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Updated implementation with proper boundary positioning and mistake-based ending
+// src/game-modes/physics/PhysicsGameManager.tsx - Безопасная версия с оптимизированным потреблением попыток
 
 "use client";
 
@@ -33,7 +33,6 @@ import {
 } from "./PhysicsGameLogic";
 
 import { useUser } from "@/hooks/useUser";
-import { userService } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
     PhysicsGameState,
@@ -61,9 +60,10 @@ const initialSaveStatus: SaveStatus = {
 };
 
 export default function PhysicsGameManager() {
-    const { saveGameResult, telegramUser } = useUser();
+    const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
     const router = useRouter();
     const t = useT();
+
     const [gameState, setGameState] = useState<PhysicsGameState>(
         initializePhysicsGameState(),
     );
@@ -72,8 +72,7 @@ export default function PhysicsGameManager() {
     const [gameResult, setGameResult] = useState<PhysicsGameResult | null>(null);
     const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
     const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
-    const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] =
-        useState(false);
+    const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
     const [isRestartLoading, setIsRestartLoading] = useState(false);
 
     const gameStateRef = useRef<PhysicsGameState>(gameState);
@@ -100,17 +99,17 @@ export default function PhysicsGameManager() {
         }
     }, [router]);
 
-    // Consume attempt immediately when component mounts
+    // ОБНОВЛЕНО: Безопасное потребление попытки при входе в игру
     useEffect(() => {
         const consumeInitialAttempt = async () => {
             if (!telegramUser?.id || hasConsumedInitialAttempt) return;
 
             try {
                 setIsConsumingAttempt(true);
-                const newStatus = await userService.consumeAttemptWithServerValidation(
-                    telegramUser.id,
-                );
+                console.log("Consuming initial attempt for physics game");
 
+                // Используем безопасный метод потребления попытки
+                const newStatus = await consumeAttemptForGame();
                 setAttemptsRemaining(newStatus.attemptsRemaining);
                 setHasConsumedInitialAttempt(true);
 
@@ -120,16 +119,15 @@ export default function PhysicsGameManager() {
             } catch (error) {
                 console.error("Error consuming initial attempt:", error);
                 setHasConsumedInitialAttempt(true);
-                setTimeout(() => {
-                    startGame();
-                }, 500);
+                // При ошибке возвращаемся к выбору игр
+                router.push("/game");
             } finally {
                 setIsConsumingAttempt(false);
             }
         };
 
         consumeInitialAttempt();
-    }, [telegramUser?.id, hasConsumedInitialAttempt]);
+    }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
 
     const triggerHapticFeedback = useCallback((type: "success" | "error") => {
         if (
@@ -391,19 +389,13 @@ export default function PhysicsGameManager() {
         }, 800);
     }, [scheduleNextActivation, updatePhysicsEngine]);
 
+    // ОБНОВЛЕНО: Оптимизированный рестарт с локальным счетчиком
     const restartGame = useCallback(async () => {
         if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
+        setIsRestartLoading(true);
+
         try {
-            setIsRestartLoading(true);
-
-            const newStatus = await userService.consumeAttemptWithServerValidation(
-                telegramUser.id,
-            );
-
-            setAttemptsRemaining(newStatus.attemptsRemaining);
-            setShowCanvas(false);
-
             // Cleanup current game before restarting
             cleanupPhysicsGame(gameStateRef.current);
             if (engineUpdateRef.current) {
@@ -411,15 +403,34 @@ export default function PhysicsGameManager() {
                 engineUpdateRef.current = undefined;
             }
 
-            setTimeout(() => {
-                startGame();
-            }, 200);
+            if (attemptsRemaining > 1) {
+                // ОПТИМИЗАЦИЯ: Если попыток больше одной, просто уменьшаем локально
+                console.log("Optimized restart: decrementing attempts locally");
+                setAttemptsRemaining(prev => prev - 1);
+
+                setShowCanvas(false);
+                setTimeout(() => {
+                    startGame();
+                }, 200);
+            } else {
+                // Только при последней попытке делаем серверный запрос
+                console.log("Last attempt: consuming on server");
+                const newStatus = await consumeAttemptForGame();
+                setAttemptsRemaining(newStatus.attemptsRemaining);
+
+                setShowCanvas(false);
+                setTimeout(() => {
+                    startGame();
+                }, 200);
+            }
         } catch (error) {
-            console.error("Error consuming attempt for restart:", error);
+            console.error("Error during restart:", error);
+            // При ошибке возвращаемся к выбору игр
+            router.push("/game");
         } finally {
             setIsRestartLoading(false);
         }
-    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading]);
+    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
 
     // Cleanup on component unmount
     useEffect(() => {
@@ -547,6 +558,7 @@ export default function PhysicsGameManager() {
                         </div>
                     </div>
 
+                    {/* Save Status Display */}
                     {(saveStatus.isLoading ||
                         saveStatus.error ||
                         saveStatus.isSuccess) && (
@@ -690,7 +702,7 @@ export default function PhysicsGameManager() {
                             <div className="flex items-center space-x-2">
                                 <TrendingUp className="text-purple-400" size={12} />
                                 <span className="text-purple-400/80">
-                                    Lv.{levelInfo.level} {levelInfo.description}
+                                    lvl.{levelInfo.level} {levelInfo.description}
                                 </span>
                             </div>
                             <span className="text-purple-400/60">

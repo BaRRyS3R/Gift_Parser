@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Полный код с исправлениями логики загрузки
+// src/app/game/page.tsx - Безопасная версия с кэшированием попыток
 
 "use client";
 
@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { userService, type AttemptsStatus } from "@/lib/supabase";
+import { type AttemptsStatus } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
 import TournamentCard from "@/components/TournamentCard/TournamentCard";
 
@@ -133,12 +133,36 @@ const AttemptsDisplay = ({
   attemptsStatus,
   timeUntilReset,
   onShopClick,
+  isLoading,
 }: {
-  attemptsStatus: AttemptsStatus;
+  attemptsStatus: AttemptsStatus | null;
   timeUntilReset: string;
   onShopClick: () => void;
+  isLoading: boolean;
 }) => {
   const t = useT();
+
+  // Показываем placeholder если данные еще загружаются
+  if (isLoading || !attemptsStatus) {
+    return (
+      <div className="bg-white/10 border border-white/30 backdrop-blur-sm rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <Battery className="text-white/60" size={16} />
+            <span className="text-sm font-bold text-white/60">
+              {t("attempts.current")}
+            </span>
+          </div>
+          <div className="w-8 h-4 bg-white/20 rounded animate-pulse" />
+        </div>
+        <div className="w-full h-2 bg-white/20 rounded animate-pulse mb-3" />
+        <div className="text-center">
+          <div className="w-24 h-4 bg-white/20 rounded animate-pulse mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
   const attemptsRemaining = attemptsStatus.attemptsRemaining;
   const isEmpty = attemptsRemaining === 0;
   const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
@@ -394,39 +418,64 @@ const CompactGameModeCard = ({
 
 export default function GamePage() {
   const router = useRouter();
-  const { telegramUser } = useUser();
+  const { telegramUser, getAttemptsStatus, getCachedAttemptsStatus } = useUser();
   const t = useT();
+
+  // Состояния компонента
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
-  const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
-    canPlay: true,
-    attemptsRemaining: 0,
-  });
+  const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus | null>(null);
   const [timeUntilReset, setTimeUntilReset] = useState<string>("");
-  const [isLoadingAttempts, setIsLoadingAttempts] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
+  // Проверка попыток с использованием кэша
   const checkAttempts = useCallback(async () => {
     if (!telegramUser?.id) return;
 
     try {
-      setIsLoadingAttempts(true);
-      const status = await userService.checkAndUpdateAttemptsWithServerValidation(
-        telegramUser.id
-      );
+      const status = await getAttemptsStatus();
       setAttemptsStatus(status);
     } catch (error) {
       console.error("Error checking attempts:", error);
-    } finally {
-      setIsLoadingAttempts(false);
+      // В случае ошибки показываем безопасное состояние
+      setAttemptsStatus({
+        canPlay: false,
+        attemptsRemaining: 0,
+      });
     }
-  }, [telegramUser?.id]);
+  }, [telegramUser?.id, getAttemptsStatus]);
 
+  // Инициализация данных при загрузке компонента
   useEffect(() => {
-    checkAttempts();
-  }, [checkAttempts]);
+    const initializeData = async () => {
+      if (!telegramUser?.id) {
+        setIsInitialLoading(false);
+        return;
+      }
 
+      // Сначала пытаемся получить кэшированные данные для быстрого отображения UI
+      const cachedStatus = getCachedAttemptsStatus();
+      if (cachedStatus) {
+        setAttemptsStatus(cachedStatus);
+        setIsInitialLoading(false);
+
+        // Затем в фоне обновляем данные с сервера
+        checkAttempts().finally(() => {
+          // Данные могли измениться, но UI уже отображается
+        });
+      } else {
+        // Если кэша нет, загружаем данные с сервера
+        await checkAttempts();
+        setIsInitialLoading(false);
+      }
+    };
+
+    initializeData();
+  }, [telegramUser?.id, getCachedAttemptsStatus, checkAttempts]);
+
+  // Таймер для обратного отсчета
   useEffect(() => {
-    if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
+    if (!attemptsStatus?.resetTime || attemptsStatus.canPlay) {
       setTimeUntilReset("");
       return;
     }
@@ -437,7 +486,7 @@ export default function GamePage() {
 
       if (diff <= 0) {
         setTimeUntilReset("");
-        checkAttempts();
+        checkAttempts(); // Обновляем статус при истечении времени сброса
       } else {
         const minutes = Math.floor(diff / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
@@ -446,19 +495,38 @@ export default function GamePage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [attemptsStatus.resetTime, attemptsStatus.canPlay, checkAttempts]);
+  }, [attemptsStatus?.resetTime, attemptsStatus?.canPlay, checkAttempts]);
 
-  const handleModeStart = (mode: GameMode) => {
-    if (!attemptsStatus.canPlay || loadingModeId) return;
+  // Обработчик запуска игры с безопасной проверкой
+  const handleModeStart = useCallback(async (mode: GameMode) => {
+    if (!attemptsStatus?.canPlay || loadingModeId) return;
 
     setLoadingModeId(mode.id);
 
-    setTimeout(() => {
-      router.push(mode.route);
-    }, 600);
-  };
+    try {
+      // КРИТИЧЕСКИ ВАЖНО: всегда проверяем попытки на сервере перед запуском игры
+      console.log(`Starting ${mode.id} game - verifying attempts on server`);
+      const freshStatus = await getAttemptsStatus();
 
-  const handleToggleExpand = (modeId: string) => {
+      if (!freshStatus.canPlay) {
+        console.warn("Attempts check failed - cannot start game");
+        setAttemptsStatus(freshStatus);
+        setLoadingModeId(null);
+        return;
+      }
+
+      // Если проверка прошла успешно, переходим к игре
+      setTimeout(() => {
+        router.push(mode.route);
+      }, 600);
+
+    } catch (error) {
+      console.error("Error verifying attempts before game start:", error);
+      setLoadingModeId(null);
+    }
+  }, [attemptsStatus?.canPlay, loadingModeId, getAttemptsStatus, router]);
+
+  const handleToggleExpand = useCallback((modeId: string) => {
     if (loadingModeId) return;
 
     setExpandedModes((prev) =>
@@ -466,12 +534,13 @@ export default function GamePage() {
         ? prev.filter((id) => id !== modeId)
         : [...prev, modeId]
     );
-  };
+  }, [loadingModeId]);
 
-  const handleOpenShop = () => {
+  const handleOpenShop = useCallback(() => {
     router.push("/shop");
-  };
+  }, [router]);
 
+  // Telegram WebApp back button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -487,16 +556,8 @@ export default function GamePage() {
     }
   }, [router]);
 
-  if (isLoadingAttempts) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">{t("game.general.checkingAttempts")}</p>
-        </div>
-      </div>
-    );
-  }
+  // Определяем можно ли играть
+  const canPlay = attemptsStatus?.canPlay ?? false;
 
   return (
     <div
@@ -515,16 +576,17 @@ export default function GamePage() {
         </p>
       </div>
 
-      {/* Attempts Display */}
+      {/* Attempts Display - теперь без видимой загрузки */}
       <div className="mb-8 animate-fade-in">
         <AttemptsDisplay
           attemptsStatus={attemptsStatus}
           timeUntilReset={timeUntilReset}
           onShopClick={handleOpenShop}
+          isLoading={isInitialLoading}
         />
       </div>
 
-      {/* Tournament Card - High Priority (если есть активный турнир) */}
+      {/* Tournament Card */}
       <div className="mb-8">
         <TournamentCard />
       </div>
@@ -538,7 +600,7 @@ export default function GamePage() {
             isExpanded={expandedModes.includes(mode.id)}
             onToggleExpand={() => handleToggleExpand(mode.id)}
             onStart={() => handleModeStart(mode)}
-            isDisabled={!attemptsStatus.canPlay}
+            isDisabled={!canPlay}
             isCurrentModeLoading={loadingModeId === mode.id}
             isAnyModeLoading={loadingModeId !== null}
           />

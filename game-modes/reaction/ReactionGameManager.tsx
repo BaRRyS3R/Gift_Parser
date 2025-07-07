@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Enhanced with activation pulse support
+// src/game-modes/reaction/ReactionGameManager.tsx - Безопасная версия с оптимизированным потреблением попыток
 
 "use client";
 
@@ -19,7 +19,6 @@ import {
 } from "./ReactionGameLogic";
 
 import { useUser } from "@/hooks/useUser";
-import { userService } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
   ReactionGameState,
@@ -49,9 +48,10 @@ const initialSaveStatus: SaveStatus = {
 };
 
 export default function ReactionGameManager() {
-  const { saveGameResult, telegramUser } = useUser();
+  const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
   const router = useRouter();
   const t = useT();
+
   const [gameState, setGameState] = useState<ReactionGameState>(
     initializeReactionGameState(),
   );
@@ -60,8 +60,7 @@ export default function ReactionGameManager() {
   const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
   const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
-  const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] =
-    useState(false);
+  const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
   const [isRestartLoading, setIsRestartLoading] = useState(false);
 
   // NEW: State for activation pulse effects
@@ -91,17 +90,17 @@ export default function ReactionGameManager() {
     }
   }, [router]);
 
-  // Consume attempt immediately when component mounts (initial entry only)
+  // ОБНОВЛЕНО: Безопасное потребление попытки при входе в игру
   useEffect(() => {
     const consumeInitialAttempt = async () => {
       if (!telegramUser?.id || hasConsumedInitialAttempt) return;
 
       try {
         setIsConsumingAttempt(true);
-        const newStatus = await userService.consumeAttemptWithServerValidation(
-          telegramUser.id,
-        );
+        console.log("Consuming initial attempt for reaction game");
 
+        // Используем безопасный метод потребления попытки
+        const newStatus = await consumeAttemptForGame();
         setAttemptsRemaining(newStatus.attemptsRemaining);
         setHasConsumedInitialAttempt(true);
 
@@ -112,17 +111,15 @@ export default function ReactionGameManager() {
       } catch (error) {
         console.error("Error consuming initial attempt:", error);
         setHasConsumedInitialAttempt(true);
-        // Still try to start the game even if attempt consumption failed
-        setTimeout(() => {
-          startGame();
-        }, 500);
+        // При ошибке возвращаемся к выбору игр
+        router.push("/game");
       } finally {
         setIsConsumingAttempt(false);
       }
     };
 
     consumeInitialAttempt();
-  }, [telegramUser?.id, hasConsumedInitialAttempt]);
+  }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -130,7 +127,6 @@ export default function ReactionGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -145,7 +141,6 @@ export default function ReactionGameManager() {
           isSuccess: false,
           error: null,
         }));
-
         return;
       }
 
@@ -182,7 +177,6 @@ export default function ReactionGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -219,7 +213,6 @@ export default function ReactionGameManager() {
       };
 
       const result = createReactionGameResult(finalState);
-
       setGameResult(result);
       handleSaveGameResult(result);
       cleanupReactionGame(finalState);
@@ -262,7 +255,6 @@ export default function ReactionGameManager() {
         );
 
         const result = createReactionGameResult(newState);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupReactionGame(newState);
@@ -295,7 +287,6 @@ export default function ReactionGameManager() {
         triggerHapticFeedback("error");
 
         const result = createReactionGameResult(newState);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupReactionGame(newState);
@@ -324,7 +315,6 @@ export default function ReactionGameManager() {
       setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
       const delay = getRandomDelay(gameStateRef.current.config);
-
       console.log(`Circle will activate in ${delay}ms`);
 
       const timeout = setTimeout(() => {
@@ -346,29 +336,41 @@ export default function ReactionGameManager() {
     }, 500);
   }, [handleCircleActivated, handleGameTimeout]);
 
+  // ОБНОВЛЕНО: Оптимизированный рестарт с локальным счетчиком
   const restartGame = useCallback(async () => {
     if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
+    setIsRestartLoading(true);
+
     try {
-      setIsRestartLoading(true);
+      if (attemptsRemaining > 1) {
+        // ОПТИМИЗАЦИЯ: Если попыток больше одной, просто уменьшаем локально
+        console.log("Optimized restart: decrementing attempts locally");
+        setAttemptsRemaining(prev => prev - 1);
 
-      const newStatus = await userService.consumeAttemptWithServerValidation(
-        telegramUser.id,
-      );
+        setShowCircles(false);
+        setTimeout(() => {
+          startGame();
+        }, 200);
+      } else {
+        // Только при последней попытке делаем серверный запрос
+        console.log("Last attempt: consuming on server");
+        const newStatus = await consumeAttemptForGame();
+        setAttemptsRemaining(newStatus.attemptsRemaining);
 
-      setAttemptsRemaining(newStatus.attemptsRemaining);
-
-      setShowCircles(false);
-
-      setTimeout(() => {
-        startGame();
-      }, 200);
+        setShowCircles(false);
+        setTimeout(() => {
+          startGame();
+        }, 200);
+      }
     } catch (error) {
-      console.error("Error consuming attempt for restart:", error);
+      console.error("Error during restart:", error);
+      // При ошибке возвращаемся к выбору игр
+      router.push("/game");
     } finally {
       setIsRestartLoading(false);
     }
-  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading]);
+  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
 
   useEffect(() => {
     return () => {
@@ -495,6 +497,7 @@ export default function ReactionGameManager() {
             </div>
           </div>
 
+          {/* Save Status Display */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess ||

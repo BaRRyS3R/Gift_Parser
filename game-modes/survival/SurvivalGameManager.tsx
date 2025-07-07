@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with activation pulse support
+// src/game-modes/survival/SurvivalGameManager.tsx - Безопасная версия с оптимизированным потреблением попыток
 
 "use client";
 
@@ -26,7 +26,6 @@ import {
 } from "./SurvivalGameLogic";
 
 import { useUser } from "@/hooks/useUser";
-import { userService } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
   SurvivalGameState,
@@ -53,13 +52,13 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
-// Increased update frequency for more accurate timing
 const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
 
 export default function SurvivalGameManager() {
-  const { saveGameResult, telegramUser } = useUser();
+  const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
   const router = useRouter();
   const t = useT();
+
   const [gameState, setGameState] = useState<SurvivalGameState>(
     initializeSurvivalGameState(),
   );
@@ -68,8 +67,7 @@ export default function SurvivalGameManager() {
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
   const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
-  const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] =
-    useState(false);
+  const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
   const [isRestartLoading, setIsRestartLoading] = useState(false);
 
   // NEW: State for activation pulse effects
@@ -99,17 +97,17 @@ export default function SurvivalGameManager() {
     }
   }, [router]);
 
-  // Consume attempt immediately when component mounts (initial entry only)
+  // ОБНОВЛЕНО: Безопасное потребление попытки при входе в игру
   useEffect(() => {
     const consumeInitialAttempt = async () => {
       if (!telegramUser?.id || hasConsumedInitialAttempt) return;
 
       try {
         setIsConsumingAttempt(true);
-        const newStatus = await userService.consumeAttemptWithServerValidation(
-          telegramUser.id,
-        );
+        console.log("Consuming initial attempt for survival game");
 
+        // Используем безопасный метод потребления попытки
+        const newStatus = await consumeAttemptForGame();
         setAttemptsRemaining(newStatus.attemptsRemaining);
         setHasConsumedInitialAttempt(true);
 
@@ -120,17 +118,15 @@ export default function SurvivalGameManager() {
       } catch (error) {
         console.error("Error consuming initial attempt:", error);
         setHasConsumedInitialAttempt(true);
-        // Still try to start the game even if attempt consumption failed
-        setTimeout(() => {
-          startGame();
-        }, 500);
+        // При ошибке возвращаемся к выбору игр
+        router.push("/game");
       } finally {
         setIsConsumingAttempt(false);
       }
     };
 
     consumeInitialAttempt();
-  }, [telegramUser?.id, hasConsumedInitialAttempt]);
+  }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -203,7 +199,6 @@ export default function SurvivalGameManager() {
       console.log("Survival game ended:", cause);
 
       setGameState((prev) => {
-        // Update time to final moment
         const finalState = updateSurvivalLevel(prev, Date.now());
 
         let updatedStats = { ...finalState.stats };
@@ -258,18 +253,15 @@ export default function SurvivalGameManager() {
         setGameState((prev) => {
           const newState = activateSurvivalCircles(
             prev,
-            // UPDATED: Enhanced callback with activation pulse support
             (circleIds, redCircleIds) => {
               console.log(
                 `Activated circles: ${circleIds.join(", ")}, Red: ${redCircleIds.join(", ")}`,
               );
 
-              // NEW: Trigger activation pulse effect
               const timestamp = Date.now();
               setActivatedCircles(circleIds);
               setLastActivationTimestamp(timestamp);
 
-              // Clear activation state after pulse animation completes
               setTimeout(() => {
                 setActivatedCircles([]);
               }, 450);
@@ -306,11 +298,11 @@ export default function SurvivalGameManager() {
 
       console.log("Survival circle clicked:", circleId);
 
-      const clickTime = Date.now(); // Precise click time
+      const clickTime = Date.now();
       const { newState, result } = handleSurvivalCircleClick(
         gameStateRef.current,
         circleId,
-        clickTime, // Pass precise time
+        clickTime,
       );
 
       if (result === "correct") {
@@ -339,7 +331,6 @@ export default function SurvivalGameManager() {
     setGameState(initializeSurvivalGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
-    // NEW: Reset activation pulse state
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
 
@@ -350,7 +341,6 @@ export default function SurvivalGameManager() {
     setTimeout(() => {
       setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-      // More frequent updates for precise timing
       const levelInterval = setInterval(() => {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
@@ -358,7 +348,6 @@ export default function SurvivalGameManager() {
             return current;
           }
 
-          // Use real time instead of deltaTime
           return updateSurvivalLevel(current, Date.now());
         });
       }, LEVEL_UPDATE_INTERVAL);
@@ -374,28 +363,41 @@ export default function SurvivalGameManager() {
     }, 800);
   }, [scheduleNextActivation]);
 
+  // ОБНОВЛЕНО: Оптимизированный рестарт с локальным счетчиком
   const restartGame = useCallback(async () => {
     if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
+    setIsRestartLoading(true);
+
     try {
-      setIsRestartLoading(true);
+      if (attemptsRemaining > 1) {
+        // ОПТИМИЗАЦИЯ: Если попыток больше одной, просто уменьшаем локально
+        console.log("Optimized restart: decrementing attempts locally");
+        setAttemptsRemaining(prev => prev - 1);
 
-      const newStatus = await userService.consumeAttemptWithServerValidation(
-        telegramUser.id,
-      );
+        setShowCircles(false);
+        setTimeout(() => {
+          startGame();
+        }, 200);
+      } else {
+        // Только при последней попытке делаем серверный запрос
+        console.log("Last attempt: consuming on server");
+        const newStatus = await consumeAttemptForGame();
+        setAttemptsRemaining(newStatus.attemptsRemaining);
 
-      setAttemptsRemaining(newStatus.attemptsRemaining);
-      setShowCircles(false);
-
-      setTimeout(() => {
-        startGame();
-      }, 200);
+        setShowCircles(false);
+        setTimeout(() => {
+          startGame();
+        }, 200);
+      }
     } catch (error) {
-      console.error("Error consuming attempt for restart:", error);
+      console.error("Error during restart:", error);
+      // При ошибке возвращаемся к выбору игр
+      router.push("/game");
     } finally {
       setIsRestartLoading(false);
     }
-  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading]);
+  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
 
   useEffect(() => {
     return () => {
@@ -523,84 +525,83 @@ export default function SurvivalGameManager() {
             </div>
           </div>
 
-          {(saveStatus.isLoading ||
-            saveStatus.error ||
-            saveStatus.isSuccess) && (
-              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                      <span className="text-sm text-red-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
-                            attempt: saveStatus.attempt,
-                            max: saveStatus.maxAttempts,
-                          })
-                          : t("save.recording")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-red-400/60" size={14} />
-                          <span className="text-xs text-red-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-red-400/20 rounded-full h-1">
-                          <div
-                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.recordedSuccessfully")}
-                      </span>
-                    </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
-                          attempts: saveStatus.attempt,
+          {/* Save Status Display */}
+          {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                    <span className="text-sm text-red-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
+                          attempt: saveStatus.attempt,
+                          max: saveStatus.maxAttempts,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                        : t("save.recording")}
+                    </span>
                   </div>
-                )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        {t("shop.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-red-400/60" size={14} />
+                        <span className="text-xs text-red-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-red-400/20 rounded-full h-1">
+                        <div
+                          className="bg-red-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("shop.recordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() => handleSaveGameResult(gameResult)}
-                    >
-                      {t("shop.retrySave")}
-                    </button>
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.recordedSuccessfully")}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
+                        attempts: saveStatus.attempt,
+                      })
+                      : t("save.synchronized")}
+                  </div>
+                </div>
+              )}
+
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      {t("shop.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
+                  </div>
+                  <div className="text-red-400/60 text-xs mb-3">
+                    {t("shop.recordedLocally")}
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    {t("shop.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-4">
             <button
@@ -627,7 +628,6 @@ export default function SurvivalGameManager() {
   return (
     <div className="min-h-screen bg-black flex flex-col text-white">
       <div className="flex-1 flex items-center justify-center">
-        {/* UPDATED: GameGrid with activation pulse support */}
         <GameGrid
           circles={gameState.circles}
           isGameActive={gameState.gameState === GameState.PLAYING}
