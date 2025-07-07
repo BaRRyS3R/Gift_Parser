@@ -379,16 +379,6 @@ const AchievementsModal: React.FC<AchievementsModalProps> = ({
                         </ScrollShadow>
                     )}
                 </ModalBody>
-
-                <ModalFooter>
-                    <Button
-                        className="bg-white/10 border border-white/30 text-white hover:bg-white/20"
-                        variant="bordered"
-                        onPress={onClose}
-                    >
-                        {t("common.close")}
-                    </Button>
-                </ModalFooter>
             </ModalContent>
         </Modal>
     );
