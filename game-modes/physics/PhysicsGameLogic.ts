@@ -427,10 +427,15 @@ export const handlePhysicsCircleClick = (
 
     if (clickedCircle.isActive && !clickedCircle.isAnimating) {
         if (clickedCircle.isDecoy) {
-            // Hit decoy circle - count as mistake
+            // Hit decoy circle - count as mistake and mark for immediate deactivation
+            const newCircles = updatedState.circles.map((c) =>
+                c.id === clickedCircleId ? { ...c, isAnimating: true } : c,
+            );
+
             return {
                 newState: {
                     ...updatedState,
+                    circles: newCircles,
                     stats: {
                         ...updatedState.stats,
                         decoyHits: updatedState.stats.decoyHits + 1,
@@ -440,7 +445,7 @@ export const handlePhysicsCircleClick = (
                 result: "decoy",
             };
         } else {
-            // Hit correct circle - apply impulse and add score
+            // Hit correct circle - apply impulse, add score, and mark for immediate deactivation
             const stateWithImpulse = applyImpulse(updatedState, clickedCircleId);
 
             const newStats = {
@@ -464,10 +469,15 @@ export const handlePhysicsCircleClick = (
             };
         }
     } else {
-        // Hit inactive circle - count as mistake
+        // Hit inactive circle - count as mistake and mark for immediate deactivation if it was active
+        const newCircles = updatedState.circles.map((c) =>
+            c.id === clickedCircleId && c.isActive ? { ...c, isAnimating: true } : c,
+        );
+
         return {
             newState: {
                 ...updatedState,
+                circles: newCircles,
                 stats: {
                     ...updatedState.stats,
                     wrongHits: updatedState.stats.wrongHits + 1,

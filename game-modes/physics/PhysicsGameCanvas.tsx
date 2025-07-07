@@ -192,7 +192,8 @@ export default function PhysicsGameCanvas({
 
         // Draw circles only - no boundaries
         gameState.circles.forEach((circle) => {
-            if (circle.isAnimating) return; // Skip animating circles
+            // Skip circles that are being deactivated immediately
+            if (circle.isAnimating) return;
 
             ctx.save();
 
@@ -259,16 +260,6 @@ export default function PhysicsGameCanvas({
 
             ctx.restore();
         });
-
-        // Development debug information
-        if (process.env.NODE_ENV === "development") {
-            ctx.fillStyle = "#ffffff80";
-            ctx.font = "12px monospace";
-            ctx.fillText(`Circles: ${gameState.circles.length}`, 10, 20);
-            ctx.fillText(`Active: ${gameState.activeCircleIds.length}`, 10, 35);
-            ctx.fillText(`Mistakes: ${gameState.stats.currentMistakes}/${gameState.config.maxMistakes}`, 10, 50);
-            ctx.fillText(`Canvas: ${canvas.width}x${canvas.height}`, 10, 65);
-        }
     }, [gameState]);
 
     // Animation loop

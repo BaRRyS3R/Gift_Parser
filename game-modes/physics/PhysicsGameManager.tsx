@@ -346,29 +346,20 @@ export default function PhysicsGameManager() {
                 // Apply impulse effect immediately after correct click
                 const stateWithImpulse = applyImpulse(gameStateRef.current, circleId);
 
-                // Combine updated stats with impulse effects
-                setGameState({
+                // Combine updated stats with impulse effects and immediately deactivate
+                const finalState = deactivatePhysicsCircle({
                     ...newState,
                     circles: stateWithImpulse.circles,
-                });
+                }, circleId);
 
-                setTimeout(() => {
-                    setGameState((current) =>
-                        deactivatePhysicsCircle(current, circleId),
-                    );
-                }, 300);
+                setGameState(finalState);
+
             } else if (result === "decoy" || result === "wrong") {
                 triggerHapticFeedback("error");
 
-                // Just update the state with new mistake count - no wall removal
-                setGameState(newState);
-
-                // Deactivate the clicked circle
-                setTimeout(() => {
-                    setGameState((current) =>
-                        deactivatePhysicsCircle(current, circleId),
-                    );
-                }, 300);
+                // Update state with mistake count and immediately deactivate
+                const finalState = deactivatePhysicsCircle(newState, circleId);
+                setGameState(finalState);
             }
         },
         [triggerHapticFeedback],
