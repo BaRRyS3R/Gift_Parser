@@ -179,49 +179,19 @@ export const tournamentService = {
  */
     async getTournamentLeaderboard(tournamentId: string, limit: number = 50): Promise<TournamentLeaderboardEntry[]> {
         try {
-            // Use existing RPC function temporarily
-            const { data, error } = await supabase.rpc('get_tournament_leaderboard', {
+            const { data, error } = await supabase.rpc('get_tournament_leaderboard_accumulative', {
                 tournament_id_param: tournamentId,
-                limit_param: limit * 2 // Get more entries for proper sorting
+                limit_param: limit
             });
 
             if (error) {
-                console.error('Error fetching tournament leaderboard:', error);
+                console.error('Error fetching accumulative tournament leaderboard:', error);
                 throw error;
             }
 
-            if (!data || data.length === 0) {
-                return [];
-            }
-
-            // Client-side sorting by survival_score (accumulated points) instead of survival_time
-            const sortedData = data.sort((a: TournamentLeaderboardEntry, b: TournamentLeaderboardEntry) => {
-                // Primary sort: by survival_score (descending)
-                if (b.survival_score !== a.survival_score) {
-                    return b.survival_score - a.survival_score;
-                }
-
-                // Secondary sort: by survival_time (descending) 
-                if (b.survival_time !== a.survival_time) {
-                    return b.survival_time - a.survival_time;
-                }
-
-                // Tertiary sort: by created_at (ascending - earlier is better)
-                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-            });
-
-            // Limit results and add rank
-            const limitedResults = sortedData.slice(0, limit);
-
-            // Add rank to each entry
-            const rankedResults = limitedResults.map((entry: TournamentLeaderboardEntry, index: number) => ({
-                ...entry,
-                rank: index + 1
-            }));
-
-            return rankedResults;
+            return data || [];
         } catch (error) {
-            console.error('Error getting tournament leaderboard:', error);
+            console.error('Error getting accumulative tournament leaderboard:', error);
             throw error;
         }
     },
@@ -278,13 +248,13 @@ export const tournamentService = {
         }
     ): Promise<string | null> {
         try {
-            console.log('Saving tournament result:', {
+            console.log('Saving accumulative tournament result:', {
                 tournamentId,
                 userId,
                 gameResult
             });
 
-            const { data, error } = await supabase.rpc('save_tournament_result', {
+            const { data, error } = await supabase.rpc('save_tournament_result_accumulative', {
                 tournament_id_param: tournamentId,
                 user_id_param: userId,
                 telegram_id_param: telegramId,
@@ -297,14 +267,14 @@ export const tournamentService = {
             });
 
             if (error) {
-                console.error('Error saving tournament result:', error);
+                console.error('Error saving accumulative tournament result:', error);
                 throw error;
             }
 
-            console.log('Tournament result saved successfully:', data);
+            console.log('Tournament result saved with point accumulation:', data);
             return data;
         } catch (error) {
-            console.error('Error saving tournament result:', error);
+            console.error('Error saving accumulative tournament result:', error);
             throw error;
         }
     },
