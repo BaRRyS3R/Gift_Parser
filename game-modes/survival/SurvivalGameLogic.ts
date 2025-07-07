@@ -12,7 +12,7 @@ import { Circle, GameState, GameMode } from "@/types/game-modes/common";
 export const SURVIVAL_CONFIG: SurvivalGameConfig = {
   id: "survival",
   name: "SURVIVAL MODE",
-  circleCount: 36, // 7x7 grid
+  circleCount: 36, // 6x6 grid
   initialActivationTimeMin: 1000,
   initialActivationTimeMax: 1800,
   initialCircleActiveTime: 2000,
@@ -23,6 +23,7 @@ export const SURVIVAL_CONFIG: SurvivalGameConfig = {
 };
 
 export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
+  // Уровни 1-4 без изменений
   {
     level: 1,
     simultaneousCircles: 1,
@@ -59,103 +60,104 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
     circleActiveTime: 1900,
     description: "FOCUS REQUIRED",
   },
+  // Обновленные уровни 5-15
   {
     level: 5,
-    simultaneousCircles: 6,
-    redCircles: 2,
-    activationTimeMin: 800,
-    activationTimeMax: 1400,
-    circleActiveTime: 1700,
+    simultaneousCircles: 5,  // было 6
+    redCircles: 1,          // было 2
+    activationTimeMin: 850, // было 800
+    activationTimeMax: 1500,// было 1400
+    circleActiveTime: 1800, // было 1700
     description: "MULTI-TARGET",
   },
   {
     level: 6,
-    simultaneousCircles: 8,
-    redCircles: 3,
-    activationTimeMin: 750,
-    activationTimeMax: 1300,
-    circleActiveTime: 1600,
+    simultaneousCircles: 6,  // было 8
+    redCircles: 2,          // было 3
+    activationTimeMin: 800, // было 750
+    activationTimeMax: 1400,// было 1300
+    circleActiveTime: 1700, // было 1600
     description: "ENHANCED DIFFICULTY",
   },
   {
     level: 7,
-    simultaneousCircles: 10,
-    redCircles: 4,
-    activationTimeMin: 700,
-    activationTimeMax: 1200,
-    circleActiveTime: 1500,
+    simultaneousCircles: 7,  // было 10
+    redCircles: 2,          // было 4
+    activationTimeMin: 750, // было 700
+    activationTimeMax: 1300,// было 1200
+    circleActiveTime: 1600, // было 1500
     description: "INTENSE FOCUS",
   },
   {
     level: 8,
-    simultaneousCircles: 12,
-    redCircles: 5,
-    activationTimeMin: 650,
-    activationTimeMax: 1100,
-    circleActiveTime: 1400,
+    simultaneousCircles: 8,  // было 12
+    redCircles: 3,          // было 5
+    activationTimeMin: 700, // было 650
+    activationTimeMax: 1200,// было 1100
+    circleActiveTime: 1500, // было 1400
     description: "OVERWHELMING",
   },
   {
     level: 9,
-    simultaneousCircles: 15,
-    redCircles: 7,
-    activationTimeMin: 600,
-    activationTimeMax: 1000,
-    circleActiveTime: 1300,
+    simultaneousCircles: 10, // было 15
+    redCircles: 4,          // было 7
+    activationTimeMin: 650, // было 600
+    activationTimeMax: 1100,// было 1000
+    circleActiveTime: 1400, // было 1300
     description: "CHAOS MANAGEMENT",
   },
   {
     level: 10,
-    simultaneousCircles: 18,
-    redCircles: 8,
-    activationTimeMin: 550,
-    activationTimeMax: 950,
-    circleActiveTime: 1200,
+    simultaneousCircles: 12, // было 18
+    redCircles: 5,          // было 8
+    activationTimeMin: 600, // было 550
+    activationTimeMax: 1000,// было 950
+    circleActiveTime: 1300, // было 1200
     description: "EXPERT PRECISION",
   },
   {
     level: 11,
-    simultaneousCircles: 22,
-    redCircles: 10,
-    activationTimeMin: 500,
-    activationTimeMax: 900,
-    circleActiveTime: 1100,
+    simultaneousCircles: 15, // было 22
+    redCircles: 6,          // было 10
+    activationTimeMin: 550, // было 500
+    activationTimeMax: 950, // было 900
+    circleActiveTime: 1200, // было 1100
     description: "MASTER LEVEL",
   },
   {
     level: 12,
-    simultaneousCircles: 26,
-    redCircles: 12,
-    activationTimeMin: 450,
-    activationTimeMax: 850,
-    circleActiveTime: 1000,
+    simultaneousCircles: 18, // было 26
+    redCircles: 7,          // было 12
+    activationTimeMin: 500, // было 450
+    activationTimeMax: 900, // было 850
+    circleActiveTime: 1100, // было 1000
     description: "LEGENDARY SKILL",
   },
   {
     level: 13,
-    simultaneousCircles: 30,
-    redCircles: 14,
-    activationTimeMin: 400,
-    activationTimeMax: 800,
-    circleActiveTime: 900,
+    simultaneousCircles: 22, // было 30
+    redCircles: 8,          // было 14
+    activationTimeMin: 450, // было 400
+    activationTimeMax: 850, // было 800
+    circleActiveTime: 1000, // было 900
     description: "SUPERHUMAN",
   },
   {
     level: 14,
-    simultaneousCircles: 35,
-    redCircles: 16,
-    activationTimeMin: 350,
-    activationTimeMax: 750,
-    circleActiveTime: 800,
+    simultaneousCircles: 26, // было 35
+    redCircles: 10,         // было 16
+    activationTimeMin: 400, // было 350
+    activationTimeMax: 800, // было 750
+    circleActiveTime: 900,  // было 800
     description: "BEYOND LIMITS",
   },
   {
     level: 15,
-    simultaneousCircles: 40,
-    redCircles: 18,
-    activationTimeMin: 300,
-    activationTimeMax: 700,
-    circleActiveTime: 700,
+    simultaneousCircles: 30, // было 40, теперь 30 (макс. 36 возможно)
+    redCircles: 12,         // было 18
+    activationTimeMin: 350, // было 300
+    activationTimeMax: 750, // было 700
+    circleActiveTime: 800,  // было 700
     description: "PERFECT MACHINE",
   },
 ];

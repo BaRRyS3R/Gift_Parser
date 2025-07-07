@@ -81,8 +81,8 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({ leaderboa
     return (
         <div className={`
             border-2 rounded-xl p-4 mb-6 transition-all duration-300
-            ${isWinner 
-                ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/40" 
+            ${isWinner
+                ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/40"
                 : "bg-white/5 border-white/20"
             }
         `}>
@@ -90,22 +90,22 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({ leaderboa
                 <div className="flex items-center space-x-4">
                     <div className={`
                         w-12 h-12 rounded-xl flex items-center justify-center border-2
-                        ${isWinner 
-                            ? "bg-yellow-400/20 border-yellow-400/60" 
+                        ${isWinner
+                            ? "bg-yellow-400/20 border-yellow-400/60"
                             : "bg-white/10 border-white/30"
                         }
                     `}>
                         {userEntry.rank <= 3 ? (
                             userEntry.rank === 1 ? <Crown className="text-yellow-400" size={24} /> :
-                            userEntry.rank === 2 ? <Medal className="text-white" size={24} /> :
-                            <Award className="text-orange-400" size={24} />
+                                userEntry.rank === 2 ? <Medal className="text-white" size={24} /> :
+                                    <Award className="text-orange-400" size={24} />
                         ) : (
                             <span className={`text-lg font-bold ${isWinner ? "text-yellow-400" : "text-white"}`}>
                                 #{userEntry.rank}
                             </span>
                         )}
                     </div>
-                    
+
                     <div>
                         <div className="flex items-center space-x-2">
                             <span className={`font-bold ${isWinner ? "text-yellow-400" : "text-white"}`}>
@@ -156,18 +156,18 @@ interface ParticipantsModalProps {
     tournament: TournamentWithStatus;
 }
 
-const ParticipantsModal: React.FC<ParticipantsModalProps> = ({ 
-    isOpen, 
-    onClose, 
-    participants, 
-    tournament 
+const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
+    isOpen,
+    onClose,
+    participants,
+    tournament
 }) => {
     const t = useT();
     const { user } = useUser();
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 15;
     const totalPages = Math.ceil(participants.length / itemsPerPage);
-    
+
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentParticipants = participants.slice(startIndex, startIndex + itemsPerPage);
 
@@ -183,8 +183,8 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
     const isCurrentUser = (telegramId: number) => user?.telegram_id === telegramId;
 
     return (
-        <Modal 
-            isOpen={isOpen} 
+        <Modal
+            isOpen={isOpen}
             onClose={onClose}
             size="2xl"
             backdrop="blur"
@@ -230,13 +230,12 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                 <div className="flex items-center justify-center w-8">
                                     {getRankIcon(globalRank)}
                                 </div>
-                                
+
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
-                                        <span className={`font-medium text-sm ${
-                                            isCurrentUser(participant.telegram_id) ? "text-white" : 
-                                            isWinner ? "text-yellow-400" : "text-white/90"
-                                        }`}>
+                                        <span className={`font-medium text-sm ${isCurrentUser(participant.telegram_id) ? "text-white" :
+                                                isWinner ? "text-yellow-400" : "text-white/90"
+                                            }`}>
                                             {participant.first_name} {participant.last_name || ""}
                                         </span>
                                         {participant.is_premium && (
@@ -248,7 +247,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                             </span>
                                         )}
                                     </div>
-                                    
+
                                     <div className="flex items-center space-x-3 text-xs text-white/60 mt-1">
                                         <div className="flex items-center space-x-1">
                                             <Activity size={10} />
@@ -263,14 +262,14 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                             <span>L{participant.max_level_reached}</span>
                                         </div>
                                     </div>
-                                    
+
                                     {prize && (
                                         <div className="mt-1">
                                             <span className="text-yellow-400 text-xs">{prize}</span>
                                         </div>
                                     )}
                                 </div>
-                                
+
                                 <div className="text-right">
                                     <div className="flex items-center space-x-1">
                                         <Star className="text-yellow-400" size={14} />
@@ -322,8 +321,8 @@ const PrizesModal: React.FC<PrizesModalProps> = ({ isOpen, onClose, prizes }) =>
     };
 
     return (
-        <Modal 
-            isOpen={isOpen} 
+        <Modal
+            isOpen={isOpen}
             onClose={onClose}
             size="lg"
             backdrop="blur"
@@ -351,27 +350,26 @@ const PrizesModal: React.FC<PrizesModalProps> = ({ isOpen, onClose, prizes }) =>
                             key={index}
                             className={`
                                 flex items-center space-x-4 p-4 rounded-lg border transition-all duration-300
-                                ${index < 3 
-                                    ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/30" 
+                                ${index < 3
+                                    ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/30"
                                     : "bg-white/5 border-white/20"
                                 }
                             `}
                         >
                             <div className={`
                                 w-12 h-12 rounded-xl flex items-center justify-center border
-                                ${index < 3 
-                                    ? "bg-yellow-400/20 border-yellow-400/40" 
+                                ${index < 3
+                                    ? "bg-yellow-400/20 border-yellow-400/40"
                                     : "bg-white/10 border-white/30"
                                 }
                             `}>
                                 {getRankIcon(index + 1)}
                             </div>
-                            
+
                             <div className="flex-1">
                                 <div className="flex items-center space-x-2">
-                                    <span className={`text-lg font-bold ${
-                                        index < 3 ? "text-yellow-400" : "text-white"
-                                    }`}>
+                                    <span className={`text-lg font-bold ${index < 3 ? "text-yellow-400" : "text-white"
+                                        }`}>
                                         {index + 1} {t("tournament.place")}
                                     </span>
                                 </div>
@@ -396,8 +394,8 @@ const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
     const t = useT();
 
     return (
-        <Modal 
-            isOpen={isOpen} 
+        <Modal
+            isOpen={isOpen}
             onClose={onClose}
             size="2xl"
             backdrop="blur"
@@ -598,7 +596,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                         </div>
                     </div>
                 </div>
-                
+
                 <div>
                     <h1 className="text-3xl font-bold text-white tracking-wide">{tournament.name}</h1>
                     <div className="flex items-center justify-center space-x-2 mt-2">
@@ -618,7 +616,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                             </div>
                         </div>
                     )}
-                    
+
                     <div className="border-t border-white/20 pt-3">
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div className="text-center">
@@ -656,46 +654,58 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
 
             {/* Tournament Statistics */}
             <div className="bg-white/5 border border-white/20 rounded-xl p-6">
-                <div className="flex items-center space-x-3 mb-4">
+                <div className="flex items-center space-x-3 mb-6">
                     <BarChart3 className="text-white/80" size={20} />
                     <h2 className="text-lg font-bold text-white">{t("tournament.tournamentStats")}</h2>
                 </div>
-                
-                <div className="grid grid-cols-3 gap-4">
+
+                <div className="grid grid-cols-3 gap-6">
                     <button
                         onClick={() => setIsParticipantsModalOpen(true)}
-                        className="text-center space-y-2 p-3 rounded-lg hover:bg-white/5 transition-all duration-300 group"
+                        className="flex flex-col items-center text-center space-y-3 p-4 rounded-lg hover:bg-white/5 transition-all duration-300 group"
                     >
-                        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center mx-auto group-hover:border-white/30 group-hover:bg-white/15 transition-all duration-300">
-                            <Users className="text-white/80 group-hover:text-white transition-colors duration-300" size={20} />
+                        <div className="w-14 h-14 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center group-hover:border-white/30 group-hover:bg-white/15 transition-all duration-300">
+                            <Users className="text-white/80 group-hover:text-white transition-colors duration-300" size={22} />
                         </div>
-                        <div className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">
-                            {leaderboard.length}
+                        <div className="space-y-1">
+                            <div className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">
+                                {leaderboard.length}
+                            </div>
+                            <div className="text-xs text-white/60 uppercase tracking-wider font-medium leading-tight">
+                                {t("tournament.participants")}
+                            </div>
                         </div>
-                        <div className="text-xs text-white/60 uppercase tracking-wider">{t("tournament.participants")}</div>
                     </button>
-                    
+
                     <button
                         onClick={() => setIsPrizesModalOpen(true)}
-                        className="text-center space-y-2 p-3 rounded-lg hover:bg-white/5 transition-all duration-300 group"
+                        className="flex flex-col items-center text-center space-y-3 p-4 rounded-lg hover:bg-white/5 transition-all duration-300 group"
                     >
-                        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center mx-auto group-hover:border-white/30 group-hover:bg-white/15 transition-all duration-300">
-                            <Trophy className="text-white/80 group-hover:text-white transition-colors duration-300" size={20} />
+                        <div className="w-14 h-14 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center group-hover:border-white/30 group-hover:bg-white/15 transition-all duration-300">
+                            <Trophy className="text-white/80 group-hover:text-white transition-colors duration-300" size={22} />
                         </div>
-                        <div className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">
-                            {tournament.prizes.length}
+                        <div className="space-y-1">
+                            <div className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">
+                                {tournament.prizes.length}
+                            </div>
+                            <div className="text-xs text-white/60 uppercase tracking-wider font-medium leading-tight">
+                                {t("tournament.prizes")}
+                            </div>
                         </div>
-                        <div className="text-xs text-white/60 uppercase tracking-wider">{t("tournament.prizes")}</div>
                     </button>
-                    
-                    <div className="text-center space-y-2">
-                        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center mx-auto">
-                            <Star className="text-yellow-400" size={20} />
+
+                    <div className="flex flex-col items-center text-center space-y-3 p-4">
+                        <div className="w-14 h-14 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center">
+                            <Star className="text-yellow-400" size={22} />
                         </div>
-                        <div className="text-2xl font-bold text-white">
-                            {leaderboard.length > 0 ? Math.max(...leaderboard.map(e => e.survival_score)) : 0}
+                        <div className="space-y-1">
+                            <div className="text-2xl font-bold text-white">
+                                {leaderboard.length > 0 ? Math.max(...leaderboard.map(e => e.survival_score)) : 0}
+                            </div>
+                            <div className="text-xs text-white/60 uppercase tracking-wider font-medium leading-tight">
+                                {t("tournament.topScore")}
+                            </div>
                         </div>
-                        <div className="text-xs text-white/60 uppercase tracking-wider">{t("tournament.topScore")}</div>
                     </div>
                 </div>
             </div>
@@ -710,7 +720,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                         <Crown className="text-white/80" size={20} />
                         <h2 className="text-lg font-bold text-white">{t("tournament.topParticipants")}</h2>
                     </div>
-                    
+
                     <div className="space-y-3">
                         {topParticipants.map((participant, index) => (
                             <div
@@ -726,7 +736,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                                 <div className="flex items-center justify-center w-8">
                                     {getRankIcon(index + 1)}
                                 </div>
-                                
+
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
                                         <span className={`font-medium text-sm ${isCurrentUser(participant.telegram_id) ? "text-white" : "text-white/90"}`}>
@@ -741,7 +751,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                                             </span>
                                         )}
                                     </div>
-                                    
+
                                     <div className="flex items-center space-x-3 text-xs text-white/60 mt-1">
                                         <div className="flex items-center space-x-1">
                                             <Activity size={10} />
@@ -757,7 +767,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="text-right">
                                     <div className="flex items-center space-x-1">
                                         <Star className="text-yellow-400" size={14} />
@@ -785,7 +795,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                 >
                     <Play size={24} />
                     <span>
-                        {hasAttemptsRemaining 
+                        {hasAttemptsRemaining
                             ? t("tournament.enterTournament")
                             : t("game.general.noAttempts")
                         }
