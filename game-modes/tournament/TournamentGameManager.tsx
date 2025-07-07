@@ -164,6 +164,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 }
 
                 try {
+                    // Используем обновленную функцию для накопления очков
                     await saveTournamentResult(tournament.id, result);
 
                     setSaveStatus((prev) => ({
@@ -172,6 +173,10 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                         isSuccess: true,
                         error: null,
                     }));
+
+                    // Показываем сообщение о накоплении очков
+                    console.log(`Tournament points accumulated: +${result.score} points added to total`);
+
                 } catch (error) {
                     attemptCount++;
                     if (attemptCount <= 3) {
@@ -191,8 +196,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                     ...prev,
                     isLoading: false,
                     isSuccess: false,
-                    error:
-                        error instanceof Error ? error.message : "Failed to save tournament result",
+                    error: error instanceof Error ? error.message : "Failed to save tournament result",
                 }));
             }
         },
@@ -449,57 +453,19 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                     <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-4">
                         <div className="text-center space-y-2">
                             <div className="text-sm text-white/60 uppercase tracking-wider">
-                                {t("tournament.survivalTime")}
+                                {t("tournament.pointsEarned")}
                             </div>
-                            <div className="text-3xl font-bold text-white">
-                                {formatTournamentTime(gameResult.survivalTime)}
+                            <div className="text-3xl font-bold text-yellow-400">
+                                +{gameResult.score} pts
                             </div>
-                            <div className="text-lg text-white/80">
-                                {t("common.level")} {gameResult.maxLevelReached}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 text-center">
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("tournament.tournamentScore")}
-                                </div>
-                                <div className="text-xl font-bold text-white">
-                                    {gameResult.score}
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("attempts.remaining")}
-                                </div>
-                                <div className="text-xl font-bold text-green-400">
-                                    {attemptsRemaining}
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("tournament.perfectStreak")}
-                                </div>
-                                <div className="text-xl font-bold text-blue-400">
-                                    {gameResult.perfectStreak}
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("tournament.correctHits")}
-                                </div>
-                                <div className="text-xl font-bold text-blue-400">
-                                    {gameResult.correctHits}
-                                </div>
+                            <div className="text-sm text-white/60">
+                                {t("tournament.addedToTotal")}
                             </div>
                         </div>
 
-                        <div className="border-t border-white/20 pt-4 text-center">
-                            <div className="text-xs text-white/60 uppercase tracking-wider mb-1">
-                                {tournament.name}
-                            </div>
-                            <div className="text-xs text-white/40">
-                                {gameResult.maxLevelReached}/12 {t("tournament.levelsCompleted")}
+                        <div className="border-t border-white/20 pt-4">
+                            <div className="text-center text-xs text-white/50">
+                                {t("tournament.pointsAccumulated")}
                             </div>
                         </div>
                     </div>

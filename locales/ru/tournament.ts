@@ -15,6 +15,7 @@ export const tournament = {
     otherParticipants: "ДРУГИЕ УЧАСТНИКИ",
     noParticipants: "Пока нет участников",
     beFirstParticipant: "Станьте первым участником турнира!",
+    yourProgress: "Ваш прогресс",
     yourBestResult: "ВАШ ПРОГРЕСС В ТУРНИРЕ",
     rank: "МЕСТО",
     maxLevel: "МАКС УРОВЕНЬ",

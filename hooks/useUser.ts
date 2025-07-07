@@ -322,7 +322,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         throw new Error("Пользователь не найден");
       }
 
-      console.log("Saving tournament result:", {
+      console.log("Saving tournament result with accumulation:", {
         tournamentId,
         mode: gameResult.mode,
         score: gameResult.score,
@@ -343,21 +343,19 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             deathCause: gameResult.deathCause,
           }
         );
+
+        console.log(`Points accumulated: +${gameResult.score} added to tournament total`);
       };
 
       try {
         await retryOperation(saveOperation, 3, 1000);
-        console.log("Tournament result saved successfully (with potential retries)");
+        console.log("Tournament result with point accumulation saved successfully");
       } catch (err) {
-        console.error(
-          "Failed to save tournament result after all retry attempts:",
-          err,
-        );
+        console.error("Failed to save accumulative tournament result:", err);
 
-        const errorMessage =
-          err instanceof Error
-            ? `Не удалось сохранить результат турнира после 3 попыток: ${err.message}`
-            : "Не удалось сохранить результат турнира после 3 попыток. Попробуйте позже.";
+        const errorMessage = err instanceof Error
+          ? `Не удалось сохранить результат турнира после 3 попыток: ${err.message}`
+          : "Не удалось сохранить результат турнира после 3 попыток. Попробуйте позже.";
 
         throw new Error(errorMessage);
       }

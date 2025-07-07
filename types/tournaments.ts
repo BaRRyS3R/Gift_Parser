@@ -28,12 +28,13 @@ export interface TournamentLeaderboardEntry {
   last_name?: string;
   username?: string;
   is_premium: boolean;
-  survival_time: number; // milliseconds
-  survival_score: number;
+  survival_time: number;
+  survival_score: number; // Теперь содержит накопленные очки
   max_level_reached: number;
   perfect_streak: number;
-  correct_hits: number;
+  correct_hits: number; // Теперь содержит общее количество попаданий
   death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+  games_played: number; // Новое поле
   created_at: string;
   rank: number;
 }

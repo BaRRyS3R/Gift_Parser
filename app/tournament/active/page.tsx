@@ -650,9 +650,9 @@ export default function ActiveTournamentPage() {
                     <div className="bg-white/5 border border-white/20 rounded-xl p-4">
                         <div className="flex items-center space-x-2 mb-3">
                             <Target className="text-white/80" size={16} />
-                            <h3 className="text-sm font-medium text-white">{t("tournament.yourBestResult")}</h3>
+                            <h3 className="text-sm font-medium text-white">{t("tournament.yourProgress")}</h3>
                         </div>
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-2 gap-4 text-center">
                             <div>
                                 <div className="text-lg font-medium text-white">
                                     <div className="flex items-center justify-center space-x-1">
