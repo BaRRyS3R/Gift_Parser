@@ -324,10 +324,16 @@ export default function RotationGameManager() {
         [triggerHapticFeedback, endGame],
     );
 
-    // Rotation animation loop
+    // Rotation animation loop using requestAnimationFrame
+    const rotationAnimationRef = useRef<number | null>(null);
+
     const updateRotation = useCallback(() => {
         setGameState((prev) => {
             if (!prev.isActive || prev.gameState !== GameState.PLAYING) {
+                if (rotationAnimationRef.current) {
+                    cancelAnimationFrame(rotationAnimationRef.current);
+                    rotationAnimationRef.current = null;
+                }
                 return prev;
             }
 
@@ -337,9 +343,13 @@ export default function RotationGameManager() {
                 prev.config.radius,
             );
 
+            // Schedule next animation frame
+            rotationAnimationRef.current = requestAnimationFrame(updateRotation);
+
             return {
                 ...prev,
                 circles: updatedCircles,
+                rotationAnimationFrame: rotationAnimationRef.current,
             };
         });
     }, []);
@@ -372,10 +382,8 @@ export default function RotationGameManager() {
                 });
             }, LEVEL_UPDATE_INTERVAL);
 
-            // Start rotation animation
-            const rotationInterval = setInterval(() => {
-                updateRotation();
-            }, 16); // 60fps
+            // Start rotation animation using requestAnimationFrame
+            rotationAnimationRef.current = requestAnimationFrame(updateRotation);
 
             setTimeout(() => {
                 scheduleNextActivation();
@@ -384,7 +392,7 @@ export default function RotationGameManager() {
             setGameState((prev) => ({
                 ...prev,
                 levelUpdateInterval: levelInterval,
-                rotationAnimationFrame: rotationInterval,
+                rotationAnimationFrame: rotationAnimationRef.current,
             }));
         }, 800);
     }, [scheduleNextActivation, updateRotation]);
