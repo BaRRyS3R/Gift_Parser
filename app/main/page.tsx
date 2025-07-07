@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Обновленная главная страница с условными анимациями
+// src/app/main/page.tsx - Updated to remove typing animation
 
 "use client";
 
@@ -38,7 +38,6 @@ export default function MainPage() {
    * -------------------------------------------------*/
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
-  const [titleText, setTitleText] = useState(isFirstVisit ? "|" : "circusle");
   const [showButton, setShowButton] = useState(!isFirstVisit);
   const [showGreeting, setShowGreeting] = useState(!isFirstVisit);
   const [greetingText, setGreetingText] = useState("");
@@ -157,20 +156,6 @@ export default function MainPage() {
    * -------------------------------------------------*/
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const animationSteps = [
-    "|",
-    "c|",
-    "ci-",
-    "cir|",
-    "cir=/",
-    "circ|",
-    "circu|",
-    "circus///",
-    "circusl¿",
-    "circusle?",
-    "circusle",
-  ];
-
   const username = user?.first_name || "unknown";
   const fullGreeting = t("main.greeting", { name: username });
 
@@ -201,40 +186,21 @@ export default function MainPage() {
   }, [settings.showBackgroundVideo]);
 
   /* -------------------------------------------------
-   * Mount / animation logic - UPDATED: Only for first visit
+   * Mount / animation logic - UPDATED: Simplified without typing effect
    * -------------------------------------------------*/
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
       setPageLoaded(true);
+      // Show all elements immediately for first visit, or they're already shown for returning visits
+      if (isFirstVisit) {
+        setTimeout(() => setShowButton(true), 300);
+        setTimeout(() => setShowGreeting(true), 600);
+        setTimeout(() => setShowTopButtons(true), 900);
+      }
     }, 300);
 
     return () => clearTimeout(pageLoadTimer);
-  }, []);
-
-  // Title animation - только для первого посещения
-  useEffect(() => {
-    if (!pageLoaded || !isFirstVisit) return;
-
-    const titleAnimationTimer = setTimeout(() => {
-      let currentStep = 0;
-
-      const titleInterval = setInterval(() => {
-        if (currentStep < animationSteps.length) {
-          setTitleText(animationSteps[currentStep]);
-          currentStep++;
-        } else {
-          clearInterval(titleInterval);
-          setTimeout(() => setShowButton(true), 300);
-          setTimeout(() => setShowGreeting(true), 600);
-          setTimeout(() => setShowTopButtons(true), 900);
-        }
-      }, 80);
-
-      return () => clearInterval(titleInterval);
-    }, 800);
-
-    return () => clearTimeout(titleAnimationTimer);
-  }, [pageLoaded, isFirstVisit]);
+  }, [isFirstVisit]);
 
   // Greeting typing animation - только для первого посещения
   useEffect(() => {
@@ -396,10 +362,10 @@ export default function MainPage() {
 
       {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
-        {/* Title Section */}
+        {/* Title Section - UPDATED: Show "circusle" immediately without animation */}
         <div className="relative">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
-            {titleText}
+            circusle
           </h1>
         </div>
 

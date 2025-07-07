@@ -1,3 +1,5 @@
+// src/components/Navigation/NavigationWrapper.tsx - Fixed to properly handle page refresh
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -5,20 +7,35 @@ import { usePathname } from "next/navigation";
 import BottomNav from "./BottomNav";
 
 const hiddenPaths = [
-  "/", "/game", "/game/reaction", "/game/survival", "/game/physics",
-  "/tournament", "/tournament/play", "/tournament/active"
+  "/", "/game/reaction", "/game/survival", "/game/physics", "/tournament/play"
 ];
 
 export default function NavigationWrapper() {
   const pathname = usePathname();
   const [visible, setVisible] = useState(false);
-  const [rendered, setRendered] = useState(false); // для размонтирования после fade-out
+  const [rendered, setRendered] = useState(false);
   const [animationClass, setAnimationClass] = useState("");
   const prevPathRef = useRef<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const shouldShowNav = !hiddenPaths.includes(pathname);
 
+  // Initialize navigation visibility on mount
   useEffect(() => {
+    if (!isInitialized) {
+      setIsInitialized(true);
+
+      if (shouldShowNav) {
+        setRendered(true);
+        setVisible(true);
+        setAnimationClass("animate-fade-in-up");
+      }
+
+      prevPathRef.current = pathname;
+      return;
+    }
+
+    // Handle subsequent route changes
     const prevShouldShow = !hiddenPaths.includes(prevPathRef.current || "");
 
     if (shouldShowNav && !prevShouldShow) {
@@ -41,7 +58,7 @@ export default function NavigationWrapper() {
 
     // Обновление маршрута
     prevPathRef.current = pathname;
-  }, [pathname, shouldShowNav]);
+  }, [pathname, shouldShowNav, isInitialized]);
 
   if (!rendered) return null;
 

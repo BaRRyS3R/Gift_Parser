@@ -1,4 +1,4 @@
-// src/components/Navigation/BottomNav.tsx - Обновленная навигация без текста с адаптивным размером
+// src/components/Navigation/BottomNav.tsx - Updated navigation without dot indicator and with full-width decorative line
 
 "use client";
 
@@ -95,18 +95,15 @@ export default function BottomNav() {
                   />
                 </div>
 
-                {/* Активный индикатор */}
-                {active && (
-                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full opacity-80" />
-                )}
+                {/* Active indicator dot removed */}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Декоративная линия */}
-      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-12 h-0.5 bg-white/10 rounded-full" />
+      {/* Full-width decorative line at the top */}
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/10" />
     </div>
   );
 }
