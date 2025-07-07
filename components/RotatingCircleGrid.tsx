@@ -1,4 +1,4 @@
-// src/components/RotatingCircleGrid.tsx - Rotating circles component for rotation mode
+// src/components/RotatingCircleGrid.tsx - Fixed rotation positioning
 
 "use client";
 
@@ -35,7 +35,6 @@ export default function RotatingCircleGrid({
     const containerRef = useRef<HTMLDivElement>(null);
     const touchStartTimeRef = useRef<Map<number, number>>(new Map());
     const processedTouchesRef = useRef<Set<number>>(new Set());
-    const animationFrameRef = useRef<number>();
 
     // State for dynamic sizing
     const [circleSize, setCircleSize] = useState(32);
@@ -95,38 +94,19 @@ export default function RotatingCircleGrid({
         };
     }, []);
 
-    // Animation loop for updating circle positions
-    const updatePositions = useCallback(() => {
-        if (!isGameActive || !showCircles) return;
-
+    // Calculate position for each circle based on game logic
+    const getCirclePosition = useCallback((circle: RotationCircle) => {
         const centerX = containerSize / 2;
         const centerY = containerSize / 2;
-        const rotationRadius = (containerSize * 0.35);
+        // Use the radius from props (which comes from game logic) scaled to container
+        const scaledRadius = (containerSize * 0.35); // Keep consistent scaling
 
-        circles.forEach((circle, index) => {
-            const element = document.querySelector(`[data-circle-id="${circle.id}"]`) as HTMLElement;
-            if (element) {
-                const x = centerX + Math.cos(circle.angle) * rotationRadius - circleSize / 2;
-                const y = centerY + Math.sin(circle.angle) * rotationRadius - circleSize / 2;
+        // Use angle from circle data (updated by game logic)
+        const x = centerX + Math.cos(circle.angle) * scaledRadius - circleSize / 2;
+        const y = centerY + Math.sin(circle.angle) * scaledRadius - circleSize / 2;
 
-                element.style.transform = `translate(${x}px, ${y}px)`;
-            }
-        });
-
-        animationFrameRef.current = requestAnimationFrame(updatePositions);
-    }, [isGameActive, showCircles, containerSize, circleSize, circles]);
-
-    useEffect(() => {
-        if (isGameActive && showCircles) {
-            updatePositions();
-        }
-
-        return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-        };
-    }, [isGameActive, showCircles, updatePositions]);
+        return { x, y };
+    }, [containerSize, circleSize]);
 
     const getCircleStyles = (circle: RotationCircle) => {
         const baseClasses = "absolute rounded-full border-2 transition-all duration-300 ease-out";
@@ -270,17 +250,18 @@ export default function RotatingCircleGrid({
                     />
                 </div>
 
-                {/* Circles */}
+                {/* Circles - positioned using game logic data */}
                 {circles.map((circle) => {
                     const circleStyleConfig = getCircleStyles(circle);
+                    const position = getCirclePosition(circle);
 
                     return (
                         <button
                             key={circle.id}
                             data-circle-id={circle.id}
                             aria-label={`Rotating circle ${circle.id + 1}${circle.isActive
-                                    ? (circle.isDecoy ? " - trap target" : " - active target")
-                                    : ""
+                                ? (circle.isDecoy ? " - trap target" : " - active target")
+                                : ""
                                 }`}
                             className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
                             disabled={!isGameActive}
@@ -289,6 +270,9 @@ export default function RotatingCircleGrid({
                                 height: `${circleSize}px`,
                                 minWidth: `${circleSize}px`,
                                 minHeight: `${circleSize}px`,
+                                // Use calculated position instead of transform in animation loop
+                                left: `${position.x}px`,
+                                top: `${position.y}px`,
                                 transitionDelay: showCircles ? `${circle.id * 30}ms` : "0ms",
                                 touchAction: "manipulation",
                             }}
