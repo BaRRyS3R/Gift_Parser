@@ -1,9 +1,18 @@
-// src/app/tournament/page.tsx - Обновленная главная страница турниров
+// src/app/tournament/page.tsx - Обновленная страница турниров с модальными окнами и правилами
 
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+    Modal,
+    ModalContent,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+    Button,
+    Pagination,
+} from "@nextui-org/react";
 import {
     Trophy,
     Clock,
@@ -22,6 +31,10 @@ import {
     Zap,
     Target,
     BarChart3,
+    BookOpen,
+    ChevronLeft,
+    ChevronRight,
+    X,
 } from "lucide-react";
 
 import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
@@ -33,6 +46,490 @@ import type { TournamentLeaderboardEntry } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
+
+interface UserPositionComponentProps {
+    leaderboard: TournamentLeaderboardEntry[];
+    tournament: TournamentWithStatus;
+}
+
+const UserPositionComponent: React.FC<UserPositionComponentProps> = ({ leaderboard, tournament }) => {
+    const { user } = useUser();
+    const t = useT();
+
+    if (!user) return null;
+
+    const userEntry = leaderboard.find(entry => entry.telegram_id === user.telegram_id);
+
+    if (!userEntry) {
+        return (
+            <div className="bg-white/5 border border-white/20 rounded-xl p-4 mb-6">
+                <div className="text-center space-y-2">
+                    <div className="flex items-center justify-center space-x-2">
+                        <Target className="text-white/60" size={20} />
+                        <span className="text-lg font-medium text-white/80">{t("tournament.yourProgress")}</span>
+                    </div>
+                    <p className="text-white/50 text-sm">{t("tournament.notParticipating")}</p>
+                    <p className="text-white/40 text-xs">{t("tournament.playToJoinLeaderboard")}</p>
+                </div>
+            </div>
+        );
+    }
+
+    const isWinner = userEntry.rank <= tournament.prizes.length;
+    const prize = isWinner ? tournament.prizes[userEntry.rank - 1] : null;
+
+    return (
+        <div className={`
+            border-2 rounded-xl p-4 mb-6 transition-all duration-300
+            ${isWinner 
+                ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/40" 
+                : "bg-white/5 border-white/20"
+            }
+        `}>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                    <div className={`
+                        w-12 h-12 rounded-xl flex items-center justify-center border-2
+                        ${isWinner 
+                            ? "bg-yellow-400/20 border-yellow-400/60" 
+                            : "bg-white/10 border-white/30"
+                        }
+                    `}>
+                        {userEntry.rank <= 3 ? (
+                            userEntry.rank === 1 ? <Crown className="text-yellow-400" size={24} /> :
+                            userEntry.rank === 2 ? <Medal className="text-white" size={24} /> :
+                            <Award className="text-orange-400" size={24} />
+                        ) : (
+                            <span className={`text-lg font-bold ${isWinner ? "text-yellow-400" : "text-white"}`}>
+                                #{userEntry.rank}
+                            </span>
+                        )}
+                    </div>
+                    
+                    <div>
+                        <div className="flex items-center space-x-2">
+                            <span className={`font-bold ${isWinner ? "text-yellow-400" : "text-white"}`}>
+                                {t("tournament.yourPosition")}
+                            </span>
+                            {isWinner && (
+                                <div className="flex items-center space-x-1 px-2 py-1 bg-yellow-400/20 rounded-full">
+                                    <Crown className="text-yellow-400" size={12} />
+                                    <span className="text-yellow-400 text-xs font-medium">{t("tournament.prizePosition")}</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center space-x-4 text-sm text-white/60 mt-1">
+                            <div className="flex items-center space-x-1">
+                                <Star className="text-yellow-400" size={12} />
+                                <span>{userEntry.survival_score} pts</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                                <Activity size={12} />
+                                <span>{userEntry.games_played || 1} игр</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                                <Clock size={12} />
+                                <span>{formatTournamentSurvivalTime(userEntry.survival_time)}</span>
+                            </div>
+                        </div>
+                        {prize && (
+                            <div className="mt-1">
+                                <span className="text-yellow-400 text-sm font-medium">{prize}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="text-right">
+                    <div className="text-2xl font-bold text-white">#{userEntry.rank}</div>
+                    <div className="text-xs text-white/60">{t("tournament.outOf")} {leaderboard.length}</div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+interface ParticipantsModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    participants: TournamentLeaderboardEntry[];
+    tournament: TournamentWithStatus;
+}
+
+const ParticipantsModal: React.FC<ParticipantsModalProps> = ({ 
+    isOpen, 
+    onClose, 
+    participants, 
+    tournament 
+}) => {
+    const t = useT();
+    const { user } = useUser();
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 15;
+    const totalPages = Math.ceil(participants.length / itemsPerPage);
+    
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const currentParticipants = participants.slice(startIndex, startIndex + itemsPerPage);
+
+    const getRankIcon = (position: number) => {
+        switch (position) {
+            case 1: return <Crown className="text-white" size={16} />;
+            case 2: return <Medal className="text-white/80" size={16} />;
+            case 3: return <Award className="text-white/60" size={16} />;
+            default: return <span className="text-white/50 text-sm font-medium">#{position}</span>;
+        }
+    };
+
+    const isCurrentUser = (telegramId: number) => user?.telegram_id === telegramId;
+
+    return (
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose}
+            size="2xl"
+            backdrop="blur"
+            scrollBehavior="inside"
+            classNames={{
+                backdrop: "bg-black/80",
+                base: "bg-black border border-white/20",
+                header: "border-b border-white/10",
+                body: "py-6",
+                footer: "border-t border-white/10"
+            }}
+        >
+            <ModalContent>
+                <ModalHeader className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                        <Users className="text-white/80" size={20} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-medium text-white">{t("tournament.allParticipants")}</h2>
+                        <p className="text-white/60 text-sm">{participants.length} {t("tournament.totalParticipants")}</p>
+                    </div>
+                </ModalHeader>
+
+                <ModalBody className="space-y-3">
+                    {currentParticipants.map((participant, index) => {
+                        const globalRank = startIndex + index + 1;
+                        const isWinner = globalRank <= tournament.prizes.length;
+                        const prize = isWinner ? tournament.prizes[globalRank - 1] : null;
+
+                        return (
+                            <div
+                                key={participant.id}
+                                className={`
+                                    flex items-center space-x-4 p-3 rounded-lg border transition-all duration-300
+                                    ${isCurrentUser(participant.telegram_id)
+                                        ? "bg-white/15 border-white/40 ring-1 ring-white/30"
+                                        : isWinner
+                                            ? "bg-yellow-500/10 border-yellow-400/30"
+                                            : "bg-white/5 border-white/20 hover:bg-white/10"
+                                    }
+                                `}
+                            >
+                                <div className="flex items-center justify-center w-8">
+                                    {getRankIcon(globalRank)}
+                                </div>
+                                
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2">
+                                        <span className={`font-medium text-sm ${
+                                            isCurrentUser(participant.telegram_id) ? "text-white" : 
+                                            isWinner ? "text-yellow-400" : "text-white/90"
+                                        }`}>
+                                            {participant.first_name} {participant.last_name || ""}
+                                        </span>
+                                        {participant.is_premium && (
+                                            <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                                        )}
+                                        {isCurrentUser(participant.telegram_id) && (
+                                            <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded">
+                                                {t("leaderboard.you")}
+                                            </span>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="flex items-center space-x-3 text-xs text-white/60 mt-1">
+                                        <div className="flex items-center space-x-1">
+                                            <Activity size={10} />
+                                            <span>{participant.games_played || 1} игр</span>
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                            <Clock size={10} />
+                                            <span>{formatTournamentSurvivalTime(participant.survival_time)}</span>
+                                        </div>
+                                        <div className="flex items-center space-x-1">
+                                            <TrendingUp size={10} />
+                                            <span>L{participant.max_level_reached}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {prize && (
+                                        <div className="mt-1">
+                                            <span className="text-yellow-400 text-xs">{prize}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="text-right">
+                                    <div className="flex items-center space-x-1">
+                                        <Star className="text-yellow-400" size={14} />
+                                        <span className="text-base font-bold text-white">{participant.survival_score}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </ModalBody>
+
+                <ModalFooter className="justify-center">
+                    {totalPages > 1 && (
+                        <Pagination
+                            total={totalPages}
+                            page={currentPage}
+                            onChange={setCurrentPage}
+                            size="sm"
+                            showControls
+                            className="text-white"
+                            classNames={{
+                                item: "bg-white/10 text-white border-white/20",
+                                cursor: "bg-white/20 text-white",
+                            }}
+                        />
+                    )}
+                </ModalFooter>
+            </ModalContent>
+        </Modal>
+    );
+};
+
+interface PrizesModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    prizes: string[];
+}
+
+const PrizesModal: React.FC<PrizesModalProps> = ({ isOpen, onClose, prizes }) => {
+    const t = useT();
+
+    const getRankIcon = (position: number) => {
+        switch (position) {
+            case 1: return <Crown className="text-yellow-400" size={20} />;
+            case 2: return <Medal className="text-white" size={20} />;
+            case 3: return <Award className="text-orange-400" size={20} />;
+            default: return <Trophy className="text-white/60" size={20} />;
+        }
+    };
+
+    return (
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose}
+            size="lg"
+            backdrop="blur"
+            classNames={{
+                backdrop: "bg-black/80",
+                base: "bg-black border border-white/20",
+                header: "border-b border-white/10",
+                body: "py-6",
+            }}
+        >
+            <ModalContent>
+                <ModalHeader className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                        <Trophy className="text-white/80" size={20} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-medium text-white">{t("tournament.tournamentPrizes")}</h2>
+                        <p className="text-white/60 text-sm">{prizes.length} {t("tournament.prizePositions")}</p>
+                    </div>
+                </ModalHeader>
+
+                <ModalBody className="space-y-3">
+                    {prizes.map((prize, index) => (
+                        <div
+                            key={index}
+                            className={`
+                                flex items-center space-x-4 p-4 rounded-lg border transition-all duration-300
+                                ${index < 3 
+                                    ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/30" 
+                                    : "bg-white/5 border-white/20"
+                                }
+                            `}
+                        >
+                            <div className={`
+                                w-12 h-12 rounded-xl flex items-center justify-center border
+                                ${index < 3 
+                                    ? "bg-yellow-400/20 border-yellow-400/40" 
+                                    : "bg-white/10 border-white/30"
+                                }
+                            `}>
+                                {getRankIcon(index + 1)}
+                            </div>
+                            
+                            <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                    <span className={`text-lg font-bold ${
+                                        index < 3 ? "text-yellow-400" : "text-white"
+                                    }`}>
+                                        {index + 1} {t("tournament.place")}
+                                    </span>
+                                </div>
+                                <div className="text-white/80 font-medium mt-1">
+                                    {prize}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </ModalBody>
+            </ModalContent>
+        </Modal>
+    );
+};
+
+interface RulesModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
+    const t = useT();
+
+    return (
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose}
+            size="2xl"
+            backdrop="blur"
+            scrollBehavior="inside"
+            classNames={{
+                backdrop: "bg-black/80",
+                base: "bg-black border border-white/20",
+                header: "border-b border-white/10",
+                body: "py-6",
+            }}
+        >
+            <ModalContent>
+                <ModalHeader className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center">
+                        <Crown className="text-white/80" size={20} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-medium text-white">{t("tournament.kingOfTheHillRules")}</h2>
+                        <p className="text-white/60 text-sm">{t("tournament.competitionFormat")}</p>
+                    </div>
+                </ModalHeader>
+
+                <ModalBody className="space-y-6">
+                    <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-400/30 rounded-xl p-4">
+                        <div className="flex items-center space-x-3 mb-3">
+                            <Crown className="text-yellow-400" size={24} />
+                            <div>
+                                <h3 className="text-lg font-bold text-yellow-400">{t("tournament.conceptTitle")}</h3>
+                                <p className="text-yellow-300/80 text-sm">{t("tournament.conceptSubtitle")}</p>
+                            </div>
+                        </div>
+                        <p className="text-white/90 leading-relaxed">
+                            {t("tournament.conceptDescription")}
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white/5 border border-white/20 rounded-lg p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <Target className="text-white/80" size={18} />
+                                <h4 className="text-white font-medium">{t("tournament.howToPlay")}</h4>
+                            </div>
+                            <ul className="space-y-2 text-white/80 text-sm">
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.playRule1")}</span>
+                                </li>
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.playRule2")}</span>
+                                </li>
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.playRule3")}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div className="bg-white/5 border border-white/20 rounded-lg p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <Star className="text-yellow-400" size={18} />
+                                <h4 className="text-white font-medium">{t("tournament.scoringSystem")}</h4>
+                            </div>
+                            <ul className="space-y-2 text-white/80 text-sm">
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400/60 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.scoringRule1")}</span>
+                                </li>
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400/60 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.scoringRule2")}</span>
+                                </li>
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400/60 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.scoringRule3")}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div className="bg-white/5 border border-white/20 rounded-lg p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <Trophy className="text-white/80" size={18} />
+                                <h4 className="text-white font-medium">{t("tournament.winningStrategy")}</h4>
+                            </div>
+                            <ul className="space-y-2 text-white/80 text-sm">
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.strategyRule1")}</span>
+                                </li>
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.strategyRule2")}</span>
+                                </li>
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.strategyRule3")}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div className="bg-white/5 border border-white/20 rounded-lg p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                                <Clock className="text-white/80" size={18} />
+                                <h4 className="text-white font-medium">{t("tournament.timeConstraints")}</h4>
+                            </div>
+                            <ul className="space-y-2 text-white/80 text-sm">
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.timeRule1")}</span>
+                                </li>
+                                <li className="flex items-start space-x-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40 mt-2 flex-shrink-0" />
+                                    <span>{t("tournament.timeRule2")}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div className="bg-white/5 border border-white/20 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <Info className="text-white/80" size={18} />
+                            <h4 className="text-white font-medium">{t("tournament.importantNotes")}</h4>
+                        </div>
+                        <p className="text-white/80 text-sm leading-relaxed">
+                            {t("tournament.finalNote")}
+                        </p>
+                    </div>
+                </ModalBody>
+            </ModalContent>
+        </Modal>
+    );
+};
 
 interface ActiveTournamentSectionProps {
     tournament: TournamentWithStatus;
@@ -50,6 +547,9 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
     const t = useT();
     const { user } = useUser();
     const [timeDisplay, setTimeDisplay] = useState<string>("");
+    const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
+    const [isPrizesModalOpen, setIsPrizesModalOpen] = useState(false);
+    const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
     useEffect(() => {
         const updateTime = () => {
@@ -98,7 +598,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                         </div>
                     </div>
                 </div>
-
+                
                 <div>
                     <h1 className="text-3xl font-bold text-white tracking-wide">{tournament.name}</h1>
                     <div className="flex items-center justify-center space-x-2 mt-2">
@@ -107,8 +607,9 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                     </div>
                 </div>
 
-                {timeDisplay && (
-                    <div className="bg-white/10 border border-white/30 rounded-xl p-4">
+                {/* Enhanced Time Display */}
+                <div className="bg-white/10 border border-white/30 rounded-xl p-4 space-y-3">
+                    {timeDisplay && (
                         <div className="flex items-center justify-center space-x-3">
                             <Clock className="text-white" size={20} />
                             <div className="text-center">
@@ -116,8 +617,41 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                                 <div className="text-white/60 text-sm">{t("tournament.timeRemaining")}</div>
                             </div>
                         </div>
+                    )}
+                    
+                    <div className="border-t border-white/20 pt-3">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="text-center">
+                                <div className="text-white/60 text-xs uppercase tracking-wider mb-1">
+                                    {t("tournament.startDate")}
+                                </div>
+                                <div className="text-white font-mono text-xs">
+                                    {new Date(tournament.start_date).toLocaleString('ru-RU', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-white/60 text-xs uppercase tracking-wider mb-1">
+                                    {t("tournament.endDate")}
+                                </div>
+                                <div className="text-white font-mono text-xs">
+                                    {new Date(tournament.end_date).toLocaleString('ru-RU', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Tournament Statistics */}
@@ -126,24 +660,34 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                     <BarChart3 className="text-white/80" size={20} />
                     <h2 className="text-lg font-bold text-white">{t("tournament.tournamentStats")}</h2>
                 </div>
-
+                
                 <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center space-y-2">
-                        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center mx-auto">
-                            <Users className="text-white/80" size={20} />
+                    <button
+                        onClick={() => setIsParticipantsModalOpen(true)}
+                        className="text-center space-y-2 p-3 rounded-lg hover:bg-white/5 transition-all duration-300 group"
+                    >
+                        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center mx-auto group-hover:border-white/30 group-hover:bg-white/15 transition-all duration-300">
+                            <Users className="text-white/80 group-hover:text-white transition-colors duration-300" size={20} />
                         </div>
-                        <div className="text-2xl font-bold text-white">{leaderboard.length}</div>
+                        <div className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">
+                            {leaderboard.length}
+                        </div>
                         <div className="text-xs text-white/60 uppercase tracking-wider">{t("tournament.participants")}</div>
-                    </div>
-
-                    <div className="text-center space-y-2">
-                        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center mx-auto">
-                            <Trophy className="text-white/80" size={20} />
+                    </button>
+                    
+                    <button
+                        onClick={() => setIsPrizesModalOpen(true)}
+                        className="text-center space-y-2 p-3 rounded-lg hover:bg-white/5 transition-all duration-300 group"
+                    >
+                        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center mx-auto group-hover:border-white/30 group-hover:bg-white/15 transition-all duration-300">
+                            <Trophy className="text-white/80 group-hover:text-white transition-colors duration-300" size={20} />
                         </div>
-                        <div className="text-2xl font-bold text-white">{tournament.prizes.length}</div>
+                        <div className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">
+                            {tournament.prizes.length}
+                        </div>
                         <div className="text-xs text-white/60 uppercase tracking-wider">{t("tournament.prizes")}</div>
-                    </div>
-
+                    </button>
+                    
                     <div className="text-center space-y-2">
                         <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-lg flex items-center justify-center mx-auto">
                             <Star className="text-yellow-400" size={20} />
@@ -156,6 +700,9 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                 </div>
             </div>
 
+            {/* User Position Component */}
+            <UserPositionComponent leaderboard={leaderboard} tournament={tournament} />
+
             {/* Top Participants */}
             {topParticipants.length > 0 && (
                 <div className="bg-white/5 border border-white/20 rounded-xl p-6">
@@ -163,7 +710,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                         <Crown className="text-white/80" size={20} />
                         <h2 className="text-lg font-bold text-white">{t("tournament.topParticipants")}</h2>
                     </div>
-
+                    
                     <div className="space-y-3">
                         {topParticipants.map((participant, index) => (
                             <div
@@ -179,7 +726,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                                 <div className="flex items-center justify-center w-8">
                                     {getRankIcon(index + 1)}
                                 </div>
-
+                                
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
                                         <span className={`font-medium text-sm ${isCurrentUser(participant.telegram_id) ? "text-white" : "text-white/90"}`}>
@@ -194,7 +741,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                                             </span>
                                         )}
                                     </div>
-
+                                    
                                     <div className="flex items-center space-x-3 text-xs text-white/60 mt-1">
                                         <div className="flex items-center space-x-1">
                                             <Activity size={10} />
@@ -210,7 +757,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                                         </div>
                                     </div>
                                 </div>
-
+                                
                                 <div className="text-right">
                                     <div className="flex items-center space-x-1">
                                         <Star className="text-yellow-400" size={14} />
@@ -238,7 +785,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                 >
                     <Play size={24} />
                     <span>
-                        {hasAttemptsRemaining
+                        {hasAttemptsRemaining 
                             ? t("tournament.enterTournament")
                             : t("game.general.noAttempts")
                         }
@@ -246,11 +793,11 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                 </button>
 
                 <button
-                    onClick={onDetailsClick}
+                    onClick={() => setIsRulesModalOpen(true)}
                     className="w-full px-6 py-3 bg-white/5 border border-white/20 text-white rounded-xl text-base font-medium hover:bg-white/10 hover:border-white/30 transition-all duration-300 flex items-center justify-center space-x-3 hover:scale-[1.01] active:scale-[0.99]"
                 >
-                    <Info size={20} />
-                    <span>{t("tournament.viewDetails")}</span>
+                    <BookOpen size={20} />
+                    <span>{t("tournament.rulesAndStrategy")}</span>
                 </button>
 
                 {!hasAttemptsRemaining && (
@@ -260,6 +807,25 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                     </div>
                 )}
             </div>
+
+            {/* Modals */}
+            <ParticipantsModal
+                isOpen={isParticipantsModalOpen}
+                onClose={() => setIsParticipantsModalOpen(false)}
+                participants={leaderboard}
+                tournament={tournament}
+            />
+
+            <PrizesModal
+                isOpen={isPrizesModalOpen}
+                onClose={() => setIsPrizesModalOpen(false)}
+                prizes={tournament.prizes}
+            />
+
+            <RulesModal
+                isOpen={isRulesModalOpen}
+                onClose={() => setIsRulesModalOpen(false)}
+            />
         </div>
     );
 };
@@ -492,7 +1058,7 @@ export default function TournamentsPage() {
                 // Load leaderboard for active tournament
                 if (tournamentsData.active.length > 0) {
                     const activeTournament = tournamentsData.active[0];
-                    const leaderboard = await tournamentService.getTournamentLeaderboard(activeTournament.id, 20);
+                    const leaderboard = await tournamentService.getTournamentLeaderboard(activeTournament.id, 100);
                     setActiveLeaderboard(leaderboard);
                 }
             } catch (err) {
