@@ -143,6 +143,8 @@ const MemoizedGameModesContent = memo(({ t }: { t: any }) => {
     );
 });
 
+MemoizedGameModesContent.displayName = 'MemoizedGameModesContent';
+
 const MemoizedSystemsContent = memo(({ t }: { t: any }) => {
     const systemFeatures = useMemo(() => [
         {
@@ -233,6 +235,8 @@ const MemoizedSystemsContent = memo(({ t }: { t: any }) => {
     );
 });
 
+MemoizedSystemsContent.displayName = 'MemoizedSystemsContent';
+
 const MemoizedMonetizationContent = memo(({ t }: { t: any }) => (
     <div className="space-y-4">
         <p className="text-white/70 text-sm mb-4">
@@ -280,6 +284,8 @@ const MemoizedMonetizationContent = memo(({ t }: { t: any }) => (
         </div>
     </div>
 ));
+
+MemoizedMonetizationContent.displayName = 'MemoizedMonetizationContent';
 
 const MemoizedTipsContent = memo(({ t }: { t: any }) => {
     const tips = useMemo(() => [
@@ -338,10 +344,12 @@ const MemoizedTipsContent = memo(({ t }: { t: any }) => {
     );
 });
 
+MemoizedTipsContent.displayName = 'MemoizedTipsContent';
+
 // Основной компонент с оптимизацией через мемоизацию и условный рендеринг
 export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
     const t = useT();
-    
+
     // Отслеживаем какие секции открыты для условного рендеринга
     const [openSections, setOpenSections] = useState<Set<string>>(new Set());
 
@@ -441,8 +449,8 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                 </ModalHeader>
 
                 <ModalBody className="text-white">
-                    <Accordion 
-                        variant="splitted" 
+                    <Accordion
+                        variant="splitted"
                         className="px-0"
                         onSelectionChange={handleSelectionChange}
                     >
