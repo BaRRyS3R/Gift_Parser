@@ -1,24 +1,23 @@
-// src/hooks/useUser.tsx - Безопасная версия с кэшированием
+// src/hooks/useUser.tsx - Обновленная версия с поддержкой накопления турнирных очков
 
 "use client";
 
 import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
 
 import { userService, type User, type TelegramUser, type AttemptsStatus } from "@/lib/supabase";
-import { tournamentService } from "@/lib/supabase_tournament_extension";
+import { tournamentService, type TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
 import { PhysicsGameResult } from "@/types/game-modes/physics";
 import type { TournamentGameResult } from "@/types/tournaments";
 
-// Union type for all possible game results including tournament
+// Объединенный тип для всех возможных результатов игр включая турнирные
 type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | TournamentGameResult;
 
 interface AttemptsCache {
   status: AttemptsStatus | null;
   lastUpdate: number;
   isValid: boolean;
-  // Добавляем флаг для отслеживания источника данных
   source: 'server' | 'optimistic' | 'initial';
 }
 
@@ -29,11 +28,11 @@ interface UserContextType {
   error: string | null;
   refreshUser: () => Promise<void>;
   saveGameResult: (gameResult: GameResult) => Promise<void>;
-  saveTournamentResult: (tournamentId: string, gameResult: SurvivalGameResult) => Promise<void>;
+  saveTournamentResult: (tournamentId: string, gameResult: SurvivalGameResult) => Promise<TournamentSaveResponse>;
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 
-  // Новые методы для работы с попытками
+  // Методы для работы с попытками
   getAttemptsStatus: () => Promise<AttemptsStatus>;
   consumeAttemptForGame: () => Promise<AttemptsStatus>;
   invalidateAttemptsCache: () => void;
@@ -46,10 +45,10 @@ interface UserProviderProps {
   children: React.ReactNode;
 }
 
-const CACHE_DURATION = 60000; // 60 секунд - увеличено для лучшего UX
+const CACHE_DURATION = 60000; // 60 секунд для оптимального пользовательского опыта
 const OPTIMISTIC_UPDATE_TIMEOUT = 5000; // 5 секунд для отката оптимистических обновлений
 
-// Helper function for retry logic
+// Вспомогательная функция для повторных попыток операций
 const retryOperation = async <T>(
   operation: () => Promise<T>,
   maxAttempts: number = 3,
@@ -99,7 +98,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     source: 'initial'
   });
 
-  // Автоматическая инициализация telegramUser при первом рендере
+  // Автоматическая инициализация Telegram пользователя при первом рендере
   useEffect(() => {
     if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -166,7 +165,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     });
   }, []);
 
-  // Получение кэшированного статуса попыток (только для UI)
+  // Получение кэшированного статуса попыток для интерфейса
   const getCachedAttemptsStatus = useCallback((): AttemptsStatus | null => {
     const now = Date.now();
 
@@ -187,7 +186,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     const now = Date.now();
 
-    // Проверяем валидность кэша
+    // Проверка валидности кэша
     if (attemptsCache.isValid &&
       attemptsCache.status &&
       attemptsCache.source === 'server' &&
@@ -202,7 +201,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         telegramUser.id
       );
 
-      // Обновляем кэш только серверными данными
+      // Обновление кэша только серверными данными
       setAttemptsCache({
         status,
         lastUpdate: now,
@@ -214,7 +213,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("Error fetching attempts status:", error);
 
-      // В случае ошибки инвалидируем кэш
+      // При ошибке инвалидация кэша
       invalidateAttemptsCache();
       throw error;
     }
@@ -226,7 +225,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       throw new Error("Пользователь Telegram не найден");
     }
 
-    // КРИТИЧЕСКИ ВАЖНО: всегда делаем серверный запрос для потребления попытки
     console.log("Consuming attempt on server (security-critical operation)");
 
     try {
@@ -236,7 +234,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       const now = Date.now();
 
-      // Обновляем кэш только после успешного серверного запроса
+      // Обновление кэша после успешного серверного запроса
       setAttemptsCache({
         status: newStatus,
         lastUpdate: now,
@@ -250,13 +248,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } catch (error) {
       console.error("Error consuming attempt:", error);
 
-      // При ошибке инвалидируем кэш и требуем повторную проверку
+      // При ошибке инвалидация кэша и требование повторной проверки
       invalidateAttemptsCache();
       throw error;
     }
   }, [telegramUser, invalidateAttemptsCache]);
 
-  // Автоматическая загрузка пользователя из БД при установке telegramUser
+  // Автоматическая загрузка пользователя из базы данных при установке telegramUser
   useEffect(() => {
     if (telegramUser && !user && !isLoading) {
       refreshUser().catch(err => {
@@ -278,12 +276,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         throw new Error("Пользователь Telegram не найден");
       }
 
-      // Check if this is a tournament result
+      // Проверка турнирного результата
       if ('tournamentId' in gameResult) {
-        return saveTournamentResult(gameResult.tournamentId, gameResult);
+        const tournamentResult = await saveTournamentResult(gameResult.tournamentId, gameResult);
+        console.log("Tournament result saved with accumulation:", tournamentResult);
+        return;
       }
 
-      console.log("Saving game result:", {
+      console.log("Saving regular game result:", {
         mode: gameResult.mode,
         score: gameResult.score,
         duration: gameResult.duration,
@@ -292,7 +292,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const saveOperation = async (): Promise<void> => {
         await userService.saveGameResult(telegramUser.id, gameResult);
         await refreshUser();
-        // После сохранения результата инвалидируем кэш попыток
         invalidateAttemptsCache();
       };
 
@@ -317,7 +316,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   );
 
   const saveTournamentResult = useCallback(
-    async (tournamentId: string, gameResult: SurvivalGameResult): Promise<void> => {
+    async (tournamentId: string, gameResult: SurvivalGameResult): Promise<TournamentSaveResponse> => {
       if (!telegramUser || !user) {
         throw new Error("Пользователь не найден");
       }
@@ -329,8 +328,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         survivalTime: gameResult.survivalTime,
       });
 
-      const saveOperation = async (): Promise<void> => {
-        await tournamentService.saveTournamentResult(
+      const saveOperation = async (): Promise<TournamentSaveResponse> => {
+        return await tournamentService.saveTournamentResult(
           tournamentId,
           user.id,
           telegramUser.id,
@@ -343,19 +342,22 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             deathCause: gameResult.deathCause,
           }
         );
-
-        console.log(`Points accumulated: +${gameResult.score} added to tournament total`);
       };
 
       try {
-        await retryOperation(saveOperation, 3, 1000);
-        console.log("Tournament result with point accumulation saved successfully");
+        const result = await retryOperation(saveOperation, 3, 1000);
+        console.log("Tournament result with point accumulation saved successfully:", result);
+        return result;
       } catch (err) {
-        console.error("Failed to save accumulative tournament result:", err);
+        console.error(
+          "Failed to save tournament result after all retry attempts:",
+          err,
+        );
 
-        const errorMessage = err instanceof Error
-          ? `Не удалось сохранить результат турнира после 3 попыток: ${err.message}`
-          : "Не удалось сохранить результат турнира после 3 попыток. Попробуйте позже.";
+        const errorMessage =
+          err instanceof Error
+            ? `Не удалось сохранить результат турнира после 3 попыток: ${err.message}`
+            : "Не удалось сохранить результат турнира после 3 попыток. Попробуйте позже.";
 
         throw new Error(errorMessage);
       }

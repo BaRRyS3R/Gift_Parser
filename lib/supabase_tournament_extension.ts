@@ -1,15 +1,22 @@
-// src/lib/supabase_tournament_extension.ts - Расширенный сервис с поддержкой всех турниров
+// src/lib/supabase_tournament_extension.ts - Обновленный сервис с поддержкой накопления турнирных очков
 
 import { supabase } from "./supabase";
 import type {
     Tournament,
     TournamentLeaderboardEntry,
     TournamentResult,
-    TournamentStatus
+    TournamentStatus,
+    TournamentSaveResponse
 } from "@/types/tournaments";
 
-// Re-export types for external use
-export type { TournamentLeaderboardEntry, Tournament, TournamentResult, TournamentStatus } from "@/types/tournaments";
+// Экспорт типов для внешнего использования
+export type { 
+    TournamentLeaderboardEntry, 
+    Tournament, 
+    TournamentResult, 
+    TournamentStatus,
+    TournamentSaveResponse 
+} from "@/types/tournaments";
 
 export interface TournamentWithStatus extends Tournament {
     status: 'upcoming' | 'active' | 'completed';
@@ -24,11 +31,11 @@ export interface TournamentListResponse {
     completed: TournamentWithStatus[];
 }
 
-// Tournament service functions to integrate with existing userService object
+// Основной сервис турнирной системы с поддержкой накопления очков
 export const tournamentService = {
 
     /**
-     * Get the currently active tournament
+     * Получение активного турнира
      */
     async getActiveTournament(): Promise<Tournament | null> {
         try {
@@ -47,7 +54,7 @@ export const tournamentService = {
     },
 
     /**
-     * Get all tournaments categorized by status
+     * Получение всех турниров с категоризацией по статусу
      */
     async getAllTournaments(): Promise<TournamentListResponse> {
         try {
@@ -85,7 +92,6 @@ export const tournamentService = {
                     time_until_end: timeUntilEnd
                 };
 
-                // Get participants count for completed tournaments
                 if (status === 'completed') {
                     try {
                         const leaderboard = await this.getTournamentLeaderboard(tournament.id, 1000);
@@ -99,7 +105,6 @@ export const tournamentService = {
                 categorized[status].push(tournamentWithStatus);
             }
 
-            // Sort tournaments
             categorized.active.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
             categorized.upcoming.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
             categorized.completed.sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
@@ -116,7 +121,7 @@ export const tournamentService = {
     },
 
     /**
-     * Get all tournaments (raw from database)
+     * Получение всех турниров напрямую из базы данных
      */
     async getAllTournamentsRaw(): Promise<Tournament[]> {
         try {
@@ -138,7 +143,7 @@ export const tournamentService = {
     },
 
     /**
-     * Get tournament status with time calculations
+     * Получение статуса турнира с временными расчетами
      */
     async getTournamentStatus(): Promise<TournamentStatus> {
         try {
@@ -175,8 +180,8 @@ export const tournamentService = {
     },
 
     /**
- * Get tournament leaderboard sorted by accumulated points (client-side sorting)
- */
+     * Получение турнирного лидерборда с накопленными очками
+     */
     async getTournamentLeaderboard(tournamentId: string, limit: number = 50): Promise<TournamentLeaderboardEntry[]> {
         try {
             const { data, error } = await supabase.rpc('get_tournament_leaderboard_accumulative', {
@@ -197,7 +202,7 @@ export const tournamentService = {
     },
 
     /**
-     * Get tournament winners (top N based on prize count)
+     * Получение победителей турнира на основе количества призовых мест
      */
     async getTournamentWinners(tournamentId: string, prizeCount: number): Promise<TournamentLeaderboardEntry[]> {
         try {
@@ -210,7 +215,7 @@ export const tournamentService = {
     },
 
     /**
-     * Get user's tournament result and rank
+     * Получение результата и ранга пользователя в турнире
      */
     async getUserTournamentResult(tournamentId: string, userId: string): Promise<TournamentResult | null> {
         try {
@@ -232,7 +237,7 @@ export const tournamentService = {
     },
 
     /**
-     * Save tournament game result
+     * Сохранение результата турнирной игры с накоплением очков
      */
     async saveTournamentResult(
         tournamentId: string,
@@ -246,7 +251,7 @@ export const tournamentService = {
             correctHits: number;
             deathCause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
         }
-    ): Promise<string | null> {
+    ): Promise<TournamentSaveResponse> {
         try {
             console.log('Saving accumulative tournament result:', {
                 tournamentId,
@@ -272,7 +277,13 @@ export const tournamentService = {
             }
 
             console.log('Tournament result saved with point accumulation:', data);
-            return data;
+            
+            // Парсинг JSON ответа от функции
+            const saveResponse: TournamentSaveResponse = typeof data === 'string' ? JSON.parse(data) : data;
+            
+            console.log(`Points accumulated: +${saveResponse.game_score} (Total: ${saveResponse.total_score})`);
+            
+            return saveResponse;
         } catch (error) {
             console.error('Error saving accumulative tournament result:', error);
             throw error;
@@ -280,7 +291,7 @@ export const tournamentService = {
     },
 
     /**
-     * Check if user has participated in tournament
+     * Проверка участия пользователя в турнире
      */
     async hasUserParticipated(tournamentId: string, userId: string): Promise<boolean> {
         try {
@@ -293,7 +304,7 @@ export const tournamentService = {
     },
 
     /**
-     * Get tournament by ID
+     * Получение турнира по идентификатору
      */
     async getTournamentById(tournamentId: string): Promise<Tournament | null> {
         try {
@@ -316,15 +327,13 @@ export const tournamentService = {
     }
 };
 
-// ИСПРАВЛЕННАЯ функция для форматирования времени турнира с обработкой отрицательных значений
+// Функция форматирования времени выживания с обработкой некорректных значений
 export const formatTournamentSurvivalTime = (milliseconds: number): string => {
-    // Обрабатываем отрицательные значения
     if (milliseconds < 0) {
         console.warn('Negative survival time detected:', milliseconds);
         return "0.000s";
     }
 
-    // Убеждаемся, что значение является числом
     if (isNaN(milliseconds) || !isFinite(milliseconds)) {
         console.warn('Invalid survival time value:', milliseconds);
         return "0.000s";

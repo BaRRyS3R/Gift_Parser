@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Стильная версия страницы турниров
+// src/app/tournament/page.tsx - Обновленная главная страница турниров с накоплением очков
 
 "use client";
 
@@ -21,6 +21,7 @@ import {
     Target,
     TrendingUp,
     Star,
+    Activity,
 } from "lucide-react";
 
 import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
@@ -50,7 +51,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
     const [winners, setWinners] = useState<TournamentLeaderboardEntry[]>([]);
     const [isLoadingWinners, setIsLoadingWinners] = useState(false);
 
-    // Update time display for active and upcoming tournaments
+    // Обновление отображения времени для активных и предстоящих турниров
     useEffect(() => {
         if (tournament.status === "completed") {
             setTimeDisplay("");
@@ -76,7 +77,7 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
         return () => clearInterval(interval);
     }, [tournament]);
 
-    // Load winners when expanded and tournament is completed
+    // Загрузка победителей при разворачивании завершенного турнира
     useEffect(() => {
         if (isExpanded && tournament.status === "completed" && winners.length === 0) {
             const loadWinners = async () => {
@@ -155,19 +156,64 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
         }
     };
 
+    const renderWinnerEntry = (winner: TournamentLeaderboardEntry, index: number) => {
+        return (
+            <div
+                key={winner.id}
+                className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300"
+            >
+                <div className="flex items-center space-x-4">
+                    <div className="flex items-center justify-center w-8">
+                        {getRankIcon(index + 1)}
+                    </div>
+                    <div>
+                        <div className="text-sm font-bold text-white">
+                            {winner.first_name} {winner.last_name || ""}
+                        </div>
+                        <div className="flex items-center space-x-2 text-xs text-white/60">
+                            <div className="flex items-center space-x-1">
+                                <Activity size={10} />
+                                <span>{winner.games_played || 1} игр</span>
+                            </div>
+                            <div className="w-1 h-1 rounded-full bg-white/40" />
+                            <div className="flex items-center space-x-1">
+                                <Clock size={10} />
+                                <span className="font-mono">{formatTournamentSurvivalTime(winner.survival_time)}</span>
+                            </div>
+                            <div className="w-1 h-1 rounded-full bg-white/40" />
+                            <div className="flex items-center space-x-1">
+                                <TrendingUp size={10} />
+                                <span>L{winner.max_level_reached}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <div className="text-sm font-bold text-white">
+                        <div className="flex items-center space-x-1">
+                            <Star className="text-yellow-400" size={12} />
+                            <span>{winner.survival_score} pts</span>
+                        </div>
+                    </div>
+                    <div className="text-xs text-white/60">
+                        {tournament.prizes[index]}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className={`
             group relative backdrop-blur-sm border rounded-xl transition-all duration-300 overflow-hidden
             ${config.bg} hover:border-white/50 hover:bg-white/20 hover:scale-[1.01] active:scale-[0.99]
             ${config.pulse ? 'animate-pulse-subtle' : ''}
         `}>
-            {/* Background Decorative Icon */}
             <div className="absolute right-0 top-1/2 transform translate-x-1/4 -translate-y-1/2 pointer-events-none opacity-5">
                 <BgIcon size={100} className="text-white transform rotate-12" />
             </div>
 
             <div className="p-5 relative z-10">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-4">
                         <div className={`relative w-12 h-12 border rounded-xl flex items-center justify-center ${config.accent} border-white/30 group-hover:border-white/50 transition-all duration-300`}>
@@ -228,7 +274,6 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                     </div>
                 </div>
 
-                {/* Tournament Stats Bar */}
                 <div className={`${config.accent} border border-white/10 rounded-lg p-3 mb-4`}>
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="space-y-1">
@@ -261,7 +306,6 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                     </div>
                 </div>
 
-                {/* Tournament Dates for Upcoming */}
                 {tournament.status === "upcoming" && (
                     <div className="bg-white/5 border border-white/15 rounded-lg p-4 mb-4">
                         <div className="flex items-center space-x-2 mb-3">
@@ -281,10 +325,8 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                     </div>
                 )}
 
-                {/* Expanded Content for Completed Tournaments */}
                 {isExpanded && tournament.status === "completed" && (
                     <div className="mt-4 space-y-4 animate-fade-in">
-                        {/* Tournament Dates */}
                         <div className="bg-white/5 border border-white/15 rounded-lg p-4">
                             <div className="flex items-center space-x-2 mb-3">
                                 <CalendarDays className="text-white/80" size={16} />
@@ -302,65 +344,27 @@ const TournamentCard: React.FC<TournamentCardProps> = ({
                             </div>
                         </div>
 
-                        {/* Winners */}
                         <div className="bg-white/5 border border-white/15 rounded-lg p-4">
                             <div className="flex items-center space-x-2 mb-4">
                                 <Crown className="text-white/80" size={16} />
                                 <span className="text-sm font-bold text-white uppercase tracking-wider">
-                                    {t("tournament.prizeWinners")} ({tournament.prizes.length})
+                                    {t("tournament.champions")} ({tournament.prizes.length} {t("tournament.prizePositions")})
                                 </span>
                             </div>
 
                             {isLoadingWinners ? (
                                 <div className="flex items-center justify-center space-x-3 py-6">
                                     <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                    <span className="text-white/60 text-sm font-medium">{t("tournament.loadingWinners")}</span>
+                                    <span className="text-white/60 text-sm font-medium">{t("tournament.loadingChampions")}</span>
                                 </div>
                             ) : winners.length > 0 ? (
                                 <div className="space-y-3">
-                                    {winners.map((winner, index) => (
-                                        <div
-                                            key={winner.id}
-                                            className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300"
-                                        >
-                                            <div className="flex items-center space-x-4">
-                                                <div className="flex items-center justify-center w-8">
-                                                    {getRankIcon(index + 1)}
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-bold text-white">
-                                                        {winner.first_name} {winner.last_name || ""}
-                                                    </div>
-                                                    <div className="flex items-center space-x-2 text-xs text-white/60">
-                                                        <div className="flex items-center space-x-1">
-                                                            <Clock size={10} />
-                                                            <span className="font-mono">{formatTournamentSurvivalTime(winner.survival_time)}</span>
-                                                        </div>
-                                                        <div className="w-1 h-1 rounded-full bg-white/40" />
-                                                        <div className="flex items-center space-x-1">
-                                                            <TrendingUp size={10} />
-                                                            <span>L{winner.max_level_reached}</span>
-                                                        </div>
-                                                        <div className="w-1 h-1 rounded-full bg-white/40" />
-                                                        <div className="flex items-center space-x-1">
-                                                            <Target size={10} />
-                                                            <span>{winner.correct_hits}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-sm font-bold text-white">
-                                                    {tournament.prizes[index]}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                    {winners.map((winner, index) => renderWinnerEntry(winner, index))}
                                 </div>
                             ) : (
                                 <div className="text-center py-6">
                                     <Trophy className="text-white/30 mx-auto mb-3" size={32} />
-                                    <p className="text-white/50 text-sm font-medium">{t("tournament.noWinnersData")}</p>
+                                    <p className="text-white/50 text-sm font-medium">{t("tournament.noChampionsData")}</p>
                                 </div>
                             )}
                         </div>
@@ -385,7 +389,7 @@ const SectionHeader: React.FC<{
             <div>
                 <h2 className={`text-xl font-bold ${opacity} tracking-wide`}>{title}</h2>
                 {count !== undefined && (
-                    <p className="text-white/50 text-sm">{count}</p>
+                    <p className="text-white/50 text-sm">{count} TOURNAMENTS</p>
                 )}
             </div>
         </div>
@@ -422,7 +426,6 @@ export default function TournamentsPage() {
         loadTournaments();
     }, [t]);
 
-    // Setup Telegram WebApp back button
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -465,8 +468,8 @@ export default function TournamentsPage() {
                         <Trophy className="absolute inset-0 m-auto text-white/30" size={20} />
                     </div>
                     <div>
-                        <p className="text-white text-lg font-medium">{t("tournament.loadingTournament")}</p>
-                        <p className="text-white/60 text-sm">Loading data...</p>
+                        <p className="text-white text-lg font-medium">{t("tournament.loadingTournaments")}</p>
+                        <p className="text-white/60 text-sm">{t("tournament.fetchingData")}</p>
                     </div>
                 </div>
             </div>
@@ -482,13 +485,13 @@ export default function TournamentsPage() {
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-white mb-2">{error}</h2>
-                        <p className="text-white/60 text-sm">{t("common.retry")}</p>
+                        <p className="text-white/60 text-sm">{t("tournament.tryRefreshPage")}</p>
                     </div>
                     <button
                         className="px-6 py-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all duration-300 border border-white/20 hover:border-white/30 hover:scale-105 active:scale-95"
                         onClick={() => window.location.reload()}
                     >
-                        {t("common.retry")}
+                        {t("tournament.refresh")}
                     </button>
                 </div>
             </div>
@@ -512,7 +515,7 @@ export default function TournamentsPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-white mb-3">{t("tournament.noTournamentsAvailable")}</h1>
                         <p className="text-white/60 text-sm leading-relaxed">
-                            {t("tournament.checkBackLater")}
+                            {t("tournament.checkBackSoon")}
                         </p>
                     </div>
                 </div>
@@ -522,17 +525,15 @@ export default function TournamentsPage() {
 
     return (
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-            {/* Enhanced Header */}
             <div className="mb-8">
                 <div className="text-center space-y-6">
                     <div>
                         <h1 className="text-3xl font-bold text-white tracking-wide">{t("tournament.title")}</h1>
-                        <p className="text-white/60 text-sm uppercase tracking-[0.2em] mt-2">{t("tournament.tournamentsList")}</p>
+                        <p className="text-white/60 text-sm uppercase tracking-[0.2em] mt-2">{t("tournament.competitionCenter")}</p>
                     </div>
                 </div>
             </div>
 
-            {/* Active Tournaments */}
             {tournaments.active.length > 0 && (
                 <div className="mb-10">
                     <SectionHeader
@@ -555,7 +556,6 @@ export default function TournamentsPage() {
                 </div>
             )}
 
-            {/* Upcoming Tournaments */}
             {tournaments.upcoming.length > 0 && (
                 <div className="mb-10">
                     <SectionHeader
@@ -578,12 +578,11 @@ export default function TournamentsPage() {
                 </div>
             )}
 
-            {/* Completed Tournaments */}
             {tournaments.completed.length > 0 && (
                 <div className="mb-8">
                     <SectionHeader
                         icon={Star}
-                        title={t("tournament.completedTournaments")}
+                        title={t("tournament.hallOfFame")}
                         count={tournaments.completed.length}
                         opacity="text-white/60"
                     />

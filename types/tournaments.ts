@@ -1,14 +1,15 @@
-// src/types/tournaments.ts - Tournament system types
+// src/types/tournaments.ts - Обновленные типы данных для системы накопления турнирных очков
 
 import { SurvivalGameResult } from "./game-modes/survival";
 
-// Main page tournament button integration
+// Интерфейс для отображения информации о турнире на главной странице
 export interface MainPageTournamentInfo {
   isActive: boolean;
   tournament: Tournament | null;
   timeRemaining?: string;
 }
 
+// Основной интерфейс турнира
 export interface Tournament {
   id: string;
   name: string;
@@ -19,6 +20,7 @@ export interface Tournament {
   updated_at: string;
 }
 
+// Расширенный интерфейс записи турнирного лидерборда с поддержкой накопления очков
 export interface TournamentLeaderboardEntry {
   id: string;
   tournament_id: string;
@@ -28,44 +30,63 @@ export interface TournamentLeaderboardEntry {
   last_name?: string;
   username?: string;
   is_premium: boolean;
-  survival_time: number;
-  survival_score: number; // Теперь содержит накопленные очки
-  max_level_reached: number;
-  perfect_streak: number;
-  correct_hits: number; // Теперь содержит общее количество попаданий
+  survival_time: number; // Лучшее время выживания
+  survival_score: number; // Накопленные очки за все игры турнира
+  last_game_score: number; // Очки за последнюю игру
+  max_level_reached: number; // Максимальный достигнутый уровень
+  perfect_streak: number; // Лучшая серия без ошибок
+  correct_hits: number; // Общее количество правильных попаданий за все игры
   death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
-  games_played: number; // Новое поле
+  games_played: number; // Количество сыгранных игр в турнире
   created_at: string;
   rank: number;
 }
 
+// Интерфейс для сохранения результата турнирной игры
 export interface TournamentResult {
   id?: string;
   tournament_id: string;
   user_id: string;
-  survival_time: number; // milliseconds
-  survival_score: number;
+  survival_time: number;
+  survival_score: number; // Накопленные очки
+  last_game_score: number; // Очки за текущую игру
   max_level_reached: number;
   perfect_streak: number;
   correct_hits: number;
   death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+  games_played: number;
   rank?: number;
   created_at?: string;
 }
 
+// Интерфейс статуса турнира с временными расчетами
 export interface TournamentStatus {
   isActive: boolean;
   activeTournament: Tournament | null;
-  timeRemaining?: number; // milliseconds until tournament ends
+  timeRemaining?: number; // Время до окончания турнира в миллисекундах
   hasStarted?: boolean;
 }
 
+// Расширенный интерфейс результата турнирной игры
 export interface TournamentGameResult extends SurvivalGameResult {
   tournamentId: string;
 }
 
-// Utility functions for tournament time formatting
+// Интерфейс ответа сервера при сохранении результата с накоплением очков
+export interface TournamentSaveResponse {
+  result_id: string;
+  total_score: number; // Общие накопленные очки
+  game_score: number; // Очки за текущую игру
+  games_played: number; // Общее количество игр
+  previous_total: number; // Предыдущий общий счет
+}
+
+// Функции для работы с турнирным временем
 export const formatTournamentTime = (milliseconds: number): string => {
+  if (milliseconds < 0 || isNaN(milliseconds) || !isFinite(milliseconds)) {
+    return "0.000s";
+  }
+
   const totalSeconds = Math.floor(milliseconds / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -78,8 +99,8 @@ export const formatTournamentTime = (milliseconds: number): string => {
   return `${seconds}.${ms.toString().padStart(3, "0")}s`;
 };
 
+// Парсинг строки времени обратно в миллисекунды
 export const parseTournamentTime = (timeString: string): number => {
-  // Parse time strings like "1:23.456" or "45.123s" back to milliseconds
   const timePattern = /^(?:(\d+):)?(\d+)\.(\d{3})s?$/;
   const match = timeString.match(timePattern);
 
@@ -92,12 +113,14 @@ export const parseTournamentTime = (timeString: string): number => {
   return (minutes * 60 + seconds) * 1000 + milliseconds;
 };
 
+// Расчет оставшегося времени турнира
 export const getTournamentTimeRemaining = (endDate: string): number => {
   const now = new Date();
   const end = new Date(endDate);
   return Math.max(0, end.getTime() - now.getTime());
 };
 
+// Проверка активности турнира
 export const isTournamentActive = (tournament: Tournament): boolean => {
   const now = new Date();
   const start = new Date(tournament.start_date);
@@ -106,6 +129,7 @@ export const isTournamentActive = (tournament: Tournament): boolean => {
   return now >= start && now < end;
 };
 
+// Форматирование оставшегося времени
 export const formatTimeRemaining = (milliseconds: number): string => {
   if (milliseconds <= 0) return "Ended";
 

@@ -1,4 +1,4 @@
-// src/app/tournament/active/page.tsx - Обновленная страница активного турнира с новой системой очков
+// src/app/tournament/active/page.tsx - Обновленная страница активного турнира с накоплением очков
 
 "use client";
 
@@ -32,6 +32,8 @@ import {
     ShoppingCart,
     ArrowLeft,
     Star,
+    Plus,
+    Gamepad2,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -60,9 +62,10 @@ export default function ActiveTournamentPage() {
     const [activeRuleTab, setActiveRuleTab] = useState<RuleTabId>("gameMode");
     const [activeMainTab, setActiveMainTab] = useState<MainTabId>("tournament");
     const [isPrizesExpanded, setIsPrizesExpanded] = useState(false);
+    const [isProgressExpanded, setIsProgressExpanded] = useState(false);
     const [attemptsResetTime, setAttemptsResetTime] = useState<string>("");
 
-    // Helper function to get rule description in a type-safe way
+    // Вспомогательные функции для получения описаний правил
     const getRuleDescription = (ruleId: RuleTabId) => {
         switch (ruleId) {
             case "gameMode":
@@ -82,7 +85,6 @@ export default function ActiveTournamentPage() {
         }
     };
 
-    // Helper function to get rule title in a type-safe way
     const getRuleTitle = (ruleId: RuleTabId) => {
         switch (ruleId) {
             case "gameMode":
@@ -102,12 +104,12 @@ export default function ActiveTournamentPage() {
         }
     };
 
-    // Check if user has attempts remaining
+    // Проверка наличия оставшихся попыток
     const hasAttemptsRemaining = () => {
         return user?.attempts_remaining && user.attempts_remaining > 0;
     };
 
-    // Update attempts reset timer
+    // Обновление таймера сброса попыток
     useEffect(() => {
         if (!user?.attempts_reset_at || hasAttemptsRemaining()) {
             setAttemptsResetTime("");
@@ -135,7 +137,6 @@ export default function ActiveTournamentPage() {
             setIsLoading(true);
             setError(null);
 
-            // Get active tournament
             const activeTournament = await tournamentService.getActiveTournament();
 
             if (!activeTournament) {
@@ -171,7 +172,7 @@ export default function ActiveTournamentPage() {
         loadTournamentData();
     }, [loadTournamentData]);
 
-    // Update countdown timer
+    // Обновление таймера обратного отсчета
     useEffect(() => {
         if (!tournament) {
             setTimeRemaining("");
@@ -197,7 +198,7 @@ export default function ActiveTournamentPage() {
         return () => clearInterval(interval);
     }, [tournament, t, router]);
 
-    // Setup Telegram WebApp back button
+    // Настройка кнопки "Назад" в Telegram WebApp
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -232,10 +233,6 @@ export default function ActiveTournamentPage() {
 
     const handleGoToShop = () => {
         router.push("/shop");
-    };
-
-    const handleBackToTournaments = () => {
-        router.push("/tournament");
     };
 
     const getRankIcon = (position: number) => {
@@ -321,15 +318,17 @@ export default function ActiveTournamentPage() {
                 </div>
 
                 <div className="text-right space-y-1">
-                    {/* Основной показатель - накопленные очки */}
                     <div className="text-base font-medium text-white">
                         <div className="flex items-center space-x-1">
                             <Star className="text-yellow-400" size={14} />
                             <span>{entry.survival_score} pts</span>
                         </div>
                     </div>
-                    {/* Дополнительная информация */}
                     <div className="flex items-center space-x-2 text-xs text-white/60">
+                        <div className="flex items-center space-x-1">
+                            <Gamepad2 size={8} />
+                            <span>{entry.games_played || 1}</span>
+                        </div>
                         <div className="flex items-center space-x-1">
                             <Clock size={8} />
                             <span>{formatTournamentSurvivalTime(entry.survival_time)}</span>
@@ -337,10 +336,6 @@ export default function ActiveTournamentPage() {
                         <div className="flex items-center space-x-1">
                             <TrendingUp size={8} />
                             <span>L{entry.max_level_reached}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                            <Target size={8} />
-                            <span>{entry.correct_hits}</span>
                         </div>
                     </div>
                 </div>
@@ -529,8 +524,9 @@ export default function ActiveTournamentPage() {
     const renderTournamentStats = () => {
         if (leaderboard.length === 0) return null;
 
-        // Получаем максимальное количество очков вместо лучшего времени
         const bestScore = Math.max(...leaderboard.map(e => e.survival_score), 0);
+        const totalGames = leaderboard.reduce((sum, entry) => sum + (entry.games_played || 1), 0);
+        const avgGamesPerPlayer = totalGames / leaderboard.length;
 
         return (
             <div className="bg-white/5 border border-white/20 rounded-xl p-4 mb-4">
@@ -554,9 +550,9 @@ export default function ActiveTournamentPage() {
                     </div>
                     <div>
                         <div className="text-lg font-medium text-white">
-                            L{Math.max(...leaderboard.map(e => e.max_level_reached), 0)}
+                            {Math.round(avgGamesPerPlayer * 10) / 10}
                         </div>
-                        <div className="text-xs text-white/60">{t("tournament.maxLevel")}</div>
+                        <div className="text-xs text-white/60">Ср. игр на игрока</div>
                     </div>
                 </div>
             </div>
@@ -598,6 +594,83 @@ export default function ActiveTournamentPage() {
                         </div>
                     </div>
                 )}
+            </div>
+        );
+    };
+
+    const renderUserProgressSection = () => {
+        if (!userResult) return null;
+
+        return (
+            <div className="bg-white/5 border border-white/20 rounded-xl mb-4">
+                <button
+                    onClick={() => setIsProgressExpanded(!isProgressExpanded)}
+                    className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors rounded-xl"
+                >
+                    <div className="flex items-center space-x-2">
+                        <Target className="text-white/80" size={16} />
+                        <h3 className="text-sm font-medium text-white">{t("tournament.yourProgress")}</h3>
+                    </div>
+                    {isProgressExpanded ? (
+                        <ChevronUp className="text-white/60" size={16} />
+                    ) : (
+                        <ChevronDown className="text-white/60" size={16} />
+                    )}
+                </button>
+
+                <div className="px-4 pb-4">
+                    <div className="grid grid-cols-2 gap-4 text-center mb-4">
+                        <div>
+                            <div className="text-lg font-medium text-white">
+                                <div className="flex items-center justify-center space-x-1">
+                                    <Star className="text-yellow-400" size={14} />
+                                    <span>{userResult.survival_score} pts</span>
+                                </div>
+                            </div>
+                            <div className="text-xs text-white/60">{t("tournament.totalPoints")}</div>
+                        </div>
+                        <div>
+                            <div className="text-lg font-medium text-white">#{userResult.rank || "?"}</div>
+                            <div className="text-xs text-white/60">{t("tournament.rank")}</div>
+                        </div>
+                    </div>
+
+                    {isProgressExpanded && (
+                        <div className="space-y-3 animate-fade-in">
+                            <div className="grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                    <div className="text-lg font-medium text-white">
+                                        {userResult.games_played || 1}
+                                    </div>
+                                    <div className="text-xs text-white/60">{t("tournament.gamesPlayed")}</div>
+                                </div>
+                                <div>
+                                    <div className="text-lg font-medium text-white">
+                                        {userResult.last_game_score || 0} pts
+                                    </div>
+                                    <div className="text-xs text-white/60">{t("tournament.lastGameScore")}</div>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-white/20 pt-3">
+                                <div className="grid grid-cols-2 gap-4 text-center">
+                                    <div>
+                                        <div className="text-base font-medium text-white">
+                                            {formatTournamentSurvivalTime(userResult.survival_time)}
+                                        </div>
+                                        <div className="text-xs text-white/60">{t("tournament.bestTime")}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-base font-medium text-white">
+                                            L{userResult.max_level_reached}
+                                        </div>
+                                        <div className="text-xs text-white/60">{t("tournament.maxLevel")}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         );
     };
@@ -645,36 +718,7 @@ export default function ActiveTournamentPage() {
                 </button>
 
                 {renderPrizesSection()}
-
-                {userResult && (
-                    <div className="bg-white/5 border border-white/20 rounded-xl p-4">
-                        <div className="flex items-center space-x-2 mb-3">
-                            <Target className="text-white/80" size={16} />
-                            <h3 className="text-sm font-medium text-white">{t("tournament.yourProgress")}</h3>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 text-center">
-                            <div>
-                                <div className="text-lg font-medium text-white">
-                                    <div className="flex items-center justify-center space-x-1">
-                                        <Star className="text-yellow-400" size={14} />
-                                        <span>{userResult.survival_score} pts</span>
-                                    </div>
-                                </div>
-                                <div className="text-xs text-white/60">{t("tournament.totalPoints")}</div>
-                            </div>
-                            <div>
-                                <div className="text-lg font-medium text-white">#{userResult.rank || "?"}</div>
-                                <div className="text-xs text-white/60">{t("tournament.rank")}</div>
-                            </div>
-                            <div>
-                                <div className="text-lg font-medium text-white">
-                                    {formatTournamentSurvivalTime(userResult.survival_time)}
-                                </div>
-                                <div className="text-xs text-white/60">{t("tournament.bestTime")}</div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {renderUserProgressSection()}
 
                 <button
                     className={`
@@ -811,9 +855,7 @@ export default function ActiveTournamentPage() {
 
     return (
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-            {/* Header with Back Button */}
             <div className="mb-6">
-                {/* Центрированный заголовок */}
                 <div className="mb-4 text-center">
                     <h1 className="text-xl font-medium text-white">{tournament.name}</h1>
                     <p className="text-green-400 text-sm">{t("tournament.tournamentActive")}</p>
@@ -830,7 +872,6 @@ export default function ActiveTournamentPage() {
                 )}
             </div>
 
-            {/* Main Tabs */}
             <div className="mb-6">
                 <div className="bg-white/5 border border-white/20 rounded-xl p-1 flex">
                     <button
@@ -862,12 +903,10 @@ export default function ActiveTournamentPage() {
                 </div>
             </div>
 
-            {/* Tab Content */}
             <div className="mb-8">
                 {activeMainTab === "tournament" ? renderTournamentTab() : renderLeaderboardTab()}
             </div>
 
-            {/* Rules Modal */}
             {renderRulesModal()}
         </div>
     );

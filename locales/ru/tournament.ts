@@ -15,7 +15,6 @@ export const tournament = {
     otherParticipants: "ДРУГИЕ УЧАСТНИКИ",
     noParticipants: "Пока нет участников",
     beFirstParticipant: "Станьте первым участником турнира!",
-    yourProgress: "Ваш прогресс",
     yourBestResult: "ВАШ ПРОГРЕСС В ТУРНИРЕ",
     rank: "МЕСТО",
     maxLevel: "МАКС УРОВЕНЬ",
@@ -53,6 +52,55 @@ export const tournament = {
     rulesTitle: "Правила Турнира",
     rulesSubtitle: "Рекомендации и Регламент Соревнования",
     rulesButton: "Правила и Рекомендации Турнира",
+    
+    // Статистика и достижения
+    gamesPlayed: "Игр сыграно",
+    totalAccumulated: "Всего накоплено",
+    thisGamePoints: "За эту игру",
+    previousTotal: "Предыдущий итог",
+    newTotal: "Новый итог",
+    pointsProgress: "Прогресс очков",
+    
+    // Отображение результатов
+    gameScore: "Счёт игры",
+    accumulatedScore: "Накопленный счёт",
+    lastGameScore: "Последняя игра",
+    tournamentProgress: "Прогресс в турнире",
+    yourProgress: "ВАШ ПРОГРЕСС",
+    
+    // Сохранение и синхронизация
+    savingWithAccumulation: "Сохранение с накоплением очков...",
+    accumulationComplete: "Накопление очков завершено",
+    pointsAccumulatedSuccessfully: "Очки успешно накоплены",
+    synchronizingTournamentData: "Синхронизация турнирных данных",
+    tournamentDataSynchronized: "Турнирные данные синхронизированы",
+    
+    // Ошибки и повторные попытки
+    accumulationFailed: "Накопление очков не удалось",
+    retryAccumulation: "ПОВТОРИТЬ НАКОПЛЕНИЕ",
+    accumulationError: "Ошибка накопления очков",
+    dataNotSynchronized: "Данные не синхронизированы с сервером",
+    localDataStored: "Данные сохранены локально",
+    
+    // Интерфейс пользователя
+    showDetails: "Показать детали",
+    hideDetails: "Скрыть детали",
+    expandProgress: "Развернуть прогресс",
+    collapseProgress: "Свернуть прогресс",
+    viewFullStats: "Посмотреть полную статистику",
+    
+    // Сообщения о прогрессе
+    keepPlaying: "Продолжайте играть для накопления очков!",
+    everyGameCounts: "Каждая игра засчитывается в турнире",
+    climbLeaderboard: "Поднимайтесь по турнирной таблице",
+    moreGamesMorePoints: "Больше игр - больше очков",
+    
+    // Формат отображения очков
+    ptsAbbreviation: "очк",
+    pointsSuffix: "очков",
+    pointsFormat: "{points} очков",
+    totalPointsFormat: "Всего: {total} очков",
+    gamePointsFormat: "За игру: +{points} очков",
 
     // Новые строки для обновленной системы турниров
     tournamentsList: "Список турниров",

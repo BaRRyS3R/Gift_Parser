@@ -1,4 +1,4 @@
-// src/game-modes/tournament/TournamentGameManager.tsx - Updated with dedicated tournament logic
+// src/game-modes/tournament/TournamentGameManager.tsx - Обновленная версия с системой накопления очков
 
 "use client";
 
@@ -11,10 +11,13 @@ import {
     Target,
     RotateCcw,
     Trophy,
+    Plus,
+    Star,
+    TrendingUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-// Import tournament-specific logic
+// Импорт турнирной игровой логики
 import {
     initializeTournamentGameState,
     updateTournamentLevel,
@@ -34,7 +37,7 @@ import {
     SurvivalGameState,
     SurvivalGameResult,
 } from "@/types/game-modes/survival";
-import type { Tournament } from "@/types/tournaments";
+import type { Tournament, TournamentSaveResponse } from "@/types/tournaments";
 import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -45,6 +48,7 @@ interface SaveStatus {
     error: string | null;
     isSuccess: boolean;
     showRetryDetails: boolean;
+    saveResponse: TournamentSaveResponse | null;
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -54,10 +58,10 @@ const initialSaveStatus: SaveStatus = {
     error: null,
     isSuccess: false,
     showRetryDetails: false,
+    saveResponse: null,
 };
 
-// Frequent updates for smooth time display
-const LEVEL_UPDATE_INTERVAL = 50; // 20fps
+const LEVEL_UPDATE_INTERVAL = 50; // 20fps для плавного обновления времени
 
 interface TournamentGameManagerProps {
     tournament: Tournament;
@@ -67,6 +71,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
     const { telegramUser, user, saveTournamentResult } = useUser();
     const router = useRouter();
     const t = useT();
+    
     const [gameState, setGameState] = useState<SurvivalGameState>(
         initializeTournamentGameState(),
     );
@@ -84,7 +89,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         gameStateRef.current = gameState;
     }, [gameState]);
 
-    // Setup Telegram WebApp back button
+    // Настройка кнопки "Назад" в Telegram WebApp
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -101,7 +106,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         }
     }, [router]);
 
-    // Consume attempt immediately when component mounts
+    // Потребление попытки при инициализации компонента
     useEffect(() => {
         const consumeInitialAttempt = async () => {
             if (!telegramUser?.id || hasConsumedInitialAttempt) return;
@@ -151,6 +156,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 error: null,
                 isSuccess: false,
                 showRetryDetails: false,
+                saveResponse: null,
             }));
 
             let attemptCount = 1;
@@ -164,19 +170,17 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 }
 
                 try {
-                    // Используем обновленную функцию для накопления очков
-                    await saveTournamentResult(tournament.id, result);
+                    const saveResponse = await saveTournamentResult(tournament.id, result);
 
                     setSaveStatus((prev) => ({
                         ...prev,
                         isLoading: false,
                         isSuccess: true,
                         error: null,
+                        saveResponse,
                     }));
 
-                    // Показываем сообщение о накоплении очков
-                    console.log(`Tournament points accumulated: +${result.score} points added to total`);
-
+                    console.log("Tournament result saved with accumulation:", saveResponse);
                 } catch (error) {
                     attemptCount++;
                     if (attemptCount <= 3) {
@@ -196,7 +200,9 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                     ...prev,
                     isLoading: false,
                     isSuccess: false,
-                    error: error instanceof Error ? error.message : "Failed to save tournament result",
+                    error:
+                        error instanceof Error ? error.message : "Failed to save tournament result",
+                    saveResponse: null,
                 }));
             }
         },
@@ -208,7 +214,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
             console.log("Tournament game ended:", cause);
 
             setGameState((prev) => {
-                // Final time update to ensure accuracy
                 const finalState = updateTournamentLevel(prev, Date.now());
 
                 let updatedStats = { ...finalState.stats };
@@ -450,27 +455,92 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                         </div>
                     </div>
 
+                    {/* Информация о накоплении очков */}
+                    {saveStatus.saveResponse && (
+                        <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
+                            <div className="text-center space-y-2">
+                                <div className="flex items-center justify-center space-x-2">
+                                    <Plus className="text-yellow-400" size={16} />
+                                    <span className="text-sm text-yellow-300 uppercase tracking-wider">
+                                        {t("tournament.pointsEarned")}
+                                    </span>
+                                </div>
+                                <div className="text-3xl font-bold text-yellow-400">
+                                    +{saveStatus.saveResponse.game_score} pts
+                                </div>
+                                <div className="text-sm text-yellow-300/80">
+                                    {t("tournament.addedToTotal")}
+                                </div>
+                                <div className="flex items-center justify-center space-x-2 text-sm text-yellow-300/60">
+                                    <Star className="text-yellow-400" size={14} />
+                                    <span>
+                                        {t("tournament.totalPoints")}: {saveStatus.saveResponse.total_score} pts
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Основные результаты игры */}
                     <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-4">
                         <div className="text-center space-y-2">
                             <div className="text-sm text-white/60 uppercase tracking-wider">
-                                {t("tournament.pointsEarned")}
+                                {t("tournament.survivalTime")}
                             </div>
-                            <div className="text-3xl font-bold text-yellow-400">
-                                +{gameResult.score} pts
+                            <div className="text-3xl font-bold text-white">
+                                {formatTournamentTime(gameResult.survivalTime)}
                             </div>
-                            <div className="text-sm text-white/60">
-                                {t("tournament.addedToTotal")}
+                            <div className="text-lg text-white/80">
+                                {t("common.level")} {gameResult.maxLevelReached}
                             </div>
                         </div>
 
-                        <div className="border-t border-white/20 pt-4">
-                            <div className="text-center text-xs text-white/50">
-                                {t("tournament.pointsAccumulated")}
+                        <div className="grid grid-cols-2 gap-4 text-center">
+                            <div className="space-y-1">
+                                <div className="text-xs text-white/60 uppercase tracking-wider">
+                                    {t("tournament.tournamentScore")}
+                                </div>
+                                <div className="text-xl font-bold text-white">
+                                    {gameResult.score}
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-xs text-white/60 uppercase tracking-wider">
+                                    {t("attempts.remaining")}
+                                </div>
+                                <div className="text-xl font-bold text-green-400">
+                                    {attemptsRemaining}
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-xs text-white/60 uppercase tracking-wider">
+                                    {t("tournament.perfectStreak")}
+                                </div>
+                                <div className="text-xl font-bold text-blue-400">
+                                    {gameResult.perfectStreak}
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-xs text-white/60 uppercase tracking-wider">
+                                    {t("tournament.correctHits")}
+                                </div>
+                                <div className="text-xl font-bold text-blue-400">
+                                    {gameResult.correctHits}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-white/20 pt-4 text-center">
+                            <div className="text-xs text-white/60 uppercase tracking-wider mb-1">
+                                {tournament.name}
+                            </div>
+                            <div className="text-xs text-white/40">
+                                {gameResult.maxLevelReached}/12 {t("tournament.levelsCompleted")}
                             </div>
                         </div>
                     </div>
 
-                    {/* Save Status */}
+                    {/* Статус сохранения */}
                     {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
                         <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                             {saveStatus.isLoading && (
@@ -479,7 +549,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                         <span className="text-sm text-white/80">
                                             {saveStatus.showRetryDetails
-                                                ? `${t("tournament.retryingSave", { attempt: saveStatus.attempt, max: saveStatus.maxAttempts })}`
+                                                ? t("tournament.retryingSave", { attempt: saveStatus.attempt, max: saveStatus.maxAttempts })
                                                 : t("tournament.savingResult")}
                                         </span>
                                     </div>

@@ -15,7 +15,6 @@ export const tournament = {
     otherParticipants: "OTHER PARTICIPANTS",
     noParticipants: "No participants yet",
     beFirstParticipant: "Be the first to enter the tournament!",
-    yourProgress: "Your progress",
     yourBestResult: "YOUR TOURNAMENT PROGRESS",
     rank: "RANK",
     maxLevel: "MAX LEVEL",
@@ -53,6 +52,55 @@ export const tournament = {
     rulesTitle: "Tournament Rules",
     rulesSubtitle: "Competition Guidelines & Regulations",
     rulesButton: "Tournament Rules & Guidelines",
+
+    // Statistics and achievements
+    gamesPlayed: "Games Played",
+    totalAccumulated: "Total Accumulated",
+    thisGamePoints: "This Game",
+    previousTotal: "Previous Total",
+    newTotal: "New Total",
+    pointsProgress: "Points Progress",
+
+    // Results display
+    gameScore: "Game Score",
+    accumulatedScore: "Accumulated Score",
+    lastGameScore: "Last Game",
+    tournamentProgress: "Tournament Progress",
+    yourProgress: "YOUR PROGRESS",
+
+    // Saving and synchronization
+    savingWithAccumulation: "Saving with point accumulation...",
+    accumulationComplete: "Point accumulation complete",
+    pointsAccumulatedSuccessfully: "Points accumulated successfully",
+    synchronizingTournamentData: "Synchronizing tournament data",
+    tournamentDataSynchronized: "Tournament data synchronized",
+
+    // Errors and retries
+    accumulationFailed: "Point accumulation failed",
+    retryAccumulation: "RETRY ACCUMULATION",
+    accumulationError: "Point accumulation error",
+    dataNotSynchronized: "Data not synchronized with server",
+    localDataStored: "Data stored locally",
+
+    // User interface
+    showDetails: "Show Details",
+    hideDetails: "Hide Details",
+    expandProgress: "Expand Progress",
+    collapseProgress: "Collapse Progress",
+    viewFullStats: "View Full Statistics",
+
+    // Progress messages
+    keepPlaying: "Keep playing to accumulate points!",
+    everyGameCounts: "Every game counts in the tournament",
+    climbLeaderboard: "Climb the tournament leaderboard",
+    moreGamesMorePoints: "More games, more points",
+
+    // Points display format
+    ptsAbbreviation: "pts",
+    pointsSuffix: "points",
+    pointsFormat: "{points} points",
+    totalPointsFormat: "Total: {total} points",
+    gamePointsFormat: "Game: +{points} points",
 
     // New strings for updated tournament system
     tournamentsList: "Tournaments List",
