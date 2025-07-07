@@ -19,6 +19,7 @@ export const tournament = {
     rank: "RANK",
     maxLevel: "MAX LEVEL",
     bestTime: "BEST TIME",
+    bestScore: "BEST SCORE",
     survivalTime: "SURVIVAL TIME",
     tournamentScore: "TOURNAMENT SCORE",
     perfectStreak: "PERFECT STREAK",

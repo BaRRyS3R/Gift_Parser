@@ -19,6 +19,7 @@ export const tournament = {
     rank: "МЕСТО",
     maxLevel: "МАКС УРОВЕНЬ",
     bestTime: "ЛУЧШЕЕ ВРЕМЯ",
+    bestScore: "ЛУЧШИЙ СЧЁТ",
     survivalTime: "ВРЕМЯ ВЫЖИВАНИЯ",
     tournamentScore: "ТУРНИРНЫЙ СЧЁТ",
     perfectStreak: "ИДЕАЛЬНАЯ СЕРИЯ",

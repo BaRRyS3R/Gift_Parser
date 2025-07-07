@@ -1,4 +1,4 @@
-// src/app/tournament/active/page.tsx - Страница активного турнира (перенесена логика из старой страницы турнира)
+// src/app/tournament/active/page.tsx - Обновленная страница активного турнира с новой системой очков
 
 "use client";
 
@@ -31,6 +31,7 @@ import {
     List,
     ShoppingCart,
     ArrowLeft,
+    Star,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -320,20 +321,25 @@ export default function ActiveTournamentPage() {
                 </div>
 
                 <div className="text-right space-y-1">
+                    {/* Основной показатель - накопленные очки */}
                     <div className="text-base font-medium text-white">
-                        {formatTournamentSurvivalTime(entry.survival_time)}
+                        <div className="flex items-center space-x-1">
+                            <Star className="text-yellow-400" size={14} />
+                            <span>{entry.survival_score} pts</span>
+                        </div>
                     </div>
+                    {/* Дополнительная информация */}
                     <div className="flex items-center space-x-2 text-xs text-white/60">
+                        <div className="flex items-center space-x-1">
+                            <Clock size={8} />
+                            <span>{formatTournamentSurvivalTime(entry.survival_time)}</span>
+                        </div>
                         <div className="flex items-center space-x-1">
                             <TrendingUp size={8} />
                             <span>L{entry.max_level_reached}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                             <Target size={8} />
-                            <span>{entry.perfect_streak}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                            <Activity size={8} />
                             <span>{entry.correct_hits}</span>
                         </div>
                     </div>
@@ -523,6 +529,9 @@ export default function ActiveTournamentPage() {
     const renderTournamentStats = () => {
         if (leaderboard.length === 0) return null;
 
+        // Получаем максимальное количество очков вместо лучшего времени
+        const bestScore = Math.max(...leaderboard.map(e => e.survival_score), 0);
+
         return (
             <div className="bg-white/5 border border-white/20 rounded-xl p-4 mb-4">
                 <div className="flex items-center space-x-2 mb-3">
@@ -536,9 +545,12 @@ export default function ActiveTournamentPage() {
                     </div>
                     <div>
                         <div className="text-lg font-medium text-white">
-                            {formatTournamentSurvivalTime(leaderboard[0]?.survival_time || 0)}
+                            <div className="flex items-center justify-center space-x-1">
+                                <Star className="text-yellow-400" size={14} />
+                                <span>{bestScore} pts</span>
+                            </div>
                         </div>
-                        <div className="text-xs text-white/60">{t("tournament.bestTime")}</div>
+                        <div className="text-xs text-white/60">{t("tournament.bestScore")}</div>
                     </div>
                     <div>
                         <div className="text-lg font-medium text-white">
@@ -643,17 +655,22 @@ export default function ActiveTournamentPage() {
                         <div className="grid grid-cols-3 gap-4 text-center">
                             <div>
                                 <div className="text-lg font-medium text-white">
-                                    {formatTournamentSurvivalTime(userResult.survival_time)}
+                                    <div className="flex items-center justify-center space-x-1">
+                                        <Star className="text-yellow-400" size={14} />
+                                        <span>{userResult.survival_score} pts</span>
+                                    </div>
                                 </div>
-                                <div className="text-xs text-white/60">{t("common.time")}</div>
+                                <div className="text-xs text-white/60">{t("tournament.totalPoints")}</div>
                             </div>
                             <div>
                                 <div className="text-lg font-medium text-white">#{userResult.rank || "?"}</div>
                                 <div className="text-xs text-white/60">{t("tournament.rank")}</div>
                             </div>
                             <div>
-                                <div className="text-lg font-medium text-white">L{userResult.max_level_reached}</div>
-                                <div className="text-xs text-white/60">{t("common.level")}</div>
+                                <div className="text-lg font-medium text-white">
+                                    {formatTournamentSurvivalTime(userResult.survival_time)}
+                                </div>
+                                <div className="text-xs text-white/60">{t("tournament.bestTime")}</div>
                             </div>
                         </div>
                     </div>
@@ -752,7 +769,10 @@ export default function ActiveTournamentPage() {
                                 </div>
                                 <div className="text-right">
                                     <div className="text-base font-medium text-white">
-                                        {formatTournamentSurvivalTime(userResult.survival_time)}
+                                        <div className="flex items-center space-x-1">
+                                            <Star className="text-yellow-400" size={14} />
+                                            <span>{userResult.survival_score} pts</span>
+                                        </div>
                                     </div>
                                     <div className="text-xs text-white/60">
                                         L{userResult.max_level_reached}
