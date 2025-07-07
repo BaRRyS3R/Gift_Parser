@@ -1,5 +1,5 @@
-// src/locales/en/leaderboard.ts - English version
-export const leaderboardEN = {
+// src/locales/en/leaderboard.ts - Leaderboard and rankings (Updated with Rotation)
+export const leaderboard = {
     title: "TOP",
     loadingRanking: "LOADING RANKING DATA...",
     failedToLoad: "FAILED TO LOAD RANKING DATA",

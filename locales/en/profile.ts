@@ -1,5 +1,5 @@
-// src/locales/en/profile.ts - English version (Updated with Rotation)
-export const profileEN = {
+// src/locales/en/profile.ts - Profile page elements (Updated with Rotation)
+export const profile = {
     title: "PROFILE",
     loadingProfile: "LOADING PROFILE...",
     notFound: "PROFILE NOT FOUND",

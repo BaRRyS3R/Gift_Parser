@@ -1,5 +1,5 @@
 // src/locales/en/save.ts - English version
-export const saveEN = {
+export const save = {
     recording: "Recording survival data...",
     recordingReaction: "Recording reaction time...",
     recordingPhysics: "Recording physics experiment...",
