@@ -1,7 +1,8 @@
-// src/components/AboutModal/AboutModal.tsx - Optimized version with memoization and conditional rendering
+// src/components/AboutModal/AboutModal.tsx - Optimized with react-lazyload
 "use client";
 
-import React, { useState, useMemo, memo } from "react";
+import React, { useState, useMemo, memo, useCallback } from "react";
+import LazyLoad from 'react-lazyload';
 import {
     Modal,
     ModalContent,
@@ -11,6 +12,7 @@ import {
     AccordionItem,
     Chip,
     Divider,
+    Skeleton,
 } from "@nextui-org/react";
 import {
     Info,
@@ -37,8 +39,123 @@ interface AboutModalProps {
     onClose: () => void;
 }
 
-// Мемоизированные компоненты для секций
-const MemoizedGameModesContent = memo(({ t }: { t: any }) => {
+// Skeleton placeholder для загружаемого контента
+const ContentSkeleton = memo(() => (
+    <div className="space-y-4">
+        <Skeleton className="h-4 w-3/4 rounded-lg bg-white/10" />
+        <div className="space-y-3">
+            <Skeleton className="h-20 w-full rounded-lg bg-white/5" />
+            <Skeleton className="h-20 w-full rounded-lg bg-white/5" />
+            <Skeleton className="h-20 w-full rounded-lg bg-white/5" />
+        </div>
+    </div>
+));
+
+ContentSkeleton.displayName = 'ContentSkeleton';
+
+// Отдельные компоненты секций с LazyLoad
+const GameModeItem = memo(({ mode, t }: { mode: any; t: any }) => {
+    const Icon = mode.icon;
+    return (
+        <LazyLoad height={120} offset={100} placeholder={<Skeleton className="h-20 w-full rounded-lg bg-white/5" />}>
+            <div className={`p-4 rounded-lg border ${mode.color}`}>
+                <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                        <Icon className={`w-4 h-4 ${mode.iconColor}`} />
+                    </div>
+                    <div className="flex-1">
+                        <h4 className="font-semibold text-white mb-2">
+                            {mode.name}
+                        </h4>
+                        <p className="text-sm text-white/70 mb-3">
+                            {mode.description}
+                        </p>
+
+                        <div className="flex gap-2 mb-3">
+                            <Chip size="sm" variant="flat" color="default">
+                                {mode.difficulty}
+                            </Chip>
+                            <Chip size="sm" variant="flat" color="secondary">
+                                {mode.duration}
+                            </Chip>
+                        </div>
+
+                        <div className="space-y-2">
+                            <h5 className="text-xs font-medium text-white/60 uppercase tracking-wide">
+                                {t("about.gameModes.features")}
+                            </h5>
+                            <ul className="text-xs text-white/60 space-y-1">
+                                {mode.features.map((feature: string, featureIndex: number) => (
+                                    <li key={featureIndex} className="flex items-center gap-2">
+                                        <div className="w-1 h-1 rounded-full bg-white/40" />
+                                        {feature}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </LazyLoad>
+    );
+});
+
+GameModeItem.displayName = 'GameModeItem';
+
+const SystemFeatureItem = memo(({ feature }: { feature: any }) => {
+    const Icon = feature.icon;
+    return (
+        <LazyLoad height={80} offset={50} placeholder={<Skeleton className="h-16 w-full rounded-lg bg-white/5" />}>
+            <div className={`p-3 rounded-lg border ${feature.color}`}>
+                <div className="flex items-start gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                        <Icon className={`w-3.5 h-3.5 ${feature.iconColor}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-white text-sm mb-1">
+                            {feature.name}
+                        </h4>
+                        <p className="text-xs text-white/60 mb-2">
+                            {feature.description}
+                        </p>
+                        <div className="text-xs text-white/50">
+                            {feature.details}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </LazyLoad>
+    );
+});
+
+SystemFeatureItem.displayName = 'SystemFeatureItem';
+
+const TipItem = memo(({ tip, index }: { tip: any; index: number }) => (
+    <LazyLoad height={60} offset={50} placeholder={<Skeleton className="h-12 w-full rounded-lg bg-white/5" />}>
+        <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-400/10">
+            <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-orange-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-orange-400">
+                        {index + 1}
+                    </span>
+                </div>
+                <div>
+                    <h4 className="font-medium text-white text-sm mb-1">
+                        {tip.title}
+                    </h4>
+                    <p className="text-xs text-white/60">
+                        {tip.description}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </LazyLoad>
+));
+
+TipItem.displayName = 'TipItem';
+
+// Основные секции с минимальным контентом для быстрого рендеринга
+const GameModesContent = memo(({ t }: { t: any }) => {
     const gameModes = useMemo(() => [
         {
             icon: Target,
@@ -89,63 +206,22 @@ const MemoizedGameModesContent = memo(({ t }: { t: any }) => {
 
     return (
         <div className="space-y-4">
-            <p className="text-white/70 text-sm mb-4">
-                {t("about.sections.gameModes.description")}
-            </p>
+            <LazyLoad height={40} offset={100} placeholder={<Skeleton className="h-8 w-3/4 rounded bg-white/10" />}>
+                <p className="text-white/70 text-sm mb-4">
+                    {t("about.sections.gameModes.description")}
+                </p>
+            </LazyLoad>
 
-            {gameModes.map((mode, index) => {
-                const Icon = mode.icon;
-                return (
-                    <div
-                        key={index}
-                        className={`p-4 rounded-lg border ${mode.color}`}
-                    >
-                        <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
-                                <Icon className={`w-4 h-4 ${mode.iconColor}`} />
-                            </div>
-                            <div className="flex-1">
-                                <h4 className="font-semibold text-white mb-2">
-                                    {mode.name}
-                                </h4>
-                                <p className="text-sm text-white/70 mb-3">
-                                    {mode.description}
-                                </p>
-
-                                <div className="flex gap-2 mb-3">
-                                    <Chip size="sm" variant="flat" color="default">
-                                        {mode.difficulty}
-                                    </Chip>
-                                    <Chip size="sm" variant="flat" color="secondary">
-                                        {mode.duration}
-                                    </Chip>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <h5 className="text-xs font-medium text-white/60 uppercase tracking-wide">
-                                        {t("about.gameModes.features")}
-                                    </h5>
-                                    <ul className="text-xs text-white/60 space-y-1">
-                                        {mode.features.map((feature, featureIndex) => (
-                                            <li key={featureIndex} className="flex items-center gap-2">
-                                                <div className="w-1 h-1 rounded-full bg-white/40" />
-                                                {feature}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })}
+            {gameModes.map((mode, index) => (
+                <GameModeItem key={index} mode={mode} t={t} />
+            ))}
         </div>
     );
 });
 
-MemoizedGameModesContent.displayName = 'MemoizedGameModesContent';
+GameModesContent.displayName = 'GameModesContent';
 
-const MemoizedSystemsContent = memo(({ t }: { t: any }) => {
+const SystemsContent = memo(({ t }: { t: any }) => {
     const systemFeatures = useMemo(() => [
         {
             icon: Clock,
@@ -199,95 +275,80 @@ const MemoizedSystemsContent = memo(({ t }: { t: any }) => {
 
     return (
         <div className="space-y-4">
-            <p className="text-white/70 text-sm mb-4">
-                {t("about.sections.systems.description")}
-            </p>
+            <LazyLoad height={40} offset={100} placeholder={<Skeleton className="h-8 w-3/4 rounded bg-white/10" />}>
+                <p className="text-white/70 text-sm mb-4">
+                    {t("about.sections.systems.description")}
+                </p>
+            </LazyLoad>
 
             <div className="grid gap-3">
-                {systemFeatures.map((feature, index) => {
-                    const Icon = feature.icon;
-                    return (
-                        <div
-                            key={index}
-                            className={`p-3 rounded-lg border ${feature.color}`}
-                        >
-                            <div className="flex items-start gap-3">
-                                <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                                    <Icon className={`w-3.5 h-3.5 ${feature.iconColor}`} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h4 className="font-medium text-white text-sm mb-1">
-                                        {feature.name}
-                                    </h4>
-                                    <p className="text-xs text-white/60 mb-2">
-                                        {feature.description}
-                                    </p>
-                                    <div className="text-xs text-white/50">
-                                        {feature.details}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
+                {systemFeatures.map((feature, index) => (
+                    <SystemFeatureItem key={index} feature={feature} />
+                ))}
             </div>
         </div>
     );
 });
 
-MemoizedSystemsContent.displayName = 'MemoizedSystemsContent';
+SystemsContent.displayName = 'SystemsContent';
 
-const MemoizedMonetizationContent = memo(({ t }: { t: any }) => (
+const MonetizationContent = memo(({ t }: { t: any }) => (
     <div className="space-y-4">
-        <p className="text-white/70 text-sm mb-4">
-            {t("about.sections.monetization.description")}
-        </p>
+        <LazyLoad height={40} offset={100} placeholder={<Skeleton className="h-8 w-3/4 rounded bg-white/10" />}>
+            <p className="text-white/70 text-sm mb-4">
+                {t("about.sections.monetization.description")}
+            </p>
+        </LazyLoad>
 
         <div className="space-y-3">
-            <div className="p-3 rounded-lg bg-green-500/5 border border-green-400/20">
-                <div className="flex items-center gap-2 mb-2">
-                    <Star className="w-4 h-4 text-yellow-400" />
-                    <span className="font-medium text-white text-sm">
-                        {t("about.monetization.telegramStars.title")}
-                    </span>
+            <LazyLoad height={120} offset={100} placeholder={<Skeleton className="h-24 w-full rounded-lg bg-white/5" />}>
+                <div className="p-3 rounded-lg bg-green-500/5 border border-green-400/20">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Star className="w-4 h-4 text-yellow-400" />
+                        <span className="font-medium text-white text-sm">
+                            {t("about.monetization.telegramStars.title")}
+                        </span>
+                    </div>
+                    <p className="text-xs text-white/60 mb-2">
+                        {t("about.monetization.telegramStars.description")}
+                    </p>
+                    <ul className="text-xs text-white/50 space-y-1">
+                        <li className="flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                            {t("about.monetization.telegramStars.features.first")}
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                            {t("about.monetization.telegramStars.features.second")}
+                        </li>
+                        <li className="flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-green-400/60" />
+                            {t("about.monetization.telegramStars.features.third")}
+                        </li>
+                    </ul>
                 </div>
-                <p className="text-xs text-white/60 mb-2">
-                    {t("about.monetization.telegramStars.description")}
-                </p>
-                <ul className="text-xs text-white/50 space-y-1">
-                    <li className="flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-green-400/60" />
-                        {t("about.monetization.telegramStars.features.first")}
-                    </li>
-                    <li className="flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-green-400/60" />
-                        {t("about.monetization.telegramStars.features.second")}
-                    </li>
-                    <li className="flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-green-400/60" />
-                        {t("about.monetization.telegramStars.features.third")}
-                    </li>
-                </ul>
-            </div>
+            </LazyLoad>
 
-            <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-400/20">
-                <div className="flex items-center gap-2 mb-2">
-                    <Heart className="w-4 h-4 text-red-400" />
-                    <span className="font-medium text-white text-sm">
-                        {t("about.monetization.freeToPlay.title")}
-                    </span>
+            <LazyLoad height={80} offset={100} placeholder={<Skeleton className="h-16 w-full rounded-lg bg-white/5" />}>
+                <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-400/20">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Heart className="w-4 h-4 text-red-400" />
+                        <span className="font-medium text-white text-sm">
+                            {t("about.monetization.freeToPlay.title")}
+                        </span>
+                    </div>
+                    <p className="text-xs text-white/60">
+                        {t("about.monetization.freeToPlay.description")}
+                    </p>
                 </div>
-                <p className="text-xs text-white/60">
-                    {t("about.monetization.freeToPlay.description")}
-                </p>
-            </div>
+            </LazyLoad>
         </div>
     </div>
 ));
 
-MemoizedMonetizationContent.displayName = 'MemoizedMonetizationContent';
+MonetizationContent.displayName = 'MonetizationContent';
 
-const MemoizedTipsContent = memo(({ t }: { t: any }) => {
+const TipsContent = memo(({ t }: { t: any }) => {
     const tips = useMemo(() => [
         {
             title: t("about.tips.first.title"),
@@ -317,40 +378,26 @@ const MemoizedTipsContent = memo(({ t }: { t: any }) => {
 
     return (
         <div className="space-y-3">
-            <p className="text-white/70 text-sm mb-4">
-                {t("about.sections.tips.description")}
-            </p>
+            <LazyLoad height={40} offset={100} placeholder={<Skeleton className="h-8 w-3/4 rounded bg-white/10" />}>
+                <p className="text-white/70 text-sm mb-4">
+                    {t("about.sections.tips.description")}
+                </p>
+            </LazyLoad>
 
             {tips.map((tip, index) => (
-                <div key={index} className="p-3 rounded-lg bg-orange-500/5 border border-orange-400/10">
-                    <div className="flex items-start gap-3">
-                        <div className="w-6 h-6 rounded-full bg-orange-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-xs font-bold text-orange-400">
-                                {index + 1}
-                            </span>
-                        </div>
-                        <div>
-                            <h4 className="font-medium text-white text-sm mb-1">
-                                {tip.title}
-                            </h4>
-                            <p className="text-xs text-white/60">
-                                {tip.description}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <TipItem key={index} tip={tip} index={index} />
             ))}
         </div>
     );
 });
 
-MemoizedTipsContent.displayName = 'MemoizedTipsContent';
+TipsContent.displayName = 'TipsContent';
 
-// Основной компонент с оптимизацией через мемоизацию и условный рендеринг
+// Основной компонент с LazyLoad оптимизацией
 export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
     const t = useT();
-
-    // Отслеживаем какие секции открыты для условного рендеринга
+    
+    // Отслеживаем открытые секции для дальнейшей оптимизации
     const [openSections, setOpenSections] = useState<Set<string>>(new Set());
 
     // Мемоизируем заголовки секций
@@ -382,38 +429,36 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
     }), [t]);
 
     // Обработчик изменения открытых секций
-    const handleSelectionChange = (keys: "all" | Set<React.Key>) => {
+    const handleSelectionChange = useCallback((keys: "all" | Set<React.Key>) => {
         if (keys === "all") {
-            // Если выбраны все секции, добавляем все возможные ключи
             setOpenSections(new Set(["game-modes", "systems", "monetization", "tips"]));
         } else {
-            // Преобразуем React.Key в string для совместимости
             const keySet = new Set(Array.from(keys).map(key => String(key)));
             setOpenSections(keySet);
         }
-    };
+    }, []);
 
-    // Условный рендер содержимого секции - рендерим только открытые секции
-    const renderSectionContent = (sectionKey: string) => {
+    // Условный рендер содержимого секции с LazyLoad
+    const renderSectionContent = useCallback((sectionKey: string) => {
         if (!openSections.has(sectionKey)) {
-            return null; // Не рендерим содержимое если секция закрыта
+            return null;
         }
 
         switch (sectionKey) {
             case "game-modes":
-                return <MemoizedGameModesContent t={t} />;
+                return <GameModesContent t={t} />;
             case "systems":
-                return <MemoizedSystemsContent t={t} />;
+                return <SystemsContent t={t} />;
             case "monetization":
-                return <MemoizedMonetizationContent t={t} />;
+                return <MonetizationContent t={t} />;
             case "tips":
-                return <MemoizedTipsContent t={t} />;
+                return <TipsContent t={t} />;
             default:
                 return null;
         }
-    };
+    }, [openSections, t]);
 
-    // Если модальное окно закрыто, не рендерим ничего
+    // Не рендерим компонент если модальное окно закрыто
     if (!isOpen) {
         return null;
     }
@@ -449,12 +494,11 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                 </ModalHeader>
 
                 <ModalBody className="text-white">
-                    <Accordion
-                        variant="splitted"
+                    <Accordion 
+                        variant="splitted" 
                         className="px-0"
                         onSelectionChange={handleSelectionChange}
                     >
-                        {/* Game Modes Section */}
                         <AccordionItem
                             key="game-modes"
                             aria-label={sectionHeaders.gameModes.title}
@@ -478,7 +522,6 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                             {renderSectionContent("game-modes")}
                         </AccordionItem>
 
-                        {/* Systems Section */}
                         <AccordionItem
                             key="systems"
                             aria-label={sectionHeaders.systems.title}
@@ -502,7 +545,6 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                             {renderSectionContent("systems")}
                         </AccordionItem>
 
-                        {/* Monetization Section */}
                         <AccordionItem
                             key="monetization"
                             aria-label={sectionHeaders.monetization.title}
@@ -526,7 +568,6 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                             {renderSectionContent("monetization")}
                         </AccordionItem>
 
-                        {/* Tips Section */}
                         <AccordionItem
                             key="tips"
                             aria-label={sectionHeaders.tips.title}
@@ -551,17 +592,18 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                         </AccordionItem>
                     </Accordion>
 
-                    <Divider className="my-4 bg-white/10" />
+                    <LazyLoad height={60} offset={100} placeholder={<Skeleton className="h-12 w-full rounded bg-white/10" />}>
+                        <Divider className="my-4 bg-white/10" />
 
-                    {/* Meta Information */}
-                    <div className="text-center space-y-2">
-                        <p className="text-xs text-white/40">
-                            {t("about.meta.version")}
-                        </p>
-                        <p className="text-xs text-white/30">
-                            {t("about.meta.disclaimer")}
-                        </p>
-                    </div>
+                        <div className="text-center space-y-2">
+                            <p className="text-xs text-white/40">
+                                {t("about.meta.version")}
+                            </p>
+                            <p className="text-xs text-white/30">
+                                {t("about.meta.disclaimer")}
+                            </p>
+                        </div>
+                    </LazyLoad>
                 </ModalBody>
             </ModalContent>
         </Modal>
