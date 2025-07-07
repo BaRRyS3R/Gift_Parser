@@ -47,14 +47,14 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     return {
         id: "physics",
         name: "PHYSICS MODE",
-        circleCount: 35,
-        circleRadius: Math.max(22, Math.min(32, containerWidth / 20)),
+        circleCount: 40,
+        circleRadius: Math.max(26, Math.min(36, containerWidth / 18)),
         containerWidth,
         containerHeight,
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
-        impulseForce: 0.05,
+        impulseForce: 0.08,
         maxMistakes: 5, // Maximum 5 mistakes
         levelDuration: 360, // 3 minutes
     };
@@ -64,16 +64,16 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
     containerWidth: 350, // Will be overridden by adaptive config
     containerHeight: 500, // Will be overridden by adaptive config
     wallThickness: 20, // Increased thickness for screen boundaries
-    gravity: { x: 0, y: 0.4 },
+    gravity: { x: 0, y: 0.3 },
     restitution: 0.8,
-    friction: 0.01,
-    frictionAir: 0.035,
+    friction: 0.005,
+    frictionAir: 0.025,
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.05,
-    radius: 120,
-    falloff: 0.4,
+    force: 0.08,
+    radius: 150,
+    falloff: 0.3,
 };
 
 export const createPhysicsEngine = (): Matter.Engine => {
