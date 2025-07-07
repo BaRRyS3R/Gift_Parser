@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import BottomNav from "./BottomNav";
 
 const hiddenPaths = [
-  "/", "/game/reaction", "/game/survival", "/game/physics", "/tournament/play"
+  "/", "/game/reaction", "/game/survival", "/game/physics", "/tournament/play", "/tournament"
 ];
 
 export default function NavigationWrapper() {
