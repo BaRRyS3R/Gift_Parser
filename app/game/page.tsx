@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Обновленная с компонентом турнира
+// src/app/game/page.tsx - Полный код с исправлениями логики загрузки
 
 "use client";
 
@@ -233,14 +233,16 @@ const CompactGameModeCard = ({
   onToggleExpand,
   onStart,
   isDisabled,
-  isTransitioning,
+  isCurrentModeLoading,
+  isAnyModeLoading,
 }: {
   mode: GameMode;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onStart: () => void;
   isDisabled: boolean;
-  isTransitioning: boolean;
+  isCurrentModeLoading: boolean;
+  isAnyModeLoading: boolean;
 }) => {
   const t = useT();
   const Icon = mode.icon;
@@ -250,7 +252,7 @@ const CompactGameModeCard = ({
       className={`
         relative backdrop-blur-sm border rounded-xl transition-all duration-300 overflow-hidden
         ${mode.color.background} ${mode.color.border}
-        ${isDisabled ? "opacity-50" : mode.color.hover}
+        ${isDisabled || isAnyModeLoading ? "opacity-50" : mode.color.hover}
         ${isExpanded ? "ring-1 ring-white/20" : ""}
       `}
     >
@@ -299,7 +301,8 @@ const CompactGameModeCard = ({
 
           <button
             onClick={onToggleExpand}
-            className={`p-2 rounded-lg transition-all duration-300 ${mode.color.background} hover:bg-white/10 relative z-20`}
+            disabled={isAnyModeLoading}
+            className={`p-2 rounded-lg transition-all duration-300 ${mode.color.background} hover:bg-white/10 relative z-20 disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isExpanded ? (
               <ChevronUp className={mode.color.accent} size={16} />
@@ -314,7 +317,7 @@ const CompactGameModeCard = ({
         </p>
 
         {/* Expanded Content */}
-        {isExpanded && (
+        {isExpanded && !isAnyModeLoading && (
           <div className="space-y-4 mb-4 animate-fade-in">
             {/* Features */}
             <div>
@@ -345,30 +348,37 @@ const CompactGameModeCard = ({
         {/* Action Button */}
         <button
           onClick={onStart}
-          disabled={isTransitioning || isDisabled}
+          disabled={isAnyModeLoading || isDisabled}
           className={`
             w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg relative z-20
             text-sm font-bold transition-all duration-300
             ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-            ${isDisabled
+            ${isDisabled || isAnyModeLoading
               ? "opacity-50 cursor-not-allowed"
               : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
             }
           `}
         >
-          <Play size={16} />
-          <span>
-            {isTransitioning
-              ? t("common.loading")
-              : isDisabled
-                ? t("game.general.noAttempts")
-                : t("common.play")}
-          </span>
+          {isCurrentModeLoading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <span>{t("common.loading")}</span>
+            </>
+          ) : (
+            <>
+              <Play size={16} />
+              <span>
+                {isDisabled
+                  ? t("game.general.noAttempts")
+                  : t("common.play")}
+              </span>
+            </>
+          )}
         </button>
       </div>
 
       {/* Disabled Overlay */}
-      {isDisabled && (
+      {isDisabled && !isAnyModeLoading && (
         <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
           <div className="text-center space-y-2">
             <Shield className="text-white/60 mx-auto" size={24} />
@@ -386,7 +396,7 @@ export default function GamePage() {
   const router = useRouter();
   const { telegramUser } = useUser();
   const t = useT();
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
   const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
     canPlay: true,
@@ -439,14 +449,18 @@ export default function GamePage() {
   }, [attemptsStatus.resetTime, attemptsStatus.canPlay, checkAttempts]);
 
   const handleModeStart = (mode: GameMode) => {
-    if (!attemptsStatus.canPlay) return;
-    setIsTransitioning(true);
+    if (!attemptsStatus.canPlay || loadingModeId) return;
+
+    setLoadingModeId(mode.id);
+
     setTimeout(() => {
       router.push(mode.route);
     }, 600);
   };
 
   const handleToggleExpand = (modeId: string) => {
+    if (loadingModeId) return;
+
     setExpandedModes((prev) =>
       prev.includes(modeId)
         ? prev.filter((id) => id !== modeId)
@@ -486,7 +500,7 @@ export default function GamePage() {
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${isTransitioning
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
         ? "opacity-0 transition-opacity duration-500 ease-in"
         : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
@@ -525,7 +539,8 @@ export default function GamePage() {
             onToggleExpand={() => handleToggleExpand(mode.id)}
             onStart={() => handleModeStart(mode)}
             isDisabled={!attemptsStatus.canPlay}
-            isTransitioning={isTransitioning}
+            isCurrentModeLoading={loadingModeId === mode.id}
+            isAnyModeLoading={loadingModeId !== null}
           />
         ))}
       </div>

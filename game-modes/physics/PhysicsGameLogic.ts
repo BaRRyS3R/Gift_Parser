@@ -9,7 +9,7 @@ import {
     PhysicsConfig,
     ImpulseConfig,
 } from "@/types/game-modes/physics";
-import { PhysicsCircle, GameState, GameMode, BoundaryState } from "@/types/game-modes/common";
+import { PhysicsCircle, GameState, GameMode } from "@/types/game-modes/common";
 
 export interface PhysicsLevelConfig {
     level: number;
@@ -47,8 +47,8 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     return {
         id: "physics",
         name: "PHYSICS MODE",
-        circleCount: 25,
-        circleRadius: Math.max(18, Math.min(28, containerWidth / 22)),
+        circleCount: 35,
+        circleRadius: Math.max(22, Math.min(32, containerWidth / 20)),
         containerWidth,
         containerHeight,
         initialActivationTimeMin: 2000,
@@ -56,7 +56,7 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
         circleActiveTime: 3000,
         impulseForce: 0.05,
         maxMistakes: 5, // Maximum 5 mistakes
-        levelDuration: 180, // 3 minutes
+        levelDuration: 360, // 3 minutes
     };
 };
 
