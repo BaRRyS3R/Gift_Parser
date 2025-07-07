@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Безопасная версия с оптимизированным потреблением попыток
+// src/game-modes/physics/PhysicsGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
 
 "use client";
 
@@ -99,7 +99,7 @@ export default function PhysicsGameManager() {
         }
     }, [router]);
 
-    // ОБНОВЛЕНО: Безопасное потребление попытки при входе в игру
+    // Consume attempt immediately when component mounts
     useEffect(() => {
         const consumeInitialAttempt = async () => {
             if (!telegramUser?.id || hasConsumedInitialAttempt) return;
@@ -108,7 +108,6 @@ export default function PhysicsGameManager() {
                 setIsConsumingAttempt(true);
                 console.log("Consuming initial attempt for physics game");
 
-                // Используем безопасный метод потребления попытки
                 const newStatus = await consumeAttemptForGame();
                 setAttemptsRemaining(newStatus.attemptsRemaining);
                 setHasConsumedInitialAttempt(true);
@@ -389,7 +388,7 @@ export default function PhysicsGameManager() {
         }, 800);
     }, [scheduleNextActivation, updatePhysicsEngine]);
 
-    // ОБНОВЛЕНО: Оптимизированный рестарт с локальным счетчиком
+    // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
     const restartGame = useCallback(async () => {
         if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
@@ -403,28 +402,20 @@ export default function PhysicsGameManager() {
                 engineUpdateRef.current = undefined;
             }
 
-            if (attemptsRemaining > 1) {
-                // ОПТИМИЗАЦИЯ: Если попыток больше одной, просто уменьшаем локально
-                console.log("Optimized restart: decrementing attempts locally");
-                setAttemptsRemaining(prev => prev - 1);
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
+            // Всегда потребляем попытку на сервере для обеспечения корректности данных
+            console.log("Consuming attempt on server for restart (security-critical operation)");
 
-                setShowCanvas(false);
-                setTimeout(() => {
-                    startGame();
-                }, 200);
-            } else {
-                // Только при последней попытке делаем серверный запрос
-                console.log("Last attempt: consuming on server");
-                const newStatus = await consumeAttemptForGame();
-                setAttemptsRemaining(newStatus.attemptsRemaining);
+            const newStatus = await consumeAttemptForGame();
+            setAttemptsRemaining(newStatus.attemptsRemaining);
 
-                setShowCanvas(false);
-                setTimeout(() => {
-                    startGame();
-                }, 200);
-            }
+            setShowCanvas(false);
+            setTimeout(() => {
+                startGame();
+            }, 200);
+
         } catch (error) {
-            console.error("Error during restart:", error);
+            console.error("Error consuming attempt for restart:", error);
             // При ошибке возвращаемся к выбору игр
             router.push("/game");
         } finally {
@@ -702,7 +693,7 @@ export default function PhysicsGameManager() {
                             <div className="flex items-center space-x-2">
                                 <TrendingUp className="text-purple-400" size={12} />
                                 <span className="text-purple-400/80">
-                                    lvl.{levelInfo.level} {levelInfo.description}
+                                    Lv.{levelInfo.level} {levelInfo.description}
                                 </span>
                             </div>
                             <span className="text-purple-400/60">

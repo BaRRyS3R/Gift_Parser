@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Безопасная версия с оптимизированным потреблением попыток
+// src/game-modes/survival/SurvivalGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
 
 "use client";
 
@@ -70,7 +70,7 @@ export default function SurvivalGameManager() {
   const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
   const [isRestartLoading, setIsRestartLoading] = useState(false);
 
-  // NEW: State for activation pulse effects
+  // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
 
@@ -97,7 +97,7 @@ export default function SurvivalGameManager() {
     }
   }, [router]);
 
-  // ОБНОВЛЕНО: Безопасное потребление попытки при входе в игру
+  // Consume attempt immediately when component mounts (initial entry only)
   useEffect(() => {
     const consumeInitialAttempt = async () => {
       if (!telegramUser?.id || hasConsumedInitialAttempt) return;
@@ -106,7 +106,6 @@ export default function SurvivalGameManager() {
         setIsConsumingAttempt(true);
         console.log("Consuming initial attempt for survival game");
 
-        // Используем безопасный метод потребления попытки
         const newStatus = await consumeAttemptForGame();
         setAttemptsRemaining(newStatus.attemptsRemaining);
         setHasConsumedInitialAttempt(true);
@@ -363,35 +362,27 @@ export default function SurvivalGameManager() {
     }, 800);
   }, [scheduleNextActivation]);
 
-  // ОБНОВЛЕНО: Оптимизированный рестарт с локальным счетчиком
+  // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
   const restartGame = useCallback(async () => {
     if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
     setIsRestartLoading(true);
 
     try {
-      if (attemptsRemaining > 1) {
-        // ОПТИМИЗАЦИЯ: Если попыток больше одной, просто уменьшаем локально
-        console.log("Optimized restart: decrementing attempts locally");
-        setAttemptsRemaining(prev => prev - 1);
+      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
+      // Всегда потребляем попытку на сервере для обеспечения корректности данных
+      console.log("Consuming attempt on server for restart (security-critical operation)");
 
-        setShowCircles(false);
-        setTimeout(() => {
-          startGame();
-        }, 200);
-      } else {
-        // Только при последней попытке делаем серверный запрос
-        console.log("Last attempt: consuming on server");
-        const newStatus = await consumeAttemptForGame();
-        setAttemptsRemaining(newStatus.attemptsRemaining);
+      const newStatus = await consumeAttemptForGame();
+      setAttemptsRemaining(newStatus.attemptsRemaining);
 
-        setShowCircles(false);
-        setTimeout(() => {
-          startGame();
-        }, 200);
-      }
+      setShowCircles(false);
+      setTimeout(() => {
+        startGame();
+      }, 200);
+
     } catch (error) {
-      console.error("Error during restart:", error);
+      console.error("Error consuming attempt for restart:", error);
       // При ошибке возвращаемся к выбору игр
       router.push("/game");
     } finally {

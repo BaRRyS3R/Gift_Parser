@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Безопасная версия с оптимизированным потреблением попыток
+// src/game-modes/reaction/ReactionGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
 
 "use client";
 
@@ -63,7 +63,7 @@ export default function ReactionGameManager() {
   const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
   const [isRestartLoading, setIsRestartLoading] = useState(false);
 
-  // NEW: State for activation pulse effects
+  // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
 
@@ -90,7 +90,7 @@ export default function ReactionGameManager() {
     }
   }, [router]);
 
-  // ОБНОВЛЕНО: Безопасное потребление попытки при входе в игру
+  // Consume attempt immediately when component mounts (initial entry only)
   useEffect(() => {
     const consumeInitialAttempt = async () => {
       if (!telegramUser?.id || hasConsumedInitialAttempt) return;
@@ -99,7 +99,6 @@ export default function ReactionGameManager() {
         setIsConsumingAttempt(true);
         console.log("Consuming initial attempt for reaction game");
 
-        // Используем безопасный метод потребления попытки
         const newStatus = await consumeAttemptForGame();
         setAttemptsRemaining(newStatus.attemptsRemaining);
         setHasConsumedInitialAttempt(true);
@@ -221,12 +220,11 @@ export default function ReactionGameManager() {
     });
   }, [handleSaveGameResult]);
 
-  // UPDATED: Enhanced handleCircleActivated with pulse effect
   const handleCircleActivated = useCallback(
     (circleId: number) => {
       console.log(`Circle ${circleId} activated, waiting for click...`);
 
-      // NEW: Trigger activation pulse effect
+      // Trigger activation pulse effect
       const timestamp = Date.now();
       setActivatedCircles([circleId]);
       setLastActivationTimestamp(timestamp);
@@ -303,7 +301,6 @@ export default function ReactionGameManager() {
     setGameState(initializeReactionGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
-    // NEW: Reset activation pulse state
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
 
@@ -336,35 +333,27 @@ export default function ReactionGameManager() {
     }, 500);
   }, [handleCircleActivated, handleGameTimeout]);
 
-  // ОБНОВЛЕНО: Оптимизированный рестарт с локальным счетчиком
+  // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
   const restartGame = useCallback(async () => {
     if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
     setIsRestartLoading(true);
 
     try {
-      if (attemptsRemaining > 1) {
-        // ОПТИМИЗАЦИЯ: Если попыток больше одной, просто уменьшаем локально
-        console.log("Optimized restart: decrementing attempts locally");
-        setAttemptsRemaining(prev => prev - 1);
+      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
+      // Всегда потребляем попытку на сервере для обеспечения корректности данных
+      console.log("Consuming attempt on server for restart (security-critical operation)");
 
-        setShowCircles(false);
-        setTimeout(() => {
-          startGame();
-        }, 200);
-      } else {
-        // Только при последней попытке делаем серверный запрос
-        console.log("Last attempt: consuming on server");
-        const newStatus = await consumeAttemptForGame();
-        setAttemptsRemaining(newStatus.attemptsRemaining);
+      const newStatus = await consumeAttemptForGame();
+      setAttemptsRemaining(newStatus.attemptsRemaining);
 
-        setShowCircles(false);
-        setTimeout(() => {
-          startGame();
-        }, 200);
-      }
+      setShowCircles(false);
+      setTimeout(() => {
+        startGame();
+      }, 200);
+
     } catch (error) {
-      console.error("Error during restart:", error);
+      console.error("Error consuming attempt for restart:", error);
       // При ошибке возвращаемся к выбору игр
       router.push("/game");
     } finally {
@@ -619,7 +608,6 @@ export default function ReactionGameManager() {
         className="flex-1 flex items-center justify-center"
         onClick={handleBackgroundClickEvent}
       >
-        {/* UPDATED: GameGrid with activation pulse support */}
         <GameGrid
           circles={gameState.circles}
           isGameActive={gameState.gameState === GameState.PLAYING}
