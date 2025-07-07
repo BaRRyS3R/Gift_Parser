@@ -1,42 +1,41 @@
-// src/locales/en/about.ts - Simplified English localization with sarcastic style
-
+// src/locales/en/about.ts - Cynical English translation
 export const about = {
     title: "CIRCUSLE",
 
     overview: {
-        title: "What circus is happening here",
-        description: "Circusle is a scientifically proven method of turning free time into failure statistics. Three modes of suffering where you poke circles and realize your digital inadequacy in real-time."
+        title: "So, signed up for pain?",
+        description: "Circusle — a genius way to prove your time is worth less than keyboard dust. Three modes where clicking circles eloquently confirms your inadequacy."
     },
 
     modes: {
-        title: "Methods of self-destruction",
+        title: "Modes",
         reaction: {
-            name: "Mode 'I thought I had fast reflexes'",
-            description: "Speed test for those who think they're quick. Spoiler: you're not."
+            name: "Reaction",
+            description: "Reflex test for those sure they're not total vegetables. Surprise: you're a pickled cucumber from the basement."
         },
         survival: {
-            name: "Mode 'Survival until first screwup'",
-            description: "15 levels of escalating chaos. One mistake = game over forever. Like real life, but more honest."
+            name: "Survival",
+            description: "15 levels where one mistake sends you to digital oblivion. Like Dark Souls, just without graphics."
         },
         physics: {
-            name: "Mode 'Physics against you'",
-            description: "Experimental mode where the laws of physics work against your plans for success."
+            name: "Physics",
+            description: "Newton got an apple on his head. You get pigeon shit."
         }
     },
 
     monetization: {
-        title: "Capitalism in action",
-        description: "You get 10 attempts at suffering, restoration in 2 hours. The math of disappointment is simple and merciless.",
-        details: "Want to suffer more? Bring friends or pay Telegram Stars. We turn your pain into our profit."
+        title: "How We Profit Off You",
+        description: "10 tries per day — just enough to realize you're hopeless. Wait 2 hours or pay — your choice between patience and humiliation.",
+        details: "Want more suffering? Invite friends — a great way to score free attempts. Or buy tries for Telegram Stars: we're already eyeing a new ride."
     },
 
     tips: {
-        title: "Advice from hopeless experts",
-        tip1: "In reaction mode, better to wait than embarrass yourself early",
-        tip2: "In survival, look everywhere at once — danger is everywhere",
-        tip3: "Red = bad. Remember this, though you'll click anyway",
-        tip4: "Attempts are limited. Plan your defeats in advance"
+        title: "Bad Advice",
+        tip1: "Reaction mode: hurry up and you'll make everyone laugh.",
+        tip2: "Survival: click where needed. Where not needed — don't click.",
+        tip3: "Red circle — same as white, only red.",
+        tip4: "Ran out of tries? Well, drink some tea while you wait. Better yet — give us cash."
     },
 
-    footer: "Version 42.loser.404 • Thanks for your attention to our circus"
+    footer: "Version 0.0.0.0.0.1 • Made with hatred for your expectations."
 } as const;
