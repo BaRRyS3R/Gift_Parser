@@ -1,4 +1,4 @@
-/* src/app/globals.css - Enhanced with premium animations and fixed safe areas */
+/* src/app/globals.css - Enhanced with premium animations */
 
 @tailwind base;
 @tailwind components;
@@ -197,18 +197,6 @@ body {
   }
 }
 
-@keyframes fade-out-down {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-}
-
 /* Animation utility classes */
 .animate-fade-in {
   animation: fade-in 0.5s ease-out forwards;
@@ -254,10 +242,6 @@ body {
   animation: shimmer 2s ease-in-out infinite;
 }
 
-.animate-fade-out-down {
-  animation: fade-out-down 0.4s ease-in forwards;
-}
-
 .activation-pulse {
   animation: activation-pulse 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
@@ -266,7 +250,7 @@ body {
   animation: activation-pulse-red 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 
-/* Enhanced Safe Area Classes - UPDATED */
+/* Safe Area Classes */
 .safe-area-inset {
   padding-top: max(48px, env(safe-area-inset-top) + 16px);
 }
@@ -275,48 +259,8 @@ body {
   padding-top: max(64px, env(safe-area-inset-top) + 16px);
 }
 
-/* FIXED: Увеличенные отступы снизу для предотвращения перекрытия навигацией */
 .safe-area-inset-bottom {
-  padding-bottom: max(100px, env(safe-area-inset-bottom) + 100px);
-}
-
-/* Дополнительный класс для страниц с большим количеством контента */
-.safe-area-inset-bottom-large {
-  padding-bottom: max(120px, env(safe-area-inset-bottom) + 120px);
-}
-
-/* Класс для прокручиваемого контента */
-.scrollable-content {
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
-}
-
-/* Улучшенная прокрутка для мобильных устройств */
-.mobile-scroll {
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.mobile-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-/* Фиксированная навигация - убедимся что она не перекрывает контент */
-.fixed-navigation {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  background: rgba(0, 0, 0, 0.95);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Для страниц с TabBar или дополнительными элементами UI */
-.page-with-tabs {
-  padding-bottom: max(140px, env(safe-area-inset-bottom) + 140px);
+  padding-bottom: max(20px, env(safe-area-inset-bottom) + 20px);
 }
 
 /* Enhanced Loader styles */
@@ -403,7 +347,6 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Responsive video adjustments */
 /* For portrait orientation - scale video to fill height */
 @media (orientation: portrait) {
   .video-player {
@@ -422,7 +365,7 @@ body {
   }
 }
 
-/* Responsive enhancements for mobile and safe areas */
+/* Responsive enhancements for mobile */
 @media (max-width: 640px) {
   .animate-slide-in-up {
     animation-duration: 0.4s;
@@ -433,55 +376,18 @@ body {
   }
 }
 
-/* Responsive safe area adjustments for smaller screens */
-@media (max-height: 600px) {
-  .safe-area-inset-bottom {
-    padding-bottom: max(80px, env(safe-area-inset-bottom) + 80px);
+@keyframes fade-out-down {
+  from {
+    opacity: 1;
+    transform: translateY(0);
   }
 
-  .safe-area-inset-bottom-large {
-    padding-bottom: max(100px, env(safe-area-inset-bottom) + 100px);
-  }
-
-  .scrollable-content {
-    max-height: calc(100vh - 160px);
+  to {
+    opacity: 0;
+    transform: translateY(40px);
   }
 }
 
-@media (max-height: 500px) {
-  .safe-area-inset-bottom {
-    padding-bottom: max(70px, env(safe-area-inset-bottom) + 70px);
-  }
-
-  .page-with-tabs {
-    padding-bottom: max(110px, env(safe-area-inset-bottom) + 110px);
-  }
-
-  .scrollable-content {
-    max-height: calc(100vh - 140px);
-  }
-}
-
-/* Enhanced mobile device support */
-@media (max-width: 480px) {
-  .safe-area-inset {
-    padding-top: max(40px, env(safe-area-inset-top) + 12px);
-  }
-
-  .safe-area-inset-game {
-    padding-top: max(56px, env(safe-area-inset-top) + 12px);
-  }
-}
-
-/* Support for devices with notches and safe areas */
-@supports (padding: max(0px)) {
-  .safe-area-inset {
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
-  }
-
-  .safe-area-inset-bottom {
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
-  }
+.animate-fade-out-down {
+  animation: fade-out-down 0.4s ease-in forwards;
 }
