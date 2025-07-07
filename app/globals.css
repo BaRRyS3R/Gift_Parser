@@ -76,9 +76,14 @@ body {
     opacity: 0.8;
   }
 
-  50% {
-    transform: scale(1.6);
-    opacity: 0.4;
+  30% {
+    transform: scale(1.4);
+    opacity: 0.6;
+  }
+
+  70% {
+    transform: scale(1.8);
+    opacity: 0.3;
   }
 
   100% {
@@ -93,9 +98,14 @@ body {
     opacity: 0.9;
   }
 
-  50% {
-    transform: scale(1.6);
-    opacity: 0.5;
+  30% {
+    transform: scale(1.4);
+    opacity: 0.7;
+  }
+
+  70% {
+    transform: scale(1.8);
+    opacity: 0.4;
   }
 
   100% {
@@ -103,6 +113,22 @@ body {
     opacity: 0;
   }
 }
+
+/* Fast deactivation for immediate feedback */
+.fast-deactivate {
+  transition: all 75ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
+/* Instant click response */
+.instant-response {
+  transition: none !important;
+}
+
+/* Level transition effects */
+.level-transition-smooth {
+  transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
 
 /* Enhanced Premium Animations for Tournaments */
 @keyframes slide-in-up {
@@ -153,13 +179,74 @@ body {
   }
 }
 
-@keyframes spin-slow {
+@keyframes spin {
   from {
     transform: rotate(0deg);
   }
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Prevent visual artifacts during fast rotations */
+.high-performance-rotation {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  perspective: 1000px;
+  contain: strict;
+}
+
+/* Smooth acceleration curves for different speeds */
+.gentle-acceleration {
+  transition: animation-duration 2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.moderate-acceleration {
+  transition: animation-duration 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.fast-acceleration {
+  transition: animation-duration 1s cubic-bezier(0.55, 0.085, 0.68, 0.53);
+}
+
+/* Circle state management */
+.circle-active-enter {
+  animation: circle-activate 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.circle-active-exit {
+  animation: circle-deactivate 0.075s cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes circle-activate {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes circle-deactivate {
+  0% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.75);
+    opacity: 0;
   }
 }
 
@@ -524,19 +611,22 @@ body {
   }
 }
 
-/* Rotation container specific styles */
+/* Enhanced rotation container with hardware acceleration */
 .rotation-container {
   transform-style: preserve-3d;
   will-change: transform;
   backface-visibility: hidden;
+  contain: layout style paint;
+  isolation: isolate;
 }
 
-/* Circle positioning and performance optimizations */
+/* Optimized circle rendering */
 .rotation-circle {
   will-change: transform, opacity, scale;
   transform-style: preserve-3d;
   backface-visibility: hidden;
   perspective: 1000px;
+  contain: layout style paint;
 }
 
 /* Smooth level transition animations */
@@ -571,17 +661,79 @@ body {
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
   }
+
+  .smooth-rotation-transition {
+    transition-duration: 1s;
+    /* Faster on mobile for better UX */
+  }
 }
 
-/* Prevent visual glitches during rotation */
+@media (prefers-reduced-motion: reduce) {
+  .smooth-rotation-transition {
+    transition-duration: 0.3s;
+  }
+
+  .rotation-indicator {
+    transition-duration: 0.3s;
+  }
+
+  .level-transition-smooth {
+    transition-duration: 0.4s;
+  }
+}
+
+@media (min-resolution: 120dpi) {
+  .rotation-container {
+    contain: strict;
+  }
+
+  .rotation-circle {
+    contain: layout style;
+  }
+}
+
+.enhanced-pulse {
+  animation: enhanced-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes enhanced-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(1.02);
+  }
+}
+
+.stable-container {
+  position: relative;
+  overflow: hidden;
+  contain: layout style paint;
+}
+
+.touch-optimized {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Grid container optimizations */
 .rotating-grid {
   contain: layout style paint;
   isolation: isolate;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
-/* Smooth transitions for rotation speed changes */
+/* Smooth rotation speed transitions for level changes */
 .smooth-rotation-transition {
-  transition: animation-duration 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: animation-duration 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
 }
 
 /* Hardware acceleration utilities */
@@ -628,10 +780,12 @@ body {
   }
 }
 
-/* Rotation speed indicators */
+/* Rotation indicator with synchronized animation */
 .rotation-indicator {
   animation: spin var(--rotation-duration, 3000ms) linear infinite;
-  transition: animation-duration 0.5s ease-in-out;
+  transition: animation-duration 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* Container positioning fixes */

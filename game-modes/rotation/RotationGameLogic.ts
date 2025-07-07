@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameLogic.ts - Fixed angle updates for all circles
+// src/game-modes/rotation/RotationGameLogic.ts - Fixed level transitions preserving active circles
 
 import {
   RotationGameConfig,
@@ -14,8 +14,8 @@ export const ROTATION_CONFIG: RotationGameConfig = {
   id: "rotation",
   name: "ROTATION MODE",
   circleCount: 14,
-  radius: 120, // Radius of the rotation circle
-  initialRotationSpeed: 0.02, // Radians per frame (slow start)
+  radius: 120,
+  initialRotationSpeed: 0.02,
   initialActivationTimeMin: 1500,
   initialActivationTimeMax: 2500,
   initialCircleActiveTime: 2500,
@@ -177,6 +177,7 @@ export const getLevelConfig = (level: number): RotationLevelConfig => {
   return ROTATION_LEVELS[clampedLevel - 1];
 };
 
+// Updated function to preserve active circles during level transitions
 export const updateRotationLevel = (
   state: RotationGameState,
   currentTime?: number
@@ -195,16 +196,26 @@ export const updateRotationLevel = (
     const newLevel = state.currentLevel + 1;
     const levelConfig = getLevelConfig(newLevel);
 
+    // CRITICAL: Preserve active circles and their states during level transition
+    const preservedCircles = state.circles.map(circle => ({
+      ...circle,
+      // Keep existing active state and position - DO NOT reset
+    }));
+
     return {
       ...state,
       currentLevel: newLevel,
       timeInCurrentLevel: 0,
       currentRotationSpeed: levelConfig.rotationSpeed,
+      circles: preservedCircles, // Preserve all circle states
       stats: {
         ...state.stats,
         survivalTime: actualSurvivalTime,
         currentLevel: newLevel,
       },
+      // Keep existing active circle IDs and timeouts
+      activeCircleIds: state.activeCircleIds,
+      circleTimeouts: state.circleTimeouts,
     };
   }
 
@@ -218,24 +229,8 @@ export const updateRotationLevel = (
   };
 };
 
-// Fixed function to properly update all circle positions
-export const updateCirclePositions = (
-  circles: RotationCircle[],
-  rotationSpeed: number,
-): RotationCircle[] => {
-  return circles.map(circle => {
-    // Ensure each circle gets its angle updated independently
-    const newAngle = (circle.angle + rotationSpeed) % (2 * Math.PI);
-
-    return {
-      ...circle,
-      angle: newAngle,
-      // Store calculated positions for reference (optional)
-      x: Math.cos(newAngle),
-      y: Math.sin(newAngle),
-    };
-  });
-};
+// Removed problematic updateCirclePositions function that was causing conflicts
+// Positions are now handled entirely by CSS animation
 
 export const getRandomCircleIds = (
   totalCircles: number,
@@ -308,7 +303,10 @@ export const activateRotationCircles = (
     return circle;
   });
 
-  onCirclesActivated(selectedIds, redIds);
+  // Call callback AFTER state is updated to ensure proper timing
+  setTimeout(() => {
+    onCirclesActivated(selectedIds, redIds);
+  }, 50); // Small delay to ensure circles are visually active first
 
   return {
     ...state,
@@ -355,6 +353,7 @@ export const handleRotationCircleClick = (
         hitCount: updatedState.stats.hitCount + 1,
       };
 
+      // Immediate visual feedback - set isAnimating immediately
       const newCircles = updatedState.circles.map((c) =>
         c.id === clickedCircleId ? { ...c, isAnimating: true } : c,
       );
