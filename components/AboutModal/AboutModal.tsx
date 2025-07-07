@@ -1,19 +1,16 @@
-// src/components/AboutModal/AboutModal.tsx - Optimized version with lazy loading and memoization
+// src/components/AboutModal/AboutModal.tsx - Optimized version with memoization and conditional rendering
 "use client";
 
-import React, { useState, useMemo, memo, lazy, Suspense } from "react";
+import React, { useState, useMemo, memo } from "react";
 import {
     Modal,
     ModalContent,
     ModalHeader,
     ModalBody,
-    ModalFooter,
-    Button,
     Accordion,
     AccordionItem,
     Chip,
     Divider,
-    Spinner,
 } from "@nextui-org/react";
 import {
     Info,
@@ -39,12 +36,6 @@ interface AboutModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
-
-// Lazy loading для секций, которые требуют много ресурсов
-const GameModesSection = lazy(() => import('./sections/GameModesSection'));
-const SystemsSection = lazy(() => import('./sections/SystemsSection'));
-const MonetizationSection = lazy(() => import('./sections/MonetizationSection'));
-const TipsSection = lazy(() => import('./sections/TipsSection'));
 
 // Мемоизированные компоненты для секций
 const MemoizedGameModesContent = memo(({ t }: { t: any }) => {
@@ -347,18 +338,11 @@ const MemoizedTipsContent = memo(({ t }: { t: any }) => {
     );
 });
 
-// Компонент загрузки для ленивых секций
-const SectionLoader = memo(() => (
-    <div className="flex items-center justify-center py-8">
-        <Spinner color="white" size="sm" />
-    </div>
-));
-
-// Основной компонент с ленивой загрузкой содержимого
+// Основной компонент с оптимизацией через мемоизацию и условный рендеринг
 export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
     const t = useT();
-
-    // Отслеживаем какие секции открыты для ленивого рендеринга
+    
+    // Отслеживаем какие секции открыты для условного рендеринга
     const [openSections, setOpenSections] = useState<Set<string>>(new Set());
 
     // Мемоизируем заголовки секций
@@ -390,12 +374,18 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
     }), [t]);
 
     // Обработчик изменения открытых секций
-    const handleSelectionChange = (keys: any) => {
-        const keySet = new Set(keys);
-        setOpenSections(keySet);
+    const handleSelectionChange = (keys: "all" | Set<React.Key>) => {
+        if (keys === "all") {
+            // Если выбраны все секции, добавляем все возможные ключи
+            setOpenSections(new Set(["game-modes", "systems", "monetization", "tips"]));
+        } else {
+            // Преобразуем React.Key в string для совместимости
+            const keySet = new Set(Array.from(keys).map(key => String(key)));
+            setOpenSections(keySet);
+        }
     };
 
-    // Ленивый рендер содержимого секции
+    // Условный рендер содержимого секции - рендерим только открытые секции
     const renderSectionContent = (sectionKey: string) => {
         if (!openSections.has(sectionKey)) {
             return null; // Не рендерим содержимое если секция закрыта
@@ -403,29 +393,13 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
 
         switch (sectionKey) {
             case "game-modes":
-                return (
-                    <Suspense fallback={<SectionLoader />}>
-                        <MemoizedGameModesContent t={t} />
-                    </Suspense>
-                );
+                return <MemoizedGameModesContent t={t} />;
             case "systems":
-                return (
-                    <Suspense fallback={<SectionLoader />}>
-                        <MemoizedSystemsContent t={t} />
-                    </Suspense>
-                );
+                return <MemoizedSystemsContent t={t} />;
             case "monetization":
-                return (
-                    <Suspense fallback={<SectionLoader />}>
-                        <MemoizedMonetizationContent t={t} />
-                    </Suspense>
-                );
+                return <MemoizedMonetizationContent t={t} />;
             case "tips":
-                return (
-                    <Suspense fallback={<SectionLoader />}>
-                        <MemoizedTipsContent t={t} />
-                    </Suspense>
-                );
+                return <MemoizedTipsContent t={t} />;
             default:
                 return null;
         }
@@ -467,8 +441,8 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                 </ModalHeader>
 
                 <ModalBody className="text-white">
-                    <Accordion
-                        variant="splitted"
+                    <Accordion 
+                        variant="splitted" 
                         className="px-0"
                         onSelectionChange={handleSelectionChange}
                     >
