@@ -175,24 +175,53 @@ export const tournamentService = {
     },
 
     /**
-     * Get tournament leaderboard
-     */
+ * Get tournament leaderboard sorted by accumulated points (client-side sorting)
+ */
     async getTournamentLeaderboard(tournamentId: string, limit: number = 50): Promise<TournamentLeaderboardEntry[]> {
         try {
-            // Updated RPC call that sorts by survival_score (accumulated points) instead of survival_time
-            const { data, error } = await supabase.rpc('get_tournament_leaderboard_by_score', {
+            // Use existing RPC function temporarily
+            const { data, error } = await supabase.rpc('get_tournament_leaderboard', {
                 tournament_id_param: tournamentId,
-                limit_param: limit
+                limit_param: limit * 2 // Get more entries for proper sorting
             });
 
             if (error) {
-                console.error('Error fetching tournament leaderboard by score:', error);
+                console.error('Error fetching tournament leaderboard:', error);
                 throw error;
             }
 
-            return data || [];
+            if (!data || data.length === 0) {
+                return [];
+            }
+
+            // Client-side sorting by survival_score (accumulated points) instead of survival_time
+            const sortedData = data.sort((a: TournamentLeaderboardEntry, b: TournamentLeaderboardEntry) => {
+                // Primary sort: by survival_score (descending)
+                if (b.survival_score !== a.survival_score) {
+                    return b.survival_score - a.survival_score;
+                }
+
+                // Secondary sort: by survival_time (descending) 
+                if (b.survival_time !== a.survival_time) {
+                    return b.survival_time - a.survival_time;
+                }
+
+                // Tertiary sort: by created_at (ascending - earlier is better)
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            });
+
+            // Limit results and add rank
+            const limitedResults = sortedData.slice(0, limit);
+
+            // Add rank to each entry
+            const rankedResults = limitedResults.map((entry: TournamentLeaderboardEntry, index: number) => ({
+                ...entry,
+                rank: index + 1
+            }));
+
+            return rankedResults;
         } catch (error) {
-            console.error('Error getting tournament leaderboard by score:', error);
+            console.error('Error getting tournament leaderboard:', error);
             throw error;
         }
     },
