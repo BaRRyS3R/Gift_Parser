@@ -416,12 +416,16 @@ export const calculateTournamentScore = (
     stats: SurvivalGameStats,
     level: number,
 ): number => {
-    // Tournament scoring emphasizes survival time and consistency
-    const baseScore = Math.floor(stats.survivalTime / 1000);
-    const streakBonus = stats.perfectStreak * 5; // Higher streak bonus for tournaments
-    const levelBonus = Math.floor(level * 20); // Higher level bonus
+    // Время выживания в секундах (базовая составляющая)
+    const survivalTimePoints = Math.floor(stats.survivalTime / 1000);
 
-    return baseScore + streakBonus + levelBonus;
+    // Бонус за достигнутый уровень (без множителя)
+    const levelBonus = level;
+
+    // Бонус за правильные попадания (без множителя)
+    const correctHitsBonus = stats.correctHits;
+
+    return survivalTimePoints + levelBonus + correctHitsBonus;
 };
 
 export const getTournamentDeathCause = (

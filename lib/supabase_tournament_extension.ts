@@ -179,19 +179,20 @@ export const tournamentService = {
      */
     async getTournamentLeaderboard(tournamentId: string, limit: number = 50): Promise<TournamentLeaderboardEntry[]> {
         try {
-            const { data, error } = await supabase.rpc('get_tournament_leaderboard', {
+            // Updated RPC call that sorts by survival_score (accumulated points) instead of survival_time
+            const { data, error } = await supabase.rpc('get_tournament_leaderboard_by_score', {
                 tournament_id_param: tournamentId,
                 limit_param: limit
             });
 
             if (error) {
-                console.error('Error fetching tournament leaderboard:', error);
+                console.error('Error fetching tournament leaderboard by score:', error);
                 throw error;
             }
 
             return data || [];
         } catch (error) {
-            console.error('Error getting tournament leaderboard:', error);
+            console.error('Error getting tournament leaderboard by score:', error);
             throw error;
         }
     },
