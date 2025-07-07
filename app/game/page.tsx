@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Безопасная версия с кэшированием попыток
+// src/app/game/page.tsx - Updated with rotation mode
 
 "use client";
 
@@ -15,6 +15,7 @@ import {
   ChevronUp,
   Battery,
   Gamepad2,
+  RotateCw, // NEW for rotation mode
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -28,7 +29,7 @@ interface GameMode {
   descriptionKey: string;
   icon: React.ComponentType<any>;
   route: string;
-  difficulty: "🤡" | "💋😈" | "👉👌";
+  difficulty: "🤡" | "💋😈" | "👉👌" | "🌀"; // NEW emoji for rotation
   durationKey: string;
   color: {
     primary: string;
@@ -125,6 +126,35 @@ const GAME_MODES: GameMode[] = [
       "game.modes.physics.rules.0",
       "game.modes.physics.rules.1",
       "game.modes.physics.rules.2",
+    ],
+  },
+  // NEW: Rotation mode
+  {
+    id: "rotation",
+    nameKey: "game.modes.rotation.name",
+    descriptionKey: "game.modes.rotation.description",
+    icon: RotateCw,
+    route: "/game/rotation",
+    difficulty: "🌀",
+    durationKey: "game.modes.rotation.duration",
+    color: {
+      primary: "text-orange-400",
+      secondary: "text-orange-300",
+      accent: "text-orange-200",
+      background: "bg-orange-500/5",
+      border: "border-orange-400/20",
+      hover: "hover:bg-orange-500/10 hover:border-orange-400/30",
+    },
+    featuresKeys: [
+      "game.modes.rotation.features.0",
+      "game.modes.rotation.features.1",
+      "game.modes.rotation.features.2",
+      "game.modes.rotation.features.3",
+    ],
+    basicRules: [
+      "game.modes.rotation.rules.0",
+      "game.modes.rotation.rules.1",
+      "game.modes.rotation.rules.2",
     ],
   },
 ];
@@ -311,13 +341,15 @@ const CompactGameModeCard = ({
                 <div className="w-1 h-1 rounded-full bg-white/40" />
                 <span
                   className={`${mode.difficulty === "💋😈"
-                    ? "text-red-400"
-                    : mode.difficulty === "👉👌"
-                      ? "text-purple-400"
-                      : mode.color.accent
+                      ? "text-red-400"
+                      : mode.difficulty === "👉👌"
+                        ? "text-purple-400"
+                        : mode.difficulty === "🌀"
+                          ? "text-orange-400"
+                          : mode.color.accent
                     }`}
                 >
-                  {mode.difficulty === "👉👌" ? "👉👌" : mode.difficulty}
+                  {mode.difficulty}
                 </span>
               </div>
             </div>
@@ -353,10 +385,12 @@ const CompactGameModeCard = ({
                   <div key={index} className="flex items-center space-x-2">
                     <div
                       className={`w-1 h-1 rounded-full ${mode.id === "reaction"
-                        ? "bg-white/60"
-                        : mode.id === "survival"
-                          ? "bg-red-400/60"
-                          : "bg-purple-400/60"
+                          ? "bg-white/60"
+                          : mode.id === "survival"
+                            ? "bg-red-400/60"
+                            : mode.id === "physics"
+                              ? "bg-purple-400/60"
+                              : "bg-orange-400/60" // rotation
                         }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>

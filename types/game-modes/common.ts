@@ -1,4 +1,4 @@
-// src/types/game-modes/common.ts - Обновлено с добавлением физического режима
+// src/types/game-modes/common.ts - Updated with rotation mode
 
 export interface Circle {
   id: number;
@@ -30,6 +30,7 @@ export enum GameMode {
   REACTION = "reaction",
   SURVIVAL = "survival",
   PHYSICS = "physics",
+  ROTATION = "rotation", // NEW: Rotation mode
 }
 
 export interface BaseGameResult {

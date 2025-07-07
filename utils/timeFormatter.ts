@@ -131,3 +131,24 @@ export function formatDuration(timeMs: number): string {
 
     return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
+
+/**
+ * Formats rotation game time from milliseconds to human-readable format
+ * @param timeMs - Time in milliseconds
+ * @returns Formatted time string (e.g., "1:23.456" or "45.123s")
+ */
+export function formatRotationTime(timeMs: number): string {
+    if (timeMs <= 0) return "0.000s";
+
+    const totalSeconds = timeMs / 1000;
+    const minutes = Math.floor(totalSeconds / 60);
+    const remainingSeconds = totalSeconds % 60;
+
+    if (minutes > 0) {
+        const wholeSeconds = Math.floor(remainingSeconds);
+        const milliseconds = Math.floor((remainingSeconds - wholeSeconds) * 1000);
+        return `${minutes}:${wholeSeconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+    }
+
+    return `${totalSeconds.toFixed(3)}s`;
+}

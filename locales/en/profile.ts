@@ -1,6 +1,5 @@
-// src/locales/en/profile.ts - Profile page elements
-
-export const profile = {
+// src/locales/en/profile.ts - English version (Updated with Rotation)
+export const profileEN = {
     title: "PROFILE",
     loadingProfile: "LOADING PROFILE...",
     notFound: "PROFILE NOT FOUND",
@@ -8,12 +7,15 @@ export const profile = {
     reactionMode: "Reaction",
     survivalMode: "Survival",
     physicsMode: "Physics",
+    rotationMode: "Rotation", // NEW
     noReactionTestsYet: "No data. Fortunately.",
     testReflexesToSeeStats: "Play reaction mode to see stats",
     noSurvivalAttemptsYet: "No data. Fortunately.",
     enterSurvivalToSeeStats: "Play survival mode to see stats",
     noPhysicsAttemptsYet: "No data. Fortunately.",
     enterPhysicsToSeeStats: "Play physics mode to see stats",
+    noRotationAttemptsYet: "No data. Fortunately.", // NEW
+    enterRotationToSeeStats: "Play rotation mode to see stats", // NEW
     totalGames: "Total Games",
     currentAttempts: "Current Attempts",
     totalTests: "Total Tests",
@@ -38,12 +40,15 @@ export const profile = {
         reactionModeStats: "Reaction",
         survivalModeStats: "Survival",
         physicsModeStats: "Physics",
+        rotationModeStats: "Rotation", // NEW
         noReactionTests: "NO REACTION TESTS",
         testReflexes: "Test your lightning reflexes (if you have them)!",
         noSurvivalAttempts: "NO SURVIVAL ATTEMPTS",
         enterSurvival: "ACCEPT SURVIVAL CHALLENGE!",
         noPhysicsAttempts: "NO PHYSICS EXPERIMENTS",
         enterPhysics: "TRY PHYSICS EXPERIMENT!",
+        noRotationAttempts: "NO ROTATION EXPERIMENTS", // NEW
+        enterRotation: "TRY ROTATION EXPERIMENT!", // NEW
         bestTime: "Best Time",
         bestScore: "Best Score",
         averageTime: "Average Time",
@@ -52,6 +57,7 @@ export const profile = {
         bestStreak: "Best Streak",
         bestSurvival: "Best Survival",
         totalExperiments: "Total Experiments",
+        totalSpins: "Total Spins", // NEW
     },
     referrals: {
         title: "RECRUITMENT",
@@ -99,6 +105,11 @@ export const profile = {
         impulseMaster: "IMPULSE MASTER",
         wallBreaker: "WALL BREAKER",
         physicsElite: "PHYSICS ELITE",
+        // NEW: Rotation achievements
+        rotationTester: "ROTATION TESTER",
+        spinMaster: "SPIN MASTER",
+        dizzinessResistant: "DIZZINESS RESISTANT",
+        rotationElite: "ROTATION ELITE",
         topPlayer: "TOP PLAYER",
         descriptions: {
             gamesPlayed: "{count}+ GAMES PLAYED",
@@ -118,8 +129,15 @@ export const profile = {
             physicsAttempts: "{count}+ PHYSICS EXPERIMENTS",
             physicsScore: "{score}+ PHYSICS SCORE",
             physicsTime: "{time}+ SECONDS PHYSICS",
+            // NEW: Rotation achievements descriptions
+            enteredRotation: "TRIED ROTATION MODE",
+            rotationAttempts: "{count}+ ROTATION EXPERIMENTS",
+            rotationScore: "{score}+ ROTATION SCORE",
+            rotationTime: "{time}+ SECONDS ROTATION",
+            rotationLevel: "ROTATION LEVEL {level}+",
             topSurvivor: "TOP {rank} SURVIVOR",
             topPhysics: "TOP {rank} PHYSICS",
+            topRotation: "TOP {rank} ROTATION", // NEW
             topOverall: "TOP {rank} OVERALL",
         },
     },

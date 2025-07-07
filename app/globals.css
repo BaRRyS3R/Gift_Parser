@@ -391,3 +391,78 @@ body {
 .animate-fade-out-down {
   animation: fade-out-down 0.4s ease-in forwards;
 }
+
+/* Rotation mode specific animations */
+@keyframes rotation-pulse {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.3) rotate(180deg);
+    opacity: 0.4;
+  }
+
+  100% {
+    transform: scale(1.8) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes rotation-pulse-red {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.9;
+  }
+
+  50% {
+    transform: scale(1.3) rotate(180deg);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(1.8) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes spin-clockwise {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-counter-clockwise {
+  from {
+    transform: rotate(360deg);
+  }
+
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-fade-out-down {
+  animation: fade-out-down 0.4s ease-in forwards;
+}
+
+.rotation-pulse {
+  animation: rotation-pulse 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.rotation-pulse-red {
+  animation: rotation-pulse-red 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.animate-spin-clockwise {
+  animation: spin-clockwise 2s linear infinite;
+}
+
+.animate-spin-counter-clockwise {
+  animation: spin-counter-clockwise 2s linear infinite;
+}

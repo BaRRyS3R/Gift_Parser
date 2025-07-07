@@ -1,4 +1,4 @@
-// src/locales/en/game.ts - Game modes and gameplay
+// src/locales/en/game.ts - Game modes and gameplay (Updated with Rotation)
 export const game = {
     modes: {
         title: "MODE",
@@ -15,6 +15,11 @@ export const game = {
                 "Random timing (3-5s)",
                 "Speed measurement",
                 "Performance rating"
+            ],
+            rules: [
+                "Wait for the white circle to appear",
+                "Click as fast as possible",
+                "One attempt = one result",
             ],
             instructions: {
                 ready: "Get ready",
@@ -62,6 +67,11 @@ export const game = {
                 "Multiple targets",
                 "Trap circles (red)",
                 "Make a mistake - you lose. As always."
+            ],
+            rules: [
+                "Click only on white circles",
+                "Avoid red trap circles",
+                "Don't miss the timing",
             ],
             instructions: {
                 oneMistakeDeath: "ONE MISTAKE = DEATH"
@@ -116,6 +126,11 @@ export const game = {
                 "Mistakes are lessons. Too bad not for you.",
                 "Such is life."
             ],
+            rules: [
+                "Click on white circles",
+                "Avoid red circles",
+                "Don't let circles escape",
+            ],
             results: {
                 title: "F = ma",
                 gameTime: "GAME TIME",
@@ -131,6 +146,60 @@ export const game = {
                 escapedCircles: "Circles escaped the container. Getting away from you.",
                 timeout: "Time's up. No idea how, since it's infinite.",
                 default: "Totally owned physics. Well done."
+            }
+        },
+        rotation: {
+            name: "ROTATION",
+            description: "Circles spin. So do you.",
+            difficulty: "Dizzying",
+            duration: "Until dizzy",
+            objective:
+                "Circles rotate in a circle. Click white, don't click red. Logical? Not guaranteed.",
+            features: [
+                "14 rotating circles",
+                "10 dizzying levels",
+                "Speed grows like your nausea",
+                "Mistake = motion sickness death"
+            ],
+            rules: [
+                "Click only on white circles",
+                "Red circles = instant death",
+                "Higher level = faster rotation",
+            ],
+            instructions: {
+                oneMistakeDeath: "ONE MISTAKE = DEATH",
+                followTheCircles: "FOLLOW THE CIRCLES"
+            },
+            results: {
+                title: "ROTATION STOPPED",
+                survivalTime: "ROTATION TIME",
+                finalScore: "FINAL SCORE",
+                attemptsLeft: "ATTEMPTS LEFT",
+                perfectStreak: "PERFECT STREAK",
+                correctHits: "ACCURATE HITS",
+                levelProgress: "Level progress",
+                levelsCompleted: "LEVELS COMPLETED",
+                spinAgain: "SPIN AGAIN",
+                escapeToMenu: "BACK TO MENU",
+                starting: "SPINNING UP..."
+            },
+            deathCauses: {
+                miss: "Circle disappeared while you were thinking where to click. Slow reflexes.",
+                wrongClick: "Clicked past the active circle. Got too dizzy, apparently.",
+                decoyHit: "Red circle! Red means stop! Basic concepts, duh.",
+                default: "Rotation stopped. Hope you didn't get sick."
+            },
+            levels: {
+                gentleSpin: "GENTLE SPIN",
+                steadyRotation: "STEADY ROTATION",
+                pickingUpSpeed: "PICKING UP SPEED",
+                fasterSpin: "FASTER SPIN",
+                rapidRotation: "RAPID ROTATION",
+                multiTargets: "MULTI TARGETS",
+                dangerZone: "DANGER ZONE",
+                highVelocity: "HIGH VELOCITY",
+                extremeSpin: "EXTREME SPIN",
+                maximumRotation: "MAXIMUM ROTATION"
             }
         }
     },

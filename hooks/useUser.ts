@@ -1,4 +1,4 @@
-// src/hooks/useUser.tsx - Обновленная версия с поддержкой накопления турнирных очков
+// src/hooks/useUser.tsx - Updated with rotation mode support
 
 "use client";
 
@@ -9,10 +9,11 @@ import { tournamentService, type TournamentSaveResponse } from "@/lib/supabase_t
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
 import { PhysicsGameResult } from "@/types/game-modes/physics";
+import { RotationGameResult } from "@/types/game-modes/rotation"; // NEW
 import type { TournamentGameResult } from "@/types/tournaments";
 
-// Объединенный тип для всех возможных результатов игр включая турнирные
-type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | TournamentGameResult;
+// Updated to include rotation mode
+type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult | TournamentGameResult;
 
 interface AttemptsCache {
   status: AttemptsStatus | null;

@@ -10,12 +10,12 @@ import type {
 } from "@/types/tournaments";
 
 // Экспорт типов для внешнего использования
-export type { 
-    TournamentLeaderboardEntry, 
-    Tournament, 
-    TournamentResult, 
+export type {
+    TournamentLeaderboardEntry,
+    Tournament,
+    TournamentResult,
     TournamentStatus,
-    TournamentSaveResponse 
+    TournamentSaveResponse
 } from "@/types/tournaments";
 
 export interface TournamentWithStatus extends Tournament {
@@ -277,12 +277,12 @@ export const tournamentService = {
             }
 
             console.log('Tournament result saved with point accumulation:', data);
-            
+
             // Парсинг JSON ответа от функции
             const saveResponse: TournamentSaveResponse = typeof data === 'string' ? JSON.parse(data) : data;
-            
+
             console.log(`Points accumulated: +${saveResponse.game_score} (Total: ${saveResponse.total_score})`);
-            
+
             return saveResponse;
         } catch (error) {
             console.error('Error saving accumulative tournament result:', error);

@@ -1,4 +1,4 @@
-// src/locales/ru/profile.ts - Profile page elements
+// src/locales/ru/profile.ts - Profile page elements (Updated with Rotation)
 export const profile = {
     title: "ПРОФИЛЬ",
     loadingProfile: "ЗАГРУЗКА ПРОФИЛЯ...",
@@ -7,12 +7,15 @@ export const profile = {
     reactionMode: "Реакция",
     survivalMode: "Выживание",
     physicsMode: "Физика",
+    rotationMode: "Вращение", // NEW
     noReactionTestsYet: "Нет данных. К счастью.",
     testReflexesToSeeStats: "Сыграйте в режим на реакцию, чтобы увидеть статистику",
     noSurvivalAttemptsYet: "Нет данных. К счастью.",
     enterSurvivalToSeeStats: "Сыграйте в режим выживания, чтобы увидеть статистику",
     noPhysicsAttemptsYet: "Нет данных. К счастью.",
     enterPhysicsToSeeStats: "Сргайте в режим с физикой для просмотра статистики",
+    noRotationAttemptsYet: "Нет данных. К счастью.", // NEW
+    enterRotationToSeeStats: "Сыграйте в режим вращения для просмотра статистики", // NEW
     totalGames: "Всего игр",
     currentAttempts: "Текущие попытки",
     totalTests: "Всего тестов",
@@ -37,12 +40,15 @@ export const profile = {
         reactionModeStats: "Реакция",
         survivalModeStats: "Выживание",
         physicsModeStats: "Физика",
+        rotationModeStats: "Вращение", // NEW
         noReactionTests: "НЕТ ТЕСТОВ РЕАКЦИИ",
         testReflexes: "Проверь свои молниеносные рефлексы (если они есть)!",
         noSurvivalAttempts: "НЕТ ПОПЫТОК ВЫЖИВАНИЯ",
         enterSurvival: "ПРИНЯТЬ ВЫЗОВ ВЫЖИВАНИЯ!",
         noPhysicsAttempts: "НЕТ ФИЗИЧЕСКИХ ЭКСПЕРИМЕНТОВ",
         enterPhysics: "ПОПРОБОВАТЬ ФИЗИЧЕСКИЙ ЭКСПЕРИМЕНТ!",
+        noRotationAttempts: "НЕТ ВРАЩАЮЩИХСЯ ЭКСПЕРИМЕНТОВ", // NEW
+        enterRotation: "ПОПРОБОВАТЬ ВРАЩАЮЩИЙСЯ ЭКСПЕРИМЕНТ!", // NEW
         bestTime: "Лучшее время",
         bestScore: "Лучший счет",
         averageTime: "Среднее время",
@@ -51,6 +57,7 @@ export const profile = {
         bestStreak: "Лучшая серия",
         bestSurvival: "Лучшее выживание",
         totalExperiments: "Всего экспериментов",
+        totalSpins: "Всего вращений", // NEW
     },
     referrals: {
         title: "РЕКРУТИНГ",
@@ -98,6 +105,11 @@ export const profile = {
         impulseMaster: "МАСТЕР ИМПУЛЬСОВ",
         wallBreaker: "РАЗРУШИТЕЛЬ СТЕН",
         physicsElite: "ЭЛИТА ФИЗИКИ",
+        // NEW: Rotation achievements
+        rotationTester: "ИСПЫТАТЕЛЬ ВРАЩЕНИЯ",
+        spinMaster: "МАСТЕР ВРАЩЕНИЯ",
+        dizzinessResistant: "УСТОЙЧИВЫЙ К ГОЛОВОКРУЖЕНИЮ",
+        rotationElite: "ЭЛИТА ВРАЩЕНИЯ",
         topPlayer: "ТОП-ИГРОК",
         descriptions: {
             gamesPlayed: "СЫГРАНО ИГР: {count}+",
@@ -117,8 +129,15 @@ export const profile = {
             physicsAttempts: "ФИЗИЧЕСКИХ ЭКСПЕРИМЕНТОВ: {count}+",
             physicsScore: "ФИЗИЧЕСКИЙ СЧЁТ: {score}+",
             physicsTime: "ФИЗИЧЕСКОЕ ВРЕМЯ: {time}+ СЕКУНД",
+            // NEW: Rotation achievements descriptions
+            enteredRotation: "ПРОБОВАЛ РЕЖИМ ВРАЩЕНИЯ",
+            rotationAttempts: "ВРАЩАЮЩИХСЯ ЭКСПЕРИМЕНТОВ: {count}+",
+            rotationScore: "СЧЁТ ВРАЩЕНИЯ: {score}+",
+            rotationTime: "ВРЕМЯ ВРАЩЕНИЯ: {time}+ СЕКУНД",
+            rotationLevel: "УРОВЕНЬ ВРАЩЕНИЯ: {level}+",
             topSurvivor: "ТОП-{rank} СРЕДИ ВЫЖИВШИХ",
             topPhysics: "ТОП-{rank} ПО ФИЗИКЕ",
+            topRotation: "ТОП-{rank} ПО ВРАЩЕНИЮ", // NEW
             topOverall: "ТОП-{rank} В ОБЩЕМ ЗАЧЕТЕ",
         },
     },

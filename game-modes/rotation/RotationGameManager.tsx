@@ -1,44 +1,38 @@
-// src/game-modes/tournament/TournamentGameManager.tsx - Обновленная версия с системой накопления очков
+// src/game-modes/rotation/RotationGameManager.tsx - Game manager for rotation mode
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-    Crosshair,
+    RotateCcw,
     AlertTriangle,
     Zap,
     Clock,
     Target,
-    RotateCcw,
-    Trophy,
-    Plus,
-    Star,
-    TrendingUp,
+    RotateCw,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-// Импорт турнирной игровой логики
 import {
-    initializeTournamentGameState,
-    updateTournamentLevel,
-    activateTournamentCircles,
-    handleTournamentCircleClick,
-    deactivateTournamentCircle,
-    createTournamentGameResult,
-    cleanupTournamentGame,
-    getTournamentLevelConfig,
-    formatTournamentTime,
-} from "./TournamentGameLogic";
+    initializeRotationGameState,
+    updateRotationLevel,
+    activateRotationCircles,
+    handleRotationCircleClick,
+    deactivateRotationCircle,
+    createRotationGameResult,
+    cleanupRotationGame,
+    getLevelConfig,
+    formatRotationTime,
+    updateCirclePositions,
+} from "./RotationGameLogic";
 
 import { useUser } from "@/hooks/useUser";
-import { userService } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
-    SurvivalGameState,
-    SurvivalGameResult,
-} from "@/types/game-modes/survival";
-import type { Tournament, TournamentSaveResponse } from "@/types/tournaments";
-import GameGrid from "@/components/GameGrid";
+    RotationGameState,
+    RotationGameResult,
+} from "@/types/game-modes/rotation";
+import RotatingCircleGrid from "@/components/RotatingCircleGrid";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface SaveStatus {
@@ -48,7 +42,6 @@ interface SaveStatus {
     error: string | null;
     isSuccess: boolean;
     showRetryDetails: boolean;
-    saveResponse: TournamentSaveResponse | null;
 }
 
 const initialSaveStatus: SaveStatus = {
@@ -58,45 +51,44 @@ const initialSaveStatus: SaveStatus = {
     error: null,
     isSuccess: false,
     showRetryDetails: false,
-    saveResponse: null,
 };
 
-const LEVEL_UPDATE_INTERVAL = 50; // 20fps для плавного обновления времени
+const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
 
-interface TournamentGameManagerProps {
-    tournament: Tournament;
-}
-
-export default function TournamentGameManager({ tournament }: TournamentGameManagerProps) {
-    const { telegramUser, user, saveTournamentResult } = useUser();
+export default function RotationGameManager() {
+    const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
     const router = useRouter();
     const t = useT();
 
-    const [gameState, setGameState] = useState<SurvivalGameState>(
-        initializeTournamentGameState(),
+    const [gameState, setGameState] = useState<RotationGameState>(
+        initializeRotationGameState(),
     );
     const [showCircles, setShowCircles] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
-    const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
+    const [gameResult, setGameResult] = useState<RotationGameResult | null>(null);
     const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
     const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
     const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
     const [isRestartLoading, setIsRestartLoading] = useState(false);
 
-    const gameStateRef = useRef<SurvivalGameState>(gameState);
+    // State for activation pulse effects
+    const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
+    const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
+
+    const gameStateRef = useRef<RotationGameState>(gameState);
 
     useEffect(() => {
         gameStateRef.current = gameState;
     }, [gameState]);
 
-    // Настройка кнопки "Назад" в Telegram WebApp
+    // Setup Telegram WebApp back button
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
 
             tg.BackButton.show();
             tg.BackButton.onClick(() => {
-                router.push("/tournament");
+                router.push("/game");
             });
 
             return () => {
@@ -106,36 +98,34 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         }
     }, [router]);
 
-    // Потребление попытки при инициализации компонента
+    // Consume attempt immediately when component mounts
     useEffect(() => {
         const consumeInitialAttempt = async () => {
             if (!telegramUser?.id || hasConsumedInitialAttempt) return;
 
             try {
                 setIsConsumingAttempt(true);
-                const newStatus = await userService.consumeAttemptWithServerValidation(
-                    telegramUser.id,
-                );
+                console.log("Consuming initial attempt for rotation game");
 
+                const newStatus = await consumeAttemptForGame();
                 setAttemptsRemaining(newStatus.attemptsRemaining);
                 setHasConsumedInitialAttempt(true);
 
+                // Auto-start the game after consuming attempt
                 setTimeout(() => {
                     startGame();
                 }, 500);
             } catch (error) {
                 console.error("Error consuming initial attempt:", error);
                 setHasConsumedInitialAttempt(true);
-                setTimeout(() => {
-                    startGame();
-                }, 500);
+                router.push("/game");
             } finally {
                 setIsConsumingAttempt(false);
             }
         };
 
         consumeInitialAttempt();
-    }, [telegramUser?.id, hasConsumedInitialAttempt]);
+    }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
 
     const triggerHapticFeedback = useCallback((type: "success" | "error") => {
         if (
@@ -147,8 +137,8 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         }
     }, []);
 
-    const handleSaveTournamentResult = useCallback(
-        async (result: SurvivalGameResult) => {
+    const handleSaveGameResult = useCallback(
+        async (result: RotationGameResult) => {
             setSaveStatus((prev) => ({
                 ...prev,
                 isLoading: true,
@@ -156,7 +146,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 error: null,
                 isSuccess: false,
                 showRetryDetails: false,
-                saveResponse: null,
             }));
 
             let attemptCount = 1;
@@ -170,17 +159,13 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 }
 
                 try {
-                    const saveResponse = await saveTournamentResult(tournament.id, result);
-
+                    await saveGameResult(result);
                     setSaveStatus((prev) => ({
                         ...prev,
                         isLoading: false,
                         isSuccess: true,
                         error: null,
-                        saveResponse,
                     }));
-
-                    console.log("Tournament result saved with accumulation:", saveResponse);
                 } catch (error) {
                     attemptCount++;
                     if (attemptCount <= 3) {
@@ -201,20 +186,19 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                     isLoading: false,
                     isSuccess: false,
                     error:
-                        error instanceof Error ? error.message : "Failed to save tournament result",
-                    saveResponse: null,
+                        error instanceof Error ? error.message : t("errors.saveGameResult"),
                 }));
             }
         },
-        [tournament.id, saveTournamentResult],
+        [saveGameResult, t],
     );
 
     const endGame = useCallback(
         (cause: "miss" | "wrong_click" | "decoy_hit") => {
-            console.log("Tournament game ended:", cause);
+            console.log("Rotation game ended:", cause);
 
             setGameState((prev) => {
-                const finalState = updateTournamentLevel(prev, Date.now());
+                const finalState = updateRotationLevel(prev, Date.now());
 
                 let updatedStats = { ...finalState.stats };
 
@@ -237,15 +221,15 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                     stats: updatedStats,
                 };
 
-                const result = createTournamentGameResult(finalGameState);
+                const result = createRotationGameResult(finalGameState);
                 setGameResult(result);
-                handleSaveTournamentResult(result);
-                cleanupTournamentGame(finalGameState);
+                handleSaveGameResult(result);
+                cleanupRotationGame(finalGameState);
 
                 return finalGameState;
             });
         },
-        [handleSaveTournamentResult],
+        [handleSaveGameResult],
     );
 
     const scheduleNextActivation = useCallback(() => {
@@ -254,7 +238,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         if (!currentState.isActive || currentState.gameState !== GameState.PLAYING)
             return;
 
-        const levelConfig = getTournamentLevelConfig(currentState.currentLevel);
+        const levelConfig = getLevelConfig(currentState.currentLevel);
         const delay =
             Math.random() *
             (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
@@ -266,12 +250,20 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 gameStateRef.current.gameState === GameState.PLAYING
             ) {
                 setGameState((prev) => {
-                    const newState = activateTournamentCircles(
+                    const newState = activateRotationCircles(
                         prev,
                         (circleIds, redCircleIds) => {
                             console.log(
                                 `Activated circles: ${circleIds.join(", ")}, Red: ${redCircleIds.join(", ")}`,
                             );
+
+                            const timestamp = Date.now();
+                            setActivatedCircles(circleIds);
+                            setLastActivationTimestamp(timestamp);
+
+                            setTimeout(() => {
+                                setActivatedCircles([]);
+                            }, 450);
                         },
                         (circleId, wasDecoy) => {
                             console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
@@ -280,7 +272,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                                 endGame("miss");
                             } else {
                                 setGameState((current) =>
-                                    deactivateTournamentCircle(current, circleId),
+                                    deactivateRotationCircle(current, circleId),
                                 );
                                 scheduleNextActivation();
                             }
@@ -303,10 +295,10 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         (circleId: number) => {
             if (gameStateRef.current.gameState !== GameState.PLAYING) return;
 
-            console.log("Tournament circle clicked:", circleId);
+            console.log("Rotation circle clicked:", circleId);
 
             const clickTime = Date.now();
-            const { newState, result } = handleTournamentCircleClick(
+            const { newState, result } = handleRotationCircleClick(
                 gameStateRef.current,
                 circleId,
                 clickTime,
@@ -318,7 +310,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
 
                 setTimeout(() => {
                     setGameState((current) =>
-                        deactivateTournamentCircle(current, circleId),
+                        deactivateRotationCircle(current, circleId),
                     );
                 }, 300);
             } else if (result === "decoy") {
@@ -332,12 +324,34 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         [triggerHapticFeedback, endGame],
     );
 
-    const startGame = useCallback(() => {
-        console.log("Starting Tournament Game...");
+    // Rotation animation loop
+    const updateRotation = useCallback(() => {
+        setGameState((prev) => {
+            if (!prev.isActive || prev.gameState !== GameState.PLAYING) {
+                return prev;
+            }
 
-        setGameState(initializeTournamentGameState());
+            const updatedCircles = updateCirclePositions(
+                prev.circles,
+                prev.currentRotationSpeed,
+                prev.config.radius,
+            );
+
+            return {
+                ...prev,
+                circles: updatedCircles,
+            };
+        });
+    }, []);
+
+    const startGame = useCallback(() => {
+        console.log("Starting Rotation Game...");
+
+        setGameState(initializeRotationGameState());
         setGameResult(null);
         setSaveStatus(initialSaveStatus);
+        setActivatedCircles([]);
+        setLastActivationTimestamp(0);
 
         setTimeout(() => {
             setShowCircles(true);
@@ -346,6 +360,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         setTimeout(() => {
             setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
+            // Start level update interval
             const levelInterval = setInterval(() => {
                 setGameState((current) => {
                     if (!current.isActive || current.gameState !== GameState.PLAYING) {
@@ -353,9 +368,14 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                         return current;
                     }
 
-                    return updateTournamentLevel(current, Date.now());
+                    return updateRotationLevel(current, Date.now());
                 });
             }, LEVEL_UPDATE_INTERVAL);
+
+            // Start rotation animation
+            const rotationInterval = setInterval(() => {
+                updateRotation();
+            }, 16); // 60fps
 
             setTimeout(() => {
                 scheduleNextActivation();
@@ -364,36 +384,38 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
             setGameState((prev) => ({
                 ...prev,
                 levelUpdateInterval: levelInterval,
+                rotationAnimationFrame: rotationInterval,
             }));
         }, 800);
-    }, [scheduleNextActivation]);
+    }, [scheduleNextActivation, updateRotation]);
 
     const restartGame = useCallback(async () => {
         if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
+        setIsRestartLoading(true);
+
         try {
-            setIsRestartLoading(true);
+            console.log("Consuming attempt on server for restart");
 
-            const newStatus = await userService.consumeAttemptWithServerValidation(
-                telegramUser.id,
-            );
-
+            const newStatus = await consumeAttemptForGame();
             setAttemptsRemaining(newStatus.attemptsRemaining);
-            setShowCircles(false);
 
+            setShowCircles(false);
             setTimeout(() => {
                 startGame();
             }, 200);
+
         } catch (error) {
             console.error("Error consuming attempt for restart:", error);
+            router.push("/game");
         } finally {
             setIsRestartLoading(false);
         }
-    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading]);
+    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
 
     useEffect(() => {
         return () => {
-            cleanupTournamentGame(gameStateRef.current);
+            cleanupRotationGame(gameStateRef.current);
         };
     }, []);
 
@@ -406,31 +428,30 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
             case "decoy_hit":
                 return <AlertTriangle className="text-red-400" size={20} />;
             default:
-                return <Crosshair className="text-red-400" size={20} />;
+                return <RotateCw className="text-red-400" size={20} />;
         }
     };
 
     const getDeathCauseMessage = (deathCause: string) => {
         const causeKeyMapping = {
-            "miss": "game.modes.survival.deathCauses.miss",
-            "wrong_click": "game.modes.survival.deathCauses.wrongClick",
-            "decoy_hit": "game.modes.survival.deathCauses.decoyHit",
-            "timeout": "game.modes.survival.deathCauses.default"
+            "miss": "game.modes.rotation.deathCauses.miss",
+            "wrong_click": "game.modes.rotation.deathCauses.wrongClick",
+            "decoy_hit": "game.modes.rotation.deathCauses.decoyHit",
+            "timeout": "game.modes.rotation.deathCauses.default"
         };
 
         const key = causeKeyMapping[deathCause as keyof typeof causeKeyMapping] ||
             causeKeyMapping.timeout;
 
-        return t(key as any) || t("game.modes.survival.deathCauses.default");
+        return t(key as any) || t("game.modes.rotation.deathCauses.default");
     };
 
     if (isConsumingAttempt) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-4">
-                    <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
-                    <p className="text-white">{t("game.general.initializingGame")}</p>
-                    <p className="text-white/60 text-sm">Tournament Mode</p>
+                    <div className="w-8 h-8 border-2 border-orange-400/20 border-t-orange-400 rounded-full animate-spin mx-auto" />
+                    <p className="text-orange-300">{t("game.general.initializingGame")}</p>
                 </div>
             </div>
         );
@@ -439,131 +460,101 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
     if (gameState.gameState === GameState.FINISHED && gameResult) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center p-6">
-                <div className="w-full max-w-md space-y-6 animate-fade-in">
-                    <div className="text-center space-y-3">
-                        <div className="text-5xl mb-3">🏆</div>
-                        <h1 className="text-3xl font-bold text-white">
-                            {t("tournament.tournamentEnd")}
+                <div className="w-full max-w-md space-y-8 animate-fade-in">
+                    <div className="text-center space-y-4">
+                        <div className="text-6xl mb-4">🌀</div>
+
+                        <h1 className="text-4xl font-bold text-orange-400">
+                            {t("game.modes.rotation.results.title")}
                         </h1>
-                        <div className="bg-white/10 border border-white/20 rounded-lg p-3">
+
+                        <div className="bg-orange-500/20 border border-orange-400/30 rounded-lg p-3">
                             <div className="flex items-center justify-center space-x-2">
                                 {getDeathCauseIcon(gameResult.deathCause)}
-                                <span className="text-sm text-white/80">
+                                <span className="text-sm text-orange-300">
                                     {getDeathCauseMessage(gameResult.deathCause)}
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Информация о накоплении очков */}
-                    {saveStatus.saveResponse && (
-                        <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
-                            <div className="text-center space-y-2">
-                                <div className="flex items-center justify-center space-x-2">
-                                    <Plus className="text-yellow-400" size={16} />
-                                    <span className="text-sm text-yellow-300 uppercase tracking-wider">
-                                        {t("tournament.pointsEarned")}
-                                    </span>
-                                </div>
-                                <div className="text-3xl font-bold text-yellow-400">
-                                    +{saveStatus.saveResponse.game_score} pts
-                                </div>
-                                <div className="text-sm text-yellow-300/80">
-                                    {t("tournament.addedToTotal")}
-                                </div>
-                                <div className="flex items-center justify-center space-x-2 text-sm text-yellow-300/60">
-                                    <Star className="text-yellow-400" size={14} />
-                                    <span>
-                                        {t("tournament.totalPoints")}: {saveStatus.saveResponse.total_score} pts
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Основные результаты игры */}
-                    <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-6 space-y-4">
+                    <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-6 space-y-6">
                         <div className="text-center space-y-2">
-                            <div className="text-sm text-white/60 uppercase tracking-wider">
-                                {t("tournament.survivalTime")}
+                            <div className="text-sm text-orange-400/60">
+                                {t("game.modes.rotation.results.survivalTime")}
                             </div>
-                            <div className="text-3xl font-bold text-white">
-                                {formatTournamentTime(gameResult.survivalTime)}
+                            <div className="text-4xl font-bold text-orange-400">
+                                {formatRotationTime(gameResult.survivalTime)}
                             </div>
-                            <div className="text-lg text-white/80">
+                            <div className="text-lg text-orange-300">
                                 {t("common.level")} {gameResult.maxLevelReached}
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-center">
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("tournament.tournamentScore")}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center space-y-1">
+                                <div className="text-xs text-orange-400/60">
+                                    {t("game.modes.rotation.results.finalScore")}
                                 </div>
-                                <div className="text-xl font-bold text-white">
+                                <div className="text-xl font-bold text-orange-300">
                                     {gameResult.score}
                                 </div>
                             </div>
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("attempts.remaining")}
+                            <div className="text-center space-y-1">
+                                <div className="text-xs text-orange-400/60">
+                                    {t("game.modes.rotation.results.attemptsLeft")}
                                 </div>
                                 <div className="text-xl font-bold text-green-400">
                                     {attemptsRemaining}
                                 </div>
                             </div>
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("tournament.perfectStreak")}
+                            <div className="text-center space-y-1">
+                                <div className="text-xs text-orange-400/60">
+                                    {t("game.modes.rotation.results.perfectStreak")}
                                 </div>
-                                <div className="text-xl font-bold text-blue-400">
+                                <div className="text-xl font-bold text-green-400">
                                     {gameResult.perfectStreak}
                                 </div>
                             </div>
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("tournament.correctHits")}
+                            <div className="text-center space-y-1">
+                                <div className="text-xs text-orange-400/60">
+                                    {t("game.modes.rotation.results.correctHits")}
                                 </div>
-                                <div className="text-xl font-bold text-blue-400">
+                                <div className="text-xl font-bold text-green-400">
                                     {gameResult.correctHits}
                                 </div>
                             </div>
                         </div>
-
-                        <div className="border-t border-white/20 pt-4 text-center">
-                            <div className="text-xs text-white/60 uppercase tracking-wider mb-1">
-                                {tournament.name}
-                            </div>
-                            <div className="text-xs text-white/40">
-                                {gameResult.maxLevelReached}/12 {t("tournament.levelsCompleted")}
-                            </div>
-                        </div>
                     </div>
 
-                    {/* Статус сохранения */}
+                    {/* Save Status Display */}
                     {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
-                        <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
+                        <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
                             {saveStatus.isLoading && (
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-center space-x-3">
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        <span className="text-sm text-white/80">
+                                        <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                                        <span className="text-sm text-orange-300/80">
                                             {saveStatus.showRetryDetails
-                                                ? t("tournament.retryingSave", { attempt: saveStatus.attempt, max: saveStatus.maxAttempts })
-                                                : t("tournament.savingResult")}
+                                                ? t("save.retrying", {
+                                                    attempt: saveStatus.attempt,
+                                                    max: saveStatus.maxAttempts,
+                                                })
+                                                : t("save.recordingRotation")}
                                         </span>
                                     </div>
+
                                     {saveStatus.showRetryDetails && (
                                         <div className="text-center">
                                             <div className="flex items-center justify-center space-x-2 mb-2">
-                                                <RotateCcw className="text-white/60" size={14} />
-                                                <span className="text-xs text-white/60">
-                                                    {t("tournament.connectionIssue")}
+                                                <RotateCcw className="text-orange-400/60" size={14} />
+                                                <span className="text-xs text-orange-400/60">
+                                                    {t("save.connectionIssue")}
                                                 </span>
                                             </div>
-                                            <div className="w-full bg-white/20 rounded-full h-1">
+                                            <div className="w-full bg-orange-400/20 rounded-full h-1">
                                                 <div
-                                                    className="bg-white h-1 rounded-full transition-all duration-300"
+                                                    className="bg-orange-400 h-1 rounded-full transition-all duration-300"
                                                     style={{
                                                         width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
                                                     }}
@@ -578,13 +569,15 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
                                         <span className="text-sm text-green-400">
-                                            ✓ {t("tournament.resultSaved")}
+                                            {t("save.rotationRecordedSuccessfully")}
                                         </span>
                                     </div>
                                     <div className="text-green-400/60 text-xs">
                                         {saveStatus.attempt > 1
-                                            ? t("tournament.resultSavedAfterRetries", { attempts: saveStatus.attempt })
-                                            : t("tournament.dataSynchronized")}
+                                            ? t("save.savedAfterRetries", {
+                                                attempts: saveStatus.attempt,
+                                            })
+                                            : t("save.synchronized")}
                                     </div>
                                 </div>
                             )}
@@ -592,34 +585,35 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                             {saveStatus.error && !saveStatus.isLoading && (
                                 <div className="text-center">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
-                                        <span className="text-red-400 text-sm">
-                                            ✗ {t("tournament.saveFailedRetries", { attempts: saveStatus.maxAttempts })}
+                                        <span className="text-orange-400 text-sm">
+                                            Save failed after {saveStatus.maxAttempts} attempts
                                         </span>
                                     </div>
-                                    <div className="text-red-400/60 text-xs mb-3">
-                                        {t("tournament.resultRecordedLocally")}
-                                    </div>
                                     <button
-                                        className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                                        onClick={() => handleSaveTournamentResult(gameResult)}
+                                        className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
+                                        onClick={() => handleSaveGameResult(gameResult)}
                                     >
-                                        {t("tournament.retrySave")}
+                                        Retry Save
                                     </button>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         <button
-                            className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={saveStatus.isLoading || attemptsRemaining <= 0 || isRestartLoading}
+                            className="w-full px-6 py-4 bg-transparent border-2 border-orange-400/60 text-orange-300 rounded-xl text-lg hover:border-orange-400 hover:bg-orange-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={
+                                saveStatus.isLoading ||
+                                attemptsRemaining <= 0 ||
+                                isRestartLoading
+                            }
                             onClick={restartGame}
                         >
                             {isRestartLoading
-                                ? t("game.modes.survival.results.starting")
+                                ? t("game.modes.rotation.results.starting")
                                 : attemptsRemaining > 0
-                                    ? t("tournament.playTournamentAgain")
+                                    ? t("game.modes.rotation.results.spinAgain")
                                     : t("game.general.noAttemptsLeft")}
                         </button>
                     </div>
@@ -631,41 +625,45 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
     return (
         <div className="min-h-screen bg-black flex flex-col text-white">
             <div className="flex-1 flex items-center justify-center">
-                <GameGrid
+                <RotatingCircleGrid
                     circles={gameState.circles}
                     isGameActive={gameState.gameState === GameState.PLAYING}
                     showCircles={showCircles}
                     onCircleClick={handleCircleClickEvent}
+                    rotationSpeed={gameState.currentRotationSpeed}
+                    radius={gameState.config.radius}
+                    onActivatedCircles={activatedCircles}
+                    lastActivationTimestamp={lastActivationTimestamp}
                 />
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-white/20 safe-area-inset-bottom">
+            <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-orange-400/30 safe-area-inset-bottom">
                 <div className="px-6 py-4">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-2">
-                            <Trophy className="text-white" size={18} />
-                            <span className="text-lg font-bold text-white">
-                                {t("tournament.tournamentMode")}
+                            <RotateCw className="text-orange-400" size={18} />
+                            <span className="text-lg font-bold text-orange-400">
+                                {t("common.level")} {gameState.currentLevel}
                             </span>
                         </div>
 
                         <div className="flex items-center space-x-2">
                             <Clock className="text-white" size={18} />
                             <span className="text-lg font-bold text-white">
-                                {formatTournamentTime(gameState.stats.survivalTime)}
+                                {formatRotationTime(gameState.stats.survivalTime)}
                             </span>
                         </div>
                     </div>
 
                     <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs">
-                            <span className="text-white/60">
-                                {gameState.currentLevel}/12 {t("common.level")}
+                            <span className="text-orange-400/60">
+                                {gameState.currentLevel}/10 {t("common.level")}
                             </span>
                             <div className="flex items-center space-x-2">
-                                <AlertTriangle className="text-red-400" size={12} />
-                                <span className="text-red-300 uppercase tracking-wider">
-                                    {t("game.modes.survival.instructions.oneMistakeDeath")}
+                                <AlertTriangle className="text-orange-400" size={12} />
+                                <span className="text-orange-300 uppercase tracking-wider">
+                                    {t("game.modes.rotation.instructions.oneMistakeDeath")}
                                 </span>
                             </div>
                         </div>

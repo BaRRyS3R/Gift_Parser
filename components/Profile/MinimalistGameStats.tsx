@@ -1,4 +1,4 @@
-// src/components/Profile/MinimalistGameStats.tsx - Compact monochrome statistics display
+// src/components/Profile/MinimalistGameStats.tsx - Updated with rotation mode support
 
 "use client";
 
@@ -12,10 +12,11 @@ import {
     Clock,
     Target,
     Atom,
-    BarChart3
+    BarChart3,
+    RotateCw, // NEW for rotation mode
 } from "lucide-react";
 import type { User as UserType } from "@/lib/supabase";
-import { formatSurvivalTime, formatPhysicsTime } from "@/utils/timeFormatter";
+import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter"; // NEW
 import { useT } from "@/contexts/LocalizationContext";
 
 interface MinimalistGameStatsProps {
@@ -180,7 +181,6 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                     <StatsSection
                         title={t("profile.physicsMode")}
                         icon={Atom}
-                        isLast={true}
                         emptyState={
                             user.physics_games === 0 ? (
                                 <div className="flex items-center space-x-2">
@@ -209,6 +209,42 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                             icon={Activity}
                             label={t("profile.stats.totalExperiments")}
                             value={user.physics_games}
+                        />
+                    </StatsSection>
+
+                    {/* NEW: Rotation Mode Statistics Section */}
+                    <StatsSection
+                        title={t("profile.rotationMode")}
+                        icon={RotateCw}
+                        isLast={true}
+                        emptyState={
+                            user.rotation_games === 0 ? (
+                                <div className="flex items-center space-x-2">
+                                    <RotateCw className="text-white/40" size={14} />
+                                    <span className="text-white/50 text-xs">{t("profile.noRotationAttemptsYet")}</span>
+                                </div>
+                            ) : null
+                        }
+                    >
+                        <StatItem
+                            icon={Clock}
+                            label={t("profile.stats.bestTime")}
+                            value={formatRotationTime(user.rotation_best_time || 0)}
+                        />
+                        <StatItem
+                            icon={Trophy}
+                            label={t("profile.stats.maxLevel")}
+                            value={user.rotation_max_level || 0}
+                        />
+                        <StatItem
+                            icon={Target}
+                            label={t("profile.stats.bestStreak")}
+                            value={user.rotation_best_streak || 0}
+                        />
+                        <StatItem
+                            icon={Activity}
+                            label={t("profile.stats.totalSpins")}
+                            value={user.rotation_games}
                         />
                     </StatsSection>
                 </CardBody>
