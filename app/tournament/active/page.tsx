@@ -477,9 +477,6 @@ export default function ActiveTournamentPage() {
                             <h2 className="text-xl font-medium text-white">
                                 {t("tournament.rulesTitle")}
                             </h2>
-                            <p className="text-white/60 text-sm">
-                                {t("tournament.rulesSubtitle")}
-                            </p>
                         </div>
                     </ModalHeader>
 

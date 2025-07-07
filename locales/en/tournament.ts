@@ -1,4 +1,5 @@
-// src/locales/en/tournament.ts - Обновленная английская локализация
+// src/locales/en/tournament.ts - Updated localization with new strings
+
 export const tournament = {
     title: "TOURNAMENT",
     noActiveTournament: "No Active Tournament",
@@ -12,10 +13,33 @@ export const tournament = {
     prizes: "TOURNAMENT PRIZES",
     winners: "PRIZE WINNERS",
     participants: "PARTICIPANTS",
-    otherParticipants: "OTHER PARTICIPANTS",
     noParticipants: "No participants yet",
     beFirstParticipant: "Be the first to enter the tournament!",
-    yourBestResult: "YOUR TOURNAMENT PROGRESS",
+    
+    // User position
+    yourProgress: "YOUR PROGRESS",
+    yourPosition: "Your Position",
+    prizePosition: "Prize Position",
+    notParticipating: "You are not participating in the tournament yet",
+    playToJoinLeaderboard: "Play to join the leaderboard",
+    outOf: "out of",
+    
+    // Modal windows
+    allParticipants: "All Participants",
+    totalParticipants: "total participants",
+    tournamentPrizes: "Tournament Prizes",
+    place: "place",
+    
+    // Statistics
+    tournamentStats: "Tournament Statistics",
+    topParticipants: "Top Participants",
+    topScore: "Top Score",
+    
+    // Time data
+    startDate: "Start Date",
+    endDate: "End Date",
+    
+    // Main results
     rank: "RANK",
     maxLevel: "MAX LEVEL",
     bestTime: "BEST TIME",
@@ -26,21 +50,14 @@ export const tournament = {
     correctHits: "CORRECT HITS",
     totalHits: "TOTAL HITS",
     totalPoints: "TOTAL POINTS",
-    topPoints: "TOP POINTS",
     pointsEarned: "POINTS EARNED",
-
-    tournamentStats: "Tournament Stats",
-    topScore: "Top Score",
-    topParticipants: "Top Participants",
-    
     addedToTotal: "Added to your tournament total",
     pointsAccumulated: "Points accumulate across all games",
-    pointsAddedToTotal: "Points added to tournament total",
     earnOnePointPerHit: "Earn 1 point per correct hit",
     earnMorePoints: "Play again to earn more points!",
-    pointsBasedCompetition: "Points-Based Competition",
-    earnPointsMessage: "Earn 1 point for each correct hit!",
     levelsCompleted: "levels completed",
+    
+    // Saving results
     savingResult: "Saving tournament result...",
     resultSaved: "Tournament result saved successfully",
     resultSavedAfterRetries: "Saved after {attempts} attempts",
@@ -50,115 +67,90 @@ export const tournament = {
     retrySave: "RETRY SAVE",
     connectionIssue: "Connection issue - automatic retry",
     retryingSave: "Retrying save ({attempt}/{max})...",
+    
+    // Loading
     loadingTournament: "Loading tournament...",
     tournamentNotFound: "Tournament not found",
     redirectingToTournament: "Redirecting to tournament page...",
     ended: "Ended",
-    rulesTitle: "Tournament Rules",
-    rulesSubtitle: "Competition Guidelines & Regulations",
-    rulesButton: "Tournament Rules & Guidelines",
-
-    // Statistics and achievements
+    
+    // Statistics and progress
     gamesPlayed: "Games Played",
     totalAccumulated: "Total Accumulated",
     thisGamePoints: "This Game",
     previousTotal: "Previous Total",
     newTotal: "New Total",
     pointsProgress: "Points Progress",
-
-    // Results display
     gameScore: "Game Score",
     accumulatedScore: "Accumulated Score",
     lastGameScore: "Last Game",
     tournamentProgress: "Tournament Progress",
-    yourProgress: "YOUR PROGRESS",
-
-    // Saving and synchronization
-    savingWithAccumulation: "Saving with point accumulation...",
-    accumulationComplete: "Point accumulation complete",
-    pointsAccumulatedSuccessfully: "Points accumulated successfully",
-    synchronizingTournamentData: "Synchronizing tournament data",
-    tournamentDataSynchronized: "Tournament data synchronized",
-
-    // Errors and retries
-    accumulationFailed: "Point accumulation failed",
-    retryAccumulation: "RETRY ACCUMULATION",
-    accumulationError: "Point accumulation error",
-    dataNotSynchronized: "Data not synchronized with server",
-    localDataStored: "Data stored locally",
-
-    // User interface
-    showDetails: "Show Details",
-    hideDetails: "Hide Details",
-    expandProgress: "Expand Progress",
-    collapseProgress: "Collapse Progress",
-    viewFullStats: "View Full Statistics",
-
-    // Progress messages
-    keepPlaying: "Keep playing to accumulate points!",
-    everyGameCounts: "Every game counts in the tournament",
-    climbLeaderboard: "Climb the tournament leaderboard",
-    moreGamesMorePoints: "More games, more points",
-
-    // Points display format
-    ptsAbbreviation: "pts",
-    pointsSuffix: "points",
-    pointsFormat: "{points} points",
-    totalPointsFormat: "Total: {total} points",
-    gamePointsFormat: "Game: +{points} points",
-
-    // New strings for updated tournament system
-    tournamentsList: "Tournaments List",
-    activeTournaments: "Active Tournaments",
-    upcomingTournaments: "Upcoming Tournaments",
-    completedTournaments: "Completed Tournaments",
-    upcoming: "Upcoming",
+    
+    // Completed tournaments
     completed: "Completed",
-    startDate: "Start Date",
-    endDate: "End Date",
     duration: "Duration",
-    enterActive: "Enter",
     viewDetails: "View Details",
     tournamentDates: "Tournament Dates",
-    startTime: "Start",
-    endTime: "End",
-    prizeWinners: "Prize Winners",
-    noWinnersData: "No winners data available",
-    loadingWinners: "Loading winners...",
-    backToTournaments: "Back to Tournaments",
-    conductionDate: "Conduction Date",
     start: "Start",
     end: "End",
-    enter: "Enter",
-    errorLoadingTournaments: "Error loading tournaments",
-    noTournamentsAvailable: "No tournaments available",
-    checkBackLater: "Check back later for upcoming tournaments information",
-    joinNow: "Join Now",
-    schedule: "Schedule",
-    timeline: "Timeline",
-    champions: "Champions",
     prizePositions: "prize positions",
+    champions: "Champions",
     loadingChampions: "Loading champions...",
     hits: "hits",
     position: "Position",
     noChampionsData: "No champions data available",
     tournaments: "tournaments",
     status: "Status",
-    loadingTournaments: "Loading tournaments...",
-    fetchingData: "Fetching tournament data...",
+    
+    // Errors and loading states
+    errorLoadingTournaments: "Error loading tournaments",
+    noTournamentsAvailable: "No tournaments available",
+    checkBackLater: "Check back later for upcoming tournaments information",
     tryRefreshPage: "Try refreshing the page",
     refresh: "Refresh",
     checkBackSoon: "New tournaments will appear here soon",
     competitionCenter: "Competition Center",
-    joinAndCompete: "Join and compete",
-    prepareForBattle: "Prepare for battle",
     hallOfFame: "Hall of Fame",
+    loadingTournaments: "Loading tournaments...",
+    fetchingData: "Fetching tournament data...",
+    
+    // "King of the Hill" Tournament Rules
+    rulesAndStrategy: "Rules & Strategy",
+    kingOfTheHillRules: "King of the Hill Rules",
+    competitionFormat: "Competition Format",
+    
+    conceptTitle: "King of the Hill Concept",
+    conceptSubtitle: "Point accumulation competition",
+    conceptDescription: "The tournament operates on a 'King of the Hill' principle — each game awards points that accumulate in your overall score. The winner is whoever accumulates the most points across all their tournament games.",
+    
+    howToPlay: "How to Play",
+    playRule1: "Click white circles to earn points",
+    playRule2: "Avoid red trap circles",
+    playRule3: "Don't miss active targets",
+    
+    scoringSystem: "Scoring System",
+    scoringRule1: "1 point for each correct hit",
+    scoringRule2: "Points accumulate across all games",
+    scoringRule3: "Total score determines tournament ranking",
+    
+    winningStrategy: "Winning Strategy",
+    strategyRule1: "Play multiple games to accumulate points",
+    strategyRule2: "Accuracy is more important than speed",
+    strategyRule3: "Each game increases your total score",
+    
+    timeConstraints: "Time Constraints",
+    timeRule1: "Tournament runs for a limited time period",
+    timeRule2: "Each game consumes one attempt",
+    
+    importantNotes: "Important Notes",
+    finalNote: "Remember: in King of the Hill tournaments, the number of games can be a key success factor. The more points you accumulate, the higher your position in the final leaderboard.",
 
+    // Detailed tournament rules
     rules: {
         gameMode: {
             title: "Game Mode",
             description: "Tournaments use Survival Mode exclusively",
-            detail1: "Navigate through 12 increasingly difficult levels",
+            detail1: "Navigate through increasingly difficult levels",
             detail2: "Survive as long as possible to achieve the highest score",
             detail3: "Each level brings faster targets and more complexity"
         },
