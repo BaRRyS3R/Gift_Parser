@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameLogic.ts - Game logic for rotation mode
+// src/game-modes/rotation/RotationGameLogic.ts - Fixed angle updates for all circles
 
 import {
   RotationGameConfig,
@@ -130,7 +130,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
 
 export const createRotationCircleSet = (count: number, radius: number): RotationCircle[] => {
   const angleStep = (2 * Math.PI) / count;
-  
+
   return Array.from({ length: count }, (_, index) => ({
     id: index,
     isActive: false,
@@ -194,7 +194,7 @@ export const updateRotationLevel = (
   if (shouldIncreaseLevel) {
     const newLevel = state.currentLevel + 1;
     const levelConfig = getLevelConfig(newLevel);
-    
+
     return {
       ...state,
       currentLevel: newLevel,
@@ -218,17 +218,23 @@ export const updateRotationLevel = (
   };
 };
 
+// Fixed function to properly update all circle positions
 export const updateCirclePositions = (
   circles: RotationCircle[],
   rotationSpeed: number,
-  radius: number
 ): RotationCircle[] => {
-  return circles.map(circle => ({
-    ...circle,
-    angle: circle.angle + rotationSpeed,
-    x: Math.cos(circle.angle) * radius,
-    y: Math.sin(circle.angle) * radius,
-  }));
+  return circles.map(circle => {
+    // Ensure each circle gets its angle updated independently
+    const newAngle = (circle.angle + rotationSpeed) % (2 * Math.PI);
+
+    return {
+      ...circle,
+      angle: newAngle,
+      // Store calculated positions for reference (optional)
+      x: Math.cos(newAngle),
+      y: Math.sin(newAngle),
+    };
+  });
 };
 
 export const getRandomCircleIds = (
@@ -472,4 +478,4 @@ export const formatRotationTime = (milliseconds: number): string => {
   }
 
   return `${seconds}.${ms.toString().padStart(3, "0")}s`;
-};
+}

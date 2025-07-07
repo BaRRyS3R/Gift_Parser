@@ -1,4 +1,4 @@
-// src/components/RotatingCircleGrid.tsx - Fixed rotation positioning
+// src/components/RotatingCircleGrid.tsx - Fixed without axis visual and improved circle rendering
 
 "use client";
 
@@ -98,8 +98,8 @@ export default function RotatingCircleGrid({
     const getCirclePosition = useCallback((circle: RotationCircle) => {
         const centerX = containerSize / 2;
         const centerY = containerSize / 2;
-        // Use the radius from props (which comes from game logic) scaled to container
-        const scaledRadius = (containerSize * 0.35); // Keep consistent scaling
+        // Use consistent radius scaling
+        const scaledRadius = (containerSize * 0.35);
 
         // Use angle from circle data (updated by game logic)
         const x = centerX + Math.cos(circle.angle) * scaledRadius - circleSize / 2;
@@ -109,7 +109,7 @@ export default function RotatingCircleGrid({
     }, [containerSize, circleSize]);
 
     const getCircleStyles = (circle: RotationCircle) => {
-        const baseClasses = "absolute rounded-full border-2 transition-all duration-300 ease-out";
+        const baseClasses = "absolute rounded-full border-2 transition-all duration-100 ease-linear";
 
         const visibilityClasses = showCircles
             ? "opacity-100 scale-100"
@@ -229,18 +229,7 @@ export default function RotatingCircleGrid({
                     WebkitTouchCallout: "none",
                 }}
             >
-                {/* Central rotation indicator */}
-                <div
-                    className="absolute inset-0 border border-white/10 rounded-full"
-                    style={{
-                        width: `${containerSize * 0.7}px`,
-                        height: `${containerSize * 0.7}px`,
-                        left: `${containerSize * 0.15}px`,
-                        top: `${containerSize * 0.15}px`,
-                    }}
-                />
-
-                {/* Rotation speed indicator */}
+                {/* Central rotation indicator (just a dot) */}
                 <div className="absolute inset-0 flex items-center justify-center">
                     <div
                         className="w-2 h-2 bg-white/30 rounded-full animate-pulse"
@@ -270,11 +259,13 @@ export default function RotatingCircleGrid({
                                 height: `${circleSize}px`,
                                 minWidth: `${circleSize}px`,
                                 minHeight: `${circleSize}px`,
-                                // Use calculated position instead of transform in animation loop
+                                // Use calculated position from circle angle
                                 left: `${position.x}px`,
                                 top: `${position.y}px`,
                                 transitionDelay: showCircles ? `${circle.id * 30}ms` : "0ms",
                                 touchAction: "manipulation",
+                                // Force re-render when position changes
+                                transform: `translate3d(0, 0, 0)`,
                             }}
                             type="button"
                             onClick={(event) => handleClick(circle.id, event)}
@@ -288,7 +279,7 @@ export default function RotatingCircleGrid({
                             {renderActivationPulse(circle)}
 
                             {/* Debug info for development */}
-                            {process.env.NODE_ENV === "development" && circle.isActive && (
+                            {process.env.NODE_ENV === "development" && (
                                 <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
                                     {circle.id}
                                 </div>

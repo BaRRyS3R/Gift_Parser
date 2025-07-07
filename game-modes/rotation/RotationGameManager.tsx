@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Game manager for rotation mode
+// src/game-modes/rotation/RotationGameManager.tsx - Fixed circle rotation updates
 
 "use client";
 
@@ -76,6 +76,7 @@ export default function RotationGameManager() {
     const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
 
     const gameStateRef = useRef<RotationGameState>(gameState);
+    const rotationAnimationRef = useRef<number | null>(null);
 
     useEffect(() => {
         gameStateRef.current = gameState;
@@ -324,38 +325,49 @@ export default function RotationGameManager() {
         [triggerHapticFeedback, endGame],
     );
 
-    // Rotation animation loop using requestAnimationFrame
-    const rotationAnimationRef = useRef<number | null>(null);
-
+    // Fixed rotation animation loop
     const updateRotation = useCallback(() => {
-        setGameState((prev) => {
-            if (!prev.isActive || prev.gameState !== GameState.PLAYING) {
-                if (rotationAnimationRef.current) {
-                    cancelAnimationFrame(rotationAnimationRef.current);
-                    rotationAnimationRef.current = null;
-                }
-                return prev;
+        setGameState((prevState) => {
+            if (!prevState.isActive || prevState.gameState !== GameState.PLAYING) {
+                return prevState;
             }
 
+            // Update all circle positions using the rotation logic
             const updatedCircles = updateCirclePositions(
-                prev.circles,
-                prev.currentRotationSpeed,
-                prev.config.radius,
+                prevState.circles,
+                prevState.currentRotationSpeed
             );
 
-            // Schedule next animation frame
-            rotationAnimationRef.current = requestAnimationFrame(updateRotation);
-
             return {
-                ...prev,
+                ...prevState,
                 circles: updatedCircles,
-                rotationAnimationFrame: rotationAnimationRef.current,
             };
         });
+
+        // Continue animation if game is active
+        if (gameStateRef.current.isActive && gameStateRef.current.gameState === GameState.PLAYING) {
+            rotationAnimationRef.current = requestAnimationFrame(updateRotation);
+        }
+    }, []);
+
+    // Cleanup rotation animation
+    useEffect(() => {
+        return () => {
+            if (rotationAnimationRef.current) {
+                cancelAnimationFrame(rotationAnimationRef.current);
+                rotationAnimationRef.current = null;
+            }
+        };
     }, []);
 
     const startGame = useCallback(() => {
         console.log("Starting Rotation Game...");
+
+        // Cleanup any existing animation
+        if (rotationAnimationRef.current) {
+            cancelAnimationFrame(rotationAnimationRef.current);
+            rotationAnimationRef.current = null;
+        }
 
         setGameState(initializeRotationGameState());
         setGameResult(null);
@@ -382,7 +394,7 @@ export default function RotationGameManager() {
                 });
             }, LEVEL_UPDATE_INTERVAL);
 
-            // Start rotation animation using requestAnimationFrame
+            // Start rotation animation
             rotationAnimationRef.current = requestAnimationFrame(updateRotation);
 
             setTimeout(() => {
@@ -424,6 +436,9 @@ export default function RotationGameManager() {
     useEffect(() => {
         return () => {
             cleanupRotationGame(gameStateRef.current);
+            if (rotationAnimationRef.current) {
+                cancelAnimationFrame(rotationAnimationRef.current);
+            }
         };
     }, []);
 
