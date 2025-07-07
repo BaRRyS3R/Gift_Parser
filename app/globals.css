@@ -466,3 +466,209 @@ body {
 .animate-spin-counter-clockwise {
   animation: spin-counter-clockwise 2s linear infinite;
 }
+
+/* Enhanced spin animation with better performance */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Smooth rotation transitions for level changes */
+@keyframes smooth-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Enhanced activation pulse animations with better centering */
+@keyframes activation-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.6);
+    opacity: 0.4;
+  }
+
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes activation-pulse-red {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+
+  50% {
+    transform: scale(1.6);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* Rotation container specific styles */
+.rotation-container {
+  transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Circle positioning and performance optimizations */
+.rotation-circle {
+  will-change: transform, opacity, scale;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Smooth level transition animations */
+.level-transition-enter {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.level-transition-exit {
+  animation: fade-out 0.3s ease-in forwards;
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* Enhanced performance for mobile devices */
+@media (max-width: 768px) {
+  .rotation-container {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  .rotation-circle {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+}
+
+/* Prevent visual glitches during rotation */
+.rotating-grid {
+  contain: layout style paint;
+  isolation: isolate;
+}
+
+/* Smooth transitions for rotation speed changes */
+.smooth-rotation-transition {
+  transition: animation-duration 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hardware acceleration utilities */
+.gpu-optimized {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Circle state transitions */
+.circle-activation {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.circle-deactivation {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Prevent blurry rendering on scaled elements */
+.crisp-rendering {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  shape-rendering: geometricPrecision;
+}
+
+/* Enhanced pulse animations for better visibility */
+.pulse-enhanced {
+  animation: pulse-enhanced 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-enhanced {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* Rotation speed indicators */
+.rotation-indicator {
+  animation: spin var(--rotation-duration, 3000ms) linear infinite;
+  transition: animation-duration 0.5s ease-in-out;
+}
+
+/* Container positioning fixes */
+.rotation-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Circle grid specific enhancements */
+.circle-grid-container {
+  contain: layout style paint;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Smooth opacity transitions for game state changes */
+.game-state-transition {
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+/* Level progression visual feedback */
+.level-up-glow {
+  animation: level-up-glow 1s ease-out;
+}
+
+@keyframes level-up-glow {
+  0% {
+    box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 30px rgba(255, 165, 0, 0.8);
+  }
+
+  100% {
+    box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+  }
+}

@@ -1,4 +1,4 @@
-// src/components/RotatingCircleGrid.tsx - CSS-based rotation animation
+// src/components/RotatingCircleGrid.tsx - Fixed positioning and smooth level transitions
 
 "use client";
 
@@ -44,8 +44,8 @@ export default function RotatingCircleGrid({
     // State for tracking active activation pulses
     const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
 
-    // Calculate rotation duration based on speed
-    const rotationDurationMs = rotationSpeed > 0 ? (2 * Math.PI / rotationSpeed) * 16 : 10000; // 16ms per frame
+    // Calculate rotation duration based on speed (convert to consistent units)
+    const rotationDurationMs = rotationSpeed > 0 ? Math.abs((2 * Math.PI / rotationSpeed) * 16.67) : 10000; // 16.67ms ≈ 60fps
 
     // Effect to handle activation pulses
     useEffect(() => {
@@ -98,30 +98,34 @@ export default function RotatingCircleGrid({
         };
     }, []);
 
-    // Update CSS animation when rotation speed changes
+    // Smooth animation speed updates without interrupting rotation
     useEffect(() => {
-        if (rotatingContainerRef.current && isGameActive) {
-            const duration = rotationDurationMs;
-            rotatingContainerRef.current.style.animationDuration = `${duration}ms`;
-            rotatingContainerRef.current.style.animationPlayState = 'running';
-        } else if (rotatingContainerRef.current) {
-            rotatingContainerRef.current.style.animationPlayState = 'paused';
+        if (rotatingContainerRef.current) {
+            const element = rotatingContainerRef.current;
+
+            if (isGameActive) {
+                // Update CSS custom property for smooth speed transitions
+                element.style.setProperty('--rotation-duration', `${rotationDurationMs}ms`);
+                element.style.animationPlayState = 'running';
+            } else {
+                element.style.animationPlayState = 'paused';
+            }
         }
     }, [rotationDurationMs, isGameActive]);
 
-    // Calculate static position for each circle (relative to rotating container)
+    // Calculate precise static position for each circle (relative to rotating container)
     const getCircleStaticPosition = useCallback((circle: RotationCircle) => {
         const scaledRadius = (containerSize * 0.35);
 
-        // Use initial angle from circle data (static relative to container)
-        const x = Math.cos(circle.angle) * scaledRadius - circleSize / 2;
-        const y = Math.sin(circle.angle) * scaledRadius - circleSize / 2;
+        // Use initial angle from circle data for precise positioning
+        const x = Math.cos(circle.angle) * scaledRadius;
+        const y = Math.sin(circle.angle) * scaledRadius;
 
         return { x, y };
-    }, [containerSize, circleSize]);
+    }, [containerSize]);
 
     const getCircleStyles = (circle: RotationCircle) => {
-        const baseClasses = "absolute rounded-full border-2 transition-all duration-100 ease-linear";
+        const baseClasses = "absolute rounded-full border-2 transition-colors duration-200 ease-in-out";
 
         const visibilityClasses = showCircles
             ? "opacity-100 scale-100"
@@ -251,17 +255,20 @@ export default function RotatingCircleGrid({
                     />
                 </div>
 
-                {/* Rotating container for all circles */}
+                {/* Rotating container for all circles with CSS custom properties */}
                 <div
                     ref={rotatingContainerRef}
                     className="absolute inset-0"
                     style={{
-                        animation: `spin ${rotationDurationMs}ms linear infinite`,
+                        '--rotation-duration': `${rotationDurationMs}ms`,
+                        animation: `spin var(--rotation-duration) linear infinite`,
                         animationPlayState: isGameActive ? 'running' : 'paused',
-                        transformOrigin: 'center center',
-                    }}
+                        transformOrigin: '50% 50%',
+                        backfaceVisibility: 'hidden',
+                        perspective: '1000px',
+                    } as React.CSSProperties}
                 >
-                    {/* Circles - positioned statically within rotating container */}
+                    {/* Circles - positioned precisely within rotating container */}
                     {circles.map((circle) => {
                         const circleStyleConfig = getCircleStyles(circle);
                         const staticPosition = getCircleStaticPosition(circle);
@@ -281,12 +288,15 @@ export default function RotatingCircleGrid({
                                     height: `${circleSize}px`,
                                     minWidth: `${circleSize}px`,
                                     minHeight: `${circleSize}px`,
-                                    // Static position within rotating container
-                                    left: `50%`,
-                                    top: `50%`,
+                                    // Precise centering with exact positioning
+                                    left: '50%',
+                                    top: '50%',
                                     transform: `translate(calc(-50% + ${staticPosition.x}px), calc(-50% + ${staticPosition.y}px))`,
                                     transitionDelay: showCircles ? `${circle.id * 30}ms` : "0ms",
                                     touchAction: "manipulation",
+                                    // Hardware acceleration for smooth rendering
+                                    willChange: 'transform',
+                                    backfaceVisibility: 'hidden',
                                 }}
                                 type="button"
                                 onClick={(event) => handleClick(circle.id, event)}
@@ -310,12 +320,13 @@ export default function RotatingCircleGrid({
                     })}
                 </div>
 
-                {/* Rotation direction indicator */}
+                {/* Rotation direction indicator synchronized with main animation */}
                 <div className="absolute bottom-2 right-2">
                     <div
                         className="w-6 h-6 border-2 border-white/20 rounded-full relative"
                         style={{
                             animation: `spin ${rotationDurationMs}ms linear infinite`,
+                            animationPlayState: isGameActive ? 'running' : 'paused',
                         }}
                     >
                         <div className="absolute top-0 left-1/2 w-1 h-1 bg-white/40 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
