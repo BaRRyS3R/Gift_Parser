@@ -77,21 +77,40 @@ export default function RotatingCircleGrid({
         }
     }, [onActivatedCircles, lastActivationTimestamp, circles]);
 
-    // Calculate adaptive sizes with increased dimensions
+    // Calculate adaptive sizes with full screen utilization
     useEffect(() => {
         const calculateAdaptiveSizes = () => {
             const screenWidth = window.innerWidth;
             const screenHeight = window.innerHeight;
 
-            const availableWidth = screenWidth * 0.9; // Increased from 0.85
-            const availableHeight = screenHeight * 0.6; // Increased from 0.5
-            const maxSize = Math.min(availableWidth, availableHeight);
+            // Reserve space for bottom panel (approximately 120px including safe area)
+            const bottomPanelHeight = 120;
+            // Reserve space for top safe area and margins
+            const topReservedSpace = 80;
+            // Reserve horizontal margins for edge safety
+            const horizontalMargins = 32; // 16px on each side
 
-            const calculatedContainerSize = Math.max(320, Math.min(maxSize, 400)); // Increased range
-            const calculatedCircleSize = Math.max(36, Math.min(calculatedContainerSize / 8, 48)); // Increased range
+            const availableWidth = screenWidth - horizontalMargins;
+            const availableHeight = screenHeight - bottomPanelHeight - topReservedSpace;
+
+            // Use the minimum of available dimensions to ensure square container
+            const maxContainerSize = Math.min(availableWidth, availableHeight);
+
+            // Set minimum and maximum bounds for usability
+            const calculatedContainerSize = Math.max(280, Math.min(maxContainerSize, 500));
+
+            // Scale circle size proportionally to container
+            const calculatedCircleSize = Math.max(32, Math.min(calculatedContainerSize / 9, 52));
 
             setContainerSize(calculatedContainerSize);
             setCircleSize(calculatedCircleSize);
+
+            console.log('Container sizing:', {
+                screenDimensions: `${screenWidth}x${screenHeight}`,
+                availableSpace: `${availableWidth}x${availableHeight}`,
+                containerSize: calculatedContainerSize,
+                circleSize: calculatedCircleSize
+            });
         };
 
         calculateAdaptiveSizes();
@@ -291,19 +310,31 @@ export default function RotatingCircleGrid({
                 ref={containerRef}
                 className="relative stable-container"
                 style={{
-                    width: `${containerSize}px`,
-                    height: `${containerSize}px`,
+                    width: `${containerSize + 120}px`, // Extended for pulse effects
+                    height: `${containerSize + 120}px`, // Extended for pulse effects
                     userSelect: "none",
                     WebkitUserSelect: "none",
                     WebkitTouchCallout: "none",
                 }}
             >
+                {/* Game area boundary indicator */}
+                <div
+                    className="absolute border border-white/5 rounded-full"
+                    style={{
+                        width: `${containerSize}px`,
+                        height: `${containerSize}px`,
+                        left: '60px',
+                        top: '60px',
+                        pointerEvents: 'none',
+                    }}
+                />
                 {/* Central rotation indicator */}
                 <div className="absolute inset-0 flex items-center justify-center">
                     <div
                         className="w-3 h-3 bg-white/30 rounded-full animate-pulse"
                         style={{
                             animation: `pulse-gentle 2s ease-in-out infinite`,
+                            transform: 'translate(0, 0)', // Center in extended container
                         }}
                     />
                 </div>
@@ -311,8 +342,12 @@ export default function RotatingCircleGrid({
                 {/* Rotating container with JavaScript-controlled rotation */}
                 <div
                     ref={rotatingContainerRef}
-                    className="absolute inset-0 high-performance-rotation"
+                    className="absolute high-performance-rotation"
                     style={{
+                        left: '60px', // Offset for extended container
+                        top: '60px',  // Offset for extended container
+                        width: `${containerSize}px`,
+                        height: `${containerSize}px`,
                         transformOrigin: '50% 50%',
                         backfaceVisibility: 'hidden',
                         perspective: '1000px',
@@ -370,7 +405,7 @@ export default function RotatingCircleGrid({
                 </div>
 
                 {/* Rotation direction indicator with synchronized speed */}
-                <div className="absolute bottom-2 right-2">
+                <div className="absolute bottom-2 right-2" style={{ transform: 'translate(-60px, -60px)' }}>
                     <div
                         className="w-8 h-8 border-2 border-white/20 rounded-full relative"
                         style={{
