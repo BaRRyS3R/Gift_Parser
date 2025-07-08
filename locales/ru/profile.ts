@@ -1,5 +1,4 @@
-// src/locales/ru/profile.ts - Complete Russian translations
-
+// src/locales/ru/profile.ts - Profile page elements (Updated with Rotation)
 export const profile = {
     title: "ПРОФИЛЬ",
     loadingProfile: "ЗАГРУЗКА ПРОФИЛЯ...",
@@ -8,68 +7,27 @@ export const profile = {
     reactionMode: "Реакция",
     survivalMode: "Выживание",
     physicsMode: "Физика",
-    rotationMode: "Вращение",
-
-    // League and Level system
-    leagueAndLevel: "Лига и Уровень",
-    playerLevel: "Уровень игрока",
-    currentLeague: "Текущая лига",
-    qualifyingGames: "зачетных игр",
-    levelProgress: "Прогресс уровня",
-    leagueProgress: "Прогресс лиги",
-    gamesToNextLevel: "игр до следующего уровня",
-    gamesToNextLeague: "игр до следующей лиги",
-    level: "Уровень",
-    levelsAway: "уровней до награды",
-    maxLevelReached: "МАКСИМАЛЬНЫЙ УРОВЕНЬ!",
-    diamondChampion: "ЧЕМПИОН АЛМАЗНОЙ ЛИГИ!",
-
-    leagues: {
-        Bronze: "Бронзовая",
-        Silver: "Серебряная",
-        Gold: "Золотая",
-        Diamond: "Алмазная",
-    },
-
-    rewards: {
-        title: "Награды за уровень",
-        viewAll: "Посмотреть все",
-        readyToClaim: "готово к получению!",
-        nextReward: "Следующая награда:",
-        claimedRewards: "Полученные награды:",
-        levelRequirement: "Требование:",
-        claimed: "Получено",
-        locked: "Заблокировано",
-        claim: "Получить",
-        claimDescription: "Получайте награды по мере повышения уровня",
-        earnRewards: "Зарабатывайте награды каждые 20 уровней, играя в режимы Выживание, Физика и Вращение",
-        currentLevel: "Текущий уровень:",
-        available: "Доступно:",
-    },
-
-    // Existing translations
+    rotationMode: "Вращение", // NEW
     noReactionTestsYet: "Нет данных. К счастью.",
     testReflexesToSeeStats: "Сыграйте в режим на реакцию, чтобы увидеть статистику",
     noSurvivalAttemptsYet: "Нет данных. К счастью.",
     enterSurvivalToSeeStats: "Сыграйте в режим выживания, чтобы увидеть статистику",
     noPhysicsAttemptsYet: "Нет данных. К счастью.",
     enterPhysicsToSeeStats: "Сргайте в режим с физикой для просмотра статистики",
-    noRotationAttemptsYet: "Нет данных. К счастью.",
-    enterRotationToSeeStats: "Сыграйте в режим вращения для просмотра статистики",
+    noRotationAttemptsYet: "Нет данных. К счастью.", // NEW
+    enterRotationToSeeStats: "Сыграйте в режим вращения для просмотра статистики", // NEW
     totalGames: "Всего игр",
     currentAttempts: "Текущие попытки",
     totalTests: "Всего тестов",
     totalAttempts: "Всего попыток",
     referralButton: "Рефералы",
     achievementButton: "Достижения",
-
     tabs: {
         stats: "СТАТИСТИКА",
         referrals: "РЕФЕРРАЛЫ",
         history: "ИСТОРИЯ",
         achievements: "ДОСТИЖЕНИЯ",
     },
-
     levels: {
         rookie: "НОВИЧОК",
         active: "АКТИВНЫЙ",
@@ -77,21 +35,20 @@ export const profile = {
         expert: "ЭКСПЕРТ",
         legend: "ЛЕГЕНДА",
     },
-
     stats: {
         currentAttempts: "Текущие попытки",
         reactionModeStats: "Реакция",
         survivalModeStats: "Выживание",
         physicsModeStats: "Физика",
-        rotationModeStats: "Вращение",
+        rotationModeStats: "Вращение", // NEW
         noReactionTests: "НЕТ ТЕСТОВ РЕАКЦИИ",
         testReflexes: "Проверь свои молниеносные рефлексы (если они есть)!",
         noSurvivalAttempts: "НЕТ ПОПЫТОК ВЫЖИВАНИЯ",
         enterSurvival: "ПРИНЯТЬ ВЫЗОВ ВЫЖИВАНИЯ!",
         noPhysicsAttempts: "НЕТ ФИЗИЧЕСКИХ ЭКСПЕРИМЕНТОВ",
         enterPhysics: "ПОПРОБОВАТЬ ФИЗИЧЕСКИЙ ЭКСПЕРИМЕНТ!",
-        noRotationAttempts: "НЕТ ВРАЩАЮЩИХСЯ ЭКСПЕРИМЕНТОВ",
-        enterRotation: "ПОПРОБОВАТЬ ВРАЩАЮЩИЙСЯ ЭКСПЕРИМЕНТ!",
+        noRotationAttempts: "НЕТ ВРАЩАЮЩИХСЯ ЭКСПЕРИМЕНТОВ", // NEW
+        enterRotation: "ПОПРОБОВАТЬ ВРАЩАЮЩИЙСЯ ЭКСПЕРИМЕНТ!", // NEW
         bestTime: "Лучшее время",
         bestScore: "Лучший счет",
         averageTime: "Среднее время",
@@ -100,9 +57,8 @@ export const profile = {
         bestStreak: "Лучшая серия",
         bestSurvival: "Лучшее выживание",
         totalExperiments: "Всего экспериментов",
-        totalSpins: "Всего вращений",
+        totalSpins: "Всего вращений", // NEW
     },
-
     referrals: {
         title: "РЕКРУТИНГ",
         friendsInvited: "ПРИГЛАШЕНО ДРУЗЕЙ",
@@ -118,12 +74,10 @@ export const profile = {
         helpGrow: "Больше народа - меньше кислорода! Но так жеж больше горящих пердаков.",
         referredBy: "ПРИГЛАШЕН(А)",
     },
-
     history: {
         title: "ПОСЛЕДНИЕ ИГРЫ",
         noGamesYet: "ЕЩЁ НЕ БЫЛО ИГР",
     },
-
     achievements: {
         title: "ДОСТИЖЕНИЯ",
         noAchievements: "ДОСТИЖЕНИЙ ЕЩЁ НЕТ",
@@ -151,6 +105,7 @@ export const profile = {
         impulseMaster: "МАСТЕР ИМПУЛЬСОВ",
         wallBreaker: "РАЗРУШИТЕЛЬ СТЕН",
         physicsElite: "ЭЛИТА ФИЗИКИ",
+        // NEW: Rotation achievements
         rotationTester: "ИСПЫТАТЕЛЬ ВРАЩЕНИЯ",
         spinMaster: "МАСТЕР ВРАЩЕНИЯ",
         dizzinessResistant: "УСТОЙЧИВЫЙ К ГОЛОВОКРУЖЕНИЮ",
@@ -174,6 +129,7 @@ export const profile = {
             physicsAttempts: "ФИЗИЧЕСКИХ ЭКСПЕРИМЕНТОВ: {count}+",
             physicsScore: "ФИЗИЧЕСКИЙ СЧЁТ: {score}+",
             physicsTime: "ФИЗИЧЕСКОЕ ВРЕМЯ: {time}+ СЕКУНД",
+            // NEW: Rotation achievements descriptions
             enteredRotation: "ПРОБОВАЛ РЕЖИМ ВРАЩЕНИЯ",
             rotationAttempts: "ВРАЩАЮЩИХСЯ ЭКСПЕРИМЕНТОВ: {count}+",
             rotationScore: "СЧЁТ ВРАЩЕНИЯ: {score}+",
@@ -181,7 +137,7 @@ export const profile = {
             rotationLevel: "УРОВЕНЬ ВРАЩЕНИЯ: {level}+",
             topSurvivor: "ТОП-{rank} СРЕДИ ВЫЖИВШИХ",
             topPhysics: "ТОП-{rank} ПО ФИЗИКЕ",
-            topRotation: "ТОП-{rank} ПО ВРАЩЕНИЮ",
+            topRotation: "ТОП-{rank} ПО ВРАЩЕНИЮ", // NEW
             topOverall: "ТОП-{rank} В ОБЩЕМ ЗАЧЕТЕ",
         },
     },

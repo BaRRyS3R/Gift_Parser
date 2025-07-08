@@ -1,4 +1,4 @@
-// src/locales/en/profile.ts - Complete English translations
+// src/locales/en/profile.ts - Profile page elements (Updated with Rotation)
 export const profile = {
     title: "PROFILE",
     loadingProfile: "LOADING PROFILE...",
@@ -7,68 +7,27 @@ export const profile = {
     reactionMode: "Reaction",
     survivalMode: "Survival",
     physicsMode: "Physics",
-    rotationMode: "Rotation",
-
-    // League and Level system
-    leagueAndLevel: "League & Level",
-    playerLevel: "Player Level",
-    currentLeague: "Current League",
-    qualifyingGames: "qualifying games",
-    levelProgress: "Level Progress",
-    leagueProgress: "League Progress",
-    gamesToNextLevel: "games to next level",
-    gamesToNextLeague: "games to next league",
-    level: "Level",
-    levelsAway: "levels away",
-    maxLevelReached: "MAX LEVEL REACHED!",
-    diamondChampion: "DIAMOND LEAGUE CHAMPION!",
-
-    leagues: {
-        Bronze: "Bronze",
-        Silver: "Silver",
-        Gold: "Gold",
-        Diamond: "Diamond",
-    },
-
-    rewards: {
-        title: "Level Rewards",
-        viewAll: "View All",
-        readyToClaim: "ready to claim!",
-        nextReward: "Next reward:",
-        claimedRewards: "Claimed rewards:",
-        levelRequirement: "Requirement:",
-        claimed: "Claimed",
-        locked: "Locked",
-        claim: "Claim",
-        claimDescription: "Claim rewards as you level up",
-        earnRewards: "Earn rewards every 20 levels by playing Survival, Physics, and Rotation modes",
-        currentLevel: "Current Level:",
-        available: "Available:",
-    },
-
-    // Existing translations
+    rotationMode: "Rotation", // NEW
     noReactionTestsYet: "No data. Fortunately.",
     testReflexesToSeeStats: "Play reaction mode to see stats",
     noSurvivalAttemptsYet: "No data. Fortunately.",
     enterSurvivalToSeeStats: "Play survival mode to see stats",
     noPhysicsAttemptsYet: "No data. Fortunately.",
     enterPhysicsToSeeStats: "Play physics mode to see stats",
-    noRotationAttemptsYet: "No data. Fortunately.",
-    enterRotationToSeeStats: "Play rotation mode to see stats",
+    noRotationAttemptsYet: "No data. Fortunately.", // NEW
+    enterRotationToSeeStats: "Play rotation mode to see stats", // NEW
     totalGames: "Total Games",
     currentAttempts: "Current Attempts",
     totalTests: "Total Tests",
     totalAttempts: "Total Attempts",
     referralButton: "Referrals",
     achievementButton: "Achievements",
-
     tabs: {
         stats: "STATISTICS",
         referrals: "REFERRALS",
         history: "HISTORY",
         achievements: "ACHIEVEMENTS",
     },
-
     levels: {
         rookie: "NEWCOMER",
         active: "ACTIVE",
@@ -76,21 +35,20 @@ export const profile = {
         expert: "EXPERT",
         legend: "LEGEND",
     },
-
     stats: {
         currentAttempts: "Current Attempts",
         reactionModeStats: "Reaction",
         survivalModeStats: "Survival",
         physicsModeStats: "Physics",
-        rotationModeStats: "Rotation",
+        rotationModeStats: "Rotation", // NEW
         noReactionTests: "NO REACTION TESTS",
         testReflexes: "Test your lightning reflexes (if you have them)!",
         noSurvivalAttempts: "NO SURVIVAL ATTEMPTS",
         enterSurvival: "ACCEPT SURVIVAL CHALLENGE!",
         noPhysicsAttempts: "NO PHYSICS EXPERIMENTS",
         enterPhysics: "TRY PHYSICS EXPERIMENT!",
-        noRotationAttempts: "NO ROTATION EXPERIMENTS",
-        enterRotation: "TRY ROTATION EXPERIMENT!",
+        noRotationAttempts: "NO ROTATION EXPERIMENTS", // NEW
+        enterRotation: "TRY ROTATION EXPERIMENT!", // NEW
         bestTime: "Best Time",
         bestScore: "Best Score",
         averageTime: "Average Time",
@@ -99,9 +57,8 @@ export const profile = {
         bestStreak: "Best Streak",
         bestSurvival: "Best Survival",
         totalExperiments: "Total Experiments",
-        totalSpins: "Total Spins",
+        totalSpins: "Total Spins", // NEW
     },
-
     referrals: {
         title: "RECRUITMENT",
         friendsInvited: "FRIENDS INVITED",
@@ -117,12 +74,10 @@ export const profile = {
         helpGrow: "More people - less oxygen! But also more burning asses 🥴",
         referredBy: "INVITED",
     },
-
     history: {
         title: "RECENT GAMES",
         noGamesYet: "NO GAMES PLAYED YET",
     },
-
     achievements: {
         title: "ACHIEVEMENTS",
         noAchievements: "NO ACHIEVEMENTS UNLOCKED",
@@ -150,6 +105,7 @@ export const profile = {
         impulseMaster: "IMPULSE MASTER",
         wallBreaker: "WALL BREAKER",
         physicsElite: "PHYSICS ELITE",
+        // NEW: Rotation achievements
         rotationTester: "ROTATION TESTER",
         spinMaster: "SPIN MASTER",
         dizzinessResistant: "DIZZINESS RESISTANT",
@@ -173,6 +129,7 @@ export const profile = {
             physicsAttempts: "{count}+ PHYSICS EXPERIMENTS",
             physicsScore: "{score}+ PHYSICS SCORE",
             physicsTime: "{time}+ SECONDS PHYSICS",
+            // NEW: Rotation achievements descriptions
             enteredRotation: "TRIED ROTATION MODE",
             rotationAttempts: "{count}+ ROTATION EXPERIMENTS",
             rotationScore: "{score}+ ROTATION SCORE",
@@ -180,7 +137,7 @@ export const profile = {
             rotationLevel: "ROTATION LEVEL {level}+",
             topSurvivor: "TOP {rank} SURVIVOR",
             topPhysics: "TOP {rank} PHYSICS",
-            topRotation: "TOP {rank} ROTATION",
+            topRotation: "TOP {rank} ROTATION", // NEW
             topOverall: "TOP {rank} OVERALL",
         },
     },
