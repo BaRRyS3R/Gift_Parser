@@ -16,7 +16,7 @@ import {
   Clock,
   Crosshair,
   Atom,
-  RotateCw, // NEW for rotation mode
+  RotateCw,
 } from "lucide-react";
 
 import {
@@ -24,14 +24,14 @@ import {
   type ReactionLeaderboard,
   type SurvivalLeaderboard,
   type PhysicsLeaderboard,
-  type RotationLeaderboard, // NEW
+  type RotationLeaderboard,
 } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
-import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter"; // NEW
+import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter";
 import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
 import { useT } from "@/contexts/LocalizationContext";
 
-type LeaderboardType = "reaction" | "survival" | "physics" | "rotation"; // NEW
+type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
 export default function LeaderboardPage() {
   const { user } = useUser();
@@ -40,7 +40,7 @@ export default function LeaderboardPage() {
   const [reactionLeaderboard, setReactionLeaderboard] = useState<ReactionLeaderboard[]>([]);
   const [survivalLeaderboard, setSurvivalLeaderboard] = useState<SurvivalLeaderboard[]>([]);
   const [physicsLeaderboard, setPhysicsLeaderboard] = useState<PhysicsLeaderboard[]>([]);
-  const [rotationLeaderboard, setRotationLeaderboard] = useState<RotationLeaderboard[]>([]); // NEW
+  const [rotationLeaderboard, setRotationLeaderboard] = useState<RotationLeaderboard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,13 +54,13 @@ export default function LeaderboardPage() {
           userService.getReactionLeaderboard(50),
           userService.getSurvivalLeaderboard(50),
           userService.getPhysicsLeaderboard(50),
-          userService.getRotationLeaderboard(50), // NEW
+          userService.getRotationLeaderboard(50),
         ]);
 
         setReactionLeaderboard(reaction);
         setSurvivalLeaderboard(survival);
         setPhysicsLeaderboard(physics);
-        setRotationLeaderboard(rotation); // NEW
+        setRotationLeaderboard(rotation);
       } catch (err) {
         console.error("Error loading leaderboards:", err);
         setError(t("leaderboard.failedToLoad"));
@@ -105,7 +105,7 @@ export default function LeaderboardPage() {
         active: "bg-purple-500/20 text-purple-300 border border-purple-400/30",
         inactive: "text-purple-400/60 hover:text-purple-400/80",
       },
-      rotation: { // NEW
+      rotation: {
         active: "bg-orange-500/20 text-orange-300 border border-orange-400/30",
         inactive: "text-orange-400/60 hover:text-orange-400/80",
       },
@@ -140,7 +140,6 @@ export default function LeaderboardPage() {
           rounded-lg
         `}
       >
-        {/* Background Pattern with Icons */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
             <Zap size={120} className="text-white" />
@@ -218,7 +217,6 @@ export default function LeaderboardPage() {
           rounded-lg
         `}
       >
-        {/* Background Pattern with Icons */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
             <Crosshair size={120} className="text-red-400" />
@@ -301,7 +299,6 @@ export default function LeaderboardPage() {
           rounded-lg
         `}
       >
-        {/* Background Pattern with Icons */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
             <Atom size={120} className="text-purple-400" />
@@ -368,7 +365,6 @@ export default function LeaderboardPage() {
     );
   };
 
-  // NEW: Render rotation leaderboard entry
   const renderRotationLeaderboardEntry = (
     entry: RotationLeaderboard,
     position: number,
@@ -385,7 +381,6 @@ export default function LeaderboardPage() {
           rounded-lg
         `}
       >
-        {/* Background Pattern with Icons */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
             <RotateCw size={120} className="text-orange-400" />
@@ -488,7 +483,7 @@ export default function LeaderboardPage() {
         return survivalLeaderboard;
       case "physics":
         return physicsLeaderboard;
-      case "rotation": // NEW
+      case "rotation":
         return rotationLeaderboard;
     }
   };
@@ -497,7 +492,7 @@ export default function LeaderboardPage() {
   const isReactionTab = activeTab === "reaction";
   const isSurvivalTab = activeTab === "survival";
   const isPhysicsTab = activeTab === "physics";
-  const isRotationTab = activeTab === "rotation"; // NEW
+  const isRotationTab = activeTab === "rotation";
 
   const getTabLabel = (tab: LeaderboardType) => {
     switch (tab) {
@@ -507,7 +502,7 @@ export default function LeaderboardPage() {
         return t("leaderboard.survival").split(" ")[0];
       case "physics":
         return t("leaderboard.physics").split(" ")[0];
-      case "rotation": // NEW
+      case "rotation":
         return t("leaderboard.rotation").split(" ")[0];
     }
   };
@@ -532,7 +527,6 @@ export default function LeaderboardPage() {
         subtitle: t("leaderboard.tryPhysics"),
       };
     } else {
-      // NEW: Rotation tab
       return {
         icon: <RotateCw className="text-orange-400/60 mx-auto mb-3" size={32} />,
         title: t("leaderboard.noSpinners"),
@@ -542,10 +536,10 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white pb-32 safe-area-inset-bottom">
+    <div className="min-h-screen bg-black text-white">
       {/* Main content container with proper bottom padding */}
-      <div className="px-4 pt-6 safe-area-inset">
-        {/* Header - Unified with Other Pages */}
+      <div className="px-4 pt-6 pb-32 safe-area-inset-bottom safe-area-inset">
+        {/* Header */}
         <div className="text-center space-y-4 mb-8">
           <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
             {t("leaderboard.title")}
@@ -571,7 +565,7 @@ export default function LeaderboardPage() {
                 ) : isPhysicsTab ? (
                   <Target className="text-white/80" size={14} />
                 ) : (
-                  <Clock className="text-white/80" size={14} /> // rotation
+                  <Clock className="text-white/80" size={14} />
                 )}
                 <span className="font-bold text-white">
                   {currentLeaderboard[0]
@@ -583,7 +577,7 @@ export default function LeaderboardPage() {
                         )
                         : isPhysicsTab
                           ? `${(currentLeaderboard[0] as PhysicsLeaderboard).best_physics_score} pts`
-                          : formatRotationTime( // NEW: rotation
+                          : formatRotationTime(
                             (currentLeaderboard[0] as RotationLeaderboard).best_rotation_time,
                           )
                     : "0"}
@@ -597,7 +591,7 @@ export default function LeaderboardPage() {
         <div className="mb-6">
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1">
             <div className="flex space-x-1">
-              {(["reaction", "survival", "physics", "rotation"] as const).map((tab) => ( // Updated to include rotation
+              {(["reaction", "survival", "physics", "rotation"] as const).map((tab) => (
                 <button
                   key={tab}
                   className={`
@@ -610,10 +604,7 @@ export default function LeaderboardPage() {
                     {tab === "reaction" && <Zap size={12} />}
                     {tab === "survival" && <Crosshair size={12} />}
                     {tab === "physics" && <Atom size={12} />}
-                    {tab === "rotation" && <RotateCw size={12} />} {/* NEW */}
-
-                    {/*<span>{getTabLabel(tab)}</span> REMOVE TAB NAMES, ONLY ICON*/} 
-
+                    {tab === "rotation" && <RotateCw size={12} />}
                   </div>
                 </button>
               ))}
@@ -621,7 +612,7 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {/* Leaderboard Content - Single Unified List */}
+        {/* Leaderboard Content */}
         <div className="space-y-4">
           {currentLeaderboard.length === 0 ? (
             <div className="text-center py-12 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg">
@@ -645,7 +636,7 @@ export default function LeaderboardPage() {
                     ? renderSurvivalLeaderboardEntry(entry as SurvivalLeaderboard, index + 1)
                     : isPhysicsTab
                       ? renderPhysicsLeaderboardEntry(entry as PhysicsLeaderboard, index + 1)
-                      : renderRotationLeaderboardEntry(entry as RotationLeaderboard, index + 1), // NEW
+                      : renderRotationLeaderboardEntry(entry as RotationLeaderboard, index + 1),
               )}
             </div>
           )}

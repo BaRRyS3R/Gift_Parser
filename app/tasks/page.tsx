@@ -27,7 +27,6 @@ interface TaskProcessing {
     [taskId: string]: TaskProcessingState;
 }
 
-// Mapping task types to their respective icons
 const getTaskIcon = (taskType: TaskType) => {
     switch (taskType) {
         case 'telegram_channel':
@@ -55,12 +54,8 @@ export default function TasksPage() {
     const [processing, setProcessing] = useState<TaskProcessing>({});
     const [error, setError] = useState<string | null>(null);
 
-    // Загрузка заданий
     const loadTasks = useCallback(async () => {
-
-
         if (!user) {
-            // Если пользователь не загружен, попробуем обновить его данные
             if (telegramUser) {
                 try {
                     await refreshUser();
@@ -94,7 +89,6 @@ export default function TasksPage() {
         loadTasks();
     }, [loadTasks]);
 
-    // Таймер для обратного отсчета
     useEffect(() => {
         const interval = setInterval(() => {
             setProcessing(prev => {
@@ -108,7 +102,6 @@ export default function TasksPage() {
 
                         if (updated[taskId].countdown! <= 0) {
                             delete updated[taskId].countdown;
-                            // Автоматически проверяем задание после истечения таймера
                             handleCheckTask(taskId);
                         }
                     }
@@ -121,7 +114,6 @@ export default function TasksPage() {
         return () => clearInterval(interval);
     }, []);
 
-    // Setup Telegram WebApp back button
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -137,7 +129,6 @@ export default function TasksPage() {
         }
     }, [router]);
 
-    // Начало выполнения задания
     const handleStartTask = async (task: TaskWithCompletion) => {
         if (!user || !telegramUser) return;
 
@@ -149,19 +140,15 @@ export default function TasksPage() {
         try {
             await taskService.startTask(user.id, task.id);
 
-            // Открываем ссылку в зависимости от типа задания
             if (task.type === 'story_share') {
                 handleStoryTask(task);
             } else {
                 openTaskLink(task);
             }
 
-            // Для telegram заданий сразу проверяем, для остальных ставим таймер
             if (task.type === 'telegram_channel' || task.type === 'telegram_chat') {
-                // Небольшая задержка для перехода пользователя
                 setTimeout(() => handleCheckTask(task.id), 3000);
             } else if (task.type !== 'story_share') {
-                // 10 секунд ожидания для остальных типов
                 setProcessing(prev => ({
                     ...prev,
                     [task.id]: { countdown: 10000 }
@@ -178,7 +165,6 @@ export default function TasksPage() {
         }
     };
 
-    // Обработка story задания
     const handleStoryTask = (task: TaskWithCompletion) => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -193,7 +179,6 @@ export default function TasksPage() {
                     }
                 });
 
-                // Сразу завершаем story задание
                 setTimeout(() => handleCheckTask(task.id), 1000);
             } else {
                 setProcessing(prev => ({
@@ -204,7 +189,6 @@ export default function TasksPage() {
         }
     };
 
-    // Открытие ссылки задания
     const openTaskLink = (task: TaskWithCompletion) => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -219,7 +203,6 @@ export default function TasksPage() {
         }
     };
 
-    // Проверка выполнения задания
     const handleCheckTask = async (taskId: string) => {
         if (!user || !telegramUser) return;
 
@@ -254,7 +237,6 @@ export default function TasksPage() {
         }
     };
 
-    // Получение награды
     const handleClaimReward = async (task: TaskWithCompletion) => {
         if (!user || !telegramUser) return;
 
@@ -266,7 +248,6 @@ export default function TasksPage() {
         try {
             const result = await taskService.claimTaskReward(user.id, task.id, telegramUser.id);
 
-            // Показываем уведомление об успехе
             if (typeof window !== "undefined" && window.Telegram?.WebApp) {
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             }
@@ -287,7 +268,6 @@ export default function TasksPage() {
         }
     };
 
-    // Получение состояния кнопки
     const getButtonState = (task: TaskWithCompletion) => {
         const proc = processing[task.id];
 
@@ -338,12 +318,10 @@ export default function TasksPage() {
         return { text: t('tasks.start'), disabled: false, loading: false, color: 'primary' as const };
     };
 
-    // Обработка клика по заданию
     const handleTaskClick = async (task: TaskWithCompletion) => {
         const proc = processing[task.id];
 
         if (proc?.error) {
-            // Сбрасываем ошибку и пробуем снова
             setProcessing(prev => ({
                 ...prev,
                 [task.id]: {}
@@ -360,7 +338,6 @@ export default function TasksPage() {
         }
     };
 
-    // Разделение заданий по категориям
     const storyTasks = tasks.filter(task => task.type === 'story_share');
     const activeTasks = tasks.filter(task =>
         task.type !== 'story_share' &&
@@ -390,7 +367,7 @@ export default function TasksPage() {
     return (
         <div className="min-h-screen bg-black text-white">
             {/* Main content container with proper bottom padding */}
-            <div className="px-4 pt-6 pb-32 safe-area-inset-bottom px-4 safe-area-inset">
+            <div className="px-4 pt-6 pb-32 safe-area-inset-bottom safe-area-inset">
                 {/* Header */}
                 <div className="text-center space-y-4 mb-8">
                     <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
@@ -493,7 +470,6 @@ export default function TasksPage() {
     );
 }
 
-// Компонент карточки задания с монохромным дизайном
 interface TaskCardProps {
     task: TaskWithCompletion;
     processing?: any;
@@ -529,9 +505,7 @@ function TaskCard({
                 ${isCompleted ? 'opacity-75' : ''}
             `}
         >
-            {/* Background Pattern with Icons */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {/* Single large icon on the right side */}
                 <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
                     <TaskIcon size={120} className="text-white" />
                 </div>
@@ -540,7 +514,6 @@ function TaskCard({
             <CardBody className="p-4 relative z-10">
                 <div className="flex items-center justify-between">
                     <div className="flex-1">
-                        {/* Header */}
                         <div className="flex items-center space-x-3 mb-3">
                             <div className="flex-shrink-0">
                                 <TaskIcon size={24} className="text-white" />
@@ -564,7 +537,6 @@ function TaskCard({
                             </div>
                         </div>
 
-                        {/* Footer */}
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                                 <span className="text-white font-bold">
@@ -606,7 +578,6 @@ function TaskCard({
                             )}
                         </div>
 
-                        {/* Error message */}
                         {processing?.error && (
                             <div className="mt-2 text-white/80 text-xs bg-white/10 rounded px-2 py-1 border border-white/20">
                                 {processing.error}
