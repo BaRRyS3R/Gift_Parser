@@ -1,4 +1,4 @@
-// src/components/RotatingCircleGrid.tsx - Fixed smooth acceleration and timing
+// src/components/RotatingCircleGrid.tsx - Stable position preservation during level changes
 
 "use client";
 
@@ -37,27 +37,30 @@ export default function RotatingCircleGrid({
     const touchStartTimeRef = useRef<Map<number, number>>(new Map());
     const processedTouchesRef = useRef<Set<number>>(new Set());
 
-    // State for dynamic sizing
-    const [circleSize, setCircleSize] = useState(32);
-    const [containerSize, setContainerSize] = useState(280);
+    // Animation state management
+    const currentRotationRef = useRef<number>(0);
+    const lastUpdateTimeRef = useRef<number>(Date.now());
+    const animationFrameRef = useRef<number | null>(null);
+    const currentSpeedRef = useRef<number>(rotationSpeed);
+    const targetSpeedRef = useRef<number>(rotationSpeed);
+
+    // State for dynamic sizing - increased sizes for better visibility
+    const [circleSize, setCircleSize] = useState(40); // Increased from 32
+    const [containerSize, setContainerSize] = useState(350); // Increased from 280
 
     // State for tracking active activation pulses
     const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
 
-    // Calculate rotation duration with smooth transitions
-    const rotationDurationMs = rotationSpeed > 0 ? Math.abs((2 * Math.PI / rotationSpeed) * 16.67) : 10000;
-
     // Effect to handle activation pulses AFTER circles are activated
     useEffect(() => {
         if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
-            // Delay pulse to show AFTER circle activation
             const pulseDelay = setTimeout(() => {
                 const newPulses: ActivePulse[] = onActivatedCircles.map(circleId => {
                     const circle = circles.find(c => c.id === circleId);
                     return {
                         circleId,
                         isRed: circle?.isDecoy || false,
-                        timestamp: Date.now(), // Use current time for pulse timing
+                        timestamp: Date.now(),
                     };
                 });
 
@@ -68,24 +71,24 @@ export default function RotatingCircleGrid({
                         prev.filter(pulse => pulse.timestamp !== newPulses[0]?.timestamp)
                     );
                 }, 400);
-            }, 100); // Show pulse 100ms after activation
+            }, 100);
 
             return () => clearTimeout(pulseDelay);
         }
     }, [onActivatedCircles, lastActivationTimestamp, circles]);
 
-    // Calculate adaptive sizes based on screen dimensions
+    // Calculate adaptive sizes with increased dimensions
     useEffect(() => {
         const calculateAdaptiveSizes = () => {
             const screenWidth = window.innerWidth;
             const screenHeight = window.innerHeight;
 
-            const availableWidth = screenWidth * 0.85;
-            const availableHeight = screenHeight * 0.5;
+            const availableWidth = screenWidth * 0.9; // Increased from 0.85
+            const availableHeight = screenHeight * 0.6; // Increased from 0.5
             const maxSize = Math.min(availableWidth, availableHeight);
 
-            const calculatedContainerSize = Math.max(240, Math.min(maxSize, 320));
-            const calculatedCircleSize = Math.max(28, Math.min(calculatedContainerSize / 10, 40));
+            const calculatedContainerSize = Math.max(320, Math.min(maxSize, 400)); // Increased range
+            const calculatedCircleSize = Math.max(36, Math.min(calculatedContainerSize / 8, 48)); // Increased range
 
             setContainerSize(calculatedContainerSize);
             setCircleSize(calculatedCircleSize);
@@ -103,28 +106,61 @@ export default function RotatingCircleGrid({
         };
     }, []);
 
-    // Smooth animation speed updates with gradual acceleration
+    // Smooth rotation animation with preserved positions
+    const updateRotation = useCallback(() => {
+        if (!isGameActive || !rotatingContainerRef.current) {
+            return;
+        }
+
+        const now = Date.now();
+        const deltaTime = now - lastUpdateTimeRef.current;
+        lastUpdateTimeRef.current = now;
+
+        // Smooth speed interpolation for seamless level transitions
+        const speedDifference = targetSpeedRef.current - currentSpeedRef.current;
+        const interpolationFactor = Math.min(deltaTime * 0.001, 1); // Adjust smoothness
+        currentSpeedRef.current += speedDifference * interpolationFactor;
+
+        // Update rotation based on current speed
+        const rotationIncrement = currentSpeedRef.current * deltaTime;
+        currentRotationRef.current += rotationIncrement;
+
+        // Apply rotation to container
+        rotatingContainerRef.current.style.transform =
+            `rotate(${currentRotationRef.current}rad)`;
+
+        // Continue animation
+        animationFrameRef.current = requestAnimationFrame(updateRotation);
+    }, [isGameActive]);
+
+    // Handle speed changes without position jumps
     useEffect(() => {
-        if (rotatingContainerRef.current) {
-            const element = rotatingContainerRef.current;
+        targetSpeedRef.current = rotationSpeed;
+    }, [rotationSpeed]);
 
-            if (isGameActive) {
-                // Smooth transition for speed changes
-                element.style.setProperty('--rotation-duration', `${rotationDurationMs}ms`);
-                element.style.animationPlayState = 'running';
-
-                // Add transition class for smooth acceleration
-                element.classList.add('smooth-rotation-transition');
-            } else {
-                element.style.animationPlayState = 'paused';
-                element.classList.remove('smooth-rotation-transition');
+    // Start/stop animation
+    useEffect(() => {
+        if (isGameActive) {
+            lastUpdateTimeRef.current = Date.now();
+            animationFrameRef.current = requestAnimationFrame(updateRotation);
+        } else {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+                animationFrameRef.current = null;
             }
         }
-    }, [rotationDurationMs, isGameActive]);
 
-    // Calculate precise static position for each circle
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+                animationFrameRef.current = null;
+            }
+        };
+    }, [isGameActive, updateRotation]);
+
+    // Calculate precise static position for each circle with increased radius
     const getCircleStaticPosition = useCallback((circle: RotationCircle) => {
-        const scaledRadius = (containerSize * 0.35);
+        const scaledRadius = (containerSize * 0.42); // Increased from 0.35 for larger axis
 
         const x = Math.cos(circle.angle) * scaledRadius;
         const y = Math.sin(circle.angle) * scaledRadius;
@@ -133,11 +169,10 @@ export default function RotatingCircleGrid({
     }, [containerSize]);
 
     const getCircleStyles = (circle: RotationCircle) => {
-        // Different transition speeds for activation vs deactivation
         const isDeactivating = circle.isAnimating;
         const transitionClass = isDeactivating
-            ? "transition-all duration-75" // Fast deactivation - no delay
-            : "transition-colors duration-200 ease-in-out"; // Smooth color transitions only
+            ? "transition-all duration-75"
+            : "transition-colors duration-200 ease-in-out";
 
         const baseClasses = `absolute rounded-full border-2 ${transitionClass}`;
 
@@ -146,7 +181,7 @@ export default function RotatingCircleGrid({
             : "opacity-0 scale-0";
 
         const animationClasses = circle.isAnimating
-            ? "opacity-0 scale-75" // Immediate visual feedback
+            ? "opacity-0 scale-75"
             : "";
 
         if (circle.isActive && !circle.isAnimating) {
@@ -184,11 +219,11 @@ export default function RotatingCircleGrid({
 
         if (!processedTouchesRef.current.has(circleId)) {
             processedTouchesRef.current.add(circleId);
-            onCircleClick(circleId); // Immediate response
+            onCircleClick(circleId);
 
             setTimeout(() => {
                 processedTouchesRef.current.delete(circleId);
-            }, 50); // Reduced timeout for faster response
+            }, 50);
         }
     };
 
@@ -204,13 +239,13 @@ export default function RotatingCircleGrid({
         const touchTime = touchStartTimeRef.current.get(circleId);
         const currentTime = Date.now();
 
-        if (touchTime && currentTime - touchTime < 200) { // Reduced delay
+        if (touchTime && currentTime - touchTime < 200) {
             return;
         }
 
         event.preventDefault();
         event.stopPropagation();
-        onCircleClick(circleId); // Immediate response
+        onCircleClick(circleId);
     };
 
     // Render pulse effect for active circles
@@ -230,7 +265,7 @@ export default function RotatingCircleGrid({
         );
     };
 
-    // Render activation pulse effect with correct timing
+    // Render activation pulse effect
     const renderActivationPulse = (circle: RotationCircle) => {
         const activePulse = activePulses.find(pulse => pulse.circleId === circle.id);
         if (!activePulse) return null;
@@ -247,10 +282,10 @@ export default function RotatingCircleGrid({
     };
 
     return (
-        <div className="flex items-center justify-center min-h-[400px] p-4">
+        <div className="flex items-center justify-center min-h-[500px] p-4">
             <div
                 ref={containerRef}
-                className="relative rotating-grid"
+                className="relative stable-container"
                 style={{
                     width: `${containerSize}px`,
                     height: `${containerSize}px`,
@@ -262,27 +297,25 @@ export default function RotatingCircleGrid({
                 {/* Central rotation indicator */}
                 <div className="absolute inset-0 flex items-center justify-center">
                     <div
-                        className="w-2 h-2 bg-white/30 rounded-full animate-pulse"
+                        className="w-3 h-3 bg-white/30 rounded-full animate-pulse"
                         style={{
                             animation: `pulse-gentle 2s ease-in-out infinite`,
                         }}
                     />
                 </div>
 
-                {/* Rotating container with smooth transitions */}
+                {/* Rotating container with JavaScript-controlled rotation */}
                 <div
                     ref={rotatingContainerRef}
-                    className="absolute inset-0 rotation-container"
+                    className="absolute inset-0 high-performance-rotation"
                     style={{
-                        '--rotation-duration': `${rotationDurationMs}ms`,
-                        animation: `spin var(--rotation-duration) linear infinite`,
-                        animationPlayState: isGameActive ? 'running' : 'paused',
                         transformOrigin: '50% 50%',
                         backfaceVisibility: 'hidden',
                         perspective: '1000px',
-                    } as React.CSSProperties}
+                        willChange: 'transform',
+                    }}
                 >
-                    {/* Circles with optimized positioning */}
+                    {/* Circles with increased size and optimized positioning */}
                     {circles.map((circle) => {
                         const circleStyleConfig = getCircleStyles(circle);
                         const staticPosition = getCircleStaticPosition(circle);
@@ -295,7 +328,7 @@ export default function RotatingCircleGrid({
                                     ? (circle.isDecoy ? " - trap target" : " - active target")
                                     : ""
                                     }`}
-                                className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none rotation-circle`}
+                                className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none touch-optimized`}
                                 disabled={!isGameActive}
                                 style={{
                                     width: `${circleSize}px`,
@@ -332,15 +365,16 @@ export default function RotatingCircleGrid({
                     })}
                 </div>
 
-                {/* Rotation direction indicator synchronized with main animation */}
+                {/* Rotation direction indicator with increased size */}
                 <div className="absolute bottom-2 right-2">
                     <div
-                        className="w-6 h-6 border-2 border-white/20 rounded-full relative rotation-indicator"
+                        className="w-8 h-8 border-2 border-white/20 rounded-full relative"
                         style={{
-                            '--rotation-duration': `${rotationDurationMs}ms`,
-                        } as React.CSSProperties}
+                            transform: `rotate(${currentRotationRef.current}rad)`,
+                            transition: 'none',
+                        }}
                     >
-                        <div className="absolute top-0 left-1/2 w-1 h-1 bg-white/40 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
+                        <div className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-white/40 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
                     </div>
                 </div>
             </div>
