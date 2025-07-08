@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Fixed profile page without notification duplication
+// src/app/profile/page.tsx - Исправленная версия без циклических перезагрузок
 
 "use client";
 
@@ -19,7 +19,7 @@ import AchievementsModal from "@/components/Profile/AchievementsModal";
 // Import new league system components
 import CompactLeagueDisplay from "@/components/Profile/CompactLeagueDisplay";
 import RewardsSystem from "@/components/Profile/RewardsSystem";
-import ProgressNotifications, { useProgressNotifications } from "@/components/Notifications/ProgressNotifications";
+import EnhancedProgressNotifications, { useEnhancedProgressNotifications } from "@/components/Notifications/EnhancedProgressNotifications";
 
 interface UserRankings {
   overall: number | null;
@@ -29,18 +29,24 @@ interface UserRankings {
   rotation: number | null;
 }
 
-// Interface for tracking shown notifications to prevent duplicates
-interface NotificationTracker {
-  lastShownLevel?: number;
-  lastShownLeague?: string;
-  lastShownRewardLevel?: number;
-  sessionId: string;
+interface InitializationState {
+  completed: boolean;
+  inProgress: boolean;
+  dataLoaded: boolean;
 }
 
-export default function FixedProfilePageWithNotifications() {
+// Interface for persistent notification tracking
+interface NotificationPersistence {
+  lastSeenLevel: number;
+  lastSeenLeague: string;
+  sessionId: string;
+  timestamp: number;
+}
+
+export default function FixedProfilePage() {
   const { user, telegramUser, isLoading: userLoading, refreshUser } = useUser();
   const t = useT();
-  
+
   // Progress notifications hook
   const {
     notifications,
@@ -48,7 +54,7 @@ export default function FixedProfilePageWithNotifications() {
     showLevelUp,
     showLeaguePromotion,
     showRewardAvailable,
-  } = useProgressNotifications();
+} = useEnhancedProgressNotifications();
 
   const [rankings, setRankings] = useState<UserRankings>({
     overall: null,
@@ -58,138 +64,87 @@ export default function FixedProfilePageWithNotifications() {
     rotation: null,
   });
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
 
-  // Track notifications to prevent duplicates
-  const notificationTracker = useRef<NotificationTracker>({
-    sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  // Centralized initialization state
+  const [initState, setInitState] = useState<InitializationState>({
+    completed: false,
+    inProgress: false,
+    dataLoaded: false,
   });
 
-  // Flag to prevent multiple notification checks
-  const notificationCheckPerformed = useRef<boolean>(false);
+  // Persistent storage key for notification tracking
+  const getStorageKey = () => `profile_notifications_${telegramUser?.id || 'unknown'}`;
 
-  // Store initial user state to compare changes
-  const initialUserState = useRef<{
-    level: number;
-    league: string;
-  } | null>(null);
+  // Get persistent notification state
+  const getPersistentState = (): NotificationPersistence | null => {
+    if (typeof window === 'undefined') return null;
+
+    try {
+      const stored = localStorage.getItem(getStorageKey());
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.warn('Failed to load persistent notification state:', error);
+      return null;
+    }
+  };
+
+  // Save persistent notification state
+  const savePersistentState = (state: NotificationPersistence) => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      localStorage.setItem(getStorageKey(), JSON.stringify(state));
+    } catch (error) {
+      console.warn('Failed to save persistent notification state:', error);
+    }
+  };
 
   // Clear notifications when component unmounts
   useEffect(() => {
     return () => {
-      // Clear all notifications when leaving the profile page
       notifications.forEach(notification => {
         dismissNotification(notification.id);
       });
     };
   }, [notifications, dismissNotification]);
 
-  // Initialize user state tracking and check for notifications ONCE
+  // CENTRALIZED INITIALIZATION EFFECT - Prevents multiple initialization cycles
   useEffect(() => {
-    const checkForProgressUpdatesOnce = async () => {
-      // Prevent multiple executions
-      if (notificationCheckPerformed.current || !user || !telegramUser || userLoading || isLoadingData) {
+    const performCentralizedInitialization = async () => {
+      // Prevent multiple simultaneous initializations
+      if (!user || !telegramUser || userLoading || initState.inProgress || initState.completed) {
         return;
       }
 
       try {
-        // Get current calculated stats
-        const currentLevel = calculatePlayerLevel(user);
-        const currentLeague = calculateLeague(user);
+        setInitState(prev => ({ ...prev, inProgress: true }));
 
-        // Initialize tracking if first time
-        if (!initialUserState.current) {
-          initialUserState.current = {
-            level: user.player_level || 1,
-            league: user.league || "Bronze"
-          };
+        console.log('Starting centralized profile initialization');
 
-          // Update database if calculated values differ from stored values
-          if (currentLevel !== (user.player_level || 1) || currentLeague !== (user.league || "Bronze")) {
-            console.log("Syncing calculated stats with database:", {
-              calculatedLevel: currentLevel,
-              storedLevel: user.player_level,
-              calculatedLeague: currentLeague,
-              storedLeague: user.league
-            });
+        // Check if league system needs initialization
+        const needsLeagueInit = user.player_level === undefined ||
+          user.league === undefined ||
+          user.total_qualifying_games === undefined;
 
-            // Initialize league system to sync values
-            await leagueService.initializeLeagueSystem(telegramUser.id);
+        if (needsLeagueInit) {
+          console.log('Initializing league system for user:', telegramUser.id);
+
+          // Initialize league system
+          const initResult = await leagueService.initializeLeagueSystem(telegramUser.id);
+
+          if (initResult.success) {
+            console.log('League system initialized successfully');
+            // Refresh user data after initialization
             await refreshUser();
-          }
-
-          // Mark check as performed to prevent re-execution
-          notificationCheckPerformed.current = true;
-          return;
-        }
-
-        const previousState = initialUserState.current;
-        const tracker = notificationTracker.current;
-
-        // Check for level changes (only show if we haven't shown this level before)
-        if (currentLevel > previousState.level && 
-            (!tracker.lastShownLevel || currentLevel > tracker.lastShownLevel)) {
-          
-          console.log(`Level up detected: ${previousState.level} → ${currentLevel}`);
-          showLevelUp(currentLevel);
-          tracker.lastShownLevel = currentLevel;
-          
-          // Check if new level qualifies for a reward
-          if (currentLevel % 20 === 0 && 
-              (!tracker.lastShownRewardLevel || currentLevel > tracker.lastShownRewardLevel)) {
-            const rewardNumber = currentLevel / 20;
-            console.log(`Reward available for level ${currentLevel}`);
-            showRewardAvailable(`Test Gift ${rewardNumber}`, currentLevel);
-            tracker.lastShownRewardLevel = currentLevel;
+          } else {
+            console.error('League system initialization failed:', initResult.error);
           }
         }
 
-        // Check for league changes (only show if we haven't shown this league before)
-        if (currentLeague !== previousState.league && 
-            (!tracker.lastShownLeague || currentLeague !== tracker.lastShownLeague)) {
-          
-          console.log(`League promotion detected: ${previousState.league} → ${currentLeague}`);
-          showLeaguePromotion(currentLeague as any, previousState.league as any);
-          tracker.lastShownLeague = currentLeague;
-        }
-
-        // Update the initial state to current values
-        initialUserState.current = {
-          level: currentLevel,
-          league: currentLeague
-        };
-
-        // Mark check as performed
-        notificationCheckPerformed.current = true;
-
-      } catch (error) {
-        console.error("Error checking for progress updates:", error);
-        notificationCheckPerformed.current = true; // Still mark as performed to prevent retry loops
-      }
-    };
-
-    // Use setTimeout to ensure this runs after all other effects and only once
-    const timeoutId = setTimeout(() => {
-      checkForProgressUpdatesOnce();
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [user, telegramUser, userLoading, isLoadingData, showLevelUp, showLeaguePromotion, showRewardAvailable, refreshUser]);
-
-  useEffect(() => {
-    const loadProfileData = async () => {
-      if (!telegramUser?.id) return;
-
-      try {
-        setIsLoadingData(true);
-
-        // Initialize league system for existing users if needed
-        if (user && (user.player_level === undefined || user.league === undefined)) {
-          await userService.initializeLeagueSystem(telegramUser.id);
-          await refreshUser(); // Refresh user data after initialization
-        }
+        // Load additional profile data
+        console.log('Loading profile rankings and referral info');
 
         const [overallRank, reactionRank, survivalRank, physicsRank, rotationRank, refInfo] = await Promise.all([
           userService.getUserRanking(telegramUser.id),
@@ -208,17 +163,104 @@ export default function FixedProfilePageWithNotifications() {
           rotation: rotationRank,
         });
         setReferralInfo(refInfo);
+
+        setInitState({
+          completed: true,
+          inProgress: false,
+          dataLoaded: true,
+        });
+
+        console.log('Centralized profile initialization completed');
+
       } catch (error) {
-        console.error("Error loading profile data:", error);
-      } finally {
-        setIsLoadingData(false);
+        console.error('Error during centralized initialization:', error);
+        setInitState(prev => ({
+          ...prev,
+          inProgress: false
+        }));
       }
     };
 
-    if (telegramUser && !userLoading) {
-      loadProfileData();
-    }
-  }, [telegramUser, userLoading, user, refreshUser]);
+    performCentralizedInitialization();
+  }, [user, telegramUser, userLoading, initState.inProgress, initState.completed, refreshUser]);
+
+  // NOTIFICATION CHECK EFFECT - Only runs after initialization is complete
+  useEffect(() => {
+    const checkForProgressNotifications = () => {
+      // Only run after initialization is complete and data is loaded
+      if (!initState.completed || !initState.dataLoaded || !user || !telegramUser) {
+        return;
+      }
+
+      try {
+        console.log('Checking for progress notifications');
+
+        // Get current calculated stats
+        const currentLevel = calculatePlayerLevel(user);
+        const currentLeague = calculateLeague(user);
+
+        console.log('Current stats:', { currentLevel, currentLeague });
+
+        // Get persistent state
+        const persistentState = getPersistentState();
+
+        // If no persistent state exists, create initial state from current values
+        if (!persistentState) {
+          console.log('No persistent state found, creating initial state');
+          savePersistentState({
+            lastSeenLevel: currentLevel,
+            lastSeenLeague: currentLeague,
+            sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: Date.now(),
+          });
+          return;
+        }
+
+        console.log('Previous state:', {
+          lastSeenLevel: persistentState.lastSeenLevel,
+          lastSeenLeague: persistentState.lastSeenLeague,
+        });
+
+        // Check for level increase
+        if (currentLevel > persistentState.lastSeenLevel) {
+          console.log(`Level progression detected: ${persistentState.lastSeenLevel} → ${currentLevel}`);
+
+          // Show notifications for each level gained
+          for (let level = persistentState.lastSeenLevel + 1; level <= currentLevel; level++) {
+            showLevelUp(level);
+
+            // Check for reward eligibility
+            if (level % 20 === 0) {
+              const rewardNumber = level / 20;
+              showRewardAvailable(`Test Gift ${rewardNumber}`, level);
+            }
+          }
+        }
+
+        // Check for league change
+        if (currentLeague !== persistentState.lastSeenLeague) {
+          console.log(`League change detected: ${persistentState.lastSeenLeague} → ${currentLeague}`);
+          showLeaguePromotion(currentLeague as any, persistentState.lastSeenLeague as any);
+        }
+
+        // Update persistent state with current values
+        savePersistentState({
+          lastSeenLevel: currentLevel,
+          lastSeenLeague: currentLeague,
+          sessionId: persistentState.sessionId,
+          timestamp: Date.now(),
+        });
+
+      } catch (error) {
+        console.error('Error checking for progress notifications:', error);
+      }
+    };
+
+    // Use a timeout to ensure this runs after the initialization effect
+    const timeoutId = setTimeout(checkForProgressNotifications, 200);
+    return () => clearTimeout(timeoutId);
+
+  }, [initState.completed, initState.dataLoaded, user, telegramUser, showLevelUp, showLeaguePromotion, showRewardAvailable]);
 
   const handleOpenReferrals = () => {
     setIsReferralModalOpen(true);
@@ -233,12 +275,21 @@ export default function FixedProfilePageWithNotifications() {
     await refreshUser();
   };
 
-  if (userLoading || isLoadingData) {
+  // Show loading state during initialization
+  if (userLoading || initState.inProgress || !initState.dataLoaded) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">{t("profile.loadingProfile")}</p>
+          <p className="text-white">
+            {userLoading ? t("profile.loadingProfile") : "Initializing profile..."}
+          </p>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-xs text-white/40">
+              Init: {initState.inProgress ? 'In Progress' : 'Waiting'} |
+              Data: {initState.dataLoaded ? 'Loaded' : 'Loading'}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -259,14 +310,14 @@ export default function FixedProfilePageWithNotifications() {
 
   return (
     <>
-      {/* Progress Notifications - Limited to prevent spam */}
-      <ProgressNotifications
+      {/* Progress Notifications */}
+      <EnhancedProgressNotifications
         notifications={notifications}
         onDismiss={dismissNotification}
       />
 
       <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-        {/* Header - Unified with Game Page */}
+        {/* Header */}
         <div className="text-center">
           <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
             {t("profile.title")}
@@ -279,19 +330,22 @@ export default function FixedProfilePageWithNotifications() {
           {/* Profile Header */}
           <MinimalistProfileHeader user={user} />
 
-          {/* Debug Information - Remove in production */}
+          {/* Debug Information - Shows initialization state */}
           {process.env.NODE_ENV === 'development' && (
-            <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-2 text-xs">
-              <div className="text-red-300">Debug Info:</div>
+            <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-2 text-xs">
+              <div className="text-blue-300">Debug Info:</div>
               <div className="text-white/60">
-                Calculated Level: {calculatePlayerLevel(user)} | 
-                Stored Level: {user.player_level || 'undefined'} | 
-                Calculated League: {calculateLeague(user)} | 
+                Calculated Level: {calculatePlayerLevel(user)} |
+                Stored Level: {user.player_level || 'undefined'} |
+                Calculated League: {calculateLeague(user)} |
                 Stored League: {user.league || 'undefined'}
               </div>
               <div className="text-white/60">
-                Session: {notificationTracker.current.sessionId.slice(-8)} | 
-                Check Performed: {notificationCheckPerformed.current ? 'Yes' : 'No'}
+                Init State: {JSON.stringify(initState)} |
+                Notifications: {notifications.length}
+              </div>
+              <div className="text-white/60">
+                Persistent State: {JSON.stringify(getPersistentState())}
               </div>
             </div>
           )}
@@ -306,8 +360,8 @@ export default function FixedProfilePageWithNotifications() {
           />
 
           {/* Rewards System */}
-          <RewardsSystem 
-            user={user} 
+          <RewardsSystem
+            user={user}
             onRewardClaimed={handleRewardClaimed}
           />
 
