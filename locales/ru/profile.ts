@@ -7,7 +7,42 @@ export const profile = {
     reactionMode: "Реакция",
     survivalMode: "Выживание",
     physicsMode: "Физика",
-    rotationMode: "Вращение", // NEW
+    rotationMode: "Вращение",
+
+    // NEW: League and Level system
+    leagueAndLevel: "Лига и Уровень",
+    playerLevel: "Уровень игрока",
+    currentLeague: "Текущая лига",
+    qualifyingGames: "Зачетные игры",
+    levelProgress: "Прогресс уровня",
+    leagueProgress: "Прогресс лиги",
+    gamesToNextLevel: "игр до следующего уровня",
+    gamesToNextLeague: "игр до следующей лиги",
+    maxLevelReached: "МАКСИМАЛЬНЫЙ УРОВЕНЬ ДОСТИГНУТ!",
+    diamondLeagueChampion: "ЧЕМПИОН АЛМАЗНОЙ ЛИГИ!",
+
+    leagues: {
+        Bronze: "Бронзовая",
+        Silver: "Серебряная",
+        Gold: "Золотая",
+        Diamond: "Алмазная",
+    },
+
+    rewards: {
+        title: "Награды за уровень",
+        viewAll: "Посмотреть все",
+        readyToClaim: "готово к получению!",
+        nextReward: "Следующая награда:",
+        claimedRewards: "Полученные награды:",
+        levelRequirement: "Требование уровня",
+        claimed: "Получено",
+        locked: "Заблокировано",
+        claim: "Получить",
+        earnRewards: "Зарабатывайте награды каждые 20 уровней, играя в режимы Выживание, Физика и Вращение",
+        currentLevel: "Текущий уровень:",
+        available: "Доступно:",
+    },
+
     noReactionTestsYet: "Нет данных. К счастью.",
     testReflexesToSeeStats: "Сыграйте в режим на реакцию, чтобы увидеть статистику",
     noSurvivalAttemptsYet: "Нет данных. К счастью.",

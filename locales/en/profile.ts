@@ -7,7 +7,42 @@ export const profile = {
     reactionMode: "Reaction",
     survivalMode: "Survival",
     physicsMode: "Physics",
-    rotationMode: "Rotation", // NEW
+    rotationMode: "Rotation",
+
+    // NEW: League and Level system
+    leagueAndLevel: "League & Level",
+    playerLevel: "Player Level",
+    currentLeague: "Current League",
+    qualifyingGames: "Qualifying Games",
+    levelProgress: "Level Progress",
+    leagueProgress: "League Progress",
+    gamesToNextLevel: "games to next level",
+    gamesToNextLeague: "games to next league",
+    maxLevelReached: "MAX LEVEL REACHED!",
+    diamondLeagueChampion: "DIAMOND LEAGUE CHAMPION!",
+
+    leagues: {
+        Bronze: "Bronze",
+        Silver: "Silver",
+        Gold: "Gold",
+        Diamond: "Diamond",
+    },
+
+    rewards: {
+        title: "Level Rewards",
+        viewAll: "View All",
+        readyToClaim: "ready to claim!",
+        nextReward: "Next reward:",
+        claimedRewards: "Claimed rewards:",
+        levelRequirement: "Level requirement",
+        claimed: "Claimed",
+        locked: "Locked",
+        claim: "Claim",
+        earnRewards: "Earn rewards every 20 levels by playing Survival, Physics, and Rotation modes",
+        currentLevel: "Current Level:",
+        available: "Available:",
+    },
+
     noReactionTestsYet: "No data. Fortunately.",
     testReflexesToSeeStats: "Play reaction mode to see stats",
     noSurvivalAttemptsYet: "No data. Fortunately.",

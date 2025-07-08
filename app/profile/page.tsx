@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with unified header design
+// src/app/profile/page.tsx - Updated with league and level system integration
 
 "use client";
 
@@ -7,7 +7,7 @@ import { useUser } from "@/hooks/useUser";
 import { userService, type ReferralInfo } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
 
-// Import minimalist components
+// Import existing components
 import MinimalistProfileHeader from "@/components/Profile/MinimalistProfileHeader";
 import MinimalistActionButtons from "@/components/Profile/MinimalistActionButtons";
 import MinimalistDivider from "@/components/Profile/MinimalistDivider";
@@ -15,20 +15,28 @@ import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
 
+// Import new league and level components
+import LeagueLevelDisplay from "@/components/Profile/LeagueLevelDisplay";
+import RewardsSystem from "@/components/Profile/RewardsSystem";
+
 interface UserRankings {
   overall: number | null;
   reaction: number | null;
   survival: number | null;
+  physics: number | null;
+  rotation: number | null;
 }
 
-export default function MinimalistProfilePage() {
-  const { user, telegramUser, isLoading: userLoading } = useUser();
+export default function EnhancedProfilePage() {
+  const { user, telegramUser, isLoading: userLoading, refreshUser } = useUser();
   const t = useT();
 
   const [rankings, setRankings] = useState<UserRankings>({
     overall: null,
     reaction: null,
     survival: null,
+    physics: null,
+    rotation: null,
   });
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -42,10 +50,18 @@ export default function MinimalistProfilePage() {
       try {
         setIsLoadingData(true);
 
-        const [overallRank, reactionRank, survivalRank, refInfo] = await Promise.all([
+        // Initialize league system for existing users if needed
+        if (user && (user.player_level === undefined || user.league === undefined)) {
+          await userService.initializeLeagueSystem(telegramUser.id);
+          await refreshUser(); // Refresh user data after initialization
+        }
+
+        const [overallRank, reactionRank, survivalRank, physicsRank, rotationRank, refInfo] = await Promise.all([
           userService.getUserRanking(telegramUser.id),
           userService.getUserReactionRanking(telegramUser.id),
           userService.getUserSurvivalRanking(telegramUser.id),
+          userService.getUserPhysicsRanking(telegramUser.id),
+          userService.getUserRotationRanking(telegramUser.id),
           userService.getReferralInfo(telegramUser.id),
         ]);
 
@@ -53,6 +69,8 @@ export default function MinimalistProfilePage() {
           overall: overallRank,
           reaction: reactionRank,
           survival: survivalRank,
+          physics: physicsRank,
+          rotation: rotationRank,
         });
         setReferralInfo(refInfo);
       } catch (error) {
@@ -65,7 +83,7 @@ export default function MinimalistProfilePage() {
     if (telegramUser && !userLoading) {
       loadProfileData();
     }
-  }, [telegramUser, userLoading]);
+  }, [telegramUser, userLoading, user, refreshUser]);
 
   const handleOpenReferrals = () => {
     setIsReferralModalOpen(true);
@@ -73,6 +91,11 @@ export default function MinimalistProfilePage() {
 
   const handleOpenAchievements = () => {
     setIsAchievementsModalOpen(true);
+  };
+
+  const handleRewardClaimed = async () => {
+    // Refresh user data after claiming a reward
+    await refreshUser();
   };
 
   if (userLoading || isLoadingData) {
@@ -110,14 +133,23 @@ export default function MinimalistProfilePage() {
 
       <MinimalistDivider />
 
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md mx-auto space-y-6">
         {/* Profile Header - No Container */}
         <MinimalistProfileHeader user={user} />
+
+        {/* NEW: League and Level Display */}
+        <LeagueLevelDisplay user={user} />
 
         {/* Action Buttons */}
         <MinimalistActionButtons
           onOpenReferrals={handleOpenReferrals}
           onOpenAchievements={handleOpenAchievements}
+        />
+
+        {/* NEW: Rewards System */}
+        <RewardsSystem
+          user={user}
+          onRewardClaimed={handleRewardClaimed}
         />
 
         {/* Divider */}
