@@ -118,11 +118,15 @@ export default function RotatingCircleGrid({
 
         // Smooth speed interpolation for seamless level transitions
         const speedDifference = targetSpeedRef.current - currentSpeedRef.current;
-        const interpolationFactor = Math.min(deltaTime * 0.001, 1); // Adjust smoothness
+        const interpolationFactor = Math.min(deltaTime * 0.002, 1); // Smoother interpolation
         currentSpeedRef.current += speedDifference * interpolationFactor;
 
-        // Update rotation based on current speed
-        const rotationIncrement = currentSpeedRef.current * deltaTime;
+        // Convert rotation speed from radians-per-frame to radians-per-millisecond
+        // Original speed is in radians per frame (assuming 60fps = 16.67ms per frame)
+        const speedInRadPerMs = currentSpeedRef.current / 16.67;
+
+        // Update rotation based on current speed and actual delta time
+        const rotationIncrement = speedInRadPerMs * deltaTime;
         currentRotationRef.current += rotationIncrement;
 
         // Apply rotation to container
@@ -365,7 +369,7 @@ export default function RotatingCircleGrid({
                     })}
                 </div>
 
-                {/* Rotation direction indicator with increased size */}
+                {/* Rotation direction indicator with synchronized speed */}
                 <div className="absolute bottom-2 right-2">
                     <div
                         className="w-8 h-8 border-2 border-white/20 rounded-full relative"
