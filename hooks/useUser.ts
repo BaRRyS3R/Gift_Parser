@@ -1,18 +1,18 @@
-// src/hooks/useUser.tsx - Updated with rotation mode support
+// src/hooks/useUser.tsx - Updated with league system and progress notification support
 
 "use client";
 
 import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
 
-import { userService, type User, type TelegramUser, type AttemptsStatus } from "@/lib/supabase";
+import { userService, leagueService, type User, type TelegramUser, type AttemptsStatus } from "@/lib/supabase";
 import { tournamentService, type TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
 import { PhysicsGameResult } from "@/types/game-modes/physics";
-import { RotationGameResult } from "@/types/game-modes/rotation"; // NEW
+import { RotationGameResult } from "@/types/game-modes/rotation";
 import type { TournamentGameResult } from "@/types/tournaments";
 
-// Updated to include rotation mode
+// Updated to include rotation mode and league notifications
 type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult | TournamentGameResult;
 
 interface AttemptsCache {
@@ -22,13 +22,22 @@ interface AttemptsCache {
   source: 'server' | 'optimistic' | 'initial';
 }
 
+// NEW: Interface for progress notifications from game results
+export interface ProgressNotificationData {
+  type: "level_up" | "league_promotion" | "reward_available";
+  level?: number;
+  league?: string;
+  previousLeague?: string;
+  rewardName?: string;
+}
+
 interface UserContextType {
   user: User | null;
   telegramUser: TelegramUser | null;
   isLoading: boolean;
   error: string | null;
   refreshUser: () => Promise<void>;
-  saveGameResult: (gameResult: GameResult) => Promise<void>;
+  saveGameResult: (gameResult: GameResult) => Promise<ProgressNotificationData[]>; // NEW: Returns notification data
   saveTournamentResult: (tournamentId: string, gameResult: SurvivalGameResult) => Promise<TournamentSaveResponse>;
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
@@ -271,9 +280,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [telegramUser, invalidateAttemptsCache]);
 
+  // UPDATED: Enhanced saveGameResult with progress notification support
   const saveGameResult = useCallback(
-    async (gameResult: GameResult): Promise<void> => {
-      if (!telegramUser) {
+    async (gameResult: GameResult): Promise<ProgressNotificationData[]> => {
+      if (!telegramUser || !user) {
         throw new Error("Пользователь Telegram не найден");
       }
 
@@ -281,7 +291,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       if ('tournamentId' in gameResult) {
         const tournamentResult = await saveTournamentResult(gameResult.tournamentId, gameResult);
         console.log("Tournament result saved with accumulation:", tournamentResult);
-        return;
+        return []; // No league notifications for tournament games
       }
 
       console.log("Saving regular game result:", {
@@ -290,15 +300,60 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         duration: gameResult.duration,
       });
 
-      const saveOperation = async (): Promise<void> => {
-        await userService.saveGameResult(telegramUser.id, gameResult);
+      const saveOperation = async (): Promise<ProgressNotificationData[]> => {
+        // Save standard game statistics
+        await userService.updateGameStats(telegramUser.id, gameResult);
+
+        // Update league statistics and get notification data
+        const leagueUpdateResult = await leagueService.updateLeagueStats(user, gameResult);
+
+        if (!leagueUpdateResult.success) {
+          console.error("League update failed:", leagueUpdateResult.error);
+          // Continue with user refresh even if league update fails
+          await refreshUser();
+          invalidateAttemptsCache();
+          return [];
+        }
+
+        // Generate notification data
+        const notifications: ProgressNotificationData[] = [];
+
+        if (leagueUpdateResult.levelChanged && leagueUpdateResult.newLevel) {
+          notifications.push({
+            type: "level_up",
+            level: leagueUpdateResult.newLevel,
+          });
+
+          // Check for reward eligibility
+          if (leagueUpdateResult.newLevel % 20 === 0) {
+            const rewardNumber = leagueUpdateResult.newLevel / 20;
+            notifications.push({
+              type: "reward_available",
+              level: leagueUpdateResult.newLevel,
+              rewardName: `Test Gift ${rewardNumber}`,
+            });
+          }
+        }
+
+        if (leagueUpdateResult.leagueChanged && leagueUpdateResult.newLeague && leagueUpdateResult.previousLeague) {
+          notifications.push({
+            type: "league_promotion",
+            league: leagueUpdateResult.newLeague,
+            previousLeague: leagueUpdateResult.previousLeague,
+          });
+        }
+
+        // Refresh user data
         await refreshUser();
         invalidateAttemptsCache();
+
+        return notifications;
       };
 
       try {
-        await retryOperation(saveOperation, 3, 1000);
-        console.log("Game result saved successfully (with potential retries)");
+        const notifications = await retryOperation(saveOperation, 3, 1000);
+        console.log("Game result saved successfully with notifications:", notifications);
+        return notifications;
       } catch (err) {
         console.error(
           "Failed to save game result after all retry attempts:",
@@ -313,7 +368,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         throw new Error(errorMessage);
       }
     },
-    [telegramUser, refreshUser, invalidateAttemptsCache],
+    [telegramUser, user, refreshUser, invalidateAttemptsCache],
   );
 
   const saveTournamentResult = useCallback(
