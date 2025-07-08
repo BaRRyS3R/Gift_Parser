@@ -1,4 +1,4 @@
-// src/lib/leagueService.ts - Dedicated service for league and level system
+// src/lib/leagueService.ts - Updated service with notification support
 
 import { supabase } from "./supabase";
 import type { User, League, PlayerReward } from "./supabase";
@@ -8,7 +8,8 @@ import {
     calculatePlayerLevel,
     calculateLeague,
     shouldUpdateUserStats,
-    getUnclaimedRewards
+    getUnclaimedRewards,
+    LEVEL_CONSTANTS
 } from "@/utils/leagueSystem";
 
 export interface LeagueStats {
@@ -25,7 +26,18 @@ export interface LeagueUpdateResult {
     newLeague?: League;
     levelChanged: boolean;
     leagueChanged: boolean;
+    previousLevel?: number;
+    previousLeague?: League;
+    hasNewRewards: boolean;
     error?: string;
+}
+
+export interface NotificationData {
+    type: "level_up" | "league_promotion" | "reward_available";
+    level?: number;
+    league?: League;
+    previousLeague?: League;
+    rewardName?: string;
 }
 
 /**
@@ -34,7 +46,7 @@ export interface LeagueUpdateResult {
 export const leagueService = {
     /**
      * Updates user league and level statistics after game completion
-     * This method calculates and applies level/league changes based on qualifying games
+     * Now includes notification data generation for UI components
      */
     async updateLeagueStats(
         user: User,
@@ -71,7 +83,7 @@ export const leagueService = {
                 updates.league = statsCheck.newLeague;
                 updates.updated_at = new Date().toISOString();
 
-                console.log(`League system update: Level ${user.player_level} → ${statsCheck.newLevel}, League ${user.league} → ${statsCheck.newLeague}`);
+                console.log(`League system update: Level ${statsCheck.previousLevel} → ${statsCheck.newLevel}, League ${statsCheck.previousLeague} → ${statsCheck.newLeague}`);
             }
 
             // Execute database update
@@ -86,6 +98,7 @@ export const leagueService = {
                     success: false,
                     levelChanged: false,
                     leagueChanged: false,
+                    hasNewRewards: false,
                     error: error.message,
                 };
             }
@@ -96,6 +109,9 @@ export const leagueService = {
                 newLeague: statsCheck.newLeague,
                 levelChanged: statsCheck.levelChanged,
                 leagueChanged: statsCheck.leagueChanged,
+                previousLevel: statsCheck.previousLevel,
+                previousLeague: statsCheck.previousLeague,
+                hasNewRewards: statsCheck.hasNewRewards,
             };
 
         } catch (error) {
@@ -104,9 +120,49 @@ export const leagueService = {
                 success: false,
                 levelChanged: false,
                 leagueChanged: false,
+                hasNewRewards: false,
                 error: error instanceof Error ? error.message : "Unknown error",
             };
         }
+    },
+
+    /**
+     * Generate notification data based on league update results
+     */
+    generateNotifications(updateResult: LeagueUpdateResult): NotificationData[] {
+        const notifications: NotificationData[] = [];
+
+        // Level up notification
+        if (updateResult.levelChanged && updateResult.newLevel) {
+            notifications.push({
+                type: "level_up",
+                level: updateResult.newLevel,
+            });
+        }
+
+        // League promotion notification
+        if (updateResult.leagueChanged && updateResult.newLeague && updateResult.previousLeague) {
+            notifications.push({
+                type: "league_promotion",
+                league: updateResult.newLeague,
+                previousLeague: updateResult.previousLeague,
+            });
+        }
+
+        // Reward available notification
+        if (updateResult.hasNewRewards && updateResult.newLevel) {
+            // Check if the new level is a reward level (multiple of 20)
+            if (updateResult.newLevel % LEVEL_CONSTANTS.REWARD_INTERVAL === 0) {
+                const rewardNumber = updateResult.newLevel / LEVEL_CONSTANTS.REWARD_INTERVAL;
+                notifications.push({
+                    type: "reward_available",
+                    level: updateResult.newLevel,
+                    rewardName: `Test Gift ${rewardNumber}`,
+                });
+            }
+        }
+
+        return notifications;
     },
 
     /**
@@ -126,7 +182,7 @@ export const leagueService = {
                 return { success: false, error: "User not found" };
             }
 
-            // Validate reward eligibility
+            // Validate reward eligibility using updated logic
             const unclaimedRewards = getUnclaimedRewards(user);
             const rewardToClaim = unclaimedRewards.find(r => r.id === rewardId);
 

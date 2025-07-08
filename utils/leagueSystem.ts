@@ -1,21 +1,21 @@
-// src/utils/leagueSystem.ts - League and Level System utilities
+// src/utils/leagueSystem.ts - Fixed league system utilities with reduced requirements
 
 import type { League, User, PlayerReward } from "@/lib/supabase";
 
-// Constants for level calculation
+// Constants for level calculation - UPDATED: Reduced games per level
 export const LEVEL_CONSTANTS = {
-    GAMES_PER_LEVEL: 100,
+    GAMES_PER_LEVEL: 10, // CHANGED: From 100 to 10 games per level
     MAX_LEVEL: 100,
     MIN_LEVEL: 1,
     REWARD_INTERVAL: 20, // Every 20 levels
 } as const;
 
-// Constants for league calculation
+// Constants for league calculation - UPDATED: Adjusted for new level progression
 export const LEAGUE_REQUIREMENTS = {
     Bronze: 0,    // Default league
-    Silver: 50,   // 50+ total games across qualifying modes
-    Gold: 200,    // 200+ total games across qualifying modes  
-    Diamond: 500, // 500+ total games across qualifying modes
+    Silver: 5,    // CHANGED: 5+ total games (was 50)
+    Gold: 20,     // CHANGED: 20+ total games (was 200)  
+    Diamond: 50,  // CHANGED: 50+ total games (was 500)
 } as const;
 
 /**
@@ -94,12 +94,15 @@ export function getLeagueProgress(user: User): { progress: number; nextLeague: L
 }
 
 /**
- * Get available rewards for player level
+ * Get available rewards for player level - FIXED: Use calculated level
  */
-export function getAvailableRewards(playerLevel: number): PlayerReward[] {
+export function getAvailableRewards(user: User): PlayerReward[] {
     const rewards: PlayerReward[] = [];
 
-    for (let level = LEVEL_CONSTANTS.REWARD_INTERVAL; level <= playerLevel; level += LEVEL_CONSTANTS.REWARD_INTERVAL) {
+    // Use the calculated level, not the stored level
+    const currentLevel = calculatePlayerLevel(user);
+
+    for (let level = LEVEL_CONSTANTS.REWARD_INTERVAL; level <= currentLevel; level += LEVEL_CONSTANTS.REWARD_INTERVAL) {
         const rewardNumber = level / LEVEL_CONSTANTS.REWARD_INTERVAL;
         rewards.push({
             id: `test_gift_${rewardNumber}`,
@@ -113,13 +116,49 @@ export function getAvailableRewards(playerLevel: number): PlayerReward[] {
 }
 
 /**
- * Get unclaimed rewards
+ * Get unclaimed rewards - FIXED: Use user object instead of just level
  */
 export function getUnclaimedRewards(user: User): PlayerReward[] {
-    const availableRewards = getAvailableRewards(user.player_level);
+    const availableRewards = getAvailableRewards(user);
     const claimedRewardIds = user.rewards_claimed || [];
 
     return availableRewards.filter(reward => !claimedRewardIds.includes(reward.id));
+}
+
+/**
+ * Check if specific reward is available for user - NEW: Direct check function
+ */
+export function isRewardAvailable(user: User, rewardLevel: number): boolean {
+    const currentLevel = calculatePlayerLevel(user);
+    return currentLevel >= rewardLevel;
+}
+
+/**
+ * Get all possible rewards (for display purposes) - FIXED: Return all rewards with availability status
+ */
+export function getAllRewardsWithStatus(user: User): Array<PlayerReward & {
+    isAvailable: boolean;
+    isClaimed: boolean
+}> {
+    const allRewards: Array<PlayerReward & { isAvailable: boolean; isClaimed: boolean }> = [];
+    const currentLevel = calculatePlayerLevel(user);
+    const claimedRewardIds = user.rewards_claimed || [];
+
+    for (let level = LEVEL_CONSTANTS.REWARD_INTERVAL; level <= 100; level += LEVEL_CONSTANTS.REWARD_INTERVAL) {
+        const rewardNumber = level / LEVEL_CONSTANTS.REWARD_INTERVAL;
+        const rewardId = `test_gift_${rewardNumber}`;
+
+        allRewards.push({
+            id: rewardId,
+            level: level,
+            name: `Test Gift ${rewardNumber}`,
+            description: `Reward for reaching level ${level}`,
+            isAvailable: currentLevel >= level,
+            isClaimed: claimedRewardIds.includes(rewardId),
+        });
+    }
+
+    return allRewards;
 }
 
 /**
@@ -179,21 +218,54 @@ export function getLeagueIcon(league: League): string {
 }
 
 /**
- * Check if user should be promoted
+ * Check if user should be promoted - ENHANCED: Include detailed change information
  */
 export function shouldUpdateUserStats(user: User): {
     levelChanged: boolean;
     leagueChanged: boolean;
     newLevel: number;
     newLeague: League;
+    previousLevel: number;
+    previousLeague: League;
+    hasNewRewards: boolean;
 } {
     const newLevel = calculatePlayerLevel(user);
     const newLeague = calculateLeague(user);
+    const previousLevel = user.player_level || 1;
+    const previousLeague = user.league || "Bronze";
+
+    // Check if any new rewards are available
+    const hasNewRewards = newLevel >= LEVEL_CONSTANTS.REWARD_INTERVAL &&
+        (newLevel - previousLevel) >= LEVEL_CONSTANTS.REWARD_INTERVAL;
 
     return {
-        levelChanged: newLevel !== user.player_level,
-        leagueChanged: newLeague !== user.league,
+        levelChanged: newLevel !== previousLevel,
+        leagueChanged: newLeague !== previousLeague,
         newLevel,
         newLeague,
+        previousLevel,
+        previousLeague,
+        hasNewRewards,
     };
+}
+
+/**
+ * Get next reward level for user - NEW: Helper for reward progression
+ */
+export function getNextRewardLevel(user: User): number | null {
+    const currentLevel = calculatePlayerLevel(user);
+    const nextRewardLevel = Math.ceil((currentLevel + 1) / LEVEL_CONSTANTS.REWARD_INTERVAL) * LEVEL_CONSTANTS.REWARD_INTERVAL;
+
+    return nextRewardLevel <= 100 ? nextRewardLevel : null;
+}
+
+/**
+ * Calculate levels until next reward - NEW: Helper for reward progression display
+ */
+export function getLevelsToNextReward(user: User): number {
+    const nextRewardLevel = getNextRewardLevel(user);
+    if (!nextRewardLevel) return 0;
+
+    const currentLevel = calculatePlayerLevel(user);
+    return Math.max(0, nextRewardLevel - currentLevel);
 }

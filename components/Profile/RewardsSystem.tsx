@@ -1,4 +1,4 @@
-// src/components/Profile/RewardsSystem.tsx - Rewards System Component
+// src/components/Profile/RewardsSystem.tsx - Fixed Rewards System Component
 
 "use client";
 
@@ -16,8 +16,11 @@ import {
 
 import type { User, PlayerReward } from "@/lib/supabase";
 import {
-    getAvailableRewards,
+    calculatePlayerLevel,
+    getAllRewardsWithStatus,
     getUnclaimedRewards,
+    getNextRewardLevel,
+    getLevelsToNextReward,
     LEVEL_CONSTANTS
 } from "@/utils/leagueSystem";
 import { userService } from "@/lib/supabase";
@@ -34,8 +37,12 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ user, onRewardClaimed }) 
     const [claimingRewardId, setClaimingRewardId] = useState<string | null>(null);
     const [claimedRewards, setClaimedRewards] = useState<string[]>(user.rewards_claimed || []);
 
-    const availableRewards = getAvailableRewards(user.player_level);
+    // Use calculated level and fixed reward logic
+    const currentLevel = calculatePlayerLevel(user);
     const unclaimedRewards = getUnclaimedRewards(user);
+    const allRewardsWithStatus = getAllRewardsWithStatus(user);
+    const nextRewardLevel = getNextRewardLevel(user);
+    const levelsToNextReward = getLevelsToNextReward(user);
 
     const handleClaimReward = async (rewardId: string) => {
         try {
@@ -58,51 +65,25 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ user, onRewardClaimed }) 
         }
     };
 
-    const isRewardClaimed = (rewardId: string) => {
-        return claimedRewards.includes(rewardId);
-    };
-
-    const isRewardAvailable = (rewardLevel: number) => {
-        return user.player_level >= rewardLevel;
-    };
-
-    const getRewardIcon = (reward: PlayerReward, isClaimed: boolean, isAvailable: boolean) => {
-        if (isClaimed) {
+    const getRewardIcon = (reward: PlayerReward & { isAvailable: boolean; isClaimed: boolean }) => {
+        if (reward.isClaimed) {
             return <Check className="text-green-400" size={20} />;
         }
-        if (isAvailable) {
+        if (reward.isAvailable) {
             return <Gift className="text-yellow-400" size={20} />;
         }
         return <Lock className="text-white/40" size={20} />;
     };
 
-    const getRewardCardStyles = (reward: PlayerReward, isClaimed: boolean, isAvailable: boolean) => {
-        if (isClaimed) {
+    const getRewardCardStyles = (reward: PlayerReward & { isAvailable: boolean; isClaimed: boolean }) => {
+        if (reward.isClaimed) {
             return "bg-green-500/10 border-green-400/30";
         }
-        if (isAvailable) {
+        if (reward.isAvailable) {
             return "bg-yellow-500/10 border-yellow-400/30 hover:bg-yellow-500/20";
         }
         return "bg-white/5 border-white/10";
     };
-
-    const getAllPossibleRewards = () => {
-        const rewards: PlayerReward[] = [];
-
-        for (let level = LEVEL_CONSTANTS.REWARD_INTERVAL; level <= 100; level += LEVEL_CONSTANTS.REWARD_INTERVAL) {
-            const rewardNumber = level / LEVEL_CONSTANTS.REWARD_INTERVAL;
-            rewards.push({
-                id: `test_gift_${rewardNumber}`,
-                level: level,
-                name: `Test Gift ${rewardNumber}`,
-                description: `Reward for reaching level ${level}`,
-            });
-        }
-
-        return rewards;
-    };
-
-    const allRewards = getAllPossibleRewards();
 
     return (
         <>
@@ -112,7 +93,7 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ user, onRewardClaimed }) 
                     <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-bold text-white flex items-center space-x-2">
                             <Gift className="text-white/80" size={14} />
-                            <span>Level Rewards</span>
+                            <span>{t("profile.rewards.title")}</span>
                         </h4>
 
                         <Button
@@ -121,45 +102,42 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ user, onRewardClaimed }) 
                             className="text-white/80 hover:text-white"
                             onPress={() => setIsModalOpen(true)}
                         >
-                            View All
+                            {t("profile.rewards.viewAll")}
                         </Button>
                     </div>
 
                     <div className="space-y-2">
+                        {/* Debug Information */}
+                        <div className="text-xs text-white/40 mb-2">
+                            Debug: Level {currentLevel} | Available: {unclaimedRewards.length} | Claimed: {claimedRewards.length}
+                        </div>
+
                         {/* Unclaimed Rewards Count */}
                         {unclaimedRewards.length > 0 && (
                             <div className="flex items-center space-x-2 p-2 bg-yellow-500/10 border border-yellow-400/30 rounded-lg">
                                 <Sparkles className="text-yellow-400" size={16} />
                                 <span className="text-yellow-300 text-sm font-bold">
-                                    {unclaimedRewards.length} reward{unclaimedRewards.length > 1 ? 's' : ''} ready to claim!
+                                    {unclaimedRewards.length} {t("profile.rewards.readyToClaim")}
                                 </span>
                             </div>
                         )}
 
                         {/* Next Reward Preview */}
-                        {(() => {
-                            const nextRewardLevel = Math.ceil((user.player_level + 1) / LEVEL_CONSTANTS.REWARD_INTERVAL) * LEVEL_CONSTANTS.REWARD_INTERVAL;
-                            if (nextRewardLevel <= 100) {
-                                const levelsToNext = nextRewardLevel - user.player_level;
-                                const rewardNumber = nextRewardLevel / LEVEL_CONSTANTS.REWARD_INTERVAL;
-
-                                return (
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-white/60">Next reward:</span>
-                                        <span className="text-white">
-                                            Test Gift {rewardNumber} (Level {nextRewardLevel} - {levelsToNext} levels away)
-                                        </span>
-                                    </div>
-                                );
-                            }
-                            return null;
-                        })()}
+                        {nextRewardLevel && levelsToNextReward > 0 && (
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-white/60">{t("profile.rewards.nextReward")}</span>
+                                <span className="text-white">
+                                    Test Gift {nextRewardLevel / LEVEL_CONSTANTS.REWARD_INTERVAL}
+                                    ({t("profile.level")} {nextRewardLevel} - {levelsToNextReward} {t("profile.levelsAway")})
+                                </span>
+                            </div>
+                        )}
 
                         {/* Progress */}
                         <div className="flex items-center justify-between text-sm">
-                            <span className="text-white/60">Claimed rewards:</span>
+                            <span className="text-white/60">{t("profile.rewards.claimedRewards")}</span>
                             <span className="text-white">
-                                {claimedRewards.length} / {allRewards.length}
+                                {claimedRewards.length} / {allRewardsWithStatus.length}
                             </span>
                         </div>
                     </div>
@@ -188,8 +166,8 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ user, onRewardClaimed }) 
                                 <Trophy className="text-white" size={20} />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-white">Level Rewards</h2>
-                                <p className="text-white/60 text-sm">Claim rewards as you level up</p>
+                                <h2 className="text-lg font-bold text-white">{t("profile.rewards.title")}</h2>
+                                <p className="text-white/60 text-sm">{t("profile.rewards.claimDescription")}</p>
                             </div>
                         </div>
                         <button
@@ -202,41 +180,39 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ user, onRewardClaimed }) 
 
                     <ModalBody className="px-4 pb-4">
                         <div className="space-y-3">
-                            {allRewards.map((reward) => {
-                                const isClaimed = isRewardClaimed(reward.id);
-                                const isAvailable = isRewardAvailable(reward.level);
-                                const canClaim = isAvailable && !isClaimed;
+                            {allRewardsWithStatus.map((reward) => {
+                                const canClaim = reward.isAvailable && !reward.isClaimed;
 
                                 return (
                                     <Card
                                         key={reward.id}
-                                        className={`transition-all duration-200 ${getRewardCardStyles(reward, isClaimed, isAvailable)}`}
+                                        className={`transition-all duration-200 ${getRewardCardStyles(reward)}`}
                                     >
                                         <CardBody className="p-4">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center space-x-3">
                                                     <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
-                                                        {getRewardIcon(reward, isClaimed, isAvailable)}
+                                                        {getRewardIcon(reward)}
                                                     </div>
 
                                                     <div>
-                                                        <h3 className={`font-bold text-sm ${isAvailable ? 'text-white' : 'text-white/50'}`}>
+                                                        <h3 className={`font-bold text-sm ${reward.isAvailable ? 'text-white' : 'text-white/50'}`}>
                                                             {reward.name}
                                                         </h3>
-                                                        <p className={`text-xs ${isAvailable ? 'text-white/70' : 'text-white/40'}`}>
+                                                        <p className={`text-xs ${reward.isAvailable ? 'text-white/70' : 'text-white/40'}`}>
                                                             {reward.description}
                                                         </p>
-                                                        <div className={`text-xs mt-1 ${isAvailable ? 'text-white/60' : 'text-white/40'}`}>
-                                                            Level {reward.level} requirement
+                                                        <div className={`text-xs mt-1 ${reward.isAvailable ? 'text-white/60' : 'text-white/40'}`}>
+                                                            {t("profile.rewards.levelRequirement")} {reward.level}
                                                         </div>
                                                     </div>
                                                 </div>
 
                                                 <div className="flex flex-col items-end space-y-2">
-                                                    {isClaimed && (
+                                                    {reward.isClaimed && (
                                                         <div className="flex items-center space-x-1 text-green-400 text-xs">
                                                             <Check size={12} />
-                                                            <span>Claimed</span>
+                                                            <span>{t("profile.rewards.claimed")}</span>
                                                         </div>
                                                     )}
 
@@ -247,14 +223,14 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ user, onRewardClaimed }) 
                                                             isLoading={claimingRewardId === reward.id}
                                                             onPress={() => handleClaimReward(reward.id)}
                                                         >
-                                                            Claim
+                                                            {t("profile.rewards.claim")}
                                                         </Button>
                                                     )}
 
-                                                    {!isAvailable && (
+                                                    {!reward.isAvailable && (
                                                         <div className="flex items-center space-x-1 text-white/40 text-xs">
                                                             <Lock size={12} />
-                                                            <span>Locked</span>
+                                                            <span>{t("profile.rewards.locked")}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -269,12 +245,12 @@ const RewardsSystem: React.FC<RewardsSystemProps> = ({ user, onRewardClaimed }) 
                         <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
                             <div className="text-center space-y-2">
                                 <div className="text-sm text-white/80">
-                                    Earn rewards every {LEVEL_CONSTANTS.REWARD_INTERVAL} levels by playing Survival, Physics, and Rotation modes
+                                    {t("profile.rewards.earnRewards")}
                                 </div>
                                 <div className="text-xs text-white/60">
-                                    Current Level: {user.player_level} |
-                                    Claimed: {claimedRewards.length}/{allRewards.length} |
-                                    Available: {unclaimedRewards.length}
+                                    {t("profile.rewards.currentLevel")} {currentLevel} |
+                                    {t("profile.rewards.claimed")} {claimedRewards.length}/{allRewardsWithStatus.length} |
+                                    {t("profile.rewards.available")} {unclaimedRewards.length}
                                 </div>
                             </div>
                         </div>

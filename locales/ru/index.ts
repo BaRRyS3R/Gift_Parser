@@ -15,6 +15,7 @@ import { save } from './save';
 import { errors } from './errors';
 import { time } from './time';
 import { about } from './about';
+import { notifications } from './notifications';
 
 export const ru = {
     // Common UI elements
@@ -61,4 +62,8 @@ export const ru = {
 
     // About modal
     about,
+
+    // Notifications
+
+    notifications,
 } as const;

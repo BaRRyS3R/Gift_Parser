@@ -1,10 +1,10 @@
-// src/app/profile/page.tsx - Updated with league and level system integration
+// src/app/profile/page.tsx - Final integration with league system, notifications, and compact display
 
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
-import { userService, type ReferralInfo } from "@/lib/supabase";
+import { userService, leagueService, type ReferralInfo } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
 
 // Import existing components
@@ -15,9 +15,10 @@ import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
 
-// Import new league and level components
-import LeagueLevelDisplay from "@/components/Profile/LeagueLevelDisplay";
+// Import new league system components
+import CompactLeagueDisplay from "@/components/Profile/CompactLeagueDisplay";
 import RewardsSystem from "@/components/Profile/RewardsSystem";
+import ProgressNotifications, { useProgressNotifications } from "@/components/Notifications/ProgressNotifications";
 
 interface UserRankings {
   overall: number | null;
@@ -27,9 +28,18 @@ interface UserRankings {
   rotation: number | null;
 }
 
-export default function EnhancedProfilePage() {
+export default function EnhancedProfilePageWithNotifications() {
   const { user, telegramUser, isLoading: userLoading, refreshUser } = useUser();
   const t = useT();
+
+  // Progress notifications hook
+  const {
+    notifications,
+    dismissNotification,
+    showLevelUp,
+    showLeaguePromotion,
+    showRewardAvailable,
+  } = useProgressNotifications();
 
   const [rankings, setRankings] = useState<UserRankings>({
     overall: null,
@@ -42,6 +52,43 @@ export default function EnhancedProfilePage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
+
+  // Check for league/level changes and trigger notifications
+  useEffect(() => {
+    const checkForProgressUpdates = async () => {
+      if (!user || !telegramUser) return;
+
+      try {
+        // Get current calculated stats
+        const userWithStats = await leagueService.getUserWithLeagueStats(telegramUser.id);
+
+        if (userWithStats) {
+          // Check for level changes
+          if (userWithStats.levelChanged && userWithStats.calculatedLevel > (user.player_level || 1)) {
+            showLevelUp(userWithStats.calculatedLevel);
+
+            // Check if new level qualifies for a reward
+            if (userWithStats.calculatedLevel % 20 === 0) {
+              const rewardNumber = userWithStats.calculatedLevel / 20;
+              showRewardAvailable(`Test Gift ${rewardNumber}`, userWithStats.calculatedLevel);
+            }
+          }
+
+          // Check for league changes
+          if (userWithStats.leagueChanged && userWithStats.calculatedLeague !== (user.league || "Bronze")) {
+            showLeaguePromotion(userWithStats.calculatedLeague, user.league || "Bronze");
+          }
+        }
+      } catch (error) {
+        console.error("Error checking for progress updates:", error);
+      }
+    };
+
+    // Only check for updates if user data is available
+    if (user && telegramUser && !userLoading && !isLoadingData) {
+      checkForProgressUpdates();
+    }
+  }, [user, telegramUser, userLoading, isLoadingData, showLevelUp, showLeaguePromotion, showRewardAvailable]);
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -123,60 +170,68 @@ export default function EnhancedProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-      {/* Header - Unified with Game Page */}
-      <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-          {t("profile.title")}
-        </h1>
-      </div>
+    <>
+      {/* Progress Notifications */}
+      <ProgressNotifications
+        notifications={notifications}
+        onDismiss={dismissNotification}
+      />
 
-      <MinimalistDivider />
+      <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
+        {/* Header - Unified with Game Page */}
+        <div className="text-center">
+          <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+            {t("profile.title")}
+          </h1>
+        </div>
 
-      <div className="max-w-md mx-auto space-y-6">
-        {/* Profile Header - No Container */}
-        <MinimalistProfileHeader user={user} />
-
-        {/* NEW: League and Level Display */}
-        <LeagueLevelDisplay user={user} />
-
-        {/* Action Buttons */}
-        <MinimalistActionButtons
-          onOpenReferrals={handleOpenReferrals}
-          onOpenAchievements={handleOpenAchievements}
-        />
-
-        {/* NEW: Rewards System */}
-        <RewardsSystem
-          user={user}
-          onRewardClaimed={handleRewardClaimed}
-        />
-
-        {/* Divider */}
         <MinimalistDivider />
 
-        {/* Game Statistics */}
-        <MinimalistGameStats user={user} />
+        <div className="max-w-md mx-auto space-y-4">
+          {/* Profile Header */}
+          <MinimalistProfileHeader user={user} />
 
-        {/* Bottom spacing for safe area */}
-        <div className="h-20" />
-      </div>
+          {/* NEW: Compact League and Level Display */}
+          <CompactLeagueDisplay user={user} />
 
-      {/* Modals */}
-      {referralInfo && (
-        <ReferralModal
-          isOpen={isReferralModalOpen}
-          onClose={() => setIsReferralModalOpen(false)}
-          referralInfo={referralInfo}
+          {/* Action Buttons */}
+          <MinimalistActionButtons
+            onOpenReferrals={handleOpenReferrals}
+            onOpenAchievements={handleOpenAchievements}
+          />
+
+          {/* NEW: Rewards System */}
+          <RewardsSystem
+            user={user}
+            onRewardClaimed={handleRewardClaimed}
+          />
+
+          {/* Divider */}
+          <MinimalistDivider />
+
+          {/* Game Statistics */}
+          <MinimalistGameStats user={user} />
+
+          {/* Bottom spacing for safe area */}
+          <div className="h-20" />
+        </div>
+
+        {/* Modals */}
+        {referralInfo && (
+          <ReferralModal
+            isOpen={isReferralModalOpen}
+            onClose={() => setIsReferralModalOpen(false)}
+            referralInfo={referralInfo}
+          />
+        )}
+
+        <AchievementsModal
+          isOpen={isAchievementsModalOpen}
+          onClose={() => setIsAchievementsModalOpen(false)}
+          user={user}
+          rankings={rankings}
         />
-      )}
-
-      <AchievementsModal
-        isOpen={isAchievementsModalOpen}
-        onClose={() => setIsAchievementsModalOpen(false)}
-        user={user}
-        rankings={rankings}
-      />
-    </div>
+      </div>
+    </>
   );
 }
