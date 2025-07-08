@@ -119,7 +119,7 @@ export default function LeaderboardPage() {
     position: number,
   ) => {
     const getRatingFromTime = (time: number): string => {
-      if (time <= 150) return "LIGHTNING";
+      if (time <= 100) return "LIGHTNING";
       if (time <= 200) return "EXCELLENT";
       if (time <= 300) return "GOOD";
       if (time <= 500) return "AVERAGE";
@@ -611,7 +611,9 @@ export default function LeaderboardPage() {
                     {tab === "survival" && <Crosshair size={12} />}
                     {tab === "physics" && <Atom size={12} />}
                     {tab === "rotation" && <RotateCw size={12} />} {/* NEW */}
-                    <span>{getTabLabel(tab)}</span>
+
+                    {/*<span>{getTabLabel(tab)}</span> REMOVE TAB NAMES, ONLY ICON*/} 
+
                   </div>
                 </button>
               ))}
