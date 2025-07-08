@@ -13,9 +13,9 @@ export const LEVEL_CONSTANTS = {
 // Constants for league calculation - UPDATED: Adjusted for new level progression
 export const LEAGUE_REQUIREMENTS = {
     Bronze: 0,    // Default league
-    Silver: 5,    // CHANGED: 5+ total games (was 50)
-    Gold: 20,     // CHANGED: 20+ total games (was 200)  
-    Diamond: 50,  // CHANGED: 50+ total games (was 500)
+    Silver: 12,    // CHANGED: 5+ total games (was 50)
+    Gold: 40,     // CHANGED: 20+ total games (was 200)  
+    Diamond: 100,  // CHANGED: 50+ total games (was 500)
 } as const;
 
 /**

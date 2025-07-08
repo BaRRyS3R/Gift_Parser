@@ -1,8 +1,8 @@
-// src/components/Notifications/ProgressNotifications.tsx - Player progress notifications
+// src/components/Notifications/ProgressNotifications.tsx - Fixed TypeScript iteration error
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Trophy,
@@ -29,6 +29,8 @@ export interface ProgressNotification {
     previousLeague?: League;
     rewardName?: string;
     duration?: number; // Auto dismiss duration in ms (default 5000)
+    timestamp: number; // Added for deduplication
+    fingerprint: string; // Added for deduplication
 }
 
 interface ProgressNotificationsProps {
@@ -36,32 +38,90 @@ interface ProgressNotificationsProps {
     onDismiss: (notificationId: string) => void;
 }
 
+// Configuration constants
+const NOTIFICATION_CONFIG = {
+    MAX_CONCURRENT: 3, // Maximum notifications shown at once
+    AUTO_DISMISS_DURATION: 5000, // Default auto-dismiss time
+    DEDUPLICATION_WINDOW: 10000, // 10 seconds window for deduplication
+    STAGGER_DELAY: 300, // Delay between showing multiple notifications
+} as const;
+
 const ProgressNotifications: React.FC<ProgressNotificationsProps> = ({
     notifications,
     onDismiss
 }) => {
     const t = useT();
     const [visibleNotifications, setVisibleNotifications] = useState<ProgressNotification[]>([]);
+    const [notificationQueue, setNotificationQueue] = useState<ProgressNotification[]>([]);
 
+    // Track shown notifications to prevent immediate duplicates
+    const shownNotificationsRef = useRef<Set<string>>(new Set());
+
+    // Process notification queue with rate limiting
     useEffect(() => {
-        // Process new notifications
-        notifications.forEach(notification => {
-            if (!visibleNotifications.find(n => n.id === notification.id)) {
-                setVisibleNotifications(prev => [...prev, notification]);
+        const processQueue = () => {
+            setNotificationQueue(queue => {
+                if (queue.length === 0 || visibleNotifications.length >= NOTIFICATION_CONFIG.MAX_CONCURRENT) {
+                    return queue;
+                }
 
-                // Auto dismiss after specified duration or default 5 seconds
-                const duration = notification.duration || 5000;
-                setTimeout(() => {
-                    handleDismiss(notification.id);
-                }, duration);
-            }
+                const nextNotification = queue[0];
+                const remainingQueue = queue.slice(1);
+
+                // Check if we haven't shown this notification recently
+                if (!shownNotificationsRef.current.has(nextNotification.fingerprint)) {
+                    setVisibleNotifications(prev => [...prev, nextNotification]);
+                    shownNotificationsRef.current.add(nextNotification.fingerprint);
+
+                    // Schedule auto-dismiss
+                    const duration = nextNotification.duration || NOTIFICATION_CONFIG.AUTO_DISMISS_DURATION;
+                    setTimeout(() => {
+                        handleDismiss(nextNotification.id);
+                    }, duration);
+                }
+
+                return remainingQueue;
+            });
+        };
+
+        const timeoutId = setTimeout(processQueue, NOTIFICATION_CONFIG.STAGGER_DELAY);
+        return () => clearTimeout(timeoutId);
+    }, [visibleNotifications.length, notificationQueue.length]);
+
+    // Process new notifications with deduplication
+    useEffect(() => {
+        const newNotifications = notifications.filter(notification => {
+            const isAlreadyVisible = visibleNotifications.some(v => v.id === notification.id);
+            const isAlreadyQueued = notificationQueue.some(q => q.id === notification.id);
+            const isRecentlyShown = shownNotificationsRef.current.has(notification.fingerprint);
+
+            return !isAlreadyVisible && !isAlreadyQueued && !isRecentlyShown;
         });
-    }, [notifications, visibleNotifications]);
 
-    const handleDismiss = (notificationId: string) => {
+        if (newNotifications.length > 0) {
+            setNotificationQueue(prev => [...prev, ...newNotifications]);
+        }
+    }, [notifications, visibleNotifications, notificationQueue]);
+
+    // Clean up old fingerprints periodically
+    useEffect(() => {
+        const cleanup = () => {
+            const cutoff = Date.now() - NOTIFICATION_CONFIG.DEDUPLICATION_WINDOW;
+            // Note: In a real implementation, you'd want to track timestamps per fingerprint
+            // For now, we clear all after the window to prevent memory leaks
+            if (shownNotificationsRef.current.size > 50) { // Arbitrary limit
+                shownNotificationsRef.current.clear();
+            }
+        };
+
+        const intervalId = setInterval(cleanup, NOTIFICATION_CONFIG.DEDUPLICATION_WINDOW);
+        return () => clearInterval(intervalId);
+    }, []);
+
+    const handleDismiss = useCallback((notificationId: string) => {
         setVisibleNotifications(prev => prev.filter(n => n.id !== notificationId));
         onDismiss(notificationId);
-    };
+    }, [onDismiss]);
 
     const getNotificationIcon = (notification: ProgressNotification) => {
         switch (notification.type) {
@@ -132,29 +192,42 @@ const ProgressNotifications: React.FC<ProgressNotificationsProps> = ({
 
     return (
         <div className="fixed top-20 right-4 z-50 space-y-3 max-w-sm">
-            <AnimatePresence>
-                {visibleNotifications.map((notification) => {
+            <AnimatePresence mode="popLayout">
+                {visibleNotifications.slice(0, NOTIFICATION_CONFIG.MAX_CONCURRENT).map((notification, index) => {
                     const colors = getNotificationColors(notification);
 
                     return (
                         <motion.div
                             key={notification.id}
+                            layout
                             initial={{ opacity: 0, x: 300, scale: 0.8 }}
-                            animate={{ opacity: 1, x: 0, scale: 1 }}
-                            exit={{ opacity: 0, x: 300, scale: 0.8 }}
+                            animate={{
+                                opacity: 1,
+                                x: 0,
+                                scale: 1,
+                                y: index * 80 // Stack notifications with offset
+                            }}
+                            exit={{
+                                opacity: 0,
+                                x: 300,
+                                scale: 0.8,
+                                transition: { duration: 0.3 }
+                            }}
                             transition={{
                                 type: "spring",
                                 stiffness: 300,
                                 damping: 30,
-                                exit: { duration: 0.3 }
+                                layout: { duration: 0.3 }
                             }}
                             className={`
                 relative overflow-hidden rounded-xl p-4 backdrop-blur-xl
                 ${colors.background} border ${colors.border}
                 shadow-2xl ${colors.glow}
                 cursor-pointer group
+                max-w-xs
               `}
                             onClick={() => handleDismiss(notification.id)}
+                            style={{ zIndex: 50 - index }} // Higher z-index for newer notifications
                         >
                             {/* Animated background shimmer */}
                             <div className="absolute inset-0 opacity-30">
@@ -243,7 +316,7 @@ const ProgressNotifications: React.FC<ProgressNotificationsProps> = ({
                                 initial={{ width: "100%" }}
                                 animate={{ width: "0%" }}
                                 transition={{
-                                    duration: (notification.duration || 5000) / 1000,
+                                    duration: (notification.duration || NOTIFICATION_CONFIG.AUTO_DISMISS_DURATION) / 1000,
                                     ease: "linear"
                                 }}
                             />
@@ -251,31 +324,81 @@ const ProgressNotifications: React.FC<ProgressNotificationsProps> = ({
                     );
                 })}
             </AnimatePresence>
+
+            {/* Queue indicator */}
+            {notificationQueue.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-center"
+                >
+                    <div className="bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-3 py-1">
+                        <span className="text-white/60 text-xs">
+                            +{notificationQueue.length} more
+                        </span>
+                    </div>
+                </motion.div>
+            )}
         </div>
     );
 };
 
 export default ProgressNotifications;
 
-// Hook for managing progress notifications
+// Enhanced hook for managing progress notifications with deduplication
 export function useProgressNotifications() {
     const [notifications, setNotifications] = useState<ProgressNotification[]>([]);
 
-    const addNotification = (notification: Omit<ProgressNotification, "id">) => {
-        const id = `notification_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        setNotifications(prev => [...prev, { ...notification, id }]);
+    // Track recent notifications to prevent duplicates
+    const recentNotificationsRef = useRef<Map<string, number>>(new Map());
+
+    const generateFingerprint = (type: string, level?: number, league?: string, rewardName?: string): string => {
+        return `${type}_${level || ''}_${league || ''}_${rewardName || ''}`;
     };
 
-    const dismissNotification = (notificationId: string) => {
+    const addNotification = useCallback((notification: Omit<ProgressNotification, "id" | "timestamp" | "fingerprint">) => {
+        const fingerprint = generateFingerprint(notification.type, notification.level, notification.league, notification.rewardName);
+        const now = Date.now();
+
+        // Check if we've shown this notification recently
+        const lastShown = recentNotificationsRef.current.get(fingerprint);
+        if (lastShown && (now - lastShown) < NOTIFICATION_CONFIG.DEDUPLICATION_WINDOW) {
+            console.log(`Duplicate notification prevented: ${fingerprint}`);
+            return;
+        }
+
+        const id = `notification_${now}_${Math.random().toString(36).substr(2, 9)}`;
+        const newNotification: ProgressNotification = {
+            ...notification,
+            id,
+            timestamp: now,
+            fingerprint,
+        };
+
+        setNotifications(prev => [...prev, newNotification]);
+        recentNotificationsRef.current.set(fingerprint, now);
+
+        // Clean up old entries periodically - FIXED: Using forEach instead of entries() iteration
+        if (recentNotificationsRef.current.size > 100) {
+            const cutoff = now - NOTIFICATION_CONFIG.DEDUPLICATION_WINDOW;
+            recentNotificationsRef.current.forEach((timestamp, key) => {
+                if (timestamp < cutoff) {
+                    recentNotificationsRef.current.delete(key);
+                }
+            });
+        }
+    }, []);
+
+    const dismissNotification = useCallback((notificationId: string) => {
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    };
+    }, []);
 
-    const clearAllNotifications = () => {
+    const clearAllNotifications = useCallback(() => {
         setNotifications([]);
-    };
+    }, []);
 
-    // Helper methods for common notifications
-    const showLevelUp = (newLevel: number) => {
+    // Helper methods for common notifications with built-in deduplication
+    const showLevelUp = useCallback((newLevel: number) => {
         addNotification({
             type: "level_up",
             title: "Level Up!",
@@ -283,9 +406,9 @@ export function useProgressNotifications() {
             level: newLevel,
             duration: 6000,
         });
-    };
+    }, [addNotification]);
 
-    const showLeaguePromotion = (newLeague: League, previousLeague: League) => {
+    const showLeaguePromotion = useCallback((newLeague: League, previousLeague: League) => {
         addNotification({
             type: "league_promotion",
             title: "League Promotion!",
@@ -294,9 +417,9 @@ export function useProgressNotifications() {
             previousLeague: previousLeague,
             duration: 7000,
         });
-    };
+    }, [addNotification]);
 
-    const showRewardAvailable = (rewardName: string, level: number) => {
+    const showRewardAvailable = useCallback((rewardName: string, level: number) => {
         addNotification({
             type: "reward_available",
             title: "New Reward Available!",
@@ -305,16 +428,16 @@ export function useProgressNotifications() {
             level: level,
             duration: 8000,
         });
-    };
+    }, [addNotification]);
 
-    const showAchievement = (title: string, description: string) => {
+    const showAchievement = useCallback((title: string, description: string) => {
         addNotification({
             type: "achievement",
             title: title,
             description: description,
             duration: 5000,
         });
-    };
+    }, [addNotification]);
 
     return {
         notifications,
