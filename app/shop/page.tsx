@@ -200,89 +200,89 @@ export default function ShopPage() {
     };
 
     return (
-        <div className="min-h-screen bg-black text-white">
-            {/* Main content container with proper bottom padding */}
-            <div className="px-4 pt-6 pb-32 safe-area-inset-bottom safe-area-inset">
-                {isExploding && (
-                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
-                        <ConfettiExplosion
-                            force={0.8}
-                            duration={2000}
-                            particleCount={100}
-                            width={400}
-                            colors={['#FFD700', '#FF69B4', '#00BFFF', '#7B68EE', '#FF4500']}
-                        />
-                    </div>
-                )}
-
-                {/* Header */}
-                <div className="text-center space-y-4 mb-8">
-                    <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-                        {t("shop.title")}
-                    </h1>
-                    <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-                        {t("shop.subtitle")}
-                    </p>
+        <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
+            {isExploding && (
+                <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+                    <ConfettiExplosion
+                        force={0.8}
+                        duration={2000}
+                        particleCount={100}
+                        width={400}
+                        colors={['#FFD700', '#FF69B4', '#00BFFF', '#7B68EE', '#FF4500']}
+                    />
                 </div>
+            )}
 
-                {/* Error message */}
-                {purchaseState.error && (
-                    <div className="max-w-2xl mx-auto mb-6">
-                        <Card className="bg-white/10 border border-white/20">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-2">
-                                    <AlertCircle size={20} className="text-white" />
-                                    <span className="text-white">{purchaseState.error}</span>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </div>
-                )}
-
-                <div className="max-w-2xl mx-auto space-y-4">
-                    {Object.entries(PRODUCTS).map(([key, product]) => {
-                        const productType = key as ProductType;
-                        const badge = getProductBadge(productType);
-                        const loading = isLoading(productType);
-
-                        return (
-                            <ProductCard
-                                key={productType}
-                                productType={productType}
-                                product={product}
-                                badge={badge}
-                                loading={loading}
-                                onPurchase={handlePurchase}
-                                getButtonText={getButtonText}
-                                t={t}
-                            />
-                        );
-                    })}
-                </div>
-
-                {/* Success Notification */}
-                {successNotification.show && (
-                    <div className={`
-                            fixed top-4 left-4 right-4 z-50
-                            transform transition-all duration-500 ease-out
-                            ${successNotification.show ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}
-                        `}>
-                        <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
-                            <CardBody className="p-4">
-                                <div className="flex items-center space-x-4">
-                                    <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                                        {successNotification.icon}
-                                    </div>
-                                    <div className="flex-1">
-                                        <h4 className="font-bold text-green-400 text-lg">{successNotification.title}</h4>
-                                        <p className="text-green-300 text-sm mt-1">{successNotification.message}</p>
-                                    </div>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </div>
-                )}
+            {/* Header */}
+            <div className="text-center space-y-4 mb-8 pt-6">
+                <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+                    {t("shop.title")}
+                </h1>
+                <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
+                    {t("shop.subtitle")}
+                </p>
             </div>
+
+            {/* Error message */}
+            {purchaseState.error && (
+                <div className="max-w-2xl mx-auto mb-6">
+                    <Card className="bg-white/10 border border-white/20">
+                        <CardBody className="p-4">
+                            <div className="flex items-center space-x-2">
+                                <AlertCircle size={20} className="text-white" />
+                                <span className="text-white">{purchaseState.error}</span>
+                            </div>
+                        </CardBody>
+                    </Card>
+                </div>
+            )}
+
+            <div className="max-w-2xl mx-auto space-y-4">
+                {Object.entries(PRODUCTS).map(([key, product]) => {
+                    const productType = key as ProductType;
+                    const badge = getProductBadge(productType);
+                    const loading = isLoading(productType);
+
+                    return (
+                        <ProductCard
+                            key={productType}
+                            productType={productType}
+                            product={product}
+                            badge={badge}
+                            loading={loading}
+                            onPurchase={handlePurchase}
+                            getButtonText={getButtonText}
+                            t={t}
+                        />
+                    );
+                })}
+            </div>
+
+            {/* Success Notification */}
+            {successNotification.show && (
+                <div className={`
+                        fixed top-4 left-4 right-4 z-50
+                        transform transition-all duration-500 ease-out
+                        ${successNotification.show ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}
+                    `}>
+                    <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
+                        <CardBody className="p-4">
+                            <div className="flex items-center space-x-4">
+                                <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                    {successNotification.icon}
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-green-400 text-lg">{successNotification.title}</h4>
+                                    <p className="text-green-300 text-sm mt-1">{successNotification.message}</p>
+                                </div>
+                            </div>
+                        </CardBody>
+                    </Card>
+                </div>
+            )}
+
+            {/* Bottom spacing for safe area - КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ */}
+            <div className="h-24" />
         </div>
     );
 }

@@ -494,19 +494,6 @@ export default function LeaderboardPage() {
   const isPhysicsTab = activeTab === "physics";
   const isRotationTab = activeTab === "rotation";
 
-  const getTabLabel = (tab: LeaderboardType) => {
-    switch (tab) {
-      case "reaction":
-        return t("leaderboard.reaction").split(" ")[0];
-      case "survival":
-        return t("leaderboard.survival").split(" ")[0];
-      case "physics":
-        return t("leaderboard.physics").split(" ")[0];
-      case "rotation":
-        return t("leaderboard.rotation").split(" ")[0];
-    }
-  };
-
   const getEmptyStateMessage = () => {
     if (isReactionTab) {
       return {
@@ -536,112 +523,112 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Main content container with proper bottom padding */}
-      <div className="px-4 pt-6 pb-32 safe-area-inset-bottom safe-area-inset">
-        {/* Header */}
-        <div className="text-center space-y-4 mb-8">
-          <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-            {t("leaderboard.title")}
-          </h1>
-        </div>
+    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
+      {/* Header */}
+      <div className="text-center space-y-4 mb-8 pt-6">
+        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+          {t("leaderboard.title")}
+        </h1>
+      </div>
 
-        {/* Current Leaderboard Stats */}
-        {currentLeaderboard.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-center space-x-4 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg p-3 text-sm">
-              <div className="flex items-center space-x-1">
-                <Users className="text-white/80" size={14} />
-                <span className="font-bold text-white">
-                  {currentLeaderboard.length}
-                </span>
-              </div>
-              <div className="w-px h-4 bg-white/30" />
-              <div className="flex items-center space-x-1">
-                {isReactionTab ? (
-                  <Clock className="text-white/80" size={14} />
-                ) : isSurvivalTab ? (
-                  <Clock className="text-white/80" size={14} />
-                ) : isPhysicsTab ? (
-                  <Target className="text-white/80" size={14} />
-                ) : (
-                  <Clock className="text-white/80" size={14} />
-                )}
-                <span className="font-bold text-white">
-                  {currentLeaderboard[0]
-                    ? isReactionTab
-                      ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}ms`
-                      : isSurvivalTab
-                        ? formatSurvivalTime(
-                          (currentLeaderboard[0] as SurvivalLeaderboard).best_survival_time,
-                        )
-                        : isPhysicsTab
-                          ? `${(currentLeaderboard[0] as PhysicsLeaderboard).best_physics_score} pts`
-                          : formatRotationTime(
-                            (currentLeaderboard[0] as RotationLeaderboard).best_rotation_time,
-                          )
-                    : "0"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tabs */}
+      {/* Current Leaderboard Stats */}
+      {currentLeaderboard.length > 0 && (
         <div className="mb-6">
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1">
-            <div className="flex space-x-1">
-              {(["reaction", "survival", "physics", "rotation"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  className={`
-                    flex-1 px-3 py-2 rounded-lg text-sm font-bold transition-all duration-300
-                    ${getTabColors(tab, activeTab === tab)}
-                  `}
-                  onClick={() => setActiveTab(tab)}
-                >
-                  <div className="flex items-center justify-center space-x-1">
-                    {tab === "reaction" && <Zap size={12} />}
-                    {tab === "survival" && <Crosshair size={12} />}
-                    {tab === "physics" && <Atom size={12} />}
-                    {tab === "rotation" && <RotateCw size={12} />}
-                  </div>
-                </button>
-              ))}
+          <div className="flex items-center justify-center space-x-4 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg p-3 text-sm">
+            <div className="flex items-center space-x-1">
+              <Users className="text-white/80" size={14} />
+              <span className="font-bold text-white">
+                {currentLeaderboard.length}
+              </span>
+            </div>
+            <div className="w-px h-4 bg-white/30" />
+            <div className="flex items-center space-x-1">
+              {isReactionTab ? (
+                <Clock className="text-white/80" size={14} />
+              ) : isSurvivalTab ? (
+                <Clock className="text-white/80" size={14} />
+              ) : isPhysicsTab ? (
+                <Target className="text-white/80" size={14} />
+              ) : (
+                <Clock className="text-white/80" size={14} />
+              )}
+              <span className="font-bold text-white">
+                {currentLeaderboard[0]
+                  ? isReactionTab
+                    ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}ms`
+                    : isSurvivalTab
+                      ? formatSurvivalTime(
+                        (currentLeaderboard[0] as SurvivalLeaderboard).best_survival_time,
+                      )
+                      : isPhysicsTab
+                        ? `${(currentLeaderboard[0] as PhysicsLeaderboard).best_physics_score} pts`
+                        : formatRotationTime(
+                          (currentLeaderboard[0] as RotationLeaderboard).best_rotation_time,
+                        )
+                  : "0"}
+              </span>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Leaderboard Content */}
-        <div className="space-y-4">
-          {currentLeaderboard.length === 0 ? (
-            <div className="text-center py-12 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg">
-              {(() => {
-                const emptyState = getEmptyStateMessage();
-                return (
-                  <>
-                    {emptyState.icon}
-                    <p className="font-bold text-white/80">{emptyState.title}</p>
-                    <p className="text-sm mt-1 text-white/60">{emptyState.subtitle}</p>
-                  </>
-                );
-              })()}
-            </div>
-          ) : (
-            <div className="animate-fade-in space-y-3 max-h-[70vh] overflow-y-auto">
-              {currentLeaderboard.map((entry, index) =>
-                isReactionTab
-                  ? renderReactionLeaderboardEntry(entry as ReactionLeaderboard, index + 1)
-                  : isSurvivalTab
-                    ? renderSurvivalLeaderboardEntry(entry as SurvivalLeaderboard, index + 1)
-                    : isPhysicsTab
-                      ? renderPhysicsLeaderboardEntry(entry as PhysicsLeaderboard, index + 1)
-                      : renderRotationLeaderboardEntry(entry as RotationLeaderboard, index + 1),
-              )}
-            </div>
-          )}
+      {/* Tabs */}
+      <div className="mb-6">
+        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1">
+          <div className="flex space-x-1">
+            {(["reaction", "survival", "physics", "rotation"] as const).map((tab) => (
+              <button
+                key={tab}
+                className={`
+                  flex-1 px-3 py-2 rounded-lg text-sm font-bold transition-all duration-300
+                  ${getTabColors(tab, activeTab === tab)}
+                `}
+                onClick={() => setActiveTab(tab)}
+              >
+                <div className="flex items-center justify-center space-x-1">
+                  {tab === "reaction" && <Zap size={12} />}
+                  {tab === "survival" && <Crosshair size={12} />}
+                  {tab === "physics" && <Atom size={12} />}
+                  {tab === "rotation" && <RotateCw size={12} />}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Leaderboard Content */}
+      <div className="space-y-4">
+        {currentLeaderboard.length === 0 ? (
+          <div className="text-center py-12 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg">
+            {(() => {
+              const emptyState = getEmptyStateMessage();
+              return (
+                <>
+                  {emptyState.icon}
+                  <p className="font-bold text-white/80">{emptyState.title}</p>
+                  <p className="text-sm mt-1 text-white/60">{emptyState.subtitle}</p>
+                </>
+              );
+            })()}
+          </div>
+        ) : (
+          <div className="animate-fade-in space-y-3 max-h-[70vh] overflow-y-auto">
+            {currentLeaderboard.map((entry, index) =>
+              isReactionTab
+                ? renderReactionLeaderboardEntry(entry as ReactionLeaderboard, index + 1)
+                : isSurvivalTab
+                  ? renderSurvivalLeaderboardEntry(entry as SurvivalLeaderboard, index + 1)
+                  : isPhysicsTab
+                    ? renderPhysicsLeaderboardEntry(entry as PhysicsLeaderboard, index + 1)
+                    : renderRotationLeaderboardEntry(entry as RotationLeaderboard, index + 1),
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom spacing for safe area - КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ */}
+      <div className="h-24" />
     </div>
   );
 }
