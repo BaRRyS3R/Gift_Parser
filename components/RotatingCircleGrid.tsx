@@ -1,4 +1,4 @@
-// src/components/RotatingCircleGrid.tsx - Adapted to full-screen width & height with preserved adaptive circle sizes
+// src/components/RotatingCircleGrid.tsx - Stable position preservation during level changes
 
 "use client";
 
@@ -37,43 +37,21 @@ export default function RotatingCircleGrid({
     const touchStartTimeRef = useRef<Map<number, number>>(new Map());
     const processedTouchesRef = useRef<Set<number>>(new Set());
 
+    // Animation state management
     const currentRotationRef = useRef<number>(0);
     const lastUpdateTimeRef = useRef<number>(Date.now());
     const animationFrameRef = useRef<number | null>(null);
     const currentSpeedRef = useRef<number>(rotationSpeed);
     const targetSpeedRef = useRef<number>(rotationSpeed);
 
-    const [circleSize, setCircleSize] = useState(40);
-    const [containerWidth, setContainerWidth] = useState(350);
-    const [containerHeight, setContainerHeight] = useState(350);
+    // State for dynamic sizing - increased sizes for better visibility
+    const [circleSize, setCircleSize] = useState(40); // Increased from 32
+    const [containerSize, setContainerSize] = useState(350); // Increased from 280
+
+    // State for tracking active activation pulses
     const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
 
-    useEffect(() => {
-        const calculateAdaptiveSizes = () => {
-            const screenWidth = window.innerWidth;
-            const screenHeight = window.innerHeight;
-            const horizontalMargins = 32;
-            const availableWidth = screenWidth - horizontalMargins;
-
-            const calculatedWidth = availableWidth;
-            const calculatedHeight = screenHeight;
-            const calculatedCircleSize = Math.max(32, Math.min(calculatedWidth / 9, 52));
-
-            setContainerWidth(calculatedWidth);
-            setContainerHeight(calculatedHeight);
-            setCircleSize(calculatedCircleSize);
-        };
-
-        calculateAdaptiveSizes();
-        window.addEventListener("resize", calculateAdaptiveSizes);
-        window.addEventListener("orientationchange", () => setTimeout(calculateAdaptiveSizes, 100));
-
-        return () => {
-            window.removeEventListener("resize", calculateAdaptiveSizes);
-            window.removeEventListener("orientationchange", calculateAdaptiveSizes);
-        };
-    }, []);
-
+    // Effect to handle activation pulses AFTER circles are activated
     useEffect(() => {
         if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
             const pulseDelay = setTimeout(() => {
@@ -85,38 +63,105 @@ export default function RotatingCircleGrid({
                         timestamp: Date.now(),
                     };
                 });
+
                 setActivePulses(prev => [...prev, ...newPulses]);
+
                 setTimeout(() => {
-                    setActivePulses(prev => prev.filter(p => p.timestamp !== newPulses[0]?.timestamp));
+                    setActivePulses(prev =>
+                        prev.filter(pulse => pulse.timestamp !== newPulses[0]?.timestamp)
+                    );
                 }, 400);
             }, 100);
+
             return () => clearTimeout(pulseDelay);
         }
     }, [onActivatedCircles, lastActivationTimestamp, circles]);
 
+    // Calculate adaptive sizes with full screen utilization
+    useEffect(() => {
+        const calculateAdaptiveSizes = () => {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+
+            // Reserve space for bottom panel (approximately 120px including safe area)
+            const bottomPanelHeight = 120;
+            // Reserve space for top safe area and margins
+            const topReservedSpace = 80;
+            // Reserve horizontal margins for edge safety
+            const horizontalMargins = 32; // 16px on each side
+
+            const availableWidth = screenWidth - horizontalMargins;
+            const availableHeight = screenHeight - bottomPanelHeight - topReservedSpace;
+
+            // Use the minimum of available dimensions to ensure square container
+            const maxContainerSize = Math.min(availableWidth, availableHeight);
+
+            // Set minimum and maximum bounds for usability
+            const calculatedContainerSize = Math.max(280, Math.min(maxContainerSize, 500));
+
+            // Scale circle size proportionally to container
+            const calculatedCircleSize = Math.max(32, Math.min(calculatedContainerSize / 9, 52));
+
+            setContainerSize(calculatedContainerSize);
+            setCircleSize(calculatedCircleSize);
+
+            console.log('Container sizing:', {
+                screenDimensions: `${screenWidth}x${screenHeight}`,
+                availableSpace: `${availableWidth}x${availableHeight}`,
+                containerSize: calculatedContainerSize,
+                circleSize: calculatedCircleSize
+            });
+        };
+
+        calculateAdaptiveSizes();
+        window.addEventListener("resize", calculateAdaptiveSizes);
+        window.addEventListener("orientationchange", () => {
+            setTimeout(calculateAdaptiveSizes, 100);
+        });
+
+        return () => {
+            window.removeEventListener("resize", calculateAdaptiveSizes);
+            window.removeEventListener("orientationchange", calculateAdaptiveSizes);
+        };
+    }, []);
+
+    // Smooth rotation animation with preserved positions
     const updateRotation = useCallback(() => {
-        if (!isGameActive || !rotatingContainerRef.current) return;
+        if (!isGameActive || !rotatingContainerRef.current) {
+            return;
+        }
 
         const now = Date.now();
         const deltaTime = now - lastUpdateTimeRef.current;
         lastUpdateTimeRef.current = now;
 
-        const speedDiff = targetSpeedRef.current - currentSpeedRef.current;
-        const interpFactor = Math.min(deltaTime * 0.002, 1);
-        currentSpeedRef.current += speedDiff * interpFactor;
+        // Smooth speed interpolation for seamless level transitions
+        const speedDifference = targetSpeedRef.current - currentSpeedRef.current;
+        const interpolationFactor = Math.min(deltaTime * 0.002, 1); // Smoother interpolation
+        currentSpeedRef.current += speedDifference * interpolationFactor;
 
+        // Convert rotation speed from radians-per-frame to radians-per-millisecond
+        // Original speed is in radians per frame (assuming 60fps = 16.67ms per frame)
         const speedInRadPerMs = currentSpeedRef.current / 16.67;
+
+        // Update rotation based on current speed and actual delta time
         const rotationIncrement = speedInRadPerMs * deltaTime;
         currentRotationRef.current += rotationIncrement;
 
-        rotatingContainerRef.current.style.transform = `rotate(${currentRotationRef.current}rad)`;
+        // Apply rotation to container
+        rotatingContainerRef.current.style.transform =
+            `rotate(${currentRotationRef.current}rad)`;
+
+        // Continue animation
         animationFrameRef.current = requestAnimationFrame(updateRotation);
     }, [isGameActive]);
 
+    // Handle speed changes without position jumps
     useEffect(() => {
         targetSpeedRef.current = rotationSpeed;
     }, [rotationSpeed]);
 
+    // Start/stop animation
     useEffect(() => {
         if (isGameActive) {
             lastUpdateTimeRef.current = Date.now();
@@ -127,6 +172,7 @@ export default function RotatingCircleGrid({
                 animationFrameRef.current = null;
             }
         }
+
         return () => {
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
@@ -135,47 +181,69 @@ export default function RotatingCircleGrid({
         };
     }, [isGameActive, updateRotation]);
 
+    // Calculate precise static position for each circle with increased radius
     const getCircleStaticPosition = useCallback((circle: RotationCircle) => {
-        const radiusX = containerWidth * 0.42;
-        const radiusY = containerHeight * 0.42;
-        const x = Math.cos(circle.angle) * radiusX;
-        const y = Math.sin(circle.angle) * radiusY;
+        const scaledRadius = (containerSize * 0.42); // Increased from 0.35 for larger axis
+
+        const x = Math.cos(circle.angle) * scaledRadius;
+        const y = Math.sin(circle.angle) * scaledRadius;
+
         return { x, y };
-    }, [containerWidth, containerHeight]);
+    }, [containerSize]);
 
     const getCircleStyles = (circle: RotationCircle) => {
         const isDeactivating = circle.isAnimating;
-        const transitionClass = isDeactivating ? "transition-all duration-75" : "transition-colors duration-200 ease-in-out";
+        const transitionClass = isDeactivating
+            ? "transition-all duration-75"
+            : "transition-colors duration-200 ease-in-out";
+
         const baseClasses = `absolute rounded-full border-2 ${transitionClass}`;
-        const visibilityClasses = showCircles ? "opacity-100 scale-100" : "opacity-0 scale-0";
-        const animationClasses = circle.isAnimating ? "opacity-0 scale-75" : "";
+
+        const visibilityClasses = showCircles
+            ? "opacity-100 scale-100"
+            : "opacity-0 scale-0";
+
+        const animationClasses = circle.isAnimating
+            ? "opacity-0 scale-75"
+            : "";
 
         if (circle.isActive && !circle.isAnimating) {
             if (circle.isDecoy) {
                 return {
-                    className: `${baseClasses} ${visibilityClasses} ${animationClasses} bg-red-500 border-red-400 shadow-lg shadow-red-500/50 scale-110 hover:scale-125 active:scale-95 cursor-pointer`,
+                    className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
+                      bg-red-500 border-red-400 shadow-lg shadow-red-500/50 scale-110
+                      hover:scale-125 active:scale-95 cursor-pointer`,
                 };
             } else {
                 return {
-                    className: `${baseClasses} ${visibilityClasses} ${animationClasses} bg-white shadow-lg shadow-white/50 border-white scale-110 hover:scale-125 active:scale-95 cursor-pointer`,
+                    className: `${baseClasses} ${visibilityClasses} ${animationClasses}
+                      bg-white shadow-lg shadow-white/50 border-white scale-110
+                      hover:scale-125 active:scale-95 cursor-pointer`,
                 };
             }
         } else {
             return {
-                className: `${baseClasses} ${visibilityClasses} ${animationClasses} bg-transparent border-white/40 hover:border-white/60 hover:scale-105 active:scale-95 cursor-pointer`,
+                className: `${baseClasses} ${visibilityClasses} ${animationClasses}
+                    bg-transparent border-white/40 hover:border-white/60 hover:scale-105
+                    active:scale-95 cursor-pointer`,
             };
         }
     };
 
+    // Touch event handlers with immediate response
     const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
         if (!isGameActive) return;
+
         event.preventDefault();
         event.stopPropagation();
+
         const currentTime = Date.now();
         touchStartTimeRef.current.set(circleId, currentTime);
+
         if (!processedTouchesRef.current.has(circleId)) {
             processedTouchesRef.current.add(circleId);
             onCircleClick(circleId);
+
             setTimeout(() => {
                 processedTouchesRef.current.delete(circleId);
             }, 50);
@@ -190,31 +258,44 @@ export default function RotatingCircleGrid({
 
     const handleClick = (circleId: number, event: React.MouseEvent) => {
         if (!isGameActive) return;
+
         const touchTime = touchStartTimeRef.current.get(circleId);
         const currentTime = Date.now();
-        if (touchTime && currentTime - touchTime < 200) return;
+
+        if (touchTime && currentTime - touchTime < 200) {
+            return;
+        }
+
         event.preventDefault();
         event.stopPropagation();
         onCircleClick(circleId);
     };
 
+    // Render pulse effect for active circles
     const renderPulseEffect = (circle: RotationCircle) => {
         if (!circle.isActive || circle.isAnimating) return null;
+
         const pulseColor = circle.isDecoy ? "border-red-400" : "border-white";
         const animationDuration = circle.isDecoy ? "1.2s" : "0.8s";
+
         return (
             <div
                 className={`absolute inset-0 rounded-full border-2 ${pulseColor} opacity-50`}
-                style={{ animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite` }}
+                style={{
+                    animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
+                }}
             />
         );
     };
 
+    // Render activation pulse effect
     const renderActivationPulse = (circle: RotationCircle) => {
-        const pulse = activePulses.find(p => p.circleId === circle.id);
-        if (!pulse) return null;
-        const pulseClass = pulse.isRed ? "activation-pulse-red" : "activation-pulse";
-        const pulseColor = pulse.isRed ? "border-red-400" : "border-white";
+        const activePulse = activePulses.find(pulse => pulse.circleId === circle.id);
+        if (!activePulse) return null;
+
+        const pulseClass = activePulse.isRed ? 'activation-pulse-red' : 'activation-pulse';
+        const pulseColor = activePulse.isRed ? 'border-red-400' : 'border-white';
+
         return (
             <div
                 className={`absolute inset-0 rounded-full border-2 ${pulseColor} ${pulseClass} pointer-events-none`}
@@ -224,42 +305,82 @@ export default function RotatingCircleGrid({
     };
 
     return (
-        <div className="w-full h-screen flex items-center justify-center overflow-visible p-0">
+        <div className="flex items-center justify-center min-h-[500px] p-4">
             <div
                 ref={containerRef}
                 className="relative stable-container"
                 style={{
-                    width: `${containerWidth}px`,
-                    height: `${containerHeight}px`,
-                    overflow: "visible",
+                    width: `${containerSize + 120}px`, // Extended for pulse effects
+                    height: `${containerSize + 120}px`, // Extended for pulse effects
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
+                    WebkitTouchCallout: "none",
                 }}
             >
+                {/* Game area boundary indicator */}
+                <div
+                    className="absolute border border-white/5 rounded-full"
+                    style={{
+                        width: `${containerSize}px`,
+                        height: `${containerSize}px`,
+                        left: '60px',
+                        top: '60px',
+                        pointerEvents: 'none',
+                    }}
+                />
+                {/* Central rotation indicator */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div
+                        className="w-3 h-3 bg-white/30 rounded-full animate-pulse"
+                        style={{
+                            animation: `pulse-gentle 2s ease-in-out infinite`,
+                            transform: 'translate(0, 0)', // Center in extended container
+                        }}
+                    />
+                </div>
+
+                {/* Rotating container with JavaScript-controlled rotation */}
                 <div
                     ref={rotatingContainerRef}
                     className="absolute high-performance-rotation"
                     style={{
-                        width: `${containerWidth}px`,
-                        height: `${containerHeight}px`,
-                        top: 0,
-                        left: 0,
-                        transformOrigin: "50% 50%",
+                        left: '60px', // Offset for extended container
+                        top: '60px',  // Offset for extended container
+                        width: `${containerSize}px`,
+                        height: `${containerSize}px`,
+                        transformOrigin: '50% 50%',
+                        backfaceVisibility: 'hidden',
+                        perspective: '1000px',
+                        willChange: 'transform',
                     }}
                 >
-                    {circles.map(circle => {
-                        const { x, y } = getCircleStaticPosition(circle);
-                        const styles = getCircleStyles(circle);
+                    {/* Circles with increased size and optimized positioning */}
+                    {circles.map((circle) => {
+                        const circleStyleConfig = getCircleStyles(circle);
+                        const staticPosition = getCircleStaticPosition(circle);
+
                         return (
                             <button
                                 key={circle.id}
-                                className={`${styles.className} disabled:cursor-not-allowed select-none touch-optimized`}
+                                data-circle-id={circle.id}
+                                aria-label={`Rotating circle ${circle.id + 1}${circle.isActive
+                                    ? (circle.isDecoy ? " - trap target" : " - active target")
+                                    : ""
+                                    }`}
+                                className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none touch-optimized`}
                                 disabled={!isGameActive}
                                 style={{
                                     width: `${circleSize}px`,
                                     height: `${circleSize}px`,
-                                    left: "50%",
-                                    top: "50%",
-                                    transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                                    minWidth: `${circleSize}px`,
+                                    minHeight: `${circleSize}px`,
+                                    left: '50%',
+                                    top: '50%',
+                                    transform: `translate(calc(-50% + ${staticPosition.x}px), calc(-50% + ${staticPosition.y}px))`,
                                     transitionDelay: showCircles ? `${circle.id * 30}ms` : "0ms",
+                                    touchAction: "manipulation",
+                                    willChange: 'transform',
+                                    backfaceVisibility: 'hidden',
                                 }}
                                 type="button"
                                 onClick={(event) => handleClick(circle.id, event)}
@@ -267,11 +388,33 @@ export default function RotatingCircleGrid({
                                 onTouchEnd={(event) => handleTouchEnd(circle.id, event)}
                                 onTouchStart={(event) => handleTouchStart(circle.id, event)}
                             >
+                                {/* Continuous pulse effect */}
                                 {renderPulseEffect(circle)}
+                                {/* Activation pulse effect */}
                                 {renderActivationPulse(circle)}
+
+                                {/* Debug info for development */}
+                                {process.env.NODE_ENV === "development" && (
+                                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
+                                        {circle.id}
+                                    </div>
+                                )}
                             </button>
                         );
                     })}
+                </div>
+
+                {/* Rotation direction indicator with synchronized speed */}
+                <div className="absolute bottom-2 right-2" style={{ transform: 'translate(-60px, -60px)' }}>
+                    <div
+                        className="w-8 h-8 border-2 border-white/20 rounded-full relative"
+                        style={{
+                            transform: `rotate(${currentRotationRef.current}rad)`,
+                            transition: 'none',
+                        }}
+                    >
+                        <div className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-white/40 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
+                    </div>
                 </div>
             </div>
         </div>
