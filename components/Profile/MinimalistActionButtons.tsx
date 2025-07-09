@@ -4,7 +4,6 @@
 
 import React from "react";
 import { Button } from "@nextui-org/react";
-import { Share2, Award } from "lucide-react";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface MinimalistActionButtonsProps {
@@ -25,7 +24,6 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
             <Button
                 className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
                 variant="bordered"
-                startContent={<Share2 size={16} />}
                 onPress={onOpenReferrals}
             >
                 {t("profile.referralButton")}
@@ -34,7 +32,6 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
             <Button
                 className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
                 variant="bordered"
-                startContent={<Award size={16} />}
                 onPress={onOpenAchievements}
             >
                 {t("profile.achievementButton")}
@@ -43,7 +40,6 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
             <Button
                 className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
                 variant="bordered"
-                startContent={<Award size={16} />}
                 onPress={onOpenLeagues}
             >
                 {t("profile.leagueButton")}

@@ -510,7 +510,7 @@ body {
 /* Stable container for preventing layout shifts - NEW */
 .stable-container {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   contain: layout style paint;
   isolation: isolate;
   transform: translateZ(0);
