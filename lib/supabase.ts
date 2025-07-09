@@ -1,12 +1,12 @@
-// src/lib/supabase.ts - Updated with rotation mode support
+// src/lib/supabase.ts - Обновленный сервис пользователей с интеграцией системы лиг
 
 import { createClient } from "@supabase/supabase-js";
-
 import { GameMode } from "@/types/game-modes/common";
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
 import { PhysicsGameResult } from "@/types/game-modes/physics";
 import { RotationGameResult } from "@/types/game-modes/rotation";
+import leagueService, { type LeagueRewardResult, type League } from "./league_service";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -20,7 +20,7 @@ const ATTEMPTS_CONFIG = {
   REFERRAL_BONUS: 5,
 } as const;
 
-// Updated User interface with rotation mode support
+// Добавляем новые поля для лиг в интерфейс User
 export interface User {
   id: string; // UUID v4
   telegram_id: number;
@@ -38,44 +38,45 @@ export interface User {
   attempts_reset_at?: string;
 
   // Referral system
-  referral_code: string; // Unique referral code
-  referred_by?: string; // Referral code of who invited this user
-  referral_bonus: number; // How many attempts this user gives to new referrals (default: 1)
-  referral_count: number; // Number of users referred by this user
+  referral_code: string;
+  referred_by?: string;
+  referral_bonus: number;
+  referral_count: number;
 
   // General game statistics
   total_games: number;
   total_score: number;
   best_score: number;
 
-  // Reaction Mode specific statistics
+  // League and Level system - NEW
+  current_level: number;
+  current_league_id?: number;
+
+  // Game mode specific statistics
   reaction_games: number;
   reaction_best_score: number;
-  reaction_best_time: number; // Best reaction time in milliseconds
-  reaction_average_time: number; // Average reaction time in milliseconds
+  reaction_best_time: number;
+  reaction_average_time: number;
 
-  // Survival Mode specific statistics
   survival_games: number;
   survival_best_score: number;
-  survival_best_time: number; // Best survival time in milliseconds
-  survival_max_level: number; // Maximum level reached
-  survival_best_streak: number; // Best perfect streak
+  survival_best_time: number;
+  survival_max_level: number;
+  survival_best_streak: number;
 
-  // Physics Mode specific statistics
   physics_games: number;
   physics_best_score: number;
-  physics_best_time: number; // Best physics game time in milliseconds
-  physics_total_hits: number; // Total correct hits across all physics games
-  physics_best_hits: number; // Best hits in a single physics game
-  physics_least_mistakes: number; // Fewest mistakes in a single physics game
+  physics_best_time: number;
+  physics_total_hits: number;
+  physics_best_hits: number;
+  physics_least_mistakes: number;
 
-  // NEW: Rotation Mode specific statistics
   rotation_games: number;
   rotation_best_score: number;
-  rotation_best_time: number; // Best rotation game time in milliseconds
-  rotation_max_level: number; // Maximum level reached in rotation mode
-  rotation_best_streak: number; // Best perfect streak in rotation mode
-  rotation_total_hits: number; // Total correct hits across all rotation games
+  rotation_best_time: number;
+  rotation_max_level: number;
+  rotation_best_streak: number;
+  rotation_total_hits: number;
 
   // Legacy fields (for backward compatibility)
   total_correct_hits: number;
@@ -85,6 +86,17 @@ export interface User {
 
   last_played_at?: string;
   is_active: boolean;
+}
+
+// Новый интерфейс для результата сохранения игры с информацией о лигах
+export interface GameSaveResult {
+  success: boolean;
+  leagueChanged?: boolean;
+  newLeague?: League;
+  levelChanged?: boolean;
+  newLevel?: number;
+  reward?: LeagueRewardResult;
+  error?: string;
 }
 
 export interface TelegramUser {
@@ -136,7 +148,6 @@ export const userService = {
       const referrer = await this.findByReferralCode(referralCode);
 
       if (referrer) {
-        // Формируем имя пригласившего
         let referrerName = referrer.first_name;
         if (referrer.last_name) {
           referrerName += ` ${referrer.last_name}`;
@@ -212,8 +223,6 @@ export const userService = {
             updated_at: new Date().toISOString(),
           })
           .eq("id", referrer.id);
-
-        console.log(`User referred by ${referralCode}, adding ${referrer.referral_bonus} bonus attempts to new user`);
       }
     }
 
@@ -229,6 +238,8 @@ export const userService = {
       referred_by: referredBy,
       referral_bonus: 5,
       referral_count: 0,
+      // NEW: Initialize league and level fields
+      current_level: 1,
     };
 
     const { data, error } = await supabase
@@ -240,6 +251,14 @@ export const userService = {
     if (error) {
       console.error("Error creating user:", error);
       throw error;
+    }
+
+    // NEW: Initialize user's league after creation
+    try {
+      await leagueService.initializeUserLeague(data.id, 0);
+    } catch (leagueError) {
+      console.error("Error initializing user league:", leagueError);
+      // Don't throw error for league initialization failure
     }
 
     return data;
@@ -427,17 +446,25 @@ export const userService = {
     return this.consumeAttemptWithServerValidation(telegramId);
   },
 
-  async updateGameStats(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<void> {
+  // UPDATED: Enhanced updateGameStats with league checking
+  async updateGameStats(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<GameSaveResult> {
     const user = await this.findByTelegramId(telegramId);
     if (!user) throw new Error("User not found");
 
+    const previousTotalGames = user.total_games;
+    const newTotalGames = previousTotalGames + 1;
+    const previousLevel = user.current_level;
+    const newLevel = leagueService.calculateLevel(newTotalGames);
+
     const updates: any = {
-      total_games: user.total_games + 1,
+      total_games: newTotalGames,
       total_score: user.total_score + gameResult.score,
       best_score: Math.max(user.best_score, gameResult.score),
+      current_level: newLevel, // NEW: Update level
       last_played_at: new Date().toISOString(),
     };
 
+    // Mode-specific stats updates
     if (gameResult.mode === GameMode.REACTION) {
       const reactionResult = gameResult as ReactionGameResult;
       updates.reaction_games = user.reaction_games + 1;
@@ -467,12 +494,7 @@ export const userService = {
       const physicsResult = gameResult as PhysicsGameResult;
       updates.physics_games = user.physics_games + 1;
       updates.physics_best_score = Math.max(user.physics_best_score || 0, physicsResult.score);
-
-      updates.physics_best_time = Math.max(
-        user.physics_best_time || 0,
-        Math.round(physicsResult.gameTime)
-      );
-
+      updates.physics_best_time = Math.max(user.physics_best_time || 0, Math.round(physicsResult.gameTime));
       updates.physics_total_hits = (user.physics_total_hits || 0) + physicsResult.totalHits;
       updates.physics_best_hits = Math.max(user.physics_best_hits || 0, physicsResult.totalHits);
 
@@ -482,7 +504,6 @@ export const userService = {
         updates.physics_least_mistakes = Math.min(user.physics_least_mistakes, physicsResult.mistakesMade);
       }
     } else if (gameResult.mode === GameMode.ROTATION) {
-      // NEW: Handle rotation mode statistics
       const rotationResult = gameResult as RotationGameResult;
       updates.rotation_games = user.rotation_games + 1;
       updates.rotation_best_score = Math.max(user.rotation_best_score || 0, rotationResult.score);
@@ -492,6 +513,7 @@ export const userService = {
       updates.rotation_total_hits = (user.rotation_total_hits || 0) + rotationResult.correctHits;
     }
 
+    // Update user stats
     const { error } = await supabase
       .from("users")
       .update(updates)
@@ -501,9 +523,34 @@ export const userService = {
       console.error("Error updating user stats:", error);
       throw error;
     }
+
+    // NEW: Check and update league after game
+    try {
+      const leagueResult = await leagueService.checkAndUpdateLeague(user.id, newTotalGames);
+
+      return {
+        success: true,
+        leagueChanged: leagueResult.leagueChanged,
+        newLeague: leagueResult.newLeague,
+        levelChanged: newLevel !== previousLevel,
+        newLevel: newLevel !== previousLevel ? newLevel : undefined,
+        reward: leagueResult.reward
+      };
+    } catch (leagueError) {
+      console.error("Error checking league after game:", leagueError);
+      // Return success even if league check fails, as the game stats were saved
+      return {
+        success: true,
+        leagueChanged: false,
+        levelChanged: newLevel !== previousLevel,
+        newLevel: newLevel !== previousLevel ? newLevel : undefined,
+        error: "League check failed"
+      };
+    }
   },
 
-  async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<void> {
+  // UPDATED: Enhanced saveGameResult that returns league information
+  async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<GameSaveResult> {
     const user = await this.findByTelegramId(telegramId);
     if (!user) throw new Error("User not found");
 
@@ -513,9 +560,10 @@ export const userService = {
       duration: gameResult.duration
     });
 
-    await this.updateGameStats(telegramId, gameResult);
+    return await this.updateGameStats(telegramId, gameResult);
   },
 
+  // Existing leaderboard methods (unchanged)
   async getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
     const { data, error } = await supabase
       .from("users")
@@ -648,7 +696,6 @@ export const userService = {
     }));
   },
 
-  // NEW: Get rotation leaderboard
   async getRotationLeaderboard(limit: number = 100): Promise<RotationLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
@@ -759,7 +806,6 @@ export const userService = {
     return (count || 0) + 1;
   },
 
-  // NEW: Get user rotation ranking
   async getUserRotationRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
     if (!user || user.rotation_games === 0) return null;
@@ -779,7 +825,7 @@ export const userService = {
   },
 };
 
-// Updated interfaces
+// Existing interfaces (unchanged)
 export interface LeaderboardEntry {
   id: string;
   telegram_id: number;
@@ -834,7 +880,6 @@ export interface PhysicsLeaderboard {
   last_played_at?: string;
 }
 
-// NEW: Rotation leaderboard interface
 export interface RotationLeaderboard {
   id: string;
   telegram_id: number;

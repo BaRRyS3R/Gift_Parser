@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated with unified header design
+// src/app/profile/page.tsx - Полная страница профиля с системой лиг и уровней
 
 "use client";
 
@@ -14,14 +14,17 @@ import MinimalistDivider from "@/components/Profile/MinimalistDivider";
 import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
+import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
 
 interface UserRankings {
   overall: number | null;
   reaction: number | null;
   survival: number | null;
+  physics?: number | null;
+  rotation?: number | null;
 }
 
-export default function MinimalistProfilePage() {
+export default function ProfilePage() {
   const { user, telegramUser, isLoading: userLoading } = useUser();
   const t = useT();
 
@@ -29,11 +32,14 @@ export default function MinimalistProfilePage() {
     overall: null,
     reaction: null,
     survival: null,
+    physics: null,
+    rotation: null,
   });
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
+  const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -42,10 +48,12 @@ export default function MinimalistProfilePage() {
       try {
         setIsLoadingData(true);
 
-        const [overallRank, reactionRank, survivalRank, refInfo] = await Promise.all([
+        const [overallRank, reactionRank, survivalRank, physicsRank, rotationRank, refInfo] = await Promise.all([
           userService.getUserRanking(telegramUser.id),
           userService.getUserReactionRanking(telegramUser.id),
           userService.getUserSurvivalRanking(telegramUser.id),
+          userService.getUserPhysicsRanking(telegramUser.id),
+          userService.getUserRotationRanking(telegramUser.id),
           userService.getReferralInfo(telegramUser.id),
         ]);
 
@@ -53,6 +61,8 @@ export default function MinimalistProfilePage() {
           overall: overallRank,
           reaction: reactionRank,
           survival: survivalRank,
+          physics: physicsRank,
+          rotation: rotationRank,
         });
         setReferralInfo(refInfo);
       } catch (error) {
@@ -73,6 +83,10 @@ export default function MinimalistProfilePage() {
 
   const handleOpenAchievements = () => {
     setIsAchievementsModalOpen(true);
+  };
+
+  const handleOpenLeagues = () => {
+    setIsLeaguesModalOpen(true);
   };
 
   if (userLoading || isLoadingData) {
@@ -111,13 +125,14 @@ export default function MinimalistProfilePage() {
       <MinimalistDivider />
 
       <div className="max-w-md mx-auto">
-        {/* Profile Header - No Container */}
+        {/* Profile Header */}
         <MinimalistProfileHeader user={user} />
 
-        {/* Action Buttons */}
+        {/* Action Buttons - Updated with leagues */}
         <MinimalistActionButtons
           onOpenReferrals={handleOpenReferrals}
           onOpenAchievements={handleOpenAchievements}
+          onOpenLeagues={handleOpenLeagues}
         />
 
         {/* Divider */}
@@ -144,6 +159,11 @@ export default function MinimalistProfilePage() {
         onClose={() => setIsAchievementsModalOpen(false)}
         user={user}
         rankings={rankings}
+      />
+
+      <LeaguesModal
+        isOpen={isLeaguesModalOpen}
+        onClose={() => setIsLeaguesModalOpen(false)}
       />
     </div>
   );

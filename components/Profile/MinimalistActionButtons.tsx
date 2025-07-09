@@ -10,11 +10,13 @@ import { useT } from "@/contexts/LocalizationContext";
 interface MinimalistActionButtonsProps {
     onOpenReferrals: () => void;
     onOpenAchievements: () => void;
+    onOpenLeagues: () => void;
 }
 
 const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
     onOpenReferrals,
-    onOpenAchievements
+    onOpenAchievements,
+    onOpenLeagues
 }) => {
     const t = useT();
 
@@ -36,6 +38,15 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
                 onPress={onOpenAchievements}
             >
                 {t("profile.achievementButton")}
+            </Button>
+
+            <Button
+                className="flex-1 bg-transparent border border-white/30 text-white hover:bg-white/10"
+                variant="bordered"
+                startContent={<Award size={16} />}
+                onPress={onOpenLeagues}
+            >
+                LEAGUEEEEE
             </Button>
         </div>
     );
