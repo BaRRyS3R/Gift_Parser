@@ -527,7 +527,7 @@ export const userService = {
     // NEW: Check and update league after game
     try {
       const leagueResult = await leagueService.checkAndUpdateLeague(user.id, newTotalGames);
-
+      
       return {
         success: true,
         leagueChanged: leagueResult.leagueChanged,

@@ -21,9 +21,9 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
     const t = useT();
 
     return (
-        <div className="flex space-x-3 px-4">
+        <div className="flex gap-3 px-4">
             <Button
-                className="flex-1 bg-transparent border border-white/30 text-white hover:bg-white/10"
+                className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
                 variant="bordered"
                 startContent={<Share2 size={16} />}
                 onPress={onOpenReferrals}
@@ -32,7 +32,7 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
             </Button>
 
             <Button
-                className="flex-1 bg-transparent border border-white/30 text-white hover:bg-white/10"
+                className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
                 variant="bordered"
                 startContent={<Award size={16} />}
                 onPress={onOpenAchievements}
@@ -41,12 +41,12 @@ const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
             </Button>
 
             <Button
-                className="flex-1 bg-transparent border border-white/30 text-white hover:bg-white/10"
+                className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
                 variant="bordered"
                 startContent={<Award size={16} />}
                 onPress={onOpenLeagues}
             >
-                LEAGUEEEEE
+                {t("profile.leagueButton")}
             </Button>
         </div>
     );

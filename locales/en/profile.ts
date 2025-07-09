@@ -22,6 +22,7 @@ export const profile = {
     totalAttempts: "Total Attempts",
     referralButton: "Referrals",
     achievementButton: "Achievements",
+    leagueButton: "League",
     tabs: {
         stats: "STATISTICS",
         referrals: "REFERRALS",

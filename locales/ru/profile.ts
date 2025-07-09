@@ -22,6 +22,7 @@ export const profile = {
     totalAttempts: "Всего попыток",
     referralButton: "Рефералы",
     achievementButton: "Достижения",
+    leagueButton: "Лиги",
     tabs: {
         stats: "СТАТИСТИКА",
         referrals: "РЕФЕРРАЛЫ",
