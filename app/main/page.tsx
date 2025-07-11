@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Swapped positions of attempts and league display
+// src/app/main/page.tsx - Исправленная версия с улучшенной обработкой клика лиги
 
 "use client";
 
@@ -251,13 +251,23 @@ export default function MainPage() {
     setIsAboutOpen(false);
   };
 
+  // ИСПРАВЛЕНИЕ: Улучшенная обработка клика лиги с отладкой
   const handleOpenLeagueProgress = () => {
+    console.log("League progress click detected"); // Отладочная информация
+    console.log("Current user:", user); // Проверяем наличие пользователя
+    console.log("User loading:", userLoading); // Проверяем состояние загрузки
     setIsLeagueProgressOpen(true);
   };
 
   const handleCloseLeagueProgress = () => {
+    console.log("Closing league progress modal"); // Отладочная информация
     setIsLeagueProgressOpen(false);
   };
+
+  // ДОПОЛНИТЕЛЬНО: Debug информация о состоянии
+  useEffect(() => {
+    console.log("League modal state:", isLeagueProgressOpen);
+  }, [isLeagueProgressOpen]);
 
   /* -------------------------------------------------
    * Render
@@ -448,7 +458,7 @@ export default function MainPage() {
         onClose={handleCloseLeagueProgress}
       />
 
-      {/* SWAPPED: Attempts Display now below league display (lower position) */}
+      {/* Attempts Display */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -462,19 +472,37 @@ export default function MainPage() {
         <AttemptsDisplay />
       </div>
 
-      {/* SWAPPED: League Display now above attempts (higher position) */}
-      {user && (
+      {/* ИСПРАВЛЕНИЕ: Улучшенное отображение лиги с дополнительными проверками */}
+      {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 z-30 flex justify-center ${isFirstVisit
+          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
             ? `transition-all duration-1000 transform ${showLeagueDisplay
               ? "opacity-100 translate-y-0"
               : "opacity-0 translate-y-4"
             }`
             : "opacity-100 translate-y-0"
             }`}
-          style={{ bottom: "96px" }}
+          style={{
+            bottom: "96px",
+            zIndex: 50  // Увеличиваем z-index для гарантии отображения поверх других элементов
+          }}
         >
-          <CompactLeagueDisplay onClick={handleOpenLeagueProgress} />
+          <div className="pointer-events-auto">
+            <CompactLeagueDisplay
+              onClick={handleOpenLeagueProgress}
+              className="cursor-pointer"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* DEBUG: Временный индикатор состояния (удалить после исправления) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-4 left-4 z-50 bg-black/80 text-white p-2 rounded text-xs">
+          <div>User: {user ? '✓' : '✗'}</div>
+          <div>Loading: {userLoading ? '✓' : '✗'}</div>
+          <div>Show League: {showLeagueDisplay ? '✓' : '✗'}</div>
+          <div>Modal Open: {isLeagueProgressOpen ? '✓' : '✗'}</div>
         </div>
       )}
     </div>
