@@ -1,8 +1,8 @@
-// src/lib/league_service.ts - Сервис для работы с системой лиг и уровней
+// src/lib/league_service.ts - Enhanced with neighbor players functionality
 
 import { supabase } from './supabase';
 
-// Типы для системы лиг
+// Existing types remain the same...
 export interface League {
     id: number;
     name: string;
@@ -31,7 +31,7 @@ export interface UserLeague {
     games_at_promotion: number;
     promoted_at: string;
     is_current: boolean;
-    league?: League; // Joined data
+    league?: League;
 }
 
 export interface UserLeagueReward {
@@ -42,8 +42,8 @@ export interface UserLeagueReward {
     position: number;
     games_count: number;
     received_at: string;
-    reward?: LeagueReward; // Joined data
-    league?: League; // Joined data
+    reward?: LeagueReward;
+    league?: League;
 }
 
 export interface LeagueProgressInfo {
@@ -75,7 +75,7 @@ export interface LeagueLeaderboard {
     totalInLeague: number;
     rewardsGiven: number;
     rewardsRemaining: number;
-    nextRewardAt: number | null; // games needed for next reward
+    nextRewardAt: number | null;
     userPosition: number | null;
     userGamesToNextReward: number | null;
     topPlayers: Array<{
@@ -89,12 +89,37 @@ export interface LeagueLeaderboard {
     }>;
 }
 
+// NEW: Interface for neighbor players in league
+export interface LeagueNeighbors {
+    league: League;
+    userPosition: number;
+    userGames: number;
+    playersAhead: Array<{
+        user_id: string;
+        first_name: string;
+        last_name?: string;
+        username?: string;
+        games_count: number;
+        position: number;
+        games_ahead: number;
+    }>;
+    playersBehind: Array<{
+        user_id: string;
+        first_name: string;
+        last_name?: string;
+        username?: string;
+        games_count: number;
+        position: number;
+        games_behind: number;
+    }>;
+}
+
 export const leagueService = {
-    // Константы системы
+    // Constants
     GAMES_PER_LEVEL: 100,
     MAX_LEVEL: 100,
 
-    // Получение всех лиг
+    // Existing methods remain the same...
     async getAllLeagues(): Promise<League[]> {
         const { data, error } = await supabase
             .from('leagues')
@@ -109,7 +134,6 @@ export const leagueService = {
         return data || [];
     },
 
-    // Получение лиги по количеству игр
     async getLeagueByGames(gamesCount: number): Promise<League | null> {
         const { data, error } = await supabase
             .from('leagues')
@@ -126,13 +150,11 @@ export const leagueService = {
         return data;
     },
 
-    // Расчет уровня по количеству игр
     calculateLevel(gamesCount: number): number {
         const level = Math.floor(gamesCount / this.GAMES_PER_LEVEL) + 1;
         return Math.min(level, this.MAX_LEVEL);
     },
 
-    // Получение прогресса игрока
     async getUserLeagueProgress(userId: string, totalGames: number): Promise<LeagueProgressInfo | null> {
         const currentLeague = await this.getLeagueByGames(totalGames);
         if (!currentLeague) return null;
@@ -144,14 +166,12 @@ export const leagueService = {
         const currentLevel = this.calculateLevel(totalGames);
         const gamesToNextLeague = nextLeague ? Math.max(0, nextLeague.min_games - totalGames) : 0;
 
-        // Расчет процента прогресса в текущей лиге
         let progressPercent = 0;
         if (nextLeague) {
             const leagueRange = nextLeague.min_games - currentLeague.min_games;
             const currentProgress = totalGames - currentLeague.min_games;
             progressPercent = Math.min(100, (currentProgress / leagueRange) * 100);
         } else {
-            // Для последней лиги показываем 100%
             progressPercent = 100;
         }
 
@@ -165,14 +185,88 @@ export const leagueService = {
         };
     },
 
-    // Получение текущей лиги пользователя
+    // NEW: Get neighbor players in the same league
+    async getLeagueNeighbors(userId: string, totalGames: number): Promise<LeagueNeighbors | null> {
+        try {
+            const currentLeague = await this.getLeagueByGames(totalGames);
+            if (!currentLeague) return null;
+
+            // Get all users in the current league, ordered by games count
+            const { data: usersInLeague, error: usersError } = await supabase
+                .from('users')
+                .select(`
+                    id,
+                    first_name,
+                    last_name,
+                    username,
+                    total_games
+                `)
+                .gte('total_games', currentLeague.min_games)
+                .lte('total_games', currentLeague.max_games || 999999)
+                .order('total_games', { ascending: false });
+
+            if (usersError) {
+                console.error('Error fetching users in league:', usersError);
+                return null;
+            }
+
+            if (!usersInLeague) return null;
+
+            // Find user position
+            const userIndex = usersInLeague.findIndex(user => user.id === userId);
+            if (userIndex === -1) return null;
+
+            const userPosition = userIndex + 1;
+            const userGames = totalGames;
+
+            // Get 2 players ahead
+            const playersAhead = usersInLeague
+                .slice(Math.max(0, userIndex - 2), userIndex)
+                .map((player, index) => ({
+                    user_id: player.id,
+                    first_name: player.first_name,
+                    last_name: player.last_name,
+                    username: player.username,
+                    games_count: player.total_games,
+                    position: userPosition - (2 - index),
+                    games_ahead: player.total_games - userGames
+                }));
+
+            // Get 2 players behind
+            const playersBehind = usersInLeague
+                .slice(userIndex + 1, userIndex + 3)
+                .map((player, index) => ({
+                    user_id: player.id,
+                    first_name: player.first_name,
+                    last_name: player.last_name,
+                    username: player.username,
+                    games_count: player.total_games,
+                    position: userPosition + index + 1,
+                    games_behind: userGames - player.total_games
+                }));
+
+            return {
+                league: currentLeague,
+                userPosition,
+                userGames,
+                playersAhead,
+                playersBehind
+            };
+
+        } catch (error) {
+            console.error('Error getting league neighbors:', error);
+            return null;
+        }
+    },
+
+    // Existing methods remain the same...
     async getUserCurrentLeague(userId: string): Promise<UserLeague | null> {
         const { data, error } = await supabase
             .from('user_leagues')
             .select(`
-        *,
-        league:leagues(*)
-      `)
+                *,
+                league:leagues(*)
+            `)
             .eq('user_id', userId)
             .eq('is_current', true)
             .maybeSingle();
@@ -185,14 +279,13 @@ export const leagueService = {
         return data;
     },
 
-    // Получение истории лиг пользователя
     async getUserLeagueHistory(userId: string): Promise<UserLeague[]> {
         const { data, error } = await supabase
             .from('user_leagues')
             .select(`
-        *,
-        league:leagues(*)
-      `)
+                *,
+                league:leagues(*)
+            `)
             .eq('user_id', userId)
             .order('promoted_at', { ascending: false });
 
@@ -204,15 +297,14 @@ export const leagueService = {
         return data || [];
     },
 
-    // Получение наград пользователя
     async getUserRewards(userId: string): Promise<UserLeagueReward[]> {
         const { data, error } = await supabase
             .from('user_league_rewards')
             .select(`
-        *,
-        reward:league_rewards(*),
-        league:leagues(*)
-      `)
+                *,
+                reward:league_rewards(*),
+                league:leagues(*)
+            `)
             .eq('user_id', userId)
             .order('received_at', { ascending: false });
 
@@ -224,14 +316,12 @@ export const leagueService = {
         return data || [];
     },
 
-    // Проверка и обновление лиги после игры
     async checkAndUpdateLeague(userId: string, newTotalGames: number): Promise<{
         leagueChanged: boolean;
         newLeague?: League;
         reward?: LeagueRewardResult;
     }> {
         try {
-            // Получаем текущую лигу пользователя
             const currentUserLeague = await this.getUserCurrentLeague(userId);
             const newLeague = await this.getLeagueByGames(newTotalGames);
 
@@ -239,12 +329,10 @@ export const leagueService = {
                 return { leagueChanged: false };
             }
 
-            // Если лига не изменилась
             if (currentUserLeague && currentUserLeague.league_id === newLeague.id) {
                 return { leagueChanged: false };
             }
 
-            // Обновляем уровень пользователя
             const newLevel = this.calculateLevel(newTotalGames);
             await supabase
                 .from('users')
@@ -254,7 +342,6 @@ export const leagueService = {
                 })
                 .eq('id', userId);
 
-            // Деактивируем текущую лигу
             if (currentUserLeague) {
                 await supabase
                     .from('user_leagues')
@@ -262,7 +349,6 @@ export const leagueService = {
                     .eq('id', currentUserLeague.id);
             }
 
-            // Создаем запись о новой лиге
             await supabase
                 .from('user_leagues')
                 .insert({
@@ -272,7 +358,6 @@ export const leagueService = {
                     is_current: true
                 });
 
-            // Проверяем награды только если это не бронзовая лига
             let rewardResult: LeagueRewardResult | undefined;
             if (newLeague.name !== 'bronze') {
                 rewardResult = await this.claimLeagueReward(userId, newLeague.id, newTotalGames);
@@ -290,7 +375,6 @@ export const leagueService = {
         }
     },
 
-    // Получение награды за лигу (атомарно)
     async claimLeagueReward(userId: string, leagueId: number, gamesCount: number): Promise<LeagueRewardResult> {
         try {
             const { data, error } = await supabase.rpc('claim_league_reward', {
@@ -315,10 +399,8 @@ export const leagueService = {
         }
     },
 
-    // Получение лидерборда лиги
     async getLeagueLeaderboard(leagueId: number, userId?: string): Promise<LeagueLeaderboard | null> {
         try {
-            // Получаем информацию о лиге
             const { data: league, error: leagueError } = await supabase
                 .from('leagues')
                 .select('*')
@@ -330,16 +412,15 @@ export const leagueService = {
                 return null;
             }
 
-            // Получаем пользователей в этой лиге
             const { data: usersInLeague, error: usersError } = await supabase
                 .from('users')
                 .select(`
-          id,
-          first_name,
-          last_name,
-          username,
-          total_games
-        `)
+                    id,
+                    first_name,
+                    last_name,
+                    username,
+                    total_games
+                `)
                 .gte('total_games', league.min_games)
                 .lte('total_games', league.max_games || 999999)
                 .order('total_games', { ascending: false })
@@ -350,7 +431,6 @@ export const leagueService = {
                 return null;
             }
 
-            // Получаем информацию о выданных наградах
             const { data: rewardsGiven, error: rewardsError } = await supabase
                 .from('user_league_rewards')
                 .select('user_id, position')
@@ -365,7 +445,6 @@ export const leagueService = {
             const rewardsRemaining = Math.max(0, league.rewards_count - rewardsGivenCount);
             const rewardedUserIds = new Set(rewardsGiven?.map(r => r.user_id) || []);
 
-            // Определяем позицию пользователя и расстояние до награды
             let userPosition: number | null = null;
             let userGamesToNextReward: number | null = null;
 
@@ -374,7 +453,6 @@ export const leagueService = {
                 if (userIndex !== -1) {
                     userPosition = userIndex + 1;
 
-                    // Расчет игр до следующей награды
                     if (rewardsRemaining > 0 && userPosition > rewardsGivenCount) {
                         const nextRewardPosition = rewardsGivenCount + 1;
                         if (userPosition > nextRewardPosition) {
@@ -385,7 +463,6 @@ export const leagueService = {
                 }
             }
 
-            // Формируем топ игроков
             const topPlayers = (usersInLeague || []).slice(0, 10).map((user, index) => ({
                 user_id: user.id,
                 first_name: user.first_name,
@@ -396,7 +473,6 @@ export const leagueService = {
                 got_reward: rewardedUserIds.has(user.id)
             }));
 
-            // Определяем количество игр для следующей награды
             let nextRewardAt: number | null = null;
             if (rewardsRemaining > 0 && usersInLeague && usersInLeague.length > rewardsGivenCount) {
                 nextRewardAt = usersInLeague[rewardsGivenCount]?.total_games || null;
@@ -419,7 +495,6 @@ export const leagueService = {
         }
     },
 
-    // Инициализация лиги для нового пользователя
     async initializeUserLeague(userId: string, totalGames: number = 0): Promise<void> {
         try {
             const league = await this.getLeagueByGames(totalGames);
@@ -427,7 +502,6 @@ export const leagueService = {
 
             const level = this.calculateLevel(totalGames);
 
-            // Обновляем пользователя
             await supabase
                 .from('users')
                 .update({
@@ -436,7 +510,6 @@ export const leagueService = {
                 })
                 .eq('id', userId);
 
-            // Создаем запись о лиге
             await supabase
                 .from('user_leagues')
                 .insert({

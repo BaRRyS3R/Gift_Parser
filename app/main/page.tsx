@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated to remove typing animation
+// src/app/main/page.tsx - Updated to include league progress display
 
 "use client";
 
@@ -15,6 +15,7 @@ import { formatTimeRemaining } from "@/types/tournaments";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
+import LeagueProgressDisplay from "@/components/LeagueProgress/LeagueProgressDisplay";
 
 export default function MainPage() {
   const router = useRouter();
@@ -42,6 +43,7 @@ export default function MainPage() {
   const [showGreeting, setShowGreeting] = useState(!isFirstVisit);
   const [greetingText, setGreetingText] = useState("");
   const [showTopButtons, setShowTopButtons] = useState(!isFirstVisit);
+  const [showLeagueProgress, setShowLeagueProgress] = useState(!isFirstVisit);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
@@ -186,13 +188,14 @@ export default function MainPage() {
   }, [settings.showBackgroundVideo]);
 
   /* -------------------------------------------------
-   * Mount / animation logic - UPDATED: Simplified without typing effect
+   * Mount / animation logic - UPDATED: Added league progress animation
    * -------------------------------------------------*/
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
       setPageLoaded(true);
       // Show all elements immediately for first visit, or they're already shown for returning visits
       if (isFirstVisit) {
+        setTimeout(() => setShowLeagueProgress(true), 150);
         setTimeout(() => setShowButton(true), 300);
         setTimeout(() => setShowGreeting(true), 600);
         setTimeout(() => setShowTopButtons(true), 900);
@@ -284,6 +287,22 @@ export default function MainPage() {
           >
             <source src="/videos/mainbg.mp4" type="video/mp4" />
           </video>
+        </div>
+      )}
+
+      {/* League Progress Display - NEW */}
+      {user && (
+        <div
+          className={`fixed left-1/2 transform -translate-x-1/2 z-30 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showLeagueProgress
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-4"
+            }`
+            : "opacity-100 translate-y-0"
+            }`}
+          style={{ top: headerOffset + 80 }}
+        >
+          <LeagueProgressDisplay className="min-w-[280px]" />
         </div>
       )}
 

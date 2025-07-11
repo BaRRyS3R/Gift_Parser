@@ -1,4 +1,4 @@
-// src/components/Profile/MinimalistGameStats.tsx - Updated with rotation mode support
+// src/components/Profile/MinimalistGameStats.tsx - Enhanced with level progress
 
 "use client";
 
@@ -13,11 +13,14 @@ import {
     Target,
     Atom,
     BarChart3,
-    RotateCw, // NEW for rotation mode
+    RotateCw,
+    Star,
+    ArrowUp,
 } from "lucide-react";
 import type { User as UserType } from "@/lib/supabase";
-import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter"; // NEW
+import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter";
 import { useT } from "@/contexts/LocalizationContext";
+import leagueService from "@/lib/league_service";
 
 interface MinimalistGameStatsProps {
     user: UserType;
@@ -25,6 +28,13 @@ interface MinimalistGameStatsProps {
 
 const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
     const t = useT();
+
+    // Calculate level progress
+    const currentLevel = leagueService.calculateLevel(user.total_games);
+    const gamesInCurrentLevel = user.total_games % leagueService.GAMES_PER_LEVEL;
+    const gamesToNextLevel = leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
+    const levelProgressPercent = (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
+    const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
 
     const StatItem = ({
         icon: Icon,
@@ -90,6 +100,57 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
 
             <Card className="bg-black/40 border border-white/20">
                 <CardBody className="p-5">
+                    {/* Level Progress Section - NEW */}
+                    <StatsSection
+                        title={`${t("leagues.level")} ${currentLevel}`}
+                        icon={Star}
+                    >
+                        <div className="space-y-3">
+                            {/* Level Progress Info */}
+                            <div className="flex justify-between items-center">
+                                <span className="text-white/70 text-xs">
+                                    {t("leagues.progressDisplay.gamesPlayed")}
+                                </span>
+                                <span className="text-white font-bold text-xs">
+                                    {user.total_games}
+                                </span>
+                            </div>
+
+                            {!isMaxLevel && (
+                                <>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-white/60 text-xs">
+                                            Games to level {currentLevel + 1}
+                                        </span>
+                                        <div className="flex items-center space-x-1">
+                                            <ArrowUp className="text-white/60" size={10} />
+                                            <span className="text-white font-bold text-xs">
+                                                {gamesToNextLevel}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Level Progress Bar */}
+                                    <div className="w-full bg-white/20 rounded-full h-1.5">
+                                        <div
+                                            className="h-1.5 rounded-full bg-white/60 transition-all duration-500"
+                                            style={{ width: `${levelProgressPercent}%` }}
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {isMaxLevel && (
+                                <div className="text-center py-2">
+                                    <Star className="text-yellow-400 mx-auto mb-1" size={16} />
+                                    <span className="text-yellow-400 text-xs font-bold">
+                                        {t("leagues.progressDisplay.maxLevel")}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </StatsSection>
+
                     {/* Overall Statistics Section */}
                     <StatsSection
                         title={t("profile.overallStats")}
@@ -212,7 +273,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
                         />
                     </StatsSection>
 
-                    {/* NEW: Rotation Mode Statistics Section */}
+                    {/* Rotation Mode Statistics Section */}
                     <StatsSection
                         title={t("profile.rotationMode")}
                         icon={RotateCw}

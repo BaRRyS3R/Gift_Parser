@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Полная страница профиля с системой лиг и уровней
+// src/app/profile/page.tsx - Enhanced profile page with league neighbors
 
 "use client";
 
@@ -15,6 +15,8 @@ import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
 import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
+import LeagueProgressDisplay from "@/components/LeagueProgress/LeagueProgressDisplay";
+import LeagueNeighborsDisplay from "@/components/LeagueProgress/LeagueNeighborsDisplay";
 
 interface UserRankings {
   overall: number | null;
@@ -138,7 +140,28 @@ export default function ProfilePage() {
         {/* Divider */}
         <MinimalistDivider />
 
-        {/* Game Statistics */}
+        {/* League Progress Display - Enhanced with level progress */}
+        <div className="px-4 mb-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
+            <span>League & Level Progress</span>
+          </h3>
+          <LeagueProgressDisplay showLevelProgress={true} className="mb-4" />
+        </div>
+
+        {/* League Neighbors Display - NEW */}
+        {user.total_games > 0 && (
+          <div className="px-4 mb-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
+              <span>League Position</span>
+            </h3>
+            <LeagueNeighborsDisplay />
+          </div>
+        )}
+
+        {/* Divider */}
+        <MinimalistDivider />
+
+        {/* Game Statistics - Enhanced with level progress */}
         <MinimalistGameStats user={user} />
 
         {/* Bottom spacing for safe area */}
