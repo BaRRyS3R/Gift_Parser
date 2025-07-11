@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Обновленный сервис пользователей с интеграцией системы лиг
+// src/lib/supabase.ts - Обновленный сервис пользователей с исключением режима реакции из подсчета общих игр
 
 import { createClient } from "@supabase/supabase-js";
 import { GameMode } from "@/types/game-modes/common";
@@ -20,7 +20,6 @@ const ATTEMPTS_CONFIG = {
   REFERRAL_BONUS: 5,
 } as const;
 
-// Добавляем новые поля для лиг в интерфейс User
 export interface User {
   id: string; // UUID v4
   telegram_id: number;
@@ -48,7 +47,7 @@ export interface User {
   total_score: number;
   best_score: number;
 
-  // League and Level system - NEW
+  // League and Level system
   current_level: number;
   current_league_id?: number;
 
@@ -88,7 +87,7 @@ export interface User {
   is_active: boolean;
 }
 
-// Новый интерфейс для результата сохранения игры с информацией о лигах
+// Updated interface with missedRewards field
 export interface GameSaveResult {
   success: boolean;
   leagueChanged?: boolean;
@@ -96,6 +95,7 @@ export interface GameSaveResult {
   levelChanged?: boolean;
   newLevel?: number;
   reward?: LeagueRewardResult;
+  missedRewards?: LeagueRewardResult[]; // NEW: Added to support retroactive reward checking
   error?: string;
 }
 
@@ -238,7 +238,6 @@ export const userService = {
       referred_by: referredBy,
       referral_bonus: 5,
       referral_count: 0,
-      // NEW: Initialize league and level fields
       current_level: 1,
     };
 
@@ -253,12 +252,10 @@ export const userService = {
       throw error;
     }
 
-    // NEW: Initialize user's league after creation
     try {
       await leagueService.initializeUserLeague(data.id, 0);
     } catch (leagueError) {
       console.error("Error initializing user league:", leagueError);
-      // Don't throw error for league initialization failure
     }
 
     return data;
@@ -437,7 +434,6 @@ export const userService = {
     }
   },
 
-  // Legacy methods maintained for backward compatibility
   async checkAndUpdateAttempts(telegramId: number): Promise<AttemptsStatus> {
     return this.checkAndUpdateAttemptsWithServerValidation(telegramId);
   },
@@ -446,21 +442,25 @@ export const userService = {
     return this.consumeAttemptWithServerValidation(telegramId);
   },
 
-  // UPDATED: Enhanced updateGameStats with league checking
+  // UPDATED: Enhanced updateGameStats with reaction mode exclusion from total_games
   async updateGameStats(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<GameSaveResult> {
     const user = await this.findByTelegramId(telegramId);
     if (!user) throw new Error("User not found");
 
     const previousTotalGames = user.total_games;
-    const newTotalGames = previousTotalGames + 1;
+    
+    // CRITICAL CHANGE: Exclude reaction mode from total_games counting
+    const isCompetitiveMode = gameResult.mode !== GameMode.REACTION;
+    const newTotalGames = isCompetitiveMode ? previousTotalGames + 1 : previousTotalGames;
+    
     const previousLevel = user.current_level;
     const newLevel = leagueService.calculateLevel(newTotalGames);
 
     const updates: any = {
-      total_games: newTotalGames,
+      total_games: newTotalGames, // Only incremented for competitive modes
       total_score: user.total_score + gameResult.score,
       best_score: Math.max(user.best_score, gameResult.score),
-      current_level: newLevel, // NEW: Update level
+      current_level: newLevel,
       last_played_at: new Date().toISOString(),
     };
 
@@ -524,21 +524,30 @@ export const userService = {
       throw error;
     }
 
-    // NEW: Check and update league after game
+    // IMPORTANT: League checking only for competitive modes
     try {
-      const leagueResult = await leagueService.checkAndUpdateLeague(user.id, newTotalGames);
-      
-      return {
-        success: true,
-        leagueChanged: leagueResult.leagueChanged,
-        newLeague: leagueResult.newLeague,
-        levelChanged: newLevel !== previousLevel,
-        newLevel: newLevel !== previousLevel ? newLevel : undefined,
-        reward: leagueResult.reward
-      };
+      if (isCompetitiveMode) {
+        const leagueResult = await leagueService.checkAndUpdateLeague(user.id, newTotalGames);
+        
+        return {
+          success: true,
+          leagueChanged: leagueResult.leagueChanged,
+          newLeague: leagueResult.newLeague,
+          levelChanged: newLevel !== previousLevel,
+          newLevel: newLevel !== previousLevel ? newLevel : undefined,
+          reward: leagueResult.reward,
+          missedRewards: leagueResult.missedRewards
+        };
+      } else {
+        // For reaction mode, return result without league checking
+        return {
+          success: true,
+          leagueChanged: false,
+          levelChanged: false
+        };
+      }
     } catch (leagueError) {
       console.error("Error checking league after game:", leagueError);
-      // Return success even if league check fails, as the game stats were saved
       return {
         success: true,
         leagueChanged: false,
@@ -549,7 +558,6 @@ export const userService = {
     }
   },
 
-  // UPDATED: Enhanced saveGameResult that returns league information
   async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<GameSaveResult> {
     const user = await this.findByTelegramId(telegramId);
     if (!user) throw new Error("User not found");
