@@ -1,4 +1,5 @@
-// src/locales/en/profile.ts - Profile page elements (Updated with Rotation)
+// src/locales/en/profile.ts - Enhanced with new league translations (English)
+
 export const profile = {
     title: "PROFILE",
     loadingProfile: "LOADING PROFILE...",
@@ -7,15 +8,15 @@ export const profile = {
     reactionMode: "Reaction",
     survivalMode: "Survival",
     physicsMode: "Physics",
-    rotationMode: "Rotation", // NEW
+    rotationMode: "Rotation",
     noReactionTestsYet: "No data. Fortunately.",
     testReflexesToSeeStats: "Play reaction mode to see stats",
     noSurvivalAttemptsYet: "No data. Fortunately.",
     enterSurvivalToSeeStats: "Play survival mode to see stats",
     noPhysicsAttemptsYet: "No data. Fortunately.",
     enterPhysicsToSeeStats: "Play physics mode to see stats",
-    noRotationAttemptsYet: "No data. Fortunately.", // NEW
-    enterRotationToSeeStats: "Play rotation mode to see stats", // NEW
+    noRotationAttemptsYet: "No data. Fortunately.",
+    enterRotationToSeeStats: "Play rotation mode to see stats",
     totalGames: "Total Games",
     currentAttempts: "Current Attempts",
     totalTests: "Total Tests",
@@ -23,6 +24,33 @@ export const profile = {
     referralButton: "Referrals",
     achievementButton: "Achievements",
     leagueButton: "League",
+
+    // NEW: Level and league display
+    levelDisplay: "Level {level}",
+    currentLeague: "Current",
+    gamesUnit: "games",
+    rewardsUnit: "rewards",
+    gamesRequired: "games required",
+    inLeague: "in",
+
+    // NEW: Level progress
+    levelProgress: {
+        gamesToNext: "Games to next level",
+        nextLevel: "Next level {level}",
+        nextLeague: "Next league",
+        maxAchieved: "Maximum achieved"
+    },
+
+    // NEW: League position
+    leaguePosition: {
+        title: "League Position",
+        yourPosition: "Your position",
+        gamesAhead: "games ahead",
+        gamesBehind: "games behind",
+        aloneInLeague: "You are alone in this league",
+        leagueLeader: "League Leader!"
+    },
+
     tabs: {
         stats: "STATISTICS",
         referrals: "REFERRALS",
@@ -41,15 +69,15 @@ export const profile = {
         reactionModeStats: "Reaction",
         survivalModeStats: "Survival",
         physicsModeStats: "Physics",
-        rotationModeStats: "Rotation", // NEW
+        rotationModeStats: "Rotation",
         noReactionTests: "NO REACTION TESTS",
         testReflexes: "Test your lightning reflexes (if you have them)!",
         noSurvivalAttempts: "NO SURVIVAL ATTEMPTS",
         enterSurvival: "ACCEPT SURVIVAL CHALLENGE!",
         noPhysicsAttempts: "NO PHYSICS EXPERIMENTS",
         enterPhysics: "TRY PHYSICS EXPERIMENT!",
-        noRotationAttempts: "NO ROTATION EXPERIMENTS", // NEW
-        enterRotation: "TRY ROTATION EXPERIMENT!", // NEW
+        noRotationAttempts: "NO ROTATION EXPERIMENTS",
+        enterRotation: "TRY ROTATION EXPERIMENT!",
         bestTime: "Best Time",
         bestScore: "Best Score",
         averageTime: "Average Time",
@@ -58,7 +86,7 @@ export const profile = {
         bestStreak: "Best Streak",
         bestSurvival: "Best Survival",
         totalExperiments: "Total Experiments",
-        totalSpins: "Total Spins", // NEW
+        totalSpins: "Total Spins",
     },
     referrals: {
         title: "RECRUITMENT",
@@ -106,7 +134,6 @@ export const profile = {
         impulseMaster: "IMPULSE MASTER",
         wallBreaker: "WALL BREAKER",
         physicsElite: "PHYSICS ELITE",
-        // NEW: Rotation achievements
         rotationTester: "ROTATION TESTER",
         spinMaster: "SPIN MASTER",
         dizzinessResistant: "DIZZINESS RESISTANT",
@@ -130,7 +157,6 @@ export const profile = {
             physicsAttempts: "{count}+ PHYSICS EXPERIMENTS",
             physicsScore: "{score}+ PHYSICS SCORE",
             physicsTime: "{time}+ SECONDS PHYSICS",
-            // NEW: Rotation achievements descriptions
             enteredRotation: "TRIED ROTATION MODE",
             rotationAttempts: "{count}+ ROTATION EXPERIMENTS",
             rotationScore: "{score}+ ROTATION SCORE",
@@ -138,7 +164,7 @@ export const profile = {
             rotationLevel: "ROTATION LEVEL {level}+",
             topSurvivor: "TOP {rank} SURVIVOR",
             topPhysics: "TOP {rank} PHYSICS",
-            topRotation: "TOP {rank} ROTATION", // NEW
+            topRotation: "TOP {rank} ROTATION",
             topOverall: "TOP {rank} OVERALL",
         },
     },

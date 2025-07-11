@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated to include league progress display
+// src/app/main/page.tsx - Updated with compact league display at the top
 
 "use client";
 
@@ -15,7 +15,7 @@ import { formatTimeRemaining } from "@/types/tournaments";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
-import LeagueProgressDisplay from "@/components/LeagueProgress/LeagueProgressDisplay";
+import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
 
 export default function MainPage() {
   const router = useRouter();
@@ -24,9 +24,8 @@ export default function MainPage() {
   const t = useT();
 
   /* -------------------------------------------------
-   * Animation control - NEW: First visit detection (синхронная проверка)
+   * Animation control - First visit detection
    * -------------------------------------------------*/
-  // Функция для синхронной проверки первого посещения
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
     return !sessionStorage.getItem("mainPageVisited");
@@ -35,7 +34,7 @@ export default function MainPage() {
   const isFirstVisit = checkFirstVisit();
 
   /* -------------------------------------------------
-   * UI state - инициализация в зависимости от первого посещения
+   * UI state
    * -------------------------------------------------*/
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
@@ -43,7 +42,7 @@ export default function MainPage() {
   const [showGreeting, setShowGreeting] = useState(!isFirstVisit);
   const [greetingText, setGreetingText] = useState("");
   const [showTopButtons, setShowTopButtons] = useState(!isFirstVisit);
-  const [showLeagueProgress, setShowLeagueProgress] = useState(!isFirstVisit);
+  const [showLeagueDisplay, setShowLeagueDisplay] = useState(!isFirstVisit);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
@@ -70,14 +69,14 @@ export default function MainPage() {
     }
   }, []);
 
-  // NEW: Отметка посещения главной страницы (только при первом посещении)
+  // Mark page as visited
   useEffect(() => {
     if (isFirstVisit && typeof window !== "undefined") {
       sessionStorage.setItem("mainPageVisited", "true");
     }
   }, [isFirstVisit]);
 
-  // Инициализация приветствия для не первого посещения
+  // Initialize greeting for non-first visits
   useEffect(() => {
     if (!isFirstVisit && user?.first_name) {
       const fullGreeting = t("main.greeting", { name: user.first_name });
@@ -85,7 +84,7 @@ export default function MainPage() {
     }
   }, [isFirstVisit, user?.first_name, t]);
 
-  // Инициализация telegramUser если он не установлен
+  // Initialize telegramUser if not set
   useEffect(() => {
     if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -117,11 +116,9 @@ export default function MainPage() {
           setActiveTournament(tournamentStatus.activeTournament);
           setShowTournamentButton(true);
 
-          // Initialize countdown timer
           if (tournamentStatus.timeRemaining) {
             setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
 
-            // Update countdown every second
             const interval = setInterval(() => {
               const now = new Date();
               const endDate = new Date(tournamentStatus.activeTournament!.end_date);
@@ -154,16 +151,12 @@ export default function MainPage() {
   }, []);
 
   /* -------------------------------------------------
-   * Refs & helpers
+   * Background video logic
    * -------------------------------------------------*/
   const videoRef = useRef<HTMLVideoElement>(null);
-
   const username = user?.first_name || "unknown";
   const fullGreeting = t("main.greeting", { name: username });
 
-  /* -------------------------------------------------
-   * Background video logic
-   * -------------------------------------------------*/
   useEffect(() => {
     const video = videoRef.current;
 
@@ -188,14 +181,13 @@ export default function MainPage() {
   }, [settings.showBackgroundVideo]);
 
   /* -------------------------------------------------
-   * Mount / animation logic - UPDATED: Added league progress animation
+   * Mount / animation logic
    * -------------------------------------------------*/
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
       setPageLoaded(true);
-      // Show all elements immediately for first visit, or they're already shown for returning visits
       if (isFirstVisit) {
-        setTimeout(() => setShowLeagueProgress(true), 150);
+        setTimeout(() => setShowLeagueDisplay(true), 150);
         setTimeout(() => setShowButton(true), 300);
         setTimeout(() => setShowGreeting(true), 600);
         setTimeout(() => setShowTopButtons(true), 900);
@@ -205,7 +197,7 @@ export default function MainPage() {
     return () => clearTimeout(pageLoadTimer);
   }, [isFirstVisit]);
 
-  // Greeting typing animation - только для первого посещения
+  // Greeting typing animation for first visit only
   useEffect(() => {
     if (!showGreeting || userLoading || !isFirstVisit) {
       return;
@@ -290,23 +282,23 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* League Progress Display - NEW */}
+      {/* Compact League Display - NEW: Moved to top center */}
       {user && (
         <div
           className={`fixed left-1/2 transform -translate-x-1/2 z-30 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showLeagueProgress
+            ? `transition-all duration-1000 transform ${showLeagueDisplay
               ? "opacity-100 translate-y-0"
               : "opacity-0 -translate-y-4"
             }`
             : "opacity-100 translate-y-0"
             }`}
-          style={{ top: headerOffset + 80 }}
+          style={{ top: headerOffset }}
         >
-          <LeagueProgressDisplay className="min-w-[280px]" />
+          <CompactLeagueDisplay />
         </div>
       )}
 
-      {/* Top Navigation Icons - UPDATED: Conditional animation */}
+      {/* Top Navigation Icons */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -315,7 +307,7 @@ export default function MainPage() {
           }`
           : "opacity-100 translate-y-0"
           }`}
-        style={{ top: headerOffset }}
+        style={{ top: headerOffset + (user ? 60 : 20) }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -349,6 +341,7 @@ export default function MainPage() {
               <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
             </button>
           </div>
+
           {/* Tournament Button */}
           {showTournamentButton && activeTournament && (
             <button
@@ -381,14 +374,14 @@ export default function MainPage() {
 
       {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
-        {/* Title Section - UPDATED: Show "circusle" immediately without animation */}
+        {/* Title Section */}
         <div className="relative">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
             circusle
           </h1>
         </div>
 
-        {/* Action Button - UPDATED: Conditional animation */}
+        {/* Action Button */}
         <div
           className={`${isFirstVisit
             ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
@@ -416,7 +409,7 @@ export default function MainPage() {
           </div>
         </div>
 
-        {/* User Greeting - UPDATED: Conditional animation */}
+        {/* User Greeting */}
         <div
           className={`${isFirstVisit
             ? `transition-all duration-1000 transform ${showGreeting
@@ -455,7 +448,7 @@ export default function MainPage() {
       {/* About Modal */}
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
 
-      {/* Attempts Display - UPDATED: Conditional animation */}
+      {/* Attempts Display */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -464,7 +457,7 @@ export default function MainPage() {
           }`
           : "opacity-100 translate-y-0"
           }`}
-        style={{ paddingBottom: "96px" }} // Space for navigation menu
+        style={{ paddingBottom: "96px" }}
       >
         <AttemptsDisplay />
       </div>

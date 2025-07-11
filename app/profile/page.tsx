@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Enhanced profile page with league neighbors
+// src/app/profile/page.tsx - Simplified profile page with integrated league display
 
 "use client";
 
@@ -7,16 +7,14 @@ import { useUser } from "@/hooks/useUser";
 import { userService, type ReferralInfo } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
 
-// Import minimalist components
-import MinimalistProfileHeader from "@/components/Profile/MinimalistProfileHeader";
+// Import components
+import EnhancedProfileHeader from "@/components/Profile/EnhancedProfileHeader";
 import MinimalistActionButtons from "@/components/Profile/MinimalistActionButtons";
 import MinimalistDivider from "@/components/Profile/MinimalistDivider";
 import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
 import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
-import LeagueProgressDisplay from "@/components/LeagueProgress/LeagueProgressDisplay";
-import LeagueNeighborsDisplay from "@/components/LeagueProgress/LeagueNeighborsDisplay";
 
 interface UserRankings {
   overall: number | null;
@@ -117,7 +115,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-      {/* Header - Unified with Game Page */}
+      {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
           {t("profile.title")}
@@ -127,10 +125,10 @@ export default function ProfilePage() {
       <MinimalistDivider />
 
       <div className="max-w-md mx-auto">
-        {/* Profile Header */}
-        <MinimalistProfileHeader user={user} />
+        {/* Enhanced Profile Header with Level and League */}
+        <EnhancedProfileHeader user={user} />
 
-        {/* Action Buttons - Updated with leagues */}
+        {/* Action Buttons */}
         <MinimalistActionButtons
           onOpenReferrals={handleOpenReferrals}
           onOpenAchievements={handleOpenAchievements}
@@ -140,28 +138,7 @@ export default function ProfilePage() {
         {/* Divider */}
         <MinimalistDivider />
 
-        {/* League Progress Display - Enhanced with level progress */}
-        <div className="px-4 mb-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
-            <span>League & Level Progress</span>
-          </h3>
-          <LeagueProgressDisplay showLevelProgress={true} className="mb-4" />
-        </div>
-
-        {/* League Neighbors Display - NEW */}
-        {user.total_games > 0 && (
-          <div className="px-4 mb-6">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
-              <span>League Position</span>
-            </h3>
-            <LeagueNeighborsDisplay />
-          </div>
-        )}
-
-        {/* Divider */}
-        <MinimalistDivider />
-
-        {/* Game Statistics - Enhanced with level progress */}
+        {/* Game Statistics with Level Progress */}
         <MinimalistGameStats user={user} />
 
         {/* Bottom spacing for safe area */}
@@ -184,6 +161,7 @@ export default function ProfilePage() {
         rankings={rankings}
       />
 
+      {/* Enhanced Leagues Modal with neighbor players */}
       <LeaguesModal
         isOpen={isLeaguesModalOpen}
         onClose={() => setIsLeaguesModalOpen(false)}

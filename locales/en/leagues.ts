@@ -1,6 +1,5 @@
 // src/locales/en/leagues.ts - English localization for leagues system
 export const leagues = {
-    // General
     title: "LEAGUES & LEVELS",
     level: "Level",
     league: "League",
@@ -8,7 +7,6 @@ export const leagues = {
     rewards: "Rewards",
     leaderboard: "Leaderboard",
 
-    // League names
     names: {
         bronze: "Bronze League",
         silver: "Silver League",
@@ -17,17 +15,16 @@ export const leagues = {
         diamond: "Diamond League"
     },
 
-    // Progress display
     progressDisplay: {
         currentLevel: "Current Level",
         currentLeague: "Current League",
         gamesPlayed: "Games Played",
         gamesToNext: "Games to Next League",
         maxLevel: "Max Level Reached",
-        inTopLeague: "You're in the top league!"
+        inTopLeague: "You're in the top league!",
+        maxAchieved: "Maximum achieved"
     },
 
-    // Rewards section
     rewardsSection: {
         title: "League Rewards",
         description: "First 5 players to reach each league get special rewards",
@@ -39,10 +36,10 @@ export const leagues = {
         attemptsReward: "+{amount} Attempts",
         availableRewards: "Available Rewards",
         rewardsLeft: "{count} rewards left",
-        allClaimed: "All rewards claimed"
+        allClaimed: "All rewards claimed",
+        specialReward: "Special Reward"
     },
 
-    // Leaderboard section
     leaderboardSection: {
         title: "League Leaderboard",
         topPlayers: "Top Players",
@@ -56,7 +53,6 @@ export const leagues = {
         gamesToNextReward: "{games} games to next reward"
     },
 
-    // Achievement notifications
     notifications: {
         levelUp: {
             title: "Level Up!",
@@ -76,14 +72,12 @@ export const leagues = {
         }
     },
 
-    // Status messages
     status: {
         loading: "Loading league data...",
         error: "Failed to load league information",
         noData: "No league data available"
     },
 
-    // Button labels
     buttons: {
         viewRewards: "View Rewards",
         viewLeaderboard: "View Leaderboard",

@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeaguesModal.tsx - Модальное окно с полной информацией о лигах
+// src/components/LeagueProgress/LeaguesModal.tsx - Enhanced modal with neighbor players
 
 "use client";
 
@@ -24,6 +24,9 @@ import {
     Award,
     ChevronRight,
     X,
+    ArrowUp,
+    ArrowDown,
+    Target,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -32,7 +35,8 @@ import leagueService, {
     type League,
     type LeagueProgressInfo,
     type UserLeagueReward,
-    type LeagueLeaderboard
+    type LeagueLeaderboard,
+    type LeagueNeighbors
 } from "@/lib/league_service";
 
 interface LeaguesModalProps {
@@ -48,6 +52,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
     const [allLeagues, setAllLeagues] = useState<League[]>([]);
     const [userRewards, setUserRewards] = useState<UserLeagueReward[]>([]);
     const [leaderboards, setLeaderboards] = useState<Record<number, LeagueLeaderboard>>({});
+    const [leagueNeighbors, setLeagueNeighbors] = useState<LeagueNeighbors | null>(null);
     const [selectedTab, setSelectedTab] = useState("progress");
     const [isLoading, setIsLoading] = useState(true);
 
@@ -58,15 +63,17 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
             try {
                 setIsLoading(true);
 
-                const [progress, leagues, rewards] = await Promise.all([
+                const [progress, leagues, rewards, neighbors] = await Promise.all([
                     leagueService.getUserLeagueProgress(user.id, user.total_games),
                     leagueService.getAllLeagues(),
                     leagueService.getUserRewards(user.id),
+                    leagueService.getLeagueNeighbors(user.id, user.total_games),
                 ]);
 
                 setProgressInfo(progress);
                 setAllLeagues(leagues);
                 setUserRewards(rewards);
+                setLeagueNeighbors(neighbors);
 
                 // Load leaderboards for leagues with rewards
                 const leaderboardPromises = leagues
@@ -96,7 +103,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         loadLeagueData();
     }, [user, telegramUser, isOpen]);
 
-    // Helpers
+    // Helper functions
     const getLeagueIcon = (leagueName: string) => {
         switch (leagueName) {
             case 'bronze': return Trophy;
@@ -155,6 +162,13 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         }
     };
 
+    const formatDisplayName = (firstName: string, lastName?: string, username?: string) => {
+        if (username) {
+            return `${firstName} (@${username})`;
+        }
+        return lastName ? `${firstName} ${lastName}` : firstName;
+    };
+
     // Progress Tab Component
     const ProgressTab = () => {
         if (!progressInfo) return null;
@@ -162,6 +176,13 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         const colors = getLeagueColorClasses(progressInfo.currentLeague.name);
         const Icon = getLeagueIcon(progressInfo.currentLeague.name);
         const isMaxLeague = !progressInfo.nextLeague;
+
+        // Calculate level progress
+        const currentLevel = progressInfo.currentLevel;
+        const gamesInCurrentLevel = progressInfo.totalGames % leagueService.GAMES_PER_LEVEL;
+        const gamesToNextLevel = leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
+        const levelProgressPercent = (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
+        const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
 
         return (
             <div className="space-y-6">
@@ -178,7 +199,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                         {t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
                                     </h3>
                                     <p className={`text-sm ${colors.accent}`}>
-                                        {t("leagues.level")} {progressInfo.currentLevel}
+                                        {t("profile.levelDisplay", { level: progressInfo.currentLevel })}
                                     </p>
                                 </div>
                             </div>
@@ -193,7 +214,34 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                             </div>
                         </div>
 
-                        {/* Progress to Next League */}
+                        {/* Level Progress */}
+                        {!isMaxLevel && (
+                            <div className="space-y-3 mb-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-white/70 text-sm">
+                                        {t("profile.levelProgress.gamesToNext")}
+                                    </span>
+                                    <span className="text-white font-bold">
+                                        {gamesToNextLevel}
+                                    </span>
+                                </div>
+
+                                <div className="w-full bg-white/20 rounded-full h-2">
+                                    <div
+                                        className="h-2 rounded-full bg-white/60 transition-all duration-500"
+                                        style={{ width: `${levelProgressPercent}%` }}
+                                    />
+                                </div>
+
+                                <div className="text-center">
+                                    <span className="text-white/60 text-sm">
+                                        {t("profile.levelProgress.nextLevel", { level: currentLevel + 1 })}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* League Progress */}
                         {!isMaxLeague && progressInfo.nextLeague && (
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
@@ -213,7 +261,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                 </div>
 
                                 <div className="flex items-center justify-center space-x-2 pt-2">
-                                    <span className="text-white/60 text-sm">Next:</span>
+                                    <span className="text-white/60 text-sm">{t("profile.levelProgress.nextLeague")}:</span>
                                     <span className={`font-bold ${getLeagueColorClasses(progressInfo.nextLeague.name).text}`}>
                                         {t(`leagues.names.${progressInfo.nextLeague.name}` as any)}
                                     </span>
@@ -222,17 +270,125 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                             </div>
                         )}
 
-                        {/* Max League Indicator */}
-                        {isMaxLeague && (
+                        {/* Max League/Level Indicators */}
+                        {isMaxLeague && isMaxLevel && (
                             <div className="text-center py-3">
                                 <Crown className={colors.text} size={32} />
                                 <p className={`text-sm font-bold ${colors.text} mt-2`}>
-                                    {t("leagues.progressDisplay.inTopLeague")}
+                                    {t("leagues.progressDisplay.maxAchieved")}
                                 </p>
                             </div>
                         )}
                     </CardBody>
                 </Card>
+
+                {/* League Position Card */}
+                {leagueNeighbors && (
+                    <Card className={`${colors.bg} border ${colors.border}`}>
+                        <CardBody className="p-4">
+                            <div className="flex items-center space-x-3 mb-4">
+                                <Users className={colors.text} size={20} />
+                                <h4 className={`font-bold ${colors.text}`}>
+                                    {t("profile.leaguePosition.title")}
+                                </h4>
+                            </div>
+
+                            <div className="space-y-2">
+                                {/* Players Ahead */}
+                                {leagueNeighbors.playersAhead.map((player) => (
+                                    <div
+                                        key={player.user_id}
+                                        className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-400/20"
+                                    >
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-6 h-6 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-xs font-bold">
+                                                {player.position}
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-medium text-white">
+                                                    {formatDisplayName(player.first_name, player.last_name, player.username)}
+                                                </div>
+                                                <div className="text-xs text-red-300">
+                                                    +{player.games_ahead} {t("profile.leaguePosition.gamesAhead")}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <ArrowUp className="text-red-400" size={14} />
+                                            <span className="text-sm text-white/80">{player.games_count}</span>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Current User */}
+                                <div className="flex items-center justify-between p-3 rounded bg-white/10 border border-white/30">
+                                    <div className="flex items-center space-x-3">
+                                        <div className={`w-6 h-6 rounded-full ${colors.bg} ${colors.text} border ${colors.border} flex items-center justify-center text-xs font-bold`}>
+                                            {leagueNeighbors.userPosition}
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-bold text-white">
+                                                {formatDisplayName(user?.first_name || "You", user?.last_name, user?.username)}
+                                            </div>
+                                            <div className="text-xs text-white/60">
+                                                {t("profile.leaguePosition.yourPosition")}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Target className={colors.text} size={14} />
+                                        <span className={`text-sm font-bold ${colors.text}`}>{leagueNeighbors.userGames}</span>
+                                    </div>
+                                </div>
+
+                                {/* Players Behind */}
+                                {leagueNeighbors.playersBehind.map((player) => (
+                                    <div
+                                        key={player.user_id}
+                                        className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-400/20"
+                                    >
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs font-bold">
+                                                {player.position}
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-medium text-white">
+                                                    {formatDisplayName(player.first_name, player.last_name, player.username)}
+                                                </div>
+                                                <div className="text-xs text-green-300">
+                                                    -{player.games_behind} {t("profile.leaguePosition.gamesBehind")}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <ArrowDown className="text-green-400" size={14} />
+                                            <span className="text-sm text-white/80">{player.games_count}</span>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Empty State */}
+                                {leagueNeighbors.playersAhead.length === 0 && leagueNeighbors.playersBehind.length === 0 && (
+                                    <div className="text-center py-4">
+                                        <Users className="text-white/40 mx-auto mb-2" size={24} />
+                                        <p className="text-white/60 text-sm">
+                                            {t("profile.leaguePosition.aloneInLeague")}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {leagueNeighbors.playersAhead.length === 0 && leagueNeighbors.playersBehind.length > 0 && (
+                                    <div className="text-center py-2 border-b border-white/10 mb-2">
+                                        <Crown className={colors.text} size={16} />
+                                        <p className={`text-xs ${colors.text} font-bold`}>
+                                            {t("profile.leaguePosition.leagueLeader")}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </CardBody>
+                    </Card>
+                )}
 
                 {/* All Leagues Overview */}
                 <div className="space-y-3">
@@ -258,7 +414,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                                 </div>
                                                 <div className="text-xs text-white/60">
                                                     {league.min_games}
-                                                    {league.max_games ? ` - ${league.max_games}` : '+'} games
+                                                    {league.max_games ? ` - ${league.max_games}` : '+'} {t("profile.gamesUnit")}
                                                 </div>
                                             </div>
                                         </div>
@@ -266,13 +422,13 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                         <div className="flex items-center space-x-2">
                                             {isCurrent && (
                                                 <div className={`px-2 py-1 rounded text-xs font-bold ${colors.bg} ${colors.text}`}>
-                                                    Current
+                                                    {t("profile.currentLeague")}
                                                 </div>
                                             )}
                                             {league.name !== 'bronze' && (
                                                 <div className="flex items-center space-x-1">
                                                     <Gift className="text-white/60" size={14} />
-                                                    <span className="text-xs text-white/60">5 rewards</span>
+                                                    <span className="text-xs text-white/60">{league.rewards_count} {t("profile.rewardsUnit")}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -286,11 +442,10 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         );
     };
 
-    // Rewards Tab Component
+    // Rewards Tab Component (existing)
     const RewardsTab = () => {
         return (
             <div className="space-y-6">
-                {/* User's Rewards */}
                 {userRewards.length > 0 && (
                     <div className="space-y-3">
                         <h4 className="text-lg font-bold text-white">{t("leagues.rewardsSection.yourRewards")}</h4>
@@ -302,10 +457,10 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                             <Gift className="text-green-400" size={20} />
                                             <div>
                                                 <div className="font-bold text-green-400">
-                                                    {reward.reward?.name || 'Special Reward'}
+                                                    {reward.reward?.name || t("leagues.rewardsSection.specialReward")}
                                                 </div>
                                                 <div className="text-xs text-green-300">
-                                                    {t("leagues.rewardsSection.position", { position: reward.position })} in{' '}
+                                                    {t("leagues.rewardsSection.position", { position: reward.position })} {t("profile.inLeague")}{' '}
                                                     {reward.league && t(`leagues.names.${reward.league.name}` as any)}
                                                 </div>
                                             </div>
@@ -325,7 +480,6 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     </div>
                 )}
 
-                {/* Available Rewards by League */}
                 <div className="space-y-4">
                     <h4 className="text-lg font-bold text-white">{t("leagues.rewardsSection.availableRewards")}</h4>
                     {allLeagues
@@ -346,7 +500,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                                         {t(`leagues.names.${league.name}` as any)}
                                                     </div>
                                                     <div className={`text-xs ${colors.accent}`}>
-                                                        {league.min_games}+ games required
+                                                        {league.min_games}+ {t("profile.gamesRequired")}
                                                     </div>
                                                 </div>
                                             </div>
@@ -383,7 +537,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         );
     };
 
-    // Leaderboard Tab Component
+    // Leaderboard Tab Component (existing)
     const LeaderboardTab = () => {
         return (
             <div className="space-y-6">
@@ -421,7 +575,6 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                     )}
                                 </div>
 
-                                {/* Top Players List */}
                                 <div className="space-y-2">
                                     <h5 className="text-sm font-bold text-white/80">{t("leagues.leaderboardSection.topPlayers")}</h5>
                                     {leaderboard.topPlayers.slice(0, 5).map((player, index) => (
@@ -436,10 +589,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                                 </div>
                                                 <div>
                                                     <div className="text-sm font-medium text-white">
-                                                        {player.first_name}
-                                                        {player.username && (
-                                                            <span className="text-white/60 ml-1">@{player.username}</span>
-                                                        )}
+                                                        {formatDisplayName(player.first_name, player.last_name, player.username)}
                                                     </div>
                                                 </div>
                                             </div>
