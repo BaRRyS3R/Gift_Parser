@@ -156,16 +156,16 @@ export default function RotatingCircleGrid({
         return { x, y };
     }, [effectiveRadius]);
 
-    // Simplified circle styles without pulse effects
+    // Minimalist circle styles without shadows or borders
     const getCircleStyles = (circle: RotationCircle) => {
         const isDeactivating = circle.isAnimating;
-        
+
         // Instant transitions for immediate feedback
         const transitionClass = isDeactivating
             ? "transition-all duration-75 ease-out"
             : "transition-all duration-100 ease-in-out";
 
-        const baseClasses = `absolute rounded-full border-3 ${transitionClass}`;
+        const baseClasses = `absolute rounded-full ${transitionClass}`;
 
         const visibilityClasses = showCircles
             ? "opacity-100 scale-100"
@@ -179,21 +179,18 @@ export default function RotatingCircleGrid({
             if (circle.isDecoy) {
                 return {
                     className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
-                      bg-red-500 border-red-400 shadow-xl shadow-red-500/60 scale-110
-                      hover:scale-115 active:scale-95 cursor-pointer`,
+                      bg-red-500 scale-110 hover:scale-115 active:scale-95 cursor-pointer`,
                 };
             } else {
                 return {
                     className: `${baseClasses} ${visibilityClasses} ${animationClasses}
-                      bg-white shadow-xl shadow-white/60 border-white scale-110
-                      hover:scale-115 active:scale-95 cursor-pointer`,
+                      bg-white scale-110 hover:scale-115 active:scale-95 cursor-pointer`,
                 };
             }
         } else {
             return {
                 className: `${baseClasses} ${visibilityClasses} ${animationClasses}
-                    bg-transparent border-white/30 hover:border-white/50 hover:scale-105
-                    active:scale-95 cursor-pointer`,
+                    bg-transparent hover:bg-white/20 hover:scale-105 active:scale-95 cursor-pointer`,
             };
         }
     };
