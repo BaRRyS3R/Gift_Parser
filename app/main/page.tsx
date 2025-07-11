@@ -443,10 +443,24 @@ export default function MainPage() {
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
 
       {/* League Progress Modal */}
-      <LeagueProgressModal 
-        isOpen={isLeagueProgressOpen} 
-        onClose={handleCloseLeagueProgress} 
+      <LeagueProgressModal
+        isOpen={isLeagueProgressOpen}
+        onClose={handleCloseLeagueProgress}
       />
+
+      {/* SWAPPED: Attempts Display now below league display (lower position) */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
+          }`}
+        style={{ paddingBottom: "140px" }}
+      >
+        <AttemptsDisplay />
+      </div>
 
       {/* SWAPPED: League Display now above attempts (higher position) */}
       {user && (
@@ -458,25 +472,11 @@ export default function MainPage() {
             }`
             : "opacity-100 translate-y-0"
             }`}
-          style={{ bottom: "140px" }}
+          style={{ bottom: "96px" }}
         >
           <CompactLeagueDisplay onClick={handleOpenLeagueProgress} />
         </div>
       )}
-
-      {/* SWAPPED: Attempts Display now below league display (lower position) */}
-      <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
-        style={{ paddingBottom: "96px" }}
-      >
-        <AttemptsDisplay />
-      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeaguesModal.tsx - Fixed modal with centered tabs, real rewards, and proper leaderboard
+// src/components/LeagueProgress/LeaguesModal.tsx - Completely fixed modal with proper layout
 
 "use client";
 
@@ -126,42 +126,48 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     text: 'text-orange-400',
                     bg: 'bg-orange-500/10',
                     border: 'border-orange-400/30',
-                    accent: 'text-orange-300'
+                    accent: 'text-orange-300',
+                    progressBg: 'bg-orange-400'
                 };
             case 'silver':
                 return {
                     text: 'text-gray-300',
                     bg: 'bg-gray-500/10',
                     border: 'border-gray-400/30',
-                    accent: 'text-gray-200'
+                    accent: 'text-gray-200',
+                    progressBg: 'bg-gray-300'
                 };
             case 'gold':
                 return {
                     text: 'text-yellow-400',
                     bg: 'bg-yellow-500/10',
                     border: 'border-yellow-400/30',
-                    accent: 'text-yellow-300'
+                    accent: 'text-yellow-300',
+                    progressBg: 'bg-yellow-400'
                 };
             case 'platinum':
                 return {
                     text: 'text-purple-300',
                     bg: 'bg-purple-500/10',
                     border: 'border-purple-400/30',
-                    accent: 'text-purple-200'
+                    accent: 'text-purple-200',
+                    progressBg: 'bg-purple-300'
                 };
             case 'diamond':
                 return {
                     text: 'text-cyan-300',
                     bg: 'bg-cyan-500/10',
                     border: 'border-cyan-400/30',
-                    accent: 'text-cyan-200'
+                    accent: 'text-cyan-200',
+                    progressBg: 'bg-cyan-300'
                 };
             default:
                 return {
                     text: 'text-white',
                     bg: 'bg-white/10',
                     border: 'border-white/30',
-                    accent: 'text-white/80'
+                    accent: 'text-white/80',
+                    progressBg: 'bg-white'
                 };
         }
     };
@@ -189,7 +195,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
 
         return (
-            <div className="space-y-6">
+            <div className="space-y-6 p-4">
                 {/* Current Status Card */}
                 <Card className={`${colors.bg} border ${colors.border}`}>
                     <CardBody className="p-4">
@@ -259,7 +265,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
 
                                 <div className="w-full bg-white/20 rounded-full h-2">
                                     <div
-                                        className={`h-2 rounded-full transition-all duration-500 ${colors.text.replace('text-', 'bg-')}`}
+                                        className={`h-2 rounded-full transition-all duration-500 ${colors.progressBg}`}
                                         style={{ width: `${progressInfo.progressPercent}%` }}
                                     />
                                 </div>
@@ -285,122 +291,14 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                         )}
                     </CardBody>
                 </Card>
-
-                {/* League Position Card */}
-                {leagueNeighbors && (
-                    <Card className={`${colors.bg} border ${colors.border}`}>
-                        <CardBody className="p-4">
-                            <div className="flex items-center space-x-3 mb-4">
-                                <Users className={colors.text} size={20} />
-                                <h4 className={`font-bold ${colors.text}`}>
-                                    {t("profile.leaguePosition.title")}
-                                </h4>
-                            </div>
-
-                            <div className="space-y-2">
-                                {/* Players Ahead */}
-                                {leagueNeighbors.playersAhead.map((player) => (
-                                    <div
-                                        key={player.user_id}
-                                        className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-400/20"
-                                    >
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-6 h-6 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-xs font-bold">
-                                                {player.position}
-                                            </div>
-                                            <div>
-                                                <div className="text-sm font-medium text-white">
-                                                    {formatDisplayName(player.first_name, player.last_name, player.username)}
-                                                </div>
-                                                <div className="text-xs text-red-300">
-                                                    +{player.games_ahead} {t("profile.leaguePosition.gamesAhead")}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <ArrowUp className="text-red-400" size={14} />
-                                            <span className="text-sm text-white/80">{player.games_count}</span>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {/* Current User */}
-                                <div className="flex items-center justify-between p-3 rounded bg-white/10 border border-white/30">
-                                    <div className="flex items-center space-x-3">
-                                        <div className={`w-6 h-6 rounded-full ${colors.bg} ${colors.text} border ${colors.border} flex items-center justify-center text-xs font-bold`}>
-                                            {leagueNeighbors.userPosition}
-                                        </div>
-                                        <div>
-                                            <div className="text-sm font-bold text-white">
-                                                {formatDisplayName(user?.first_name || "You", user?.last_name, user?.username)}
-                                            </div>
-                                            <div className="text-xs text-white/60">
-                                                {t("profile.leaguePosition.yourPosition")}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <Target className={colors.text} size={14} />
-                                        <span className={`text-sm font-bold ${colors.text}`}>{leagueNeighbors.userGames}</span>
-                                    </div>
-                                </div>
-
-                                {/* Players Behind */}
-                                {leagueNeighbors.playersBehind.map((player) => (
-                                    <div
-                                        key={player.user_id}
-                                        className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-400/20"
-                                    >
-                                        <div className="flex items-center space-x-3">
-                                            <div className="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs font-bold">
-                                                {player.position}
-                                            </div>
-                                            <div>
-                                                <div className="text-sm font-medium text-white">
-                                                    {formatDisplayName(player.first_name, player.last_name, player.username)}
-                                                </div>
-                                                <div className="text-xs text-green-300">
-                                                    -{player.games_behind} {t("profile.leaguePosition.gamesBehind")}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <ArrowDown className="text-green-400" size={14} />
-                                            <span className="text-sm text-white/80">{player.games_count}</span>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {/* Empty State */}
-                                {leagueNeighbors.playersAhead.length === 0 && leagueNeighbors.playersBehind.length === 0 && (
-                                    <div className="text-center py-4">
-                                        <Users className="text-white/40 mx-auto mb-2" size={24} />
-                                        <p className="text-white/60 text-sm">
-                                            {t("profile.leaguePosition.aloneInLeague")}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {leagueNeighbors.playersAhead.length === 0 && leagueNeighbors.playersBehind.length > 0 && (
-                                    <div className="text-center py-2 border-b border-white/10 mb-2">
-                                        <Crown className={colors.text} size={16} />
-                                        <p className={`text-xs ${colors.text} font-bold`}>
-                                            {t("profile.leaguePosition.leagueLeader")}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </CardBody>
-                    </Card>
-                )}
             </div>
         );
     };
 
-    // Rewards Tab Component with real rewards from database
+    // Rewards Tab Component
     const RewardsTab = () => {
         return (
-            <div className="space-y-6">
+            <div className="space-y-6 p-4">
                 {/* User's Rewards */}
                 {userRewards.length > 0 && (
                     <div className="space-y-3">
@@ -436,7 +334,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     </div>
                 )}
 
-                {/* Available Rewards by League with expandable list */}
+                {/* Available Rewards by League */}
                 <div className="space-y-4">
                     <h4 className="text-lg font-bold text-white">{t("leagues.rewardsSection.availableRewards")}</h4>
 
@@ -524,10 +422,10 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         );
     };
 
-    // Leaderboard Tab Component with fixed top 5 display
+    // Leaderboard Tab Component
     const LeaderboardTab = () => {
         return (
-            <div className="space-y-6">
+            <div className="space-y-6 p-4">
                 {Object.values(leaderboards).map((leaderboard) => {
                     const colors = getLeagueColorClasses(leaderboard.league.name);
                     const Icon = getLeagueIcon(leaderboard.league.name);
@@ -609,17 +507,17 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            size="2xl"
+            size="3xl"
             scrollBehavior="inside"
+            hideCloseButton={true}
             classNames={{
                 backdrop: "bg-black/80",
-                base: "bg-black border border-white/20",
-                header: "border-b border-white/10",
-                body: "py-4"
+                base: "bg-black border border-white/20 mx-4 my-4 max-h-[85vh]",
+                body: "p-0"
             }}
         >
             <ModalContent>
-                <ModalHeader className="flex items-center justify-between p-4">
+                <ModalHeader className="flex items-center justify-between p-4 border-b border-white/10">
                     <div className="flex items-center space-x-3">
                         <Trophy className="text-yellow-400" size={24} />
                         <h2 className="text-xl font-bold text-white">
@@ -634,7 +532,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     </button>
                 </ModalHeader>
 
-                <ModalBody className="px-4 pb-4">
+                <ModalBody>
                     {isLoading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="text-center space-y-4">
@@ -643,16 +541,18 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                             </div>
                         </div>
                     ) : (
-                        <div className="flex justify-center">
+                        <div className="w-full">
                             <Tabs
                                 selectedKey={selectedTab}
                                 onSelectionChange={(key) => setSelectedTab(key as string)}
-                                className="w-full max-w-md"
+                                className="w-full"
                                 classNames={{
-                                    tabList: "bg-white/10 rounded-lg p-1 w-full flex justify-center",
-                                    tab: "text-white/60 data-[selected=true]:text-white data-[selected=true]:bg-white/20 flex-1",
+                                    base: "w-full",
+                                    tabList: "w-full bg-white/5 rounded-none border-b border-white/10",
+                                    cursor: "bg-white/20",
+                                    tab: "text-white/60 data-[selected=true]:text-white px-6 py-3",
                                     tabContent: "text-sm font-medium",
-                                    panel: "pt-4 w-full"
+                                    panel: "w-full p-0"
                                 }}
                             >
                                 <Tab key="progress" title={t("leagues.progress")}>
