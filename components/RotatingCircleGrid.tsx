@@ -214,7 +214,7 @@ export default function RotatingCircleGrid({
 
             setTimeout(() => {
                 processedTouchesRef.current.delete(circleId);
-            }, 50);
+            }, 10);
         }
     };
 
@@ -302,12 +302,6 @@ export default function RotatingCircleGrid({
                                 onTouchEnd={(event) => handleTouchEnd(circle.id, event)}
                                 onTouchStart={(event) => handleTouchStart(circle.id, event)}
                             >
-                                {/* Debug info for development */}
-                                {process.env.NODE_ENV === "development" && (
-                                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
-                                        {circle.id}
-                                    </div>
-                                )}
                             </button>
                         );
                     })}
