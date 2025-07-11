@@ -1,6 +1,6 @@
 // src/locales/ru/leagues.ts - Russian localization for leagues system
 export const leagues = {
-    title: "ЛИГИ И УРОВНИ",
+    title: "ЛИГИ",
     level: "Уровень",
     league: "Лига",
     progress: "Прогресс",
@@ -35,6 +35,9 @@ export const leagues = {
         giftReward: "Особый Подарок",
         attemptsReward: "+{amount} Попыток",
         availableRewards: "Доступные Награды",
+        available: "Доступно",
+        clamed: "Получено",
+        noRewardsConfigured: "Для этой лиги награды не настроены.",
         rewardsLeft: "Осталось наград: {count}",
         allClaimed: "Все награды разобраны",
         specialReward: "Особая Награда"

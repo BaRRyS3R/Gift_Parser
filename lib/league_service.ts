@@ -1,4 +1,4 @@
-// src/lib/league_service.ts - Enhanced service with real rewards from database
+// src/lib/league_service.ts - Исправленный сервис с улучшенной логикой наград лиг
 
 import { supabase } from './supabase';
 
@@ -183,7 +183,6 @@ export const leagueService = {
         };
     },
 
-    // NEW: Get real league rewards from database
     async getLeagueRewards(leagueId: number): Promise<LeagueReward[]> {
         const { data, error } = await supabase
             .from('league_rewards')
@@ -199,7 +198,6 @@ export const leagueService = {
         return data || [];
     },
 
-    // NEW: Get all rewards for all leagues
     async getAllLeagueRewards(): Promise<Record<number, LeagueReward[]>> {
         const { data, error } = await supabase
             .from('league_rewards')
@@ -348,10 +346,199 @@ export const leagueService = {
         return data || [];
     },
 
+    // ИСПРАВЛЕНО: Улучшенная логика выдачи наград
+    async claimLeagueReward(userId: string, leagueId: number, gamesCount: number): Promise<LeagueRewardResult> {
+        try {
+            return await this.claimLeagueRewardImproved(userId, leagueId, gamesCount);
+        } catch (error) {
+            console.error('Error in claimLeagueReward:', error);
+            return {
+                success: false,
+                reason: 'error',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            };
+        }
+    },
+
+    // НОВАЯ ФУНКЦИЯ: Правильная логика награждения с сортировкой по времени достижения лиги
+    async claimLeagueRewardImproved(userId: string, leagueId: number, gamesCount: number): Promise<LeagueRewardResult> {
+        try {
+            // 1. Получаем информацию о лиге
+            const { data: league, error: leagueError } = await supabase
+                .from('leagues')
+                .select('*')
+                .eq('id', leagueId)
+                .single();
+
+            if (leagueError || !league) {
+                return { success: false, reason: 'league_not_found' };
+            }
+
+            // 2. Проверяем, что пользователь действительно достиг этой лиги
+            if (gamesCount < league.min_games) {
+                return { success: false, reason: 'insufficient_games' };
+            }
+
+            // 3. Проверяем, не получал ли пользователь уже награду за эту лигу
+            const { data: existingReward } = await supabase
+                .from('user_league_rewards')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('league_id', leagueId)
+                .maybeSingle();
+
+            if (existingReward) {
+                return { success: false, reason: 'already_claimed' };
+            }
+
+            // 4. КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Получаем пользователей, отсортированных по времени достижения лиги
+            const { data: usersInLeague, error: usersError } = await supabase
+                .from('user_leagues')
+                .select(`
+                    user_id,
+                    promoted_at,
+                    games_at_promotion,
+                    users!inner(
+                        first_name,
+                        last_name,
+                        username
+                    )
+                `)
+                .eq('league_id', leagueId)
+                .eq('is_current', true)
+                .order('promoted_at', { ascending: true }); // Сортировка по времени достижения
+
+            if (usersError || !usersInLeague) {
+                return { success: false, reason: 'error', error: usersError?.message };
+            }
+
+            // 5. Находим позицию текущего пользователя среди достигших лигу
+            const userIndex = usersInLeague.findIndex(u => u.user_id === userId);
+            if (userIndex === -1) {
+                return { success: false, reason: 'user_not_in_league' };
+            }
+
+            const userPosition = userIndex + 1;
+
+            // 6. Проверяем доступность наград для данной позиции
+            const { data: availableRewards } = await supabase
+                .from('league_rewards')
+                .select('*')
+                .eq('league_id', leagueId)
+                .eq('position', userPosition)
+                .maybeSingle();
+
+            if (!availableRewards) {
+                return { success: false, reason: 'no_reward_for_position' };
+            }
+
+            // 7. Проверяем, не занята ли уже эта позиция другим игроком
+            const { data: positionTaken } = await supabase
+                .from('user_league_rewards')
+                .select('id')
+                .eq('league_id', leagueId)
+                .eq('position', userPosition)
+                .maybeSingle();
+
+            if (positionTaken) {
+                return { success: false, reason: 'position_already_taken' };
+            }
+
+            // 8. Выдаем награду
+            const { error: insertError } = await supabase
+                .from('user_league_rewards')
+                .insert({
+                    user_id: userId,
+                    league_id: leagueId,
+                    reward_id: availableRewards.id,
+                    position: userPosition,
+                    games_count: gamesCount,
+                    received_at: new Date().toISOString()
+                });
+
+            if (insertError) {
+                console.error('Error inserting reward:', insertError);
+                return { success: false, reason: 'error', error: insertError.message };
+            }
+
+            // 9. Возвращаем успешный результат
+            return {
+                success: true,
+                reward_type: 'gift',
+                reward: {
+                    id: availableRewards.id,
+                    name: availableRewards.name,
+                    position: userPosition,
+                    league: league.name,
+                    type: 'gift'
+                }
+            };
+
+        } catch (error) {
+            console.error('Error in claimLeagueRewardImproved:', error);
+            return {
+                success: false,
+                reason: 'error',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            };
+        }
+    },
+
+    // НОВАЯ ФУНКЦИЯ: Ретроактивная проверка пропущенных наград
+    async checkMissedRewards(userId: string): Promise<LeagueRewardResult[]> {
+        try {
+            // Получаем историю лиг пользователя
+            const { data: userLeagueHistory } = await supabase
+                .from('user_leagues')
+                .select(`
+                    *,
+                    league:leagues(*)
+                `)
+                .eq('user_id', userId)
+                .order('promoted_at', { ascending: true });
+
+            if (!userLeagueHistory) return [];
+
+            const missedRewards: LeagueRewardResult[] = [];
+
+            // Проверяем каждую достигнутую лигу на предмет пропущенных наград
+            for (const userLeague of userLeagueHistory) {
+                if (userLeague.league?.name === 'bronze') continue;
+
+                const { data: existingReward } = await supabase
+                    .from('user_league_rewards')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('league_id', userLeague.league_id)
+                    .maybeSingle();
+
+                // Если награда не была получена, пытаемся её выдать
+                if (!existingReward) {
+                    const rewardResult = await this.claimLeagueRewardImproved(
+                        userId,
+                        userLeague.league_id,
+                        userLeague.games_at_promotion
+                    );
+
+                    if (rewardResult.success) {
+                        missedRewards.push(rewardResult);
+                    }
+                }
+            }
+
+            return missedRewards;
+        } catch (error) {
+            console.error('Error checking missed rewards:', error);
+            return [];
+        }
+    },
+
+    // ОБНОВЛЕНО: Включает проверку пропущенных наград
     async checkAndUpdateLeague(userId: string, newTotalGames: number): Promise<{
         leagueChanged: boolean;
         newLeague?: League;
         reward?: LeagueRewardResult;
+        missedRewards?: LeagueRewardResult[];
     }> {
         try {
             const currentUserLeague = await this.getUserCurrentLeague(userId);
@@ -362,7 +549,12 @@ export const leagueService = {
             }
 
             if (currentUserLeague && currentUserLeague.league_id === newLeague.id) {
-                return { leagueChanged: false };
+                // Даже если лига не изменилась, проверяем пропущенные награды
+                const missedRewards = await this.checkMissedRewards(userId);
+                return {
+                    leagueChanged: false,
+                    missedRewards: missedRewards.length > 0 ? missedRewards : undefined
+                };
             }
 
             const newLevel = this.calculateLevel(newTotalGames);
@@ -395,10 +587,14 @@ export const leagueService = {
                 rewardResult = await this.claimLeagueReward(userId, newLeague.id, newTotalGames);
             }
 
+            // Проверяем пропущенные награды из предыдущих лиг
+            const missedRewards = await this.checkMissedRewards(userId);
+
             return {
                 leagueChanged: true,
                 newLeague,
-                reward: rewardResult
+                reward: rewardResult,
+                missedRewards: missedRewards.length > 0 ? missedRewards : undefined
             };
 
         } catch (error) {
@@ -407,31 +603,6 @@ export const leagueService = {
         }
     },
 
-    async claimLeagueReward(userId: string, leagueId: number, gamesCount: number): Promise<LeagueRewardResult> {
-        try {
-            const { data, error } = await supabase.rpc('claim_league_reward', {
-                p_user_id: userId,
-                p_league_id: leagueId,
-                p_games_count: gamesCount
-            });
-
-            if (error) {
-                console.error('Error claiming league reward:', error);
-                throw error;
-            }
-
-            return data as LeagueRewardResult;
-        } catch (error) {
-            console.error('Error in claimLeagueReward:', error);
-            return {
-                success: false,
-                reason: 'error',
-                error: error instanceof Error ? error.message : 'Unknown error'
-            };
-        }
-    },
-
-    // FIXED: Enhanced leaderboard to show top 5 players
     async getLeagueLeaderboard(leagueId: number, userId?: string): Promise<LeagueLeaderboard | null> {
         try {
             const { data: league, error: leagueError } = await supabase
@@ -445,7 +616,6 @@ export const leagueService = {
                 return null;
             }
 
-            // FIXED: Get more users to ensure we have top players
             const { data: usersInLeague, error: usersError } = await supabase
                 .from('users')
                 .select(`
@@ -458,7 +628,7 @@ export const leagueService = {
                 .gte('total_games', league.min_games)
                 .lte('total_games', league.max_games || 999999)
                 .order('total_games', { ascending: false })
-                .limit(100); // Increased limit to get more players
+                .limit(100);
 
             if (usersError) {
                 console.error('Error fetching users in league:', usersError);
@@ -497,7 +667,6 @@ export const leagueService = {
                 }
             }
 
-            // FIXED: Ensure we show top 5 players
             const topPlayers = (usersInLeague || []).slice(0, 5).map((user, index) => ({
                 user_id: user.id,
                 first_name: user.first_name,

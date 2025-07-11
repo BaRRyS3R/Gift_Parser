@@ -25,7 +25,7 @@ export const about = {
 
     monetization: {
         title: "How We Profit Off You",
-        description: "10 tries per day — just enough to realize you're hopeless. Wait 2 hours or pay — your choice between patience and humiliation.",
+        description: "10 attempts every 2 hours - just enough to understand that you are hopeless. Wait 2 hours or pay - your choice between patience and humiliation.",
         details: "Want more suffering? Invite friends — a great way to score free attempts. Or buy tries for Telegram Stars: we're already eyeing a new ride."
     },
 

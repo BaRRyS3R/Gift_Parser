@@ -1,6 +1,6 @@
 // src/locales/en/leagues.ts - English localization for leagues system
 export const leagues = {
-    title: "LEAGUES & LEVELS",
+    title: "LEAGUES",
     level: "Level",
     league: "League",
     progress: "Progress",
@@ -35,6 +35,9 @@ export const leagues = {
         giftReward: "Special Gift",
         attemptsReward: "+{amount} Attempts",
         availableRewards: "Available Rewards",
+        available: "Available",
+        claimed: "Claimed",
+        noRewardsConfigured: "No rewards configured for this league",
         rewardsLeft: "{count} rewards left",
         allClaimed: "All rewards claimed",
         specialReward: "Special Reward"

@@ -400,16 +400,16 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                                         <div className="flex items-center space-x-1">
                                                             <Gift className={colors.text} size={14} />
                                                             {leaderboard && leaderboard.rewardsGiven >= reward.position ? (
-                                                                <span className="text-red-400 text-xs">Claimed</span>
+                                                                <span className="text-red-400 text-xs">{t("leagues.rewardsSection.claimed")}</span>
                                                             ) : (
-                                                                <span className="text-green-400 text-xs">Available</span>
+                                                                <span className="text-green-400 text-xs">{t("leagues.rewardsSection.available")}</span>
                                                             )}
                                                         </div>
                                                     </div>
                                                 ))
                                             ) : (
                                                 <div className="text-center py-4 text-white/60 text-sm">
-                                                    No rewards configured for this league
+                                                    {t("leagues.rewardsSection.noRewardsConfigured")}
                                                 </div>
                                             )}
                                         </div>
