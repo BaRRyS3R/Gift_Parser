@@ -69,14 +69,7 @@ export async function POST(request: NextRequest) {
 
         const data: TelegramApiResponse = await response.json();
 
-        console.log('Telegram API response:', {
-            ok: data.ok,
-            status: data.result?.status,
-            error: data.error_code ? `${data.error_code}: ${data.description}` : null
-        });
-
         if (!data.ok) {
-            // Обрабатываем различные ошибки
             if (data.error_code === 400 && data.description?.includes('user not found')) {
                 return NextResponse.json({
                     is_member: false,
@@ -105,7 +98,6 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Проверяем статус пользователя
         const memberStatuses = ['creator', 'administrator', 'member'];
         const isMember = memberStatuses.includes(data.result.status);
 

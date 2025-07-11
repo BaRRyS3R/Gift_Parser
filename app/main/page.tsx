@@ -472,7 +472,7 @@ export default function MainPage() {
         <AttemptsDisplay />
       </div>
 
-      {/* ИСПРАВЛЕНИЕ: Улучшенное отображение лиги с дополнительными проверками */}
+      {/* Level and League Display */}
       {user && !userLoading && (
         <div
           className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
@@ -484,7 +484,7 @@ export default function MainPage() {
             }`}
           style={{
             bottom: "96px",
-            zIndex: 50  // Увеличиваем z-index для гарантии отображения поверх других элементов
+            zIndex: 50
           }}
         >
           <div className="pointer-events-auto">
@@ -493,16 +493,6 @@ export default function MainPage() {
               className="cursor-pointer"
             />
           </div>
-        </div>
-      )}
-
-      {/* DEBUG: Временный индикатор состояния (удалить после исправления) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-4 left-4 z-50 bg-black/80 text-white p-2 rounded text-xs">
-          <div>User: {user ? '✓' : '✗'}</div>
-          <div>Loading: {userLoading ? '✓' : '✗'}</div>
-          <div>Show League: {showLeagueDisplay ? '✓' : '✗'}</div>
-          <div>Modal Open: {isLeagueProgressOpen ? '✓' : '✗'}</div>
         </div>
       )}
     </div>

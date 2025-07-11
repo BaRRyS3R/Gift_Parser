@@ -15,7 +15,7 @@ import {
   ChevronUp,
   Battery,
   Gamepad2,
-  RotateCw, // NEW for rotation mode
+  RotateCw,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -29,7 +29,7 @@ interface GameMode {
   descriptionKey: string;
   icon: React.ComponentType<any>;
   route: string;
-  difficulty: "🤡" | "💋😈" | "👉👌" | "🌀"; // NEW emoji for rotation
+  difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
   durationKey: string;
   color: {
     primary: string;
