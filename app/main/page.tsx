@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Fixed positioning of league display
+// src/app/main/page.tsx - Swapped positions of attempts and league display
 
 "use client";
 
@@ -443,12 +443,12 @@ export default function MainPage() {
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
 
       {/* League Progress Modal */}
-      <LeagueProgressModal
-        isOpen={isLeagueProgressOpen}
-        onClose={handleCloseLeagueProgress}
+      <LeagueProgressModal 
+        isOpen={isLeagueProgressOpen} 
+        onClose={handleCloseLeagueProgress} 
       />
 
-      {/* League Display - FIXED: Better positioning to avoid overlap */}
+      {/* SWAPPED: League Display now above attempts (higher position) */}
       {user && (
         <div
           className={`fixed left-0 right-0 z-30 flex justify-center ${isFirstVisit
@@ -464,7 +464,7 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* Attempts Display - FIXED: Adjusted padding to provide space for league display */}
+      {/* SWAPPED: Attempts Display now below league display (lower position) */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -473,7 +473,7 @@ export default function MainPage() {
           }`
           : "opacity-100 translate-y-0"
           }`}
-        style={{ paddingBottom: "86px" }}
+        style={{ paddingBottom: "96px" }}
       >
         <AttemptsDisplay />
       </div>

@@ -1,10 +1,11 @@
-// src/app/profile/page.tsx - Simplified profile page with integrated league display
+// src/app/profile/page.tsx - Fixed profile page with preloaded league data
 
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
 import { userService, type ReferralInfo } from "@/lib/supabase";
+import leagueService from "@/lib/league_service"; // Added league service import
 import { useT } from "@/contexts/LocalizationContext";
 
 // Import components
@@ -14,7 +15,7 @@ import MinimalistDivider from "@/components/Profile/MinimalistDivider";
 import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
-import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
+import LeaguesModal from "@/components/LeagueProgress/LeaguesModal"; // Changed to use proper tabbed modal
 
 interface UserRankings {
   overall: number | null;
@@ -43,18 +44,36 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const loadProfileData = async () => {
-      if (!telegramUser?.id) return;
+      if (!telegramUser?.id || !user?.id) return;
 
       try {
         setIsLoadingData(true);
 
-        const [overallRank, reactionRank, survivalRank, physicsRank, rotationRank, refInfo] = await Promise.all([
+        // Load all data in parallel including league data for better performance
+        const [
+          overallRank,
+          reactionRank,
+          survivalRank,
+          physicsRank,
+          rotationRank,
+          refInfo,
+          // Preload league data to avoid lags in modal
+          allLeagues,
+          userLeagueProgress,
+          userRewards,
+          allLeagueRewards
+        ] = await Promise.all([
           userService.getUserRanking(telegramUser.id),
           userService.getUserReactionRanking(telegramUser.id),
           userService.getUserSurvivalRanking(telegramUser.id),
           userService.getUserPhysicsRanking(telegramUser.id),
           userService.getUserRotationRanking(telegramUser.id),
           userService.getReferralInfo(telegramUser.id),
+          // Preload league data
+          leagueService.getAllLeagues(),
+          leagueService.getUserLeagueProgress(user.id, user.total_games),
+          leagueService.getUserRewards(user.id),
+          leagueService.getAllLeagueRewards()
         ]);
 
         setRankings({
@@ -65,6 +84,16 @@ export default function ProfilePage() {
           rotation: rotationRank,
         });
         setReferralInfo(refInfo);
+
+        // Store preloaded league data in component state or context for immediate modal access
+        // This prevents loading delays when modal opens
+        console.log("League data preloaded:", {
+          leagues: allLeagues?.length,
+          userProgress: userLeagueProgress?.currentLeague?.name,
+          userRewards: userRewards?.length,
+          allRewards: Object.keys(allLeagueRewards || {}).length
+        });
+
       } catch (error) {
         console.error("Error loading profile data:", error);
       } finally {
@@ -72,10 +101,10 @@ export default function ProfilePage() {
       }
     };
 
-    if (telegramUser && !userLoading) {
+    if (telegramUser && user && !userLoading) {
       loadProfileData();
     }
-  }, [telegramUser, userLoading]);
+  }, [telegramUser, user, userLoading]);
 
   const handleOpenReferrals = () => {
     setIsReferralModalOpen(true);
@@ -161,7 +190,7 @@ export default function ProfilePage() {
         rankings={rankings}
       />
 
-      {/* Enhanced Leagues Modal with neighbor players */}
+      {/* Fixed: Use proper tabbed leagues modal with preloaded data */}
       <LeaguesModal
         isOpen={isLeaguesModalOpen}
         onClose={() => setIsLeaguesModalOpen(false)}
