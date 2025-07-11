@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated with repositioned league display
+// src/app/main/page.tsx - Fixed positioning of league display
 
 "use client";
 
@@ -448,21 +448,7 @@ export default function MainPage() {
         onClose={handleCloseLeagueProgress}
       />
 
-      {/* Attempts Display */}
-      <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
-        style={{ paddingBottom: "96px" }}
-      >
-        <AttemptsDisplay />
-      </div>
-
-      {/* League Display - NEW: Positioned below attempts, above navigation */}
+      {/* League Display - FIXED: Better positioning to avoid overlap */}
       {user && (
         <div
           className={`fixed left-0 right-0 z-30 flex justify-center ${isFirstVisit
@@ -472,11 +458,25 @@ export default function MainPage() {
             }`
             : "opacity-100 translate-y-0"
             }`}
-          style={{ bottom: "110px" }}
+          style={{ bottom: "140px" }}
         >
           <CompactLeagueDisplay onClick={handleOpenLeagueProgress} />
         </div>
       )}
+
+      {/* Attempts Display - FIXED: Adjusted padding to provide space for league display */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
+          }`}
+        style={{ paddingBottom: "86px" }}
+      >
+        <AttemptsDisplay />
+      </div>
     </div>
   );
 }

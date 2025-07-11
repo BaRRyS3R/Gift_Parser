@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeagueProgressModal.tsx - Small modal for level/league progress
+// src/components/LeagueProgress/LeagueProgressModal.tsx - Fixed layout and league progress bar
 
 "use client";
 
@@ -79,37 +79,43 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                 return {
                     text: 'text-orange-400',
                     bg: 'bg-orange-500/10',
-                    border: 'border-orange-400/30'
+                    border: 'border-orange-400/30',
+                    progressBg: 'bg-orange-400'
                 };
             case 'silver':
                 return {
                     text: 'text-gray-300',
                     bg: 'bg-gray-500/10',
-                    border: 'border-gray-400/30'
+                    border: 'border-gray-400/30',
+                    progressBg: 'bg-gray-300'
                 };
             case 'gold':
                 return {
                     text: 'text-yellow-400',
                     bg: 'bg-yellow-500/10',
-                    border: 'border-yellow-400/30'
+                    border: 'border-yellow-400/30',
+                    progressBg: 'bg-yellow-400'
                 };
             case 'platinum':
                 return {
                     text: 'text-purple-300',
                     bg: 'bg-purple-500/10',
-                    border: 'border-purple-400/30'
+                    border: 'border-purple-400/30',
+                    progressBg: 'bg-purple-300'
                 };
             case 'diamond':
                 return {
                     text: 'text-cyan-300',
                     bg: 'bg-cyan-500/10',
-                    border: 'border-cyan-400/30'
+                    border: 'border-cyan-400/30',
+                    progressBg: 'bg-cyan-300'
                 };
             default:
                 return {
                     text: 'text-white',
                     bg: 'bg-white/10',
-                    border: 'border-white/30'
+                    border: 'border-white/30',
+                    progressBg: 'bg-white'
                 };
         }
     };
@@ -130,6 +136,9 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
     const CurrentIcon = progressInfo ? getLeagueIcon(progressInfo.currentLeague.name) : Trophy;
     const isMaxLeague = !progressInfo?.nextLeague;
 
+    // FIXED: Calculate league progress correctly
+    const leagueProgressPercent = progressInfo ? Math.min(100, progressInfo.progressPercent) : 0;
+
     return (
         <Modal
             isOpen={isOpen}
@@ -139,13 +148,13 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
             hideCloseButton={true}
             classNames={{
                 backdrop: "bg-black/80",
-                base: "bg-black border border-white/20",
-                header: "border-b border-white/10",
-                body: "py-4"
+                base: "bg-black border border-white/20 max-w-sm mx-4",
+                header: "border-b border-white/10 px-4 py-3",
+                body: "px-4 py-4"
             }}
         >
             <ModalContent>
-                <ModalHeader className="flex items-center justify-between p-4">
+                <ModalHeader className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <div className={`w-8 h-8 rounded-lg ${currentColors.bg} border ${currentColors.border} flex items-center justify-center`}>
                             <CurrentIcon className={currentColors.text} size={18} />
@@ -164,7 +173,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                     </button>
                 </ModalHeader>
 
-                <ModalBody className="px-4 pb-4">
+                <ModalBody>
                     {isLoading ? (
                         <div className="flex items-center justify-center py-8">
                             <div className="text-center space-y-4">
@@ -176,18 +185,18 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                         <div className="space-y-4">
                             {/* Current Status */}
                             <Card className={`${currentColors.bg} border ${currentColors.border}`}>
-                                <CardBody className="p-3">
-                                    <div className="flex items-center justify-between mb-3">
+                                <CardBody className="p-4">
+                                    <div className="flex items-center justify-between">
                                         <div>
-                                            <div className={`text-sm font-bold ${currentColors.text}`}>
+                                            <div className={`text-base font-bold ${currentColors.text}`}>
                                                 {t("profile.levelDisplay", { level: currentLevel })}
                                             </div>
-                                            <div className={`text-xs ${currentColors.text}`}>
+                                            <div className={`text-sm ${currentColors.text} opacity-80`}>
                                                 {progressInfo && t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-lg font-bold text-white">
+                                            <div className="text-xl font-bold text-white">
                                                 {totalGames}
                                             </div>
                                             <div className="text-xs text-white/60">
@@ -201,7 +210,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                             {/* Level Progress */}
                             {!isMaxLevel && (
                                 <Card className="bg-white/5 border border-white/20">
-                                    <CardBody className="p-3">
+                                    <CardBody className="p-4">
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center space-x-2">
@@ -221,7 +230,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                             {/* Level Progress Bar */}
                                             <div className="w-full bg-white/20 rounded-full h-2">
                                                 <div
-                                                    className="h-2 rounded-full bg-white/60 transition-all duration-500"
+                                                    className="h-2 rounded-full bg-white/70 transition-all duration-500"
                                                     style={{ width: `${levelProgressPercent}%` }}
                                                 />
                                             </div>
@@ -236,10 +245,10 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                 </Card>
                             )}
 
-                            {/* League Progress */}
+                            {/* League Progress - FIXED */}
                             {!isMaxLeague && progressInfo?.nextLeague && (
                                 <Card className="bg-white/5 border border-white/20">
-                                    <CardBody className="p-3">
+                                    <CardBody className="p-4">
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center space-x-2">
@@ -256,11 +265,11 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                                 </div>
                                             </div>
 
-                                            {/* League Progress Bar */}
+                                            {/* FIXED: League Progress Bar with correct colors and percentage */}
                                             <div className="w-full bg-white/20 rounded-full h-2">
                                                 <div
-                                                    className={`h-2 rounded-full transition-all duration-500 ${currentColors.text.replace('text-', 'bg-')}`}
-                                                    style={{ width: `${progressInfo.progressPercent}%` }}
+                                                    className={`h-2 rounded-full transition-all duration-500 ${currentColors.progressBg}`}
+                                                    style={{ width: `${leagueProgressPercent}%` }}
                                                 />
                                             </div>
 
@@ -280,12 +289,12 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                             {/* Max Level/League Indicators */}
                             {(isMaxLevel || isMaxLeague) && (
                                 <Card className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-400/30">
-                                    <CardBody className="p-3 text-center">
+                                    <CardBody className="p-4 text-center">
                                         <Star className="text-yellow-400 mx-auto mb-2" size={24} />
                                         <p className="text-sm font-bold text-yellow-400">
-                                            {isMaxLevel && isMaxLeague 
+                                            {isMaxLevel && isMaxLeague
                                                 ? t("leagues.progressDisplay.maxAchieved")
-                                                : isMaxLevel 
+                                                : isMaxLevel
                                                     ? t("leagues.progressDisplay.maxLevel")
                                                     : t("leagues.progressDisplay.inTopLeague")
                                             }
