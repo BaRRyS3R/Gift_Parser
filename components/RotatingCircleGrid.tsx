@@ -156,7 +156,7 @@ export default function RotatingCircleGrid({
         return { x, y };
     }, [effectiveRadius]);
 
-    // Minimalist circle styles without shadows or borders
+    // Circle styles without shadows but with borders
     const getCircleStyles = (circle: RotationCircle) => {
         const isDeactivating = circle.isAnimating;
 
@@ -165,7 +165,7 @@ export default function RotatingCircleGrid({
             ? "transition-all duration-75 ease-out"
             : "transition-all duration-100 ease-in-out";
 
-        const baseClasses = `absolute rounded-full ${transitionClass}`;
+        const baseClasses = `absolute rounded-full border-3 ${transitionClass}`;
 
         const visibilityClasses = showCircles
             ? "opacity-100 scale-100"
@@ -179,18 +179,21 @@ export default function RotatingCircleGrid({
             if (circle.isDecoy) {
                 return {
                     className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
-                      bg-red-500 scale-110 hover:scale-115 active:scale-95 cursor-pointer`,
+                      bg-red-500 border-red-400 scale-110
+                      hover:scale-115 active:scale-95 cursor-pointer`,
                 };
             } else {
                 return {
                     className: `${baseClasses} ${visibilityClasses} ${animationClasses}
-                      bg-white scale-110 hover:scale-115 active:scale-95 cursor-pointer`,
+                      bg-white border-white scale-110
+                      hover:scale-115 active:scale-95 cursor-pointer`,
                 };
             }
         } else {
             return {
                 className: `${baseClasses} ${visibilityClasses} ${animationClasses}
-                    bg-transparent hover:bg-white/20 hover:scale-105 active:scale-95 cursor-pointer`,
+                    bg-transparent border-white/30 hover:border-white/50 hover:scale-105
+                    active:scale-95 cursor-pointer`,
             };
         }
     };
@@ -249,22 +252,6 @@ export default function RotatingCircleGrid({
                     WebkitTouchCallout: "none",
                 }}
             >
-                {/* Game area boundary indicator */}
-                <div
-                    className="absolute border border-white/8 rounded-full"
-                    style={{
-                        width: `${containerSize - 4}px`,
-                        height: `${containerSize - 4}px`,
-                        left: '2px',
-                        top: '2px',
-                        pointerEvents: 'none',
-                    }}
-                />
-
-                {/* Central rotation indicator */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-4 h-4 bg-white/20 rounded-full border border-white/30" />
-                </div>
 
                 {/* Rotating container */}
                 <div
