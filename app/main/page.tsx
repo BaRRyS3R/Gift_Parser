@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated with compact league display at the top
+// src/app/main/page.tsx - Updated with repositioned league display
 
 "use client";
 
@@ -16,6 +16,7 @@ import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
 import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
+import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal";
 
 export default function MainPage() {
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function MainPage() {
   const [showLeagueDisplay, setShowLeagueDisplay] = useState(!isFirstVisit);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isLeagueProgressOpen, setIsLeagueProgressOpen] = useState(false);
 
   /* -------------------------------------------------
    * Tournament state
@@ -187,10 +189,10 @@ export default function MainPage() {
     const pageLoadTimer = setTimeout(() => {
       setPageLoaded(true);
       if (isFirstVisit) {
-        setTimeout(() => setShowLeagueDisplay(true), 150);
-        setTimeout(() => setShowButton(true), 300);
-        setTimeout(() => setShowGreeting(true), 600);
-        setTimeout(() => setShowTopButtons(true), 900);
+        setTimeout(() => setShowButton(true), 150);
+        setTimeout(() => setShowGreeting(true), 300);
+        setTimeout(() => setShowTopButtons(true), 450);
+        setTimeout(() => setShowLeagueDisplay(true), 600);
       }
     }, 300);
 
@@ -249,6 +251,14 @@ export default function MainPage() {
     setIsAboutOpen(false);
   };
 
+  const handleOpenLeagueProgress = () => {
+    setIsLeagueProgressOpen(true);
+  };
+
+  const handleCloseLeagueProgress = () => {
+    setIsLeagueProgressOpen(false);
+  };
+
   /* -------------------------------------------------
    * Render
    * -------------------------------------------------*/
@@ -282,22 +292,6 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* Compact League Display - NEW: Moved to top center */}
-      {user && (
-        <div
-          className={`fixed left-1/2 transform -translate-x-1/2 z-30 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showLeagueDisplay
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-4"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
-          style={{ top: headerOffset }}
-        >
-          <CompactLeagueDisplay />
-        </div>
-      )}
-
       {/* Top Navigation Icons */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
@@ -307,7 +301,7 @@ export default function MainPage() {
           }`
           : "opacity-100 translate-y-0"
           }`}
-        style={{ top: headerOffset + (user ? 60 : 20) }}
+        style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -448,6 +442,12 @@ export default function MainPage() {
       {/* About Modal */}
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
 
+      {/* League Progress Modal */}
+      <LeagueProgressModal
+        isOpen={isLeagueProgressOpen}
+        onClose={handleCloseLeagueProgress}
+      />
+
       {/* Attempts Display */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
@@ -461,6 +461,22 @@ export default function MainPage() {
       >
         <AttemptsDisplay />
       </div>
+
+      {/* League Display - NEW: Positioned below attempts, above navigation */}
+      {user && (
+        <div
+          className={`fixed left-0 right-0 z-30 flex justify-center ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showLeagueDisplay
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-4"
+            }`
+            : "opacity-100 translate-y-0"
+            }`}
+          style={{ bottom: "110px" }}
+        >
+          <CompactLeagueDisplay onClick={handleOpenLeagueProgress} />
+        </div>
+      )}
     </div>
   );
 }

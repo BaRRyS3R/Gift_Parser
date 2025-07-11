@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/CompactLeagueDisplay.tsx - Compact league display for main page
+// src/components/LeagueProgress/CompactLeagueDisplay.tsx - Simplified inline display with click handler
 
 "use client";
 
@@ -10,10 +10,12 @@ import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
 
 interface CompactLeagueDisplayProps {
     className?: string;
+    onClick?: () => void;
 }
 
 const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
-    className = ""
+    className = "",
+    onClick
 }) => {
     const { user, telegramUser } = useUser();
     const t = useT();
@@ -46,11 +48,9 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
 
     if (isLoading) {
         return (
-            <div className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-4 py-2 ${className}`}>
-                <div className="animate-pulse flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-white/20 rounded" />
-                    <div className="w-24 h-3 bg-white/20 rounded" />
-                </div>
+            <div className={`animate-pulse flex items-center justify-center space-x-2 ${className}`}>
+                <div className="w-4 h-4 bg-white/20 rounded" />
+                <div className="w-24 h-3 bg-white/20 rounded" />
             </div>
         );
     }
@@ -86,28 +86,29 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
     const leagueColor = getLeagueColor(progressInfo.currentLeague.name);
 
     return (
-        <div className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-4 py-2 hover:bg-white/15 transition-all duration-300 ${className}`}>
-            <div className="flex items-center justify-center space-x-3">
-                {/* Level */}
-                <div className="flex items-center space-x-1">
-                    <Star className="text-white/80" size={14} />
-                    <span className="text-white text-sm font-bold">
-                        {progressInfo.currentLevel}
-                    </span>
-                </div>
-
-                {/* Separator */}
-                <div className="w-px h-4 bg-white/30" />
-
-                {/* League */}
-                <div className="flex items-center space-x-1">
-                    <LeagueIcon className={`${leagueColor} animate-pulse-gentle`} size={14} />
-                    <span className={`text-sm font-medium ${leagueColor}`}>
-                        {t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
-                    </span>
-                </div>
+        <button
+            onClick={onClick}
+            className={`flex items-center justify-center space-x-3 text-white/80 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 ${className}`}
+        >
+            {/* Level */}
+            <div className="flex items-center space-x-1">
+                <Star className="text-white/60" size={16} />
+                <span className="text-sm font-medium">
+                    {progressInfo.currentLevel}
+                </span>
             </div>
-        </div>
+
+            {/* Separator */}
+            <div className="w-px h-4 bg-white/30" />
+
+            {/* League */}
+            <div className="flex items-center space-x-1">
+                <LeagueIcon className={`${leagueColor} animate-pulse-gentle`} size={16} />
+                <span className={`text-sm font-medium ${leagueColor}`}>
+                    {t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
+                </span>
+            </div>
+        </button>
     );
 };
 

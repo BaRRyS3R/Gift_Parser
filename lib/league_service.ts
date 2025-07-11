@@ -1,4 +1,4 @@
-// src/lib/league_service.ts - Enhanced with neighbor players functionality
+// src/lib/league_service.ts - Enhanced service with real rewards from database
 
 import { supabase } from './supabase';
 
@@ -89,7 +89,6 @@ export interface LeagueLeaderboard {
     }>;
 }
 
-// NEW: Interface for neighbor players in league
 export interface LeagueNeighbors {
     league: League;
     userPosition: number;
@@ -119,7 +118,6 @@ export const leagueService = {
     GAMES_PER_LEVEL: 100,
     MAX_LEVEL: 100,
 
-    // Existing methods remain the same...
     async getAllLeagues(): Promise<League[]> {
         const { data, error } = await supabase
             .from('leagues')
@@ -185,13 +183,51 @@ export const leagueService = {
         };
     },
 
-    // NEW: Get neighbor players in the same league
+    // NEW: Get real league rewards from database
+    async getLeagueRewards(leagueId: number): Promise<LeagueReward[]> {
+        const { data, error } = await supabase
+            .from('league_rewards')
+            .select('*')
+            .eq('league_id', leagueId)
+            .order('position', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching league rewards:', error);
+            throw error;
+        }
+
+        return data || [];
+    },
+
+    // NEW: Get all rewards for all leagues
+    async getAllLeagueRewards(): Promise<Record<number, LeagueReward[]>> {
+        const { data, error } = await supabase
+            .from('league_rewards')
+            .select('*')
+            .order('league_id', { ascending: true })
+            .order('position', { ascending: true });
+
+        if (error) {
+            console.error('Error fetching all league rewards:', error);
+            throw error;
+        }
+
+        const rewardsByLeague: Record<number, LeagueReward[]> = {};
+        (data || []).forEach(reward => {
+            if (!rewardsByLeague[reward.league_id]) {
+                rewardsByLeague[reward.league_id] = [];
+            }
+            rewardsByLeague[reward.league_id].push(reward);
+        });
+
+        return rewardsByLeague;
+    },
+
     async getLeagueNeighbors(userId: string, totalGames: number): Promise<LeagueNeighbors | null> {
         try {
             const currentLeague = await this.getLeagueByGames(totalGames);
             if (!currentLeague) return null;
 
-            // Get all users in the current league, ordered by games count
             const { data: usersInLeague, error: usersError } = await supabase
                 .from('users')
                 .select(`
@@ -212,14 +248,12 @@ export const leagueService = {
 
             if (!usersInLeague) return null;
 
-            // Find user position
             const userIndex = usersInLeague.findIndex(user => user.id === userId);
             if (userIndex === -1) return null;
 
             const userPosition = userIndex + 1;
             const userGames = totalGames;
 
-            // Get 2 players ahead
             const playersAhead = usersInLeague
                 .slice(Math.max(0, userIndex - 2), userIndex)
                 .map((player, index) => ({
@@ -232,7 +266,6 @@ export const leagueService = {
                     games_ahead: player.total_games - userGames
                 }));
 
-            // Get 2 players behind
             const playersBehind = usersInLeague
                 .slice(userIndex + 1, userIndex + 3)
                 .map((player, index) => ({
@@ -259,7 +292,6 @@ export const leagueService = {
         }
     },
 
-    // Existing methods remain the same...
     async getUserCurrentLeague(userId: string): Promise<UserLeague | null> {
         const { data, error } = await supabase
             .from('user_leagues')
@@ -399,6 +431,7 @@ export const leagueService = {
         }
     },
 
+    // FIXED: Enhanced leaderboard to show top 5 players
     async getLeagueLeaderboard(leagueId: number, userId?: string): Promise<LeagueLeaderboard | null> {
         try {
             const { data: league, error: leagueError } = await supabase
@@ -412,6 +445,7 @@ export const leagueService = {
                 return null;
             }
 
+            // FIXED: Get more users to ensure we have top players
             const { data: usersInLeague, error: usersError } = await supabase
                 .from('users')
                 .select(`
@@ -424,7 +458,7 @@ export const leagueService = {
                 .gte('total_games', league.min_games)
                 .lte('total_games', league.max_games || 999999)
                 .order('total_games', { ascending: false })
-                .limit(50);
+                .limit(100); // Increased limit to get more players
 
             if (usersError) {
                 console.error('Error fetching users in league:', usersError);
@@ -463,7 +497,8 @@ export const leagueService = {
                 }
             }
 
-            const topPlayers = (usersInLeague || []).slice(0, 10).map((user, index) => ({
+            // FIXED: Ensure we show top 5 players
+            const topPlayers = (usersInLeague || []).slice(0, 5).map((user, index) => ({
                 user_id: user.id,
                 first_name: user.first_name,
                 last_name: user.last_name,

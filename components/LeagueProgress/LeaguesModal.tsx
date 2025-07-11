@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeaguesModal.tsx - Enhanced modal with neighbor players
+// src/components/LeagueProgress/LeaguesModal.tsx - Fixed modal with centered tabs, real rewards, and proper leaderboard
 
 "use client";
 
@@ -8,11 +8,12 @@ import {
     ModalContent,
     ModalHeader,
     ModalBody,
-    Button,
     Card,
     CardBody,
     Tabs,
     Tab,
+    Accordion,
+    AccordionItem,
 } from "@nextui-org/react";
 import {
     Trophy,
@@ -27,6 +28,7 @@ import {
     ArrowUp,
     ArrowDown,
     Target,
+    ChevronDown,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -36,7 +38,8 @@ import leagueService, {
     type LeagueProgressInfo,
     type UserLeagueReward,
     type LeagueLeaderboard,
-    type LeagueNeighbors
+    type LeagueNeighbors,
+    type LeagueReward
 } from "@/lib/league_service";
 
 interface LeaguesModalProps {
@@ -53,6 +56,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
     const [userRewards, setUserRewards] = useState<UserLeagueReward[]>([]);
     const [leaderboards, setLeaderboards] = useState<Record<number, LeagueLeaderboard>>({});
     const [leagueNeighbors, setLeagueNeighbors] = useState<LeagueNeighbors | null>(null);
+    const [allLeagueRewards, setAllLeagueRewards] = useState<Record<number, LeagueReward[]>>({});
     const [selectedTab, setSelectedTab] = useState("progress");
     const [isLoading, setIsLoading] = useState(true);
 
@@ -63,25 +67,25 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
             try {
                 setIsLoading(true);
 
-                const [progress, leagues, rewards, neighbors] = await Promise.all([
+                const [progress, leagues, rewards, neighbors, allRewards] = await Promise.all([
                     leagueService.getUserLeagueProgress(user.id, user.total_games),
                     leagueService.getAllLeagues(),
                     leagueService.getUserRewards(user.id),
                     leagueService.getLeagueNeighbors(user.id, user.total_games),
+                    leagueService.getAllLeagueRewards(),
                 ]);
 
                 setProgressInfo(progress);
                 setAllLeagues(leagues);
                 setUserRewards(rewards);
                 setLeagueNeighbors(neighbors);
+                setAllLeagueRewards(allRewards);
 
-                // Load leaderboards for leagues with rewards
-                const leaderboardPromises = leagues
-                    .filter(league => league.name !== 'bronze')
-                    .map(async (league) => {
-                        const leaderboard = await leagueService.getLeagueLeaderboard(league.id, user.id);
-                        return { leagueId: league.id, leaderboard };
-                    });
+                // Load leaderboards for all leagues
+                const leaderboardPromises = leagues.map(async (league) => {
+                    const leaderboard = await leagueService.getLeagueLeaderboard(league.id, user.id);
+                    return { leagueId: league.id, leaderboard };
+                });
 
                 const leaderboardResults = await Promise.all(leaderboardPromises);
                 const leaderboardsMap: Record<number, LeagueLeaderboard> = {};
@@ -389,63 +393,15 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                         </CardBody>
                     </Card>
                 )}
-
-                {/* All Leagues Overview */}
-                <div className="space-y-3">
-                    <h4 className="text-lg font-bold text-white">{t("leagues.title")}</h4>
-                    {allLeagues.map((league) => {
-                        const colors = getLeagueColorClasses(league.name);
-                        const Icon = getLeagueIcon(league.name);
-                        const isCurrent = league.id === progressInfo.currentLeague.id;
-                        const isUnlocked = user ? user.total_games >= league.min_games : false;
-
-                        return (
-                            <Card key={league.id} className={`${isUnlocked ? colors.bg : 'bg-white/5'} border ${isUnlocked ? colors.border : 'border-white/10'}`}>
-                                <CardBody className="p-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-3">
-                                            <Icon
-                                                className={isUnlocked ? colors.text : 'text-white/30'}
-                                                size={20}
-                                            />
-                                            <div>
-                                                <div className={`font-bold ${isUnlocked ? colors.text : 'text-white/50'}`}>
-                                                    {t(`leagues.names.${league.name}` as any)}
-                                                </div>
-                                                <div className="text-xs text-white/60">
-                                                    {league.min_games}
-                                                    {league.max_games ? ` - ${league.max_games}` : '+'} {t("profile.gamesUnit")}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center space-x-2">
-                                            {isCurrent && (
-                                                <div className={`px-2 py-1 rounded text-xs font-bold ${colors.bg} ${colors.text}`}>
-                                                    {t("profile.currentLeague")}
-                                                </div>
-                                            )}
-                                            {league.name !== 'bronze' && (
-                                                <div className="flex items-center space-x-1">
-                                                    <Gift className="text-white/60" size={14} />
-                                                    <span className="text-xs text-white/60">{league.rewards_count} {t("profile.rewardsUnit")}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
-                        );
-                    })}
-                </div>
             </div>
         );
     };
 
-    // Rewards Tab Component (existing)
+    // Rewards Tab Component with real rewards from database
     const RewardsTab = () => {
         return (
             <div className="space-y-6">
+                {/* User's Rewards */}
                 {userRewards.length > 0 && (
                     <div className="space-y-3">
                         <h4 className="text-lg font-bold text-white">{t("leagues.rewardsSection.yourRewards")}</h4>
@@ -480,64 +436,95 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     </div>
                 )}
 
+                {/* Available Rewards by League with expandable list */}
                 <div className="space-y-4">
                     <h4 className="text-lg font-bold text-white">{t("leagues.rewardsSection.availableRewards")}</h4>
-                    {allLeagues
-                        .filter(league => league.name !== 'bronze')
-                        .map((league) => {
-                            const colors = getLeagueColorClasses(league.name);
-                            const Icon = getLeagueIcon(league.name);
-                            const leaderboard = leaderboards[league.id];
 
-                            return (
-                                <Card key={league.id} className={`${colors.bg} border ${colors.border}`}>
-                                    <CardBody className="p-4">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center space-x-3">
-                                                <Icon className={colors.text} size={20} />
-                                                <div>
-                                                    <div className={`font-bold ${colors.text}`}>
-                                                        {t(`leagues.names.${league.name}` as any)}
-                                                    </div>
-                                                    <div className={`text-xs ${colors.accent}`}>
-                                                        {league.min_games}+ {t("profile.gamesRequired")}
+                    <Accordion variant="splitted" className="px-0">
+                        {allLeagues
+                            .filter(league => league.name !== 'bronze')
+                            .map((league) => {
+                                const colors = getLeagueColorClasses(league.name);
+                                const Icon = getLeagueIcon(league.name);
+                                const leaderboard = leaderboards[league.id];
+                                const rewards = allLeagueRewards[league.id] || [];
+
+                                return (
+                                    <AccordionItem
+                                        key={league.id}
+                                        aria-label={t(`leagues.names.${league.name}` as any)}
+                                        title={
+                                            <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center space-x-3">
+                                                    <Icon className={colors.text} size={20} />
+                                                    <div>
+                                                        <div className={`font-bold ${colors.text}`}>
+                                                            {t(`leagues.names.${league.name}` as any)}
+                                                        </div>
+                                                        <div className={`text-xs ${colors.accent}`}>
+                                                            {league.min_games}+ {t("profile.gamesRequired")}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            {leaderboard && (
-                                                <div className="text-right">
-                                                    <div className={`text-sm font-bold ${colors.text}`}>
-                                                        {leaderboard.rewardsRemaining}/{league.rewards_count}
+                                                {leaderboard && (
+                                                    <div className="text-right mr-4">
+                                                        <div className={`text-sm font-bold ${colors.text}`}>
+                                                            {leaderboard.rewardsRemaining}/{league.rewards_count}
+                                                        </div>
+                                                        <div className={`text-xs ${colors.accent}`}>
+                                                            {leaderboard.rewardsRemaining > 0
+                                                                ? t("leagues.rewardsSection.rewardsLeft", { count: leaderboard.rewardsRemaining })
+                                                                : t("leagues.rewardsSection.allClaimed")
+                                                            }
+                                                        </div>
                                                     </div>
-                                                    <div className={`text-xs ${colors.accent}`}>
-                                                        {t("leagues.rewardsSection.rewardsLeft", { count: leaderboard.rewardsRemaining })}
+                                                )}
+                                            </div>
+                                        }
+                                        className={`${colors.bg} border ${colors.border}`}
+                                    >
+                                        <div className="space-y-2 pt-2">
+                                            {rewards.length > 0 ? (
+                                                rewards.map((reward) => (
+                                                    <div
+                                                        key={reward.id}
+                                                        className="flex items-center justify-between p-2 rounded bg-white/5 border border-white/10"
+                                                    >
+                                                        <div className="flex items-center space-x-2">
+                                                            <div className={`w-6 h-6 rounded-full ${colors.bg} ${colors.text} border ${colors.border} flex items-center justify-center text-xs font-bold`}>
+                                                                {reward.position}
+                                                            </div>
+                                                            <span className="text-white text-sm">
+                                                                {reward.name}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center space-x-1">
+                                                            <Gift className={colors.text} size={14} />
+                                                            {leaderboard && leaderboard.rewardsGiven >= reward.position ? (
+                                                                <span className="text-red-400 text-xs">Claimed</span>
+                                                            ) : (
+                                                                <span className="text-green-400 text-xs">Available</span>
+                                                            )}
+                                                        </div>
                                                     </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-4 text-white/60 text-sm">
+                                                    No rewards configured for this league
                                                 </div>
                                             )}
                                         </div>
-
-                                        {leaderboard && leaderboard.rewardsRemaining > 0 && leaderboard.nextRewardAt && (
-                                            <div className={`text-sm ${colors.accent}`}>
-                                                {t("leagues.leaderboardSection.nextReward", { games: leaderboard.nextRewardAt })}
-                                            </div>
-                                        )}
-
-                                        {leaderboard && leaderboard.rewardsRemaining === 0 && (
-                                            <div className="text-red-400 text-sm">
-                                                {t("leagues.rewardsSection.allClaimed")}
-                                            </div>
-                                        )}
-                                    </CardBody>
-                                </Card>
-                            );
-                        })}
+                                    </AccordionItem>
+                                );
+                            })}
+                    </Accordion>
                 </div>
             </div>
         );
     };
 
-    // Leaderboard Tab Component (existing)
+    // Leaderboard Tab Component with fixed top 5 display
     const LeaderboardTab = () => {
         return (
             <div className="space-y-6">
@@ -575,33 +562,40 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                     )}
                                 </div>
 
+                                {/* Top 5 Players List */}
                                 <div className="space-y-2">
                                     <h5 className="text-sm font-bold text-white/80">{t("leagues.leaderboardSection.topPlayers")}</h5>
-                                    {leaderboard.topPlayers.slice(0, 5).map((player, index) => (
-                                        <div
-                                            key={player.user_id}
-                                            className={`flex items-center justify-between p-2 rounded ${player.user_id === user?.id ? 'bg-white/10' : 'bg-white/5'}`}
-                                        >
-                                            <div className="flex items-center space-x-3">
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${player.position <= 3 ? colors.bg : 'bg-white/10'
-                                                    } ${player.position <= 3 ? colors.text : 'text-white/60'}`}>
-                                                    {player.position}
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-medium text-white">
-                                                        {formatDisplayName(player.first_name, player.last_name, player.username)}
+                                    {leaderboard.topPlayers.length > 0 ? (
+                                        leaderboard.topPlayers.map((player, index) => (
+                                            <div
+                                                key={player.user_id}
+                                                className={`flex items-center justify-between p-2 rounded ${player.user_id === user?.id ? 'bg-white/10' : 'bg-white/5'}`}
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${player.position <= 3 ? colors.bg : 'bg-white/10'
+                                                        } ${player.position <= 3 ? colors.text : 'text-white/60'}`}>
+                                                        {player.position}
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm font-medium text-white">
+                                                            {formatDisplayName(player.first_name, player.last_name, player.username)}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            <div className="flex items-center space-x-2">
-                                                <span className="text-sm text-white/80">{player.games_count}</span>
-                                                {player.got_reward && (
-                                                    <Gift className="text-green-400" size={14} />
-                                                )}
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="text-sm text-white/80">{player.games_count}</span>
+                                                    {player.got_reward && (
+                                                        <Gift className="text-green-400" size={14} />
+                                                    )}
+                                                </div>
                                             </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-4 text-white/60 text-sm">
+                                            No players in this league yet
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </CardBody>
                         </Card>
@@ -649,26 +643,29 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                             </div>
                         </div>
                     ) : (
-                        <Tabs
-                            selectedKey={selectedTab}
-                            onSelectionChange={(key) => setSelectedTab(key as string)}
-                            classNames={{
-                                tabList: "bg-white/10 rounded-lg p-1",
-                                tab: "text-white/60 data-[selected=true]:text-white data-[selected=true]:bg-white/20",
-                                tabContent: "text-sm font-medium",
-                                panel: "pt-4"
-                            }}
-                        >
-                            <Tab key="progress" title={t("leagues.progress")}>
-                                <ProgressTab />
-                            </Tab>
-                            <Tab key="rewards" title={t("leagues.rewards")}>
-                                <RewardsTab />
-                            </Tab>
-                            <Tab key="leaderboard" title={t("leagues.leaderboard")}>
-                                <LeaderboardTab />
-                            </Tab>
-                        </Tabs>
+                        <div className="flex justify-center">
+                            <Tabs
+                                selectedKey={selectedTab}
+                                onSelectionChange={(key) => setSelectedTab(key as string)}
+                                className="w-full max-w-md"
+                                classNames={{
+                                    tabList: "bg-white/10 rounded-lg p-1 w-full flex justify-center",
+                                    tab: "text-white/60 data-[selected=true]:text-white data-[selected=true]:bg-white/20 flex-1",
+                                    tabContent: "text-sm font-medium",
+                                    panel: "pt-4 w-full"
+                                }}
+                            >
+                                <Tab key="progress" title={t("leagues.progress")}>
+                                    <ProgressTab />
+                                </Tab>
+                                <Tab key="rewards" title={t("leagues.rewards")}>
+                                    <RewardsTab />
+                                </Tab>
+                                <Tab key="leaderboard" title={t("leagues.leaderboard")}>
+                                    <LeaderboardTab />
+                                </Tab>
+                            </Tabs>
+                        </div>
                     )}
                 </ModalBody>
             </ModalContent>
