@@ -1411,7 +1411,6 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                         <div className="grid grid-cols-3 gap-4 text-center">
                                             <div className="space-y-1">
                                                 <div className="flex items-center justify-center space-x-1">
-                                                    <Trophy className="text-white/50" size={14} />
                                                     <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.prizes")}</span>
                                                 </div>
                                                 <div className="text-lg font-bold text-white/70">{tournament.prizes.length}</div>
@@ -1419,7 +1418,6 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
 
                                             <div className="space-y-1">
                                                 <div className="flex items-center justify-center space-x-1">
-                                                    <Users className="text-white/50" size={14} />
                                                     <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.participants")}</span>
                                                 </div>
                                                 <div className="text-lg font-bold text-white/70">{tournament.participants_count || 0}</div>
@@ -1427,7 +1425,6 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
 
                                             <div className="space-y-1">
                                                 <div className="flex items-center justify-center space-x-1">
-                                                    <CalendarDays className="text-white/50" size={14} />
                                                     <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.duration")}</span>
                                                 </div>
                                                 <div className="text-sm font-bold text-white/70">
