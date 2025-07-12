@@ -170,8 +170,20 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
           </div>
 
           {/* Footer */}
-          <div className="text-center pt-4 border-t border-white/10">
+          <div className="text-center pt-4 border-t border-white/10 space-y-3">
             <p className="text-xs text-white/40">{t("about.footer")}</p>
+
+            {/* Powered by BLACKHOLE */}
+            <div className="flex items-center justify-center">
+              <a
+                href="https://t.me/notmyfrens"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-white/30 hover:text-white/50 transition-colors duration-300 font-mono tracking-wider"
+              >
+                powered by BLACKHOLE
+              </a>
+            </div>
           </div>
         </ModalBody>
       </ModalContent>
