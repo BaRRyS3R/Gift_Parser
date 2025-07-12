@@ -1,4 +1,4 @@
-// src/locales/en/tournament.ts - Updated localization with new strings
+// src/locales/en/tournament.ts - Updated localization with new strings for full winner display
 
 export const tournament = {
   title: "TOURNAMENT",
@@ -147,6 +147,41 @@ export const tournament = {
   importantNotes: "Important Notes",
   finalNote:
     "Remember: in King of the Hill tournaments, the number of games can be a key success factor. The more points you accumulate, the higher your position in the final leaderboard.",
+
+  // NEW STRINGS FOR FULL LOCALIZATION
+
+  // Sponsor elements
+  sponsor: "Sponsor",
+  sponsorChannel: "Sponsor Channel",
+
+  // Basic terms
+  points: "points",
+  pointsShort: "pts",
+  you: "You",
+  champion: "Champion",
+
+  // Games and attempts
+  gamesShort: "games",
+  noAttempts: "No attempts",
+  attemptsUsed: "Attempts used",
+  waitForReset: "Wait for attempts reset",
+
+  // Tournament statuses
+  upcoming: "Upcoming",
+  starting: "Starting",
+  untilStart: "until tournament starts",
+  starts: "Starts",
+
+  // Prizes and participants
+  prizesShort: "prizes",
+  participantsShort: "participants",
+
+  // Page sections
+  upcomingTournaments: "Upcoming Tournaments",
+  tournamentInfo: "Tournament Information",
+
+  // Time
+  days: "days",
 
   // Detailed tournament rules
   rules: {

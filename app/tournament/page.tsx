@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Полная страница турниров с встроенными баннерами
+// src/app/tournament/page.tsx - Обновленная страница турниров с полным отображением победителей и локализацией
 
 "use client";
 
@@ -77,7 +77,7 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
         return (
             <div className="w-full h-72 bg-gradient-to-br from-gray-800/40 to-gray-900/60 relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/60" />
-                
+
                 <div className="relative h-full flex flex-col justify-between p-6">
                     <div>
                         <h1 className="text-3xl font-bold text-white tracking-wide mb-3">
@@ -124,20 +124,20 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
 
     return (
         <div className="w-full h-72 relative">
-            <div 
+            <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                 style={{
                     backgroundImage: `url(${tournament.sponsor_image_url})`
                 }}
             />
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/80" />
-            
+
             <div className="relative h-full flex flex-col justify-between p-6">
                 <div className="space-y-3">
                     <div className="flex items-start justify-between">
                         <div>
                             <div className="text-xs text-white/70 font-medium uppercase tracking-wider mb-2">
-                                Sponsor
+                                {t("tournament.sponsor")}
                             </div>
                             <h2 className="text-xl font-bold text-white">
                                 {tournament.sponsor_name}
@@ -150,7 +150,7 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
                             </span>
                         </div>
                     </div>
-                    
+
                     <h1 className="text-2xl font-bold text-white tracking-wide">
                         {tournament.name}
                     </h1>
@@ -206,7 +206,7 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
                             >
                                 <ExternalLink className="text-white" size={14} />
                                 <span className="text-white font-medium text-sm">
-                                    Sponsor Channel
+                                    {t("tournament.sponsorChannel")}
                                 </span>
                             </button>
                         </div>
@@ -368,11 +368,11 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({ leaderboa
                         <div className="flex items-center space-x-4 text-sm text-white/60 mt-1">
                             <div className="flex items-center space-x-1">
                                 <Star className="text-yellow-400" size={12} />
-                                <span>{userEntry.survival_score} pts</span>
+                                <span>{userEntry.survival_score} {t("tournament.points")}</span>
                             </div>
                             <div className="flex items-center space-x-1">
                                 <Activity size={12} />
-                                <span>{userEntry.games_played || 1} игр</span>
+                                <span>{userEntry.games_played || 1} {t("tournament.gamesPlayed")}</span>
                             </div>
                             <div className="flex items-center space-x-1">
                                 <Clock size={12} />
@@ -459,7 +459,7 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
                                 )}
                                 {isCurrentUser(participant.telegram_id) && (
                                     <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded">
-                                        Вы
+                                        {t("tournament.you")}
                                     </span>
                                 )}
                             </div>
@@ -467,7 +467,7 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
                             <div className="flex items-center space-x-3 text-xs text-white/60 mt-1">
                                 <div className="flex items-center space-x-1">
                                     <Activity size={10} />
-                                    <span>{participant.games_played || 1} игр</span>
+                                    <span>{participant.games_played || 1} {t("tournament.gamesShort")}</span>
                                 </div>
                                 <div className="flex items-center space-x-1">
                                     <Clock size={10} />
@@ -579,7 +579,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
                                         <span className={`font-medium text-sm ${isCurrentUser(participant.telegram_id) ? "text-white" :
-                                                isWinner ? "text-yellow-400" : "text-white/90"
+                                            isWinner ? "text-yellow-400" : "text-white/90"
                                             }`}>
                                             {participant.first_name} {participant.last_name || ""}
                                         </span>
@@ -588,7 +588,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                         )}
                                         {isCurrentUser(participant.telegram_id) && (
                                             <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded">
-                                                Вы
+                                                {t("tournament.you")}
                                             </span>
                                         )}
                                     </div>
@@ -596,7 +596,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                     <div className="flex items-center space-x-3 text-xs text-white/60 mt-1">
                                         <div className="flex items-center space-x-1">
                                             <Activity size={10} />
-                                            <span>{participant.games_played || 1} игр</span>
+                                            <span>{participant.games_played || 1} {t("tournament.gamesShort")}</span>
                                         </div>
                                         <div className="flex items-center space-x-1">
                                             <Clock size={10} />
@@ -922,7 +922,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                     <span>
                         {hasAttemptsRemaining
                             ? t("tournament.enterTournament")
-                            : "Нет попыток"
+                            : t("tournament.noAttempts")
                         }
                     </span>
                 </button>
@@ -937,8 +937,8 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
 
                 {!hasAttemptsRemaining && (
                     <div className="bg-white/5 border border-white/20 rounded-lg p-4 text-center">
-                        <p className="text-white/60 text-sm">Попытки использованы</p>
-                        <p className="text-white/40 text-xs mt-1">Ожидайте сброса попыток</p>
+                        <p className="text-white/60 text-sm">{t("tournament.attemptsUsed")}</p>
+                        <p className="text-white/40 text-xs mt-1">{t("tournament.waitForReset")}</p>
                     </div>
                 )}
             </div>
@@ -970,6 +970,7 @@ interface UpcomingTournamentItemProps {
 }
 
 const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournament }) => {
+    const t = useT();
     const [timeDisplay, setTimeDisplay] = useState<string>("");
 
     useEffect(() => {
@@ -977,13 +978,13 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
             const now = new Date();
             const startDate = new Date(tournament.start_date);
             const diff = startDate.getTime() - now.getTime();
-            setTimeDisplay(diff > 0 ? formatTimeRemaining(diff) : "Начинается");
+            setTimeDisplay(diff > 0 ? formatTimeRemaining(diff) : t("tournament.starting"));
         };
 
         updateTime();
         const interval = setInterval(updateTime, 1000);
         return () => clearInterval(interval);
-    }, [tournament]);
+    }, [tournament, t]);
 
     const handleSponsorClick = () => {
         if (tournament.sponsor_channel_url) {
@@ -996,7 +997,7 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
             {!tournament.sponsor_name || !tournament.sponsor_image_url ? (
                 <div className="w-full h-64 bg-gradient-to-br from-blue-800/40 to-purple-900/60 relative">
                     <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/60" />
-                    
+
                     <div className="relative h-full flex flex-col justify-between p-6">
                         <div>
                             <h1 className="text-2xl font-bold text-white tracking-wide mb-3">
@@ -1005,7 +1006,7 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                             <div className="flex items-center space-x-2">
                                 <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
                                 <span className="text-blue-400 font-medium">
-                                    Предстоящий турнир
+                                    {t("tournament.upcoming")}
                                 </span>
                             </div>
                         </div>
@@ -1019,7 +1020,7 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                                             {timeDisplay}
                                         </div>
                                         <div className="text-white/60 text-sm">
-                                            до начала турнира
+                                            {t("tournament.untilStart")}
                                         </div>
                                     </div>
                                 </div>
@@ -1028,11 +1029,11 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                             <div className="flex items-center justify-between text-sm text-white/60">
                                 <div className="flex items-center space-x-2">
                                     <Calendar size={14} />
-                                    <span>Начало: {new Date(tournament.start_date).toLocaleDateString('ru-RU')}</span>
+                                    <span>{t("tournament.starts")}: {new Date(tournament.start_date).toLocaleDateString('ru-RU')}</span>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <Trophy size={14} />
-                                    <span>{tournament.prizes.length} призов</span>
+                                    <span>{tournament.prizes.length} {t("tournament.prizesShort")}</span>
                                 </div>
                             </div>
                         </div>
@@ -1040,20 +1041,20 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                 </div>
             ) : (
                 <div className="w-full h-64 relative">
-                    <div 
+                    <div
                         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                         style={{
                             backgroundImage: `url(${tournament.sponsor_image_url})`
                         }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-blue-600/30 via-blue-800/40 to-black/80" />
-                    
+
                     <div className="relative h-full flex flex-col justify-between p-6">
                         <div className="space-y-3">
                             <div className="flex items-start justify-between">
                                 <div>
                                     <div className="text-xs text-white/70 font-medium uppercase tracking-wider mb-2">
-                                        Sponsor
+                                        {t("tournament.sponsor")}
                                     </div>
                                     <h2 className="text-lg font-bold text-white">
                                         {tournament.sponsor_name}
@@ -1062,11 +1063,11 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                                 <div className="flex items-center space-x-2">
                                     <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
                                     <span className="text-blue-400 font-medium text-sm">
-                                        Предстоящий
+                                        {t("tournament.upcoming")}
                                     </span>
                                 </div>
                             </div>
-                            
+
                             <h1 className="text-xl font-bold text-white tracking-wide">
                                 {tournament.name}
                             </h1>
@@ -1082,7 +1083,7 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                                                 {timeDisplay}
                                             </div>
                                             <div className="text-white/60 text-sm">
-                                                до начала турнира
+                                                {t("tournament.untilStart")}
                                             </div>
                                         </div>
                                     </div>
@@ -1102,7 +1103,7 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <Trophy size={12} />
-                                        <span>{tournament.prizes.length} призов</span>
+                                        <span>{tournament.prizes.length} {t("tournament.prizesShort")}</span>
                                     </div>
                                 </div>
                             </div>
@@ -1115,7 +1116,7 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                                     >
                                         <ExternalLink className="text-white" size={14} />
                                         <span className="text-white font-medium text-sm">
-                                            Sponsor Channel
+                                            {t("tournament.sponsorChannel")}
                                         </span>
                                     </button>
                                 </div>
@@ -1124,14 +1125,14 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                     </div>
                 </div>
             )}
-            
+
             <div className="px-4">
                 <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                     <div className="grid grid-cols-2 gap-4 text-center">
                         <div className="space-y-1">
                             <div className="flex items-center justify-center space-x-1">
                                 <Trophy className="text-white/50" size={14} />
-                                <span className="text-xs text-white/50 uppercase tracking-wider font-medium">Призов</span>
+                                <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.prizesShort")}</span>
                             </div>
                             <div className="text-lg font-bold text-white/70">{tournament.prizes.length}</div>
                         </div>
@@ -1139,7 +1140,7 @@ const UpcomingTournamentItem: React.FC<UpcomingTournamentItemProps> = ({ tournam
                         <div className="space-y-1">
                             <div className="flex items-center justify-center space-x-1">
                                 <Clock className="text-white/50" size={14} />
-                                <span className="text-xs text-white/50 uppercase tracking-wider font-medium">Начало</span>
+                                <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.starts")}</span>
                             </div>
                             <div className="text-sm font-bold text-white/70">
                                 {new Date(tournament.start_date).toLocaleDateString('ru-RU', {
@@ -1175,12 +1176,12 @@ const UpcomingTournaments: React.FC<UpcomingTournamentsProps> = ({ tournaments }
                         <CalendarDays className="text-blue-400" size={20} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-white tracking-wide">Предстоящие турниры</h2>
-                        <p className="text-white/40 text-sm uppercase tracking-[0.2em]">{tournaments.length} турниров</p>
+                        <h2 className="text-xl font-bold text-white tracking-wide">{t("tournament.upcomingTournaments")}</h2>
+                        <p className="text-white/40 text-sm uppercase tracking-[0.2em]">{tournaments.length} {t("tournament.tournaments")}</p>
                     </div>
                 </div>
             </div>
-            
+
             <div className="space-y-6">
                 {tournaments.map((tournament) => (
                     <UpcomingTournamentItem key={tournament.id} tournament={tournament} />
@@ -1190,7 +1191,7 @@ const UpcomingTournaments: React.FC<UpcomingTournamentsProps> = ({ tournaments }
     );
 };
 
-// Завершенные турниры
+// Завершенные турниры - ОБНОВЛЕНО ДЛЯ ОТОБРАЖЕНИЯ ВСЕХ ПОБЕДИТЕЛЕЙ
 interface CompletedTournamentsProps {
     tournaments: TournamentWithStatus[];
 }
@@ -1204,6 +1205,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
         if (loadedWinners[tournamentId]) return;
 
         try {
+            // ИСПРАВЛЕНО: Загружаем всех победителей согласно количеству призов
             const winners = await tournamentService.getTournamentWinners(tournamentId, prizeCount);
             setLoadedWinners(prev => ({ ...prev, [tournamentId]: winners }));
         } catch (error) {
@@ -1226,8 +1228,9 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
     };
 
     useEffect(() => {
+        // ИСПРАВЛЕНО: Загружаем полное количество победителей для первых 2 турниров
         tournaments.slice(0, 2).forEach(tournament => {
-            loadWinners(tournament.id, Math.min(3, tournament.prizes.length));
+            loadWinners(tournament.id, tournament.prizes.length);
         });
     }, [tournaments]);
 
@@ -1246,7 +1249,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                     </div>
                 </div>
             </div>
-            
+
             <div className="space-y-6">
                 {tournaments.map((tournament) => {
                     const winners = loadedWinners[tournament.id] || [];
@@ -1258,13 +1261,13 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                             window.open(tournament.sponsor_channel_url, '_blank');
                         }
                     };
-                    
+
                     return (
                         <div key={tournament.id} className="space-y-4">
                             {!tournament.sponsor_name || !tournament.sponsor_image_url ? (
                                 <div className="w-full h-64 bg-gradient-to-br from-gray-800/60 to-gray-900/80 relative">
                                     <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/70" />
-                                    
+
                                     <div className="relative h-full flex flex-col justify-between p-6">
                                         <div>
                                             <h1 className="text-2xl font-bold text-white/80 tracking-wide mb-3">
@@ -1273,7 +1276,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                             <div className="flex items-center space-x-2">
                                                 <div className="w-2 h-2 bg-gray-400 rounded-full" />
                                                 <span className="text-gray-400 font-medium">
-                                                    Турнир завершен
+                                                    {t("tournament.completed")}
                                                 </span>
                                             </div>
                                         </div>
@@ -1287,7 +1290,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                                             {topWinner.first_name} {topWinner.last_name || ""}
                                                         </div>
                                                         <div className="text-white/60 text-sm">
-                                                            Чемпион • {topWinner.survival_score} очков
+                                                            {t("tournament.champion")} • {topWinner.survival_score} {t("tournament.points")}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1296,11 +1299,11 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                             <div className="flex items-center justify-between text-sm text-white/60">
                                                 <div className="flex items-center space-x-2">
                                                     <Users size={14} />
-                                                    <span>{tournament.participants_count} участников</span>
+                                                    <span>{tournament.participants_count} {t("tournament.participantsShort")}</span>
                                                 </div>
                                                 <div className="flex items-center space-x-2">
                                                     <Trophy size={14} />
-                                                    <span>{tournament.prizes.length} призов</span>
+                                                    <span>{tournament.prizes.length} {t("tournament.prizesShort")}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1308,20 +1311,20 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                 </div>
                             ) : (
                                 <div className="w-full h-64 relative">
-                                    <div 
+                                    <div
                                         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                                         style={{
                                             backgroundImage: `url(${tournament.sponsor_image_url})`
                                         }}
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-b from-gray-600/40 via-gray-800/50 to-black/80" />
-                                    
+
                                     <div className="relative h-full flex flex-col justify-between p-6">
                                         <div className="space-y-3">
                                             <div className="flex items-start justify-between">
                                                 <div>
                                                     <div className="text-xs text-white/70 font-medium uppercase tracking-wider mb-2">
-                                                        Sponsor
+                                                        {t("tournament.sponsor")}
                                                     </div>
                                                     <h2 className="text-lg font-bold text-white/90">
                                                         {tournament.sponsor_name}
@@ -1330,11 +1333,11 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                                 <div className="flex items-center space-x-2">
                                                     <div className="w-2 h-2 bg-gray-400 rounded-full" />
                                                     <span className="text-gray-400 font-medium text-sm">
-                                                        Завершен
+                                                        {t("tournament.completed")}
                                                     </span>
                                                 </div>
                                             </div>
-                                            
+
                                             <h1 className="text-xl font-bold text-white/90 tracking-wide">
                                                 {tournament.name}
                                             </h1>
@@ -1350,7 +1353,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                                                 {topWinner.first_name} {topWinner.last_name || ""}
                                                             </div>
                                                             <div className="text-white/60 text-sm">
-                                                                Чемпион • {topWinner.survival_score} очков
+                                                                {t("tournament.champion")} • {topWinner.survival_score} {t("tournament.points")}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1359,11 +1362,11 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                                 <div className="flex items-center justify-between text-sm text-white/60">
                                                     <div className="flex items-center space-x-2">
                                                         <Users size={12} />
-                                                        <span>{tournament.participants_count} участников</span>
+                                                        <span>{tournament.participants_count} {t("tournament.participantsShort")}</span>
                                                     </div>
                                                     <div className="flex items-center space-x-2">
                                                         <Trophy size={12} />
-                                                        <span>{tournament.prizes.length} призов</span>
+                                                        <span>{tournament.prizes.length} {t("tournament.prizesShort")}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1376,7 +1379,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                                     >
                                                         <ExternalLink className="text-white/80" size={14} />
                                                         <span className="text-white/80 font-medium text-sm">
-                                                            Sponsor Channel
+                                                            {t("tournament.sponsorChannel")}
                                                         </span>
                                                     </button>
                                                 </div>
@@ -1385,13 +1388,13 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                     </div>
                                 </div>
                             )}
-                            
+
                             <div className="px-4">
                                 <div className="space-y-4">
                                     <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                                         <div className="flex items-center justify-between mb-3">
                                             <span className="text-sm font-bold text-white/70 uppercase tracking-wider">
-                                                Информация о турнире
+                                                {t("tournament.tournamentInfo")}
                                             </span>
                                             <button
                                                 onClick={() => handleToggleExpand(tournament.id, tournament.prizes.length)}
@@ -1425,10 +1428,10 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                             <div className="space-y-1">
                                                 <div className="flex items-center justify-center space-x-1">
                                                     <CalendarDays className="text-white/50" size={14} />
-                                                    <span className="text-xs text-white/50 uppercase tracking-wider font-medium">Длительность</span>
+                                                    <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.duration")}</span>
                                                 </div>
                                                 <div className="text-sm font-bold text-white/70">
-                                                    {Math.ceil((new Date(tournament.end_date).getTime() - new Date(tournament.start_date).getTime()) / (1000 * 60 * 60 * 24))} дней
+                                                    {Math.ceil((new Date(tournament.end_date).getTime() - new Date(tournament.start_date).getTime()) / (1000 * 60 * 60 * 24))} {t("tournament.days")}
                                                 </div>
                                             </div>
                                         </div>
@@ -1463,6 +1466,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                                     </div>
 
                                                     <div className="space-y-3">
+                                                        {/* ОБНОВЛЕНО: Отображаем всех победителей с их призами */}
                                                         {winners.map((winner, index) => {
                                                             const getRankIcon = (position: number) => {
                                                                 switch (position) {
@@ -1489,7 +1493,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                                                             <div className="flex items-center space-x-2 text-xs text-white/50">
                                                                                 <div className="flex items-center space-x-1">
                                                                                     <Activity size={10} />
-                                                                                    <span>{winner.games_played || 1} игр</span>
+                                                                                    <span>{winner.games_played || 1} {t("tournament.gamesShort")}</span>
                                                                                 </div>
                                                                                 <div className="w-1 h-1 rounded-full bg-white/40" />
                                                                                 <div className="flex items-center space-x-1">
@@ -1502,17 +1506,20 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments
                                                                                     <span>L{winner.max_level_reached}</span>
                                                                                 </div>
                                                                             </div>
+                                                                            {/* ДОБАВЛЕНО: Отображение приза */}
+                                                                            <div className="mt-1">
+                                                                                <span className="text-xs text-yellow-400 font-medium">
+                                                                                    {tournament.prizes[index]}
+                                                                                </span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     <div className="text-right">
                                                                         <div className="text-sm font-bold text-white/80">
                                                                             <div className="flex items-center space-x-1">
                                                                                 <Star className="text-yellow-400/80" size={12} />
-                                                                                <span>{winner.survival_score} pts</span>
+                                                                                <span>{winner.survival_score} {t("tournament.pointsShort")}</span>
                                                                             </div>
-                                                                        </div>
-                                                                        <div className="text-xs text-white/50">
-                                                                            {tournament.prizes[index]}
                                                                         </div>
                                                                     </div>
                                                                 </div>
