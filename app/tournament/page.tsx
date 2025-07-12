@@ -76,9 +76,9 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
     // Если нет спонсора, показываем простой полноэкранный баннер
     if (!tournament.sponsor_name || !tournament.sponsor_image_url) {
         return (
-            <div className="w-full h-72 bg-gradient-to-br from-gray-800/40 to-gray-900/60 relative -mx-4">
+            <div className="w-full h-72 bg-gradient-to-br from-gray-800/40 to-gray-900/60 relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/60" />
-                
+
                 <div className="relative h-full flex flex-col justify-between p-6">
                     <div>
                         <h1 className="text-3xl font-bold text-white tracking-wide mb-3">
@@ -124,18 +124,18 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
     }
 
     return (
-        <div className="w-full h-72 relative -mx-4">
+        <div className="w-full h-72 relative">
             {/* Background Image */}
-            <div 
+            <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                 style={{
                     backgroundImage: `url(${tournament.sponsor_image_url})`
                 }}
             />
-            
+
             {/* Gradient Overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/80" />
-            
+
             {/* Content */}
             <div className="relative h-full flex flex-col justify-between p-6">
                 {/* Top Section - Sponsor Name and Tournament Info */}
@@ -156,7 +156,7 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
                             </span>
                         </div>
                     </div>
-                    
+
                     <h1 className="text-2xl font-bold text-white tracking-wide">
                         {tournament.name}
                     </h1>
@@ -243,7 +243,7 @@ const TournamentStats: React.FC<TournamentStatsProps> = ({
     const t = useT();
 
     return (
-        <div className="w-full -mx-4 px-6 py-6 bg-white/5">
+        <div className="w-full px-6 py-6 bg-white/5">
             <div className="flex items-center space-x-3 mb-4">
                 <BarChart3 className="text-white/80" size={18} />
                 <h2 className="text-lg font-bold text-white">{t("tournament.tournamentStats")}</h2>
@@ -318,7 +318,7 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({ leaderboa
 
     if (!userEntry) {
         return (
-            <div className="w-full -mx-4 px-6 py-6 bg-white/5 border-y border-white/10">
+            <div className="w-full px-6 py-6 bg-white/5 border-y border-white/10">
                 <div className="text-center space-y-3">
                     <div className="flex items-center justify-center space-x-2">
                         <Target className="text-white/60" size={20} />
@@ -336,7 +336,7 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({ leaderboa
 
     return (
         <div className={`
-            w-full -mx-4 px-6 py-6 border-y transition-all duration-300
+            w-full px-6 py-6 border-y transition-all duration-300
             ${isWinner
                 ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/40"
                 : "bg-white/5 border-white/10"
@@ -436,7 +436,7 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
     if (topParticipants.length === 0) return null;
 
     return (
-        <div className="w-full -mx-4 px-6 py-6 bg-white/5 border-y border-white/10">
+        <div className="w-full px-6 py-6 bg-white/5 border-y border-white/10">
             <div className="flex items-center space-x-3 mb-4">
                 <Crown className="text-white/80" size={18} />
                 <h2 className="text-lg font-bold text-white">{t("tournament.topParticipants")}</h2>
@@ -590,7 +590,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
                                         <span className={`font-medium text-sm ${isCurrentUser(participant.telegram_id) ? "text-white" :
-                                                isWinner ? "text-yellow-400" : "text-white/90"
+                                            isWinner ? "text-yellow-400" : "text-white/90"
                                             }`}>
                                             {participant.first_name} {participant.last_name || ""}
                                         </span>
@@ -1328,7 +1328,7 @@ export default function TournamentsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset overflow-x-hidden">
+        <div className="min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset">
             {hasActiveTournament && (
                 <ActiveTournamentSection
                     tournament={tournaments.active[0]}
@@ -1338,8 +1338,8 @@ export default function TournamentsPage() {
             )}
 
             {hasCompletedTournaments && (
-                <div className={`${hasActiveTournament ? 'py-6 border-t border-white/10' : 'py-6'} px-4`}>
-                    <div className="mb-6">
+                <div className={`${hasActiveTournament ? 'py-6 border-t border-white/10' : 'py-6'}`}>
+                    <div className="mb-6 px-4">
                         <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-white/5 border border-white/20 rounded-lg flex items-center justify-center">
                                 <Star className="text-white/60" size={20} />
@@ -1350,7 +1350,7 @@ export default function TournamentsPage() {
                             </div>
                         </div>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-4 px-4">
                         {tournaments.completed.map((tournament) => (
                             <CompletedTournamentCard
                                 key={tournament.id}
