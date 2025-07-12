@@ -20,6 +20,7 @@ export const profile = {
   noRotationAttemptsYet: "Нет данных. К счастью.",
   enterRotationToSeeStats: "Сыграйте в режим вращения для просмотра статистики",
   totalGames: "Всего игр",
+  gamesToLevel: "Игр до уровня",
   currentAttempts: "Текущие попытки",
   totalTests: "Всего тестов",
   totalAttempts: "Всего попыток",

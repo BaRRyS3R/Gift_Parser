@@ -5,6 +5,8 @@ export const achievements = {
     subtitle: "Track your progress and unlock rewards",
     stats: {
         unlocked: "Unlocked",
+        locked: "Locked",
+        all: "All",
         total: "Total",
         progress: "Progress",
     },

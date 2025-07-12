@@ -18,6 +18,7 @@ export const profile = {
   noRotationAttemptsYet: "No data. Fortunately.",
   enterRotationToSeeStats: "Play rotation mode to see stats",
   totalGames: "Total Games",
+  gamesToLevel: "Games to level",
   currentAttempts: "Current Attempts",
   totalTests: "Total Tests",
   totalAttempts: "Total Attempts",

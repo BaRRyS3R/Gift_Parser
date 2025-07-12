@@ -251,9 +251,9 @@ export default function AchievementsModal({
           {/* Filter Buttons */}
           <div className="flex space-x-2 mb-6">
             {[
-              { key: 'all', label: 'All' },
-              { key: 'unlocked', label: 'Unlocked' },
-              { key: 'locked', label: 'Locked' }
+              { key: 'all', label: t("achievements.stats.locked") },
+              { key: 'unlocked', label: t("achievements.stats.unlocked") },
+              { key: 'locked', label: t("achievements.stats.all") }
             ].map(filter => (
               <Button
                 key={filter.key}

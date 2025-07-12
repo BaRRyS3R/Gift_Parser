@@ -5,6 +5,8 @@ export const achievements = {
     subtitle: "Отслеживайте прогресс и открывайте награды",
     stats: {
         unlocked: "Получено",
+        locked: "Не получено",
+        all: "Все",
         total: "Всего",
         progress: "Прогресс",
     },
