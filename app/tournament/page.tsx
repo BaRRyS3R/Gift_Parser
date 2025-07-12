@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Обновленная страница турниров с модальными окнами и правилами
+// src/app/tournament/page.tsx - Полная страница турниров с спонсорским баннером
 
 "use client";
 
@@ -28,13 +28,11 @@ import {
     Activity,
     TrendingUp,
     Info,
-    Zap,
     Target,
     BarChart3,
     BookOpen,
-    ChevronLeft,
-    ChevronRight,
-    X,
+    ExternalLink,
+    Calendar,
 } from "lucide-react";
 
 import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
@@ -47,6 +45,188 @@ import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
 
+// Компонент спонсорского баннера
+interface SponsorBannerProps {
+    tournament: TournamentWithStatus;
+}
+
+const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
+    const t = useT();
+    const [timeDisplay, setTimeDisplay] = useState<string>("");
+
+    useEffect(() => {
+        const updateTime = () => {
+            const now = new Date();
+            const endDate = new Date(tournament.end_date);
+            const diff = endDate.getTime() - now.getTime();
+            setTimeDisplay(diff > 0 ? formatTimeRemaining(diff) : t("tournament.ended"));
+        };
+
+        updateTime();
+        const interval = setInterval(updateTime, 1000);
+        return () => clearInterval(interval);
+    }, [tournament, t]);
+
+    const handleSponsorClick = () => {
+        if (tournament.sponsor_channel_url) {
+            window.open(tournament.sponsor_channel_url, '_blank');
+        }
+    };
+
+    // Если нет спонсора, показываем простой баннер с информацией о турнире
+    if (!tournament.sponsor_name || !tournament.sponsor_image_url) {
+        return (
+            <div className="w-full h-64 bg-gradient-to-br from-gray-800/40 to-gray-900/60 rounded-xl overflow-hidden relative border border-white/10">
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/60" />
+
+                <div className="relative h-full flex flex-col justify-between p-6">
+                    <div>
+                        <h1 className="text-2xl font-bold text-white tracking-wide mb-2">
+                            {tournament.name}
+                        </h1>
+                        <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                            <span className="text-green-400 font-medium text-sm">
+                                {t("tournament.tournamentActive")}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        {timeDisplay && (
+                            <div className="flex items-center space-x-3">
+                                <Clock className="text-white/80" size={18} />
+                                <div>
+                                    <div className="text-xl font-bold text-white font-mono">
+                                        {timeDisplay}
+                                    </div>
+                                    <div className="text-white/60 text-xs">
+                                        {t("tournament.timeRemaining")}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-xs text-white/60">
+                            <div className="flex items-center space-x-1">
+                                <Calendar size={12} />
+                                <span>{new Date(tournament.start_date).toLocaleDateString('ru-RU')}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                                <Calendar size={12} />
+                                <span>{new Date(tournament.end_date).toLocaleDateString('ru-RU')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-full h-64 relative rounded-xl overflow-hidden border border-white/10">
+            {/* Background Image */}
+            <div
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{
+                    backgroundImage: `url(${tournament.sponsor_image_url})`
+                }}
+            />
+
+            {/* Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/80" />
+
+            {/* Content */}
+            <div className="relative h-full flex flex-col justify-between p-6">
+                {/* Top Section - Sponsor Name and Tournament Info */}
+                <div className="space-y-2">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <div className="text-xs text-white/70 font-medium uppercase tracking-wider mb-1">
+                                Sponsor
+                            </div>
+                            <h2 className="text-lg font-bold text-white">
+                                {tournament.sponsor_name}
+                            </h2>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                            <span className="text-green-400 font-medium text-sm">
+                                {t("tournament.tournamentActive")}
+                            </span>
+                        </div>
+                    </div>
+
+                    <h1 className="text-xl font-bold text-white tracking-wide">
+                        {tournament.name}
+                    </h1>
+                </div>
+
+                {/* Bottom Section - Time Info and Channel Button */}
+                <div className="space-y-4">
+                    {/* Tournament Time Information */}
+                    <div className="space-y-2">
+                        {timeDisplay && (
+                            <div className="flex items-center space-x-3">
+                                <Clock className="text-white/80" size={16} />
+                                <div>
+                                    <div className="text-lg font-bold text-white font-mono">
+                                        {timeDisplay}
+                                    </div>
+                                    <div className="text-white/60 text-xs">
+                                        {t("tournament.timeRemaining")}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-xs text-white/60">
+                            <div className="flex items-center space-x-1">
+                                <Calendar size={12} />
+                                <span>
+                                    {new Date(tournament.start_date).toLocaleDateString('ru-RU', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
+                                </span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                                <Calendar size={12} />
+                                <span>
+                                    {new Date(tournament.end_date).toLocaleDateString('ru-RU', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sponsor Channel Button */}
+                    {tournament.sponsor_channel_url && (
+                        <div className="flex justify-end">
+                            <button
+                                onClick={handleSponsorClick}
+                                className="flex items-center space-x-2 px-4 py-2 bg-white/15 hover:bg-white/25 border border-white/30 hover:border-white/50 rounded-lg transition-all duration-300 backdrop-blur-sm hover:scale-105 active:scale-95"
+                            >
+                                <ExternalLink className="text-white" size={14} />
+                                <span className="text-white font-medium text-sm">
+                                    Sponsor Channel
+                                </span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Компонент позиции пользователя
 interface UserPositionComponentProps {
     leaderboard: TournamentLeaderboardEntry[];
     tournament: TournamentWithStatus;
@@ -149,6 +329,7 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({ leaderboa
     );
 };
 
+// Модальное окно участников
 interface ParticipantsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -234,7 +415,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
                                         <span className={`font-medium text-sm ${isCurrentUser(participant.telegram_id) ? "text-white" :
-                                                isWinner ? "text-yellow-400" : "text-white/90"
+                                            isWinner ? "text-yellow-400" : "text-white/90"
                                             }`}>
                                             {participant.first_name} {participant.last_name || ""}
                                         </span>
@@ -243,7 +424,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                         )}
                                         {isCurrentUser(participant.telegram_id) && (
                                             <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded">
-                                                {t("leaderboard.you")}
+                                                Вы
                                             </span>
                                         )}
                                     </div>
@@ -302,6 +483,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
     );
 };
 
+// Модальное окно призов
 interface PrizesModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -385,6 +567,7 @@ const PrizesModal: React.FC<PrizesModalProps> = ({ isOpen, onClose, prizes }) =>
     );
 };
 
+// Модальное окно правил
 interface RulesModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -529,6 +712,7 @@ const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
     );
 };
 
+// Секция активного турнира
 interface ActiveTournamentSectionProps {
     tournament: TournamentWithStatus;
     leaderboard: TournamentLeaderboardEntry[];
@@ -544,23 +728,9 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
 }) => {
     const t = useT();
     const { user } = useUser();
-    const [timeDisplay, setTimeDisplay] = useState<string>("");
     const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
     const [isPrizesModalOpen, setIsPrizesModalOpen] = useState(false);
     const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
-
-    useEffect(() => {
-        const updateTime = () => {
-            const now = new Date();
-            const endDate = new Date(tournament.end_date);
-            const diff = endDate.getTime() - now.getTime();
-            setTimeDisplay(diff > 0 ? formatTimeRemaining(diff) : t("tournament.ended"));
-        };
-
-        updateTime();
-        const interval = setInterval(updateTime, 1000);
-        return () => clearInterval(interval);
-    }, [tournament, t]);
 
     const getRankIcon = (position: number) => {
         switch (position) {
@@ -584,73 +754,8 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
 
     return (
         <div className="space-y-6">
-            {/* Tournament Header */}
-            <div className="text-center space-y-4">
-                <div className="relative">
-                    <div className="w-20 h-20 bg-white/10 border-2 border-white/30 rounded-2xl flex items-center justify-center mx-auto animate-pulse-subtle">
-                        <Trophy className="text-white" size={40} />
-                        <div className="absolute -top-2 -right-2">
-                            <div className="w-6 h-6 bg-white rounded-full animate-pulse flex items-center justify-center">
-                                <Zap className="text-black" size={12} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <h1 className="text-3xl font-bold text-white tracking-wide">{tournament.name}</h1>
-                    <div className="flex items-center justify-center space-x-2 mt-2">
-                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                        <span className="text-green-400 font-medium">{t("tournament.tournamentActive")}</span>
-                    </div>
-                </div>
-
-                {/* Enhanced Time Display */}
-                <div className="bg-white/10 border border-white/30 rounded-xl p-4 space-y-3">
-                    {timeDisplay && (
-                        <div className="flex items-center justify-center space-x-3">
-                            <Clock className="text-white" size={20} />
-                            <div className="text-center">
-                                <div className="text-2xl font-bold text-white font-mono">{timeDisplay}</div>
-                                <div className="text-white/60 text-sm">{t("tournament.timeRemaining")}</div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="border-t border-white/20 pt-3">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="text-center">
-                                <div className="text-white/60 text-xs uppercase tracking-wider mb-1">
-                                    {t("tournament.startDate")}
-                                </div>
-                                <div className="text-white font-mono text-xs">
-                                    {new Date(tournament.start_date).toLocaleString('ru-RU', {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        year: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    })}
-                                </div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-white/60 text-xs uppercase tracking-wider mb-1">
-                                    {t("tournament.endDate")}
-                                </div>
-                                <div className="text-white font-mono text-xs">
-                                    {new Date(tournament.end_date).toLocaleString('ru-RU', {
-                                        day: '2-digit',
-                                        month: '2-digit',
-                                        year: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {/* Sponsor Banner */}
+            <SponsorBanner tournament={tournament} />
 
             {/* Tournament Statistics */}
             <div className="bg-white/5 border border-white/20 rounded-xl p-6">
@@ -747,7 +852,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                                         )}
                                         {isCurrentUser(participant.telegram_id) && (
                                             <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded">
-                                                {t("leaderboard.you")}
+                                                Вы
                                             </span>
                                         )}
                                     </div>
@@ -797,7 +902,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                     <span>
                         {hasAttemptsRemaining
                             ? t("tournament.enterTournament")
-                            : t("game.general.noAttempts")
+                            : "Нет попыток"
                         }
                     </span>
                 </button>
@@ -812,8 +917,8 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
 
                 {!hasAttemptsRemaining && (
                     <div className="bg-white/5 border border-white/20 rounded-lg p-4 text-center">
-                        <p className="text-white/60 text-sm">{t("game.general.attemptsUsed")}</p>
-                        <p className="text-white/40 text-xs mt-1">{t("game.general.waitForReset")}</p>
+                        <p className="text-white/60 text-sm">Попытки использованы</p>
+                        <p className="text-white/40 text-xs mt-1">Ожидайте сброса попыток</p>
                     </div>
                 )}
             </div>
@@ -840,6 +945,7 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
     );
 };
 
+// Карточка завершенного турнира
 interface CompletedTournamentCardProps {
     tournament: TournamentWithStatus;
     isExpanded: boolean;
@@ -1044,6 +1150,7 @@ const CompletedTournamentCard: React.FC<CompletedTournamentCardProps> = ({
     );
 };
 
+// Основной компонент страницы
 export default function TournamentsPage() {
     const router = useRouter();
     const t = useT();
@@ -1065,7 +1172,6 @@ export default function TournamentsPage() {
                 const tournamentsData = await tournamentService.getAllTournaments();
                 setTournaments(tournamentsData);
 
-                // Load leaderboard for active tournament
                 if (tournamentsData.active.length > 0) {
                     const activeTournament = tournamentsData.active[0];
                     const leaderboard = await tournamentService.getTournamentLeaderboard(activeTournament.id, 100);
