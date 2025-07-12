@@ -1,28 +1,86 @@
-// src/lib/supabase_tournament_extension.ts - Обновленный сервис с поддержкой накопления турнирных очков
+// src/lib/supabase_tournament_extension.ts - Обновленные типы с полями спонсора
 
 import { supabase } from "./supabase";
-import type {
-    Tournament,
-    TournamentLeaderboardEntry,
-    TournamentResult,
-    TournamentStatus,
-    TournamentSaveResponse
-} from "@/types/tournaments";
 
-// Экспорт типов для внешнего использования
-export type {
-    TournamentLeaderboardEntry,
-    Tournament,
-    TournamentResult,
-    TournamentStatus,
-    TournamentSaveResponse
-} from "@/types/tournaments";
+// Обновленные типы с поддержкой спонсорских полей
+export interface Tournament {
+    id: string;
+    name: string;
+    start_date: string;
+    end_date: string;
+    prizes: string[];
+    created_at: string;
+    updated_at: string;
 
+    // Новые поля для спонсора
+    sponsor_name?: string;
+    sponsor_channel_url?: string;
+    sponsor_image_url?: string;
+}
+
+export interface TournamentLeaderboardEntry {
+    id: string;
+    tournament_id: string;
+    user_id: string;
+    telegram_id: number;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+    is_premium: boolean;
+    survival_time: number;
+    survival_score: number;
+    last_game_score: number;
+    max_level_reached: number;
+    perfect_streak: number;
+    correct_hits: number;
+    death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+    games_played: number;
+    created_at: string;
+    rank: number;
+}
+
+export interface TournamentResult {
+    id?: string;
+    tournament_id: string;
+    user_id: string;
+    survival_time: number;
+    survival_score: number;
+    last_game_score: number;
+    max_level_reached: number;
+    perfect_streak: number;
+    correct_hits: number;
+    death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+    games_played: number;
+    rank?: number;
+    created_at?: string;
+}
+
+export interface TournamentStatus {
+    isActive: boolean;
+    activeTournament: Tournament | null;
+    timeRemaining?: number;
+    hasStarted?: boolean;
+}
+
+export interface TournamentSaveResponse {
+    result_id: string;
+    total_score: number;
+    game_score: number;
+    games_played: number;
+    previous_total: number;
+}
+
+// Обновленный интерфейс TournamentWithStatus с полями спонсора
 export interface TournamentWithStatus extends Tournament {
     status: 'upcoming' | 'active' | 'completed';
     participants_count?: number;
     time_until_start?: number;
     time_until_end?: number;
+
+    // Спонсорские поля уже наследуются от Tournament
+    // sponsor_name?: string;
+    // sponsor_channel_url?: string;
+    // sponsor_image_url?: string;
 }
 
 export interface TournamentListResponse {
@@ -31,12 +89,9 @@ export interface TournamentListResponse {
     completed: TournamentWithStatus[];
 }
 
-// Основной сервис турнирной системы с поддержкой накопления очков
+// Остальной код сервиса остается без изменений
 export const tournamentService = {
 
-    /**
-     * Получение активного турнира
-     */
     async getActiveTournament(): Promise<Tournament | null> {
         try {
             const { data, error } = await supabase.rpc('get_active_tournament');
@@ -53,9 +108,6 @@ export const tournamentService = {
         }
     },
 
-    /**
-     * Получение всех турниров с категоризацией по статусу
-     */
     async getAllTournaments(): Promise<TournamentListResponse> {
         try {
             const allTournaments = await this.getAllTournamentsRaw();
@@ -120,14 +172,23 @@ export const tournamentService = {
         }
     },
 
-    /**
-     * Получение всех турниров напрямую из базы данных
-     */
     async getAllTournamentsRaw(): Promise<Tournament[]> {
         try {
+            // Обновленный запрос для получения всех полей включая спонсорские
             const { data, error } = await supabase
                 .from('tournaments')
-                .select('*')
+                .select(`
+                    id,
+                    name,
+                    start_date,
+                    end_date,
+                    prizes,
+                    created_at,
+                    updated_at,
+                    sponsor_name,
+                    sponsor_channel_url,
+                    sponsor_image_url
+                `)
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -142,9 +203,6 @@ export const tournamentService = {
         }
     },
 
-    /**
-     * Получение статуса турнира с временными расчетами
-     */
     async getTournamentStatus(): Promise<TournamentStatus> {
         try {
             const activeTournament = await this.getActiveTournament();
@@ -179,9 +237,6 @@ export const tournamentService = {
         }
     },
 
-    /**
-     * Получение турнирного лидерборда с накопленными очками
-     */
     async getTournamentLeaderboard(tournamentId: string, limit: number = 50): Promise<TournamentLeaderboardEntry[]> {
         try {
             const { data, error } = await supabase.rpc('get_tournament_leaderboard_accumulative', {
@@ -201,9 +256,6 @@ export const tournamentService = {
         }
     },
 
-    /**
-     * Получение победителей турнира на основе количества призовых мест
-     */
     async getTournamentWinners(tournamentId: string, prizeCount: number): Promise<TournamentLeaderboardEntry[]> {
         try {
             const leaderboard = await this.getTournamentLeaderboard(tournamentId, prizeCount);
@@ -214,9 +266,6 @@ export const tournamentService = {
         }
     },
 
-    /**
-     * Получение результата и ранга пользователя в турнире
-     */
     async getUserTournamentResult(tournamentId: string, userId: string): Promise<TournamentResult | null> {
         try {
             const { data, error } = await supabase.rpc('get_user_tournament_result', {
@@ -236,9 +285,6 @@ export const tournamentService = {
         }
     },
 
-    /**
-     * Сохранение результата турнирной игры с накоплением очков
-     */
     async saveTournamentResult(
         tournamentId: string,
         userId: string,
@@ -278,7 +324,6 @@ export const tournamentService = {
 
             console.log('Tournament result saved with point accumulation:', data);
 
-            // Парсинг JSON ответа от функции
             const saveResponse: TournamentSaveResponse = typeof data === 'string' ? JSON.parse(data) : data;
 
             console.log(`Points accumulated: +${saveResponse.game_score} (Total: ${saveResponse.total_score})`);
@@ -290,9 +335,6 @@ export const tournamentService = {
         }
     },
 
-    /**
-     * Проверка участия пользователя в турнире
-     */
     async hasUserParticipated(tournamentId: string, userId: string): Promise<boolean> {
         try {
             const result = await this.getUserTournamentResult(tournamentId, userId);
@@ -303,14 +345,23 @@ export const tournamentService = {
         }
     },
 
-    /**
-     * Получение турнира по идентификатору
-     */
     async getTournamentById(tournamentId: string): Promise<Tournament | null> {
         try {
+            // Обновленный запрос для получения турнира по ID включая спонсорские поля
             const { data, error } = await supabase
                 .from('tournaments')
-                .select('*')
+                .select(`
+                    id,
+                    name,
+                    start_date,
+                    end_date,
+                    prizes,
+                    created_at,
+                    updated_at,
+                    sponsor_name,
+                    sponsor_channel_url,
+                    sponsor_image_url
+                `)
                 .eq('id', tournamentId)
                 .single();
 
