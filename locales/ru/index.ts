@@ -16,6 +16,7 @@ import { errors } from "./errors";
 import { time } from "./time";
 import { about } from "./about";
 import { leagues } from "./leagues";
+import { achievements } from "../en/achievements";
 
 export const ru = {
   // Common UI elements
@@ -65,4 +66,7 @@ export const ru = {
 
   // Leagues
   leagues,
+
+  // Achievements
+  achievements,
 } as const;

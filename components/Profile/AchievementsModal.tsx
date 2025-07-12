@@ -1,27 +1,16 @@
-// src/components/Profile/AchievementsModal.tsx - Updated with rotation mode achievements
+// src/components/Profile/AchievementsModal.tsx - Enhanced achievements modal with new system
 
 "use client";
 
 import type { User } from "@/lib/supabase";
+import type { Achievement, AchievementCategory } from "@/types/achievements";
 
-import React from "react";
-import { Modal, ModalContent, ModalHeader, ModalBody } from "@nextui-org/react";
-import {
-  Trophy,
-  Award,
-  Zap,
-  Crosshair,
-  Atom,
-  RotateCw, // NEW
-  Users,
-  Star,
-  Target,
-  Clock,
-  Activity,
-  Crown, // NEW for top achievements
-} from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Modal, ModalContent, ModalHeader, ModalBody, Button } from "@nextui-org/react";
+import { Trophy, CheckCircle, X, Star } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
+import { AchievementService } from "@/lib/achievementService";
 
 interface AchievementsModalProps {
   isOpen: boolean;
@@ -32,21 +21,137 @@ interface AchievementsModalProps {
     reaction: number | null;
     survival: number | null;
     physics?: number | null;
-    rotation?: number | null; // NEW
+    rotation?: number | null;
   };
 }
 
-interface Achievement {
-  id: string;
-  titleKey: string;
-  descriptionKey: string;
-  icon: React.ComponentType<any>;
-  color: string;
-  bgColor: string;
-  isUnlocked: boolean;
-  progress?: number;
-  maxProgress?: number;
-}
+const AchievementCard: React.FC<{
+  achievement: Achievement;
+  t: any;
+}> = ({ achievement, t }) => {
+  const colors = AchievementService.getRarityColor(achievement.rarity);
+  const hasProgress = achievement.progress !== undefined && achievement.maxProgress !== undefined;
+  const progressPercentage = hasProgress
+    ? Math.min(100, (achievement.progress! / achievement.maxProgress!) * 100)
+    : 0;
+
+  return (
+    <div className={`
+      relative p-4 rounded-lg border transition-all duration-200
+      ${achievement.isUnlocked
+        ? `${colors.bg} ${colors.border}`
+        : "bg-white/5 border-white/10"
+      }
+    `}>
+      <div className="flex items-start space-x-3">
+        {/* Achievement Icon */}
+        <div className={`
+          w-12 h-12 rounded-lg flex items-center justify-center text-xl
+          ${achievement.isUnlocked ? colors.bg : "bg-white/10"}
+        `}>
+          {achievement.isUnlocked ? achievement.icon : "🔒"}
+        </div>
+
+        {/* Achievement Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between mb-2">
+            <div>
+              <h3 className={`
+                font-bold text-sm mb-1
+                ${achievement.isUnlocked ? "text-white" : "text-white/50"}
+              `}>
+                {t(achievement.titleKey as any)}
+              </h3>
+              <p className={`
+                text-xs
+                ${achievement.isUnlocked ? "text-white/80" : "text-white/40"}
+              `}>
+                {t(achievement.descriptionKey as any)}
+              </p>
+            </div>
+
+            {/* Rarity Badge */}
+            <div className={`
+              px-2 py-1 rounded text-xs font-bold uppercase tracking-wider
+              ${colors.bg} ${colors.text}
+            `}>
+              {t(`achievements.rarity.${achievement.rarity}` as any)}
+            </div>
+          </div>
+
+          {/* Progress Section */}
+          {hasProgress && !achievement.isUnlocked && (
+            <div className="mt-3">
+              <div className="flex justify-between text-xs mb-2">
+                <span className="text-white/60">
+                  {t("achievements.stats.progress")}
+                </span>
+                <span className="text-white/80 font-mono">
+                  {achievement.progress} / {achievement.maxProgress}
+                </span>
+              </div>
+              <div className="w-full bg-white/20 rounded-full h-1.5">
+                <div
+                  className="h-1.5 rounded-full bg-white/60 transition-all duration-500"
+                  style={{ width: `${progressPercentage}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Completion Indicator */}
+          {achievement.isUnlocked && (
+            <div className="flex items-center space-x-1 mt-2">
+              <CheckCircle className="text-green-400" size={14} />
+              <span className="text-green-400 text-xs font-bold">
+                {t("achievements.stats.unlocked")}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CategorySection: React.FC<{
+  category: AchievementCategory;
+  t: any;
+}> = ({ category, t }) => {
+  const unlockedCount = category.achievements.filter(a => a.isUnlocked).length;
+  const totalCount = category.achievements.length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-white">
+          {t(category.titleKey as any)}
+        </h3>
+        <div className="flex items-center space-x-2">
+          <span className="text-white/60 text-sm">
+            {unlockedCount}/{totalCount}
+          </span>
+          <div className="w-16 bg-white/20 rounded-full h-1.5">
+            <div
+              className="h-1.5 rounded-full bg-white/60 transition-all duration-500"
+              style={{ width: `${(unlockedCount / totalCount) * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {category.achievements.map(achievement => (
+          <AchievementCard
+            key={achievement.id}
+            achievement={achievement}
+            t={t}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export default function AchievementsModal({
   isOpen,
@@ -55,468 +160,144 @@ export default function AchievementsModal({
   rankings,
 }: AchievementsModalProps) {
   const t = useT();
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
 
-  const getAchievements = (): Achievement[] => {
-    const achievements: Achievement[] = [
-      // General achievements
-      {
-        id: "active_player",
-        titleKey: "profile.achievements.activePlayer",
-        descriptionKey: "profile.achievements.descriptions.gamesPlayed",
-        icon: Activity,
-        color: "text-blue-400",
-        bgColor: "bg-blue-500/20",
-        isUnlocked: user.total_games >= 1,
-        progress: user.total_games,
-        maxProgress: 1,
-      },
-      {
-        id: "dedicated_gamer",
-        titleKey: "profile.achievements.dedicatedGamer",
-        descriptionKey: "profile.achievements.descriptions.gamesPlayed",
-        icon: Trophy,
-        color: "text-blue-400",
-        bgColor: "bg-blue-500/20",
-        isUnlocked: user.total_games >= 10,
-        progress: user.total_games,
-        maxProgress: 10,
-      },
-      {
-        id: "game_master",
-        titleKey: "profile.achievements.gameMaster",
-        descriptionKey: "profile.achievements.descriptions.gamesPlayed",
-        icon: Award,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked: user.total_games >= 50,
-        progress: user.total_games,
-        maxProgress: 50,
-      },
+  const achievementData = useMemo(() => {
+    const categories = AchievementService.calculateAchievements(user, rankings);
+    const stats = AchievementService.getAchievementStats(categories);
 
-      // Referral achievements
-      {
-        id: "recruiter",
-        titleKey: "profile.achievements.recruiter",
-        descriptionKey: "profile.achievements.descriptions.invitedFriend",
-        icon: Users,
-        color: "text-green-400",
-        bgColor: "bg-green-500/20",
-        isUnlocked: user.referral_count >= 1,
-        progress: user.referral_count,
-        maxProgress: 1,
-      },
-      {
-        id: "influencer",
-        titleKey: "profile.achievements.influencer",
-        descriptionKey: "profile.achievements.descriptions.invitedFriends",
-        icon: Star,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked: user.referral_count >= 5,
-        progress: user.referral_count,
-        maxProgress: 5,
-      },
-      {
-        id: "ambassador",
-        titleKey: "profile.achievements.ambassador",
-        descriptionKey: "profile.achievements.descriptions.invitedFriends",
-        icon: Award,
-        color: "text-orange-400",
-        bgColor: "bg-orange-500/20",
-        isUnlocked: user.referral_count >= 20,
-        progress: user.referral_count,
-        maxProgress: 20,
-      },
+    return { categories, stats };
+  }, [user, rankings]);
 
-      // Reaction mode achievements
-      {
-        id: "speed_tester",
-        titleKey: "profile.achievements.speedTester",
-        descriptionKey: "profile.achievements.descriptions.testedReaction",
-        icon: Zap,
-        color: "text-white",
-        bgColor: "bg-white/20",
-        isUnlocked: user.reaction_games >= 1,
-      },
-      {
-        id: "quick_reflexes",
-        titleKey: "profile.achievements.quickReflexes",
-        descriptionKey: "profile.achievements.descriptions.reactionTests",
-        icon: Zap,
-        color: "text-white",
-        bgColor: "bg-white/20",
-        isUnlocked: user.reaction_games >= 10,
-        progress: user.reaction_games,
-        maxProgress: 10,
-      },
-      {
-        id: "lightning_fast",
-        titleKey: "profile.achievements.lightningFast",
-        descriptionKey: "profile.achievements.descriptions.subReaction",
-        icon: Zap,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked:
-          user.reaction_best_time > 0 && user.reaction_best_time <= 200,
-      },
-      {
-        id: "superhuman_speed",
-        titleKey: "profile.achievements.superhumanSpeed",
-        descriptionKey: "profile.achievements.descriptions.subReaction",
-        icon: Zap,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked:
-          user.reaction_best_time > 0 && user.reaction_best_time <= 150,
-      },
-      {
-        id: "speed_demon",
-        titleKey: "profile.achievements.speedDemon",
-        descriptionKey: "profile.achievements.descriptions.topReaction",
-        icon: Zap,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked: rankings.reaction !== null && rankings.reaction <= 10,
-      },
+  const filteredCategories = useMemo(() => {
+    if (selectedFilter === 'all') return achievementData.categories;
 
-      // Survival mode achievements
-      {
-        id: "survivor",
-        titleKey: "profile.achievements.survivor",
-        descriptionKey: "profile.achievements.descriptions.enteredSurvival",
-        icon: Crosshair,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked: user.survival_games >= 1,
-      },
-      {
-        id: "persistent_survivor",
-        titleKey: "profile.achievements.persistentSurvivor",
-        descriptionKey: "profile.achievements.descriptions.survivalAttempts",
-        icon: Crosshair,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked: user.survival_games >= 10,
-        progress: user.survival_games,
-        maxProgress: 10,
-      },
-      {
-        id: "endurance_master",
-        titleKey: "profile.achievements.enduranceMaster",
-        descriptionKey: "profile.achievements.descriptions.secondsSurvival",
-        icon: Clock,
-        color: "text-orange-400",
-        bgColor: "bg-orange-500/20",
-        isUnlocked: user.survival_best_time >= 30000, // 30 seconds
-      },
-      {
-        id: "survival_legend",
-        titleKey: "profile.achievements.survivalLegend",
-        descriptionKey: "profile.achievements.descriptions.minuteSurvival",
-        icon: Trophy,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked: user.survival_best_time >= 60000, // 1 minute
-      },
-      {
-        id: "level_climber",
-        titleKey: "profile.achievements.levelClimber",
-        descriptionKey: "profile.achievements.descriptions.reachedLevel",
-        icon: Target,
-        color: "text-green-400",
-        bgColor: "bg-green-500/20",
-        isUnlocked: user.survival_max_level >= 5,
-        progress: user.survival_max_level,
-        maxProgress: 5,
-      },
-      {
-        id: "elite_survivor",
-        titleKey: "profile.achievements.eliteSurvivor",
-        descriptionKey: "profile.achievements.descriptions.reachedLevel",
-        icon: Award,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked: user.survival_max_level >= 10,
-        progress: user.survival_max_level,
-        maxProgress: 10,
-      },
-      {
-        id: "streak_master",
-        titleKey: "profile.achievements.streakMaster",
-        descriptionKey: "profile.achievements.descriptions.perfectHits",
-        icon: Target,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked: user.survival_best_streak >= 50,
-        progress: user.survival_best_streak,
-        maxProgress: 50,
-      },
-      {
-        id: "survival_elite",
-        titleKey: "profile.achievements.survivalElite",
-        descriptionKey: "profile.achievements.descriptions.topSurvivor",
-        icon: Crown,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked: rankings.survival !== null && rankings.survival <= 10,
-      },
-
-      // Physics mode achievements
-      {
-        id: "physics_experimenter",
-        titleKey: "profile.achievements.physicsExperimenter",
-        descriptionKey: "profile.achievements.descriptions.enteredPhysics",
-        icon: Atom,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked: user.physics_games >= 1,
-      },
-      {
-        id: "impulse_master",
-        titleKey: "profile.achievements.impulseMaster",
-        descriptionKey: "profile.achievements.descriptions.physicsAttempts",
-        icon: Atom,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked: user.physics_games >= 10,
-        progress: user.physics_games,
-        maxProgress: 10,
-      },
-      {
-        id: "wall_breaker",
-        titleKey: "profile.achievements.wallBreaker",
-        descriptionKey: "profile.achievements.descriptions.physicsScore",
-        icon: Target,
-        color: "text-indigo-400",
-        bgColor: "bg-indigo-500/20",
-        isUnlocked: user.physics_best_score >= 100,
-        progress: user.physics_best_score,
-        maxProgress: 100,
-      },
-
-      // NEW: Rotation mode achievements
-      {
-        id: "rotation_tester",
-        titleKey: "profile.achievements.rotationTester",
-        descriptionKey: "profile.achievements.descriptions.enteredRotation",
-        icon: RotateCw,
-        color: "text-orange-400",
-        bgColor: "bg-orange-500/20",
-        isUnlocked: user.rotation_games >= 1,
-      },
-      {
-        id: "spin_master",
-        titleKey: "profile.achievements.spinMaster",
-        descriptionKey: "profile.achievements.descriptions.rotationAttempts",
-        icon: RotateCw,
-        color: "text-orange-400",
-        bgColor: "bg-orange-500/20",
-        isUnlocked: user.rotation_games >= 10,
-        progress: user.rotation_games,
-        maxProgress: 10,
-      },
-      {
-        id: "dizziness_resistant",
-        titleKey: "profile.achievements.dizzinessResistant",
-        descriptionKey: "profile.achievements.descriptions.rotationTime",
-        icon: Clock,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked: user.rotation_best_time >= 60000, // 1 minute spinning
-        progress: Math.floor(user.rotation_best_time / 1000),
-        maxProgress: 60,
-      },
-
-      // Top player achievements
-      {
-        id: "top_player",
-        titleKey: "profile.achievements.topPlayer",
-        descriptionKey: "profile.achievements.descriptions.topOverall",
-        icon: Trophy,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked: rankings.overall !== null && rankings.overall <= 10,
-      },
-    ];
-
-    return achievements;
-  };
-
-  const achievements = getAchievements();
-  const unlockedCount = achievements.filter((a) => a.isUnlocked).length;
-
-  const formatDescriptionValue = (
-    descriptionKey: string,
-    achievement: Achievement,
-  ) => {
-    const params: Record<string, any> = {};
-
-    if (descriptionKey.includes("{count}")) {
-      params.count = achievement.maxProgress || achievement.progress || 1;
-    }
-    if (descriptionKey.includes("{time}")) {
-      params.time = achievement.maxProgress || 200;
-    }
-    if (descriptionKey.includes("{level}")) {
-      params.level = achievement.maxProgress || 5;
-    }
-    if (descriptionKey.includes("{score}")) {
-      params.score = achievement.maxProgress || 100;
-    }
-    if (descriptionKey.includes("{rank}")) {
-      params.rank = 10;
-    }
-
-    return t(descriptionKey as any, params);
-  };
+    return achievementData.categories.map(category => ({
+      ...category,
+      achievements: category.achievements.filter(achievement =>
+        selectedFilter === 'unlocked' ? achievement.isUnlocked : !achievement.isUnlocked
+      )
+    })).filter(category => category.achievements.length > 0);
+  }, [achievementData.categories, selectedFilter]);
 
   return (
-    <Modal isOpen={isOpen} scrollBehavior="inside" size="2xl" onClose={onClose}>
+    <Modal
+      isOpen={isOpen}
+      scrollBehavior="inside"
+      size="3xl"
+      backdrop="blur"
+      classNames={{
+        backdrop: "bg-black/80",
+        base: "bg-black border border-white/20 max-h-[90vh]",
+        header: "border-b border-white/10",
+        body: "py-0",
+      }}
+      hideCloseButton={true}
+      onClose={onClose}
+    >
       <ModalContent>
-        {(onClose) => (
-          <>
-            <ModalHeader className="flex flex-col gap-1 bg-black text-white">
-              <div className="flex items-center space-x-2">
-                <Trophy className="text-yellow-400" size={20} />
-                <span>{t("profile.achievements.title")}</span>
-              </div>
-              <p className="text-sm text-white/60 font-normal">
-                {unlockedCount} / {achievements.length} разблокировано
+        <ModalHeader className="flex items-center justify-between p-6">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+              <Trophy className="text-yellow-400" size={20} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">
+                {t("achievements.title")}
+              </h1>
+              <p className="text-white/60 text-sm font-normal">
+                {t("achievements.subtitle")}
               </p>
-            </ModalHeader>
-            <ModalBody className="bg-black text-white">
-              {achievements.length === 0 ? (
-                <div className="text-center py-8">
-                  <Trophy className="text-white/40 mx-auto mb-4" size={48} />
-                  <p className="text-white/60 mb-2">
-                    {t("profile.achievements.noAchievements")}
-                  </p>
-                  <p className="text-sm text-white/40">
-                    {t("profile.achievements.playToUnlock")}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {achievements.map((achievement) => {
-                    const Icon = achievement.icon;
+            </div>
+          </div>
 
-                    return (
-                      <div
-                        key={achievement.id}
-                        className={`
-                          relative p-4 rounded-lg border transition-all duration-200
-                          ${
-                            achievement.isUnlocked
-                              ? `${achievement.bgColor} border-current/30`
-                              : "bg-white/5 border-white/10"
-                          }
-                        `}
-                      >
-                        <div className="flex items-start space-x-3">
-                          <div
-                            className={`
-                              w-10 h-10 rounded-lg flex items-center justify-center
-                              ${achievement.isUnlocked ? achievement.bgColor : "bg-white/10"}
-                            `}
-                          >
-                            <Icon
-                              className={
-                                achievement.isUnlocked
-                                  ? achievement.color
-                                  : "text-white/40"
-                              }
-                              size={20}
-                            />
-                          </div>
+          <button
+            className="p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300"
+            onClick={onClose}
+          >
+            <X size={20} />
+          </button>
+        </ModalHeader>
 
-                          <div className="flex-1 min-w-0">
-                            <h3
-                              className={`
-                                font-bold text-sm mb-1
-                                ${
-                                  achievement.isUnlocked
-                                    ? "text-white"
-                                    : "text-white/60"
-                                }
-                              `}
-                            >
-                              {t(achievement.titleKey as any)}
-                            </h3>
+        <ModalBody className="px-6 pb-6">
+          {/* Statistics Header */}
+          <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white">
+                {achievementData.stats.unlocked}
+              </div>
+              <div className="text-white/60 text-sm">
+                {t("achievements.stats.unlocked")}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white">
+                {achievementData.stats.total}
+              </div>
+              <div className="text-white/60 text-sm">
+                {t("achievements.stats.total")}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-400">
+                {achievementData.stats.percentage}%
+              </div>
+              <div className="text-white/60 text-sm">
+                {t("achievements.stats.progress")}
+              </div>
+            </div>
+          </div>
 
-                            <p
-                              className={`
-                                text-xs mb-2
-                                ${
-                                  achievement.isUnlocked
-                                    ? "text-white/80"
-                                    : "text-white/40"
-                                }
-                              `}
-                            >
-                              {formatDescriptionValue(
-                                achievement.descriptionKey,
-                                achievement,
-                              )}
-                            </p>
+          {/* Filter Buttons */}
+          <div className="flex space-x-2 mb-6">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'unlocked', label: 'Unlocked' },
+              { key: 'locked', label: 'Locked' }
+            ].map(filter => (
+              <Button
+                key={filter.key}
+                size="sm"
+                className={`
+                  ${selectedFilter === filter.key
+                    ? "bg-white/20 text-white border-white/30"
+                    : "bg-transparent text-white/60 border-white/10 hover:bg-white/10"
+                  }
+                `}
+                variant="bordered"
+                onPress={() => setSelectedFilter(filter.key as any)}
+              >
+                {filter.label}
+              </Button>
+            ))}
+          </div>
 
-                            {achievement.progress !== undefined &&
-                              achievement.maxProgress !== undefined && (
-                                <div className="space-y-1">
-                                  <div className="flex justify-between text-xs">
-                                    <span className="text-white/60">
-                                      Прогресс
-                                    </span>
-                                    <span className="text-white/80">
-                                      {achievement.progress} /{" "}
-                                      {achievement.maxProgress}
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-white/10 rounded-full h-1.5">
-                                    <div
-                                      className={`
-                                        h-1.5 rounded-full transition-all duration-500
-                                        ${achievement.isUnlocked ? achievement.color.replace("text-", "bg-") : "bg-white/20"}
-                                      `}
-                                      style={{
-                                        width: `${Math.min(
-                                          100,
-                                          (achievement.progress /
-                                            achievement.maxProgress) *
-                                            100,
-                                        )}%`,
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                          </div>
+          {/* Achievement Categories */}
+          {filteredCategories.length === 0 ? (
+            <div className="text-center py-12">
+              <Star className="text-white/40 mx-auto mb-4" size={48} />
+              <h3 className="text-white/60 text-lg mb-2">
+                {t("achievements.empty.title")}
+              </h3>
+              <p className="text-white/40 text-sm">
+                {t("achievements.empty.description")}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {filteredCategories.map(category => (
+                <CategorySection
+                  key={category.type}
+                  category={category}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
 
-                          {achievement.isUnlocked && (
-                            <div className="flex-shrink-0">
-                              <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                                <svg
-                                  className="w-3 h-3 text-white"
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path
-                                    clipRule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    fillRule="evenodd"
-                                  />
-                                </svg>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </ModalBody>
-          </>
-        )}
+          {/* Bottom spacing for scroll */}
+          <div className="h-4" />
+        </ModalBody>
       </ModalContent>
     </Modal>
   );
