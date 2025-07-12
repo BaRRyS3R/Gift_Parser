@@ -1,6 +1,6 @@
 // src/locales/ru/achievements.ts - Russian achievements localization
 
-export const achievements_ru = {
+export const achievements = {
     title: "ДОСТИЖЕНИЯ",
     subtitle: "Отслеживайте прогресс и открывайте награды",
     stats: {
