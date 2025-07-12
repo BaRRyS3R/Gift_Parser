@@ -403,7 +403,7 @@ export class AchievementService {
                 descriptionKey: "achievements.special.lightningReflexes.description",
                 icon: "⚡",
                 rarity: "legendary",
-                isUnlocked: user.reaction_best_time > 0 && user.reaction_best_time <= 120,
+                isUnlocked: user.reaction_best_time > 0 && user.reaction_best_time <= 10,
             },
             {
                 id: "physics_master",
@@ -412,9 +412,9 @@ export class AchievementService {
                 descriptionKey: "achievements.special.physicsMaster.description",
                 icon: "🧪",
                 rarity: "legendary",
-                isUnlocked: user.physics_best_score >= 1000 && user.physics_games >= 50,
+                isUnlocked: user.physics_best_score >= 10000 && user.physics_games >= 50,
                 progress: user.physics_best_score,
-                maxProgress: 1000,
+                maxProgress: 10000,
             },
         ];
 
