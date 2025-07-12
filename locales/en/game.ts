@@ -1,4 +1,4 @@
-// src/locales/en/game.ts - Game modes and gameplay (Updated with Rotation)
+// src/locales/en/game.ts - Game modes and gameplay (Updated with progression info)
 export const game = {
   modes: {
     title: "MODE",
@@ -9,11 +9,13 @@ export const game = {
       difficulty: "Zero",
       duration: "~10 seconds",
       objective: "Faster click = cooler reaction. Obviously, silly))",
+      progressInfo: "Does not affect level and league",
+      progressType: "casual",
       features: [
         "One circle (not Mikhail)",
         "Random timing (3-5s)",
         "Speed measurement",
-        "Performance rating",
+        "Statistics only",
       ],
       rules: [
         "Wait for the white circle to appear",
@@ -65,11 +67,13 @@ export const game = {
       duration: "Until failure",
       objective:
         "Click on the white ones. Click click click, faster, even faster! Oops, you lost.",
+      progressInfo: "Affects level and league",
+      progressType: "competitive",
       features: [
         "15 escalating levels",
         "Multiple targets",
         "Trap circles (red)",
-        "Make a mistake - you lose. As always.",
+        "Counts towards progress",
       ],
       rules: [
         "Click only on white circles",
@@ -124,11 +128,13 @@ export const game = {
       duration: "~2 minutes",
       objective:
         "Click on white circles, don't miss. Don't click red ones either. Honestly, you can just sit there doing nothing - you'll lose anyway.",
+      progressInfo: "Affects level and league",
+      progressType: "competitive",
       features: [
         "Physics is cool.",
         "Impulses are cool.",
         "Mistakes are lessons. Too bad not for you.",
-        "Such is life.",
+        "Counts towards progress",
       ],
       rules: [
         "Click on white circles",
@@ -159,11 +165,13 @@ export const game = {
       duration: "Until dizzy",
       objective:
         "Circles rotate in a circle. Click white, don't click red. Logical? Not guaranteed.",
+      progressInfo: "Affects level and league",
+      progressType: "competitive",
       features: [
         "14 rotating circles",
         "10 dizzying levels",
         "Speed grows like your nausea",
-        "Mistake = motion sickness death",
+        "Counts towards progress",
       ],
       rules: [
         "Click only on white circles",
@@ -225,5 +233,10 @@ export const game = {
     duration: "Duration",
     startPlaying: "START PLAYING",
     checkingAttempts: "CHECKING ATTEMPTS...",
+    progressImpact: "PROGRESS IMPACT",
+    competitiveMode: "Competitive mode",
+    casualMode: "Training mode",
+    affectsLevelAndLeague: "Affects level and league",
+    noProgressImpact: "No progress impact",
   },
 } as const;
