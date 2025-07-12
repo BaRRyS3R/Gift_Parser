@@ -2,15 +2,22 @@
 
 "use client";
 
+import type { Tournament } from "@/types/tournaments";
+
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Settings as SettingsIcon, Info, Trophy, Clock } from "lucide-react";
+import {
+  Play,
+  Settings as SettingsIcon,
+  Info,
+  Trophy,
+  Clock,
+} from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { tournamentService } from "@/lib/supabase_tournament_extension";
-import type { Tournament } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
@@ -20,7 +27,12 @@ import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal
 
 export default function MainPage() {
   const router = useRouter();
-  const { user, isLoading: userLoading, telegramUser, setTelegramUser } = useUser();
+  const {
+    user,
+    isLoading: userLoading,
+    telegramUser,
+    setTelegramUser,
+  } = useUser();
   const { settings } = useSettings();
   const t = useT();
 
@@ -29,6 +41,7 @@ export default function MainPage() {
    * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
+
     return !sessionStorage.getItem("mainPageVisited");
   };
 
@@ -51,8 +64,11 @@ export default function MainPage() {
   /* -------------------------------------------------
    * Tournament state
    * -------------------------------------------------*/
-  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
-  const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(
+    null,
+  );
+  const [tournamentTimeRemaining, setTournamentTimeRemaining] =
+    useState<string>("");
   const [showTournamentButton, setShowTournamentButton] = useState(false);
 
   /* -------------------------------------------------
@@ -66,6 +82,7 @@ export default function MainPage() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
+
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
@@ -82,13 +99,18 @@ export default function MainPage() {
   useEffect(() => {
     if (!isFirstVisit && user?.first_name) {
       const fullGreeting = t("main.greeting", { name: user.first_name });
+
       setGreetingText(fullGreeting);
     }
   }, [isFirstVisit, user?.first_name, t]);
 
   // Initialize telegramUser if not set
   useEffect(() => {
-    if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
+    if (
+      !telegramUser &&
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp
+    ) {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
 
@@ -101,6 +123,7 @@ export default function MainPage() {
           language_code: user.language_code,
           is_premium: user.is_premium,
         };
+
         setTelegramUser(telegramUserData);
       }
     }
@@ -119,11 +142,15 @@ export default function MainPage() {
           setShowTournamentButton(true);
 
           if (tournamentStatus.timeRemaining) {
-            setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
+            setTournamentTimeRemaining(
+              formatTimeRemaining(tournamentStatus.timeRemaining),
+            );
 
             const interval = setInterval(() => {
               const now = new Date();
-              const endDate = new Date(tournamentStatus.activeTournament!.end_date);
+              const endDate = new Date(
+                tournamentStatus.activeTournament!.end_date,
+              );
               const diff = endDate.getTime() - now.getTime();
 
               if (diff <= 0) {
@@ -274,12 +301,13 @@ export default function MainPage() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
-        }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : pageLoaded
+            ? "opacity-100 transition-opacity duration-1000 ease-out"
+            : "opacity-0"
+      }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -304,13 +332,15 @@ export default function MainPage() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed left-0 right-0 z-30 px-6 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -387,10 +417,11 @@ export default function MainPage() {
 
         {/* Action Button */}
         <div
-          className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
@@ -415,13 +446,15 @@ export default function MainPage() {
 
         {/* User Greeting */}
         <div
-          className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showGreeting
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showGreeting
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -460,13 +493,15 @@ export default function MainPage() {
 
       {/* Attempts Display */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed bottom-0 left-0 right-0 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay />
@@ -475,22 +510,24 @@ export default function MainPage() {
       {/* Level and League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showLeagueDisplay
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-4"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showLeagueDisplay
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-4"
+                }`
+              : "opacity-100 translate-y-0"
+          }`}
           style={{
             bottom: "96px",
-            zIndex: 50
+            zIndex: 50,
           }}
         >
           <div className="pointer-events-auto">
             <CompactLeagueDisplay
-              onClick={handleOpenLeagueProgress}
               className="cursor-pointer"
+              onClick={handleOpenLeagueProgress}
             />
           </div>
         </div>

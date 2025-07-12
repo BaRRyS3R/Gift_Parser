@@ -9,6 +9,7 @@ const nextConfig = {
       ...config.resolve.alias,
       "@": require("path").resolve(__dirname),
     };
+
     return config;
   },
   async headers() {

@@ -2,27 +2,48 @@
 
 "use client";
 
-import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
+import type { TournamentGameResult } from "@/types/tournaments";
+import type { AchievementNotificationData } from "@/components/LeagueProgress/AchievementNotification";
 
-import { userService, type User, type TelegramUser, type AttemptsStatus, type GameSaveResult } from "@/lib/supabase";
-import { tournamentService, type TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
+import React, {
+  useState,
+  useCallback,
+  useContext,
+  createContext,
+  useEffect,
+} from "react";
+
+import {
+  userService,
+  type User,
+  type TelegramUser,
+  type AttemptsStatus,
+  type GameSaveResult,
+} from "@/lib/supabase";
+import {
+  tournamentService,
+  type TournamentSaveResponse,
+} from "@/lib/supabase_tournament_extension";
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
 import { PhysicsGameResult } from "@/types/game-modes/physics";
 import { RotationGameResult } from "@/types/game-modes/rotation";
-import type { TournamentGameResult } from "@/types/tournaments";
 
 // NEW: Import achievement notification types
-import type { AchievementNotificationData } from "@/components/LeagueProgress/AchievementNotification";
 
 // Updated to include rotation mode and league achievements
-type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult | TournamentGameResult;
+type GameResult =
+  | ReactionGameResult
+  | SurvivalGameResult
+  | PhysicsGameResult
+  | RotationGameResult
+  | TournamentGameResult;
 
 interface AttemptsCache {
   status: AttemptsStatus | null;
   lastUpdate: number;
   isValid: boolean;
-  source: 'server' | 'optimistic' | 'initial';
+  source: "server" | "optimistic" | "initial";
 }
 
 interface UserContextType {
@@ -32,7 +53,10 @@ interface UserContextType {
   error: string | null;
   refreshUser: () => Promise<void>;
   saveGameResult: (gameResult: GameResult) => Promise<GameSaveResult>; // Updated return type
-  saveTournamentResult: (tournamentId: string, gameResult: SurvivalGameResult) => Promise<TournamentSaveResponse>;
+  saveTournamentResult: (
+    tournamentId: string,
+    gameResult: SurvivalGameResult,
+  ) => Promise<TournamentSaveResponse>;
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 
@@ -95,24 +119,31 @@ const retryOperation = async <T>(
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
+  const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   // NEW: Achievement notifications state
-  const [currentAchievement, setCurrentAchievement] = useState<AchievementNotificationData | null>(null);
+  const [currentAchievement, setCurrentAchievement] =
+    useState<AchievementNotificationData | null>(null);
 
   // Кэш для попыток с безопасными настройками
   const [attemptsCache, setAttemptsCache] = useState<AttemptsCache>({
     status: null,
     lastUpdate: 0,
     isValid: false,
-    source: 'initial'
+    source: "initial",
   });
 
   // Автоматическая инициализация Telegram пользователя при первом рендере
   useEffect(() => {
-    if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
+    if (
+      !telegramUser &&
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp
+    ) {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
 
@@ -125,6 +156,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           language_code: user.language_code,
           is_premium: user.is_premium,
         };
+
         setTelegramUserState(telegramUserData);
       }
     }
@@ -173,7 +205,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       status: null,
       lastUpdate: 0,
       isValid: false,
-      source: 'initial'
+      source: "initial",
     });
   }, []);
 
@@ -181,9 +213,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const getCachedAttemptsStatus = useCallback((): AttemptsStatus | null => {
     const now = Date.now();
 
-    if (attemptsCache.isValid &&
+    if (
+      attemptsCache.isValid &&
       attemptsCache.status &&
-      (now - attemptsCache.lastUpdate) < CACHE_DURATION) {
+      now - attemptsCache.lastUpdate < CACHE_DURATION
+    ) {
       return attemptsCache.status;
     }
 
@@ -199,26 +233,30 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const now = Date.now();
 
     // Проверка валидности кэша
-    if (attemptsCache.isValid &&
+    if (
+      attemptsCache.isValid &&
       attemptsCache.status &&
-      attemptsCache.source === 'server' &&
-      (now - attemptsCache.lastUpdate) < CACHE_DURATION) {
+      attemptsCache.source === "server" &&
+      now - attemptsCache.lastUpdate < CACHE_DURATION
+    ) {
       console.log("Returning cached attempts status");
+
       return attemptsCache.status;
     }
 
     try {
       console.log("Fetching fresh attempts status from server");
-      const status = await userService.checkAndUpdateAttemptsWithServerValidation(
-        telegramUser.id
-      );
+      const status =
+        await userService.checkAndUpdateAttemptsWithServerValidation(
+          telegramUser.id,
+        );
 
       // Обновление кэша только серверными данными
       setAttemptsCache({
         status,
         lastUpdate: now,
         isValid: true,
-        source: 'server'
+        source: "server",
       });
 
       return status;
@@ -232,91 +270,107 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [telegramUser, attemptsCache, invalidateAttemptsCache]);
 
   // Безопасное потребление попытки для игры
-  const consumeAttemptForGame = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!telegramUser) {
-      throw new Error("Пользователь Telegram не найден");
-    }
+  const consumeAttemptForGame =
+    useCallback(async (): Promise<AttemptsStatus> => {
+      if (!telegramUser) {
+        throw new Error("Пользователь Telegram не найден");
+      }
 
-    console.log("Consuming attempt on server (security-critical operation)");
+      console.log("Consuming attempt on server (security-critical operation)");
 
-    try {
-      const newStatus = await userService.consumeAttemptWithServerValidation(
-        telegramUser.id
-      );
+      try {
+        const newStatus = await userService.consumeAttemptWithServerValidation(
+          telegramUser.id,
+        );
 
-      const now = Date.now();
+        const now = Date.now();
 
-      // Обновление кэша после успешного серверного запроса
-      setAttemptsCache({
-        status: newStatus,
-        lastUpdate: now,
-        isValid: true,
-        source: 'server'
-      });
+        // Обновление кэша после успешного серверного запроса
+        setAttemptsCache({
+          status: newStatus,
+          lastUpdate: now,
+          isValid: true,
+          source: "server",
+        });
 
-      console.log("Attempt consumed successfully, cache updated with server data");
-      return newStatus;
+        console.log(
+          "Attempt consumed successfully, cache updated with server data",
+        );
 
-    } catch (error) {
-      console.error("Error consuming attempt:", error);
+        return newStatus;
+      } catch (error) {
+        console.error("Error consuming attempt:", error);
 
-      // При ошибке инвалидация кэша и требование повторной проверки
-      invalidateAttemptsCache();
-      throw error;
-    }
-  }, [telegramUser, invalidateAttemptsCache]);
+        // При ошибке инвалидация кэша и требование повторной проверки
+        invalidateAttemptsCache();
+        throw error;
+      }
+    }, [telegramUser, invalidateAttemptsCache]);
 
   // NEW: Achievement notification methods
-  const showAchievement = useCallback((achievement: AchievementNotificationData) => {
-    setCurrentAchievement(achievement);
-  }, []);
+  const showAchievement = useCallback(
+    (achievement: AchievementNotificationData) => {
+      setCurrentAchievement(achievement);
+    },
+    [],
+  );
 
   const hideAchievement = useCallback(() => {
     setCurrentAchievement(null);
   }, []);
 
   // NEW: Helper function to process league achievements
-  const processLeagueAchievements = useCallback((gameResult: GameSaveResult) => {
-    if (!gameResult.success) return;
+  const processLeagueAchievements = useCallback(
+    (gameResult: GameSaveResult) => {
+      if (!gameResult.success) return;
 
-    // Show level up notification
-    if (gameResult.levelChanged && gameResult.newLevel) {
-      showAchievement({
-        type: 'level_up',
-        level: gameResult.newLevel
-      });
-    }
-
-    // Show league promotion notification (higher priority)
-    if (gameResult.leagueChanged && gameResult.newLeague) {
-      // Calculate position if reward was given
-      const position = gameResult.reward?.reward?.position;
-      
-      setTimeout(() => {
+      // Show level up notification
+      if (gameResult.levelChanged && gameResult.newLevel) {
         showAchievement({
-          type: 'league_promotion',
-          league: gameResult.newLeague,
-          position
+          type: "level_up",
+          level: gameResult.newLevel,
         });
-      }, gameResult.levelChanged ? 3000 : 0); // Delay if level also changed
-    }
+      }
 
-    // Show reward notification (highest priority)
-    if (gameResult.reward?.success && gameResult.reward.reward) {
-      setTimeout(() => {
-        showAchievement({
-          type: 'reward_received',
-          league: gameResult.newLeague,
-          reward: gameResult.reward?.reward
-        });
-      }, (gameResult.levelChanged ? 3000 : 0) + (gameResult.leagueChanged ? 3000 : 0));
-    }
-  }, [showAchievement]);
+      // Show league promotion notification (higher priority)
+      if (gameResult.leagueChanged && gameResult.newLeague) {
+        // Calculate position if reward was given
+        const position = gameResult.reward?.reward?.position;
+
+        setTimeout(
+          () => {
+            showAchievement({
+              type: "league_promotion",
+              league: gameResult.newLeague,
+              position,
+            });
+          },
+          gameResult.levelChanged ? 3000 : 0,
+        ); // Delay if level also changed
+      }
+
+      // Show reward notification (highest priority)
+      if (gameResult.reward?.success && gameResult.reward.reward) {
+        setTimeout(
+          () => {
+            showAchievement({
+              type: "reward_received",
+              league: gameResult.newLeague,
+              reward: gameResult.reward?.reward,
+            });
+          },
+          (gameResult.levelChanged ? 3000 : 0) +
+            (gameResult.leagueChanged ? 3000 : 0),
+        );
+      }
+    },
+    [showAchievement],
+  );
 
   // Автоматическая загрузка пользователя из базы данных при установке telegramUser
   useEffect(() => {
     if (telegramUser && !user && !isLoading) {
-      refreshUser().catch(err => {
+      refreshUser().catch((err) => {
         console.error("useUser - Failed to auto-load user:", err);
       });
     }
@@ -337,9 +391,17 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       }
 
       // Проверка турнирного результата
-      if ('tournamentId' in gameResult) {
-        const tournamentResult = await saveTournamentResult(gameResult.tournamentId, gameResult);
-        console.log("Tournament result saved with accumulation:", tournamentResult);
+      if ("tournamentId" in gameResult) {
+        const tournamentResult = await saveTournamentResult(
+          gameResult.tournamentId,
+          gameResult,
+        );
+
+        console.log(
+          "Tournament result saved with accumulation:",
+          tournamentResult,
+        );
+
         return { success: true }; // Return basic success for tournament games
       }
 
@@ -350,15 +412,24 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       });
 
       const saveOperation = async (): Promise<GameSaveResult> => {
-        const result = await userService.saveGameResult(telegramUser.id, gameResult);
+        const result = await userService.saveGameResult(
+          telegramUser.id,
+          gameResult,
+        );
+
         await refreshUser();
         invalidateAttemptsCache();
+
         return result;
       };
 
       try {
         const result = await retryOperation(saveOperation, 3, 1000);
-        console.log("Game result saved successfully (with potential retries):", result);
+
+        console.log(
+          "Game result saved successfully (with potential retries):",
+          result,
+        );
 
         // NEW: Process league achievements
         processLeagueAchievements(result);
@@ -378,11 +449,19 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         throw new Error(errorMessage);
       }
     },
-    [telegramUser, refreshUser, invalidateAttemptsCache, processLeagueAchievements],
+    [
+      telegramUser,
+      refreshUser,
+      invalidateAttemptsCache,
+      processLeagueAchievements,
+    ],
   );
 
   const saveTournamentResult = useCallback(
-    async (tournamentId: string, gameResult: SurvivalGameResult): Promise<TournamentSaveResponse> => {
+    async (
+      tournamentId: string,
+      gameResult: SurvivalGameResult,
+    ): Promise<TournamentSaveResponse> => {
       if (!telegramUser || !user) {
         throw new Error("Пользователь не найден");
       }
@@ -406,13 +485,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             perfectStreak: gameResult.perfectStreak,
             correctHits: gameResult.correctHits,
             deathCause: gameResult.deathCause,
-          }
+          },
         );
       };
 
       try {
         const result = await retryOperation(saveOperation, 3, 1000);
-        console.log("Tournament result with point accumulation saved successfully:", result);
+
+        console.log(
+          "Tournament result with point accumulation saved successfully:",
+          result,
+        );
+
         return result;
       } catch (err) {
         console.error(

@@ -27,7 +27,11 @@ import {
   type RotationLeaderboard,
 } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
-import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter";
+import {
+  formatSurvivalTime,
+  formatPhysicsTime,
+  formatRotationTime,
+} from "@/utils/timeFormatter";
 import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -37,10 +41,18 @@ export default function LeaderboardPage() {
   const { user } = useUser();
   const t = useT();
   const [activeTab, setActiveTab] = useState<LeaderboardType>("reaction");
-  const [reactionLeaderboard, setReactionLeaderboard] = useState<ReactionLeaderboard[]>([]);
-  const [survivalLeaderboard, setSurvivalLeaderboard] = useState<SurvivalLeaderboard[]>([]);
-  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<PhysicsLeaderboard[]>([]);
-  const [rotationLeaderboard, setRotationLeaderboard] = useState<RotationLeaderboard[]>([]);
+  const [reactionLeaderboard, setReactionLeaderboard] = useState<
+    ReactionLeaderboard[]
+  >([]);
+  const [survivalLeaderboard, setSurvivalLeaderboard] = useState<
+    SurvivalLeaderboard[]
+  >([]);
+  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<
+    PhysicsLeaderboard[]
+  >([]);
+  const [rotationLeaderboard, setRotationLeaderboard] = useState<
+    RotationLeaderboard[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +135,7 @@ export default function LeaderboardPage() {
       if (time <= 200) return "EXCELLENT";
       if (time <= 300) return "GOOD";
       if (time <= 500) return "AVERAGE";
+
       return "SLOW";
     };
 
@@ -142,7 +155,7 @@ export default function LeaderboardPage() {
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <Zap size={120} className="text-white" />
+            <Zap className="text-white" size={120} />
           </div>
         </div>
 
@@ -154,16 +167,23 @@ export default function LeaderboardPage() {
                   {position <= 3 ? (
                     getRankIcon(position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{position}</span>
+                    <span className="text-white/80 text-sm font-bold">
+                      #{position}
+                    </span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}>
+                    <h3
+                      className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}
+                    >
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
                     {entry.is_premium && (
-                      <Star className="text-yellow-400 flex-shrink-0" size={12} />
+                      <Star
+                        className="text-yellow-400 flex-shrink-0"
+                        size={12}
+                      />
                     )}
                     {isCurrentUser(entry.telegram_id) && (
                       <span className="text-xs bg-white/30 text-white px-2 py-0.5 rounded border border-white/30">
@@ -172,14 +192,18 @@ export default function LeaderboardPage() {
                     )}
                   </div>
                   {entry.username && (
-                    <p className="text-xs text-white/60 truncate">@{entry.username}</p>
+                    <p className="text-xs text-white/60 truncate">
+                      @{entry.username}
+                    </p>
                   )}
                 </div>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <div className={`text-xs font-bold ${getReactionRatingColor(rating as any)}`}>
+                  <div
+                    className={`text-xs font-bold ${getReactionRatingColor(rating as any)}`}
+                  >
                     {rating}
                   </div>
                   <div className="flex items-center space-x-1 text-xs text-white/80">
@@ -219,7 +243,7 @@ export default function LeaderboardPage() {
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <Crosshair size={120} className="text-red-400" />
+            <Crosshair className="text-red-400" size={120} />
           </div>
         </div>
 
@@ -231,16 +255,23 @@ export default function LeaderboardPage() {
                   {position <= 3 ? (
                     getRankIcon(position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{position}</span>
+                    <span className="text-white/80 text-sm font-bold">
+                      #{position}
+                    </span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}>
+                    <h3
+                      className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}
+                    >
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
                     {entry.is_premium && (
-                      <Star className="text-yellow-400 flex-shrink-0" size={12} />
+                      <Star
+                        className="text-yellow-400 flex-shrink-0"
+                        size={12}
+                      />
                     )}
                     {isCurrentUser(entry.telegram_id) && (
                       <span className="text-xs bg-red-500/30 text-red-200 px-2 py-0.5 rounded border border-red-400/30">
@@ -249,7 +280,9 @@ export default function LeaderboardPage() {
                     )}
                   </div>
                   {entry.username && (
-                    <p className="text-xs text-white/60 truncate">@{entry.username}</p>
+                    <p className="text-xs text-white/60 truncate">
+                      @{entry.username}
+                    </p>
                   )}
                 </div>
               </div>
@@ -301,7 +334,7 @@ export default function LeaderboardPage() {
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <Atom size={120} className="text-purple-400" />
+            <Atom className="text-purple-400" size={120} />
           </div>
         </div>
 
@@ -313,16 +346,23 @@ export default function LeaderboardPage() {
                   {position <= 3 ? (
                     getRankIcon(position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{position}</span>
+                    <span className="text-white/80 text-sm font-bold">
+                      #{position}
+                    </span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}>
+                    <h3
+                      className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}
+                    >
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
                     {entry.is_premium && (
-                      <Star className="text-yellow-400 flex-shrink-0" size={12} />
+                      <Star
+                        className="text-yellow-400 flex-shrink-0"
+                        size={12}
+                      />
                     )}
                     {isCurrentUser(entry.telegram_id) && (
                       <span className="text-xs bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded border border-purple-400/30">
@@ -331,7 +371,9 @@ export default function LeaderboardPage() {
                     )}
                   </div>
                   {entry.username && (
-                    <p className="text-xs text-white/60 truncate">@{entry.username}</p>
+                    <p className="text-xs text-white/60 truncate">
+                      @{entry.username}
+                    </p>
                   )}
                 </div>
               </div>
@@ -383,7 +425,7 @@ export default function LeaderboardPage() {
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <RotateCw size={120} className="text-orange-400" />
+            <RotateCw className="text-orange-400" size={120} />
           </div>
         </div>
 
@@ -395,16 +437,23 @@ export default function LeaderboardPage() {
                   {position <= 3 ? (
                     getRankIcon(position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{position}</span>
+                    <span className="text-white/80 text-sm font-bold">
+                      #{position}
+                    </span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}>
+                    <h3
+                      className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}
+                    >
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
                     {entry.is_premium && (
-                      <Star className="text-yellow-400 flex-shrink-0" size={12} />
+                      <Star
+                        className="text-yellow-400 flex-shrink-0"
+                        size={12}
+                      />
                     )}
                     {isCurrentUser(entry.telegram_id) && (
                       <span className="text-xs bg-orange-500/30 text-orange-200 px-2 py-0.5 rounded border border-orange-400/30">
@@ -413,7 +462,9 @@ export default function LeaderboardPage() {
                     )}
                   </div>
                   {entry.username && (
-                    <p className="text-xs text-white/60 truncate">@{entry.username}</p>
+                    <p className="text-xs text-white/60 truncate">
+                      @{entry.username}
+                    </p>
                   )}
                 </div>
               </div>
@@ -515,7 +566,9 @@ export default function LeaderboardPage() {
       };
     } else {
       return {
-        icon: <RotateCw className="text-orange-400/60 mx-auto mb-3" size={32} />,
+        icon: (
+          <RotateCw className="text-orange-400/60 mx-auto mb-3" size={32} />
+        ),
         title: t("leaderboard.noSpinners"),
         subtitle: t("leaderboard.tryRotation"),
       };
@@ -558,13 +611,15 @@ export default function LeaderboardPage() {
                     ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}ms`
                     : isSurvivalTab
                       ? formatSurvivalTime(
-                        (currentLeaderboard[0] as SurvivalLeaderboard).best_survival_time,
-                      )
+                          (currentLeaderboard[0] as SurvivalLeaderboard)
+                            .best_survival_time,
+                        )
                       : isPhysicsTab
                         ? `${(currentLeaderboard[0] as PhysicsLeaderboard).best_physics_score} pts`
                         : formatRotationTime(
-                          (currentLeaderboard[0] as RotationLeaderboard).best_rotation_time,
-                        )
+                            (currentLeaderboard[0] as RotationLeaderboard)
+                              .best_rotation_time,
+                          )
                   : "0"}
               </span>
             </div>
@@ -576,23 +631,25 @@ export default function LeaderboardPage() {
       <div className="mb-6">
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1">
           <div className="flex space-x-1">
-            {(["reaction", "survival", "physics", "rotation"] as const).map((tab) => (
-              <button
-                key={tab}
-                className={`
+            {(["reaction", "survival", "physics", "rotation"] as const).map(
+              (tab) => (
+                <button
+                  key={tab}
+                  className={`
                   flex-1 px-3 py-2 rounded-lg text-sm font-bold transition-all duration-300
                   ${getTabColors(tab, activeTab === tab)}
                 `}
-                onClick={() => setActiveTab(tab)}
-              >
-                <div className="flex items-center justify-center space-x-1">
-                  {tab === "reaction" && <Zap size={12} />}
-                  {tab === "survival" && <Crosshair size={12} />}
-                  {tab === "physics" && <Atom size={12} />}
-                  {tab === "rotation" && <RotateCw size={12} />}
-                </div>
-              </button>
-            ))}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  <div className="flex items-center justify-center space-x-1">
+                    {tab === "reaction" && <Zap size={12} />}
+                    {tab === "survival" && <Crosshair size={12} />}
+                    {tab === "physics" && <Atom size={12} />}
+                    {tab === "rotation" && <RotateCw size={12} />}
+                  </div>
+                </button>
+              ),
+            )}
           </div>
         </div>
       </div>
@@ -603,11 +660,14 @@ export default function LeaderboardPage() {
           <div className="text-center py-12 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg">
             {(() => {
               const emptyState = getEmptyStateMessage();
+
               return (
                 <>
                   {emptyState.icon}
                   <p className="font-bold text-white/80">{emptyState.title}</p>
-                  <p className="text-sm mt-1 text-white/60">{emptyState.subtitle}</p>
+                  <p className="text-sm mt-1 text-white/60">
+                    {emptyState.subtitle}
+                  </p>
                 </>
               );
             })()}
@@ -616,12 +676,24 @@ export default function LeaderboardPage() {
           <div className="animate-fade-in space-y-3 max-h-[70vh] overflow-y-auto">
             {currentLeaderboard.map((entry, index) =>
               isReactionTab
-                ? renderReactionLeaderboardEntry(entry as ReactionLeaderboard, index + 1)
+                ? renderReactionLeaderboardEntry(
+                    entry as ReactionLeaderboard,
+                    index + 1,
+                  )
                 : isSurvivalTab
-                  ? renderSurvivalLeaderboardEntry(entry as SurvivalLeaderboard, index + 1)
+                  ? renderSurvivalLeaderboardEntry(
+                      entry as SurvivalLeaderboard,
+                      index + 1,
+                    )
                   : isPhysicsTab
-                    ? renderPhysicsLeaderboardEntry(entry as PhysicsLeaderboard, index + 1)
-                    : renderRotationLeaderboardEntry(entry as RotationLeaderboard, index + 1),
+                    ? renderPhysicsLeaderboardEntry(
+                        entry as PhysicsLeaderboard,
+                        index + 1,
+                      )
+                    : renderRotationLeaderboardEntry(
+                        entry as RotationLeaderboard,
+                        index + 1,
+                      ),
             )}
           </div>
         )}

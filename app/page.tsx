@@ -71,6 +71,7 @@ export default function IntroPage(): JSX.Element {
 
       if (startParam && startParam.length === 8) {
         console.log("Referral code extracted from start param:", startParam);
+
         return startParam;
       }
     }
@@ -82,6 +83,7 @@ export default function IntroPage(): JSX.Element {
 
       if (refCode) {
         console.log("Referral code extracted from URL (dev):", refCode);
+
         return refCode;
       }
     }
@@ -241,7 +243,8 @@ export default function IntroPage(): JSX.Element {
       let referrerUsername: string | undefined;
 
       if (referralCode) {
-        const validation = await userService.validateReferralCodeAndGetReferrer(referralCode);
+        const validation =
+          await userService.validateReferralCodeAndGetReferrer(referralCode);
 
         if (validation.isValid) {
           referralBonus = validation.bonus;
@@ -354,6 +357,7 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
+
           setLoadProgress(progress);
         }
       }
@@ -510,6 +514,7 @@ export default function IntroPage(): JSX.Element {
     if (authState.referrerName) {
       return authState.referrerName;
     }
+
     return "s0meone";
   };
 

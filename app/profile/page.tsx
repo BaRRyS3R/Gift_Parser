@@ -3,6 +3,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+
 import { useUser } from "@/hooks/useUser";
 import { userService, type ReferralInfo } from "@/lib/supabase";
 import leagueService from "@/lib/league_service"; // Added league service import
@@ -61,7 +62,7 @@ export default function ProfilePage() {
           allLeagues,
           userLeagueProgress,
           userRewards,
-          allLeagueRewards
+          allLeagueRewards,
         ] = await Promise.all([
           userService.getUserRanking(telegramUser.id),
           userService.getUserReactionRanking(telegramUser.id),
@@ -73,7 +74,7 @@ export default function ProfilePage() {
           leagueService.getAllLeagues(),
           leagueService.getUserLeagueProgress(user.id, user.total_games),
           leagueService.getUserRewards(user.id),
-          leagueService.getAllLeagueRewards()
+          leagueService.getAllLeagueRewards(),
         ]);
 
         setRankings({
@@ -91,9 +92,8 @@ export default function ProfilePage() {
           leagues: allLeagues?.length,
           userProgress: userLeagueProgress?.currentLeague?.name,
           userRewards: userRewards?.length,
-          allRewards: Object.keys(allLeagueRewards || {}).length
+          allRewards: Object.keys(allLeagueRewards || {}).length,
         });
-
       } catch (error) {
         console.error("Error loading profile data:", error);
       } finally {
@@ -159,9 +159,9 @@ export default function ProfilePage() {
 
         {/* Action Buttons */}
         <MinimalistActionButtons
-          onOpenReferrals={handleOpenReferrals}
           onOpenAchievements={handleOpenAchievements}
           onOpenLeagues={handleOpenLeagues}
+          onOpenReferrals={handleOpenReferrals}
         />
 
         {/* Divider */}
@@ -178,16 +178,16 @@ export default function ProfilePage() {
       {referralInfo && (
         <ReferralModal
           isOpen={isReferralModalOpen}
-          onClose={() => setIsReferralModalOpen(false)}
           referralInfo={referralInfo}
+          onClose={() => setIsReferralModalOpen(false)}
         />
       )}
 
       <AchievementsModal
         isOpen={isAchievementsModalOpen}
-        onClose={() => setIsAchievementsModalOpen(false)}
-        user={user}
         rankings={rankings}
+        user={user}
+        onClose={() => setIsAchievementsModalOpen(false)}
       />
 
       {/* Fixed: Use proper tabbed leagues modal with preloaded data */}

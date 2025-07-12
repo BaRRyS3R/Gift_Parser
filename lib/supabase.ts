@@ -1,12 +1,17 @@
 // src/lib/supabase.ts - Обновленный сервис пользователей с исключением режима реакции из подсчета общих игр
 
 import { createClient } from "@supabase/supabase-js";
+
+import leagueService, {
+  type LeagueRewardResult,
+  type League,
+} from "./league_service";
+
 import { GameMode } from "@/types/game-modes/common";
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
 import { PhysicsGameResult } from "@/types/game-modes/physics";
 import { RotationGameResult } from "@/types/game-modes/rotation";
-import leagueService, { type LeagueRewardResult, type League } from "./league_service";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -112,13 +117,20 @@ export const userService = {
   async getServerTime(): Promise<Date> {
     try {
       const { data, error } = await supabase.rpc("get_current_timestamp");
+
       if (error) {
         console.warn("Failed to get server time, using client time:", error);
+
         return new Date();
       }
+
       return new Date(data);
     } catch (error) {
-      console.warn("Error getting server time, falling back to client time:", error);
+      console.warn(
+        "Error getting server time, falling back to client time:",
+        error,
+      );
+
       return new Date();
     }
   },
@@ -149,6 +161,7 @@ export const userService = {
 
       if (referrer) {
         let referrerName = referrer.first_name;
+
         if (referrer.last_name) {
           referrerName += ` ${referrer.last_name}`;
         }
@@ -163,7 +176,11 @@ export const userService = {
 
       return { isValid: false, bonus: 0 };
     } catch (error) {
-      console.error("Error validating referral code and getting referrer info:", error);
+      console.error(
+        "Error validating referral code and getting referrer info:",
+        error,
+      );
+
       return { isValid: false, bonus: 0 };
     }
   },
@@ -191,10 +208,13 @@ export const userService = {
     while (!isUnique) {
       code = "";
       for (let i = 0; i < 8; i++) {
-        code += characters.charAt(Math.floor(Math.random() * characters.length));
+        code += characters.charAt(
+          Math.floor(Math.random() * characters.length),
+        );
       }
 
       const existingUser = await this.findByReferralCode(code);
+
       if (!existingUser) {
         isUnique = true;
       }
@@ -203,7 +223,10 @@ export const userService = {
     return code;
   },
 
-  async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
+  async create(
+    telegramUser: TelegramUser,
+    referralCode?: string,
+  ): Promise<User> {
     const referralCodeToUse = await this.generateUniqueReferralCode();
     let additionalAttempts = 10;
     let referredBy = null;
@@ -211,6 +234,7 @@ export const userService = {
     // Handle referral
     if (referralCode) {
       const referrer = await this.findByReferralCode(referralCode);
+
       if (referrer) {
         referredBy = referralCode;
         additionalAttempts += referrer.referral_bonus;
@@ -263,6 +287,7 @@ export const userService = {
 
   async getReferralInfo(telegramId: number): Promise<ReferralInfo | null> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user) return null;
 
     let referredByName: string | undefined;
@@ -270,11 +295,14 @@ export const userService = {
     if (user.referred_by) {
       try {
         const referrer = await this.findByReferralCode(user.referred_by);
+
         if (referrer) {
           if (referrer.username) {
             referredByName = `@${referrer.username}`;
           } else if (referrer.first_name) {
-            referredByName = referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : "");
+            referredByName =
+              referrer.first_name +
+              (referrer.last_name ? ` ${referrer.last_name}` : "");
           } else {
             referredByName = "s0meone";
           }
@@ -302,28 +330,38 @@ export const userService = {
   } | null> {
     try {
       const referrer = await this.findByReferralCode(referralCode);
+
       if (!referrer) return null;
 
       return {
-        name: referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : ""),
+        name:
+          referrer.first_name +
+          (referrer.last_name ? ` ${referrer.last_name}` : ""),
         username: referrer.username,
         bonus: referrer.referral_bonus,
       };
     } catch (error) {
       console.error("Error getting referrer info:", error);
+
       return null;
     }
   },
 
-  async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
+  async checkAndUpdateAttemptsWithServerValidation(
+    telegramId: number,
+  ): Promise<AttemptsStatus> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user) throw new Error("User not found");
 
     const serverTime = await this.getServerTime();
-    const resetTime = user.attempts_reset_at ? new Date(user.attempts_reset_at) : null;
+    const resetTime = user.attempts_reset_at
+      ? new Date(user.attempts_reset_at)
+      : null;
 
     if (resetTime && serverTime >= resetTime) {
       await this.resetAttempts(telegramId);
+
       return {
         canPlay: true,
         attemptsRemaining: Math.max(5, user.attempts_remaining),
@@ -334,13 +372,19 @@ export const userService = {
 
     if (user.last_attempt_at) {
       const lastAttemptTime = new Date(user.last_attempt_at);
-      const timeSinceLastAttempt = serverTime.getTime() - lastAttemptTime.getTime();
+      const timeSinceLastAttempt =
+        serverTime.getTime() - lastAttemptTime.getTime();
+
       if (timeSinceLastAttempt < 0) {
-        console.warn("Potential time manipulation detected for user:", telegramId);
+        console.warn(
+          "Potential time manipulation detected for user:",
+          telegramId,
+        );
       }
     }
 
     let timeUntilReset: number | undefined;
+
     if (resetTime && user.attempts_remaining === 0) {
       timeUntilReset = Math.max(0, resetTime.getTime() - serverTime.getTime());
     }
@@ -353,8 +397,11 @@ export const userService = {
     };
   },
 
-  async consumeAttemptWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
+  async consumeAttemptWithServerValidation(
+    telegramId: number,
+  ): Promise<AttemptsStatus> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user) throw new Error("User not found");
     if (user.attempts_remaining <= 0) {
       throw new Error("No attempts remaining");
@@ -369,7 +416,10 @@ export const userService = {
     };
 
     if (newAttemptsRemaining === 0) {
-      const resetTime = new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS);
+      const resetTime = new Date(
+        serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS,
+      );
+
       updates.attempts_reset_at = resetTime.toISOString();
     }
 
@@ -383,23 +433,31 @@ export const userService = {
       throw error;
     }
 
-    const timeUntilReset = newAttemptsRemaining === 0 ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS : undefined;
+    const timeUntilReset =
+      newAttemptsRemaining === 0
+        ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS
+        : undefined;
 
     return {
       canPlay: newAttemptsRemaining > 0,
       attemptsRemaining: newAttemptsRemaining,
-      resetTime: newAttemptsRemaining === 0
-        ? new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS)
-        : undefined,
+      resetTime:
+        newAttemptsRemaining === 0
+          ? new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS)
+          : undefined,
       timeUntilReset,
     };
   },
 
   async resetAttempts(telegramId: number): Promise<void> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user) throw new Error("User not found");
 
-    const newAttempts = Math.max(ATTEMPTS_CONFIG.RESET_ATTEMPTS, user.attempts_remaining);
+    const newAttempts = Math.max(
+      ATTEMPTS_CONFIG.RESET_ATTEMPTS,
+      user.attempts_remaining,
+    );
 
     const { error } = await supabase
       .from("users")
@@ -417,6 +475,7 @@ export const userService = {
 
   async instantResetAttempts(telegramId: number): Promise<void> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user) throw new Error("User not found");
 
     const { error } = await supabase
@@ -443,16 +502,26 @@ export const userService = {
   },
 
   // UPDATED: Enhanced updateGameStats with reaction mode exclusion from total_games
-  async updateGameStats(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<GameSaveResult> {
+  async updateGameStats(
+    telegramId: number,
+    gameResult:
+      | ReactionGameResult
+      | SurvivalGameResult
+      | PhysicsGameResult
+      | RotationGameResult,
+  ): Promise<GameSaveResult> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user) throw new Error("User not found");
 
     const previousTotalGames = user.total_games;
-    
+
     // CRITICAL CHANGE: Exclude reaction mode from total_games counting
     const isCompetitiveMode = gameResult.mode !== GameMode.REACTION;
-    const newTotalGames = isCompetitiveMode ? previousTotalGames + 1 : previousTotalGames;
-    
+    const newTotalGames = isCompetitiveMode
+      ? previousTotalGames + 1
+      : previousTotalGames;
+
     const previousLevel = user.current_level;
     const newLevel = leagueService.calculateLevel(newTotalGames);
 
@@ -467,50 +536,102 @@ export const userService = {
     // Mode-specific stats updates
     if (gameResult.mode === GameMode.REACTION) {
       const reactionResult = gameResult as ReactionGameResult;
+
       updates.reaction_games = user.reaction_games + 1;
-      updates.reaction_best_score = Math.max(user.reaction_best_score || 0, reactionResult.score);
+      updates.reaction_best_score = Math.max(
+        user.reaction_best_score || 0,
+        reactionResult.score,
+      );
 
       if (!reactionResult.missed && reactionResult.reactionTime > 0) {
-        updates.reaction_best_time = user.reaction_best_time > 0
-          ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
-          : reactionResult.reactionTime;
+        updates.reaction_best_time =
+          user.reaction_best_time > 0
+            ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
+            : reactionResult.reactionTime;
 
         const totalReactionGames = user.reaction_games;
         const currentAverage = user.reaction_average_time || 0;
-        const newAverage = totalReactionGames > 0
-          ? (currentAverage * totalReactionGames + reactionResult.reactionTime) / (totalReactionGames + 1)
-          : reactionResult.reactionTime;
+        const newAverage =
+          totalReactionGames > 0
+            ? (currentAverage * totalReactionGames +
+                reactionResult.reactionTime) /
+              (totalReactionGames + 1)
+            : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
       }
     } else if (gameResult.mode === GameMode.SURVIVAL) {
       const survivalResult = gameResult as SurvivalGameResult;
+
       updates.survival_games = user.survival_games + 1;
-      updates.survival_best_score = Math.max(user.survival_best_score || 0, survivalResult.score);
-      updates.survival_best_time = Math.max(user.survival_best_time || 0, survivalResult.survivalTime);
-      updates.survival_max_level = Math.max(user.survival_max_level || 0, survivalResult.maxLevelReached);
-      updates.survival_best_streak = Math.max(user.survival_best_streak || 0, survivalResult.perfectStreak);
+      updates.survival_best_score = Math.max(
+        user.survival_best_score || 0,
+        survivalResult.score,
+      );
+      updates.survival_best_time = Math.max(
+        user.survival_best_time || 0,
+        survivalResult.survivalTime,
+      );
+      updates.survival_max_level = Math.max(
+        user.survival_max_level || 0,
+        survivalResult.maxLevelReached,
+      );
+      updates.survival_best_streak = Math.max(
+        user.survival_best_streak || 0,
+        survivalResult.perfectStreak,
+      );
     } else if (gameResult.mode === GameMode.PHYSICS) {
       const physicsResult = gameResult as PhysicsGameResult;
-      updates.physics_games = user.physics_games + 1;
-      updates.physics_best_score = Math.max(user.physics_best_score || 0, physicsResult.score);
-      updates.physics_best_time = Math.max(user.physics_best_time || 0, Math.round(physicsResult.gameTime));
-      updates.physics_total_hits = (user.physics_total_hits || 0) + physicsResult.totalHits;
-      updates.physics_best_hits = Math.max(user.physics_best_hits || 0, physicsResult.totalHits);
 
-      if (user.physics_least_mistakes === undefined || user.physics_least_mistakes === null) {
+      updates.physics_games = user.physics_games + 1;
+      updates.physics_best_score = Math.max(
+        user.physics_best_score || 0,
+        physicsResult.score,
+      );
+      updates.physics_best_time = Math.max(
+        user.physics_best_time || 0,
+        Math.round(physicsResult.gameTime),
+      );
+      updates.physics_total_hits =
+        (user.physics_total_hits || 0) + physicsResult.totalHits;
+      updates.physics_best_hits = Math.max(
+        user.physics_best_hits || 0,
+        physicsResult.totalHits,
+      );
+
+      if (
+        user.physics_least_mistakes === undefined ||
+        user.physics_least_mistakes === null
+      ) {
         updates.physics_least_mistakes = physicsResult.mistakesMade;
       } else {
-        updates.physics_least_mistakes = Math.min(user.physics_least_mistakes, physicsResult.mistakesMade);
+        updates.physics_least_mistakes = Math.min(
+          user.physics_least_mistakes,
+          physicsResult.mistakesMade,
+        );
       }
     } else if (gameResult.mode === GameMode.ROTATION) {
       const rotationResult = gameResult as RotationGameResult;
+
       updates.rotation_games = user.rotation_games + 1;
-      updates.rotation_best_score = Math.max(user.rotation_best_score || 0, rotationResult.score);
-      updates.rotation_best_time = Math.max(user.rotation_best_time || 0, rotationResult.survivalTime);
-      updates.rotation_max_level = Math.max(user.rotation_max_level || 0, rotationResult.maxLevelReached);
-      updates.rotation_best_streak = Math.max(user.rotation_best_streak || 0, rotationResult.perfectStreak);
-      updates.rotation_total_hits = (user.rotation_total_hits || 0) + rotationResult.correctHits;
+      updates.rotation_best_score = Math.max(
+        user.rotation_best_score || 0,
+        rotationResult.score,
+      );
+      updates.rotation_best_time = Math.max(
+        user.rotation_best_time || 0,
+        rotationResult.survivalTime,
+      );
+      updates.rotation_max_level = Math.max(
+        user.rotation_max_level || 0,
+        rotationResult.maxLevelReached,
+      );
+      updates.rotation_best_streak = Math.max(
+        user.rotation_best_streak || 0,
+        rotationResult.perfectStreak,
+      );
+      updates.rotation_total_hits =
+        (user.rotation_total_hits || 0) + rotationResult.correctHits;
     }
 
     // Update user stats
@@ -527,8 +648,11 @@ export const userService = {
     // IMPORTANT: League checking only for competitive modes
     try {
       if (isCompetitiveMode) {
-        const leagueResult = await leagueService.checkAndUpdateLeague(user.id, newTotalGames);
-        
+        const leagueResult = await leagueService.checkAndUpdateLeague(
+          user.id,
+          newTotalGames,
+        );
+
         return {
           success: true,
           leagueChanged: leagueResult.leagueChanged,
@@ -536,36 +660,45 @@ export const userService = {
           levelChanged: newLevel !== previousLevel,
           newLevel: newLevel !== previousLevel ? newLevel : undefined,
           reward: leagueResult.reward,
-          missedRewards: leagueResult.missedRewards
+          missedRewards: leagueResult.missedRewards,
         };
       } else {
         // For reaction mode, return result without league checking
         return {
           success: true,
           leagueChanged: false,
-          levelChanged: false
+          levelChanged: false,
         };
       }
     } catch (leagueError) {
       console.error("Error checking league after game:", leagueError);
+
       return {
         success: true,
         leagueChanged: false,
         levelChanged: newLevel !== previousLevel,
         newLevel: newLevel !== previousLevel ? newLevel : undefined,
-        error: "League check failed"
+        error: "League check failed",
       };
     }
   },
 
-  async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<GameSaveResult> {
+  async saveGameResult(
+    telegramId: number,
+    gameResult:
+      | ReactionGameResult
+      | SurvivalGameResult
+      | PhysicsGameResult
+      | RotationGameResult,
+  ): Promise<GameSaveResult> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user) throw new Error("User not found");
 
     console.log("Updating user statistics with game result:", {
       mode: gameResult.mode,
       score: gameResult.score,
-      duration: gameResult.duration
+      duration: gameResult.duration,
     });
 
     return await this.updateGameStats(telegramId, gameResult);
@@ -575,7 +708,8 @@ export const userService = {
   async getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
     const { data, error } = await supabase
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         telegram_id,
         first_name,
@@ -585,7 +719,8 @@ export const userService = {
         best_score,
         total_games,
         last_played_at
-      `)
+      `,
+      )
       .gt("total_games", 0)
       .order("best_score", { ascending: false })
       .limit(limit);
@@ -598,10 +733,13 @@ export const userService = {
     return data || [];
   },
 
-  async getReactionLeaderboard(limit: number = 100): Promise<ReactionLeaderboard[]> {
+  async getReactionLeaderboard(
+    limit: number = 100,
+  ): Promise<ReactionLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         telegram_id,
         first_name,
@@ -612,7 +750,8 @@ export const userService = {
         reaction_games,
         reaction_best_score,
         last_played_at
-      `)
+      `,
+      )
       .gt("reaction_games", 0)
       .gt("reaction_best_time", 0)
       .order("reaction_best_time", { ascending: true })
@@ -632,10 +771,13 @@ export const userService = {
     }));
   },
 
-  async getSurvivalLeaderboard(limit: number = 100): Promise<SurvivalLeaderboard[]> {
+  async getSurvivalLeaderboard(
+    limit: number = 100,
+  ): Promise<SurvivalLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         telegram_id,
         first_name,
@@ -647,7 +789,8 @@ export const userService = {
         survival_best_streak,
         survival_games,
         last_played_at
-      `)
+      `,
+      )
       .gt("survival_games", 0)
       .order("survival_best_time", { ascending: false })
       .order("survival_max_level", { ascending: false })
@@ -667,10 +810,13 @@ export const userService = {
     }));
   },
 
-  async getPhysicsLeaderboard(limit: number = 100): Promise<PhysicsLeaderboard[]> {
+  async getPhysicsLeaderboard(
+    limit: number = 100,
+  ): Promise<PhysicsLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         telegram_id,
         first_name,
@@ -683,7 +829,8 @@ export const userService = {
         physics_least_mistakes,
         physics_games,
         last_played_at
-      `)
+      `,
+      )
       .gt("physics_games", 0)
       .order("physics_best_score", { ascending: false })
       .order("physics_best_time", { ascending: false })
@@ -704,10 +851,13 @@ export const userService = {
     }));
   },
 
-  async getRotationLeaderboard(limit: number = 100): Promise<RotationLeaderboard[]> {
+  async getRotationLeaderboard(
+    limit: number = 100,
+  ): Promise<RotationLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
-      .select(`
+      .select(
+        `
         id,
         telegram_id,
         first_name,
@@ -720,7 +870,8 @@ export const userService = {
         rotation_total_hits,
         rotation_games,
         last_played_at
-      `)
+      `,
+      )
       .gt("rotation_games", 0)
       .order("rotation_best_time", { ascending: false })
       .order("rotation_max_level", { ascending: false })
@@ -743,6 +894,7 @@ export const userService = {
 
   async getUserRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user || user.total_games === 0) return null;
 
     const { count, error } = await supabase
@@ -761,7 +913,9 @@ export const userService = {
 
   async getUserReactionRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
-    if (!user || user.reaction_games === 0 || !user.reaction_best_time) return null;
+
+    if (!user || user.reaction_games === 0 || !user.reaction_best_time)
+      return null;
 
     const { count, error } = await supabase
       .from("users")
@@ -780,13 +934,16 @@ export const userService = {
 
   async getUserSurvivalRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user || user.survival_games === 0) return null;
 
     const { count, error } = await supabase
       .from("users")
       .select("id", { count: "exact" })
       .gt("survival_games", 0)
-      .or(`survival_best_time.gt.${user.survival_best_time},and(survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`);
+      .or(
+        `survival_best_time.gt.${user.survival_best_time},and(survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`,
+      );
 
     if (error) {
       console.error("Error fetching user survival ranking:", error);
@@ -798,13 +955,16 @@ export const userService = {
 
   async getUserPhysicsRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user || user.physics_games === 0) return null;
 
     const { count, error } = await supabase
       .from("users")
       .select("id", { count: "exact" })
       .gt("physics_games", 0)
-      .or(`physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`);
+      .or(
+        `physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`,
+      );
 
     if (error) {
       console.error("Error fetching user physics ranking:", error);
@@ -816,13 +976,16 @@ export const userService = {
 
   async getUserRotationRanking(telegramId: number): Promise<number | null> {
     const user = await this.findByTelegramId(telegramId);
+
     if (!user || user.rotation_games === 0) return null;
 
     const { count, error } = await supabase
       .from("users")
       .select("id", { count: "exact" })
       .gt("rotation_games", 0)
-      .or(`rotation_best_time.gt.${user.rotation_best_time},and(rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`);
+      .or(
+        `rotation_best_time.gt.${user.rotation_best_time},and(rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`,
+      );
 
     if (error) {
       console.error("Error fetching user rotation ranking:", error);

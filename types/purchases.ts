@@ -72,11 +72,7 @@ export const PRODUCTS: Record<ProductType, ProductInfo> = {
     price: 10, // 10 Telegram Stars
     icon: "⚡",
     attempts_bonus: 1,
-    benefits: [
-      "1 additional game",
-      "Instant activation",
-      "No expiration date",
-    ],
+    benefits: ["1 additional game", "Instant activation", "No expiration date"],
   },
   attempts_5: {
     type: "attempts_5",
