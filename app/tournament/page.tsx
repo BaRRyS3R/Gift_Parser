@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Полноэкранный дизайн без контейнеров
+// src/app/tournament/page.tsx - Полная страница турниров с встроенными баннерами
 
 "use client";
 
@@ -45,7 +45,7 @@ import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
 
-// Полноэкранный спонсорский баннер
+// Полноэкранный спонсорский баннер для активного турнира
 interface SponsorBannerProps {
     tournament: TournamentWithStatus;
 }
@@ -73,7 +73,6 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
         }
     };
 
-    // Если нет спонсора, показываем простой полноэкранный баннер
     if (!tournament.sponsor_name || !tournament.sponsor_image_url) {
         return (
             <div className="w-full h-72 bg-gradient-to-br from-gray-800/40 to-gray-900/60 relative">
@@ -125,20 +124,15 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
 
     return (
         <div className="w-full h-72 relative">
-            {/* Background Image */}
             <div
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                 style={{
                     backgroundImage: `url(${tournament.sponsor_image_url})`
                 }}
             />
-
-            {/* Gradient Overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/80" />
 
-            {/* Content */}
             <div className="relative h-full flex flex-col justify-between p-6">
-                {/* Top Section - Sponsor Name and Tournament Info */}
                 <div className="space-y-3">
                     <div className="flex items-start justify-between">
                         <div>
@@ -162,9 +156,7 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
                     </h1>
                 </div>
 
-                {/* Bottom Section - Time Info and Channel Button */}
                 <div className="space-y-4">
-                    {/* Tournament Time Information */}
                     <div className="space-y-3">
                         {timeDisplay && (
                             <div className="flex items-center space-x-4">
@@ -182,7 +174,7 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
 
                         <div className="flex items-center justify-between text-sm text-white/60">
                             <div className="flex items-center space-x-2">
-                                <Calendar size={14} />
+                                <Calendar size={12} />
                                 <span>
                                     {new Date(tournament.start_date).toLocaleDateString('ru-RU', {
                                         day: '2-digit',
@@ -193,7 +185,7 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
                                 </span>
                             </div>
                             <div className="flex items-center space-x-2">
-                                <Calendar size={14} />
+                                <Calendar size={12} />
                                 <span>
                                     {new Date(tournament.end_date).toLocaleDateString('ru-RU', {
                                         day: '2-digit',
@@ -206,7 +198,6 @@ const SponsorBanner: React.FC<SponsorBannerProps> = ({ tournament }) => {
                         </div>
                     </div>
 
-                    {/* Sponsor Channel Button */}
                     {tournament.sponsor_channel_url && (
                         <div className="flex justify-end">
                             <button
@@ -502,9 +493,7 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
     );
 };
 
-// Остальные модальные компоненты остаются без изменений...
-// (ParticipantsModal, PrizesModal, RulesModal)
-
+// Модальные окна участников, призов и правил
 interface ParticipantsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -657,8 +646,6 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
         </Modal>
     );
 };
-
-// Остальные модальные компоненты (PrizesModal, RulesModal) остаются теми же...
 
 interface PrizesModalProps {
     isOpen: boolean;
@@ -887,7 +874,7 @@ const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
     );
 };
 
-// Обновленная секция активного турнира
+// Секция активного турнира
 interface ActiveTournamentSectionProps {
     tournament: TournamentWithStatus;
     leaderboard: TournamentLeaderboardEntry[];
@@ -909,24 +896,16 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
 
     return (
         <div className="space-y-0">
-            {/* Sponsor Banner */}
             <SponsorBanner tournament={tournament} />
-
-            {/* Tournament Statistics */}
             <TournamentStats
                 leaderboard={leaderboard}
                 tournament={tournament}
                 onParticipantsClick={() => setIsParticipantsModalOpen(true)}
                 onPrizesClick={() => setIsPrizesModalOpen(true)}
             />
-
-            {/* User Position Component */}
             <UserPositionComponent leaderboard={leaderboard} tournament={tournament} />
-
-            {/* Top Participants */}
             <TopParticipants leaderboard={leaderboard} />
 
-            {/* Action Buttons - остаются в контейнерах */}
             <div className="space-y-4 px-4 py-6">
                 <button
                     onClick={onPlayClick}
@@ -964,7 +943,6 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
                 )}
             </div>
 
-            {/* Modals */}
             <ParticipantsModal
                 isOpen={isParticipantsModalOpen}
                 onClose={() => setIsParticipantsModalOpen(false)}
@@ -986,208 +964,561 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
     );
 };
 
-// Остальная часть страницы остается той же...
-// (CompletedTournamentCard и основной компонент TournamentsPage)
-
-interface CompletedTournamentCardProps {
-    tournament: TournamentWithStatus;
-    isExpanded: boolean;
-    onToggleExpand: () => void;
+// Предстоящие турниры
+interface UpcomingTournamentsProps {
+    tournaments: TournamentWithStatus[];
 }
 
-const CompletedTournamentCard: React.FC<CompletedTournamentCardProps> = ({
-    tournament,
-    isExpanded,
-    onToggleExpand,
-}) => {
+const UpcomingTournaments: React.FC<UpcomingTournamentsProps> = ({ tournaments }) => {
     const t = useT();
-    const [winners, setWinners] = useState<TournamentLeaderboardEntry[]>([]);
-    const [isLoadingWinners, setIsLoadingWinners] = useState(false);
 
-    useEffect(() => {
-        if (isExpanded && winners.length === 0) {
-            const loadWinners = async () => {
-                setIsLoadingWinners(true);
-                try {
-                    const tournamentWinners = await tournamentService.getTournamentWinners(
-                        tournament.id,
-                        tournament.prizes.length
-                    );
-                    setWinners(tournamentWinners);
-                } catch (error) {
-                    console.error("Error loading winners:", error);
-                } finally {
-                    setIsLoadingWinners(false);
-                }
-            };
-            loadWinners();
-        }
-    }, [isExpanded, tournament.id, tournament.prizes.length, winners.length]);
-
-    const getRankIcon = (position: number) => {
-        switch (position) {
-            case 1:
-                return <Crown className="text-white" size={14} />;
-            case 2:
-                return <Medal className="text-white/80" size={14} />;
-            case 3:
-                return <Award className="text-white/60" size={14} />;
-            default:
-                return <span className="text-white/50 text-xs font-medium">#{position}</span>;
-        }
-    };
+    if (tournaments.length === 0) return null;
 
     return (
-        <div className="bg-white/5 border border-white/20 rounded-xl overflow-hidden transition-all duration-300 hover:bg-white/8 hover:border-white/30">
-            <div className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-white/5 border border-white/20 rounded-xl flex items-center justify-center">
-                            <Award className="text-white/50" size={22} />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-white/70 tracking-wide">
-                                {tournament.name}
-                            </h3>
-                            <div className="flex items-center space-x-3 text-sm mt-1">
-                                <div className="flex items-center space-x-1">
-                                    <Star className="text-white/50" size={14} />
-                                    <span className="text-white/60 font-medium">{t("tournament.completed")}</span>
-                                </div>
-                            </div>
-                        </div>
+        <div className="space-y-6">
+            <div className="px-4">
+                <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white/5 border border-white/20 rounded-lg flex items-center justify-center">
+                        <CalendarDays className="text-blue-400" size={20} />
                     </div>
-
-                    <button
-                        onClick={onToggleExpand}
-                        className="p-2 rounded-lg transition-all duration-300 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30"
-                    >
-                        {isExpanded ? (
-                            <ChevronUp className="text-white/60" size={18} />
-                        ) : (
-                            <ChevronDown className="text-white/60" size={18} />
-                        )}
-                    </button>
-                </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-4">
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                        <div className="space-y-1">
-                            <div className="flex items-center justify-center space-x-1">
-                                <Trophy className="text-white/50" size={14} />
-                                <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.prizes")}</span>
-                            </div>
-                            <div className="text-lg font-bold text-white/70">{tournament.prizes.length}</div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <div className="flex items-center justify-center space-x-1">
-                                <Users className="text-white/50" size={14} />
-                                <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.participants")}</span>
-                            </div>
-                            <div className="text-lg font-bold text-white/70">{tournament.participants_count || 0}</div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <div className="flex items-center justify-center space-x-1">
-                                <CalendarDays className="text-white/50" size={14} />
-                                <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.status")}</span>
-                            </div>
-                            <div className="text-sm font-bold text-white/70 capitalize">
-                                {t("tournament.completed")}
-                            </div>
-                        </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-white tracking-wide">Предстоящие турниры</h2>
+                        <p className="text-white/40 text-sm uppercase tracking-[0.2em]">{tournaments.length} турниров</p>
                     </div>
                 </div>
+            </div>
 
-                {isExpanded && (
-                    <div className="space-y-4 animate-fade-in">
-                        <div className="bg-white/5 border border-white/15 rounded-lg p-4">
-                            <div className="flex items-center space-x-2 mb-3">
-                                <CalendarDays className="text-white/70" size={16} />
-                                <span className="text-sm font-bold text-white/70 uppercase tracking-wider">{t("tournament.tournamentDates")}</span>
-                            </div>
-                            <div className="space-y-2 text-sm text-white/60">
-                                <div className="flex items-center justify-between">
-                                    <span className="font-medium">{t("tournament.start")}:</span>
-                                    <span className="font-mono">{new Date(tournament.start_date).toLocaleString('ru-RU')}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="font-medium">{t("tournament.end")}:</span>
-                                    <span className="font-mono">{new Date(tournament.end_date).toLocaleString('ru-RU')}</span>
-                                </div>
-                            </div>
-                        </div>
+            <div className="space-y-6">
+                {tournaments.map((tournament) => {
+                    const [timeDisplay, setTimeDisplay] = useState<string>("");
 
-                        <div className="bg-white/5 border border-white/15 rounded-lg p-4">
-                            <div className="flex items-center space-x-2 mb-4">
-                                <Crown className="text-white/70" size={16} />
-                                <span className="text-sm font-bold text-white/70 uppercase tracking-wider">
-                                    {t("tournament.champions")} ({tournament.prizes.length} {t("tournament.prizePositions")})
-                                </span>
-                            </div>
+                    useEffect(() => {
+                        const updateTime = () => {
+                            const now = new Date();
+                            const startDate = new Date(tournament.start_date);
+                            const diff = startDate.getTime() - now.getTime();
+                            setTimeDisplay(diff > 0 ? formatTimeRemaining(diff) : "Начинается");
+                        };
 
-                            {isLoadingWinners ? (
-                                <div className="flex items-center justify-center space-x-3 py-6">
-                                    <div className="w-5 h-5 border-2 border-white/20 border-t-white/50 rounded-full animate-spin" />
-                                    <span className="text-white/50 text-sm font-medium">{t("tournament.loadingChampions")}</span>
-                                </div>
-                            ) : winners.length > 0 ? (
-                                <div className="space-y-3">
-                                    {winners.map((winner, index) => (
-                                        <div
-                                            key={winner.id}
-                                            className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/8 transition-all duration-300"
-                                        >
-                                            <div className="flex items-center space-x-4">
-                                                <div className="flex items-center justify-center w-8">
-                                                    {getRankIcon(index + 1)}
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-bold text-white/80">
-                                                        {winner.first_name} {winner.last_name || ""}
-                                                    </div>
-                                                    <div className="flex items-center space-x-2 text-xs text-white/50">
-                                                        <div className="flex items-center space-x-1">
-                                                            <Activity size={10} />
-                                                            <span>{winner.games_played || 1} игр</span>
-                                                        </div>
-                                                        <div className="w-1 h-1 rounded-full bg-white/40" />
-                                                        <div className="flex items-center space-x-1">
-                                                            <Clock size={10} />
-                                                            <span className="font-mono">{formatTournamentSurvivalTime(winner.survival_time)}</span>
-                                                        </div>
-                                                        <div className="w-1 h-1 rounded-full bg-white/40" />
-                                                        <div className="flex items-center space-x-1">
-                                                            <TrendingUp size={10} />
-                                                            <span>L{winner.max_level_reached}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                        updateTime();
+                        const interval = setInterval(updateTime, 1000);
+                        return () => clearInterval(interval);
+                    }, [tournament]);
+
+                    const handleSponsorClick = () => {
+                        if (tournament.sponsor_channel_url) {
+                            window.open(tournament.sponsor_channel_url, '_blank');
+                        }
+                    };
+
+                    return (
+                        <div key={tournament.id} className="space-y-4">
+                            {!tournament.sponsor_name || !tournament.sponsor_image_url ? (
+                                <div className="w-full h-64 bg-gradient-to-br from-blue-800/40 to-purple-900/60 relative">
+                                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/60" />
+
+                                    <div className="relative h-full flex flex-col justify-between p-6">
+                                        <div>
+                                            <h1 className="text-2xl font-bold text-white tracking-wide mb-3">
+                                                {tournament.name}
+                                            </h1>
+                                            <div className="flex items-center space-x-2">
+                                                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                                                <span className="text-blue-400 font-medium">
+                                                    Предстоящий турнир
+                                                </span>
                                             </div>
-                                            <div className="text-right">
-                                                <div className="text-sm font-bold text-white/80">
-                                                    <div className="flex items-center space-x-1">
-                                                        <Star className="text-yellow-400/80" size={12} />
-                                                        <span>{winner.survival_score} pts</span>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {timeDisplay && (
+                                                <div className="flex items-center space-x-4">
+                                                    <Clock className="text-white/80" size={20} />
+                                                    <div>
+                                                        <div className="text-xl font-bold text-white font-mono">
+                                                            {timeDisplay}
+                                                        </div>
+                                                        <div className="text-white/60 text-sm">
+                                                            до начала турнира
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div className="text-xs text-white/50">
-                                                    {tournament.prizes[index]}
+                                            )}
+
+                                            <div className="flex items-center justify-between text-sm text-white/60">
+                                                <div className="flex items-center space-x-2">
+                                                    <Calendar size={14} />
+                                                    <span>Начало: {new Date(tournament.start_date).toLocaleDateString('ru-RU')}</span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Trophy size={14} />
+                                                    <span>{tournament.prizes.length} призов</span>
                                                 </div>
                                             </div>
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="text-center py-6">
-                                    <Trophy className="text-white/30 mx-auto mb-3" size={32} />
-                                    <p className="text-white/40 text-sm font-medium">{t("tournament.noChampionsData")}</p>
+                                <div className="w-full h-64 relative">
+                                    <div
+                                        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                                        style={{
+                                            backgroundImage: `url(${tournament.sponsor_image_url})`
+                                        }}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-b from-blue-600/30 via-blue-800/40 to-black/80" />
+
+                                    <div className="relative h-full flex flex-col justify-between p-6">
+                                        <div className="space-y-3">
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <div className="text-xs text-white/70 font-medium uppercase tracking-wider mb-2">
+                                                        Sponsor
+                                                    </div>
+                                                    <h2 className="text-lg font-bold text-white">
+                                                        {tournament.sponsor_name}
+                                                    </h2>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                                                    <span className="text-blue-400 font-medium text-sm">
+                                                        Предстоящий
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <h1 className="text-xl font-bold text-white tracking-wide">
+                                                {tournament.name}
+                                            </h1>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="space-y-3">
+                                                {timeDisplay && (
+                                                    <div className="flex items-center space-x-4">
+                                                        <Clock className="text-white/80" size={18} />
+                                                        <div>
+                                                            <div className="text-lg font-bold text-white font-mono">
+                                                                {timeDisplay}
+                                                            </div>
+                                                            <div className="text-white/60 text-sm">
+                                                                до начала турнира
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center justify-between text-sm text-white/60">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Calendar size={12} />
+                                                        <span>
+                                                            {new Date(tournament.start_date).toLocaleDateString('ru-RU', {
+                                                                day: '2-digit',
+                                                                month: '2-digit',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit'
+                                                            })}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <Trophy size={12} />
+                                                        <span>{tournament.prizes.length} призов</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {tournament.sponsor_channel_url && (
+                                                <div className="flex justify-end">
+                                                    <button
+                                                        onClick={handleSponsorClick}
+                                                        className="flex items-center space-x-2 px-4 py-2 bg-white/15 hover:bg-white/25 border border-white/30 hover:border-white/50 rounded-lg transition-all duration-300 backdrop-blur-sm hover:scale-105 active:scale-95"
+                                                    >
+                                                        <ExternalLink className="text-white" size={14} />
+                                                        <span className="text-white font-medium text-sm">
+                                                            Sponsor Channel
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             )}
+
+                            <div className="px-4">
+                                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                                    <div className="grid grid-cols-2 gap-4 text-center">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center justify-center space-x-1">
+                                                <Trophy className="text-white/50" size={14} />
+                                                <span className="text-xs text-white/50 uppercase tracking-wider font-medium">Призов</span>
+                                            </div>
+                                            <div className="text-lg font-bold text-white/70">{tournament.prizes.length}</div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <div className="flex items-center justify-center space-x-1">
+                                                <Clock className="text-white/50" size={14} />
+                                                <span className="text-xs text-white/50 uppercase tracking-wider font-medium">Начало</span>
+                                            </div>
+                                            <div className="text-sm font-bold text-white/70">
+                                                {new Date(tournament.start_date).toLocaleDateString('ru-RU', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+// Завершенные турниры
+interface CompletedTournamentsProps {
+    tournaments: TournamentWithStatus[];
+}
+
+const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({ tournaments }) => {
+    const t = useT();
+    const [loadedWinners, setLoadedWinners] = useState<Record<string, TournamentLeaderboardEntry[]>>({});
+    const [expandedTournaments, setExpandedTournaments] = useState<Set<string>>(new Set());
+
+    const loadWinners = async (tournamentId: string, prizeCount: number) => {
+        if (loadedWinners[tournamentId]) return;
+
+        try {
+            const winners = await tournamentService.getTournamentWinners(tournamentId, prizeCount);
+            setLoadedWinners(prev => ({ ...prev, [tournamentId]: winners }));
+        } catch (error) {
+            console.error("Error loading winners:", error);
+            setLoadedWinners(prev => ({ ...prev, [tournamentId]: [] }));
+        }
+    };
+
+    const handleToggleExpand = (tournamentId: string, prizeCount: number) => {
+        setExpandedTournaments(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(tournamentId)) {
+                newSet.delete(tournamentId);
+            } else {
+                newSet.add(tournamentId);
+                loadWinners(tournamentId, prizeCount);
+            }
+            return newSet;
+        });
+    };
+
+    useEffect(() => {
+        tournaments.slice(0, 2).forEach(tournament => {
+            loadWinners(tournament.id, Math.min(3, tournament.prizes.length));
+        });
+    }, [tournaments]);
+
+    if (tournaments.length === 0) return null;
+
+    return (
+        <div className="space-y-6">
+            <div className="px-4">
+                <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white/5 border border-white/20 rounded-lg flex items-center justify-center">
+                        <Star className="text-white/60" size={20} />
                     </div>
-                )}
+                    <div>
+                        <h2 className="text-xl font-bold text-white/70 tracking-wide">{t("tournament.hallOfFame")}</h2>
+                        <p className="text-white/40 text-sm uppercase tracking-[0.2em]">{tournaments.length} {t("tournament.tournaments")}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="space-y-6">
+                {tournaments.map((tournament) => {
+                    const winners = loadedWinners[tournament.id] || [];
+                    const isExpanded = expandedTournaments.has(tournament.id);
+                    const topWinner = winners.length > 0 ? winners[0] : null;
+
+                    const handleSponsorClick = () => {
+                        if (tournament.sponsor_channel_url) {
+                            window.open(tournament.sponsor_channel_url, '_blank');
+                        }
+                    };
+
+                    return (
+                        <div key={tournament.id} className="space-y-4">
+                            {!tournament.sponsor_name || !tournament.sponsor_image_url ? (
+                                <div className="w-full h-64 bg-gradient-to-br from-gray-800/60 to-gray-900/80 relative">
+                                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/70" />
+
+                                    <div className="relative h-full flex flex-col justify-between p-6">
+                                        <div>
+                                            <h1 className="text-2xl font-bold text-white/80 tracking-wide mb-3">
+                                                {tournament.name}
+                                            </h1>
+                                            <div className="flex items-center space-x-2">
+                                                <div className="w-2 h-2 bg-gray-400 rounded-full" />
+                                                <span className="text-gray-400 font-medium">
+                                                    Турнир завершен
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {topWinner && (
+                                                <div className="flex items-center space-x-3">
+                                                    <Crown className="text-yellow-400/80" size={20} />
+                                                    <div>
+                                                        <div className="text-lg font-bold text-white">
+                                                            {topWinner.first_name} {topWinner.last_name || ""}
+                                                        </div>
+                                                        <div className="text-white/60 text-sm">
+                                                            Чемпион • {topWinner.survival_score} очков
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="flex items-center justify-between text-sm text-white/60">
+                                                <div className="flex items-center space-x-2">
+                                                    <Users size={14} />
+                                                    <span>{tournament.participants_count} участников</span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Trophy size={14} />
+                                                    <span>{tournament.prizes.length} призов</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="w-full h-64 relative">
+                                    <div
+                                        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                                        style={{
+                                            backgroundImage: `url(${tournament.sponsor_image_url})`
+                                        }}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-b from-gray-600/40 via-gray-800/50 to-black/80" />
+
+                                    <div className="relative h-full flex flex-col justify-between p-6">
+                                        <div className="space-y-3">
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <div className="text-xs text-white/70 font-medium uppercase tracking-wider mb-2">
+                                                        Sponsor
+                                                    </div>
+                                                    <h2 className="text-lg font-bold text-white/90">
+                                                        {tournament.sponsor_name}
+                                                    </h2>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <div className="w-2 h-2 bg-gray-400 rounded-full" />
+                                                    <span className="text-gray-400 font-medium text-sm">
+                                                        Завершен
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <h1 className="text-xl font-bold text-white/90 tracking-wide">
+                                                {tournament.name}
+                                            </h1>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="space-y-3">
+                                                {topWinner && (
+                                                    <div className="flex items-center space-x-3">
+                                                        <Crown className="text-yellow-400/80" size={18} />
+                                                        <div>
+                                                            <div className="text-lg font-bold text-white">
+                                                                {topWinner.first_name} {topWinner.last_name || ""}
+                                                            </div>
+                                                            <div className="text-white/60 text-sm">
+                                                                Чемпион • {topWinner.survival_score} очков
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center justify-between text-sm text-white/60">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Users size={12} />
+                                                        <span>{tournament.participants_count} участников</span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <Trophy size={12} />
+                                                        <span>{tournament.prizes.length} призов</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {tournament.sponsor_channel_url && (
+                                                <div className="flex justify-end">
+                                                    <button
+                                                        onClick={handleSponsorClick}
+                                                        className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 rounded-lg transition-all duration-300 backdrop-blur-sm hover:scale-105 active:scale-95"
+                                                    >
+                                                        <ExternalLink className="text-white/80" size={14} />
+                                                        <span className="text-white/80 font-medium text-sm">
+                                                            Sponsor Channel
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="px-4">
+                                <div className="space-y-4">
+                                    <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-sm font-bold text-white/70 uppercase tracking-wider">
+                                                Информация о турнире
+                                            </span>
+                                            <button
+                                                onClick={() => handleToggleExpand(tournament.id, tournament.prizes.length)}
+                                                className="p-2 rounded-lg transition-all duration-300 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30"
+                                            >
+                                                {isExpanded ? (
+                                                    <ChevronUp className="text-white/60" size={18} />
+                                                ) : (
+                                                    <ChevronDown className="text-white/60" size={18} />
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-4 text-center">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-center space-x-1">
+                                                    <Trophy className="text-white/50" size={14} />
+                                                    <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.prizes")}</span>
+                                                </div>
+                                                <div className="text-lg font-bold text-white/70">{tournament.prizes.length}</div>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-center space-x-1">
+                                                    <Users className="text-white/50" size={14} />
+                                                    <span className="text-xs text-white/50 uppercase tracking-wider font-medium">{t("tournament.participants")}</span>
+                                                </div>
+                                                <div className="text-lg font-bold text-white/70">{tournament.participants_count || 0}</div>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-center space-x-1">
+                                                    <CalendarDays className="text-white/50" size={14} />
+                                                    <span className="text-xs text-white/50 uppercase tracking-wider font-medium">Длительность</span>
+                                                </div>
+                                                <div className="text-sm font-bold text-white/70">
+                                                    {Math.ceil((new Date(tournament.end_date).getTime() - new Date(tournament.start_date).getTime()) / (1000 * 60 * 60 * 24))} дней
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {isExpanded && (
+                                        <div className="space-y-4 animate-fade-in">
+                                            <div className="bg-white/5 border border-white/15 rounded-lg p-4">
+                                                <div className="flex items-center space-x-2 mb-3">
+                                                    <CalendarDays className="text-white/70" size={16} />
+                                                    <span className="text-sm font-bold text-white/70 uppercase tracking-wider">{t("tournament.tournamentDates")}</span>
+                                                </div>
+                                                <div className="space-y-2 text-sm text-white/60">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="font-medium">{t("tournament.start")}:</span>
+                                                        <span className="font-mono">{new Date(tournament.start_date).toLocaleString('ru-RU')}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="font-medium">{t("tournament.end")}:</span>
+                                                        <span className="font-mono">{new Date(tournament.end_date).toLocaleString('ru-RU')}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {winners.length > 0 && (
+                                                <div className="bg-white/5 border border-white/15 rounded-lg p-4">
+                                                    <div className="flex items-center space-x-2 mb-4">
+                                                        <Crown className="text-white/70" size={16} />
+                                                        <span className="text-sm font-bold text-white/70 uppercase tracking-wider">
+                                                            {t("tournament.champions")} ({tournament.prizes.length} {t("tournament.prizePositions")})
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        {winners.map((winner, index) => {
+                                                            const getRankIcon = (position: number) => {
+                                                                switch (position) {
+                                                                    case 1: return <Crown className="text-white" size={14} />;
+                                                                    case 2: return <Medal className="text-white/80" size={14} />;
+                                                                    case 3: return <Award className="text-white/60" size={14} />;
+                                                                    default: return <span className="text-white/50 text-xs font-medium">#{position}</span>;
+                                                                }
+                                                            };
+
+                                                            return (
+                                                                <div
+                                                                    key={winner.id}
+                                                                    className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/8 transition-all duration-300"
+                                                                >
+                                                                    <div className="flex items-center space-x-4">
+                                                                        <div className="flex items-center justify-center w-8">
+                                                                            {getRankIcon(index + 1)}
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="text-sm font-bold text-white/80">
+                                                                                {winner.first_name} {winner.last_name || ""}
+                                                                            </div>
+                                                                            <div className="flex items-center space-x-2 text-xs text-white/50">
+                                                                                <div className="flex items-center space-x-1">
+                                                                                    <Activity size={10} />
+                                                                                    <span>{winner.games_played || 1} игр</span>
+                                                                                </div>
+                                                                                <div className="w-1 h-1 rounded-full bg-white/40" />
+                                                                                <div className="flex items-center space-x-1">
+                                                                                    <Clock size={10} />
+                                                                                    <span className="font-mono">{formatTournamentSurvivalTime(winner.survival_time)}</span>
+                                                                                </div>
+                                                                                <div className="w-1 h-1 rounded-full bg-white/40" />
+                                                                                <div className="flex items-center space-x-1">
+                                                                                    <TrendingUp size={10} />
+                                                                                    <span>L{winner.max_level_reached}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <div className="text-sm font-bold text-white/80">
+                                                                            <div className="flex items-center space-x-1">
+                                                                                <Star className="text-yellow-400/80" size={12} />
+                                                                                <span>{winner.survival_score} pts</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="text-xs text-white/50">
+                                                                            {tournament.prizes[index]}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
@@ -1205,7 +1536,6 @@ export default function TournamentsPage() {
     const [activeLeaderboard, setActiveLeaderboard] = useState<TournamentLeaderboardEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [expandedTournaments, setExpandedTournaments] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const loadTournaments = async () => {
@@ -1250,18 +1580,6 @@ export default function TournamentsPage() {
         router.push("/tournament/play");
     };
 
-    const handleToggleExpand = (tournamentId: string) => {
-        setExpandedTournaments(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(tournamentId)) {
-                newSet.delete(tournamentId);
-            } else {
-                newSet.add(tournamentId);
-            }
-            return newSet;
-        });
-    };
-
     if (isLoading) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
@@ -1302,9 +1620,10 @@ export default function TournamentsPage() {
     }
 
     const hasActiveTournament = tournaments.active.length > 0;
+    const hasUpcomingTournaments = tournaments.upcoming.length > 0;
     const hasCompletedTournaments = tournaments.completed.length > 0;
 
-    if (!hasActiveTournament && !hasCompletedTournaments) {
+    if (!hasActiveTournament && !hasUpcomingTournaments && !hasCompletedTournaments) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center space-y-8 max-w-md mx-auto px-6">
@@ -1337,29 +1656,15 @@ export default function TournamentsPage() {
                 />
             )}
 
-            {hasCompletedTournaments && (
+            {hasUpcomingTournaments && (
                 <div className={`${hasActiveTournament ? 'py-6 border-t border-white/10' : 'py-6'}`}>
-                    <div className="mb-6 px-4">
-                        <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-white/5 border border-white/20 rounded-lg flex items-center justify-center">
-                                <Star className="text-white/60" size={20} />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-white/70 tracking-wide">{t("tournament.hallOfFame")}</h2>
-                                <p className="text-white/40 text-sm uppercase tracking-[0.2em]">{tournaments.completed.length} {t("tournament.tournaments")}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="space-y-4 px-4">
-                        {tournaments.completed.map((tournament) => (
-                            <CompletedTournamentCard
-                                key={tournament.id}
-                                tournament={tournament}
-                                isExpanded={expandedTournaments.has(tournament.id)}
-                                onToggleExpand={() => handleToggleExpand(tournament.id)}
-                            />
-                        ))}
-                    </div>
+                    <UpcomingTournaments tournaments={tournaments.upcoming} />
+                </div>
+            )}
+
+            {hasCompletedTournaments && (
+                <div className={`${(hasActiveTournament || hasUpcomingTournaments) ? 'py-6 border-t border-white/10' : 'py-6'}`}>
+                    <CompletedTournaments tournaments={tournaments.completed} />
                 </div>
             )}
         </div>
