@@ -10,7 +10,6 @@ import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
 import { userService, type TelegramUser, type User } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import DebugLanguage from "@/components/DebugLanguage";
 
 interface AuthState {
   isChecking: boolean;
@@ -537,7 +536,6 @@ export default function IntroPage(): JSX.Element {
               ? t("auth.checkingUser")
               : `${t("common.loading")} ${Math.round(loadProgress)}%`}
           </p>
-          <DebugLanguage />
         </div>
       )}
 
