@@ -1,4 +1,4 @@
-// src/components/AboutModal/AboutModal.tsx - Simplified lightweight version
+// src/components/AboutModal/AboutModal.tsx - Expanded version with leagues and rotation
 "use client";
 
 import React from "react";
@@ -76,6 +76,67 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                   {t("about.modes.physics.description")}
                 </p>
               </div>
+              <div>
+                <h4 className="font-medium text-white text-sm mb-1">
+                  {t("about.modes.rotation.name")}
+                </h4>
+                <p className="text-white/60 text-xs">
+                  {t("about.modes.rotation.description")}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Progression System */}
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-3">
+              {t("about.progression.title")}
+            </h3>
+            <p className="text-white/70 text-sm leading-relaxed mb-4">
+              {t("about.progression.description")}
+            </p>
+
+            {/* Levels */}
+            <div className="mb-4">
+              <h4 className="font-medium text-white text-sm mb-2">
+                {t("about.progression.levels.title")}
+              </h4>
+              <p className="text-white/60 text-xs mb-1">
+                {t("about.progression.levels.description")}
+              </p>
+              <p className="text-white/50 text-xs">
+                {t("about.progression.levels.maxLevel")}
+              </p>
+            </div>
+
+            {/* Leagues */}
+            <div>
+              <h4 className="font-medium text-white text-sm mb-2">
+                {t("about.progression.leagues.title")}
+              </h4>
+              <p className="text-white/60 text-xs mb-3">
+                {t("about.progression.leagues.description")}
+              </p>
+              <div className="space-y-1">
+                <p className="text-white/60 text-xs">
+                  • {t("about.progression.leagues.bronze")}
+                </p>
+                <p className="text-white/60 text-xs">
+                  • {t("about.progression.leagues.silver")}
+                </p>
+                <p className="text-white/60 text-xs">
+                  • {t("about.progression.leagues.gold")}
+                </p>
+                <p className="text-white/60 text-xs">
+                  • {t("about.progression.leagues.platinum")}
+                </p>
+                <p className="text-white/60 text-xs">
+                  • {t("about.progression.leagues.diamond")}
+                </p>
+              </div>
+              <p className="text-white/50 text-xs mt-2">
+                {t("about.progression.leagues.rewards")}
+              </p>
             </div>
           </div>
 
@@ -102,6 +163,9 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
               <p className="text-white/60 text-xs">• {t("about.tips.tip2")}</p>
               <p className="text-white/60 text-xs">• {t("about.tips.tip3")}</p>
               <p className="text-white/60 text-xs">• {t("about.tips.tip4")}</p>
+              <p className="text-white/60 text-xs">• {t("about.tips.tip5")}</p>
+              <p className="text-white/60 text-xs">• {t("about.tips.tip6")}</p>
+              <p className="text-white/60 text-xs">• {t("about.tips.tip7")}</p>
             </div>
           </div>
 
