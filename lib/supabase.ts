@@ -703,7 +703,7 @@ export const userService = {
 
       if (isCorrect && completedInTime) {
         // Captcha passed - increase trust score
-        const newTrustScore = await this.updateTrustScore(telegramId, 5);
+        const newTrustScore = await this.updateTrustScore(telegramId, 15);
         secureLog(`Captcha passed for user ${telegramId}`);
         return { success: true, newTrustScore };
       } else {
@@ -730,7 +730,7 @@ export const userService = {
     try {
       if (success && completedInTime) {
         // Biometric passed - increase trust score significantly
-        const newTrustScore = await this.updateTrustScore(telegramId, 10);
+        const newTrustScore = await this.updateTrustScore(telegramId, 30);
         secureLog(`Biometric authentication passed for user ${telegramId}`);
         return { success: true, newTrustScore };
       } else {
