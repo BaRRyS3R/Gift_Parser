@@ -143,7 +143,7 @@ export default function LeaderboardPage() {
 
     return (
       <div
-        key={entry.id}
+        key={entry.telegram_id}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
@@ -231,7 +231,7 @@ export default function LeaderboardPage() {
   ) => {
     return (
       <div
-        key={entry.id}
+        key={entry.telegram_id}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
@@ -322,7 +322,7 @@ export default function LeaderboardPage() {
   ) => {
     return (
       <div
-        key={entry.id}
+        key={entry.telegram_id}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
@@ -413,7 +413,7 @@ export default function LeaderboardPage() {
   ) => {
     return (
       <div
-        key={entry.id}
+        key={entry.telegram_id}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
