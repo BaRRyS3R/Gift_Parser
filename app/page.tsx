@@ -640,9 +640,9 @@ export default function IntroPage(): JSX.Element {
   // FIXED: Use stable loading states to prevent flashing
   const isInitialLoading =
     stableLoadingState.isInitializing ||
-    authState.isChecking ||
-    contextLoading ||
-    (isLoading && !videoError && !stableLoadingState.isVideoReady);
+    (authState.isChecking && !isPlaying) ||
+    (contextLoading && !isPlaying) ||
+    (isLoading && !videoError && !stableLoadingState.isVideoReady && !isPlaying);
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
