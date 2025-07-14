@@ -205,6 +205,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       // Convert auth user to regular user format for compatibility
       const user: User = {
         id: authUser.id,
+        trust_score: authUser.trust_score,
         telegram_id: authUser.telegram_id,
         first_name: authUser.first_name,
         last_name: authUser.last_name,
@@ -305,6 +306,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           // Convert to User format and update
           const user: User = {
             id: userData.id,
+            trust_score: userData.trust_score,
             telegram_id: userData.telegram_id,
             first_name: userData.first_name,
             last_name: userData.last_name,
