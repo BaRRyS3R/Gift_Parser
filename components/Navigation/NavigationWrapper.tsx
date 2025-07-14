@@ -16,6 +16,7 @@ const hiddenPaths = [
   "/tournament/play",
   "/tournament",
   "/game/rotation",
+  "/blocked",
 ];
 
 export default function NavigationWrapper() {

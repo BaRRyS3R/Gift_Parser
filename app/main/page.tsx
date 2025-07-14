@@ -347,10 +347,10 @@ export default function MainPage() {
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : pageLoaded
-            ? "opacity-100 transition-opacity duration-1000 ease-out"
-            : "opacity-0"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : pageLoaded
+          ? "opacity-100 transition-opacity duration-1000 ease-out"
+          : "opacity-0"
         }`}
     >
       {/* Background Video */}
@@ -392,11 +392,11 @@ export default function MainPage() {
       {/* Top Navigation Icons */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           }`}
         style={{ top: headerOffset }}
       >
@@ -431,17 +431,6 @@ export default function MainPage() {
               </div>
               <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
             </button>
-
-            {/* SECURITY: Trust Score Indicator */}
-            {!securityState.isLoading && (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-black/30 backdrop-blur-sm border border-white/20 rounded-full">
-                <Shield className={trustScoreInfo.color} size={14} />
-                <span className={`text-xs font-bold ${trustScoreInfo.color}`}>
-                  {securityState.trustScore}
-                </span>
-                <span className="text-white/60 text-xs">/100</span>
-              </div>
-            )}
           </div>
 
           {/* Tournament Button */}
@@ -476,6 +465,20 @@ export default function MainPage() {
 
       {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
+
+        {/* SECURITY: Trust Score Indicator */}
+        <div>
+          {!securityState.isLoading && (
+            <div className="flex items-center space-x-2 px-3 py-1 bg-black/30 backdrop-blur-sm border border-white/20 rounded-full">
+              <Shield className={trustScoreInfo.color} size={14} />
+              <span className={`text-xs font-bold ${trustScoreInfo.color}`}>
+                {securityState.trustScore}
+              </span>
+              <span className="text-white/60 text-xs">/ 100</span>
+            </div>
+          )}
+        </div>
+        
         {/* Title Section */}
         <div className="relative">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
@@ -486,8 +489,8 @@ export default function MainPage() {
         {/* Action Button */}
         <div
           className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+            : "opacity-100 translate-y-0"
             }`}
         >
           <div className="relative group">
@@ -495,8 +498,8 @@ export default function MainPage() {
 
             <button
               className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${isSecurityCheckNeeded()
-                  ? "border-yellow-500/60 text-yellow-300 opacity-75"
-                  : "border-white/60 hover:border-white"
+                ? "border-yellow-500/60 text-yellow-300 opacity-75"
+                : "border-white/60 hover:border-white"
                 } ${isTransitioning ? "opacity-50" : ""
                 }`}
               disabled={isTransitioning}
@@ -531,11 +534,11 @@ export default function MainPage() {
         {/* User Greeting */}
         <div
           className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showGreeting
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-8"
-              }`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
             }`}
         >
           {userLoading ? (
@@ -594,11 +597,11 @@ export default function MainPage() {
       {/* Attempts Display */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           }`}
         style={{ paddingBottom: "140px" }}
       >
@@ -609,11 +612,11 @@ export default function MainPage() {
       {user && !userLoading && (
         <div
           className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
-              ? `transition-all duration-1000 transform ${showLeagueDisplay
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-4"
-              }`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showLeagueDisplay
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-4"
+            }`
+            : "opacity-100 translate-y-0"
             }`}
           style={{
             bottom: "96px",
