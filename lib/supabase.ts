@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Обновленный сервис пользователей с исключением режима реакции из подсчета общих игр
+// src/lib/supabase.ts - Complete secured service without sensitive logging in production
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -16,6 +16,12 @@ import { RotationGameResult } from "@/types/game-modes/rotation";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// SECURITY: Only log Supabase config in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('Supabase URL configured:', supabaseUrl ? 'Yes' : 'No');
+  console.log('Supabase Key configured:', supabaseAnonKey ? 'Yes' : 'No');
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const ATTEMPTS_CONFIG = {
@@ -24,6 +30,25 @@ const ATTEMPTS_CONFIG = {
   RESET_INTERVAL_MS: 2 * 60 * 60 * 1000,
   REFERRAL_BONUS: 5,
 } as const;
+
+// SECURITY: Helper function for secure logging
+const secureLog = (message: string, data?: any) => {
+  if (process.env.NODE_ENV === 'development') {
+    if (data && typeof data === 'object') {
+      // Remove sensitive fields from logging
+      const sanitizedData = { ...data };
+      if (sanitizedData.id && typeof sanitizedData.id === 'string' && sanitizedData.id.length > 10) {
+        sanitizedData.id = sanitizedData.id.substring(0, 8) + '...';
+      }
+      if (sanitizedData.user_id) {
+        sanitizedData.user_id = '***';
+      }
+      console.log(message, sanitizedData);
+    } else {
+      console.log(message, data);
+    }
+  }
+};
 
 export interface User {
   id: string; // UUID v4
@@ -92,7 +117,6 @@ export interface User {
   is_active: boolean;
 }
 
-// Updated interface with missedRewards field
 export interface GameSaveResult {
   success: boolean;
   leagueChanged?: boolean;
@@ -100,7 +124,7 @@ export interface GameSaveResult {
   levelChanged?: boolean;
   newLevel?: number;
   reward?: LeagueRewardResult;
-  missedRewards?: LeagueRewardResult[]; // NEW: Added to support retroactive reward checking
+  missedRewards?: LeagueRewardResult[];
   error?: string;
 }
 
@@ -119,18 +143,14 @@ export const userService = {
       const { data, error } = await supabase.rpc("get_current_timestamp");
 
       if (error) {
-        console.warn("Failed to get server time, using client time:", error);
-
+        secureLog("Failed to get server time, using client time:", error.message);
         return new Date();
       }
 
       return new Date(data);
     } catch (error) {
-      console.warn(
-        "Error getting server time, falling back to client time:",
-        error,
-      );
-
+      secureLog("Error getting server time, falling back to client time:",
+        error instanceof Error ? error.message : 'Unknown error');
       return new Date();
     }
   },
@@ -143,8 +163,13 @@ export const userService = {
       .maybeSingle();
 
     if (error) {
-      console.error("Error finding user:", error);
+      secureLog("Error finding user:", error.message);
       throw error;
+    }
+
+    // SECURITY: Don't log full user data in production
+    if (data) {
+      secureLog("User found for telegram_id:", telegramId);
     }
 
     return data;
@@ -166,6 +191,8 @@ export const userService = {
           referrerName += ` ${referrer.last_name}`;
         }
 
+        secureLog("Valid referral code found");
+
         return {
           isValid: true,
           bonus: referrer.referral_bonus,
@@ -176,11 +203,7 @@ export const userService = {
 
       return { isValid: false, bonus: 0 };
     } catch (error) {
-      console.error(
-        "Error validating referral code and getting referrer info:",
-        error,
-      );
-
+      secureLog("Error validating referral code:", error instanceof Error ? error.message : 'Unknown error');
       return { isValid: false, bonus: 0 };
     }
   },
@@ -193,7 +216,7 @@ export const userService = {
       .maybeSingle();
 
     if (error) {
-      console.error("Error finding user by referral code:", error);
+      secureLog("Error finding user by referral code:", error.message);
       throw error;
     }
 
@@ -247,6 +270,8 @@ export const userService = {
             updated_at: new Date().toISOString(),
           })
           .eq("id", referrer.id);
+
+        secureLog("Referral bonus applied");
       }
     }
 
@@ -272,16 +297,17 @@ export const userService = {
       .single();
 
     if (error) {
-      console.error("Error creating user:", error);
+      secureLog("Error creating user:", error.message);
       throw error;
     }
 
     try {
       await leagueService.initializeUserLeague(data.id, 0);
     } catch (leagueError) {
-      console.error("Error initializing user league:", leagueError);
+      secureLog("Error initializing user league:", leagueError instanceof Error ? leagueError.message : 'Unknown error');
     }
 
+    secureLog("User created successfully");
     return data;
   },
 
@@ -308,7 +334,7 @@ export const userService = {
           }
         }
       } catch (error) {
-        console.error("Error getting referrer display name:", error);
+        secureLog("Error getting referrer display name:", error instanceof Error ? error.message : 'Unknown error');
         referredByName = "s0meone";
       }
     }
@@ -341,8 +367,7 @@ export const userService = {
         bonus: referrer.referral_bonus,
       };
     } catch (error) {
-      console.error("Error getting referrer info:", error);
-
+      secureLog("Error getting referrer info:", error instanceof Error ? error.message : 'Unknown error');
       return null;
     }
   },
@@ -376,10 +401,7 @@ export const userService = {
         serverTime.getTime() - lastAttemptTime.getTime();
 
       if (timeSinceLastAttempt < 0) {
-        console.warn(
-          "Potential time manipulation detected for user:",
-          telegramId,
-        );
+        secureLog("Potential time manipulation detected for user:", telegramId);
       }
     }
 
@@ -429,7 +451,7 @@ export const userService = {
       .eq("telegram_id", telegramId);
 
     if (error) {
-      console.error("Error consuming attempt:", error);
+      secureLog("Error consuming attempt:", error.message);
       throw error;
     }
 
@@ -468,7 +490,7 @@ export const userService = {
       .eq("telegram_id", telegramId);
 
     if (error) {
-      console.error("Error resetting attempts:", error);
+      secureLog("Error resetting attempts:", error.message);
       throw error;
     }
   },
@@ -488,7 +510,7 @@ export const userService = {
       .eq("telegram_id", telegramId);
 
     if (error) {
-      console.error("Error performing instant reset:", error);
+      secureLog("Error performing instant reset:", error.message);
       throw error;
     }
   },
@@ -501,7 +523,6 @@ export const userService = {
     return this.consumeAttemptWithServerValidation(telegramId);
   },
 
-  // UPDATED: Enhanced updateGameStats with reaction mode exclusion from total_games
   async updateGameStats(
     telegramId: number,
     gameResult:
@@ -525,8 +546,15 @@ export const userService = {
     const previousLevel = user.current_level;
     const newLevel = leagueService.calculateLevel(newTotalGames);
 
+    // SECURITY: Don't log detailed game result in production
+    secureLog("Updating user statistics", {
+      mode: gameResult.mode,
+      score: gameResult.score,
+      isCompetitive: isCompetitiveMode
+    });
+
     const updates: any = {
-      total_games: newTotalGames, // Only incremented for competitive modes
+      total_games: newTotalGames,
       total_score: user.total_score + gameResult.score,
       best_score: Math.max(user.best_score, gameResult.score),
       current_level: newLevel,
@@ -554,8 +582,8 @@ export const userService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
-              (totalReactionGames + 1)
+              reactionResult.reactionTime) /
+            (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
@@ -641,11 +669,11 @@ export const userService = {
       .eq("telegram_id", telegramId);
 
     if (error) {
-      console.error("Error updating user stats:", error);
+      secureLog("Error updating user stats:", error.message);
       throw error;
     }
 
-    // IMPORTANT: League checking only for competitive modes
+    // League checking only for competitive modes
     try {
       if (isCompetitiveMode) {
         const leagueResult = await leagueService.checkAndUpdateLeague(
@@ -663,7 +691,6 @@ export const userService = {
           missedRewards: leagueResult.missedRewards,
         };
       } else {
-        // For reaction mode, return result without league checking
         return {
           success: true,
           leagueChanged: false,
@@ -671,7 +698,7 @@ export const userService = {
         };
       }
     } catch (leagueError) {
-      console.error("Error checking league after game:", leagueError);
+      secureLog("Error checking league after game:", leagueError instanceof Error ? leagueError.message : 'Unknown error');
 
       return {
         success: true,
@@ -695,22 +722,15 @@ export const userService = {
 
     if (!user) throw new Error("User not found");
 
-    console.log("Updating user statistics with game result:", {
-      mode: gameResult.mode,
-      score: gameResult.score,
-      duration: gameResult.duration,
-    });
-
     return await this.updateGameStats(telegramId, gameResult);
   },
 
-  // Existing leaderboard methods (unchanged)
+  // SECURITY: Secured leaderboard methods without UUID logging
   async getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
     const { data, error } = await supabase
       .from("users")
       .select(
         `
-        id,
         telegram_id,
         first_name,
         last_name,
@@ -726,21 +746,18 @@ export const userService = {
       .limit(limit);
 
     if (error) {
-      console.error("Error fetching leaderboard:", error);
+      secureLog("Error fetching leaderboard:", error.message);
       throw error;
     }
 
     return data || [];
   },
 
-  async getReactionLeaderboard(
-    limit: number = 100,
-  ): Promise<ReactionLeaderboard[]> {
+  async getReactionLeaderboard(limit: number = 100): Promise<ReactionLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
       .select(
         `
-        id,
         telegram_id,
         first_name,
         last_name,
@@ -759,7 +776,7 @@ export const userService = {
       .limit(limit);
 
     if (error) {
-      console.error("Error fetching reaction leaderboard:", error);
+      secureLog("Error fetching reaction leaderboard:", error.message);
       throw error;
     }
 
@@ -771,14 +788,11 @@ export const userService = {
     }));
   },
 
-  async getSurvivalLeaderboard(
-    limit: number = 100,
-  ): Promise<SurvivalLeaderboard[]> {
+  async getSurvivalLeaderboard(limit: number = 100): Promise<SurvivalLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
       .select(
         `
-        id,
         telegram_id,
         first_name,
         last_name,
@@ -797,7 +811,7 @@ export const userService = {
       .limit(limit);
 
     if (error) {
-      console.error("Error fetching survival leaderboard:", error);
+      secureLog("Error fetching survival leaderboard:", error.message);
       throw error;
     }
 
@@ -810,14 +824,11 @@ export const userService = {
     }));
   },
 
-  async getPhysicsLeaderboard(
-    limit: number = 100,
-  ): Promise<PhysicsLeaderboard[]> {
+  async getPhysicsLeaderboard(limit: number = 100): Promise<PhysicsLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
       .select(
         `
-        id,
         telegram_id,
         first_name,
         last_name,
@@ -837,7 +848,7 @@ export const userService = {
       .limit(limit);
 
     if (error) {
-      console.error("Error fetching physics leaderboard:", error);
+      secureLog("Error fetching physics leaderboard:", error.message);
       throw error;
     }
 
@@ -851,14 +862,11 @@ export const userService = {
     }));
   },
 
-  async getRotationLeaderboard(
-    limit: number = 100,
-  ): Promise<RotationLeaderboard[]> {
+  async getRotationLeaderboard(limit: number = 100): Promise<RotationLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
       .select(
         `
-        id,
         telegram_id,
         first_name,
         last_name,
@@ -878,7 +886,7 @@ export const userService = {
       .limit(limit);
 
     if (error) {
-      console.error("Error fetching rotation leaderboard:", error);
+      secureLog("Error fetching rotation leaderboard:", error.message);
       throw error;
     }
 
@@ -899,12 +907,12 @@ export const userService = {
 
     const { count, error } = await supabase
       .from("users")
-      .select("id", { count: "exact" })
+      .select("telegram_id", { count: "exact" })
       .gt("total_games", 0)
       .gt("best_score", user.best_score);
 
     if (error) {
-      console.error("Error fetching user ranking:", error);
+      secureLog("Error fetching user ranking:", error.message);
       throw error;
     }
 
@@ -919,13 +927,13 @@ export const userService = {
 
     const { count, error } = await supabase
       .from("users")
-      .select("id", { count: "exact" })
+      .select("telegram_id", { count: "exact" })
       .gt("reaction_games", 0)
       .gt("reaction_best_time", 0)
       .lt("reaction_best_time", user.reaction_best_time);
 
     if (error) {
-      console.error("Error fetching user reaction ranking:", error);
+      secureLog("Error fetching user reaction ranking:", error.message);
       throw error;
     }
 
@@ -939,14 +947,14 @@ export const userService = {
 
     const { count, error } = await supabase
       .from("users")
-      .select("id", { count: "exact" })
+      .select("telegram_id", { count: "exact" })
       .gt("survival_games", 0)
       .or(
         `survival_best_time.gt.${user.survival_best_time},and(survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`,
       );
 
     if (error) {
-      console.error("Error fetching user survival ranking:", error);
+      secureLog("Error fetching user survival ranking:", error.message);
       throw error;
     }
 
@@ -960,14 +968,14 @@ export const userService = {
 
     const { count, error } = await supabase
       .from("users")
-      .select("id", { count: "exact" })
+      .select("telegram_id", { count: "exact" })
       .gt("physics_games", 0)
       .or(
         `physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`,
       );
 
     if (error) {
-      console.error("Error fetching user physics ranking:", error);
+      secureLog("Error fetching user physics ranking:", error.message);
       throw error;
     }
 
@@ -981,14 +989,14 @@ export const userService = {
 
     const { count, error } = await supabase
       .from("users")
-      .select("id", { count: "exact" })
+      .select("telegram_id", { count: "exact" })
       .gt("rotation_games", 0)
       .or(
         `rotation_best_time.gt.${user.rotation_best_time},and(rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`,
       );
 
     if (error) {
-      console.error("Error fetching user rotation ranking:", error);
+      secureLog("Error fetching user rotation ranking:", error.message);
       throw error;
     }
 
@@ -996,9 +1004,8 @@ export const userService = {
   },
 };
 
-// Existing interfaces (unchanged)
+// SECURITY: Interfaces updated to remove UUID exposure
 export interface LeaderboardEntry {
-  id: string;
   telegram_id: number;
   first_name: string;
   last_name?: string;
@@ -1010,7 +1017,6 @@ export interface LeaderboardEntry {
 }
 
 export interface ReactionLeaderboard {
-  id: string;
   telegram_id: number;
   first_name: string;
   last_name?: string;
@@ -1023,7 +1029,6 @@ export interface ReactionLeaderboard {
 }
 
 export interface SurvivalLeaderboard {
-  id: string;
   telegram_id: number;
   first_name: string;
   last_name?: string;
@@ -1037,7 +1042,6 @@ export interface SurvivalLeaderboard {
 }
 
 export interface PhysicsLeaderboard {
-  id: string;
   telegram_id: number;
   first_name: string;
   last_name?: string;
@@ -1052,7 +1056,6 @@ export interface PhysicsLeaderboard {
 }
 
 export interface RotationLeaderboard {
-  id: string;
   telegram_id: number;
   first_name: string;
   last_name?: string;

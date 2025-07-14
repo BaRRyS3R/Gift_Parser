@@ -1,4 +1,4 @@
-// src/lib/authService.ts - Client-side authentication service with JWT integration
+// src/lib/authService.ts - Fixed AuthService with proper URL configuration
 
 import { GameSaveResult, AttemptsStatus } from '@/lib/supabase';
 import {
@@ -35,8 +35,33 @@ class AuthService {
     private baseUrl: string;
 
     constructor() {
-        this.baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+        // FIXED: Proper API URL configuration for different environments
+        this.baseUrl = this.getApiBaseUrl();
         this.loadTokenFromStorage();
+    }
+
+    /**
+     * FIXED: Get proper API base URL based on environment
+     */
+    private getApiBaseUrl(): string {
+        // If we're in browser environment
+        if (typeof window !== 'undefined') {
+            // For production, use the current origin
+            if (process.env.NODE_ENV === 'production') {
+                return window.location.origin;
+            }
+
+            // For development, check if we have a custom API URL
+            if (process.env.NEXT_PUBLIC_API_URL) {
+                return process.env.NEXT_PUBLIC_API_URL;
+            }
+
+            // For development, use current origin to avoid localhost issues
+            return window.location.origin;
+        }
+
+        // Fallback for server-side rendering
+        return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     }
 
     /**
@@ -84,7 +109,7 @@ class AuthService {
     }
 
     /**
-     * Make authenticated API request
+     * Make authenticated API request with better error handling
      */
     private async makeAuthenticatedRequest<T>(
         endpoint: string,
@@ -92,26 +117,35 @@ class AuthService {
     ): Promise<T> {
         const url = `${this.baseUrl}/api${endpoint}`;
 
-        const response = await fetch(url, {
-            ...options,
-            headers: {
-                ...this.getAuthHeaders(),
-                ...options.headers,
-            },
-        });
+        try {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    ...this.getAuthHeaders(),
+                    ...options.headers,
+                },
+            });
 
-        if (response.status === 401) {
-            // Token expired or invalid - clear authentication
-            this.removeTokenFromStorage();
-            throw new Error('Authentication expired. Please log in again.');
+            if (response.status === 401) {
+                // Token expired or invalid - clear authentication
+                this.removeTokenFromStorage();
+                throw new Error('Authentication expired. Please log in again.');
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Request failed with status ${response.status}`);
+            }
+
+            return response.json();
+        } catch (error) {
+            // FIXED: Better error handling for network issues
+            if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+                console.error('Network error - check your connection and API URL:', url);
+                throw new Error('Network connection failed. Please check your internet connection.');
+            }
+            throw error;
         }
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Request failed with status ${response.status}`);
-        }
-
-        return response.json();
     }
 
     /**
@@ -145,7 +179,10 @@ class AuthService {
             this.saveTokenToStorage(data.token);
             return data.user;
         } catch (error) {
-            console.error('Authentication error:', error);
+            // FIXED: Better error logging without exposing sensitive info
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Authentication error:', error);
+            }
             throw error;
         }
     }

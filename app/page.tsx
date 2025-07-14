@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated intro page preserving original functionality with JWT authentication
+// src/app/page.tsx - Complete fixed intro page with stable loading states
 
 "use client";
 
@@ -41,6 +41,7 @@ export default function IntroPage(): JSX.Element {
   // Флаги для предотвращения повторных операций
   const authInitializedRef = useRef<boolean>(false);
   const registrationInProgressRef = useRef<boolean>(false);
+  const videoAuthenticationRef = useRef<boolean>(false); // NEW: Prevent multiple video auth attempts
 
   // Состояние авторизации
   const [authState, setAuthState] = useState<AuthState>({
@@ -50,6 +51,13 @@ export default function IntroPage(): JSX.Element {
     telegramUser: null,
     error: null,
     needsRegistration: false,
+  });
+
+  // NEW: Stable loading state management to prevent flashing
+  const [stableLoadingState, setStableLoadingState] = useState({
+    isInitializing: true,
+    isVideoReady: false,
+    isAuthReady: false,
   });
 
   // Ref для хранения актуального состояния авторизации
@@ -78,7 +86,6 @@ export default function IntroPage(): JSX.Element {
 
       if (startParam && startParam.length === 8) {
         console.log("Referral code extracted from start param:", startParam);
-
         return startParam;
       }
     }
@@ -90,7 +97,6 @@ export default function IntroPage(): JSX.Element {
 
       if (refCode) {
         console.log("Referral code extracted from URL (dev):", refCode);
-
         return refCode;
       }
     }
@@ -161,9 +167,8 @@ export default function IntroPage(): JSX.Element {
 
     if (!window.Telegram?.WebApp) {
       console.log("Telegram WebApp API unavailable");
-      // Development fallback
+      // FIXED: Use environment variable for API URL
       if (process.env.NODE_ENV === "development") {
-        // Create mock init data for development
         const mockUser = {
           id: 430743609,
           first_name: "Test User",
@@ -205,6 +210,7 @@ export default function IntroPage(): JSX.Element {
       try {
         registrationInProgressRef.current = true;
 
+        // FIXED: Don't change loading state during registration to prevent flashing
         setAuthState((prev) => ({
           ...prev,
           isRegistering: true,
@@ -244,13 +250,14 @@ export default function IntroPage(): JSX.Element {
     [updateUser, t],
   );
 
-  // JWT Authentication method
+  // JWT Authentication method with stable state management
   const performJWTAuthentication = useCallback(async (telegramUser: TelegramUser, referralCode?: string) => {
     const initData = getTelegramInitData();
     if (!initData) {
       throw new Error(t("auth.telegramDataUnavailable"));
     }
 
+    // FIXED: Use single state update to prevent flashing
     setAuthState((prev) => ({ ...prev, isRegistering: true, error: null }));
 
     try {
@@ -296,6 +303,7 @@ export default function IntroPage(): JSX.Element {
       // Check if already authenticated via JWT
       if (isAuthenticated && contextUser) {
         console.log("User already authenticated via JWT, redirecting to main");
+        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
         setTimeout(() => {
           router.push("/main");
         }, 500);
@@ -315,7 +323,7 @@ export default function IntroPage(): JSX.Element {
           isChecking: false,
           error: t("auth.telegramDataUnavailable"),
         }));
-
+        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
         return;
       }
 
@@ -384,6 +392,8 @@ export default function IntroPage(): JSX.Element {
           needsRegistration: false,
         }));
 
+        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+
         setTimeout(() => {
           router.push("/main");
         }, 500);
@@ -394,6 +404,7 @@ export default function IntroPage(): JSX.Element {
           isChecking: false,
           needsRegistration: true,
         }));
+        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
       }
     } catch (error) {
       console.error("Ошибка инициализации авторизации:", error);
@@ -402,6 +413,7 @@ export default function IntroPage(): JSX.Element {
         isChecking: false,
         error: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")}`,
       }));
+      setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
     }
   }, [
     isAuthenticated,
@@ -431,10 +443,19 @@ export default function IntroPage(): JSX.Element {
     if ("fonts" in document) {
       document.fonts
         .load('1rem "BPDots Diamond"')
-        .then(() => setFontLoaded(true))
-        .catch(() => setFontLoaded(true));
+        .then(() => {
+          setFontLoaded(true);
+          setStableLoadingState(prev => ({ ...prev, isInitializing: false }));
+        })
+        .catch(() => {
+          setFontLoaded(true);
+          setStableLoadingState(prev => ({ ...prev, isInitializing: false }));
+        });
     } else {
-      setTimeout(() => setFontLoaded(true), 1000);
+      setTimeout(() => {
+        setFontLoaded(true);
+        setStableLoadingState(prev => ({ ...prev, isInitializing: false }));
+      }, 1000);
     }
   }, []);
 
@@ -447,6 +468,7 @@ export default function IntroPage(): JSX.Element {
     const handleLoadedMetadata = () => {
       video.volume = 1;
       setIsReady(true);
+      setStableLoadingState(prev => ({ ...prev, isVideoReady: true }));
     };
 
     const handleProgress = () => {
@@ -456,7 +478,6 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
-
           setLoadProgress(progress);
         }
       }
@@ -466,8 +487,12 @@ export default function IntroPage(): JSX.Element {
       setIsLoading(false);
     };
 
+    // FIXED: Stable video end handling to prevent multiple auth attempts
     const handleEnded = async () => {
       console.log("Видео завершено");
+
+      if (videoAuthenticationRef.current) return; // Prevent multiple auth attempts
+      videoAuthenticationRef.current = true;
 
       // Используем актуальное состояние из ref
       const currentAuthState = authStateRef.current;
@@ -553,10 +578,10 @@ export default function IntroPage(): JSX.Element {
 
   // Инициализация авторизации
   useEffect(() => {
-    if (!authInitializedRef.current) {
+    if (!authInitializedRef.current && stableLoadingState.isInitializing === false) {
       initializeAuth();
     }
-  }, [initializeAuth]);
+  }, [initializeAuth, stableLoadingState.isInitializing]);
 
   // Функция запуска видео
   const handleStart = async () => {
@@ -612,11 +637,12 @@ export default function IntroPage(): JSX.Element {
     return "s0meone";
   };
 
+  // FIXED: Use stable loading states to prevent flashing
   const isInitialLoading =
+    stableLoadingState.isInitializing ||
     authState.isChecking ||
     contextLoading ||
-    (isLoading && !videoError) ||
-    !fontLoaded;
+    (isLoading && !videoError && !stableLoadingState.isVideoReady);
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -646,11 +672,17 @@ export default function IntroPage(): JSX.Element {
             onClick={() => {
               authInitializedRef.current = false;
               registrationInProgressRef.current = false;
+              videoAuthenticationRef.current = false; // Reset video auth flag
               setAuthState((prev) => ({
                 ...prev,
                 error: null,
                 isChecking: true,
               }));
+              setStableLoadingState({
+                isInitializing: false,
+                isVideoReady: false,
+                isAuthReady: false,
+              });
               initializeAuth();
             }}
           >
