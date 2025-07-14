@@ -1,6 +1,6 @@
-// src/lib/authService.ts - Fixed AuthService with proper URL configuration
+// src/lib/authService.ts - AuthService with bot protection system
 
-import { GameSaveResult, AttemptsStatus } from '@/lib/supabase';
+import { GameSaveResult, AttemptsStatus, SecurityCheckResult, userService } from '@/lib/supabase';
 import {
     ReactionGameResult,
     SurvivalGameResult,
@@ -18,6 +18,8 @@ export interface AuthUser {
     current_level: number;
     attempts_remaining: number;
     total_games: number;
+    trust_score: number; // NEW: Security field
+    blocked_until?: string; // NEW: Security field
 }
 
 export interface AuthState {
@@ -35,32 +37,26 @@ class AuthService {
     private baseUrl: string;
 
     constructor() {
-        // FIXED: Proper API URL configuration for different environments
         this.baseUrl = this.getApiBaseUrl();
         this.loadTokenFromStorage();
     }
 
     /**
-     * FIXED: Get proper API base URL based on environment
+     * Get proper API base URL based on environment
      */
     private getApiBaseUrl(): string {
-        // If we're in browser environment
         if (typeof window !== 'undefined') {
-            // For production, use the current origin
             if (process.env.NODE_ENV === 'production') {
                 return window.location.origin;
             }
 
-            // For development, check if we have a custom API URL
             if (process.env.NEXT_PUBLIC_API_URL) {
                 return process.env.NEXT_PUBLIC_API_URL;
             }
 
-            // For development, use current origin to avoid localhost issues
             return window.location.origin;
         }
 
-        // Fallback for server-side rendering
         return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     }
 
@@ -127,7 +123,6 @@ class AuthService {
             });
 
             if (response.status === 401) {
-                // Token expired or invalid - clear authentication
                 this.removeTokenFromStorage();
                 throw new Error('Authentication expired. Please log in again.');
             }
@@ -139,7 +134,6 @@ class AuthService {
 
             return response.json();
         } catch (error) {
-            // FIXED: Better error handling for network issues
             if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
                 console.error('Network error - check your connection and API URL:', url);
                 throw new Error('Network connection failed. Please check your internet connection.');
@@ -175,11 +169,9 @@ class AuthService {
                 throw new Error(data.error || 'Authentication failed');
             }
 
-            // Save token and return user data
             this.saveTokenToStorage(data.token);
             return data.user;
         } catch (error) {
-            // FIXED: Better error logging without exposing sensitive info
             if (process.env.NODE_ENV === 'development') {
                 console.error('Authentication error:', error);
             }
@@ -268,6 +260,96 @@ class AuthService {
         ).then(data => data.user);
     }
 
+    // ============================================================================
+    // SECURITY SYSTEM METHODS
+    // ============================================================================
+
+    /**
+     * Check user security status (blocking, captcha, biometric needs)
+     */
+    async checkUserSecurityStatus(): Promise<SecurityCheckResult> {
+        return this.makeAuthenticatedRequest<{ securityResult: SecurityCheckResult }>(
+            '/security/check-status'
+        ).then(data => data.securityResult);
+    }
+
+    /**
+     * Generate captcha challenge
+     */
+    async generateCaptcha(): Promise<{ challenge: string; correctAnswer: string; expiresAt: number }> {
+        return this.makeAuthenticatedRequest<{ challenge: string; correctAnswer: string; expiresAt: number }>(
+            '/security/generate-captcha',
+            { method: 'POST' }
+        );
+    }
+
+    /**
+     * Validate captcha response
+     */
+    async validateCaptcha(
+        userInput: string,
+        correctAnswer: string,
+        completedInTime: boolean
+    ): Promise<{ success: boolean; newTrustScore: number }> {
+        return this.makeAuthenticatedRequest<{ success: boolean; newTrustScore: number }>(
+            '/security/validate-captcha',
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    userInput,
+                    correctAnswer,
+                    completedInTime,
+                }),
+            }
+        );
+    }
+
+    /**
+     * Validate biometric authentication
+     */
+    async validateBiometric(
+        success: boolean,
+        completedInTime: boolean
+    ): Promise<{ success: boolean; newTrustScore: number }> {
+        return this.makeAuthenticatedRequest<{ success: boolean; newTrustScore: number }>(
+            '/security/validate-biometric',
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    success,
+                    completedInTime,
+                }),
+            }
+        );
+    }
+
+    /**
+     * Update user trust score
+     */
+    async updateTrustScore(scoreChange: number): Promise<number> {
+        return this.makeAuthenticatedRequest<{ newTrustScore: number }>(
+            '/security/update-trust-score',
+            {
+                method: 'POST',
+                body: JSON.stringify({ scoreChange }),
+            }
+        ).then(data => data.newTrustScore);
+    }
+
+    /**
+     * Check if user is blocked (fallback method using direct service)
+     */
+    async checkUserBlockedStatus(telegramId: number): Promise<SecurityCheckResult> {
+        try {
+            // Try authenticated API first
+            return await this.checkUserSecurityStatus();
+        } catch (error) {
+            // Fallback to direct service call
+            console.warn('Auth API failed, using direct service call');
+            return await userService.checkUserBlockStatus(telegramId);
+        }
+    }
+
     /**
      * Handle network errors with retry logic
      */
@@ -288,7 +370,6 @@ class AuthService {
                     throw lastError;
                 }
 
-                // Wait before retry
                 await new Promise(resolve => setTimeout(resolve, delay * attempt));
             }
         }
@@ -330,4 +411,32 @@ export async function saveSecureTournamentResult(
     gameResult: SurvivalGameResult
 ): Promise<TournamentSaveResponse> {
     return authService.saveTournamentResult(tournamentId, gameResult);
+}
+
+// NEW: Security helper functions
+export async function checkSecurityStatus(): Promise<SecurityCheckResult> {
+    return authService.checkUserSecurityStatus();
+}
+
+export async function generateSecureCaptcha(): Promise<{ challenge: string; correctAnswer: string; expiresAt: number }> {
+    return authService.generateCaptcha();
+}
+
+export async function validateSecureCaptcha(
+    userInput: string,
+    correctAnswer: string,
+    completedInTime: boolean
+): Promise<{ success: boolean; newTrustScore: number }> {
+    return authService.validateCaptcha(userInput, correctAnswer, completedInTime);
+}
+
+export async function validateSecureBiometric(
+    success: boolean,
+    completedInTime: boolean
+): Promise<{ success: boolean; newTrustScore: number }> {
+    return authService.validateBiometric(success, completedInTime);
+}
+
+export async function updateSecureTrustScore(scoreChange: number): Promise<number> {
+    return authService.updateTrustScore(scoreChange);
 }

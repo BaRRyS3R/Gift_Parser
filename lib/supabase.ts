@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Complete secured service without sensitive logging in production
+// src/lib/supabase.ts - Complete secured service with bot protection system
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -29,6 +29,13 @@ const ATTEMPTS_CONFIG = {
   RESET_ATTEMPTS: 10,
   RESET_INTERVAL_MS: 2 * 60 * 60 * 1000,
   REFERRAL_BONUS: 5,
+} as const;
+
+// SECURITY: Block duration configuration (easily adjustable)
+const BLOCK_DURATIONS = {
+  CAPTCHA_FAILED: 2, // minutes
+  BIOMETRIC_FAILED: 5, // minutes
+  SUSPICIOUS_ACTIVITY: 10, // minutes
 } as const;
 
 // SECURITY: Helper function for secure logging
@@ -65,6 +72,10 @@ export interface User {
   attempts_remaining: number;
   last_attempt_at?: string;
   attempts_reset_at?: string;
+
+  // Security system
+  trust_score: number;
+  blocked_until?: string;
 
   // Referral system
   referral_code: string;
@@ -115,6 +126,28 @@ export interface User {
 
   last_played_at?: string;
   is_active: boolean;
+}
+
+export interface UserBlock {
+  id: string;
+  user_id: string;
+  telegram_id: number;
+  block_reason: 'captcha_failed' | 'biometric_failed' | 'suspicious_activity';
+  blocked_at: string;
+  unblocked_at?: string;
+  block_duration_minutes: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SecurityCheckResult {
+  isBlocked: boolean;
+  needsCaptcha: boolean;
+  needsBiometric: boolean;
+  trustScore: number;
+  timeUntilUnblock?: number;
+  blockReason?: string;
 }
 
 export interface GameSaveResult {
@@ -288,6 +321,7 @@ export const userService = {
       referral_bonus: 5,
       referral_count: 0,
       current_level: 1,
+      trust_score: telegramUser.is_premium ? 60 : 50, // Initial trust score with premium bonus
     };
 
     const { data, error } = await supabase
@@ -522,6 +556,265 @@ export const userService = {
   async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
     return this.consumeAttemptWithServerValidation(telegramId);
   },
+
+  // ============================================================================
+  // SECURITY SYSTEM METHODS
+  // ============================================================================
+
+  /**
+   * Check if user is currently blocked and unblock if time has passed
+   */
+  async checkUserBlockStatus(telegramId: number): Promise<SecurityCheckResult> {
+    try {
+      // First check and unblock if time has passed
+      const { error: unblockError } = await supabase.rpc('check_and_unblock_user', {
+        user_telegram_id: telegramId
+      });
+
+      if (unblockError) {
+        secureLog("Error checking unblock status:", unblockError.message);
+      }
+
+      // Get current user data
+      const user = await this.findByTelegramId(telegramId);
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      const serverTime = await this.getServerTime();
+      const isBlocked = user.blocked_until ? new Date(user.blocked_until) > serverTime : false;
+
+      let timeUntilUnblock: number | undefined;
+      let blockReason: string | undefined;
+
+      if (isBlocked && user.blocked_until) {
+        timeUntilUnblock = new Date(user.blocked_until).getTime() - serverTime.getTime();
+
+        // Get the most recent active block reason
+        const { data: blockData } = await supabase
+          .from("user_blocks")
+          .select("block_reason")
+          .eq("telegram_id", telegramId)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (blockData) {
+          blockReason = blockData.block_reason;
+        }
+      }
+
+      const trustScore = user.trust_score || 50;
+
+      return {
+        isBlocked,
+        needsCaptcha: !isBlocked && trustScore < 40,
+        needsBiometric: !isBlocked && trustScore < 20,
+        trustScore,
+        timeUntilUnblock: timeUntilUnblock && timeUntilUnblock > 0 ? timeUntilUnblock : undefined,
+        blockReason,
+      };
+    } catch (error) {
+      secureLog("Error checking user block status:", error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
+  },
+
+  /**
+   * Block user for security violation
+   */
+  async blockUser(
+    telegramId: number,
+    reason: 'captcha_failed' | 'biometric_failed' | 'suspicious_activity'
+  ): Promise<boolean> {
+    try {
+      let duration: number;
+      switch (reason) {
+        case 'captcha_failed':
+          duration = BLOCK_DURATIONS.CAPTCHA_FAILED;
+          break;
+        case 'biometric_failed':
+          duration = BLOCK_DURATIONS.BIOMETRIC_FAILED;
+          break;
+        case 'suspicious_activity':
+          duration = BLOCK_DURATIONS.SUSPICIOUS_ACTIVITY;
+          break;
+        default:
+          duration = BLOCK_DURATIONS.CAPTCHA_FAILED;
+      }
+
+      const { data, error } = await supabase.rpc('block_user', {
+        user_telegram_id: telegramId,
+        reason: reason,
+        duration_minutes: duration
+      });
+
+      if (error) {
+        secureLog("Error blocking user:", error.message);
+        throw error;
+      }
+
+      secureLog(`User ${telegramId} blocked for ${reason} for ${duration} minutes`);
+      return data;
+    } catch (error) {
+      secureLog("Error in blockUser:", error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
+  },
+
+  /**
+   * Update user trust score
+   */
+  async updateTrustScore(
+    telegramId: number,
+    scoreChange: number
+  ): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('update_trust_score', {
+        user_telegram_id: telegramId,
+        score_change: scoreChange
+      });
+
+      if (error) {
+        secureLog("Error updating trust score:", error.message);
+        throw error;
+      }
+
+      secureLog(`Trust score updated for user ${telegramId}: ${scoreChange > 0 ? '+' : ''}${scoreChange}`);
+      return data || 0;
+    } catch (error) {
+      secureLog("Error in updateTrustScore:", error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
+  },
+
+  /**
+   * Validate captcha and update trust score
+   */
+  async validateCaptcha(
+    telegramId: number,
+    userInput: string,
+    correctAnswer: string,
+    completedInTime: boolean
+  ): Promise<{ success: boolean; newTrustScore: number }> {
+    try {
+      const isCorrect = userInput.toLowerCase() === correctAnswer.toLowerCase();
+
+      if (isCorrect && completedInTime) {
+        // Captcha passed - increase trust score
+        const newTrustScore = await this.updateTrustScore(telegramId, 5);
+        secureLog(`Captcha passed for user ${telegramId}`);
+        return { success: true, newTrustScore };
+      } else {
+        // Captcha failed - block user and decrease trust score
+        await this.updateTrustScore(telegramId, -10);
+        await this.blockUser(telegramId, 'captcha_failed');
+        secureLog(`Captcha failed for user ${telegramId}: ${!isCorrect ? 'incorrect answer' : 'timeout'}`);
+        return { success: false, newTrustScore: 0 };
+      }
+    } catch (error) {
+      secureLog("Error validating captcha:", error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
+  },
+
+  /**
+   * Validate biometric authentication and update trust score
+   */
+  async validateBiometric(
+    telegramId: number,
+    success: boolean,
+    completedInTime: boolean
+  ): Promise<{ success: boolean; newTrustScore: number }> {
+    try {
+      if (success && completedInTime) {
+        // Biometric passed - increase trust score significantly
+        const newTrustScore = await this.updateTrustScore(telegramId, 10);
+        secureLog(`Biometric authentication passed for user ${telegramId}`);
+        return { success: true, newTrustScore };
+      } else {
+        // Biometric failed - block user and decrease trust score
+        await this.updateTrustScore(telegramId, -15);
+        await this.blockUser(telegramId, 'biometric_failed');
+        secureLog(`Biometric authentication failed for user ${telegramId}: ${!success ? 'failed authentication' : 'timeout'}`);
+        return { success: false, newTrustScore: 0 };
+      }
+    } catch (error) {
+      secureLog("Error validating biometric:", error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
+  },
+
+  /**
+   * Get user block history
+   */
+  async getUserBlockHistory(telegramId: number, limit: number = 10): Promise<UserBlock[]> {
+    try {
+      const { data, error } = await supabase
+        .from("user_blocks")
+        .select("*")
+        .eq("telegram_id", telegramId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        secureLog("Error fetching user block history:", error.message);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      secureLog("Error in getUserBlockHistory:", error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
+  },
+
+  /**
+   * Force unblock user (admin function)
+   */
+  async forceUnblockUser(telegramId: number): Promise<boolean> {
+    try {
+      const { error: updateUserError } = await supabase
+        .from("users")
+        .update({
+          is_active: true,
+          blocked_until: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("telegram_id", telegramId);
+
+      if (updateUserError) {
+        secureLog("Error force unblocking user (users table):", updateUserError.message);
+        throw updateUserError;
+      }
+
+      const { error: updateBlockError } = await supabase
+        .from("user_blocks")
+        .update({
+          is_active: false,
+          unblocked_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("telegram_id", telegramId)
+        .eq("is_active", true);
+
+      if (updateBlockError) {
+        secureLog("Error force unblocking user (blocks table):", updateBlockError.message);
+        throw updateBlockError;
+      }
+
+      secureLog(`User ${telegramId} force unblocked`);
+      return true;
+    } catch (error) {
+      secureLog("Error in forceUnblockUser:", error instanceof Error ? error.message : 'Unknown error');
+      throw error;
+    }
+  },
+
+  // ============================================================================
+  // EXISTING GAME METHODS (unchanged)
+  // ============================================================================
 
   async updateGameStats(
     telegramId: number,

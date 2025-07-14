@@ -1,11 +1,11 @@
-// src/app/page.tsx - Complete fixed intro page with stable loading states
+// src/app/page.tsx - Updated intro page with security check for blocked users
 
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
-import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
+import { Play, Zap, Wifi, WifiOff, Gift, Shield, AlertTriangle } from "lucide-react";
 
 import { userService, type TelegramUser, type User } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
@@ -22,6 +22,10 @@ interface AuthState {
   referralBonus?: number;
   referrerName?: string;
   referrerUsername?: string;
+  // SECURITY: Add security-related states
+  isBlocked?: boolean;
+  blockReason?: string;
+  timeUntilUnblock?: number;
 }
 
 export default function IntroPage(): JSX.Element {
@@ -41,7 +45,8 @@ export default function IntroPage(): JSX.Element {
   // Флаги для предотвращения повторных операций
   const authInitializedRef = useRef<boolean>(false);
   const registrationInProgressRef = useRef<boolean>(false);
-  const videoAuthenticationRef = useRef<boolean>(false); // NEW: Prevent multiple video auth attempts
+  const videoAuthenticationRef = useRef<boolean>(false);
+  const securityCheckRef = useRef<boolean>(false); // SECURITY: New flag
 
   // Состояние авторизации
   const [authState, setAuthState] = useState<AuthState>({
@@ -75,6 +80,43 @@ export default function IntroPage(): JSX.Element {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // SECURITY: New function to check if user is blocked
+  const checkUserBlockStatus = useCallback(async (telegramUser: TelegramUser): Promise<{
+    isBlocked: boolean;
+    blockReason?: string;
+    timeUntilUnblock?: number;
+  }> => {
+    if (securityCheckRef.current) {
+      return { isBlocked: false }; // Prevent multiple concurrent checks
+    }
+
+    securityCheckRef.current = true;
+
+    try {
+      console.log("Checking user block status for security...");
+      const securityResult = await userService.checkUserBlockStatus(telegramUser.id);
+
+      console.log("Security check result:", {
+        isBlocked: securityResult.isBlocked,
+        blockReason: securityResult.blockReason,
+        timeUntilUnblock: securityResult.timeUntilUnblock,
+        trustScore: securityResult.trustScore
+      });
+
+      return {
+        isBlocked: securityResult.isBlocked,
+        blockReason: securityResult.blockReason,
+        timeUntilUnblock: securityResult.timeUntilUnblock,
+      };
+    } catch (error) {
+      console.error("Error checking user block status:", error);
+      // On error, assume user is not blocked to avoid false positives
+      return { isBlocked: false };
+    } finally {
+      securityCheckRef.current = false;
+    }
+  }, []);
 
   // Extract referral code from Telegram start parameter
   const extractReferralCode = useCallback((): string | undefined => {
@@ -167,7 +209,6 @@ export default function IntroPage(): JSX.Element {
 
     if (!window.Telegram?.WebApp) {
       console.log("Telegram WebApp API unavailable");
-      // FIXED: Use environment variable for API URL
       if (process.env.NODE_ENV === "development") {
         const mockUser = {
           id: 430743609,
@@ -210,7 +251,6 @@ export default function IntroPage(): JSX.Element {
       try {
         registrationInProgressRef.current = true;
 
-        // FIXED: Don't change loading state during registration to prevent flashing
         setAuthState((prev) => ({
           ...prev,
           isRegistering: true,
@@ -222,7 +262,6 @@ export default function IntroPage(): JSX.Element {
 
         console.log("Пользователь успешно создан:", newUser);
 
-        // Обновляем локальное состояние
         setAuthState((prev) => ({
           ...prev,
           user: newUser,
@@ -257,7 +296,6 @@ export default function IntroPage(): JSX.Element {
       throw new Error(t("auth.telegramDataUnavailable"));
     }
 
-    // FIXED: Use single state update to prevent flashing
     setAuthState((prev) => ({ ...prev, isRegistering: true, error: null }));
 
     try {
@@ -302,7 +340,19 @@ export default function IntroPage(): JSX.Element {
 
       // Check if already authenticated via JWT
       if (isAuthenticated && contextUser) {
-        console.log("User already authenticated via JWT, redirecting to main");
+        console.log("User already authenticated via JWT, checking block status...");
+
+        // SECURITY: Even for authenticated users, check if they're blocked
+        const telegramUser = getTelegramUser();
+        if (telegramUser) {
+          const blockStatus = await checkUserBlockStatus(telegramUser);
+          if (blockStatus.isBlocked) {
+            console.log("Authenticated user is blocked, redirecting to blocked page");
+            router.push("/blocked");
+            return;
+          }
+        }
+
         setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
         setTimeout(() => {
           router.push("/main");
@@ -324,6 +374,25 @@ export default function IntroPage(): JSX.Element {
           error: t("auth.telegramDataUnavailable"),
         }));
         setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+        return;
+      }
+
+      // SECURITY: Check if user is blocked before proceeding with authentication
+      console.log("Checking user block status before authentication...");
+      const blockStatus = await checkUserBlockStatus(telegramUser);
+
+      if (blockStatus.isBlocked) {
+        console.log("User is blocked, redirecting to blocked page");
+        setAuthState((prev) => ({
+          ...prev,
+          isChecking: false,
+          isBlocked: true,
+          blockReason: blockStatus.blockReason,
+          timeUntilUnblock: blockStatus.timeUntilUnblock,
+        }));
+
+        // Redirect to blocked page immediately
+        router.push("/blocked");
         return;
       }
 
@@ -421,6 +490,7 @@ export default function IntroPage(): JSX.Element {
     getTelegramUser,
     extractReferralCode,
     checkUserExists,
+    checkUserBlockStatus, // SECURITY: Add this dependency
     router,
     updateUser,
     setTelegramUser,
@@ -503,7 +573,15 @@ export default function IntroPage(): JSX.Element {
         isRegistering: currentAuthState.isRegistering,
         needsRegistration: currentAuthState.needsRegistration,
         referralCode: currentAuthState.referralCode,
+        isBlocked: currentAuthState.isBlocked, // SECURITY: Add this check
       });
+
+      // SECURITY: Check if user is blocked before proceeding
+      if (currentAuthState.isBlocked) {
+        console.log("User is blocked, redirecting to blocked page");
+        router.push("/blocked");
+        return;
+      }
 
       // Выполняем аутентификацию пользователя после окончания видео
       if (
@@ -605,7 +683,8 @@ export default function IntroPage(): JSX.Element {
     if (
       !authState.telegramUser ||
       authState.isRegistering ||
-      registrationInProgressRef.current
+      registrationInProgressRef.current ||
+      authState.isBlocked // SECURITY: Add this check
     ) {
       return;
     }
@@ -637,6 +716,33 @@ export default function IntroPage(): JSX.Element {
     return "s0meone";
   };
 
+  // SECURITY: Format time remaining for blocked users
+  const formatTimeRemaining = (ms: number): string => {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    if (minutes > 0) {
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+      return `${seconds}s`;
+    }
+  };
+
+  // SECURITY: Get block reason text
+  const getBlockReasonText = (reason?: string): string => {
+    switch (reason) {
+      case 'captcha_failed':
+        return 'Failed Captcha Verification';
+      case 'biometric_failed':
+        return 'Failed Biometric Authentication';
+      case 'suspicious_activity':
+        return 'Suspicious Activity Detected';
+      default:
+        return 'Security Violation';
+    }
+  };
+
   // FIXED: Use stable loading states to prevent flashing
   const isInitialLoading =
     stableLoadingState.isInitializing ||
@@ -663,8 +769,39 @@ export default function IntroPage(): JSX.Element {
         </div>
       )}
 
+      {/* SECURITY: Blocked User Screen */}
+      {authState.isBlocked && !isInitialLoading && (
+        <div className="loader-container">
+          <div className="text-center space-y-6 max-w-sm">
+            <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto">
+              <Shield className="text-red-400" size={40} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">Account Blocked</h2>
+              <p className="text-red-300 text-sm mb-4">
+                {getBlockReasonText(authState.blockReason)}
+              </p>
+              {authState.timeUntilUnblock && (
+                <div className="bg-red-500/20 border border-red-500/40 rounded-lg p-4">
+                  <p className="text-red-200 text-sm mb-2">Time remaining:</p>
+                  <p className="text-2xl font-bold text-red-400 font-mono">
+                    {formatTimeRemaining(authState.timeUntilUnblock)}
+                  </p>
+                </div>
+              )}
+            </div>
+            <button
+              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
+              onClick={() => router.push('/blocked')}
+            >
+              View Details
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Экран ошибки авторизации */}
-      {authState.error && !isInitialLoading && (
+      {authState.error && !isInitialLoading && !authState.isBlocked && (
         <div className="loader-container">
           <p className="text-white text-center mb-4">{authState.error}</p>
           <button
@@ -672,11 +809,13 @@ export default function IntroPage(): JSX.Element {
             onClick={() => {
               authInitializedRef.current = false;
               registrationInProgressRef.current = false;
-              videoAuthenticationRef.current = false; // Reset video auth flag
+              videoAuthenticationRef.current = false;
+              securityCheckRef.current = false; // SECURITY: Reset security check flag
               setAuthState((prev) => ({
                 ...prev,
                 error: null,
                 isChecking: true,
+                isBlocked: false, // SECURITY: Reset block status
               }));
               setStableLoadingState({
                 isInitializing: false,
@@ -692,7 +831,7 @@ export default function IntroPage(): JSX.Element {
       )}
 
       {/* Экран ошибки видео */}
-      {videoError && !isInitialLoading && !authState.error && (
+      {videoError && !isInitialLoading && !authState.error && !authState.isBlocked && (
         <div className="loader-container">
           <p className="text-white text-center mb-4">{videoError}</p>
           <button
@@ -714,6 +853,7 @@ export default function IntroPage(): JSX.Element {
       {authState.needsRegistration &&
         !authState.isChecking &&
         !authState.error &&
+        !authState.isBlocked && // SECURITY: Add this condition
         !videoError &&
         !isPlaying && (
           <div className="min-h-screen bg-black flex items-center justify-center p-6 fixed inset-0 z-50">
