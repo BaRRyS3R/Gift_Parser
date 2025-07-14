@@ -1,11 +1,11 @@
-// src/app/api/game/save-result/route.ts - Protected game result saving with bot detection
+// src/app/api/game/save-result/route.ts - Protected game result saving
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withGameProtection } from '@/lib/authMiddleware';
+import { withAuthAndRateLimit } from '@/lib/authMiddleware';
 import { userService } from '@/lib/supabase';
 import { GameMode } from '@/types/game-modes/common';
 
-export const POST = withGameProtection(async (request) => {
+export const POST = withAuthAndRateLimit(async (request) => {
     try {
         const { user } = request;
         const gameResult = await request.json();

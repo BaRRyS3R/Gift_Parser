@@ -1,4 +1,4 @@
-// src/lib/authService.ts - Enhanced AuthService with bot detection integration
+// src/lib/authService.ts - Fixed AuthService with proper URL configuration
 
 import { GameSaveResult, AttemptsStatus } from '@/lib/supabase';
 import {
@@ -8,13 +8,6 @@ import {
     RotationGameResult
 } from '@/types/game-modes';
 import { TournamentSaveResponse } from '@/lib/supabase_tournament_extension';
-import {
-    botDetectionService,
-    detectBotForAuth,
-    detectBotForGameAction,
-    detectBotForAttemptConsumption,
-    type BotAnalysisResult
-} from './botDetectionService';
 
 export interface AuthUser {
     id: string;
@@ -35,55 +28,40 @@ export interface AuthState {
     error: string | null;
 }
 
-export interface AuthenticationResult {
-    success: boolean;
-    user?: AuthUser;
-    error?: string;
-    botDetection?: BotAnalysisResult;
-    blocked?: boolean;
-}
-
 type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult;
 
-class EnhancedAuthService {
+class AuthService {
     private token: string | null = null;
     private baseUrl: string;
 
     constructor() {
+        // FIXED: Proper API URL configuration for different environments
         this.baseUrl = this.getApiBaseUrl();
         this.loadTokenFromStorage();
-        this.initializeBotDetection();
     }
 
     /**
-     * Get proper API base URL based on environment
+     * FIXED: Get proper API base URL based on environment
      */
     private getApiBaseUrl(): string {
+        // If we're in browser environment
         if (typeof window !== 'undefined') {
+            // For production, use the current origin
             if (process.env.NODE_ENV === 'production') {
                 return window.location.origin;
             }
 
+            // For development, check if we have a custom API URL
             if (process.env.NEXT_PUBLIC_API_URL) {
                 return process.env.NEXT_PUBLIC_API_URL;
             }
 
+            // For development, use current origin to avoid localhost issues
             return window.location.origin;
         }
 
+        // Fallback for server-side rendering
         return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    }
-
-    /**
-     * Initialize bot detection service
-     */
-    private async initializeBotDetection(): Promise<void> {
-        try {
-            await botDetectionService.initialize();
-            console.log('Bot detection service initialized successfully');
-        } catch (error) {
-            console.warn('Bot detection initialization failed:', error);
-        }
     }
 
     /**
@@ -131,21 +109,12 @@ class EnhancedAuthService {
     }
 
     /**
-     * Make authenticated API request with bot detection
+     * Make authenticated API request with better error handling
      */
     private async makeAuthenticatedRequest<T>(
         endpoint: string,
-        options: RequestInit = {},
-        performBotDetection = false
+        options: RequestInit = {}
     ): Promise<T> {
-        // Perform bot detection if requested
-        if (performBotDetection) {
-            const botAnalysis = await this.performBotDetectionForRequest(endpoint, options.method || 'GET');
-            if (botAnalysis.shouldBlock) {
-                throw new Error('Request blocked due to suspicious activity. Please try again later.');
-            }
-        }
-
         const url = `${this.baseUrl}/api${endpoint}`;
 
         try {
@@ -158,16 +127,9 @@ class EnhancedAuthService {
             });
 
             if (response.status === 401) {
+                // Token expired or invalid - clear authentication
                 this.removeTokenFromStorage();
                 throw new Error('Authentication expired. Please log in again.');
-            }
-
-            if (response.status === 429) {
-                throw new Error('Too many requests. Please slow down and try again.');
-            }
-
-            if (response.status === 403) {
-                throw new Error('Access denied. Your account may be temporarily restricted.');
             }
 
             if (!response.ok) {
@@ -177,6 +139,7 @@ class EnhancedAuthService {
 
             return response.json();
         } catch (error) {
+            // FIXED: Better error handling for network issues
             if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
                 console.error('Network error - check your connection and API URL:', url);
                 throw new Error('Network connection failed. Please check your internet connection.');
@@ -186,45 +149,10 @@ class EnhancedAuthService {
     }
 
     /**
-     * Perform bot detection for a specific request
+     * Authenticate user with Telegram WebApp data
      */
-    private async performBotDetectionForRequest(endpoint: string, method: string): Promise<BotAnalysisResult> {
+    async authenticateWithTelegram(initData: string, referralCode?: string): Promise<AuthUser> {
         try {
-            const action = `${method.toLowerCase()}_${endpoint.replace('/api/', '').replace(/\//g, '_')}`;
-            return await botDetectionService.detectBot({
-                endpoint,
-                action,
-                context: { method, timestamp: Date.now() },
-            }).then(detection => botDetectionService.analyzeResults(detection));
-        } catch (error) {
-            console.warn('Bot detection failed for request:', error);
-            return {
-                isBot: false,
-                riskScore: 0,
-                shouldBlock: false,
-                reasons: ['Detection failed'],
-                detectionData: null,
-            };
-        }
-    }
-
-    /**
-     * Authenticate user with Telegram WebApp data and bot detection
-     */
-    async authenticateWithTelegram(initData: string, referralCode?: string): Promise<AuthenticationResult> {
-        try {
-            // Perform bot detection for authentication
-            const botAnalysis = await detectBotForAuth();
-
-            if (botAnalysis.shouldBlock) {
-                return {
-                    success: false,
-                    error: 'Authentication blocked due to suspicious activity. Please try again later.',
-                    botDetection: botAnalysis,
-                    blocked: true,
-                };
-            }
-
             const response = await fetch(`${this.baseUrl}/api/auth/login`, {
                 method: 'POST',
                 headers: {
@@ -238,39 +166,24 @@ class EnhancedAuthService {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                return {
-                    success: false,
-                    error: errorData.message || 'Authentication failed',
-                    botDetection: botAnalysis,
-                };
+                throw new Error(errorData.message || 'Authentication failed');
             }
 
             const data = await response.json();
 
             if (!data.success) {
-                return {
-                    success: false,
-                    error: data.error || 'Authentication failed',
-                    botDetection: botAnalysis,
-                };
+                throw new Error(data.error || 'Authentication failed');
             }
 
+            // Save token and return user data
             this.saveTokenToStorage(data.token);
-
-            return {
-                success: true,
-                user: data.user,
-                botDetection: botAnalysis,
-            };
+            return data.user;
         } catch (error) {
+            // FIXED: Better error logging without exposing sensitive info
             if (process.env.NODE_ENV === 'development') {
                 console.error('Authentication error:', error);
             }
-
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Authentication failed',
-            };
+            throw error;
         }
     }
 
@@ -293,70 +206,47 @@ class EnhancedAuthService {
      */
     signOut(): void {
         this.removeTokenFromStorage();
-        botDetectionService.resetSession();
     }
 
     /**
-     * Get current attempts status with bot detection
+     * Get current attempts status
      */
     async getAttemptsStatus(): Promise<AttemptsStatus> {
         return this.makeAuthenticatedRequest<{ attemptsStatus: AttemptsStatus }>(
-            '/user/attempts-status',
-            {},
-            false // Don't block for status checks
+            '/user/attempts-status'
         ).then(data => data.attemptsStatus);
     }
 
     /**
-     * Consume an attempt for game with bot detection
+     * Consume an attempt for game
      */
     async consumeAttempt(): Promise<AttemptsStatus> {
-        const botAnalysis = await detectBotForAttemptConsumption();
-
-        if (botAnalysis.shouldBlock) {
-            throw new Error('Request blocked due to suspicious activity. Please wait before trying again.');
-        }
-
         return this.makeAuthenticatedRequest<{ attemptsStatus: AttemptsStatus }>(
             '/game/consume-attempt',
-            { method: 'POST' },
-            true
+            { method: 'POST' }
         ).then(data => data.attemptsStatus);
     }
 
     /**
-     * Save game result securely with bot detection
+     * Save game result securely
      */
     async saveGameResult(gameResult: GameResult): Promise<GameSaveResult> {
-        const botAnalysis = await detectBotForGameAction('save-result');
-
-        if (botAnalysis.shouldBlock) {
-            throw new Error('Game result submission blocked due to suspicious activity.');
-        }
-
         return this.makeAuthenticatedRequest<{ saveResult: GameSaveResult }>(
             '/game/save-result',
             {
                 method: 'POST',
                 body: JSON.stringify(gameResult),
-            },
-            true
+            }
         ).then(data => data.saveResult);
     }
 
     /**
-     * Save tournament result securely with bot detection
+     * Save tournament result securely
      */
     async saveTournamentResult(
         tournamentId: string,
         gameResult: SurvivalGameResult
     ): Promise<TournamentSaveResponse> {
-        const botAnalysis = await detectBotForGameAction('tournament-result');
-
-        if (botAnalysis.shouldBlock) {
-            throw new Error('Tournament result submission blocked due to suspicious activity.');
-        }
-
         return this.makeAuthenticatedRequest<{ tournamentResult: TournamentSaveResponse }>(
             '/tournament/save-result',
             {
@@ -365,8 +255,7 @@ class EnhancedAuthService {
                     tournamentId,
                     gameResult,
                 }),
-            },
-            true
+            }
         ).then(data => data.tournamentResult);
     }
 
@@ -375,9 +264,7 @@ class EnhancedAuthService {
      */
     async refreshUserData(): Promise<AuthUser> {
         return this.makeAuthenticatedRequest<{ user: AuthUser }>(
-            '/user/profile',
-            {},
-            false
+            '/user/profile'
         ).then(data => data.user);
     }
 
@@ -401,40 +288,21 @@ class EnhancedAuthService {
                     throw lastError;
                 }
 
+                // Wait before retry
                 await new Promise(resolve => setTimeout(resolve, delay * attempt));
             }
         }
 
         throw lastError;
     }
-
-    /**
-     * Get bot detection status and statistics
-     */
-    getBotDetectionInfo() {
-        return {
-            isEnabled: botDetectionService.isDetectionEnabled(),
-            sessionInfo: botDetectionService.getSessionInfo(),
-        };
-    }
 }
 
 // Singleton instance
-export const authService = new EnhancedAuthService();
+export const authService = new AuthService();
 
-// Helper functions for backward compatibility with enhanced bot detection
+// Helper functions for backward compatibility
 export async function authenticateUser(initData: string, referralCode?: string): Promise<AuthUser> {
-    const result = await authService.authenticateWithTelegram(initData, referralCode);
-
-    if (!result.success) {
-        throw new Error(result.error || 'Authentication failed');
-    }
-
-    if (!result.user) {
-        throw new Error('Authentication succeeded but no user data received');
-    }
-
-    return result.user;
+    return authService.authenticateWithTelegram(initData, referralCode);
 }
 
 export function isUserAuthenticated(): boolean {
@@ -462,9 +330,4 @@ export async function saveSecureTournamentResult(
     gameResult: SurvivalGameResult
 ): Promise<TournamentSaveResponse> {
     return authService.saveTournamentResult(tournamentId, gameResult);
-}
-
-// Enhanced authentication function that returns full result including bot detection
-export async function authenticateUserEnhanced(initData: string, referralCode?: string): Promise<AuthenticationResult> {
-    return authService.authenticateWithTelegram(initData, referralCode);
 }

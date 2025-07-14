@@ -1,4 +1,4 @@
-// src/app/api/auth/login/route.ts - Authentication endpoint with enhanced validation and security
+// src/app/api/auth/login/route.ts - Authentication endpoint
 
 import { NextRequest, NextResponse } from 'next/server';
 import { userService } from '@/lib/supabase';
@@ -8,25 +8,12 @@ export async function POST(request: NextRequest) {
     try {
         const { initData, referralCode } = await request.json();
 
-        // Validate request data
-        if (!initData || typeof initData !== 'string') {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Invalid request data',
-                    message: 'Telegram authentication data is required',
-                },
-                { status: 400 }
-            );
-        }
-
         // Validate Telegram WebApp init data
         if (!validateTelegramInitData(initData)) {
             return NextResponse.json(
                 {
                     success: false,
                     error: 'Invalid Telegram authentication data',
-                    message: 'The provided Telegram authentication data is not valid',
                 },
                 { status: 400 }
             );
@@ -34,44 +21,7 @@ export async function POST(request: NextRequest) {
 
         // Parse Telegram user data
         const params = new URLSearchParams(initData);
-        const userParam = params.get('user');
-
-        if (!userParam) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Missing user data',
-                    message: 'User information not found in authentication data',
-                },
-                { status: 400 }
-            );
-        }
-
-        let userData;
-        try {
-            userData = JSON.parse(userParam);
-        } catch (parseError) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Invalid user data format',
-                    message: 'User data could not be parsed',
-                },
-                { status: 400 }
-            );
-        }
-
-        // Validate required user fields
-        if (!userData.id || !userData.first_name) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Incomplete user data',
-                    message: 'Required user information is missing',
-                },
-                { status: 400 }
-            );
-        }
+        const userData = JSON.parse(params.get('user') || '{}');
 
         const telegramUser = {
             id: userData.id,
@@ -87,36 +37,11 @@ export async function POST(request: NextRequest) {
 
         // Create user if doesn't exist
         if (!user) {
-            try {
-                user = await userService.create(telegramUser, referralCode);
-            } catch (createError) {
-                console.error('User creation failed:', createError);
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'User creation failed',
-                        message: 'Could not create user account. Please try again.',
-                    },
-                    { status: 500 }
-                );
-            }
+            user = await userService.create(telegramUser, referralCode);
         }
 
         // Generate JWT token
-        let token;
-        try {
-            token = await generateToken(user.id, telegramUser.id);
-        } catch (tokenError) {
-            console.error('Token generation failed:', tokenError);
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Authentication failed',
-                    message: 'Could not generate authentication token',
-                },
-                { status: 500 }
-            );
-        }
+        const token = await generateToken(user.id, telegramUser.id);
 
         return NextResponse.json({
             success: true,
@@ -139,7 +64,7 @@ export async function POST(request: NextRequest) {
             {
                 success: false,
                 error: 'Authentication failed',
-                message: error instanceof Error ? error.message : 'An unexpected error occurred during authentication',
+                message: error instanceof Error ? error.message : 'Unknown error occurred',
             },
             { status: 500 }
         );

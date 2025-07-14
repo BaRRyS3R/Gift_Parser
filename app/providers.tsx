@@ -1,4 +1,4 @@
-// src/app/providers.tsx - Enhanced fullscreen configuration with bot detection
+// src/app/providers.tsx - Enhanced fullscreen configuration
 
 "use client";
 
@@ -8,7 +8,6 @@ import { useEffect } from "react";
 import { UserProvider } from "@/hooks/useUser";
 import { LocalizationProvider } from "@/contexts/LocalizationContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
-import { initializeBotDetection } from "@/lib/botDetectionService";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -74,19 +73,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
         console.error("Error initializing Telegram WebApp:", error);
       }
     }
-
-    // Initialize bot detection service
-    const initializeBotProtection = async () => {
-      try {
-        await initializeBotDetection();
-        console.log("Bot detection service initialized successfully");
-      } catch (error) {
-        console.warn("Bot detection initialization failed:", error);
-        // Continue with application initialization even if bot detection fails
-      }
-    };
-
-    initializeBotProtection();
 
     // Enhanced viewport meta tag configuration for fullscreen
     const viewport = document.querySelector('meta[name="viewport"]');
