@@ -1,4 +1,4 @@
-// src/hooks/useUser.tsx - Обновленный хук с интеграцией системы лиг
+// src/hooks/useUser.tsx - Enhanced useUser hook preserving original functionality with JWT protection
 
 "use client";
 
@@ -29,7 +29,17 @@ import { SurvivalGameResult } from "@/types/game-modes/survival";
 import { PhysicsGameResult } from "@/types/game-modes/physics";
 import { RotationGameResult } from "@/types/game-modes/rotation";
 
-// NEW: Import achievement notification types
+// JWT Authentication integration
+import {
+  authService,
+  authenticateUser,
+  isUserAuthenticated,
+  signOutUser,
+  getSecureAttemptsStatus,
+  consumeSecureAttempt,
+  saveSecureGameResult,
+  saveSecureTournamentResult,
+} from "@/lib/authService";
 
 // Updated to include rotation mode and league achievements
 type GameResult =
@@ -52,7 +62,7 @@ interface UserContextType {
   isLoading: boolean;
   error: string | null;
   refreshUser: () => Promise<void>;
-  saveGameResult: (gameResult: GameResult) => Promise<GameSaveResult>; // Updated return type
+  saveGameResult: (gameResult: GameResult) => Promise<GameSaveResult>;
   saveTournamentResult: (
     tournamentId: string,
     gameResult: SurvivalGameResult,
@@ -66,10 +76,15 @@ interface UserContextType {
   invalidateAttemptsCache: () => void;
   getCachedAttemptsStatus: () => AttemptsStatus | null;
 
-  // NEW: Achievement notifications
+  // Achievement notifications
   currentAchievement: AchievementNotificationData | null;
   showAchievement: (achievement: AchievementNotificationData) => void;
   hideAchievement: () => void;
+
+  // JWT Authentication methods
+  isAuthenticated: boolean;
+  authenticateWithTelegram: (initData: string, referralCode?: string) => Promise<void>;
+  signOut: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -124,8 +139,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-  // NEW: Achievement notifications state
+  // Achievement notifications state
   const [currentAchievement, setCurrentAchievement] =
     useState<AchievementNotificationData | null>(null);
 
@@ -136,6 +152,21 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     isValid: false,
     source: "initial",
   });
+
+  // Initialize authentication state
+  useEffect(() => {
+    const checkAuthState = () => {
+      const authStatus = isUserAuthenticated();
+      setIsAuthenticated(authStatus);
+
+      if (!authStatus) {
+        setUser(null);
+        setIsLoading(false);
+      }
+    };
+
+    checkAuthState();
+  }, []);
 
   // Автоматическая инициализация Telegram пользователя при первом рендере
   useEffect(() => {
@@ -162,10 +193,87 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [telegramUser]);
 
-  // Метод для установки Telegram пользователя в контекст
-  const setTelegramUserData = useCallback((tgUserData: TelegramUser) => {
-    setTelegramUserState(tgUserData);
-    setIsLoading(false);
+  // JWT Authentication method
+  const authenticateWithTelegram = useCallback(async (initData: string, referralCode?: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Use JWT authentication
+      const authUser = await authenticateUser(initData, referralCode);
+
+      // Convert auth user to regular user format for compatibility
+      const user: User = {
+        id: authUser.id,
+        telegram_id: authUser.telegram_id,
+        first_name: authUser.first_name,
+        last_name: authUser.last_name,
+        username: authUser.username,
+        language_code: telegramUser?.language_code,
+        is_premium: telegramUser?.is_premium || false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        attempts_remaining: authUser.attempts_remaining,
+        last_attempt_at: undefined,
+        attempts_reset_at: undefined,
+        referral_code: "",
+        referred_by: undefined,
+        referral_bonus: 5,
+        referral_count: 0,
+        total_games: authUser.total_games,
+        total_score: 0,
+        best_score: 0,
+        current_level: authUser.current_level,
+        current_league_id: undefined,
+        reaction_games: 0,
+        reaction_best_score: 0,
+        reaction_best_time: 0,
+        reaction_average_time: 0,
+        survival_games: 0,
+        survival_best_score: 0,
+        survival_best_time: 0,
+        survival_max_level: 0,
+        survival_best_streak: 0,
+        physics_games: 0,
+        physics_best_score: 0,
+        physics_best_time: 0,
+        physics_total_hits: 0,
+        physics_best_hits: 0,
+        physics_least_mistakes: 0,
+        rotation_games: 0,
+        rotation_best_score: 0,
+        rotation_best_time: 0,
+        rotation_max_level: 0,
+        rotation_best_streak: 0,
+        rotation_total_hits: 0,
+        total_correct_hits: 0,
+        total_wrong_hits: 0,
+        total_missed_circles: 0,
+        best_accuracy: 0,
+        last_played_at: undefined,
+        is_active: true,
+      };
+
+      setUser(user);
+      setIsAuthenticated(true);
+      setIsLoading(false);
+      invalidateAttemptsCache();
+    } catch (error) {
+      console.error("JWT Authentication failed:", error);
+      setError(error instanceof Error ? error.message : "Authentication failed");
+      setIsLoading(false);
+      throw error;
+    }
+  }, [telegramUser]);
+
+  // Sign out method
+  const signOut = useCallback(() => {
+    signOutUser();
+    setIsAuthenticated(false);
+    setUser(null);
+    setTelegramUserState(null);
+    invalidateAttemptsCache();
+    setError(null);
   }, []);
 
   // Метод для прямого обновления пользователя в контексте
@@ -175,8 +283,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setIsLoading(false);
   }, []);
 
+  // Метод для установки Telegram пользователя в контекст
+  const setTelegramUserData = useCallback((tgUserData: TelegramUser) => {
+    setTelegramUserState(tgUserData);
+    setIsLoading(false);
+  }, []);
+
   const refreshUser = useCallback(async (): Promise<void> => {
-    if (!telegramUser) {
+    if (!telegramUser && !isAuthenticated) {
       return;
     }
 
@@ -184,12 +298,73 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setIsLoading(true);
       setError(null);
 
-      const dbUser = await userService.findByTelegramId(telegramUser.id);
-
-      if (dbUser) {
+      if (isAuthenticated) {
+        // Use JWT-protected refresh
+        try {
+          const userData = await authService.refreshUserData();
+          // Convert to User format and update
+          const user: User = {
+            id: userData.id,
+            telegram_id: userData.telegram_id,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            username: userData.username,
+            language_code: telegramUser?.language_code,
+            is_premium: telegramUser?.is_premium || false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            attempts_remaining: userData.attempts_remaining,
+            last_attempt_at: undefined,
+            attempts_reset_at: undefined,
+            referral_code: "",
+            referred_by: undefined,
+            referral_bonus: 5,
+            referral_count: 0,
+            total_games: userData.total_games,
+            total_score: 0,
+            best_score: 0,
+            current_level: userData.current_level,
+            current_league_id: undefined,
+            reaction_games: 0,
+            reaction_best_score: 0,
+            reaction_best_time: 0,
+            reaction_average_time: 0,
+            survival_games: 0,
+            survival_best_score: 0,
+            survival_best_time: 0,
+            survival_max_level: 0,
+            survival_best_streak: 0,
+            physics_games: 0,
+            physics_best_score: 0,
+            physics_best_time: 0,
+            physics_total_hits: 0,
+            physics_best_hits: 0,
+            physics_least_mistakes: 0,
+            rotation_games: 0,
+            rotation_best_score: 0,
+            rotation_best_time: 0,
+            rotation_max_level: 0,
+            rotation_best_streak: 0,
+            rotation_total_hits: 0,
+            total_correct_hits: 0,
+            total_wrong_hits: 0,
+            total_missed_circles: 0,
+            best_accuracy: 0,
+            last_played_at: undefined,
+            is_active: true,
+          };
+          setUser(user);
+        } catch (jwtError) {
+          console.error("JWT refresh failed, falling back to direct user service");
+          if (telegramUser) {
+            const dbUser = await userService.findByTelegramId(telegramUser.id);
+            setUser(dbUser);
+          }
+        }
+      } else if (telegramUser) {
+        // Fallback to original method
+        const dbUser = await userService.findByTelegramId(telegramUser.id);
         setUser(dbUser);
-      } else {
-        setUser(null);
       }
     } catch (err) {
       console.error("useUser - Error updating user data:", err);
@@ -197,7 +372,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [telegramUser]);
+  }, [telegramUser, isAuthenticated]);
 
   // Инвалидация кэша попыток
   const invalidateAttemptsCache = useCallback(() => {
@@ -240,16 +415,26 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       now - attemptsCache.lastUpdate < CACHE_DURATION
     ) {
       console.log("Returning cached attempts status");
-
       return attemptsCache.status;
     }
 
     try {
       console.log("Fetching fresh attempts status from server");
-      const status =
-        await userService.checkAndUpdateAttemptsWithServerValidation(
-          telegramUser.id,
-        );
+
+      let status: AttemptsStatus;
+
+      if (isAuthenticated) {
+        // Use JWT-protected method
+        try {
+          status = await getSecureAttemptsStatus();
+        } catch (jwtError) {
+          console.warn("JWT attempts check failed, falling back to direct service");
+          status = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
+        }
+      } else {
+        // Fallback to original method
+        status = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
+      }
 
       // Обновление кэша только серверными данными
       setAttemptsCache({
@@ -262,52 +447,57 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       return status;
     } catch (error) {
       console.error("Error fetching attempts status:", error);
-
       // При ошибке инвалидация кэша
       invalidateAttemptsCache();
       throw error;
     }
-  }, [telegramUser, attemptsCache, invalidateAttemptsCache]);
+  }, [telegramUser, attemptsCache, invalidateAttemptsCache, isAuthenticated]);
 
   // Безопасное потребление попытки для игры
-  const consumeAttemptForGame =
-    useCallback(async (): Promise<AttemptsStatus> => {
-      if (!telegramUser) {
-        throw new Error("Пользователь Telegram не найден");
+  const consumeAttemptForGame = useCallback(async (): Promise<AttemptsStatus> => {
+    if (!telegramUser) {
+      throw new Error("Пользователь Telegram не найден");
+    }
+
+    console.log("Consuming attempt on server (security-critical operation)");
+
+    try {
+      let newStatus: AttemptsStatus;
+
+      if (isAuthenticated) {
+        // Use JWT-protected method
+        try {
+          newStatus = await consumeSecureAttempt();
+        } catch (jwtError) {
+          console.warn("JWT attempt consumption failed, falling back to direct service");
+          newStatus = await userService.consumeAttemptWithServerValidation(telegramUser.id);
+        }
+      } else {
+        // Fallback to original method
+        newStatus = await userService.consumeAttemptWithServerValidation(telegramUser.id);
       }
 
-      console.log("Consuming attempt on server (security-critical operation)");
+      const now = Date.now();
 
-      try {
-        const newStatus = await userService.consumeAttemptWithServerValidation(
-          telegramUser.id,
-        );
+      // Обновление кэша после успешного серверного запроса
+      setAttemptsCache({
+        status: newStatus,
+        lastUpdate: now,
+        isValid: true,
+        source: "server",
+      });
 
-        const now = Date.now();
+      console.log("Attempt consumed successfully, cache updated with server data");
+      return newStatus;
+    } catch (error) {
+      console.error("Error consuming attempt:", error);
+      // При ошибке инвалидация кэша и требование повторной проверки
+      invalidateAttemptsCache();
+      throw error;
+    }
+  }, [telegramUser, invalidateAttemptsCache, isAuthenticated]);
 
-        // Обновление кэша после успешного серверного запроса
-        setAttemptsCache({
-          status: newStatus,
-          lastUpdate: now,
-          isValid: true,
-          source: "server",
-        });
-
-        console.log(
-          "Attempt consumed successfully, cache updated with server data",
-        );
-
-        return newStatus;
-      } catch (error) {
-        console.error("Error consuming attempt:", error);
-
-        // При ошибке инвалидация кэша и требование повторной проверки
-        invalidateAttemptsCache();
-        throw error;
-      }
-    }, [telegramUser, invalidateAttemptsCache]);
-
-  // NEW: Achievement notification methods
+  // Achievement notification methods
   const showAchievement = useCallback(
     (achievement: AchievementNotificationData) => {
       setCurrentAchievement(achievement);
@@ -319,7 +509,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setCurrentAchievement(null);
   }, []);
 
-  // NEW: Helper function to process league achievements
+  // Helper function to process league achievements
   const processLeagueAchievements = useCallback(
     (gameResult: GameSaveResult) => {
       if (!gameResult.success) return;
@@ -334,7 +524,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       // Show league promotion notification (higher priority)
       if (gameResult.leagueChanged && gameResult.newLeague) {
-        // Calculate position if reward was given
         const position = gameResult.reward?.reward?.position;
 
         setTimeout(
@@ -360,7 +549,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             });
           },
           (gameResult.levelChanged ? 3000 : 0) +
-            (gameResult.leagueChanged ? 3000 : 0),
+          (gameResult.leagueChanged ? 3000 : 0),
         );
       }
     },
@@ -369,12 +558,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // Автоматическая загрузка пользователя из базы данных при установке telegramUser
   useEffect(() => {
-    if (telegramUser && !user && !isLoading) {
+    if (telegramUser && !user && !isLoading && !isAuthenticated) {
       refreshUser().catch((err) => {
         console.error("useUser - Failed to auto-load user:", err);
       });
     }
-  }, [telegramUser, user, isLoading, refreshUser]);
+  }, [telegramUser, user, isLoading, refreshUser, isAuthenticated]);
 
   // Инвалидация кэша при смене пользователя
   useEffect(() => {
@@ -383,7 +572,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [telegramUser, invalidateAttemptsCache]);
 
-  // UPDATED: Enhanced saveGameResult with league processing
+  // Enhanced saveGameResult with JWT protection and fallback
   const saveGameResult = useCallback(
     async (gameResult: GameResult): Promise<GameSaveResult> => {
       if (!telegramUser) {
@@ -412,15 +601,28 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       });
 
       const saveOperation = async (): Promise<GameSaveResult> => {
-        const result = await userService.saveGameResult(
-          telegramUser.id,
-          gameResult,
-        );
-
-        await refreshUser();
-        invalidateAttemptsCache();
-
-        return result;
+        if (isAuthenticated) {
+          // Try JWT-protected save first
+          try {
+            const result = await saveSecureGameResult(gameResult);
+            await refreshUser();
+            invalidateAttemptsCache();
+            return result;
+          } catch (jwtError) {
+            console.warn("JWT game save failed, falling back to direct service");
+            // Fallback to original method
+            const result = await userService.saveGameResult(telegramUser.id, gameResult);
+            await refreshUser();
+            invalidateAttemptsCache();
+            return result;
+          }
+        } else {
+          // Use original method
+          const result = await userService.saveGameResult(telegramUser.id, gameResult);
+          await refreshUser();
+          invalidateAttemptsCache();
+          return result;
+        }
       };
 
       try {
@@ -431,7 +633,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           result,
         );
 
-        // NEW: Process league achievements
+        // Process league achievements
         processLeagueAchievements(result);
 
         return result;
@@ -454,6 +656,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       refreshUser,
       invalidateAttemptsCache,
       processLeagueAchievements,
+      isAuthenticated,
     ],
   );
 
@@ -474,19 +677,43 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       });
 
       const saveOperation = async (): Promise<TournamentSaveResponse> => {
-        return await tournamentService.saveTournamentResult(
-          tournamentId,
-          user.id,
-          telegramUser.id,
-          {
-            survivalTime: gameResult.survivalTime,
-            score: gameResult.score,
-            maxLevelReached: gameResult.maxLevelReached,
-            perfectStreak: gameResult.perfectStreak,
-            correctHits: gameResult.correctHits,
-            deathCause: gameResult.deathCause,
-          },
-        );
+        if (isAuthenticated) {
+          // Try JWT-protected save first
+          try {
+            return await saveSecureTournamentResult(tournamentId, gameResult);
+          } catch (jwtError) {
+            console.warn("JWT tournament save failed, falling back to direct service");
+            // Fallback to original method
+            return await tournamentService.saveTournamentResult(
+              tournamentId,
+              user.id,
+              telegramUser.id,
+              {
+                survivalTime: gameResult.survivalTime,
+                score: gameResult.score,
+                maxLevelReached: gameResult.maxLevelReached,
+                perfectStreak: gameResult.perfectStreak,
+                correctHits: gameResult.correctHits,
+                deathCause: gameResult.deathCause,
+              },
+            );
+          }
+        } else {
+          // Use original method
+          return await tournamentService.saveTournamentResult(
+            tournamentId,
+            user.id,
+            telegramUser.id,
+            {
+              survivalTime: gameResult.survivalTime,
+              score: gameResult.score,
+              maxLevelReached: gameResult.maxLevelReached,
+              perfectStreak: gameResult.perfectStreak,
+              correctHits: gameResult.correctHits,
+              deathCause: gameResult.deathCause,
+            },
+          );
+        }
       };
 
       try {
@@ -512,7 +739,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         throw new Error(errorMessage);
       }
     },
-    [telegramUser, user],
+    [telegramUser, user, isAuthenticated],
   );
 
   const contextValue: UserContextType = {
@@ -529,10 +756,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     consumeAttemptForGame,
     invalidateAttemptsCache,
     getCachedAttemptsStatus,
-    // NEW: Achievement notifications
+    // Achievement notifications
     currentAchievement,
     showAchievement,
     hideAchievement,
+    // JWT Authentication
+    isAuthenticated,
+    authenticateWithTelegram,
+    signOut,
   };
 
   return React.createElement(

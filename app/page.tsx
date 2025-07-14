@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated to use service layer method
+// src/app/page.tsx - Updated intro page preserving original functionality with JWT authentication
 
 "use client";
 
@@ -27,7 +27,15 @@ interface AuthState {
 export default function IntroPage(): JSX.Element {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { refreshUser, updateUser, setTelegramUser } = useUser();
+  const {
+    refreshUser,
+    updateUser,
+    setTelegramUser,
+    isAuthenticated,
+    authenticateWithTelegram,
+    user: contextUser,
+    isLoading: contextLoading
+  } = useUser();
   const t = useT();
 
   // Флаги для предотвращения повторных операций
@@ -147,6 +155,32 @@ export default function IntroPage(): JSX.Element {
     };
   }, []);
 
+  // Get Telegram WebApp init data for JWT authentication
+  const getTelegramInitData = useCallback((): string | null => {
+    if (typeof window === "undefined") return null;
+
+    if (!window.Telegram?.WebApp) {
+      console.log("Telegram WebApp API unavailable");
+      // Development fallback
+      if (process.env.NODE_ENV === "development") {
+        // Create mock init data for development
+        const mockUser = {
+          id: 430743609,
+          first_name: "Test User",
+          last_name: "Developer",
+          username: "testuser",
+          language_code: "en",
+          is_premium: false,
+        };
+        return `user=${JSON.stringify(mockUser)}&hash=mock_hash&auth_date=${Math.floor(Date.now() / 1000)}`;
+      }
+      return null;
+    }
+
+    const tg = window.Telegram.WebApp;
+    return tg.initData || null;
+  }, []);
+
   const checkUserExists = useCallback(
     async (telegramUser: TelegramUser): Promise<User | null> => {
       try {
@@ -210,6 +244,47 @@ export default function IntroPage(): JSX.Element {
     [updateUser, t],
   );
 
+  // JWT Authentication method
+  const performJWTAuthentication = useCallback(async (telegramUser: TelegramUser, referralCode?: string) => {
+    const initData = getTelegramInitData();
+    if (!initData) {
+      throw new Error(t("auth.telegramDataUnavailable"));
+    }
+
+    setAuthState((prev) => ({ ...prev, isRegistering: true, error: null }));
+
+    try {
+      console.log("Performing JWT authentication...");
+      await authenticateWithTelegram(initData, referralCode);
+      console.log("JWT authentication successful");
+
+      setAuthState((prev) => ({
+        ...prev,
+        isRegistering: false,
+        needsRegistration: false,
+      }));
+
+      return true;
+    } catch (error) {
+      console.error("JWT authentication failed:", error);
+
+      // Fallback to traditional registration if JWT fails
+      console.log("Falling back to traditional user registration...");
+      try {
+        await registerUser(telegramUser, referralCode);
+        return true;
+      } catch (fallbackError) {
+        console.error("Fallback registration also failed:", fallbackError);
+        setAuthState((prev) => ({
+          ...prev,
+          isRegistering: false,
+          error: t("auth.registrationFailed"),
+        }));
+        throw fallbackError;
+      }
+    }
+  }, [getTelegramInitData, authenticateWithTelegram, registerUser, t]);
+
   const initializeAuth = useCallback(async () => {
     if (authInitializedRef.current) return;
 
@@ -217,6 +292,15 @@ export default function IntroPage(): JSX.Element {
 
     try {
       console.log("Инициализация авторизации...");
+
+      // Check if already authenticated via JWT
+      if (isAuthenticated && contextUser) {
+        console.log("User already authenticated via JWT, redirecting to main");
+        setTimeout(() => {
+          router.push("/main");
+        }, 500);
+        return;
+      }
 
       const telegramUser = getTelegramUser();
       const referralCode = extractReferralCode();
@@ -236,7 +320,6 @@ export default function IntroPage(): JSX.Element {
       }
 
       // Проверяем реферальный код если есть и получаем информацию о пригласившем
-      // Используем метод из сервисного слоя
       let referralBonus = 0;
       let referrerName: string | undefined;
       let referrerUsername: string | undefined;
@@ -276,17 +359,30 @@ export default function IntroPage(): JSX.Element {
 
       if (existingUser) {
         console.log(
-          "Пользователь найден в базе данных, обновляем контекст и перенаправляем на /main",
+          "Пользователь найден в базе данных, выполняем JWT аутентификацию или обновляем контекст и перенаправляем на /main",
         );
+
+        // Try JWT authentication first
+        try {
+          const initData = getTelegramInitData();
+          if (initData) {
+            await authenticateWithTelegram(initData, referralCode);
+            console.log("JWT authentication successful for existing user");
+          } else {
+            // Fallback: update context with existing user
+            updateUser(existingUser);
+          }
+        } catch (jwtError) {
+          console.warn("JWT authentication failed for existing user, using fallback");
+          updateUser(existingUser);
+        }
+
         setAuthState((prev) => ({
           ...prev,
           user: existingUser,
           isChecking: false,
           needsRegistration: false,
         }));
-
-        // Обновляем контекст для существующего пользователя
-        updateUser(existingUser);
 
         setTimeout(() => {
           router.push("/main");
@@ -308,12 +404,16 @@ export default function IntroPage(): JSX.Element {
       }));
     }
   }, [
+    isAuthenticated,
+    contextUser,
     getTelegramUser,
     extractReferralCode,
     checkUserExists,
     router,
     updateUser,
     setTelegramUser,
+    authenticateWithTelegram,
+    getTelegramInitData,
     t,
   ]);
 
@@ -366,7 +466,7 @@ export default function IntroPage(): JSX.Element {
       setIsLoading(false);
     };
 
-    const handleEnded = () => {
+    const handleEnded = async () => {
       console.log("Видео завершено");
 
       // Используем актуальное состояние из ref
@@ -380,48 +480,43 @@ export default function IntroPage(): JSX.Element {
         referralCode: currentAuthState.referralCode,
       });
 
-      // Выполняем регистрацию пользователя после окончания видео
+      // Выполняем аутентификацию пользователя после окончания видео
       if (
         currentAuthState.telegramUser &&
         !currentAuthState.user &&
         !currentAuthState.isRegistering
       ) {
-        console.log("Начинаем регистрацию после видео");
-        registerUser(
-          currentAuthState.telegramUser,
-          currentAuthState.referralCode,
-        )
-          .then((registeredUser) => {
-            console.log("Регистрация успешна, пользователь:", registeredUser);
-            console.log("Перенаправляем на main через 1 секунду");
-            // После успешной регистрации перенаправляем на main
-            setTimeout(() => {
-              router.push("/main");
-            }, 1000);
-          })
-          .catch((error) => {
-            console.error("Ошибка регистрации после видео:", error);
-            // Даже при ошибке регистрации пытаемся обновить контекст
-            setTimeout(() => {
-              refreshUser()
-                .then(() => {
-                  router.push("/main");
-                })
-                .catch(() => {
-                  router.push("/main");
-                });
-            }, 2000);
-          });
-      } else if (currentAuthState.user) {
-        console.log("Пользователь уже зарегистрирован, перенаправляем на main");
-        // Если пользователь уже зарегистрирован, просто перенаправляем
+        console.log("Начинаем аутентификацию после видео");
+        try {
+          await performJWTAuthentication(
+            currentAuthState.telegramUser,
+            currentAuthState.referralCode,
+          );
+          console.log("Аутентификация успешна, перенаправляем на main через 1 секунду");
+          setTimeout(() => {
+            router.push("/main");
+          }, 1000);
+        } catch (error) {
+          console.error("Ошибка аутентификации после видео:", error);
+          // Даже при ошибке аутентификации пытаемся обновить контекст
+          setTimeout(() => {
+            refreshUser()
+              .then(() => {
+                router.push("/main");
+              })
+              .catch(() => {
+                router.push("/main");
+              });
+          }, 2000);
+        }
+      } else if (currentAuthState.user || isAuthenticated) {
+        console.log("Пользователь уже аутентифицирован, перенаправляем на main");
         router.push("/main");
       } else {
         console.log(
-          "Условия для регистрации не выполнены, принудительно перенаправляем",
+          "Условия для аутентификации не выполнены, принудительно перенаправляем",
         );
         console.log("Детали состояния:", currentAuthState);
-        // Принудительно обновляем контекст и перенаправляем
         setTimeout(() => {
           refreshUser()
             .then(() => {
@@ -454,7 +549,7 @@ export default function IntroPage(): JSX.Element {
       video.removeEventListener("ended", handleEnded);
       video.removeEventListener("error", handleError);
     };
-  }, [router, registerUser, refreshUser]);
+  }, [router, performJWTAuthentication, refreshUser, isAuthenticated]);
 
   // Инициализация авторизации
   useEffect(() => {
@@ -480,7 +575,7 @@ export default function IntroPage(): JSX.Element {
     }
   };
 
-  // Быстрая регистрация без видео
+  // Быстрая аутентификация без видео
   const handleQuickInit = async () => {
     if (
       !authState.telegramUser ||
@@ -491,17 +586,17 @@ export default function IntroPage(): JSX.Element {
     }
 
     try {
-      const registeredUser = await registerUser(
+      await performJWTAuthentication(
         authState.telegramUser,
         authState.referralCode,
       );
 
-      console.log("Быстрая регистрация успешна:", registeredUser);
+      console.log("Быстрая аутентификация успешна");
       setTimeout(() => {
         router.push("/main");
       }, 1000);
     } catch (error) {
-      console.error("Ошибка быстрой регистрации:", error);
+      console.error("Ошибка быстрой аутентификации:", error);
     }
   };
 
@@ -518,7 +613,10 @@ export default function IntroPage(): JSX.Element {
   };
 
   const isInitialLoading =
-    authState.isChecking || (isLoading && !videoError) || !fontLoaded;
+    authState.isChecking ||
+    contextLoading ||
+    (isLoading && !videoError) ||
+    !fontLoaded;
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
