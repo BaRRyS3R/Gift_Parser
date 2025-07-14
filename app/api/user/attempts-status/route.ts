@@ -1,4 +1,4 @@
-// src/app/api/user/attempts-status/route.ts - Protected attempts status check
+// src/app/api/user/attempts-status/route.ts - Protected attempts status check with basic auth
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/authMiddleware';

@@ -1,11 +1,11 @@
-// src/app/api/tournament/save-result/route.ts - Protected tournament result saving
+// src/app/api/tournament/save-result/route.ts - Protected tournament result saving with bot detection
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuthAndRateLimit } from '@/lib/authMiddleware';
+import { withTournamentProtection } from '@/lib/authMiddleware';
 import { tournamentService } from '@/lib/supabase_tournament_extension';
 import { GameMode } from '@/types/game-modes';
 
-export const POST = withAuthAndRateLimit(async (request) => {
+export const POST = withTournamentProtection(async (request) => {
     try {
         const { user } = request;
         const { tournamentId, gameResult } = await request.json();
@@ -27,6 +27,37 @@ export const POST = withAuthAndRateLimit(async (request) => {
                 {
                     success: false,
                     error: 'Only survival mode results allowed for tournaments',
+                },
+                { status: 400 }
+            );
+        }
+
+        // Validate game result data
+        if (typeof gameResult.survivalTime !== 'number' || gameResult.survivalTime < 0) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Invalid survival time',
+                },
+                { status: 400 }
+            );
+        }
+
+        if (typeof gameResult.score !== 'number' || gameResult.score < 0) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Invalid score',
+                },
+                { status: 400 }
+            );
+        }
+
+        if (typeof gameResult.maxLevelReached !== 'number' || gameResult.maxLevelReached < 1) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Invalid max level reached',
                 },
                 { status: 400 }
             );

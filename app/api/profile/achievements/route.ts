@@ -1,10 +1,11 @@
-// src/app/api/profile/achievements/route.ts - Protected achievements endpoint
+// src/app/api/profile/achievements/route.ts - Protected achievements endpoint with comprehensive achievement data
+
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/authMiddleware';
+import { withProfileProtection } from '@/lib/authMiddleware';
 import { userService } from '@/lib/supabase';
 import { AchievementService } from '@/lib/achievementService';
 
-export const GET = withAuth(async (request) => {
+export const GET = withProfileProtection(async (request) => {
     try {
         const { user } = request;
 

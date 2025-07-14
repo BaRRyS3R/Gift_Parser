@@ -1,4 +1,4 @@
-// src/app/page.tsx - Complete fixed intro page with stable loading states
+// src/app/page.tsx - Fixed intro page with corrected loading state during video playback
 
 "use client";
 
@@ -637,16 +637,16 @@ export default function IntroPage(): JSX.Element {
     return "s0meone";
   };
 
-  // FIXED: Use stable loading states to prevent flashing
+  // FIXED: Updated loading state logic to hide loading screen when video is playing
   const isInitialLoading =
     stableLoadingState.isInitializing ||
-    authState.isChecking ||
-    contextLoading ||
-    (isLoading && !videoError && !stableLoadingState.isVideoReady);
+    (authState.isChecking && !isPlaying) ||
+    (contextLoading && !isPlaying) ||
+    (isLoading && !videoError && !stableLoadingState.isVideoReady && !isPlaying);
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* Экран загрузки */}
+      {/* Экран загрузки - FIXED: скрывается когда видео проигрывается */}
       {isInitialLoading && (
         <div className="loader-container">
           <div className="progress-bar">
@@ -664,7 +664,7 @@ export default function IntroPage(): JSX.Element {
       )}
 
       {/* Экран ошибки авторизации */}
-      {authState.error && !isInitialLoading && (
+      {authState.error && !isInitialLoading && !isPlaying && (
         <div className="loader-container">
           <p className="text-white text-center mb-4">{authState.error}</p>
           <button
@@ -692,7 +692,7 @@ export default function IntroPage(): JSX.Element {
       )}
 
       {/* Экран ошибки видео */}
-      {videoError && !isInitialLoading && !authState.error && (
+      {videoError && !isInitialLoading && !authState.error && !isPlaying && (
         <div className="loader-container">
           <p className="text-white text-center mb-4">{videoError}</p>
           <button

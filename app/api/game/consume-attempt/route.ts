@@ -1,10 +1,10 @@
-// src/app/api/game/consume-attempt/route.ts - Protected attempt consumption
+// src/app/api/game/consume-attempt/route.ts - Protected attempt consumption with bot detection
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuthAndRateLimit } from '@/lib/authMiddleware';
+import { withGameProtection } from '@/lib/authMiddleware';
 import { userService } from '@/lib/supabase';
 
-export const POST = withAuthAndRateLimit(async (request) => {
+export const POST = withGameProtection(async (request) => {
     try {
         const { user } = request;
 

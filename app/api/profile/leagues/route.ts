@@ -1,11 +1,11 @@
+// src/app/api/profile/leagues/route.ts - Protected leagues endpoint with comprehensive league data
 
-// src/app/api/profile/leagues/route.ts - Protected leagues endpoint
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/authMiddleware';
+import { withProfileProtection } from '@/lib/authMiddleware';
 import { userService } from '@/lib/supabase';
 import leagueService from '@/lib/league_service';
 
-export const GET = withAuth(async (request) => {
+export const GET = withProfileProtection(async (request) => {
     try {
         const { user } = request;
 
