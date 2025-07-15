@@ -167,11 +167,13 @@ export function formatRotationTime(timeMs: number): string {
 export function formatTournamentSurvivalTime(timeMs: number): string {
   if (timeMs < 0) {
     console.warn("Negative survival time detected:", timeMs);
+
     return "0.000s";
   }
 
   if (isNaN(timeMs) || !isFinite(timeMs)) {
     console.warn("Invalid survival time value:", timeMs);
+
     return "0.000s";
   }
 

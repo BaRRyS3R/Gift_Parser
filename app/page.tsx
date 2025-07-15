@@ -5,12 +5,16 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
-import { Play, Zap, Wifi, WifiOff, Gift, Shield, AlertTriangle } from "lucide-react";
+import { Play, Zap, Wifi, WifiOff, Gift, Shield } from "lucide-react";
 
 import { type TelegramUser } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import { authService, type LoginResult, type RegistrationResult } from "@/lib/authService";
+import {
+  authService,
+  type LoginResult,
+  type RegistrationResult,
+} from "@/lib/authService";
 
 interface AuthState {
   isChecking: boolean;
@@ -36,7 +40,7 @@ export default function IntroPage(): JSX.Element {
     setTelegramUser,
     isAuthenticated,
     user: contextUser,
-    isLoading: contextLoading
+    isLoading: contextLoading,
   } = useUser();
   const t = useT();
 
@@ -81,10 +85,11 @@ export default function IntroPage(): JSX.Element {
   useEffect(() => {
     if (isAuthenticated && contextUser && !authInitializedRef.current) {
       console.log("User already authenticated, redirecting to main");
-      setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+      setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
       setTimeout(() => {
         router.push("/main");
       }, 500);
+
       return;
     }
   }, [isAuthenticated, contextUser, router]);
@@ -99,6 +104,7 @@ export default function IntroPage(): JSX.Element {
 
       if (startParam && startParam.length === 8) {
         console.log("Referral code extracted from start param:", startParam);
+
         return startParam;
       }
     }
@@ -109,6 +115,7 @@ export default function IntroPage(): JSX.Element {
 
       if (refCode) {
         console.log("Referral code extracted from URL (dev):", refCode);
+
         return refCode;
       }
     }
@@ -185,113 +192,132 @@ export default function IntroPage(): JSX.Element {
           language_code: "en",
           is_premium: false,
         };
+
         return `user=${JSON.stringify(mockUser)}&hash=mock_hash&auth_date=${Math.floor(Date.now() / 1000)}`;
       }
+
       return null;
     }
 
     const tg = window.Telegram.WebApp;
+
     return tg.initData || null;
   }, []);
 
   // UPDATED: Check login status first (for existing users)
-  const checkUserLoginStatus = useCallback(async (telegramUser: TelegramUser, referralCode?: string): Promise<LoginResult> => {
-    const initData = getTelegramInitData();
-    if (!initData) {
-      throw new Error(t("auth.telegramDataUnavailable"));
-    }
+  const checkUserLoginStatus = useCallback(
+    async (
+      telegramUser: TelegramUser,
+      referralCode?: string,
+    ): Promise<LoginResult> => {
+      const initData = getTelegramInitData();
 
-    console.log("Checking user login status via API...");
-    return await authService.checkLoginStatus(initData, referralCode);
-  }, [getTelegramInitData, t]);
+      if (!initData) {
+        throw new Error(t("auth.telegramDataUnavailable"));
+      }
+
+      console.log("Checking user login status via API...");
+
+      return await authService.checkLoginStatus(initData, referralCode);
+    },
+    [getTelegramInitData, t],
+  );
 
   // UPDATED: Register new user
-  const registerNewUser = useCallback(async (telegramUser: TelegramUser, referralCode?: string): Promise<RegistrationResult> => {
-    const initData = getTelegramInitData();
-    if (!initData) {
-      throw new Error(t("auth.telegramDataUnavailable"));
-    }
+  const registerNewUser = useCallback(
+    async (
+      telegramUser: TelegramUser,
+      referralCode?: string,
+    ): Promise<RegistrationResult> => {
+      const initData = getTelegramInitData();
 
-    setAuthState((prev) => ({ ...prev, isRegistering: true, error: null }));
-
-    try {
-      console.log("Registering new user via API...");
-      const result = await authService.registerUser(initData, referralCode);
-
-      if (result.success && result.user) {
-        // Convert to User format and update context
-        const user = {
-          id: result.user.id,
-          telegram_id: result.user.telegram_id,
-          first_name: result.user.first_name,
-          last_name: result.user.last_name,
-          username: result.user.username,
-          language_code: telegramUser.language_code,
-          is_premium: telegramUser.is_premium || false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          attempts_remaining: result.user.attempts_remaining,
-          last_attempt_at: undefined,
-          attempts_reset_at: undefined,
-          trust_score: result.user.trust_score,
-          blocked_until: result.user.blocked_until,
-          referral_code: "",
-          referred_by: undefined,
-          referral_bonus: 5,
-          referral_count: 0,
-          total_games: result.user.total_games,
-          total_score: result.user.total_score || 0,
-          best_score: result.user.best_score || 0,
-          current_level: result.user.current_level,
-          current_league_id: result.user.current_league_id,
-          reaction_games: 0,
-          reaction_best_score: 0,
-          reaction_best_time: 0,
-          reaction_average_time: 0,
-          survival_games: 0,
-          survival_best_score: 0,
-          survival_best_time: 0,
-          survival_max_level: 0,
-          survival_best_streak: 0,
-          physics_games: 0,
-          physics_best_score: 0,
-          physics_best_time: 0,
-          physics_total_hits: 0,
-          physics_best_hits: 0,
-          physics_least_mistakes: 0,
-          rotation_games: 0,
-          rotation_best_score: 0,
-          rotation_best_time: 0,
-          rotation_max_level: 0,
-          rotation_best_streak: 0,
-          rotation_total_hits: 0,
-          total_correct_hits: 0,
-          total_wrong_hits: 0,
-          total_missed_circles: 0,
-          best_accuracy: 0,
-          last_played_at: undefined,
-          is_active: true,
-        };
-
-        updateUser(user);
-
-        console.log("User registration successful");
-        return result;
-      } else {
-        throw new Error(result.error || "Registration failed");
+      if (!initData) {
+        throw new Error(t("auth.telegramDataUnavailable"));
       }
-    } catch (error) {
-      console.error("User registration failed:", error);
-      setAuthState((prev) => ({
-        ...prev,
-        isRegistering: false,
-        error: t("auth.registrationFailed"),
-      }));
-      throw error;
-    } finally {
-      setAuthState((prev) => ({ ...prev, isRegistering: false }));
-    }
-  }, [getTelegramInitData, updateUser, t]);
+
+      setAuthState((prev) => ({ ...prev, isRegistering: true, error: null }));
+
+      try {
+        console.log("Registering new user via API...");
+        const result = await authService.registerUser(initData, referralCode);
+
+        if (result.success && result.user) {
+          // Convert to User format and update context
+          const user = {
+            id: result.user.id,
+            telegram_id: result.user.telegram_id,
+            first_name: result.user.first_name,
+            last_name: result.user.last_name,
+            username: result.user.username,
+            language_code: telegramUser.language_code,
+            is_premium: telegramUser.is_premium || false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            attempts_remaining: result.user.attempts_remaining,
+            last_attempt_at: undefined,
+            attempts_reset_at: undefined,
+            trust_score: result.user.trust_score,
+            blocked_until: result.user.blocked_until,
+            referral_code: "",
+            referred_by: undefined,
+            referral_bonus: 5,
+            referral_count: 0,
+            total_games: result.user.total_games,
+            total_score: result.user.total_score || 0,
+            best_score: result.user.best_score || 0,
+            current_level: result.user.current_level,
+            current_league_id: result.user.current_league_id,
+            reaction_games: 0,
+            reaction_best_score: 0,
+            reaction_best_time: 0,
+            reaction_average_time: 0,
+            survival_games: 0,
+            survival_best_score: 0,
+            survival_best_time: 0,
+            survival_max_level: 0,
+            survival_best_streak: 0,
+            physics_games: 0,
+            physics_best_score: 0,
+            physics_best_time: 0,
+            physics_total_hits: 0,
+            physics_best_hits: 0,
+            physics_least_mistakes: 0,
+            rotation_games: 0,
+            rotation_best_score: 0,
+            rotation_best_time: 0,
+            rotation_max_level: 0,
+            rotation_best_streak: 0,
+            rotation_total_hits: 0,
+            total_correct_hits: 0,
+            total_wrong_hits: 0,
+            total_missed_circles: 0,
+            best_accuracy: 0,
+            last_played_at: undefined,
+            is_active: true,
+          };
+
+          updateUser(user);
+
+          console.log("User registration successful");
+
+          return result;
+        } else {
+          throw new Error(result.error || "Registration failed");
+        }
+      } catch (error) {
+        console.error("User registration failed:", error);
+        setAuthState((prev) => ({
+          ...prev,
+          isRegistering: false,
+          error: t("auth.registrationFailed"),
+        }));
+        throw error;
+      } finally {
+        setAuthState((prev) => ({ ...prev, isRegistering: false }));
+      }
+    },
+    [getTelegramInitData, updateUser, t],
+  );
 
   // UPDATED: Initialize auth with proper login/register flow
   const initializeAuth = useCallback(async () => {
@@ -305,10 +331,11 @@ export default function IntroPage(): JSX.Element {
       // Skip if already authenticated
       if (isAuthenticated && contextUser) {
         console.log("User already authenticated, redirecting to main");
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
         setTimeout(() => {
           router.push("/main");
         }, 500);
+
         return;
       }
 
@@ -325,7 +352,8 @@ export default function IntroPage(): JSX.Element {
           isChecking: false,
           error: t("auth.telegramDataUnavailable"),
         }));
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+
         return;
       }
 
@@ -334,7 +362,10 @@ export default function IntroPage(): JSX.Element {
 
       // UPDATED: Check login status first
       console.log("Checking login status...");
-      const loginResult = await checkUserLoginStatus(telegramUser, referralCode);
+      const loginResult = await checkUserLoginStatus(
+        telegramUser,
+        referralCode,
+      );
 
       if (loginResult.isBlocked) {
         console.log("User is blocked, redirecting to blocked page");
@@ -346,6 +377,7 @@ export default function IntroPage(): JSX.Element {
           timeUntilUnblock: loginResult.timeUntilUnblock,
         }));
         router.push("/blocked");
+
         return;
       }
 
@@ -415,11 +447,12 @@ export default function IntroPage(): JSX.Element {
           needsRegistration: false,
         }));
 
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
 
         setTimeout(() => {
           router.push("/main");
         }, 500);
+
         return;
       }
 
@@ -434,7 +467,8 @@ export default function IntroPage(): JSX.Element {
           isChecking: false,
           needsRegistration: true,
         }));
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+
         return;
       }
 
@@ -444,8 +478,7 @@ export default function IntroPage(): JSX.Element {
         isChecking: false,
         error: loginResult.error || "Authentication failed",
       }));
-      setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
-
+      setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
     } catch (error) {
       console.error("Error initializing authorization:", error);
       setAuthState((prev) => ({
@@ -453,7 +486,7 @@ export default function IntroPage(): JSX.Element {
         isChecking: false,
         error: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")}`,
       }));
-      setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+      setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
     }
   }, [
     isAuthenticated,
@@ -483,16 +516,16 @@ export default function IntroPage(): JSX.Element {
         .load('1rem "BPDots Diamond"')
         .then(() => {
           setFontLoaded(true);
-          setStableLoadingState(prev => ({ ...prev, isInitializing: false }));
+          setStableLoadingState((prev) => ({ ...prev, isInitializing: false }));
         })
         .catch(() => {
           setFontLoaded(true);
-          setStableLoadingState(prev => ({ ...prev, isInitializing: false }));
+          setStableLoadingState((prev) => ({ ...prev, isInitializing: false }));
         });
     } else {
       setTimeout(() => {
         setFontLoaded(true);
-        setStableLoadingState(prev => ({ ...prev, isInitializing: false }));
+        setStableLoadingState((prev) => ({ ...prev, isInitializing: false }));
       }, 1000);
     }
   }, []);
@@ -506,7 +539,7 @@ export default function IntroPage(): JSX.Element {
     const handleLoadedMetadata = () => {
       video.volume = 1;
       setIsReady(true);
-      setStableLoadingState(prev => ({ ...prev, isVideoReady: true }));
+      setStableLoadingState((prev) => ({ ...prev, isVideoReady: true }));
     };
 
     const handleProgress = () => {
@@ -516,6 +549,7 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
+
           setLoadProgress(progress);
         }
       }
@@ -545,6 +579,7 @@ export default function IntroPage(): JSX.Element {
       if (currentAuthState.isBlocked) {
         console.log("User is blocked, redirecting to blocked page");
         router.push("/blocked");
+
         return;
       }
 
@@ -562,7 +597,9 @@ export default function IntroPage(): JSX.Element {
           );
 
           if (registrationResult.success) {
-            console.log("Registration successful, redirecting to main in 1 second");
+            console.log(
+              "Registration successful, redirecting to main in 1 second",
+            );
             setTimeout(() => {
               router.push("/main");
             }, 1000);
@@ -608,7 +645,10 @@ export default function IntroPage(): JSX.Element {
 
   // Initialize authorization
   useEffect(() => {
-    if (!authInitializedRef.current && stableLoadingState.isInitializing === false) {
+    if (
+      !authInitializedRef.current &&
+      stableLoadingState.isInitializing === false
+    ) {
       initializeAuth();
     }
   }, [initializeAuth, stableLoadingState.isInitializing]);
@@ -678,7 +718,7 @@ export default function IntroPage(): JSX.Element {
     const seconds = totalSeconds % 60;
 
     if (minutes > 0) {
-      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
     } else {
       return `${seconds}s`;
     }
@@ -687,14 +727,14 @@ export default function IntroPage(): JSX.Element {
   // Get block reason text
   const getBlockReasonText = (reason?: string): string => {
     switch (reason) {
-      case 'captcha_failed':
-        return 'Failed Captcha Verification';
-      case 'biometric_failed':
-        return 'Failed Biometric Authentication';
-      case 'suspicious_activity':
-        return 'Suspicious Activity Detected';
+      case "captcha_failed":
+        return "Failed Captcha Verification";
+      case "biometric_failed":
+        return "Failed Biometric Authentication";
+      case "suspicious_activity":
+        return "Suspicious Activity Detected";
       default:
-        return 'Security Violation';
+        return "Security Violation";
     }
   };
 
@@ -703,7 +743,10 @@ export default function IntroPage(): JSX.Element {
     stableLoadingState.isInitializing ||
     (authState.isChecking && !isPlaying) ||
     (contextLoading && !isPlaying) ||
-    (isLoading && !videoError && !stableLoadingState.isVideoReady && !isPlaying);
+    (isLoading &&
+      !videoError &&
+      !stableLoadingState.isVideoReady &&
+      !isPlaying);
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -732,7 +775,9 @@ export default function IntroPage(): JSX.Element {
               <Shield className="text-red-400" size={40} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">Account Blocked</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Account Blocked
+              </h2>
               <p className="text-red-300 text-sm mb-4">
                 {getBlockReasonText(authState.blockReason)}
               </p>
@@ -747,7 +792,7 @@ export default function IntroPage(): JSX.Element {
             </div>
             <button
               className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
-              onClick={() => router.push('/blocked')}
+              onClick={() => router.push("/blocked")}
             >
               View Details
             </button>
@@ -786,25 +831,28 @@ export default function IntroPage(): JSX.Element {
       )}
 
       {/* Video error screen */}
-      {videoError && !isInitialLoading && !authState.error && !authState.isBlocked && (
-        <div className="loader-container">
-          <p className="text-white text-center mb-4">{videoError}</p>
-          <button
-            className="px-4 py-2 bg-white text-black rounded mb-4"
-            onClick={handleStart}
-          >
-            {t("common.retry")}
-          </button>
-          {authState.needsRegistration && (
+      {videoError &&
+        !isInitialLoading &&
+        !authState.error &&
+        !authState.isBlocked && (
+          <div className="loader-container">
+            <p className="text-white text-center mb-4">{videoError}</p>
             <button
-              className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
-              onClick={handleQuickInit}
+              className="px-4 py-2 bg-white text-black rounded mb-4"
+              onClick={handleStart}
             >
-              {t("auth.continueWithoutVideo")}
+              {t("common.retry")}
             </button>
-          )}
-        </div>
-      )}
+            {authState.needsRegistration && (
+              <button
+                className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
+                onClick={handleQuickInit}
+              >
+                {t("auth.continueWithoutVideo")}
+              </button>
+            )}
+          </div>
+        )}
 
       {/* UPDATED: Registration screen - now shows for new users */}
       {authState.needsRegistration &&
@@ -851,7 +899,8 @@ export default function IntroPage(): JSX.Element {
                           </span>
                         </div>
                         <p className="text-green-400 text-sm">
-                          {t("auth.youllGet")} <span className="font-bold">+5 extra attempts</span>
+                          {t("auth.youllGet")}{" "}
+                          <span className="font-bold">+5 extra attempts</span>
                         </p>
                         <p className="text-green-400/60 text-xs">
                           {t("auth.referredBy")} {getDisplayReferrerName()}

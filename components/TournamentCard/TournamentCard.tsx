@@ -37,6 +37,7 @@ export default function TournamentCard({
       // Skip loading if user is not authenticated or still loading
       if (!isAuthenticated || userLoading) {
         setIsLoading(false);
+
         return;
       }
 
@@ -61,7 +62,10 @@ export default function TournamentCard({
         setError("Failed to load tournament");
 
         // Handle authentication errors
-        if (error instanceof Error && error.message.includes('Authentication expired')) {
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
           console.log("Authentication expired, user needs to log in again");
           // The useUser hook will handle the redirect to login
         }
@@ -77,6 +81,7 @@ export default function TournamentCard({
   useEffect(() => {
     if (!tournamentStatus.activeTournament || !tournamentStatus.isActive) {
       setTimeRemaining("");
+
       return;
     }
 
@@ -94,11 +99,13 @@ export default function TournamentCard({
           const reloadStatus = async () => {
             try {
               const status = await authService.getTournamentStatus();
+
               setTournamentStatus(status);
             } catch (error) {
               console.error("Error reloading tournament status:", error);
             }
           };
+
           reloadStatus();
         }
       } else {
@@ -107,12 +114,17 @@ export default function TournamentCard({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [tournamentStatus.activeTournament, tournamentStatus.isActive, isAuthenticated]);
+  }, [
+    tournamentStatus.activeTournament,
+    tournamentStatus.isActive,
+    isAuthenticated,
+  ]);
 
   const handleClick = () => {
     // Only navigate if user is authenticated
     if (!isAuthenticated) {
       console.warn("User not authenticated, cannot access tournament");
+
       return;
     }
 
@@ -144,9 +156,7 @@ export default function TournamentCard({
       <div className="backdrop-blur-sm border border-red-400/30 rounded-xl p-4 bg-red-500/10">
         <div className="flex items-center justify-center space-x-2">
           <Trophy className="text-red-400/60" size={16} />
-          <span className="text-red-400/80 text-sm">
-            {error}
-          </span>
+          <span className="text-red-400/80 text-sm">{error}</span>
         </div>
       </div>
     );

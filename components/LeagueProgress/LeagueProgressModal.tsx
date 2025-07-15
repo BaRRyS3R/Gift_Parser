@@ -75,10 +75,16 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
         setIsLoading(true);
         console.log("LeagueProgressModal: Fetching league progress via API...");
         const progress = await authService.getLeagueProgress();
+
         setProgressInfo(progress);
-        console.log("LeagueProgressModal: League progress fetched successfully");
+        console.log(
+          "LeagueProgressModal: League progress fetched successfully",
+        );
       } catch (error) {
-        console.error("LeagueProgressModal: Error loading league progress via API:", error);
+        console.error(
+          "LeagueProgressModal: Error loading league progress via API:",
+          error,
+        );
       } finally {
         setIsLoading(false);
       }

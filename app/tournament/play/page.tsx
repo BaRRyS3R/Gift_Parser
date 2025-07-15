@@ -33,7 +33,7 @@ export default function TournamentPlayPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -48,6 +48,7 @@ export default function TournamentPlayPage() {
             router.push("/");
           }, 2000);
         }
+
         return;
       }
 
@@ -62,6 +63,7 @@ export default function TournamentPlayPage() {
           setTimeout(() => {
             router.push("/tournament");
           }, 2000);
+
           return;
         }
 
@@ -71,10 +73,14 @@ export default function TournamentPlayPage() {
         setError("Failed to load tournament");
 
         // Handle authentication errors
-        if (err instanceof Error && err.message.includes('Authentication expired')) {
+        if (
+          err instanceof Error &&
+          err.message.includes("Authentication expired")
+        ) {
           setTimeout(() => {
             router.push("/");
           }, 1000);
+
           return;
         }
 

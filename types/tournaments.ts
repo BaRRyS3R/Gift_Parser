@@ -173,12 +173,15 @@ export const formatTimeRemaining = (milliseconds: number): string => {
 
   if (days > 0) {
     const hours = totalHours % 24;
+
     return `${days}d ${hours}h`;
   } else if (totalHours > 0) {
     const minutes = totalMinutes % 60;
+
     return `${totalHours}h ${minutes}m`;
   } else if (totalMinutes > 0) {
     const seconds = totalSeconds % 60;
+
     return `${totalMinutes}m ${seconds}s`;
   } else {
     return `${totalSeconds}s`;
@@ -188,9 +191,13 @@ export const formatTimeRemaining = (milliseconds: number): string => {
 /**
  * Format tournament dates for display
  */
-export const formatTournamentDate = (dateString: string, locale: string = "ru-RU"): string => {
+export const formatTournamentDate = (
+  dateString: string,
+  locale: string = "ru-RU",
+): string => {
   try {
     const date = new Date(dateString);
+
     return date.toLocaleDateString(locale, {
       day: "2-digit",
       month: "2-digit",
@@ -200,6 +207,7 @@ export const formatTournamentDate = (dateString: string, locale: string = "ru-RU
     });
   } catch (error) {
     console.error("Error formatting tournament date:", error);
+
     return dateString;
   }
 };
@@ -207,7 +215,10 @@ export const formatTournamentDate = (dateString: string, locale: string = "ru-RU
 /**
  * Calculate tournament duration in days
  */
-export const getTournamentDuration = (startDate: string, endDate: string): number => {
+export const getTournamentDuration = (
+  startDate: string,
+  endDate: string,
+): number => {
   const start = new Date(startDate);
   const end = new Date(endDate);
 
@@ -217,7 +228,9 @@ export const getTournamentDuration = (startDate: string, endDate: string): numbe
 /**
  * Check if tournament registration is open
  */
-export const isTournamentRegistrationOpen = (tournament: Tournament): boolean => {
+export const isTournamentRegistrationOpen = (
+  tournament: Tournament,
+): boolean => {
   const now = new Date();
   const start = new Date(tournament.start_date);
 
@@ -228,7 +241,9 @@ export const isTournamentRegistrationOpen = (tournament: Tournament): boolean =>
 /**
  * Get tournament phase (upcoming, registration, active, ended)
  */
-export const getTournamentPhase = (tournament: Tournament): "upcoming" | "registration" | "active" | "ended" => {
+export const getTournamentPhase = (
+  tournament: Tournament,
+): "upcoming" | "registration" | "active" | "ended" => {
   const now = new Date();
   const start = new Date(tournament.start_date);
   const end = new Date(tournament.end_date);
@@ -245,7 +260,9 @@ export const getTournamentPhase = (tournament: Tournament): "upcoming" | "regist
 /**
  * Validate tournament data
  */
-export const validateTournamentData = (tournament: Partial<Tournament>): boolean => {
+export const validateTournamentData = (
+  tournament: Partial<Tournament>,
+): boolean => {
   if (!tournament.id || !tournament.name) return false;
   if (!tournament.start_date || !tournament.end_date) return false;
   if (!tournament.prizes || !Array.isArray(tournament.prizes)) return false;
@@ -259,7 +276,9 @@ export const validateTournamentData = (tournament: Partial<Tournament>): boolean
 /**
  * Sort tournaments by priority (active first, then by start date)
  */
-export const sortTournamentsByPriority = (tournaments: TournamentWithStatus[]): TournamentWithStatus[] => {
+export const sortTournamentsByPriority = (
+  tournaments: TournamentWithStatus[],
+): TournamentWithStatus[] => {
   return tournaments.sort((a, b) => {
     // Active tournaments first
     if (a.status === "active" && b.status !== "active") return -1;
@@ -275,9 +294,9 @@ export const sortTournamentsByPriority = (tournaments: TournamentWithStatus[]): 
  */
 export const getUserPositionInTournament = (
   leaderboard: TournamentLeaderboardEntry[],
-  telegramId: number
+  telegramId: number,
 ): TournamentLeaderboardEntry | null => {
-  return leaderboard.find(entry => entry.telegram_id === telegramId) || null;
+  return leaderboard.find((entry) => entry.telegram_id === telegramId) || null;
 };
 
 /**
@@ -285,7 +304,7 @@ export const getUserPositionInTournament = (
  */
 export const isUserInPrizePosition = (
   userPosition: TournamentLeaderboardEntry | null,
-  prizeCount: number
+  prizeCount: number,
 ): boolean => {
   return userPosition !== null && userPosition.rank <= prizeCount;
 };
@@ -295,9 +314,10 @@ export const isUserInPrizePosition = (
  */
 export const getPrizeForPosition = (
   tournament: Tournament,
-  position: number
+  position: number,
 ): string | null => {
   if (position < 1 || position > tournament.prizes.length) return null;
+
   return tournament.prizes[position - 1];
 };
 
@@ -312,7 +332,9 @@ export interface TournamentStats {
   totalGamesPlayed: number;
 }
 
-export const calculateTournamentStats = (leaderboard: TournamentLeaderboardEntry[]): TournamentStats => {
+export const calculateTournamentStats = (
+  leaderboard: TournamentLeaderboardEntry[],
+): TournamentStats => {
   if (leaderboard.length === 0) {
     return {
       totalParticipants: 0,
@@ -324,10 +346,14 @@ export const calculateTournamentStats = (leaderboard: TournamentLeaderboardEntry
   }
 
   const totalParticipants = leaderboard.length;
-  const scores = leaderboard.map(entry => entry.survival_score);
+  const scores = leaderboard.map((entry) => entry.survival_score);
   const topScore = Math.max(...scores);
-  const averageScore = scores.reduce((sum, score) => sum + score, 0) / totalParticipants;
-  const totalGamesPlayed = leaderboard.reduce((sum, entry) => sum + (entry.games_played || 1), 0);
+  const averageScore =
+    scores.reduce((sum, score) => sum + score, 0) / totalParticipants;
+  const totalGamesPlayed = leaderboard.reduce(
+    (sum, entry) => sum + (entry.games_played || 1),
+    0,
+  );
 
   return {
     totalParticipants,

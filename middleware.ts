@@ -17,11 +17,7 @@ const protectedApiPaths = [
 ];
 
 // Define paths that don't require authentication
-const publicApiPaths = [
-  "/api/auth/login",
-  "/api/auth/register",
-  "/api/health"
-];
+const publicApiPaths = ["/api/auth/login", "/api/auth/register", "/api/health"];
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
@@ -37,6 +33,7 @@ function checkRateLimit(identifier: string): boolean {
 
   if (!userLimit || now - userLimit.lastReset > RATE_LIMIT_WINDOW) {
     rateLimitMap.set(identifier, { count: 1, lastReset: now });
+
     return true;
   }
 
@@ -45,6 +42,7 @@ function checkRateLimit(identifier: string): boolean {
   }
 
   userLimit.count++;
+
   return true;
 }
 
@@ -75,6 +73,7 @@ export async function middleware(request: NextRequest) {
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.warn(`Protected API access attempt without auth: ${pathname}`);
+
       return NextResponse.json(
         {
           success: false,
@@ -94,6 +93,7 @@ export async function middleware(request: NextRequest) {
 
       if (!validation.isValid || !validation.payload) {
         console.warn(`Invalid token attempt for: ${pathname}`);
+
         return NextResponse.json(
           {
             success: false,
@@ -109,7 +109,10 @@ export async function middleware(request: NextRequest) {
       const rateLimitKey = `user_${validation.payload.userId}`;
 
       if (!checkRateLimit(rateLimitKey)) {
-        console.warn(`Rate limit exceeded for user ${validation.payload.userId} on ${pathname}`);
+        console.warn(
+          `Rate limit exceeded for user ${validation.payload.userId} on ${pathname}`,
+        );
+
         return NextResponse.json(
           {
             success: false,
@@ -157,6 +160,7 @@ export async function middleware(request: NextRequest) {
 
   // Log unprotected API access for monitoring
   console.info(`Unprotected API access: ${pathname}`);
+
   return NextResponse.next();
 }
 

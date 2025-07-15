@@ -13,7 +13,10 @@ const ATTEMPTS_CONFIG = {
 } as const;
 
 // Internal function to call security check API
-async function checkUserSecurityStatus(telegramId: number, baseUrl: string): Promise<{
+async function checkUserSecurityStatus(
+  telegramId: number,
+  baseUrl: string,
+): Promise<{
   isBlocked: boolean;
   timeUntilUnblock?: number;
   blockReason?: string;
@@ -23,22 +26,24 @@ async function checkUserSecurityStatus(telegramId: number, baseUrl: string): Pro
     const tempToken = await generateToken(`temp-${telegramId}`, telegramId);
 
     const response = await fetch(`${baseUrl}/api/security/check-status`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${tempToken}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tempToken}`,
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
-      console.error('Security check API failed:', response.status);
+      console.error("Security check API failed:", response.status);
+
       return { isBlocked: false }; // Default to not blocked on API failure
     }
 
     const data = await response.json();
 
     if (!data.success) {
-      console.error('Security check failed:', data.error);
+      console.error("Security check failed:", data.error);
+
       return { isBlocked: false };
     }
 
@@ -48,7 +53,8 @@ async function checkUserSecurityStatus(telegramId: number, baseUrl: string): Pro
       blockReason: data.securityResult.blockReason,
     };
   } catch (error) {
-    console.error('Error calling security check API:', error);
+    console.error("Error calling security check API:", error);
+
     return { isBlocked: false }; // Default to not blocked on error
   }
 }
@@ -85,7 +91,10 @@ export async function POST(request: NextRequest) {
     const baseUrl = request.nextUrl.origin;
 
     // UPDATED: Use API endpoint for security check instead of direct RPC
-    const securityStatus = await checkUserSecurityStatus(telegramUser.id, baseUrl);
+    const securityStatus = await checkUserSecurityStatus(
+      telegramUser.id,
+      baseUrl,
+    );
 
     if (securityStatus.isBlocked) {
       return NextResponse.json(
@@ -110,7 +119,10 @@ export async function POST(request: NextRequest) {
     // If user exists, perform security check and return authentication
     if (user && !findError) {
       // Perform additional security check for existing users
-      const existingUserSecurityCheck = await checkUserSecurityStatus(telegramUser.id, baseUrl);
+      const existingUserSecurityCheck = await checkUserSecurityStatus(
+        telegramUser.id,
+        baseUrl,
+      );
 
       if (existingUserSecurityCheck.isBlocked) {
         return NextResponse.json(
@@ -156,19 +168,22 @@ export async function POST(request: NextRequest) {
     // UPDATED: For new users, return registration required instead of auto-creating
     if (findError?.code === "PGRST116" || !user) {
       // Return that registration is needed, don't auto-create user
-      return NextResponse.json({
-        success: false,
-        needsRegistration: true,
-        telegramUser: {
-          id: telegramUser.id,
-          first_name: telegramUser.first_name,
-          last_name: telegramUser.last_name,
-          username: telegramUser.username,
-          language_code: telegramUser.language_code,
-          is_premium: telegramUser.is_premium,
+      return NextResponse.json(
+        {
+          success: false,
+          needsRegistration: true,
+          telegramUser: {
+            id: telegramUser.id,
+            first_name: telegramUser.first_name,
+            last_name: telegramUser.last_name,
+            username: telegramUser.username,
+            language_code: telegramUser.language_code,
+            is_premium: telegramUser.is_premium,
+          },
+          referralCode: referralCode || null,
         },
-        referralCode: referralCode || null,
-      }, { status: 202 }); // 202 Accepted - indicates further action needed
+        { status: 202 },
+      ); // 202 Accepted - indicates further action needed
     }
 
     if (!user) {
@@ -196,7 +211,6 @@ export async function POST(request: NextRequest) {
       token,
       user: safeUser,
     });
-
   } catch (error) {
     console.error("Authentication error:", error);
 

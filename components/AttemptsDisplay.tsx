@@ -29,12 +29,14 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   const checkAttempts = useCallback(async () => {
     if (!isAuthenticated) {
       setIsLoading(false);
+
       return;
     }
 
     try {
       console.log("AttemptsDisplay: Fetching attempts status via API...");
       const status = await getAttemptsStatus();
+
       setAttemptsStatus(status);
       console.log("AttemptsDisplay: Attempts status fetched successfully");
     } catch (error) {
@@ -57,6 +59,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   useEffect(() => {
     if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
       setTimeUntilReset("");
+
       return;
     }
 

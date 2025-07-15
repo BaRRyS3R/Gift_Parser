@@ -52,16 +52,25 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
     const loadProgressInfo = async () => {
       if (!user || !isAuthenticated) {
         setIsLoading(false);
+
         return;
       }
 
       try {
-        console.log("CompactLeagueDisplay: Fetching league progress via API...");
+        console.log(
+          "CompactLeagueDisplay: Fetching league progress via API...",
+        );
         const progress = await authService.getLeagueProgress();
+
         setProgressInfo(progress);
-        console.log("CompactLeagueDisplay: League progress fetched successfully");
+        console.log(
+          "CompactLeagueDisplay: League progress fetched successfully",
+        );
       } catch (error) {
-        console.error("CompactLeagueDisplay: Error loading league progress via API:", error);
+        console.error(
+          "CompactLeagueDisplay: Error loading league progress via API:",
+          error,
+        );
       } finally {
         setIsLoading(false);
       }
