@@ -176,10 +176,10 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             {/* Powered by BLACKHOLE */}
             <div className="flex items-center justify-center">
               <a
-                href="https://t.me/notmyfrens"
-                target="_blank"
-                rel="noopener noreferrer"
                 className="text-xs text-white/30 hover:text-white/50 transition-colors duration-300 font-mono tracking-wider"
+                href="https://t.me/notmyfrens"
+                rel="noopener noreferrer"
+                target="_blank"
               >
                 powered by BLACKHOLE
               </a>

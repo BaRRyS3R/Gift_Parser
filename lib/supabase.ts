@@ -17,9 +17,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // SECURITY: Only log Supabase config in development
-if (process.env.NODE_ENV === 'development') {
-  console.log('Supabase URL configured:', supabaseUrl ? 'Yes' : 'No');
-  console.log('Supabase Key configured:', supabaseAnonKey ? 'Yes' : 'No');
+if (process.env.NODE_ENV === "development") {
+  console.log("Supabase URL configured:", supabaseUrl ? "Yes" : "No");
+  console.log("Supabase Key configured:", supabaseAnonKey ? "Yes" : "No");
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -40,15 +40,20 @@ const BLOCK_DURATIONS = {
 
 // SECURITY: Helper function for secure logging
 const secureLog = (message: string, data?: any) => {
-  if (process.env.NODE_ENV === 'development') {
-    if (data && typeof data === 'object') {
+  if (process.env.NODE_ENV === "development") {
+    if (data && typeof data === "object") {
       // Remove sensitive fields from logging
       const sanitizedData = { ...data };
-      if (sanitizedData.id && typeof sanitizedData.id === 'string' && sanitizedData.id.length > 10) {
-        sanitizedData.id = sanitizedData.id.substring(0, 8) + '...';
+
+      if (
+        sanitizedData.id &&
+        typeof sanitizedData.id === "string" &&
+        sanitizedData.id.length > 10
+      ) {
+        sanitizedData.id = sanitizedData.id.substring(0, 8) + "...";
       }
       if (sanitizedData.user_id) {
-        sanitizedData.user_id = '***';
+        sanitizedData.user_id = "***";
       }
       console.log(message, sanitizedData);
     } else {
@@ -132,7 +137,7 @@ export interface UserBlock {
   id: string;
   user_id: string;
   telegram_id: number;
-  block_reason: 'captcha_failed' | 'biometric_failed' | 'suspicious_activity';
+  block_reason: "captcha_failed" | "biometric_failed" | "suspicious_activity";
   blocked_at: string;
   unblocked_at?: string;
   block_duration_minutes: number;
@@ -176,14 +181,21 @@ export const userService = {
       const { data, error } = await supabase.rpc("get_current_timestamp");
 
       if (error) {
-        secureLog("Failed to get server time, using client time:", error.message);
+        secureLog(
+          "Failed to get server time, using client time:",
+          error.message,
+        );
+
         return new Date();
       }
 
       return new Date(data);
     } catch (error) {
-      secureLog("Error getting server time, falling back to client time:",
-        error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error getting server time, falling back to client time:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
+
       return new Date();
     }
   },
@@ -236,7 +248,11 @@ export const userService = {
 
       return { isValid: false, bonus: 0 };
     } catch (error) {
-      secureLog("Error validating referral code:", error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error validating referral code:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
+
       return { isValid: false, bonus: 0 };
     }
   },
@@ -338,10 +354,14 @@ export const userService = {
     try {
       await leagueService.initializeUserLeague(data.id, 0);
     } catch (leagueError) {
-      secureLog("Error initializing user league:", leagueError instanceof Error ? leagueError.message : 'Unknown error');
+      secureLog(
+        "Error initializing user league:",
+        leagueError instanceof Error ? leagueError.message : "Unknown error",
+      );
     }
 
     secureLog("User created successfully");
+
     return data;
   },
 
@@ -368,7 +388,10 @@ export const userService = {
           }
         }
       } catch (error) {
-        secureLog("Error getting referrer display name:", error instanceof Error ? error.message : 'Unknown error');
+        secureLog(
+          "Error getting referrer display name:",
+          error instanceof Error ? error.message : "Unknown error",
+        );
         referredByName = "s0meone";
       }
     }
@@ -401,7 +424,11 @@ export const userService = {
         bonus: referrer.referral_bonus,
       };
     } catch (error) {
-      secureLog("Error getting referrer info:", error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error getting referrer info:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
+
       return null;
     }
   },
@@ -567,9 +594,12 @@ export const userService = {
   async checkUserBlockStatus(telegramId: number): Promise<SecurityCheckResult> {
     try {
       // First check and unblock if time has passed
-      const { error: unblockError } = await supabase.rpc('check_and_unblock_user', {
-        user_telegram_id: telegramId
-      });
+      const { error: unblockError } = await supabase.rpc(
+        "check_and_unblock_user",
+        {
+          user_telegram_id: telegramId,
+        },
+      );
 
       if (unblockError) {
         secureLog("Error checking unblock status:", unblockError.message);
@@ -577,18 +607,22 @@ export const userService = {
 
       // Get current user data
       const user = await this.findByTelegramId(telegramId);
+
       if (!user) {
         throw new Error("User not found");
       }
 
       const serverTime = await this.getServerTime();
-      const isBlocked = user.blocked_until ? new Date(user.blocked_until) > serverTime : false;
+      const isBlocked = user.blocked_until
+        ? new Date(user.blocked_until) > serverTime
+        : false;
 
       let timeUntilUnblock: number | undefined;
       let blockReason: string | undefined;
 
       if (isBlocked && user.blocked_until) {
-        timeUntilUnblock = new Date(user.blocked_until).getTime() - serverTime.getTime();
+        timeUntilUnblock =
+          new Date(user.blocked_until).getTime() - serverTime.getTime();
 
         // Get the most recent active block reason
         const { data: blockData } = await supabase
@@ -612,11 +646,17 @@ export const userService = {
         needsCaptcha: !isBlocked && trustScore < 40,
         needsBiometric: !isBlocked && trustScore < 20,
         trustScore,
-        timeUntilUnblock: timeUntilUnblock && timeUntilUnblock > 0 ? timeUntilUnblock : undefined,
+        timeUntilUnblock:
+          timeUntilUnblock && timeUntilUnblock > 0
+            ? timeUntilUnblock
+            : undefined,
         blockReason,
       };
     } catch (error) {
-      secureLog("Error checking user block status:", error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error checking user block status:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       throw error;
     }
   },
@@ -626,28 +666,29 @@ export const userService = {
    */
   async blockUser(
     telegramId: number,
-    reason: 'captcha_failed' | 'biometric_failed' | 'suspicious_activity'
+    reason: "captcha_failed" | "biometric_failed" | "suspicious_activity",
   ): Promise<boolean> {
     try {
       let duration: number;
+
       switch (reason) {
-        case 'captcha_failed':
+        case "captcha_failed":
           duration = BLOCK_DURATIONS.CAPTCHA_FAILED;
           break;
-        case 'biometric_failed':
+        case "biometric_failed":
           duration = BLOCK_DURATIONS.BIOMETRIC_FAILED;
           break;
-        case 'suspicious_activity':
+        case "suspicious_activity":
           duration = BLOCK_DURATIONS.SUSPICIOUS_ACTIVITY;
           break;
         default:
           duration = BLOCK_DURATIONS.CAPTCHA_FAILED;
       }
 
-      const { data, error } = await supabase.rpc('block_user', {
+      const { data, error } = await supabase.rpc("block_user", {
         user_telegram_id: telegramId,
         reason: reason,
-        duration_minutes: duration
+        duration_minutes: duration,
       });
 
       if (error) {
@@ -655,10 +696,16 @@ export const userService = {
         throw error;
       }
 
-      secureLog(`User ${telegramId} blocked for ${reason} for ${duration} minutes`);
+      secureLog(
+        `User ${telegramId} blocked for ${reason} for ${duration} minutes`,
+      );
+
       return data;
     } catch (error) {
-      secureLog("Error in blockUser:", error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error in blockUser:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       throw error;
     }
   },
@@ -668,12 +715,12 @@ export const userService = {
    */
   async updateTrustScore(
     telegramId: number,
-    scoreChange: number
+    scoreChange: number,
   ): Promise<number> {
     try {
-      const { data, error } = await supabase.rpc('update_trust_score', {
+      const { data, error } = await supabase.rpc("update_trust_score", {
         user_telegram_id: telegramId,
-        score_change: scoreChange
+        score_change: scoreChange,
       });
 
       if (error) {
@@ -681,10 +728,16 @@ export const userService = {
         throw error;
       }
 
-      secureLog(`Trust score updated for user ${telegramId}: ${scoreChange > 0 ? '+' : ''}${scoreChange}`);
+      secureLog(
+        `Trust score updated for user ${telegramId}: ${scoreChange > 0 ? "+" : ""}${scoreChange}`,
+      );
+
       return data || 0;
     } catch (error) {
-      secureLog("Error in updateTrustScore:", error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error in updateTrustScore:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       throw error;
     }
   },
@@ -696,7 +749,7 @@ export const userService = {
     telegramId: number,
     userInput: string,
     correctAnswer: string,
-    completedInTime: boolean
+    completedInTime: boolean,
   ): Promise<{ success: boolean; newTrustScore: number }> {
     try {
       const isCorrect = userInput.toLowerCase() === correctAnswer.toLowerCase();
@@ -704,17 +757,25 @@ export const userService = {
       if (isCorrect && completedInTime) {
         // Captcha passed - increase trust score
         const newTrustScore = await this.updateTrustScore(telegramId, 15);
+
         secureLog(`Captcha passed for user ${telegramId}`);
+
         return { success: true, newTrustScore };
       } else {
         // Captcha failed - block user and decrease trust score
         await this.updateTrustScore(telegramId, -10);
-        await this.blockUser(telegramId, 'captcha_failed');
-        secureLog(`Captcha failed for user ${telegramId}: ${!isCorrect ? 'incorrect answer' : 'timeout'}`);
+        await this.blockUser(telegramId, "captcha_failed");
+        secureLog(
+          `Captcha failed for user ${telegramId}: ${!isCorrect ? "incorrect answer" : "timeout"}`,
+        );
+
         return { success: false, newTrustScore: 0 };
       }
     } catch (error) {
-      secureLog("Error validating captcha:", error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error validating captcha:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       throw error;
     }
   },
@@ -725,23 +786,31 @@ export const userService = {
   async validateBiometric(
     telegramId: number,
     success: boolean,
-    completedInTime: boolean
+    completedInTime: boolean,
   ): Promise<{ success: boolean; newTrustScore: number }> {
     try {
       if (success && completedInTime) {
         // Biometric passed - increase trust score significantly
         const newTrustScore = await this.updateTrustScore(telegramId, 30);
+
         secureLog(`Biometric authentication passed for user ${telegramId}`);
+
         return { success: true, newTrustScore };
       } else {
         // Biometric failed - block user and decrease trust score
         await this.updateTrustScore(telegramId, -15);
-        await this.blockUser(telegramId, 'biometric_failed');
-        secureLog(`Biometric authentication failed for user ${telegramId}: ${!success ? 'failed authentication' : 'timeout'}`);
+        await this.blockUser(telegramId, "biometric_failed");
+        secureLog(
+          `Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"}`,
+        );
+
         return { success: false, newTrustScore: 0 };
       }
     } catch (error) {
-      secureLog("Error validating biometric:", error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error validating biometric:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       throw error;
     }
   },
@@ -749,7 +818,10 @@ export const userService = {
   /**
    * Get user block history
    */
-  async getUserBlockHistory(telegramId: number, limit: number = 10): Promise<UserBlock[]> {
+  async getUserBlockHistory(
+    telegramId: number,
+    limit: number = 10,
+  ): Promise<UserBlock[]> {
     try {
       const { data, error } = await supabase
         .from("user_blocks")
@@ -765,7 +837,10 @@ export const userService = {
 
       return data || [];
     } catch (error) {
-      secureLog("Error in getUserBlockHistory:", error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error in getUserBlockHistory:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       throw error;
     }
   },
@@ -785,7 +860,10 @@ export const userService = {
         .eq("telegram_id", telegramId);
 
       if (updateUserError) {
-        secureLog("Error force unblocking user (users table):", updateUserError.message);
+        secureLog(
+          "Error force unblocking user (users table):",
+          updateUserError.message,
+        );
         throw updateUserError;
       }
 
@@ -800,14 +878,21 @@ export const userService = {
         .eq("is_active", true);
 
       if (updateBlockError) {
-        secureLog("Error force unblocking user (blocks table):", updateBlockError.message);
+        secureLog(
+          "Error force unblocking user (blocks table):",
+          updateBlockError.message,
+        );
         throw updateBlockError;
       }
 
       secureLog(`User ${telegramId} force unblocked`);
+
       return true;
     } catch (error) {
-      secureLog("Error in forceUnblockUser:", error instanceof Error ? error.message : 'Unknown error');
+      secureLog(
+        "Error in forceUnblockUser:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       throw error;
     }
   },
@@ -843,7 +928,7 @@ export const userService = {
     secureLog("Updating user statistics", {
       mode: gameResult.mode,
       score: gameResult.score,
-      isCompetitive: isCompetitiveMode
+      isCompetitive: isCompetitiveMode,
     });
 
     const updates: any = {
@@ -875,8 +960,8 @@ export const userService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-              reactionResult.reactionTime) /
-            (totalReactionGames + 1)
+                reactionResult.reactionTime) /
+              (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
@@ -991,7 +1076,10 @@ export const userService = {
         };
       }
     } catch (leagueError) {
-      secureLog("Error checking league after game:", leagueError instanceof Error ? leagueError.message : 'Unknown error');
+      secureLog(
+        "Error checking league after game:",
+        leagueError instanceof Error ? leagueError.message : "Unknown error",
+      );
 
       return {
         success: true,
@@ -1046,7 +1134,9 @@ export const userService = {
     return data || [];
   },
 
-  async getReactionLeaderboard(limit: number = 100): Promise<ReactionLeaderboard[]> {
+  async getReactionLeaderboard(
+    limit: number = 100,
+  ): Promise<ReactionLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
       .select(
@@ -1081,7 +1171,9 @@ export const userService = {
     }));
   },
 
-  async getSurvivalLeaderboard(limit: number = 100): Promise<SurvivalLeaderboard[]> {
+  async getSurvivalLeaderboard(
+    limit: number = 100,
+  ): Promise<SurvivalLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
       .select(
@@ -1117,7 +1209,9 @@ export const userService = {
     }));
   },
 
-  async getPhysicsLeaderboard(limit: number = 100): Promise<PhysicsLeaderboard[]> {
+  async getPhysicsLeaderboard(
+    limit: number = 100,
+  ): Promise<PhysicsLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
       .select(
@@ -1155,7 +1249,9 @@ export const userService = {
     }));
   },
 
-  async getRotationLeaderboard(limit: number = 100): Promise<RotationLeaderboard[]> {
+  async getRotationLeaderboard(
+    limit: number = 100,
+  ): Promise<RotationLeaderboard[]> {
     const { data, error } = await supabase
       .from("users")
       .select(

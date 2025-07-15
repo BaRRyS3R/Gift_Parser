@@ -36,7 +36,6 @@ import {
   authenticateUser,
   isUserAuthenticated,
   signOutUser,
-  getSecureAttemptsStatus,
   consumeSecureAttempt,
   saveSecureGameResult,
   saveSecureTournamentResult,
@@ -84,7 +83,10 @@ interface UserContextType {
 
   // JWT Authentication methods
   isAuthenticated: boolean;
-  authenticateWithTelegram: (initData: string, referralCode?: string) => Promise<void>;
+  authenticateWithTelegram: (
+    initData: string,
+    referralCode?: string,
+  ) => Promise<void>;
   signOut: () => void;
 }
 
@@ -158,6 +160,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkAuthState = () => {
       const authStatus = isUserAuthenticated();
+
       setIsAuthenticated(authStatus);
 
       if (!authStatus) {
@@ -195,78 +198,83 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [telegramUser]);
 
   // JWT Authentication method
-  const authenticateWithTelegram = useCallback(async (initData: string, referralCode?: string) => {
-    setIsLoading(true);
-    setError(null);
+  const authenticateWithTelegram = useCallback(
+    async (initData: string, referralCode?: string) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      // Use JWT authentication
-      const authUser = await authenticateUser(initData, referralCode);
+      try {
+        // Use JWT authentication
+        const authUser = await authenticateUser(initData, referralCode);
 
-      // Convert auth user to regular user format for compatibility
-      const user: User = {
-        id: authUser.id,
-        trust_score: authUser.trust_score,
-        telegram_id: authUser.telegram_id,
-        first_name: authUser.first_name,
-        last_name: authUser.last_name,
-        username: authUser.username,
-        language_code: telegramUser?.language_code,
-        is_premium: telegramUser?.is_premium || false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        attempts_remaining: authUser.attempts_remaining,
-        last_attempt_at: undefined,
-        attempts_reset_at: undefined,
-        referral_code: "",
-        referred_by: undefined,
-        referral_bonus: 5,
-        referral_count: 0,
-        total_games: authUser.total_games,
-        total_score: 0,
-        best_score: 0,
-        current_level: authUser.current_level,
-        current_league_id: undefined,
-        reaction_games: 0,
-        reaction_best_score: 0,
-        reaction_best_time: 0,
-        reaction_average_time: 0,
-        survival_games: 0,
-        survival_best_score: 0,
-        survival_best_time: 0,
-        survival_max_level: 0,
-        survival_best_streak: 0,
-        physics_games: 0,
-        physics_best_score: 0,
-        physics_best_time: 0,
-        physics_total_hits: 0,
-        physics_best_hits: 0,
-        physics_least_mistakes: 0,
-        rotation_games: 0,
-        rotation_best_score: 0,
-        rotation_best_time: 0,
-        rotation_max_level: 0,
-        rotation_best_streak: 0,
-        rotation_total_hits: 0,
-        total_correct_hits: 0,
-        total_wrong_hits: 0,
-        total_missed_circles: 0,
-        best_accuracy: 0,
-        last_played_at: undefined,
-        is_active: true,
-      };
+        // Convert auth user to regular user format for compatibility
+        const user: User = {
+          id: authUser.id,
+          trust_score: authUser.trust_score,
+          telegram_id: authUser.telegram_id,
+          first_name: authUser.first_name,
+          last_name: authUser.last_name,
+          username: authUser.username,
+          language_code: telegramUser?.language_code,
+          is_premium: telegramUser?.is_premium || false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          attempts_remaining: authUser.attempts_remaining,
+          last_attempt_at: undefined,
+          attempts_reset_at: undefined,
+          referral_code: "",
+          referred_by: undefined,
+          referral_bonus: 5,
+          referral_count: 0,
+          total_games: authUser.total_games,
+          total_score: 0,
+          best_score: 0,
+          current_level: authUser.current_level,
+          current_league_id: undefined,
+          reaction_games: 0,
+          reaction_best_score: 0,
+          reaction_best_time: 0,
+          reaction_average_time: 0,
+          survival_games: 0,
+          survival_best_score: 0,
+          survival_best_time: 0,
+          survival_max_level: 0,
+          survival_best_streak: 0,
+          physics_games: 0,
+          physics_best_score: 0,
+          physics_best_time: 0,
+          physics_total_hits: 0,
+          physics_best_hits: 0,
+          physics_least_mistakes: 0,
+          rotation_games: 0,
+          rotation_best_score: 0,
+          rotation_best_time: 0,
+          rotation_max_level: 0,
+          rotation_best_streak: 0,
+          rotation_total_hits: 0,
+          total_correct_hits: 0,
+          total_wrong_hits: 0,
+          total_missed_circles: 0,
+          best_accuracy: 0,
+          last_played_at: undefined,
+          is_active: true,
+        };
 
-      setUser(user);
-      setIsAuthenticated(true);
-      setIsLoading(false);
-      invalidateAttemptsCache();
-    } catch (error) {
-      console.error("JWT Authentication failed:", error);
-      setError(error instanceof Error ? error.message : "Authentication failed");
-      setIsLoading(false);
-      throw error;
-    }
-  }, [telegramUser]);
+        setUser(user);
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        invalidateAttemptsCache();
+      } catch (error) {
+        console.error("JWT Authentication failed:", error);
+        setError(
+          error instanceof Error ? error.message : "Authentication failed",
+        );
+        setIsLoading(false);
+        throw error;
+      }
+    },
+    [telegramUser],
+  );
 
   // Sign out method
   const signOut = useCallback(() => {
@@ -357,17 +365,22 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             last_played_at: undefined,
             is_active: true,
           };
+
           setUser(user);
         } catch (jwtError) {
-          console.error("JWT refresh failed, falling back to direct user service");
+          console.error(
+            "JWT refresh failed, falling back to direct user service",
+          );
           if (telegramUser) {
             const dbUser = await userService.findByTelegramId(telegramUser.id);
+
             setUser(dbUser);
           }
         }
       } else if (telegramUser) {
         // Fallback to original method for non-authenticated users
         const dbUser = await userService.findByTelegramId(telegramUser.id);
+
         setUser(dbUser);
       }
     } catch (err) {
@@ -419,6 +432,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       now - attemptsCache.lastUpdate < CACHE_DURATION
     ) {
       console.log("Returning cached attempts status");
+
       return attemptsCache.status;
     }
 
@@ -432,12 +446,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         try {
           status = await authService.getAttemptsStatus();
         } catch (jwtError) {
-          console.warn("JWT attempts check failed, falling back to direct service");
-          status = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
+          console.warn(
+            "JWT attempts check failed, falling back to direct service",
+          );
+          status = await userService.checkAndUpdateAttemptsWithServerValidation(
+            telegramUser.id,
+          );
         }
       } else {
         // Fallback to original method
-        status = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
+        status = await userService.checkAndUpdateAttemptsWithServerValidation(
+          telegramUser.id,
+        );
       }
 
       // Обновление кэша только серверными данными
@@ -458,48 +478,58 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [telegramUser, attemptsCache, invalidateAttemptsCache, isAuthenticated]);
 
   // Безопасное потребление попытки для игры
-  const consumeAttemptForGame = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!telegramUser) {
-      throw new Error("Пользователь Telegram не найден");
-    }
-
-    console.log("Consuming attempt on server (security-critical operation)");
-
-    try {
-      let newStatus: AttemptsStatus;
-
-      if (isAuthenticated) {
-        // Use JWT-protected method
-        try {
-          newStatus = await consumeSecureAttempt();
-        } catch (jwtError) {
-          console.warn("JWT attempt consumption failed, falling back to direct service");
-          newStatus = await userService.consumeAttemptWithServerValidation(telegramUser.id);
-        }
-      } else {
-        // Fallback to original method
-        newStatus = await userService.consumeAttemptWithServerValidation(telegramUser.id);
+  const consumeAttemptForGame =
+    useCallback(async (): Promise<AttemptsStatus> => {
+      if (!telegramUser) {
+        throw new Error("Пользователь Telegram не найден");
       }
 
-      const now = Date.now();
+      console.log("Consuming attempt on server (security-critical operation)");
 
-      // Обновление кэша после успешного серверного запроса
-      setAttemptsCache({
-        status: newStatus,
-        lastUpdate: now,
-        isValid: true,
-        source: "server",
-      });
+      try {
+        let newStatus: AttemptsStatus;
 
-      console.log("Attempt consumed successfully, cache updated with server data");
-      return newStatus;
-    } catch (error) {
-      console.error("Error consuming attempt:", error);
-      // При ошибке инвалидация кэша и требование повторной проверки
-      invalidateAttemptsCache();
-      throw error;
-    }
-  }, [telegramUser, invalidateAttemptsCache, isAuthenticated]);
+        if (isAuthenticated) {
+          // Use JWT-protected method
+          try {
+            newStatus = await consumeSecureAttempt();
+          } catch (jwtError) {
+            console.warn(
+              "JWT attempt consumption failed, falling back to direct service",
+            );
+            newStatus = await userService.consumeAttemptWithServerValidation(
+              telegramUser.id,
+            );
+          }
+        } else {
+          // Fallback to original method
+          newStatus = await userService.consumeAttemptWithServerValidation(
+            telegramUser.id,
+          );
+        }
+
+        const now = Date.now();
+
+        // Обновление кэша после успешного серверного запроса
+        setAttemptsCache({
+          status: newStatus,
+          lastUpdate: now,
+          isValid: true,
+          source: "server",
+        });
+
+        console.log(
+          "Attempt consumed successfully, cache updated with server data",
+        );
+
+        return newStatus;
+      } catch (error) {
+        console.error("Error consuming attempt:", error);
+        // При ошибке инвалидация кэша и требование повторной проверки
+        invalidateAttemptsCache();
+        throw error;
+      }
+    }, [telegramUser, invalidateAttemptsCache, isAuthenticated]);
 
   // Achievement notification methods
   const showAchievement = useCallback(
@@ -553,7 +583,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             });
           },
           (gameResult.levelChanged ? 3000 : 0) +
-          (gameResult.leagueChanged ? 3000 : 0),
+            (gameResult.leagueChanged ? 3000 : 0),
         );
       }
     },
@@ -609,22 +639,36 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           // Try JWT-protected save first
           try {
             const result = await saveSecureGameResult(gameResult);
+
             await refreshUser();
             invalidateAttemptsCache();
+
             return result;
           } catch (jwtError) {
-            console.warn("JWT game save failed, falling back to direct service");
+            console.warn(
+              "JWT game save failed, falling back to direct service",
+            );
             // Fallback to original method
-            const result = await userService.saveGameResult(telegramUser.id, gameResult);
+            const result = await userService.saveGameResult(
+              telegramUser.id,
+              gameResult,
+            );
+
             await refreshUser();
             invalidateAttemptsCache();
+
             return result;
           }
         } else {
           // Use original method
-          const result = await userService.saveGameResult(telegramUser.id, gameResult);
+          const result = await userService.saveGameResult(
+            telegramUser.id,
+            gameResult,
+          );
+
           await refreshUser();
           invalidateAttemptsCache();
+
           return result;
         }
       };
@@ -686,7 +730,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           try {
             return await saveSecureTournamentResult(tournamentId, gameResult);
           } catch (jwtError) {
-            console.warn("JWT tournament save failed, falling back to direct service");
+            console.warn(
+              "JWT tournament save failed, falling back to direct service",
+            );
+
             // Fallback to original method
             return await tournamentService.saveTournamentResult(
               tournamentId,

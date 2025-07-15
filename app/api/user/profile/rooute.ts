@@ -1,40 +1,42 @@
 // src/app/api/user/profile/route.ts - User profile API endpoint
 
-import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer, type ServerUser } from '@/lib/supabase-server';
+import { NextRequest, NextResponse } from "next/server";
+
+import { supabaseServer } from "@/lib/supabase-server";
 
 export async function GET(request: NextRequest) {
   try {
     // Get user ID from middleware-added header
-    const userId = request.headers.get('x-user-id');
-    const telegramId = request.headers.get('x-telegram-id');
+    const userId = request.headers.get("x-user-id");
+    const telegramId = request.headers.get("x-telegram-id");
 
     if (!userId || !telegramId) {
       return NextResponse.json(
         {
           success: false,
-          error: 'User authentication required',
+          error: "User authentication required",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     // Fetch user data from database using service key
     const { data: user, error } = await supabaseServer
-      .from('users')
-      .select('*')
-      .eq('id', userId)
+      .from("users")
+      .select("*")
+      .eq("id", userId)
       .single();
 
     if (error) {
-      console.error('Database error fetching user:', error);
+      console.error("Database error fetching user:", error);
+
       return NextResponse.json(
         {
           success: false,
-          error: 'Failed to fetch user data',
+          error: "Failed to fetch user data",
           message: error.message,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -42,9 +44,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'User not found',
+          error: "User not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -103,16 +105,16 @@ export async function GET(request: NextRequest) {
       user: safeUser,
     });
   } catch (error) {
-    console.error('User profile API error:', error);
-    
+    console.error("User profile API error:", error);
+
     return NextResponse.json(
       {
         success: false,
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: "Internal server error",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-

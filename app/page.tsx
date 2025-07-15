@@ -902,6 +902,7 @@ export default function IntroPage(): JSX.Element {
       <div
         className={`video-container ${isPlaying ? "opacity-100" : "opacity-0"} transition-opacity duration-500`}
       >
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
           ref={videoRef}
           playsInline
