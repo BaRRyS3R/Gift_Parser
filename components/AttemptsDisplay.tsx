@@ -1,4 +1,4 @@
-// src/components/AttemptsDisplay.tsx - Minimal icon-based attempts display
+// src/components/AttemptsDisplay.tsx - Updated to use API calls only
 
 "use client";
 
@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { RotateCcw, Clock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { userService, type AttemptsStatus } from "@/lib/supabase";
+import { type AttemptsStatus } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface AttemptsDisplayProps {
@@ -16,7 +16,7 @@ interface AttemptsDisplayProps {
 const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   className = "",
 }) => {
-  const { telegramUser } = useUser();
+  const { isAuthenticated, getAttemptsStatus } = useUser();
   const t = useT();
 
   const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
@@ -27,21 +27,27 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   const checkAttempts = useCallback(async () => {
-    if (!telegramUser?.id) return;
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const status =
-        await userService.checkAndUpdateAttemptsWithServerValidation(
-          telegramUser.id,
-        );
-
+      console.log("AttemptsDisplay: Fetching attempts status via API...");
+      const status = await getAttemptsStatus();
       setAttemptsStatus(status);
+      console.log("AttemptsDisplay: Attempts status fetched successfully");
     } catch (error) {
-      console.error("Error checking attempts:", error);
+      console.error("AttemptsDisplay: Error checking attempts via API:", error);
+      // Set default state on error
+      setAttemptsStatus({
+        canPlay: false,
+        attemptsRemaining: 0,
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [telegramUser?.id]);
+  }, [isAuthenticated, getAttemptsStatus]);
 
   useEffect(() => {
     checkAttempts();
@@ -51,7 +57,6 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   useEffect(() => {
     if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
       setTimeUntilReset("");
-
       return;
     }
 
@@ -81,6 +86,11 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
 
     return () => clearInterval(interval);
   }, [attemptsStatus.resetTime, attemptsStatus.canPlay, checkAttempts]);
+
+  // Don't render if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (isLoading) {
     return (

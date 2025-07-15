@@ -1,4 +1,4 @@
-// src/hooks/useUser.tsx - Strict version without fallback to direct Supabase calls
+// src/hooks/useUser.tsx - Complete secured version with full functionality
 
 "use client";
 
@@ -41,7 +41,6 @@ import {
   saveSecureTournamentResult,
 } from "@/lib/authService";
 
-// Updated to include rotation mode and league achievements
 type GameResult =
   | ReactionGameResult
   | SurvivalGameResult
@@ -70,7 +69,7 @@ interface UserContextType {
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 
-  // Методы для работы с попытками
+  // Methods for working with attempts
   getAttemptsStatus: () => Promise<AttemptsStatus>;
   consumeAttemptForGame: () => Promise<AttemptsStatus>;
   invalidateAttemptsCache: () => void;
@@ -93,10 +92,10 @@ interface UserProviderProps {
   children: React.ReactNode;
 }
 
-const CACHE_DURATION = 60000; // 60 секунд для оптимального пользовательского опыта
-const OPTIMISTIC_UPDATE_TIMEOUT = 5000; // 5 секунд для отката оптимистических обновлений
+const CACHE_DURATION = 60000; // 60 seconds for optimal user experience
+const OPTIMISTIC_UPDATE_TIMEOUT = 5000; // 5 seconds for optimistic update rollback
 
-// Вспомогательная функция для повторных попыток операций
+// Helper function for operation retries
 const retryOperation = async <T>(
   operation: () => Promise<T>,
   maxAttempts: number = 3,
@@ -106,11 +105,11 @@ const retryOperation = async <T>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      console.log(`Attempt ${attempt}/${maxAttempts} to save game result`);
+      console.log(`Attempt ${attempt}/${maxAttempts} to execute operation`);
       const result = await operation();
 
       if (attempt > 1) {
-        console.log(`Successfully saved game result on attempt ${attempt}`);
+        console.log(`Operation succeeded on attempt ${attempt}`);
       }
 
       return result;
@@ -126,9 +125,9 @@ const retryOperation = async <T>(
     }
   }
 
-  console.error(`All ${maxAttempts} attempts to save game result failed`);
+  console.error(`All ${maxAttempts} attempts failed`);
   throw new Error(
-    `Failed to save game result after ${maxAttempts} attempts. Last error: ${lastError.message}`,
+    `Operation failed after ${maxAttempts} attempts. Last error: ${lastError.message}`,
   );
 };
 
@@ -145,7 +144,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [currentAchievement, setCurrentAchievement] =
     useState<AchievementNotificationData | null>(null);
 
-  // Кэш для попыток с безопасными настройками
+  // Cache for attempts with secure settings
   const [attemptsCache, setAttemptsCache] = useState<AttemptsCache>({
     status: null,
     lastUpdate: 0,
@@ -168,7 +167,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     checkAuthState();
   }, []);
 
-  // Автоматическая инициализация Telegram пользователя при первом рендере
+  // Automatic Telegram user initialization on first render
   useEffect(() => {
     if (
       !telegramUser &&
@@ -277,20 +276,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setError(null);
   }, []);
 
-  // Метод для прямого обновления пользователя в контексте
+  // Method for direct user update in context
   const updateUser = useCallback((userData: User) => {
     setUser(userData);
     setError(null);
     setIsLoading(false);
   }, []);
 
-  // Метод для установки Telegram пользователя в контекст
+  // Method for setting Telegram user in context
   const setTelegramUserData = useCallback((tgUserData: TelegramUser) => {
     setTelegramUserState(tgUserData);
     setIsLoading(false);
   }, []);
 
-  // UPDATED: Strict refreshUser method - API only, no fallback to direct Supabase
+  // Secure refreshUser method using API only
   const refreshUser = useCallback(async (): Promise<void> => {
     if (!isAuthenticated) {
       console.log("User not authenticated, skipping refresh");
@@ -301,9 +300,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setIsLoading(true);
       setError(null);
 
-      console.log("Refreshing user data via API...");
+      console.log("Refreshing user data via secure API...");
 
-      // STRICT: Only use API calls for authenticated users
       const userData = await authService.refreshUserData();
 
       // Convert to User format and update
@@ -360,13 +358,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       };
 
       setUser(user);
-      console.log("User data refreshed successfully via API");
+      console.log("User data refreshed successfully via secure API");
     } catch (err) {
       console.error("Failed to refresh user data via API:", err);
       setError(err instanceof Error ? err.message : "Failed to refresh user data");
 
-      // CRITICAL: Do not fallback to direct Supabase calls
-      // If API fails, sign out user to force re-authentication
       if (err instanceof Error && err.message.includes('Authentication expired')) {
         console.log("Token expired, signing out user");
         signOut();
@@ -378,7 +374,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [telegramUser, isAuthenticated, signOut]);
 
-  // Инвалидация кэша попыток
+  // Invalidate attempts cache
   const invalidateAttemptsCache = useCallback(() => {
     setAttemptsCache({
       status: null,
@@ -388,7 +384,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     });
   }, []);
 
-  // Получение кэшированного статуса попыток для интерфейса
+  // Get cached attempts status for interface
   const getCachedAttemptsStatus = useCallback((): AttemptsStatus | null => {
     const now = Date.now();
 
@@ -403,7 +399,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return null;
   }, [attemptsCache]);
 
-  // UPDATED: Strict getAttemptsStatus method - API only, no fallback
+  // Secure getAttemptsStatus method using API only
   const getAttemptsStatus = useCallback(async (): Promise<AttemptsStatus> => {
     if (!isAuthenticated) {
       throw new Error("User not authenticated");
@@ -411,7 +407,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     const now = Date.now();
 
-    // Проверка валидности кэша
+    // Check cache validity
     if (
       attemptsCache.isValid &&
       attemptsCache.status &&
@@ -423,12 +419,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
 
     try {
-      console.log("Fetching fresh attempts status via API...");
+      console.log("Fetching fresh attempts status via secure API...");
 
-      // STRICT: Only use API calls for authenticated users
       const status = await authService.getAttemptsStatus();
 
-      // Обновление кэша только серверными данными
+      // Update cache with server data only
       setAttemptsCache({
         status,
         lastUpdate: now,
@@ -436,12 +431,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         source: "server",
       });
 
-      console.log("Attempts status fetched successfully via API");
+      console.log("Attempts status fetched successfully via secure API");
       return status;
     } catch (error) {
       console.error("Error fetching attempts status via API:", error);
 
-      // CRITICAL: Do not fallback to direct Supabase calls
       invalidateAttemptsCache();
 
       if (error instanceof Error && error.message.includes('Authentication expired')) {
@@ -453,21 +447,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [attemptsCache, invalidateAttemptsCache, isAuthenticated, signOut]);
 
-  // UPDATED: Strict consumeAttemptForGame method - API only
+  // Secure consumeAttemptForGame method using API only
   const consumeAttemptForGame = useCallback(async (): Promise<AttemptsStatus> => {
     if (!isAuthenticated) {
       throw new Error("User not authenticated");
     }
 
-    console.log("Consuming attempt via API...");
+    console.log("Consuming attempt via secure API...");
 
     try {
-      // STRICT: Only use API calls for authenticated users
       const newStatus = await consumeSecureAttempt();
 
       const now = Date.now();
 
-      // Обновление кэша после успешного серверного запроса
+      // Update cache after successful server request
       setAttemptsCache({
         status: newStatus,
         lastUpdate: now,
@@ -475,12 +468,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         source: "server",
       });
 
-      console.log("Attempt consumed successfully via API");
+      console.log("Attempt consumed successfully via secure API");
       return newStatus;
     } catch (error) {
       console.error("Error consuming attempt via API:", error);
 
-      // CRITICAL: Do not fallback to direct Supabase calls
       invalidateAttemptsCache();
 
       if (error instanceof Error && error.message.includes('Authentication expired')) {
@@ -517,7 +509,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         });
       }
 
-      // Show league promotion notification (higher priority)
+      // Show league promotion notification with higher priority
       if (gameResult.leagueChanged && gameResult.newLeague) {
         const position = gameResult.reward?.reward?.position;
 
@@ -530,10 +522,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             });
           },
           gameResult.levelChanged ? 3000 : 0,
-        ); // Delay if level also changed
+        );
       }
 
-      // Show reward notification (highest priority)
+      // Show reward notification with highest priority
       if (gameResult.reward?.success && gameResult.reward.reward) {
         setTimeout(
           () => {
@@ -551,24 +543,21 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     [showAchievement],
   );
 
-  // REMOVED: Auto-load user logic for non-authenticated users
-  // This was causing direct Supabase calls
-
-  // Инвалидация кэша при смене пользователя
+  // Cache invalidation on user change
   useEffect(() => {
     if (telegramUser) {
       invalidateAttemptsCache();
     }
   }, [telegramUser, invalidateAttemptsCache]);
 
-  // UPDATED: Strict saveGameResult with API only
+  // Secure saveGameResult using API only
   const saveGameResult = useCallback(
     async (gameResult: GameResult): Promise<GameSaveResult> => {
       if (!isAuthenticated) {
         throw new Error("User not authenticated");
       }
 
-      // Проверка турнирного результата
+      // Check for tournament result
       if ("tournamentId" in gameResult) {
         const tournamentResult = await saveTournamentResult(
           gameResult.tournamentId,
@@ -580,17 +569,16 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           tournamentResult,
         );
 
-        return { success: true }; // Return basic success for tournament games
+        return { success: true };
       }
 
-      console.log("Saving regular game result via API:", {
+      console.log("Saving regular game result via secure API:", {
         mode: gameResult.mode,
         score: gameResult.score,
         duration: gameResult.duration,
       });
 
       const saveOperation = async (): Promise<GameSaveResult> => {
-        // STRICT: Only use API calls for authenticated users
         const result = await saveSecureGameResult(gameResult);
         await refreshUser();
         invalidateAttemptsCache();
@@ -601,7 +589,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         const result = await retryOperation(saveOperation, 3, 1000);
 
         console.log(
-          "Game result saved successfully via API:",
+          "Game result saved successfully via secure API:",
           result,
         );
 
@@ -622,8 +610,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
         const errorMessage =
           err instanceof Error
-            ? `Failed to save game result via API: ${err.message}`
-            : "Failed to save game result via API";
+            ? `Failed to save game result via secure API: ${err.message}`
+            : "Failed to save game result via secure API";
 
         throw new Error(errorMessage);
       }
@@ -637,6 +625,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     ],
   );
 
+  // Secure tournament result saving
   const saveTournamentResult = useCallback(
     async (
       tournamentId: string,
@@ -646,7 +635,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         throw new Error("User not authenticated");
       }
 
-      console.log("Saving tournament result via API:", {
+      console.log("Saving tournament result via secure API:", {
         tournamentId,
         mode: gameResult.mode,
         score: gameResult.score,
@@ -654,7 +643,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       });
 
       const saveOperation = async (): Promise<TournamentSaveResponse> => {
-        // STRICT: Only use API calls for authenticated users
         return await saveSecureTournamentResult(tournamentId, gameResult);
       };
 
@@ -662,7 +650,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         const result = await retryOperation(saveOperation, 3, 1000);
 
         console.log(
-          "Tournament result saved successfully via API:",
+          "Tournament result saved successfully via secure API:",
           result,
         );
 
@@ -680,8 +668,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
         const errorMessage =
           err instanceof Error
-            ? `Failed to save tournament result via API: ${err.message}`
-            : "Failed to save tournament result via API";
+            ? `Failed to save tournament result via secure API: ${err.message}`
+            : "Failed to save tournament result via secure API";
 
         throw new Error(errorMessage);
       }

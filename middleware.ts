@@ -12,6 +12,8 @@ const protectedApiPaths = [
   "/api/game/",
   "/api/tournament/",
   "/api/security/",
+  "/api/leagues/",      // NEW: Added for league progress and league-related endpoints
+  "/api/profile/",      // NEW: Added for profile-related endpoints
 ];
 
 // Define paths that don't require authentication

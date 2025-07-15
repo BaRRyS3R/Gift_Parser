@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeagueProgressModal.tsx - Fixed layout and league progress bar
+// src/components/LeagueProgress/LeagueProgressModal.tsx - Updated to use API calls only
 
 "use client";
 
@@ -24,7 +24,29 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
+import { authService } from "@/lib/authService";
+
+interface LeagueProgressInfo {
+  currentLevel: number;
+  totalGames: number;
+  currentLeague: {
+    id: number;
+    name: string;
+    display_name_en: string;
+    color: string;
+    icon: string;
+  };
+  nextLeague?: {
+    id: number;
+    name: string;
+    display_name_en: string;
+    color: string;
+    icon: string;
+  };
+  gamesToNextLeague: number;
+  progressPercent: number;
+  isMaxLeague: boolean;
+}
 
 interface LeagueProgressModalProps {
   isOpen: boolean;
@@ -35,7 +57,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { user, telegramUser } = useUser();
+  const { user, isAuthenticated } = useUser();
   const t = useT();
 
   const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(
@@ -45,25 +67,25 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
 
   useEffect(() => {
     const loadProgressInfo = async () => {
-      if (!user || !telegramUser || !isOpen) return;
+      if (!user || !isAuthenticated || !isOpen) {
+        return;
+      }
 
       try {
         setIsLoading(true);
-        const progress = await leagueService.getUserLeagueProgress(
-          user.id,
-          user.total_games,
-        );
-
+        console.log("LeagueProgressModal: Fetching league progress via API...");
+        const progress = await authService.getLeagueProgress();
         setProgressInfo(progress);
+        console.log("LeagueProgressModal: League progress fetched successfully");
       } catch (error) {
-        console.error("Error loading league progress:", error);
+        console.error("LeagueProgressModal: Error loading league progress via API:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProgressInfo();
-  }, [user, telegramUser, isOpen]);
+  }, [user, isAuthenticated, isOpen]);
 
   // Helper functions
   const getLeagueIcon = (leagueName: string) => {
@@ -130,18 +152,25 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
     }
   };
 
+  // Don't render if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
+
   if (!progressInfo && !isLoading) {
     return null;
   }
 
   // Calculate level progress
+  const GAMES_PER_LEVEL = 10;
+  const MAX_LEVEL = 100;
+
   const currentLevel = progressInfo?.currentLevel || 1;
   const totalGames = progressInfo?.totalGames || 0;
-  const gamesInCurrentLevel = totalGames % leagueService.GAMES_PER_LEVEL;
-  const gamesToNextLevel = leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
-  const levelProgressPercent =
-    (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
-  const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
+  const gamesInCurrentLevel = totalGames % GAMES_PER_LEVEL;
+  const gamesToNextLevel = GAMES_PER_LEVEL - gamesInCurrentLevel;
+  const levelProgressPercent = (gamesInCurrentLevel / GAMES_PER_LEVEL) * 100;
+  const isMaxLevel = currentLevel >= MAX_LEVEL;
 
   const currentColors = progressInfo
     ? getLeagueColors(progressInfo.currentLeague.name)
@@ -151,7 +180,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
     : Trophy;
   const isMaxLeague = !progressInfo?.nextLeague;
 
-  // FIXED: Calculate league progress correctly
+  // Calculate league progress correctly
   const leagueProgressPercent = progressInfo
     ? Math.min(100, progressInfo.progressPercent)
     : 0;
@@ -277,7 +306,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                 </Card>
               )}
 
-              {/* League Progress - FIXED */}
+              {/* League Progress */}
               {!isMaxLeague && progressInfo?.nextLeague && (
                 <Card className="bg-white/5 border border-white/20">
                   <CardBody className="p-4">
@@ -297,7 +326,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                         </div>
                       </div>
 
-                      {/* FIXED: League Progress Bar with correct colors and percentage */}
+                      {/* League Progress Bar */}
                       <div className="w-full bg-white/20 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all duration-500 ${currentColors.progressBg}`}

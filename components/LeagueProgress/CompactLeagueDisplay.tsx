@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/CompactLeagueDisplay.tsx - Simplified inline display with click handler
+// src/components/LeagueProgress/CompactLeagueDisplay.tsx - Updated to use API calls only
 
 "use client";
 
@@ -7,7 +7,29 @@ import { Trophy, Star, Medal, Award, Crown } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
+import { authService } from "@/lib/authService";
+
+interface LeagueProgressInfo {
+  currentLevel: number;
+  totalGames: number;
+  currentLeague: {
+    id: number;
+    name: string;
+    display_name_en: string;
+    color: string;
+    icon: string;
+  };
+  nextLeague?: {
+    id: number;
+    name: string;
+    display_name_en: string;
+    color: string;
+    icon: string;
+  };
+  gamesToNextLeague: number;
+  progressPercent: number;
+  isMaxLeague: boolean;
+}
 
 interface CompactLeagueDisplayProps {
   className?: string;
@@ -18,7 +40,7 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
   className = "",
   onClick,
 }) => {
-  const { user, telegramUser } = useUser();
+  const { user, isAuthenticated } = useUser();
   const t = useT();
 
   const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(
@@ -28,28 +50,30 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
 
   useEffect(() => {
     const loadProgressInfo = async () => {
-      if (!user || !telegramUser) {
+      if (!user || !isAuthenticated) {
         setIsLoading(false);
-
         return;
       }
 
       try {
-        const progress = await leagueService.getUserLeagueProgress(
-          user.id,
-          user.total_games,
-        );
-
+        console.log("CompactLeagueDisplay: Fetching league progress via API...");
+        const progress = await authService.getLeagueProgress();
         setProgressInfo(progress);
+        console.log("CompactLeagueDisplay: League progress fetched successfully");
       } catch (error) {
-        console.error("Error loading league progress:", error);
+        console.error("CompactLeagueDisplay: Error loading league progress via API:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProgressInfo();
-  }, [user, telegramUser]);
+  }, [user, isAuthenticated]);
+
+  // Don't render if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (isLoading) {
     return (
