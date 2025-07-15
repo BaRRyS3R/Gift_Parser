@@ -324,57 +324,20 @@ export default function IntroPage(): JSX.Element {
         return;
       }
 
-      // UPDATED: Get referral information via API if we implement that endpoint
-      // For now, we'll handle referral validation during the authentication process
-      let referralBonus = 0;
-      let referrerName: string | undefined;
-      let referrerUsername: string | undefined;
-
-      // Note: Referral validation will be handled server-side during authentication
-      if (referralCode) {
-        console.log(`Referral code will be validated server-side: ${referralCode}`);
-      }
-
+      // На этом этапе мы не знаем, есть ли пользователь в базе, поэтому не делаем автоматическую регистрацию
+      // Просто сохраняем TelegramUser и показываем приветственный экран
       setAuthState((prev) => ({
         ...prev,
+        isChecking: false,
         telegramUser,
         referralCode: referralCode,
-        referralBonus: referralBonus,
-        referrerName: referrerName,
-        referrerUsername: referrerUsername,
+        referralBonus: 0,
+        referrerName: undefined,
+        referrerUsername: undefined,
+        needsRegistration: true,
       }));
-
-      // Set telegram user in context
       setTelegramUser(telegramUser);
-
-      // UPDATED: Try JWT authentication directly - server will handle user creation if needed
-      console.log("Attempting JWT authentication...");
-
-      try {
-        await performJWTAuthentication(telegramUser, referralCode);
-
-        console.log("JWT authentication successful, user is authenticated");
-        setAuthState((prev) => ({
-          ...prev,
-          isChecking: false,
-          needsRegistration: false,
-        }));
-
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
-
-        setTimeout(() => {
-          router.push("/main");
-        }, 500);
-      } catch (authError) {
-        // If authentication fails, show registration UI
-        console.log("JWT authentication failed, showing registration UI");
-        setAuthState((prev) => ({
-          ...prev,
-          isChecking: false,
-          needsRegistration: true,
-        }));
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
-      }
+      setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
     } catch (error) {
       console.error("Error initializing authorization:", error);
       setAuthState((prev) => ({
