@@ -1,12 +1,12 @@
-// src/app/tournament/page.tsx - Обновленная страница турниров с полным отображением победителей и локализацией
+// src/app/tournament/page.tsx - Обновленная страница турниров с защищенными API запросами
 
 "use client";
 
 import type {
   TournamentWithStatus,
   TournamentListResponse,
-} from "@/lib/supabase_tournament_extension";
-import type { TournamentLeaderboardEntry } from "@/types/tournaments";
+  TournamentLeaderboardEntry,
+} from "@/types/tournaments";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -40,10 +40,8 @@ import {
   Calendar,
 } from "lucide-react";
 
-import {
-  tournamentService,
-  formatTournamentSurvivalTime,
-} from "@/lib/supabase_tournament_extension";
+import { authService } from "@/lib/authService";
+import { formatTournamentSurvivalTime } from "@/utils/timeFormatter";
 import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
@@ -359,11 +357,10 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({
     <div
       className={`
             w-full px-6 py-6 border-y transition-all duration-300
-            ${
-              isWinner
-                ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/40"
-                : "bg-white/5 border-white/10"
-            }
+            ${isWinner
+          ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/40"
+          : "bg-white/5 border-white/10"
+        }
         `}
     >
       <div className="flex items-center justify-between">
@@ -371,11 +368,10 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({
           <div
             className={`
                         w-12 h-12 rounded-xl flex items-center justify-center border-2
-                        ${
-                          isWinner
-                            ? "bg-yellow-400/20 border-yellow-400/60"
-                            : "bg-white/10 border-white/30"
-                        }
+                        ${isWinner
+                ? "bg-yellow-400/20 border-yellow-400/60"
+                : "bg-white/10 border-white/30"
+              }
                     `}
           >
             {userEntry.rank <= 3 ? (
@@ -499,11 +495,10 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
             key={participant.id}
             className={`
                             flex items-center space-x-4 p-3 rounded-lg transition-all duration-300
-                            ${
-                              isCurrentUser(participant.telegram_id)
-                                ? "bg-white/15 border border-white/40"
-                                : "bg-white/10 hover:bg-white/15"
-                            }
+                            ${isCurrentUser(participant.telegram_id)
+                ? "bg-white/15 border border-white/40"
+                : "bg-white/10 hover:bg-white/15"
+              }
                         `}
           >
             <div className="flex items-center justify-center w-8">
@@ -647,13 +642,12 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                 key={participant.id}
                 className={`
                                     flex items-center space-x-4 p-3 rounded-lg border transition-all duration-300
-                                    ${
-                                      isCurrentUser(participant.telegram_id)
-                                        ? "bg-white/15 border-white/40 ring-1 ring-white/30"
-                                        : isWinner
-                                          ? "bg-yellow-500/10 border-yellow-400/30"
-                                          : "bg-white/5 border-white/20 hover:bg-white/10"
-                                    }
+                                    ${isCurrentUser(participant.telegram_id)
+                    ? "bg-white/15 border-white/40 ring-1 ring-white/30"
+                    : isWinner
+                      ? "bg-yellow-500/10 border-yellow-400/30"
+                      : "bg-white/5 border-white/20 hover:bg-white/10"
+                  }
                                 `}
               >
                 <div className="flex items-center justify-center w-8">
@@ -663,13 +657,12 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2">
                     <span
-                      className={`font-medium text-sm ${
-                        isCurrentUser(participant.telegram_id)
+                      className={`font-medium text-sm ${isCurrentUser(participant.telegram_id)
                           ? "text-white"
                           : isWinner
                             ? "text-yellow-400"
                             : "text-white/90"
-                      }`}
+                        }`}
                     >
                       {participant.first_name} {participant.last_name || ""}
                     </span>
@@ -694,9 +687,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                     <div className="flex items-center space-x-1">
                       <Clock size={10} />
                       <span>
-                        {formatTournamentSurvivalTime(
-                          participant.survival_time,
-                        )}
+                        {formatTournamentSurvivalTime(participant.survival_time)}
                       </span>
                     </div>
                     <div className="flex items-center space-x-1">
@@ -806,21 +797,19 @@ const PrizesModal: React.FC<PrizesModalProps> = ({
               key={index}
               className={`
                                 flex items-center space-x-4 p-4 rounded-lg border transition-all duration-300
-                                ${
-                                  index < 3
-                                    ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/30"
-                                    : "bg-white/5 border-white/20"
-                                }
+                                ${index < 3
+                  ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/30"
+                  : "bg-white/5 border-white/20"
+                }
                             `}
             >
               <div
                 className={`
                                 w-12 h-12 rounded-xl flex items-center justify-center border
-                                ${
-                                  index < 3
-                                    ? "bg-yellow-400/20 border-yellow-400/40"
-                                    : "bg-white/10 border-white/30"
-                                }
+                                ${index < 3
+                    ? "bg-yellow-400/20 border-yellow-400/40"
+                    : "bg-white/10 border-white/30"
+                  }
                             `}
               >
                 {getRankIcon(index + 1)}
@@ -829,9 +818,8 @@ const PrizesModal: React.FC<PrizesModalProps> = ({
               <div className="flex-1">
                 <div className="flex items-center space-x-2">
                   <span
-                    className={`text-lg font-bold ${
-                      index < 3 ? "text-yellow-400" : "text-white"
-                    }`}
+                    className={`text-lg font-bold ${index < 3 ? "text-yellow-400" : "text-white"
+                      }`}
                   >
                     {index + 1} {t("tournament.place")}
                   </span>
@@ -1048,11 +1036,10 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
         <button
           className={`
                         w-full px-6 py-4 rounded-xl text-lg font-bold transition-all duration-300 flex items-center justify-center space-x-3
-                        ${
-                          hasAttemptsRemaining
-                            ? "bg-white/15 border-2 border-white/40 text-white hover:border-white/60 hover:bg-white/20 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
-                            : "bg-white/5 border border-white/20 text-white/50 cursor-not-allowed opacity-60"
-                        }
+                        ${hasAttemptsRemaining
+              ? "bg-white/15 border-2 border-white/40 text-white hover:border-white/60 hover:bg-white/20 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+              : "bg-white/5 border border-white/20 text-white/50 cursor-not-allowed opacity-60"
+            }
                     `}
           disabled={!hasAttemptsRemaining}
           onClick={onPlayClick}
@@ -1383,8 +1370,8 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
     if (loadedWinners[tournamentId]) return;
 
     try {
-      // ИСПРАВЛЕНО: Загружаем всех победителей согласно количеству призов
-      const winners = await tournamentService.getTournamentWinners(
+      // UPDATED: Используем authService вместо tournamentService
+      const winners = await authService.getTournamentWinners(
         tournamentId,
         prizeCount,
       );
@@ -1412,7 +1399,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
   };
 
   useEffect(() => {
-    // ИСПРАВЛЕНО: Загружаем полное количество победителей для первых 2 турниров
+    // UPDATED: Используем authService вместо tournamentService
     tournaments.slice(0, 2).forEach((tournament) => {
       loadWinners(tournament.id, tournament.prizes.length);
     });
@@ -1651,7 +1638,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                           {Math.ceil(
                             (new Date(tournament.end_date).getTime() -
                               new Date(tournament.start_date).getTime()) /
-                              (1000 * 60 * 60 * 24),
+                            (1000 * 60 * 60 * 24),
                           )}{" "}
                           {t("tournament.days")}
                         </div>
@@ -1704,7 +1691,6 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                           </div>
 
                           <div className="space-y-3">
-                            {/* ОБНОВЛЕНО: Отображаем всех победителей с их призами */}
                             {winners.map((winner, index) => {
                               const getRankIcon = (position: number) => {
                                 switch (position) {
@@ -1774,7 +1760,6 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                                           </span>
                                         </div>
                                       </div>
-                                      {/* ДОБАВЛЕНО: Отображение приза */}
                                       <div className="mt-1">
                                         <span className="text-xs text-yellow-400 font-medium">
                                           {tournament.prizes[index]}
@@ -1834,13 +1819,17 @@ export default function TournamentsPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const tournamentsData = await tournamentService.getAllTournaments();
+
+        // UPDATED: Используем authService вместо tournamentService
+        const tournamentsData = await authService.getAllTournaments();
 
         setTournaments(tournamentsData);
 
         if (tournamentsData.active.length > 0) {
           const activeTournament = tournamentsData.active[0];
-          const leaderboard = await tournamentService.getTournamentLeaderboard(
+
+          // UPDATED: Используем authService вместо tournamentService
+          const leaderboard = await authService.getTournamentLeaderboard(
             activeTournament.id,
             100,
           );
@@ -1869,7 +1858,7 @@ export default function TournamentsPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);

@@ -1,4 +1,4 @@
-// src/components/TournamentCard/TournamentCard.tsx
+// src/components/TournamentCard/TournamentCard.tsx - Updated to use secure API endpoints
 "use client";
 
 import type { TournamentStatus } from "@/types/tournaments";
@@ -7,7 +7,8 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Trophy, Clock, ChevronRight } from "lucide-react";
 
-import { tournamentService } from "@/lib/supabase_tournament_extension";
+import { useUser } from "@/hooks/useUser";
+import { authService } from "@/lib/authService";
 import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -20,17 +21,31 @@ export default function TournamentCard({
 }: TournamentCardProps) {
   const router = useRouter();
   const t = useT();
+  const { isAuthenticated, isLoading: userLoading } = useUser();
+
   const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus>({
     isActive: false,
     activeTournament: null,
   });
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Load tournament status only when user is authenticated
   useEffect(() => {
     const loadTournamentStatus = async () => {
+      // Skip loading if user is not authenticated or still loading
+      if (!isAuthenticated || userLoading) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const status = await tournamentService.getTournamentStatus();
+        setIsLoading(true);
+        setError(null);
+
+        console.log("Loading tournament status via secure API...");
+        const status = await authService.getTournamentStatus();
 
         setTournamentStatus(status);
 
@@ -42,20 +57,26 @@ export default function TournamentCard({
           setTimeRemaining(formatTimeRemaining(status.timeRemaining));
         }
       } catch (error) {
-        console.error("Error loading tournament status:", error);
+        console.error("Error loading tournament status via API:", error);
+        setError("Failed to load tournament");
+
+        // Handle authentication errors
+        if (error instanceof Error && error.message.includes('Authentication expired')) {
+          console.log("Authentication expired, user needs to log in again");
+          // The useUser hook will handle the redirect to login
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadTournamentStatus();
-  }, []);
+  }, [isAuthenticated, userLoading]);
 
   // Update countdown timer
   useEffect(() => {
     if (!tournamentStatus.activeTournament || !tournamentStatus.isActive) {
       setTimeRemaining("");
-
       return;
     }
 
@@ -67,33 +88,64 @@ export default function TournamentCard({
       if (diff <= 0) {
         setTimeRemaining("");
         clearInterval(interval);
-        // Reload tournament status
-        const reloadStatus = async () => {
-          const status = await tournamentService.getTournamentStatus();
 
-          setTournamentStatus(status);
-        };
-
-        reloadStatus();
+        // Reload tournament status when tournament ends
+        if (isAuthenticated) {
+          const reloadStatus = async () => {
+            try {
+              const status = await authService.getTournamentStatus();
+              setTournamentStatus(status);
+            } catch (error) {
+              console.error("Error reloading tournament status:", error);
+            }
+          };
+          reloadStatus();
+        }
       } else {
         setTimeRemaining(formatTimeRemaining(diff));
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [tournamentStatus.activeTournament, tournamentStatus.isActive]);
+  }, [tournamentStatus.activeTournament, tournamentStatus.isActive, isAuthenticated]);
 
   const handleClick = () => {
+    // Only navigate if user is authenticated
+    if (!isAuthenticated) {
+      console.warn("User not authenticated, cannot access tournament");
+      return;
+    }
+
     router.push("/tournament");
   };
 
-  if (isLoading) {
+  // Show loading state while checking authentication or loading tournament
+  if (userLoading || (isLoading && isAuthenticated)) {
     return (
       <div className="backdrop-blur-sm border border-white/20 rounded-xl p-4 bg-white/5">
         <div className="flex items-center justify-center space-x-2">
           <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
           <span className="text-white/60 text-sm">
             {t("tournament.loadingTournament")}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't show tournament card if user is not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // Show error state if there was an error loading tournament data
+  if (error) {
+    return (
+      <div className="backdrop-blur-sm border border-red-400/30 rounded-xl p-4 bg-red-500/10">
+        <div className="flex items-center justify-center space-x-2">
+          <Trophy className="text-red-400/60" size={16} />
+          <span className="text-red-400/80 text-sm">
+            {error}
           </span>
         </div>
       </div>

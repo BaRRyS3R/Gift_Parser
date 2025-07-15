@@ -1,4 +1,4 @@
-// src/lib/authService.ts - Updated with separate register method
+// src/lib/authService.ts - Updated with correct tournament type imports
 
 import {
     GameSaveResult,
@@ -12,6 +12,16 @@ import {
     PhysicsGameResult,
     RotationGameResult,
 } from "@/types/game-modes";
+
+// FIXED: Import tournament types from correct location
+import type {
+    Tournament,
+    TournamentLeaderboardEntry,
+    TournamentResult,
+    TournamentStatus,
+    TournamentListResponse,
+    TournamentWithStatus,
+} from "@/types/tournaments";
 import { TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
 
 export interface AuthUser {
@@ -196,7 +206,7 @@ class AuthService {
     }
 
     /**
-     * UPDATED: Check login status (for existing users)
+     * Check login status (for existing users)
      */
     async checkLoginStatus(
         initData: string,
@@ -262,7 +272,7 @@ class AuthService {
     }
 
     /**
-     * NEW: Register new user
+     * Register new user
      */
     async registerUser(
         initData: string,
@@ -308,7 +318,7 @@ class AuthService {
     }
 
     /**
-     * UPDATED: Legacy method for backward compatibility
+     * Legacy method for backward compatibility
      */
     async authenticateWithTelegram(
         initData: string,
@@ -392,7 +402,7 @@ class AuthService {
     }
 
     // ============================================================================
-    // EXISTING METHODS - Keep all existing functionality unchanged
+    // GAME METHODS
     // ============================================================================
 
     async consumeAttempt(): Promise<AttemptsStatus> {
@@ -412,10 +422,133 @@ class AuthService {
         ).then((data) => data.saveResult);
     }
 
+    // ============================================================================
+    // TOURNAMENT METHODS - Complete implementation with secured API calls
+    // ============================================================================
+
+    /**
+     * Get active tournament
+     */
+    async getActiveTournament(): Promise<Tournament | null> {
+        if (!this.isAuthenticated()) {
+            throw new Error("User not authenticated");
+        }
+
+        try {
+            const response = await this.makeAuthenticatedRequest<{
+                tournament: Tournament | null;
+            }>("/tournament/active");
+
+            return response.tournament;
+        } catch (error) {
+            console.error("Error getting active tournament:", error);
+            return null;
+        }
+    }
+
+    /**
+     * Get all tournaments categorized by status
+     */
+    async getAllTournaments(): Promise<TournamentListResponse> {
+        if (!this.isAuthenticated()) {
+            throw new Error("User not authenticated");
+        }
+
+        try {
+            const response = await this.makeAuthenticatedRequest<{
+                tournaments: TournamentListResponse;
+            }>("/tournament/all");
+
+            return response.tournaments;
+        } catch (error) {
+            console.error("Error getting all tournaments:", error);
+            return {
+                active: [],
+                upcoming: [],
+                completed: [],
+            };
+        }
+    }
+
+    /**
+     * Get tournament status
+     */
+    async getTournamentStatus(): Promise<TournamentStatus> {
+        if (!this.isAuthenticated()) {
+            throw new Error("User not authenticated");
+        }
+
+        try {
+            const response = await this.makeAuthenticatedRequest<{
+                status: TournamentStatus;
+            }>("/tournament/status");
+
+            return response.status;
+        } catch (error) {
+            console.error("Error getting tournament status:", error);
+            return {
+                isActive: false,
+                activeTournament: null,
+            };
+        }
+    }
+
+    /**
+     * Get tournament leaderboard
+     */
+    async getTournamentLeaderboard(
+        tournamentId: string,
+        limit: number = 50,
+    ): Promise<TournamentLeaderboardEntry[]> {
+        if (!this.isAuthenticated()) {
+            throw new Error("User not authenticated");
+        }
+
+        try {
+            const response = await this.makeAuthenticatedRequest<{
+                leaderboard: TournamentLeaderboardEntry[];
+            }>(`/tournament/leaderboard?tournamentId=${tournamentId}&limit=${limit}`);
+
+            return response.leaderboard;
+        } catch (error) {
+            console.error("Error getting tournament leaderboard:", error);
+            return [];
+        }
+    }
+
+    /**
+     * Get user tournament result
+     */
+    async getUserTournamentResult(
+        tournamentId: string,
+    ): Promise<TournamentResult | null> {
+        if (!this.isAuthenticated()) {
+            throw new Error("User not authenticated");
+        }
+
+        try {
+            const response = await this.makeAuthenticatedRequest<{
+                result: TournamentResult | null;
+            }>(`/tournament/user-result?tournamentId=${tournamentId}`);
+
+            return response.result;
+        } catch (error) {
+            console.error("Error getting user tournament result:", error);
+            return null;
+        }
+    }
+
+    /**
+     * Save tournament result
+     */
     async saveTournamentResult(
         tournamentId: string,
         gameResult: SurvivalGameResult,
     ): Promise<TournamentSaveResponse> {
+        if (!this.isAuthenticated()) {
+            throw new Error("User not authenticated");
+        }
+
         return this.makeAuthenticatedRequest<{
             tournamentResult: TournamentSaveResponse;
         }>("/tournament/save-result", {
@@ -426,6 +559,72 @@ class AuthService {
             }),
         }).then((data) => data.tournamentResult);
     }
+
+    /**
+     * Get tournament winners (top N participants)
+     */
+    async getTournamentWinners(
+        tournamentId: string,
+        prizeCount: number,
+    ): Promise<TournamentLeaderboardEntry[]> {
+        if (!this.isAuthenticated()) {
+            throw new Error("User not authenticated");
+        }
+
+        try {
+            const leaderboard = await this.getTournamentLeaderboard(tournamentId, prizeCount);
+            return leaderboard.slice(0, prizeCount);
+        } catch (error) {
+            console.error("Error getting tournament winners:", error);
+            return [];
+        }
+    }
+
+    /**
+     * Check if user has participated in tournament
+     */
+    async hasUserParticipated(tournamentId: string): Promise<boolean> {
+        if (!this.isAuthenticated()) {
+            throw new Error("User not authenticated");
+        }
+
+        try {
+            const result = await this.getUserTournamentResult(tournamentId);
+            return result !== null;
+        } catch (error) {
+            console.error("Error checking user participation:", error);
+            return false;
+        }
+    }
+
+    /**
+     * Get tournament by ID
+     */
+    async getTournamentById(tournamentId: string): Promise<Tournament | null> {
+        if (!this.isAuthenticated()) {
+            throw new Error("User not authenticated");
+        }
+
+        try {
+            // For now, get from all tournaments and find by ID
+            // Could be optimized with a dedicated endpoint if needed
+            const allTournaments = await this.getAllTournaments();
+            const allTournamentsList = [
+                ...allTournaments.active,
+                ...allTournaments.upcoming,
+                ...allTournaments.completed,
+            ];
+
+            return allTournamentsList.find(t => t.id === tournamentId) || null;
+        } catch (error) {
+            console.error("Error getting tournament by ID:", error);
+            return null;
+        }
+    }
+
+    // ============================================================================
+    // SECURITY METHODS
+    // ============================================================================
 
     async generateCaptcha(): Promise<{
         challenge: string;
@@ -602,7 +801,7 @@ export async function getSecureLeagueProgress(): Promise<LeagueProgressInfo> {
     return authService.getLeagueProgress();
 }
 
-// NEW: Registration helper functions
+// Registration helper functions
 export async function checkUserLoginStatus(
     initData: string,
     referralCode?: string,
