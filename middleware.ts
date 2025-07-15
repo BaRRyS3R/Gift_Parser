@@ -1,4 +1,4 @@
-// middleware.ts - Application middleware for API protection
+// middleware.ts - Application middleware for API protection with register endpoint
 
 import type { NextRequest } from "next/server";
 
@@ -12,12 +12,16 @@ const protectedApiPaths = [
   "/api/game/",
   "/api/tournament/",
   "/api/security/",
-  "/api/leagues/",      // NEW: Added for league progress and league-related endpoints
-  "/api/profile/",      // NEW: Added for profile-related endpoints
+  "/api/leagues/",
+  "/api/profile/",
 ];
 
 // Define paths that don't require authentication
-const publicApiPaths = ["/api/auth/login", "/api/health"];
+const publicApiPaths = [
+  "/api/auth/login",
+  "/api/auth/register",  // NEW: Added register endpoint to public paths
+  "/api/health"
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -1,4 +1,4 @@
-// src/lib/authService.ts - Updated with getLeagueProgress method
+// src/lib/authService.ts - Updated with separate register method
 
 import {
     GameSaveResult,
@@ -23,8 +23,8 @@ export interface AuthUser {
     current_level: number;
     attempts_remaining: number;
     total_games: number;
-    trust_score: number; // NEW: Security field
-    blocked_until?: string; // NEW: Security field
+    trust_score: number;
+    blocked_until?: string;
 }
 
 export interface AuthState {
@@ -35,7 +35,32 @@ export interface AuthState {
     error: string | null;
 }
 
-// NEW: League progress interface
+// Registration result interface
+export interface RegistrationResult {
+    success: boolean;
+    user?: AuthUser;
+    token?: string;
+    referralApplied?: boolean;
+    referralBonus?: number;
+    error?: string;
+}
+
+// Login result interface
+export interface LoginResult {
+    success: boolean;
+    user?: AuthUser;
+    token?: string;
+    isExistingUser?: boolean;
+    needsRegistration?: boolean;
+    telegramUser?: any;
+    referralCode?: string;
+    error?: string;
+    isBlocked?: boolean;
+    timeUntilUnblock?: number;
+    blockReason?: string;
+}
+
+// League progress interface
 export interface LeagueProgressInfo {
     currentLevel: number;
     totalGames: number;
@@ -73,9 +98,6 @@ class AuthService {
         this.loadTokenFromStorage();
     }
 
-    /**
-     * Get proper API base URL based on environment
-     */
     private getApiBaseUrl(): string {
         if (typeof window !== "undefined") {
             if (process.env.NODE_ENV === "production") {
@@ -92,18 +114,12 @@ class AuthService {
         return process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
     }
 
-    /**
-     * Load JWT token from localStorage
-     */
     private loadTokenFromStorage(): void {
         if (typeof window !== "undefined") {
             this.token = localStorage.getItem("auth_token");
         }
     }
 
-    /**
-     * Save JWT token to localStorage
-     */
     private saveTokenToStorage(token: string): void {
         if (typeof window !== "undefined") {
             localStorage.setItem("auth_token", token);
@@ -111,9 +127,6 @@ class AuthService {
         }
     }
 
-    /**
-     * Remove JWT token from localStorage
-     */
     private removeTokenFromStorage(): void {
         if (typeof window !== "undefined") {
             localStorage.removeItem("auth_token");
@@ -121,9 +134,6 @@ class AuthService {
         }
     }
 
-    /**
-     * Get authorization headers for API requests
-     */
     private getAuthHeaders(): HeadersInit {
         const headers: HeadersInit = {
             "Content-Type": "application/json",
@@ -136,9 +146,6 @@ class AuthService {
         return headers;
     }
 
-    /**
-     * Make authenticated API request with better error handling
-     */
     private async makeAuthenticatedRequest<T>(
         endpoint: string,
         options: RequestInit = {},
@@ -186,12 +193,12 @@ class AuthService {
     }
 
     /**
-     * Authenticate user with Telegram WebApp data
+     * UPDATED: Check login status (for existing users)
      */
-    async authenticateWithTelegram(
+    async checkLoginStatus(
         initData: string,
         referralCode?: string,
-    ): Promise<AuthUser> {
+    ): Promise<LoginResult> {
         try {
             const response = await fetch(`${this.baseUrl}/api/auth/login`, {
                 method: "POST",
@@ -204,53 +211,143 @@ class AuthService {
                 }),
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-
-                throw new Error(errorData.message || "Authentication failed");
-            }
-
             const data = await response.json();
 
-            if (!data.success) {
-                throw new Error(data.error || "Authentication failed");
+            if (response.status === 202) {
+                // Registration needed
+                return {
+                    success: false,
+                    needsRegistration: true,
+                    telegramUser: data.telegramUser,
+                    referralCode: data.referralCode,
+                };
+            }
+
+            if (response.status === 403) {
+                // User is blocked
+                return {
+                    success: false,
+                    isBlocked: true,
+                    timeUntilUnblock: data.timeUntilUnblock,
+                    blockReason: data.blockReason,
+                    error: data.error,
+                };
+            }
+
+            if (!response.ok || !data.success) {
+                return {
+                    success: false,
+                    error: data.error || "Login failed",
+                };
             }
 
             this.saveTokenToStorage(data.token);
 
-            return data.user;
+            return {
+                success: true,
+                user: data.user,
+                token: data.token,
+                isExistingUser: data.isExistingUser,
+            };
         } catch (error) {
-            if (process.env.NODE_ENV === "development") {
-                console.error("Authentication error:", error);
-            }
-            throw error;
+            console.error("Login check error:", error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : "Login failed",
+            };
         }
     }
 
     /**
-     * Check if user is authenticated
+     * NEW: Register new user
      */
+    async registerUser(
+        initData: string,
+        referralCode?: string,
+    ): Promise<RegistrationResult> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/auth/register`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    initData,
+                    referralCode,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                return {
+                    success: false,
+                    error: data.error || "Registration failed",
+                };
+            }
+
+            this.saveTokenToStorage(data.token);
+
+            return {
+                success: true,
+                user: data.user,
+                token: data.token,
+                referralApplied: data.referralApplied,
+                referralBonus: data.referralBonus,
+            };
+        } catch (error) {
+            console.error("Registration error:", error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : "Registration failed",
+            };
+        }
+    }
+
+    /**
+     * UPDATED: Legacy method for backward compatibility
+     */
+    async authenticateWithTelegram(
+        initData: string,
+        referralCode?: string,
+    ): Promise<AuthUser> {
+        // First try login
+        const loginResult = await this.checkLoginStatus(initData, referralCode);
+
+        if (loginResult.success && loginResult.user) {
+            return loginResult.user;
+        }
+
+        if (loginResult.isBlocked) {
+            throw new Error(`User is blocked: ${loginResult.error}`);
+        }
+
+        if (loginResult.needsRegistration) {
+            // Auto-register for backward compatibility
+            const registerResult = await this.registerUser(initData, referralCode);
+
+            if (registerResult.success && registerResult.user) {
+                return registerResult.user;
+            }
+
+            throw new Error(registerResult.error || "Registration failed");
+        }
+
+        throw new Error(loginResult.error || "Authentication failed");
+    }
+
     isAuthenticated(): boolean {
         return this.token !== null;
     }
 
-    /**
-     * Get current token
-     */
     getToken(): string | null {
         return this.token;
     }
 
-    /**
-     * Sign out user
-     */
     signOut(): void {
         this.removeTokenFromStorage();
     }
 
-    /**
-     * NEW: Get current attempts status via API
-     */
     async getAttemptsStatus(): Promise<AttemptsStatus> {
         if (!this.isAuthenticated()) {
             throw new Error("User not authenticated");
@@ -261,9 +358,6 @@ class AuthService {
         ).then((data) => data.attemptsStatus);
     }
 
-    /**
-     * NEW: Refresh user data via API
-     */
     async refreshUserData(): Promise<AuthUser> {
         if (!this.isAuthenticated()) {
             throw new Error("User not authenticated");
@@ -274,9 +368,6 @@ class AuthService {
         ).then((data) => data.user);
     }
 
-    /**
-     * NEW: Check user security status via API
-     */
     async checkUserSecurityStatus(): Promise<SecurityCheckResult> {
         if (!this.isAuthenticated()) {
             throw new Error("User not authenticated");
@@ -287,9 +378,6 @@ class AuthService {
         }>("/security/check-status").then((data) => data.securityResult);
     }
 
-    /**
-     * NEW: Get league progress via API
-     */
     async getLeagueProgress(): Promise<LeagueProgressInfo> {
         if (!this.isAuthenticated()) {
             throw new Error("User not authenticated");
@@ -304,9 +392,6 @@ class AuthService {
     // EXISTING METHODS - Keep all existing functionality unchanged
     // ============================================================================
 
-    /**
-     * Consume an attempt for game
-     */
     async consumeAttempt(): Promise<AttemptsStatus> {
         return this.makeAuthenticatedRequest<{ attemptsStatus: AttemptsStatus }>(
             "/game/consume-attempt",
@@ -314,9 +399,6 @@ class AuthService {
         ).then((data) => data.attemptsStatus);
     }
 
-    /**
-     * Save game result securely
-     */
     async saveGameResult(gameResult: GameResult): Promise<GameSaveResult> {
         return this.makeAuthenticatedRequest<{ saveResult: GameSaveResult }>(
             "/game/save-result",
@@ -327,9 +409,6 @@ class AuthService {
         ).then((data) => data.saveResult);
     }
 
-    /**
-     * Save tournament result securely
-     */
     async saveTournamentResult(
         tournamentId: string,
         gameResult: SurvivalGameResult,
@@ -345,9 +424,6 @@ class AuthService {
         }).then((data) => data.tournamentResult);
     }
 
-    /**
-     * Generate captcha challenge
-     */
     async generateCaptcha(): Promise<{
         challenge: string;
         correctAnswer: string;
@@ -360,9 +436,6 @@ class AuthService {
         }>("/security/generate-captcha", { method: "POST" });
     }
 
-    /**
-     * Validate captcha response
-     */
     async validateCaptcha(
         userInput: string,
         correctAnswer: string,
@@ -381,9 +454,6 @@ class AuthService {
         });
     }
 
-    /**
-     * Validate biometric authentication
-     */
     async validateBiometric(
         success: boolean,
         completedInTime: boolean,
@@ -400,9 +470,6 @@ class AuthService {
         });
     }
 
-    /**
-     * Update user trust score
-     */
     async updateTrustScore(scoreChange: number): Promise<number> {
         return this.makeAuthenticatedRequest<{ newTrustScore: number }>(
             "/security/update-trust-score",
@@ -413,33 +480,22 @@ class AuthService {
         ).then((data) => data.newTrustScore);
     }
 
-    /**
-     * Check if user is blocked (fallback method using direct service)
-     */
     async checkUserBlockedStatus(
         telegramId: number,
     ): Promise<SecurityCheckResult> {
         try {
-            // Try authenticated API first
             if (this.isAuthenticated()) {
                 return await this.checkUserSecurityStatus();
             } else {
-                // Fallback to direct service call for non-authenticated users
                 console.warn("User not authenticated, using direct service call");
-
                 return await userService.checkUserBlockStatus(telegramId);
             }
         } catch (error) {
-            // Fallback to direct service call
             console.warn("Auth API failed, using direct service call");
-
             return await userService.checkUserBlockStatus(telegramId);
         }
     }
 
-    /**
-     * Handle network errors with retry logic
-     */
     async makeRequestWithRetry<T>(
         requestFn: () => Promise<T>,
         maxRetries: number = 3,
@@ -468,7 +524,7 @@ class AuthService {
 // Singleton instance
 export const authService = new AuthService();
 
-// Helper functions for backward compatibility - KEEP ALL EXISTING FUNCTIONS
+// Helper functions for backward compatibility
 export async function authenticateUser(
     initData: string,
     referralCode?: string,
@@ -505,7 +561,7 @@ export async function saveSecureTournamentResult(
     return authService.saveTournamentResult(tournamentId, gameResult);
 }
 
-// NEW: Security helper functions
+// Security helper functions
 export async function checkSecurityStatus(): Promise<SecurityCheckResult> {
     return authService.checkUserSecurityStatus();
 }
@@ -539,7 +595,21 @@ export async function updateSecureTrustScore(
     return authService.updateTrustScore(scoreChange);
 }
 
-// NEW: League progress helper function
 export async function getSecureLeagueProgress(): Promise<LeagueProgressInfo> {
     return authService.getLeagueProgress();
+}
+
+// NEW: Registration helper functions
+export async function checkUserLoginStatus(
+    initData: string,
+    referralCode?: string,
+): Promise<LoginResult> {
+    return authService.checkLoginStatus(initData, referralCode);
+}
+
+export async function registerNewUser(
+    initData: string,
+    referralCode?: string,
+): Promise<RegistrationResult> {
+    return authService.registerUser(initData, referralCode);
 }
