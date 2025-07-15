@@ -1,225 +1,300 @@
-// src/hooks/useSecurity.ts - Refactored: all security operations via API routes only
+// src/hooks/useSecurity.ts - Security management hook
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { useUser } from "@/hooks/useUser";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { SecurityCheckResult, userService } from '@/lib/supabase';
+import {
+    checkSecurityStatus,
+    generateSecureCaptcha,
+    validateSecureCaptcha,
+    validateSecureBiometric
+} from '@/lib/authService';
+import { useUser } from '@/hooks/useUser';
 
 export interface SecurityState {
-  isLoading: boolean;
-  isBlocked: boolean;
-  needsCaptcha: boolean;
-  needsBiometric: boolean;
-  trustScore: number;
-  timeUntilUnblock?: number;
-  blockReason?: string;
-  lastChecked?: number;
+    isLoading: boolean;
+    isBlocked: boolean;
+    needsCaptcha: boolean;
+    needsBiometric: boolean;
+    trustScore: number;
+    timeUntilUnblock?: number;
+    blockReason?: string;
+    lastChecked?: number;
 }
 
 export interface CaptchaData {
-  challenge: string;
-  correctAnswer: string;
-  expiresAt: number;
+    challenge: string;
+    correctAnswer: string;
+    expiresAt: number;
 }
 
 interface SecurityHookReturn {
-  securityState: SecurityState;
-  showCaptcha: boolean;
-  showBiometric: boolean;
-  captchaData: CaptchaData | null;
-  checkSecurity: () => Promise<any>;
-  handleCaptchaSuccess: () => void;
-  handleCaptchaFailure: () => void;
-  handleBiometricSuccess: () => void;
-  handleBiometricFailure: () => void;
-  dismissSecurityCheck: () => void;
-  refreshSecurityStatus: () => Promise<void>;
-  isSecurityCheckNeeded: () => boolean;
-  formatTrustScore: (score: number) => { color: string; label: string };
+    // State
+    securityState: SecurityState;
+    showCaptcha: boolean;
+    showBiometric: boolean;
+    captchaData: CaptchaData | null;
+
+    // Actions
+    checkSecurity: () => Promise<SecurityCheckResult>;
+    handleCaptchaSuccess: () => void;
+    handleCaptchaFailure: () => void;
+    handleBiometricSuccess: () => void;
+    handleBiometricFailure: () => void;
+    dismissSecurityCheck: () => void;
+    refreshSecurityStatus: () => Promise<void>;
+
+    // Utils
+    isSecurityCheckNeeded: () => boolean;
+    formatTrustScore: (score: number) => { color: string; label: string };
 }
 
-const SECURITY_CHECK_CACHE_DURATION = 30000;
+const SECURITY_CHECK_CACHE_DURATION = 30000; // 30 seconds cache
+const TRUST_SCORE_THRESHOLDS = {
+    CAPTCHA: 40,
+    BIOMETRIC: 20,
+} as const;
 
 export function useSecurity(): SecurityHookReturn {
-  const router = useRouter();
-  const { telegramUser, refreshUser } = useUser();
+    const router = useRouter();
+    const { telegramUser, isAuthenticated, refreshUser } = useUser();
 
-  const [securityState, setSecurityState] = useState<SecurityState>({
-    isLoading: true,
-    isBlocked: false,
-    needsCaptcha: false,
-    needsBiometric: false,
-    trustScore: 50,
-  });
-  const [showCaptcha, setShowCaptcha] = useState(false);
-  const [showBiometric, setShowBiometric] = useState(false);
-  const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
-  const isCheckingRef = useRef(false);
-  const lastSecurityCheckRef = useRef<number>(0);
+    const [securityState, setSecurityState] = useState<SecurityState>({
+        isLoading: true,
+        isBlocked: false,
+        needsCaptcha: false,
+        needsBiometric: false,
+        trustScore: 50,
+    });
 
-  // Check security status
-  const checkSecurity = useCallback(async () => {
-    if (!telegramUser?.id || isCheckingRef.current) {
-      throw new Error(
-        "Cannot check security: user not available or check in progress",
-      );
-    }
-    const now = Date.now();
-    if (now - lastSecurityCheckRef.current < SECURITY_CHECK_CACHE_DURATION) {
-      return securityState;
-    }
-    isCheckingRef.current = true;
-    setSecurityState((prev) => ({ ...prev, isLoading: true }));
-    try {
-      const res = await fetch("/api/security/check-status", {
-        headers: {
-          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
-        },
-      });
-      const data = await res.json();
-      setSecurityState({
-        isLoading: false,
-        isBlocked: data.isBlocked,
-        needsCaptcha: data.needsCaptcha,
-        needsBiometric: data.needsBiometric,
-        trustScore: data.trustScore,
-        timeUntilUnblock: data.timeUntilUnblock,
-        blockReason: data.blockReason,
-        lastChecked: now,
-      });
-      lastSecurityCheckRef.current = now;
-      if (data.isBlocked) {
-        router.push("/blocked");
-      }
-      return data;
-    } catch (error) {
-      setSecurityState((prev) => ({ ...prev, isLoading: false }));
-      throw error;
-    } finally {
-      isCheckingRef.current = false;
-    }
-  }, [telegramUser?.id, router, securityState]);
+    const [showCaptcha, setShowCaptcha] = useState(false);
+    const [showBiometric, setShowBiometric] = useState(false);
+    const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
 
-  useEffect(() => {
-    if (telegramUser?.id && !isCheckingRef.current) {
-      checkSecurity().catch((error) => {
-        console.error("Initial security check failed:", error);
-      });
-    }
-  }, [telegramUser?.id, checkSecurity]);
+    const isCheckingRef = useRef(false);
+    const lastSecurityCheckRef = useRef<number>(0);
 
-  // Trigger security check and show modals
-  const triggerSecurityCheck = useCallback(async () => {
-    try {
-      const result = await checkSecurity();
-      if (result.needsBiometric && !result.isBlocked) {
-        setShowBiometric(true);
-      } else if (result.needsCaptcha && !result.isBlocked) {
-        try {
-          const res = await fetch("/api/security/generate-captcha", {
-            headers: {
-              Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
-            },
-          });
-          const captcha = await res.json();
-          setCaptchaData(captcha);
-          setShowCaptcha(true);
-        } catch (error) {
-          console.error("Failed to generate captcha:", error);
+    // Check security status
+    const checkSecurity = useCallback(async (): Promise<SecurityCheckResult> => {
+        if (!telegramUser?.id || isCheckingRef.current) {
+            throw new Error('Cannot check security: user not available or check in progress');
         }
-      }
-    } catch (error) {
-      console.error("Error triggering security check:", error);
-    }
-  }, [checkSecurity]);
 
-  const isSecurityCheckNeeded = useCallback(() => {
-    return (
-      (securityState.needsCaptcha || securityState.needsBiometric) &&
-      !securityState.isBlocked
-    );
-  }, [securityState]);
+        // Use cache if recent
+        const now = Date.now();
+        if (now - lastSecurityCheckRef.current < SECURITY_CHECK_CACHE_DURATION) {
+            console.log('Using cached security status');
+            return {
+                isBlocked: securityState.isBlocked,
+                needsCaptcha: securityState.needsCaptcha,
+                needsBiometric: securityState.needsBiometric,
+                trustScore: securityState.trustScore,
+                timeUntilUnblock: securityState.timeUntilUnblock,
+                blockReason: securityState.blockReason,
+            };
+        }
 
-  // Captcha handlers
-  const handleCaptchaSuccess = useCallback(() => {
-    setShowCaptcha(false);
-    setCaptchaData(null);
-    refreshSecurityStatus();
-    refreshUser();
-  }, [refreshUser]);
-  const handleCaptchaFailure = useCallback(() => {
-    setShowCaptcha(false);
-    setCaptchaData(null);
-    router.push("/blocked");
-  }, [router]);
+        isCheckingRef.current = true;
+        setSecurityState(prev => ({ ...prev, isLoading: true }));
 
-  // Biometric handlers
-  const handleBiometricSuccess = useCallback(() => {
-    setShowBiometric(false);
-    refreshSecurityStatus();
-    refreshUser();
-  }, [refreshUser]);
-  const handleBiometricFailure = useCallback(() => {
-    setShowBiometric(false);
-    router.push("/blocked");
-  }, [router]);
+        try {
+            let result: SecurityCheckResult;
 
-  const dismissSecurityCheck = useCallback(() => {
-    setShowCaptcha(false);
-    setShowBiometric(false);
-    setCaptchaData(null);
-  }, []);
+            // Try authenticated API first, fallback to direct service
+            try {
+                if (isAuthenticated) {
+                    result = await checkSecurityStatus();
+                } else {
+                    result = await userService.checkUserBlockStatus(telegramUser.id);
+                }
+            } catch (apiError) {
+                console.warn('Authenticated security check failed, using direct service:', apiError);
+                result = await userService.checkUserBlockStatus(telegramUser.id);
+            }
 
-  const refreshSecurityStatus = useCallback(async () => {
-    lastSecurityCheckRef.current = 0;
-    try {
-      await checkSecurity();
-    } catch (error) {
-      console.error("Error refreshing security status:", error);
-    }
-  }, [checkSecurity]);
+            // Update state with results
+            setSecurityState({
+                isLoading: false,
+                isBlocked: result.isBlocked,
+                needsCaptcha: result.needsCaptcha,
+                needsBiometric: result.needsBiometric,
+                trustScore: result.trustScore,
+                timeUntilUnblock: result.timeUntilUnblock,
+                blockReason: result.blockReason,
+                lastChecked: now,
+            });
 
-  const formatTrustScore = useCallback((score: number) => {
-    if (score >= 60) {
-      return { color: "text-green-400", label: "Good" };
-    } else if (score >= 40) {
-      return { color: "text-yellow-400", label: "Fair" };
-    } else if (score >= 20) {
-      return { color: "text-orange-400", label: "Low" };
-    } else {
-      return { color: "text-red-400", label: "Very Low" };
-    }
-  }, []);
+            lastSecurityCheckRef.current = now;
 
-  useEffect(() => {
-    if (isSecurityCheckNeeded() && !showCaptcha && !showBiometric) {
-      const timer = setTimeout(() => {
-        triggerSecurityCheck();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isSecurityCheckNeeded, showCaptcha, showBiometric, triggerSecurityCheck]);
+            // Handle blocking immediately
+            if (result.isBlocked) {
+                console.log('User is blocked, redirecting to blocked page');
+                router.push('/blocked');
+            }
 
-  useEffect(() => {
-    return () => {
-      isCheckingRef.current = false;
+            return result;
+        } catch (error) {
+            console.error('Error checking security status:', error);
+
+            // On error, assume safe defaults but mark as needing check
+            setSecurityState(prev => ({
+                ...prev,
+                isLoading: false,
+                // Keep previous state on error to avoid false positives
+            }));
+
+            throw error;
+        } finally {
+            isCheckingRef.current = false;
+        }
+    }, [telegramUser?.id, isAuthenticated, router, securityState]);
+
+    // Auto check security on mount and user changes
+    useEffect(() => {
+        if (telegramUser?.id && !isCheckingRef.current) {
+            checkSecurity().catch(error => {
+                console.error('Initial security check failed:', error);
+            });
+        }
+    }, [telegramUser?.id, checkSecurity]);
+
+    // Handle security check triggers
+    const triggerSecurityCheck = useCallback(async () => {
+        try {
+            const result = await checkSecurity();
+
+            // Show appropriate modal based on security needs
+            if (result.needsBiometric && !result.isBlocked) {
+                setShowBiometric(true);
+            } else if (result.needsCaptcha && !result.isBlocked) {
+                // Generate captcha before showing modal
+                try {
+                    const captcha = await generateSecureCaptcha();
+                    setCaptchaData(captcha);
+                    setShowCaptcha(true);
+                } catch (error) {
+                    console.error('Failed to generate captcha:', error);
+                }
+            }
+        } catch (error) {
+            console.error('Error triggering security check:', error);
+        }
+    }, [checkSecurity]);
+
+    // Check if security check is needed
+    const isSecurityCheckNeeded = useCallback((): boolean => {
+        return (securityState.needsCaptcha || securityState.needsBiometric) && !securityState.isBlocked;
+    }, [securityState]);
+
+    // Captcha handlers
+    const handleCaptchaSuccess = useCallback(() => {
+        console.log('Captcha verification successful');
+        setShowCaptcha(false);
+        setCaptchaData(null);
+
+        // Refresh security status and user data
+        refreshSecurityStatus();
+        refreshUser();
+    }, [refreshUser]);
+
+    const handleCaptchaFailure = useCallback(() => {
+        console.log('Captcha verification failed - user will be blocked');
+        setShowCaptcha(false);
+        setCaptchaData(null);
+
+        // Redirect to blocked page
+        router.push('/blocked');
+    }, [router]);
+
+    // Biometric handlers
+    const handleBiometricSuccess = useCallback(() => {
+        console.log('Biometric verification successful');
+        setShowBiometric(false);
+
+        // Refresh security status and user data
+        refreshSecurityStatus();
+        refreshUser();
+    }, [refreshUser]);
+
+    const handleBiometricFailure = useCallback(() => {
+        console.log('Biometric verification failed - user will be blocked');
+        setShowBiometric(false);
+
+        // Redirect to blocked page
+        router.push('/blocked');
+    }, [router]);
+
+    // Dismiss security checks (for testing/admin)
+    const dismissSecurityCheck = useCallback(() => {
+        setShowCaptcha(false);
+        setShowBiometric(false);
+        setCaptchaData(null);
+    }, []);
+
+    // Refresh security status
+    const refreshSecurityStatus = useCallback(async () => {
+        // Clear cache to force fresh check
+        lastSecurityCheckRef.current = 0;
+
+        try {
+            await checkSecurity();
+        } catch (error) {
+            console.error('Error refreshing security status:', error);
+        }
+    }, [checkSecurity]);
+
+    // Format trust score for display
+    const formatTrustScore = useCallback((score: number) => {
+        if (score >= 60) {
+            return { color: 'text-green-400', label: 'Good' };
+        } else if (score >= 40) {
+            return { color: 'text-yellow-400', label: 'Fair' };
+        } else if (score >= 20) {
+            return { color: 'text-orange-400', label: 'Low' };
+        } else {
+            return { color: 'text-red-400', label: 'Very Low' };
+        }
+    }, []);
+
+    // Auto-trigger security checks when needed
+    useEffect(() => {
+        if (isSecurityCheckNeeded() && !showCaptcha && !showBiometric) {
+            // Small delay to ensure UI is ready
+            const timer = setTimeout(() => {
+                triggerSecurityCheck();
+            }, 1000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [isSecurityCheckNeeded, showCaptcha, showBiometric, triggerSecurityCheck]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            isCheckingRef.current = false;
+        };
+    }, []);
+
+    return {
+        // State
+        securityState,
+        showCaptcha,
+        showBiometric,
+        captchaData,
+
+        // Actions
+        checkSecurity,
+        handleCaptchaSuccess,
+        handleCaptchaFailure,
+        handleBiometricSuccess,
+        handleBiometricFailure,
+        dismissSecurityCheck,
+        refreshSecurityStatus,
+
+        // Utils
+        isSecurityCheckNeeded,
+        formatTrustScore,
     };
-  }, []);
-
-  return {
-    securityState,
-    showCaptcha,
-    showBiometric,
-    captchaData,
-    checkSecurity,
-    handleCaptchaSuccess,
-    handleCaptchaFailure,
-    handleBiometricSuccess,
-    handleBiometricFailure,
-    dismissSecurityCheck,
-    refreshSecurityStatus,
-    isSecurityCheckNeeded,
-    formatTrustScore,
-  };
 }

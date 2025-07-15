@@ -1,4 +1,4 @@
-// src/app/shop/page.tsx - Refactored: fetch purchases via API
+// src/app/shop/page.tsx - Обновленный дизайн магазина с монохромными карточками в стиле заданий
 
 "use client";
 
@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-// import { purchaseService } from "@/lib/purchaseService";
+import { purchaseService } from "@/lib/purchaseService";
 import { PRODUCTS, ProductType } from "@/types/purchases";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -134,16 +134,8 @@ export default function ShopPage() {
     });
 
     try {
-      // Получаем invoice через API
-      const invoiceRes = await fetch("/api/shop/invoice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
-        },
-        body: JSON.stringify({ productType }),
-      });
-      const invoiceResult: CreateInvoiceResponse = await invoiceRes.json();
+      const invoiceResult: CreateInvoiceResponse =
+        await purchaseService.createInvoice(productType);
 
       if (!invoiceResult.success || !invoiceResult.invoice_url) {
         throw new Error(invoiceResult.error || t("errors.createInvoice"));
@@ -155,22 +147,14 @@ export default function ShopPage() {
         isProcessing: true,
       }));
 
-      // Открываем invoice (например, редирект или window.open)
-      window.open(invoiceResult.invoice_url, "_blank");
+      const paymentResult = await purchaseService.openInvoice(
+        invoiceResult.invoice_url,
+      );
 
-      // Проверяем статус покупки через API
-      const paymentRes = await fetch("/api/shop/purchase", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
-        },
-        body: JSON.stringify({ productType }),
-      });
-      const paymentResult = await paymentRes.json();
-
-      if (paymentResult.success) {
+      if (paymentResult) {
+        await purchaseService.checkPurchaseStatus();
         await refreshUser();
+
         showSuccessNotification(productType);
 
         setPurchaseState({
