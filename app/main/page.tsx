@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated main page with security integration
+// src/app/main/page.tsx - Updated main page ensuring API-only calls
 
 "use client";
 
@@ -37,9 +37,10 @@ export default function MainPage() {
     isLoading: userLoading,
     telegramUser,
     setTelegramUser,
+    isAuthenticated, // UPDATED: Use authentication status from useUser
   } = useUser();
 
-  // SECURITY: Initialize security system
+  // UPDATED: Initialize security system with API-only calls
   const {
     securityState,
     showCaptcha,
@@ -61,7 +62,6 @@ export default function MainPage() {
    * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
-
     return !sessionStorage.getItem("mainPageVisited");
   };
 
@@ -84,11 +84,8 @@ export default function MainPage() {
   /* -------------------------------------------------
    * Tournament state
    * -------------------------------------------------*/
-  const [activeTournament, setActiveTournament] = useState<Tournament | null>(
-    null,
-  );
-  const [tournamentTimeRemaining, setTournamentTimeRemaining] =
-    useState<string>("");
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
+  const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
   const [showTournamentButton, setShowTournamentButton] = useState(false);
 
   /* -------------------------------------------------
@@ -107,36 +104,36 @@ export default function MainPage() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
-
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
   }, []);
 
+  // UPDATED: Check authentication status and redirect if needed
+  useEffect(() => {
+    if (!isAuthenticated && !userLoading) {
+      console.log("User not authenticated, redirecting to login");
+      router.push('/');
+      return;
+    }
+  }, [isAuthenticated, userLoading, router]);
+
   // SECURITY: Check if user is blocked and redirect
   useEffect(() => {
     if (securityState.isBlocked) {
       console.log("User is blocked, redirecting to blocked page");
-      router.push("/blocked");
+      router.push('/blocked');
     }
   }, [securityState.isBlocked, router]);
 
   // SECURITY: Show security warning for low trust scores
   useEffect(() => {
-    if (
-      securityState.trustScore < 40 &&
-      !securityState.isBlocked &&
-      !securityState.isLoading
-    ) {
+    if (securityState.trustScore < 40 && !securityState.isBlocked && !securityState.isLoading) {
       setSecurityWarningVisible(true);
     } else {
       setSecurityWarningVisible(false);
     }
-  }, [
-    securityState.trustScore,
-    securityState.isBlocked,
-    securityState.isLoading,
-  ]);
+  }, [securityState.trustScore, securityState.isBlocked, securityState.isLoading]);
 
   // Mark page as visited
   useEffect(() => {
@@ -149,12 +146,11 @@ export default function MainPage() {
   useEffect(() => {
     if (!isFirstVisit && user?.first_name) {
       const fullGreeting = t("main.greeting", { name: user.first_name });
-
       setGreetingText(fullGreeting);
     }
   }, [isFirstVisit, user?.first_name, t]);
 
-  // Initialize telegramUser if not set
+  // UPDATED: Initialize telegramUser safely without direct Supabase calls
   useEffect(() => {
     if (
       !telegramUser &&
@@ -302,7 +298,6 @@ export default function MainPage() {
     // SECURITY: Check if security verification is needed before allowing game access
     if (isSecurityCheckNeeded()) {
       console.log("Security check needed, blocking game access");
-
       return;
     }
 
@@ -316,7 +311,6 @@ export default function MainPage() {
     // SECURITY: Check if security verification is needed before allowing tournament access
     if (isSecurityCheckNeeded()) {
       console.log("Security check needed, blocking tournament access");
-
       return;
     }
 
@@ -358,17 +352,23 @@ export default function MainPage() {
   const trustScoreInfo = formatTrustScore(securityState.trustScore);
 
   /* -------------------------------------------------
+   * Early return if not authenticated to prevent any data loading
+   * -------------------------------------------------*/
+  if (!isAuthenticated && !userLoading) {
+    return null; // Will redirect in useEffect
+  }
+
+  /* -------------------------------------------------
    * Render
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
-        isTransitioning
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : pageLoaded
-            ? "opacity-100 transition-opacity duration-1000 ease-out"
-            : "opacity-0"
-      }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : pageLoaded
+          ? "opacity-100 transition-opacity duration-1000 ease-out"
+          : "opacity-0"
+        }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -378,6 +378,7 @@ export default function MainPage() {
             filter: "brightness(0.15) contrast(1.2) grayscale(1)",
           }}
         >
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video
             ref={videoRef}
             autoPlay
@@ -393,18 +394,14 @@ export default function MainPage() {
 
       {/* SECURITY: Security Warning Banner */}
       {securityWarningVisible && (
-        <div
-          className="fixed top-0 left-0 right-0 z-40 p-4"
-          style={{ top: headerOffset - 20 }}
-        >
+        <div className="fixed top-0 left-0 right-0 z-40 p-4" style={{ top: headerOffset - 20 }}>
           <div className="max-w-md mx-auto bg-yellow-500/20 border border-yellow-400/40 rounded-lg p-3 backdrop-blur-sm">
             <div className="flex items-center space-x-2 text-yellow-300">
               <AlertTriangle size={16} />
               <span className="text-sm font-semibold">Security Notice</span>
             </div>
             <p className="text-yellow-200/80 text-xs mt-1">
-              Your trust score is low ({securityState.trustScore}/100).
-              Additional security checks may be required.
+              Your trust score is low ({securityState.trustScore}/100). Additional security checks may be required.
             </p>
           </div>
         </div>
@@ -412,15 +409,13 @@ export default function MainPage() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-8"
-              }`
-            : "opacity-100 translate-y-0"
-        }`}
+        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
+          }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -488,6 +483,7 @@ export default function MainPage() {
 
       {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
+
         {/* SECURITY: Trust Score Indicator */}
         <div>
           {!securityState.isLoading && (
@@ -510,28 +506,23 @@ export default function MainPage() {
 
         {/* Action Button */}
         <div
-          className={`${
-            isFirstVisit
-              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-              : "opacity-100 translate-y-0"
-          }`}
+          className={`${isFirstVisit
+            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+            : "opacity-100 translate-y-0"
+            }`}
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
 
             <button
-              className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${
-                isSecurityCheckNeeded()
-                  ? "border-yellow-500/60 text-yellow-300 opacity-75"
-                  : "border-white/60 hover:border-white"
-              } ${isTransitioning ? "opacity-50" : ""}`}
+              className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${isSecurityCheckNeeded()
+                ? "border-yellow-500/60 text-yellow-300 opacity-75"
+                : "border-white/60 hover:border-white"
+                } ${isTransitioning ? "opacity-50" : ""
+                }`}
               disabled={isTransitioning}
-              title={
-                isSecurityCheckNeeded()
-                  ? "Security verification required"
-                  : undefined
-              }
               onClick={handleStartGame}
+              title={isSecurityCheckNeeded() ? "Security verification required" : undefined}
             >
               <div className="flex items-center justify-center space-x-4">
                 {isSecurityCheckNeeded() ? (
@@ -550,7 +541,8 @@ export default function MainPage() {
                     ? t("main.loading")
                     : isSecurityCheckNeeded()
                       ? "VERIFICATION NEEDED"
-                      : t("main.startGame")}
+                      : t("main.startGame")
+                  }
                 </span>
               </div>
             </button>
@@ -559,15 +551,13 @@ export default function MainPage() {
 
         {/* User Greeting */}
         <div
-          className={`${
-            isFirstVisit
-              ? `transition-all duration-1000 transform ${
-                  showGreeting
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-8"
-                }`
-              : "opacity-100 translate-y-0"
-          }`}
+          className={`${isFirstVisit
+            ? `transition-all duration-1000 transform ${showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
+            }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -594,20 +584,20 @@ export default function MainPage() {
 
       {/* SECURITY: Captcha Modal */}
       <CaptchaModal
-        description="Your trust score requires additional verification. Please complete the captcha to continue."
         isOpen={showCaptcha}
-        title="Security Verification Required"
-        onFailure={handleCaptchaFailure}
         onSuccess={handleCaptchaSuccess}
+        onFailure={handleCaptchaFailure}
+        title="Security Verification Required"
+        description="Your trust score requires additional verification. Please complete the captcha to continue."
       />
 
       {/* SECURITY: Biometric Modal */}
       <BiometricModal
-        description="Your trust score is very low. Please authenticate using biometrics to continue."
         isOpen={showBiometric}
-        title="Biometric Authentication Required"
-        onFailure={handleBiometricFailure}
         onSuccess={handleBiometricSuccess}
+        onFailure={handleBiometricFailure}
+        title="Biometric Authentication Required"
+        description="Your trust score is very low. Please authenticate using biometrics to continue."
       />
 
       {/* Settings Modal */}
@@ -624,15 +614,13 @@ export default function MainPage() {
 
       {/* Attempts Display */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-8"
-              }`
-            : "opacity-100 translate-y-0"
-        }`}
+        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
+          }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay />
@@ -641,15 +629,13 @@ export default function MainPage() {
       {/* Level and League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${
-            isFirstVisit
-              ? `transition-all duration-1000 transform ${
-                  showLeagueDisplay
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-4"
-                }`
-              : "opacity-100 translate-y-0"
-          }`}
+          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showLeagueDisplay
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-4"
+            }`
+            : "opacity-100 translate-y-0"
+            }`}
           style={{
             bottom: "96px",
             zIndex: 50,
