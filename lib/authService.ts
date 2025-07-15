@@ -1,6 +1,6 @@
-// src/lib/authService.ts - AuthService with bot protection system
+// src/lib/authService.ts - Updated AuthService with secure API calls
 
-import { GameSaveResult, AttemptsStatus, SecurityCheckResult, userService } from '@/lib/supabase';
+import { GameSaveResult, AttemptsStatus, SecurityCheckResult } from '@/lib/supabase';
 import {
     ReactionGameResult,
     SurvivalGameResult,
@@ -18,8 +18,11 @@ export interface AuthUser {
     current_level: number;
     attempts_remaining: number;
     total_games: number;
-    trust_score: number; // NEW: Security field
-    blocked_until?: string; // NEW: Security field
+    trust_score: number;
+    blocked_until?: string;
+    total_score: number;
+    best_score: number;
+    current_league_id?: number;
 }
 
 export interface AuthState {
@@ -127,6 +130,14 @@ class AuthService {
                 throw new Error('Authentication expired. Please log in again.');
             }
 
+            if (response.status === 403) {
+                const errorData = await response.json().catch(() => ({}));
+                if (errorData.isBlocked) {
+                    throw new Error('Account is temporarily blocked');
+                }
+                throw new Error('Access forbidden');
+            }
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.message || `Request failed with status ${response.status}`);
@@ -160,6 +171,12 @@ class AuthService {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
+
+                // Handle blocked user case
+                if (response.status === 403 && errorData.isBlocked) {
+                    throw new Error('User is temporarily blocked');
+                }
+
                 throw new Error(errorData.message || 'Authentication failed');
             }
 
@@ -198,6 +215,15 @@ class AuthService {
      */
     signOut(): void {
         this.removeTokenFromStorage();
+    }
+
+    /**
+     * Refresh user data
+     */
+    async refreshUserData(): Promise<AuthUser> {
+        return this.makeAuthenticatedRequest<{ user: AuthUser }>(
+            '/user/profile'
+        ).then(data => data.user);
     }
 
     /**
@@ -251,17 +277,8 @@ class AuthService {
         ).then(data => data.tournamentResult);
     }
 
-    /**
-     * Refresh user data
-     */
-    async refreshUserData(): Promise<AuthUser> {
-        return this.makeAuthenticatedRequest<{ user: AuthUser }>(
-            '/user/profile'
-        ).then(data => data.user);
-    }
-
     // ============================================================================
-    // SECURITY SYSTEM METHODS
+    // SECURITY SYSTEM METHODS (Updated to use API)
     // ============================================================================
 
     /**
@@ -337,16 +354,20 @@ class AuthService {
     }
 
     /**
-     * Check if user is blocked (fallback method using direct service)
+     * Check if user is blocked with fallback
      */
     async checkUserBlockedStatus(telegramId: number): Promise<SecurityCheckResult> {
         try {
-            // Try authenticated API first
             return await this.checkUserSecurityStatus();
         } catch (error) {
-            // Fallback to direct service call
-            console.warn('Auth API failed, using direct service call');
-            return await userService.checkUserBlockStatus(telegramId);
+            console.warn('Auth API failed for security check');
+            // In case of API failure, assume user is not blocked to avoid false positives
+            return {
+                isBlocked: false,
+                needsCaptcha: false,
+                needsBiometric: false,
+                trustScore: 50,
+            };
         }
     }
 
@@ -413,7 +434,7 @@ export async function saveSecureTournamentResult(
     return authService.saveTournamentResult(tournamentId, gameResult);
 }
 
-// NEW: Security helper functions
+// Security helper functions
 export async function checkSecurityStatus(): Promise<SecurityCheckResult> {
     return authService.checkUserSecurityStatus();
 }

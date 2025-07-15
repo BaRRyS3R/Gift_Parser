@@ -1,13 +1,22 @@
-// src/app/api/security/update-trust-score/route.ts - Update user trust score
+// src/app/api/security/update-trust-score/route.ts - Trust score update endpoint
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuthAndRateLimit } from '@/lib/authMiddleware';
-import { userService } from '@/lib/supabase';
+import { supabaseServer } from '@/lib/supabase-server';
 
-export const POST = withAuthAndRateLimit(async (request) => {
+export async function POST(request: NextRequest) {
     try {
-        const { user } = request;
+        const telegramId = request.headers.get('x-telegram-id');
         const { scoreChange } = await request.json();
+
+        if (!telegramId) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'User authentication required',
+                },
+                { status: 401 }
+            );
+        }
 
         if (typeof scoreChange !== 'number') {
             return NextResponse.json(
@@ -19,20 +28,22 @@ export const POST = withAuthAndRateLimit(async (request) => {
             );
         }
 
-        // Limit score changes to reasonable ranges
-        const limitedScoreChange = Math.max(-50, Math.min(50, scoreChange));
+        const { data, error } = await supabaseServer.rpc('update_trust_score', {
+            user_telegram_id: parseInt(telegramId),
+            score_change: scoreChange
+        });
 
-        const newTrustScore = await userService.updateTrustScore(
-            user.telegramId,
-            limitedScoreChange
-        );
+        if (error) {
+            console.error("Error updating trust score:", error.message);
+            throw error;
+        }
 
         return NextResponse.json({
             success: true,
-            newTrustScore,
+            newTrustScore: data || 0,
         });
     } catch (error) {
-        console.error('Error updating trust score:', error);
+        console.error('Trust score update API error:', error);
 
         return NextResponse.json(
             {
@@ -43,4 +54,4 @@ export const POST = withAuthAndRateLimit(async (request) => {
             { status: 500 }
         );
     }
-});
+}
