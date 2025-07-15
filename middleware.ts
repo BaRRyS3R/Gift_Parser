@@ -81,7 +81,7 @@ function checkAndBlockSupabaseAccess(
       userAgent: userAgent.substring(0, 100),
       hasApiKey: !!apiKey,
       hasAuth: !!authorization,
-      ip: request.ip || "unknown",
+      ip: request.headers.get("x-forwarded-for") || "unknown",
       timestamp: new Date().toISOString(),
     });
 
@@ -111,8 +111,19 @@ const RATE_LIMITS = {
 };
 
 function applyRateLimiting(request: NextRequest): NextResponse | null {
-  const ip = request.ip || "unknown";
+  // Use x-forwarded-for header for IP, fallback to "unknown"
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
   const pathname = request.nextUrl.pathname;
+
+  // Clean up expired rate limit entries before proceeding
+  const now = Date.now();
+  requestCounts.forEach((data, key) => {
+    if (now > data.resetTime) {
+      requestCounts.delete(key);
+    }
+  });
 
   // Determine rate limit based on endpoint
   let limit = RATE_LIMITS["/api/"]; // Default
@@ -124,7 +135,6 @@ function applyRateLimiting(request: NextRequest): NextResponse | null {
   }
 
   const key = `${ip}:${pathname.split("/").slice(0, 4).join("/")}`;
-  const now = Date.now();
   const current = requestCounts.get(key);
 
   if (!current || now > current.resetTime) {
@@ -227,7 +237,7 @@ function checkSuspiciousActivity(request: NextRequest): NextResponse | null {
     console.warn("Blocked suspicious request:", {
       url: request.url,
       userAgent: userAgent.substring(0, 100),
-      ip: request.ip || "unknown",
+      ip: request.headers.get("x-forwarded-for") || "unknown",
       timestamp: new Date().toISOString(),
     });
 
@@ -248,11 +258,11 @@ function checkSuspiciousActivity(request: NextRequest): NextResponse | null {
  */
 setInterval(() => {
   const now = Date.now();
-  for (const [key, data] of requestCounts.entries()) {
+  requestCounts.forEach((data, key) => {
     if (now > data.resetTime) {
       requestCounts.delete(key);
     }
-  }
+  });
 }, RATE_LIMIT_WINDOW);
 
 export const config = {
