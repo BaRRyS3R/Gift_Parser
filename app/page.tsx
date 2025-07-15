@@ -324,44 +324,57 @@ export default function IntroPage(): JSX.Element {
         return;
       }
 
-      // --- ДОБАВЛЕНО: Проверка существования пользователя через API ---
-      try {
-        const profileRes = await fetch("/api/user/profile", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            // Можно добавить авторизационный токен, если требуется
-          },
-        });
-        if (profileRes.ok) {
-          // Пользователь найден, сразу аутентифицируем и редиректим
-          console.log("User profile found, authenticating and redirecting to main...");
-          await performJWTAuthentication(telegramUser, referralCode);
-          setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
-          setTimeout(() => {
-            router.push("/main");
-          }, 500);
-          return;
-        }
-      } catch (e) {
-        // Ошибку игнорируем, если пользователь не найден — покажем приветственный экран
-        console.log("User profile not found or error, showing registration screen");
-      }
-      // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+      // UPDATED: Get referral information via API if we implement that endpoint
+      // For now, we'll handle referral validation during the authentication process
+      let referralBonus = 0;
+      let referrerName: string | undefined;
+      let referrerUsername: string | undefined;
 
-      // Если не найден — показываем приветственный экран
+      // Note: Referral validation will be handled server-side during authentication
+      if (referralCode) {
+        console.log(`Referral code will be validated server-side: ${referralCode}`);
+      }
+
       setAuthState((prev) => ({
         ...prev,
-        isChecking: false,
         telegramUser,
         referralCode: referralCode,
-        referralBonus: 0,
-        referrerName: undefined,
-        referrerUsername: undefined,
-        needsRegistration: true,
+        referralBonus: referralBonus,
+        referrerName: referrerName,
+        referrerUsername: referrerUsername,
       }));
+
+      // Set telegram user in context
       setTelegramUser(telegramUser);
-      setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+
+      // UPDATED: Try JWT authentication directly - server will handle user creation if needed
+      console.log("Attempting JWT authentication...");
+
+      try {
+        await performJWTAuthentication(telegramUser, referralCode);
+
+        console.log("JWT authentication successful, user is authenticated");
+        setAuthState((prev) => ({
+          ...prev,
+          isChecking: false,
+          needsRegistration: false,
+        }));
+
+        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+
+        setTimeout(() => {
+          router.push("/main");
+        }, 500);
+      } catch (authError) {
+        // If authentication fails, show registration UI
+        console.log("JWT authentication failed, showing registration UI");
+        setAuthState((prev) => ({
+          ...prev,
+          isChecking: false,
+          needsRegistration: true,
+        }));
+        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+      }
     } catch (error) {
       console.error("Error initializing authorization:", error);
       setAuthState((prev) => ({
