@@ -50,10 +50,26 @@ export default function LeaderboardPage() {
         setIsLoading(true);
         setError(null);
         const [reaction, survival, physics, rotation] = await Promise.all([
-          fetch("/api/leaderboard/reaction", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } }).then(r => r.json()),
-          fetch("/api/leaderboard/survival", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } }).then(r => r.json()),
-          fetch("/api/leaderboard/physics", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } }).then(r => r.json()),
-          fetch("/api/leaderboard/rotation", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } }).then(r => r.json()),
+          fetch("/api/leaderboard/reaction", {
+            headers: {
+              Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+            },
+          }).then((r) => r.json()),
+          fetch("/api/leaderboard/survival", {
+            headers: {
+              Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+            },
+          }).then((r) => r.json()),
+          fetch("/api/leaderboard/physics", {
+            headers: {
+              Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+            },
+          }).then((r) => r.json()),
+          fetch("/api/leaderboard/rotation", {
+            headers: {
+              Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+            },
+          }).then((r) => r.json()),
         ]);
         setReactionLeaderboard(reaction.leaderboard || []);
         setSurvivalLeaderboard(survival.leaderboard || []);
@@ -111,10 +127,7 @@ export default function LeaderboardPage() {
     return isActive ? colors[tab].active : colors[tab].inactive;
   };
 
-  const renderReactionLeaderboardEntry = (
-    entry: any,
-    position: number,
-  ) => {
+  const renderReactionLeaderboardEntry = (entry: any, position: number) => {
     const getRatingFromTime = (time: number): string => {
       if (time <= 100) return "LIGHTNING";
       if (time <= 200) return "EXCELLENT";
@@ -210,10 +223,7 @@ export default function LeaderboardPage() {
     );
   };
 
-  const renderSurvivalLeaderboardEntry = (
-    entry: any,
-    position: number,
-  ) => {
+  const renderSurvivalLeaderboardEntry = (entry: any, position: number) => {
     return (
       <div
         key={entry.telegram_id}
@@ -301,10 +311,7 @@ export default function LeaderboardPage() {
     );
   };
 
-  const renderPhysicsLeaderboardEntry = (
-    entry: any,
-    position: number,
-  ) => {
+  const renderPhysicsLeaderboardEntry = (entry: any, position: number) => {
     return (
       <div
         key={entry.telegram_id}
@@ -392,10 +399,7 @@ export default function LeaderboardPage() {
     );
   };
 
-  const renderRotationLeaderboardEntry = (
-    entry: any,
-    position: number,
-  ) => {
+  const renderRotationLeaderboardEntry = (entry: any, position: number) => {
     return (
       <div
         key={entry.telegram_id}
@@ -596,14 +600,12 @@ export default function LeaderboardPage() {
                     ? `${(currentLeaderboard[0] as any).best_reaction_time}ms`
                     : isSurvivalTab
                       ? formatSurvivalTime(
-                          (currentLeaderboard[0] as any)
-                            .best_survival_time,
+                          (currentLeaderboard[0] as any).best_survival_time,
                         )
                       : isPhysicsTab
                         ? `${(currentLeaderboard[0] as any).best_physics_score} pts`
                         : formatRotationTime(
-                            (currentLeaderboard[0] as any)
-                              .best_rotation_time,
+                            (currentLeaderboard[0] as any).best_rotation_time,
                           )
                   : "0"}
               </span>
@@ -661,24 +663,12 @@ export default function LeaderboardPage() {
           <div className="animate-fade-in space-y-3 max-h-[70vh] overflow-y-auto">
             {currentLeaderboard.map((entry, index) =>
               isReactionTab
-                ? renderReactionLeaderboardEntry(
-                    entry,
-                    index + 1,
-                  )
+                ? renderReactionLeaderboardEntry(entry, index + 1)
                 : isSurvivalTab
-                  ? renderSurvivalLeaderboardEntry(
-                      entry,
-                      index + 1,
-                    )
+                  ? renderSurvivalLeaderboardEntry(entry, index + 1)
                   : isPhysicsTab
-                    ? renderPhysicsLeaderboardEntry(
-                        entry,
-                        index + 1,
-                      )
-                    : renderRotationLeaderboardEntry(
-                        entry,
-                        index + 1,
-                      ),
+                    ? renderPhysicsLeaderboardEntry(entry, index + 1)
+                    : renderRotationLeaderboardEntry(entry, index + 1),
             )}
           </div>
         )}

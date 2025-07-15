@@ -137,8 +137,11 @@ export default function ShopPage() {
       // Получаем invoice через API
       const invoiceRes = await fetch("/api/shop/invoice", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
-        body: JSON.stringify({ productType })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+        body: JSON.stringify({ productType }),
       });
       const invoiceResult: CreateInvoiceResponse = await invoiceRes.json();
 
@@ -158,8 +161,11 @@ export default function ShopPage() {
       // Проверяем статус покупки через API
       const paymentRes = await fetch("/api/shop/purchase", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
-        body: JSON.stringify({ productType })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+        body: JSON.stringify({ productType }),
       });
       const paymentResult = await paymentRes.json();
 

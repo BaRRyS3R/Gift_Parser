@@ -39,7 +39,11 @@ export default function TournamentPlayPage() {
       try {
         setIsLoading(true);
         // Получаем активный турнир через API
-        const res = await fetch("/api/tournament/active", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+        const res = await fetch("/api/tournament/active", {
+          headers: {
+            Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+          },
+        });
         const data = await res.json();
         const activeTournament = data.activeTournament;
         if (!activeTournament) {

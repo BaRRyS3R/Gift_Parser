@@ -5,7 +5,15 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
-import { Play, Zap, Wifi, WifiOff, Gift, Shield, AlertTriangle } from "lucide-react";
+import {
+  Play,
+  Zap,
+  Wifi,
+  WifiOff,
+  Gift,
+  Shield,
+  AlertTriangle,
+} from "lucide-react";
 
 import { userService, type TelegramUser, type User } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
@@ -38,7 +46,7 @@ export default function IntroPage(): JSX.Element {
     isAuthenticated,
     authenticateWithTelegram,
     user: contextUser,
-    isLoading: contextLoading
+    isLoading: contextLoading,
   } = useUser();
   const t = useT();
 
@@ -82,41 +90,48 @@ export default function IntroPage(): JSX.Element {
   const [isPlaying, setIsPlaying] = useState(false);
 
   // SECURITY: New function to check if user is blocked
-  const checkUserBlockStatus = useCallback(async (telegramUser: TelegramUser): Promise<{
-    isBlocked: boolean;
-    blockReason?: string;
-    timeUntilUnblock?: number;
-  }> => {
-    if (securityCheckRef.current) {
-      return { isBlocked: false }; // Prevent multiple concurrent checks
-    }
+  const checkUserBlockStatus = useCallback(
+    async (
+      telegramUser: TelegramUser,
+    ): Promise<{
+      isBlocked: boolean;
+      blockReason?: string;
+      timeUntilUnblock?: number;
+    }> => {
+      if (securityCheckRef.current) {
+        return { isBlocked: false }; // Prevent multiple concurrent checks
+      }
 
-    securityCheckRef.current = true;
+      securityCheckRef.current = true;
 
-    try {
-      console.log("Checking user block status for security...");
-      const securityResult = await userService.checkUserBlockStatus(telegramUser.id);
+      try {
+        console.log("Checking user block status for security...");
+        const securityResult = await userService.checkUserBlockStatus(
+          telegramUser.id,
+        );
 
-      console.log("Security check result:", {
-        isBlocked: securityResult.isBlocked,
-        blockReason: securityResult.blockReason,
-        timeUntilUnblock: securityResult.timeUntilUnblock,
-        trustScore: securityResult.trustScore
-      });
+        console.log("Security check result:", {
+          isBlocked: securityResult.isBlocked,
+          blockReason: securityResult.blockReason,
+          timeUntilUnblock: securityResult.timeUntilUnblock,
+          trustScore: securityResult.trustScore,
+        });
 
-      return {
-        isBlocked: securityResult.isBlocked,
-        blockReason: securityResult.blockReason,
-        timeUntilUnblock: securityResult.timeUntilUnblock,
-      };
-    } catch (error) {
-      console.error("Error checking user block status:", error);
-      // On error, assume user is not blocked to avoid false positives
-      return { isBlocked: false };
-    } finally {
-      securityCheckRef.current = false;
-    }
-  }, []);
+        return {
+          isBlocked: securityResult.isBlocked,
+          blockReason: securityResult.blockReason,
+          timeUntilUnblock: securityResult.timeUntilUnblock,
+        };
+      } catch (error) {
+        console.error("Error checking user block status:", error);
+        // On error, assume user is not blocked to avoid false positives
+        return { isBlocked: false };
+      } finally {
+        securityCheckRef.current = false;
+      }
+    },
+    [],
+  );
 
   // Extract referral code from Telegram start parameter
   const extractReferralCode = useCallback((): string | undefined => {
@@ -290,45 +305,48 @@ export default function IntroPage(): JSX.Element {
   );
 
   // JWT Authentication method with stable state management
-  const performJWTAuthentication = useCallback(async (telegramUser: TelegramUser, referralCode?: string) => {
-    const initData = getTelegramInitData();
-    if (!initData) {
-      throw new Error(t("auth.telegramDataUnavailable"));
-    }
+  const performJWTAuthentication = useCallback(
+    async (telegramUser: TelegramUser, referralCode?: string) => {
+      const initData = getTelegramInitData();
+      if (!initData) {
+        throw new Error(t("auth.telegramDataUnavailable"));
+      }
 
-    setAuthState((prev) => ({ ...prev, isRegistering: true, error: null }));
+      setAuthState((prev) => ({ ...prev, isRegistering: true, error: null }));
 
-    try {
-      console.log("Performing JWT authentication...");
-      await authenticateWithTelegram(initData, referralCode);
-      console.log("JWT authentication successful");
-
-      setAuthState((prev) => ({
-        ...prev,
-        isRegistering: false,
-        needsRegistration: false,
-      }));
-
-      return true;
-    } catch (error) {
-      console.error("JWT authentication failed:", error);
-
-      // Fallback to traditional registration if JWT fails
-      console.log("Falling back to traditional user registration...");
       try {
-        await registerUser(telegramUser, referralCode);
-        return true;
-      } catch (fallbackError) {
-        console.error("Fallback registration also failed:", fallbackError);
+        console.log("Performing JWT authentication...");
+        await authenticateWithTelegram(initData, referralCode);
+        console.log("JWT authentication successful");
+
         setAuthState((prev) => ({
           ...prev,
           isRegistering: false,
-          error: t("auth.registrationFailed"),
+          needsRegistration: false,
         }));
-        throw fallbackError;
+
+        return true;
+      } catch (error) {
+        console.error("JWT authentication failed:", error);
+
+        // Fallback to traditional registration if JWT fails
+        console.log("Falling back to traditional user registration...");
+        try {
+          await registerUser(telegramUser, referralCode);
+          return true;
+        } catch (fallbackError) {
+          console.error("Fallback registration also failed:", fallbackError);
+          setAuthState((prev) => ({
+            ...prev,
+            isRegistering: false,
+            error: t("auth.registrationFailed"),
+          }));
+          throw fallbackError;
+        }
       }
-    }
-  }, [getTelegramInitData, authenticateWithTelegram, registerUser, t]);
+    },
+    [getTelegramInitData, authenticateWithTelegram, registerUser, t],
+  );
 
   const initializeAuth = useCallback(async () => {
     if (authInitializedRef.current) return;
@@ -340,20 +358,24 @@ export default function IntroPage(): JSX.Element {
 
       // Check if already authenticated via JWT
       if (isAuthenticated && contextUser) {
-        console.log("User already authenticated via JWT, checking block status...");
+        console.log(
+          "User already authenticated via JWT, checking block status...",
+        );
 
         // SECURITY: Even for authenticated users, check if they're blocked
         const telegramUser = getTelegramUser();
         if (telegramUser) {
           const blockStatus = await checkUserBlockStatus(telegramUser);
           if (blockStatus.isBlocked) {
-            console.log("Authenticated user is blocked, redirecting to blocked page");
+            console.log(
+              "Authenticated user is blocked, redirecting to blocked page",
+            );
             router.push("/blocked");
             return;
           }
         }
 
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
         setTimeout(() => {
           router.push("/main");
         }, 500);
@@ -373,7 +395,7 @@ export default function IntroPage(): JSX.Element {
           isChecking: false,
           error: t("auth.telegramDataUnavailable"),
         }));
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
         return;
       }
 
@@ -450,7 +472,9 @@ export default function IntroPage(): JSX.Element {
             updateUser(existingUser);
           }
         } catch (jwtError) {
-          console.warn("JWT authentication failed for existing user, using fallback");
+          console.warn(
+            "JWT authentication failed for existing user, using fallback",
+          );
           updateUser(existingUser);
         }
 
@@ -461,7 +485,7 @@ export default function IntroPage(): JSX.Element {
           needsRegistration: false,
         }));
 
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
 
         setTimeout(() => {
           router.push("/main");
@@ -473,7 +497,7 @@ export default function IntroPage(): JSX.Element {
           isChecking: false,
           needsRegistration: true,
         }));
-        setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
       }
     } catch (error) {
       console.error("Ошибка инициализации авторизации:", error);
@@ -482,7 +506,7 @@ export default function IntroPage(): JSX.Element {
         isChecking: false,
         error: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")}`,
       }));
-      setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+      setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
     }
   }, [
     isAuthenticated,
@@ -515,16 +539,16 @@ export default function IntroPage(): JSX.Element {
         .load('1rem "BPDots Diamond"')
         .then(() => {
           setFontLoaded(true);
-          setStableLoadingState(prev => ({ ...prev, isInitializing: false }));
+          setStableLoadingState((prev) => ({ ...prev, isInitializing: false }));
         })
         .catch(() => {
           setFontLoaded(true);
-          setStableLoadingState(prev => ({ ...prev, isInitializing: false }));
+          setStableLoadingState((prev) => ({ ...prev, isInitializing: false }));
         });
     } else {
       setTimeout(() => {
         setFontLoaded(true);
-        setStableLoadingState(prev => ({ ...prev, isInitializing: false }));
+        setStableLoadingState((prev) => ({ ...prev, isInitializing: false }));
       }, 1000);
     }
   }, []);
@@ -538,7 +562,7 @@ export default function IntroPage(): JSX.Element {
     const handleLoadedMetadata = () => {
       video.volume = 1;
       setIsReady(true);
-      setStableLoadingState(prev => ({ ...prev, isVideoReady: true }));
+      setStableLoadingState((prev) => ({ ...prev, isVideoReady: true }));
     };
 
     const handleProgress = () => {
@@ -595,7 +619,9 @@ export default function IntroPage(): JSX.Element {
             currentAuthState.telegramUser,
             currentAuthState.referralCode,
           );
-          console.log("Аутентификация успешна, перенаправляем на main через 1 секунду");
+          console.log(
+            "Аутентификация успешна, перенаправляем на main через 1 секунду",
+          );
           setTimeout(() => {
             router.push("/main");
           }, 1000);
@@ -613,7 +639,9 @@ export default function IntroPage(): JSX.Element {
           }, 2000);
         }
       } else if (currentAuthState.user || isAuthenticated) {
-        console.log("Пользователь уже аутентифицирован, перенаправляем на main");
+        console.log(
+          "Пользователь уже аутентифицирован, перенаправляем на main",
+        );
         router.push("/main");
       } else {
         console.log(
@@ -656,7 +684,10 @@ export default function IntroPage(): JSX.Element {
 
   // Инициализация авторизации
   useEffect(() => {
-    if (!authInitializedRef.current && stableLoadingState.isInitializing === false) {
+    if (
+      !authInitializedRef.current &&
+      stableLoadingState.isInitializing === false
+    ) {
       initializeAuth();
     }
   }, [initializeAuth, stableLoadingState.isInitializing]);
@@ -723,7 +754,7 @@ export default function IntroPage(): JSX.Element {
     const seconds = totalSeconds % 60;
 
     if (minutes > 0) {
-      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
     } else {
       return `${seconds}s`;
     }
@@ -732,14 +763,14 @@ export default function IntroPage(): JSX.Element {
   // SECURITY: Get block reason text
   const getBlockReasonText = (reason?: string): string => {
     switch (reason) {
-      case 'captcha_failed':
-        return 'Failed Captcha Verification';
-      case 'biometric_failed':
-        return 'Failed Biometric Authentication';
-      case 'suspicious_activity':
-        return 'Suspicious Activity Detected';
+      case "captcha_failed":
+        return "Failed Captcha Verification";
+      case "biometric_failed":
+        return "Failed Biometric Authentication";
+      case "suspicious_activity":
+        return "Suspicious Activity Detected";
       default:
-        return 'Security Violation';
+        return "Security Violation";
     }
   };
 
@@ -748,7 +779,10 @@ export default function IntroPage(): JSX.Element {
     stableLoadingState.isInitializing ||
     (authState.isChecking && !isPlaying) ||
     (contextLoading && !isPlaying) ||
-    (isLoading && !videoError && !stableLoadingState.isVideoReady && !isPlaying);
+    (isLoading &&
+      !videoError &&
+      !stableLoadingState.isVideoReady &&
+      !isPlaying);
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -777,7 +811,9 @@ export default function IntroPage(): JSX.Element {
               <Shield className="text-red-400" size={40} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white mb-2">Account Blocked</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Account Blocked
+              </h2>
               <p className="text-red-300 text-sm mb-4">
                 {getBlockReasonText(authState.blockReason)}
               </p>
@@ -792,7 +828,7 @@ export default function IntroPage(): JSX.Element {
             </div>
             <button
               className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
-              onClick={() => router.push('/blocked')}
+              onClick={() => router.push("/blocked")}
             >
               View Details
             </button>
@@ -831,23 +867,26 @@ export default function IntroPage(): JSX.Element {
       )}
 
       {/* Экран ошибки видео */}
-      {videoError && !isInitialLoading && !authState.error && !authState.isBlocked && (
-        <div className="loader-container">
-          <p className="text-white text-center mb-4">{videoError}</p>
-          <button
-            className="px-4 py-2 bg-white text-black rounded mb-4"
-            onClick={handleStart}
-          >
-            {t("common.retry")}
-          </button>
-          <button
-            className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
-            onClick={handleQuickInit}
-          >
-            {t("auth.continueWithoutVideo")}
-          </button>
-        </div>
-      )}
+      {videoError &&
+        !isInitialLoading &&
+        !authState.error &&
+        !authState.isBlocked && (
+          <div className="loader-container">
+            <p className="text-white text-center mb-4">{videoError}</p>
+            <button
+              className="px-4 py-2 bg-white text-black rounded mb-4"
+              onClick={handleStart}
+            >
+              {t("common.retry")}
+            </button>
+            <button
+              className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
+              onClick={handleQuickInit}
+            >
+              {t("auth.continueWithoutVideo")}
+            </button>
+          </div>
+        )}
 
       {/* Экран регистрации */}
       {authState.needsRegistration &&

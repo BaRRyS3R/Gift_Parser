@@ -29,10 +29,7 @@ interface UserContextType {
   error: string | null;
   refreshUser: () => Promise<void>;
   saveGameResult: (gameResult: GameResult) => Promise<any>;
-  saveTournamentResult: (
-    tournamentId: string,
-    gameResult: any,
-  ) => Promise<any>;
+  saveTournamentResult: (tournamentId: string, gameResult: any) => Promise<any>;
   updateUser: (userData: any) => void;
   setTelegramUser: (userData: any) => void;
   getAttemptsStatus: () => Promise<any>;
@@ -43,7 +40,10 @@ interface UserContextType {
   showAchievement: (achievement: AchievementNotificationData) => void;
   hideAchievement: () => void;
   isAuthenticated: boolean;
-  authenticateWithTelegram: (initData: string, referralCode?: string) => Promise<void>;
+  authenticateWithTelegram: (
+    initData: string,
+    referralCode?: string,
+  ) => Promise<void>;
   signOut: () => void;
 }
 
@@ -61,7 +61,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [currentAchievement, setCurrentAchievement] = useState<AchievementNotificationData | null>(null);
+  const [currentAchievement, setCurrentAchievement] =
+    useState<AchievementNotificationData | null>(null);
   const [attemptsCache, setAttemptsCache] = useState<AttemptsCache>({
     status: null,
     lastUpdate: 0,
@@ -71,7 +72,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // Telegram user auto-init
   useEffect(() => {
-    if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
+    if (
+      !telegramUser &&
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp
+    ) {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
       if (user && user.id) {
@@ -88,13 +93,16 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [telegramUser]);
 
   // Auth (stub, real JWT logic should be in middleware)
-  const authenticateWithTelegram = useCallback(async (initData: string, referralCode?: string) => {
-    setIsLoading(true);
-    setError(null);
-    // TODO: реализовать реальную аутентификацию через API
-    setIsAuthenticated(true);
-    setIsLoading(false);
-  }, []);
+  const authenticateWithTelegram = useCallback(
+    async (initData: string, referralCode?: string) => {
+      setIsLoading(true);
+      setError(null);
+      // TODO: реализовать реальную аутентификацию через API
+      setIsAuthenticated(true);
+      setIsLoading(false);
+    },
+    [],
+  );
 
   const signOut = useCallback(() => {
     setIsAuthenticated(false);
@@ -120,7 +128,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/profile", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+      const res = await fetch("/api/profile", {
+        headers: {
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+      });
       const data = await res.json();
       if (data.success) {
         setUser(data.profile.user);
@@ -135,12 +147,21 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [telegramUser]);
 
   const invalidateAttemptsCache = useCallback(() => {
-    setAttemptsCache({ status: null, lastUpdate: 0, isValid: false, source: "initial" });
+    setAttemptsCache({
+      status: null,
+      lastUpdate: 0,
+      isValid: false,
+      source: "initial",
+    });
   }, []);
 
   const getCachedAttemptsStatus = useCallback(() => {
     const now = Date.now();
-    if (attemptsCache.isValid && attemptsCache.status && now - attemptsCache.lastUpdate < CACHE_DURATION) {
+    if (
+      attemptsCache.isValid &&
+      attemptsCache.status &&
+      now - attemptsCache.lastUpdate < CACHE_DURATION
+    ) {
       return attemptsCache.status;
     }
     return null;
@@ -149,14 +170,28 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const getAttemptsStatus = useCallback(async () => {
     if (!telegramUser) throw new Error("Пользователь Telegram не найден");
     const now = Date.now();
-    if (attemptsCache.isValid && attemptsCache.status && attemptsCache.source === "server" && now - attemptsCache.lastUpdate < CACHE_DURATION) {
+    if (
+      attemptsCache.isValid &&
+      attemptsCache.status &&
+      attemptsCache.source === "server" &&
+      now - attemptsCache.lastUpdate < CACHE_DURATION
+    ) {
       return attemptsCache.status;
     }
     try {
-      const res = await fetch("/api/user/attempts-status", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+      const res = await fetch("/api/user/attempts-status", {
+        headers: {
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+      });
       const data = await res.json();
       if (data.success) {
-        setAttemptsCache({ status: data, lastUpdate: now, isValid: true, source: "server" });
+        setAttemptsCache({
+          status: data,
+          lastUpdate: now,
+          isValid: true,
+          source: "server",
+        });
         return data;
       } else {
         invalidateAttemptsCache();
@@ -171,10 +206,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const consumeAttemptForGame = useCallback(async () => {
     if (!telegramUser) throw new Error("Пользователь Telegram не найден");
     try {
-      const res = await fetch("/api/game/consume-attempt", { method: "POST", headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+      const res = await fetch("/api/game/consume-attempt", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+      });
       const data = await res.json();
       if (data.success) {
-        setAttemptsCache({ status: data, lastUpdate: Date.now(), isValid: true, source: "server" });
+        setAttemptsCache({
+          status: data,
+          lastUpdate: Date.now(),
+          isValid: true,
+          source: "server",
+        });
         return data;
       } else {
         invalidateAttemptsCache();
@@ -186,50 +231,59 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [telegramUser, invalidateAttemptsCache]);
 
-  const showAchievement = useCallback((achievement: AchievementNotificationData) => {
-    setCurrentAchievement(achievement);
-  }, []);
+  const showAchievement = useCallback(
+    (achievement: AchievementNotificationData) => {
+      setCurrentAchievement(achievement);
+    },
+    [],
+  );
   const hideAchievement = useCallback(() => {
     setCurrentAchievement(null);
   }, []);
 
-  const saveGameResult = useCallback(async (gameResult: GameResult) => {
-    try {
-      const res = await fetch("/api/game/save-result", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + (localStorage.getItem('jwt') || '')
-        },
-        body: JSON.stringify(gameResult)
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Ошибка сохранения");
-      await refreshUser();
-      invalidateAttemptsCache();
-      return data;
-    } catch (err) {
-      throw err;
-    }
-  }, [refreshUser, invalidateAttemptsCache]);
+  const saveGameResult = useCallback(
+    async (gameResult: GameResult) => {
+      try {
+        const res = await fetch("/api/game/save-result", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+          },
+          body: JSON.stringify(gameResult),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || "Ошибка сохранения");
+        await refreshUser();
+        invalidateAttemptsCache();
+        return data;
+      } catch (err) {
+        throw err;
+      }
+    },
+    [refreshUser, invalidateAttemptsCache],
+  );
 
-  const saveTournamentResult = useCallback(async (tournamentId: string, gameResult: any) => {
-    try {
-      const res = await fetch("/api/tournament/save-result", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + (localStorage.getItem('jwt') || '')
-        },
-        body: JSON.stringify({ tournamentId, ...gameResult })
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Ошибка турнира");
-      return data;
-    } catch (err) {
-      throw err;
-    }
-  }, []);
+  const saveTournamentResult = useCallback(
+    async (tournamentId: string, gameResult: any) => {
+      try {
+        const res = await fetch("/api/tournament/save-result", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+          },
+          body: JSON.stringify({ tournamentId, ...gameResult }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || "Ошибка турнира");
+        return data;
+      } catch (err) {
+        throw err;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (telegramUser && !user && !isLoading) {

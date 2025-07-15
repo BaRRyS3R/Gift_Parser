@@ -40,7 +40,8 @@ export const about = {
       title: "Levels",
       description:
         "Every 100 games = +1 level. Like RPG progression, except instead of epic loot you get the realization of wasted time.",
-      maxLevel: "Max level: 100. Congratulations, you've officially spent 10,000 games on circles.",
+      maxLevel:
+        "Max level: 100. Congratulations, you've officially spent 10,000 games on circles.",
     },
     leagues: {
       title: "Leagues",
@@ -50,8 +51,10 @@ export const about = {
       silver: "🥈 Silver: 300-799 games. No longer new to suffering.",
       gold: "🥇 Gold: 800-1999 games. Fool's gold.",
       platinum: "💎 Platinum: 2000-3999 games. Elite sufferers.",
-      diamond: "💠 Diamond: 4000+ games. Congratulations, you've hit rock bottom.",
-      rewards: "First 5 in each league get 'special' gifts. Because we need to somehow reward self-destruction.",
+      diamond:
+        "💠 Diamond: 4000+ games. Congratulations, you've hit rock bottom.",
+      rewards:
+        "First 5 in each league get 'special' gifts. Because we need to somehow reward self-destruction.",
     },
   },
 

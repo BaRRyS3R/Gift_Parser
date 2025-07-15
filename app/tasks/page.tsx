@@ -78,7 +78,11 @@ export default function TasksPage() {
     try {
       setError(null);
       // Получаем задания через API
-      const res = await fetch("/api/tasks", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+      const res = await fetch("/api/tasks", {
+        headers: {
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+      });
       const data = await res.json();
       setTasks(data.tasks || []);
     } catch (err) {
@@ -146,8 +150,11 @@ export default function TasksPage() {
       // Запускаем задание через API
       const res = await fetch(`/api/tasks/start`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
-        body: JSON.stringify({ userId: user.id, taskId: task.id })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+        body: JSON.stringify({ userId: user.id, taskId: task.id }),
       });
       const data = await res.json();
 
@@ -238,8 +245,15 @@ export default function TasksPage() {
       // Проверяем выполнение задания через API
       const res = await fetch(`/api/tasks/check`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
-        body: JSON.stringify({ userId: user.id, taskId, telegramUserId: telegramUser.id })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          taskId,
+          telegramUserId: telegramUser.id,
+        }),
       });
       const data = await res.json();
 
@@ -248,11 +262,17 @@ export default function TasksPage() {
         await loadTasks();
         setProcessing((prev) => ({ ...prev, [taskId]: {} }));
       } else {
-        setProcessing((prev) => ({ ...prev, [taskId]: { error: t("tasks.errors.notSubscribed") } }));
+        setProcessing((prev) => ({
+          ...prev,
+          [taskId]: { error: t("tasks.errors.notSubscribed") },
+        }));
       }
     } catch (err) {
       console.error("Error checking task:", err);
-      setProcessing((prev) => ({ ...prev, [taskId]: { error: t("tasks.errors.verificationFailed") } }));
+      setProcessing((prev) => ({
+        ...prev,
+        [taskId]: { error: t("tasks.errors.verificationFailed") },
+      }));
     }
   };
 
@@ -261,8 +281,11 @@ export default function TasksPage() {
     try {
       await fetch(`/api/tasks/complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
-        body: JSON.stringify({ userId: user.id, taskId })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+        body: JSON.stringify({ userId: user.id, taskId }),
       });
     } catch (err) {
       console.error("Error completing task:", err);
@@ -281,8 +304,15 @@ export default function TasksPage() {
       // Получаем награду через API
       const res = await fetch(`/api/tasks/claim`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
-        body: JSON.stringify({ userId: user.id, taskId: task.id, telegramUserId: telegramUser.id })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          taskId: task.id,
+          telegramUserId: telegramUser.id,
+        }),
       });
       const result = await res.json();
 

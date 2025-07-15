@@ -50,14 +50,26 @@ export default function ProfilePage() {
       try {
         setIsLoadingData(true);
         // Получаем профиль
-        const profileRes = await fetch("/api/profile", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+        const profileRes = await fetch("/api/profile", {
+          headers: {
+            Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+          },
+        });
         const profileData = await profileRes.json();
         // Получаем лиги
-        const leaguesRes = await fetch("/api/profile/leagues", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+        const leaguesRes = await fetch("/api/profile/leagues", {
+          headers: {
+            Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+          },
+        });
         const leaguesData = await leaguesRes.json();
         setLeagues(leaguesData.leagues || []);
         // Получаем достижения
-        const achRes = await fetch("/api/profile/achievements", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+        const achRes = await fetch("/api/profile/achievements", {
+          headers: {
+            Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+          },
+        });
         const achData = await achRes.json();
         setAchievements(achData.achievements || []);
         // Можно добавить загрузку referralInfo и rankings через отдельные API-роуты
