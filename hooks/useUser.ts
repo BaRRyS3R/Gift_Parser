@@ -1,5 +1,4 @@
-// src/hooks/useUser.tsx - Minimal changes to existing functionality
-// Only updating methods that cause direct Supabase calls on main page
+// src/hooks/useUser.tsx - Strict version without fallback to direct Supabase calls
 
 "use client";
 
@@ -36,6 +35,7 @@ import {
   authenticateUser,
   isUserAuthenticated,
   signOutUser,
+  getSecureAttemptsStatus,
   consumeSecureAttempt,
   saveSecureGameResult,
   saveSecureTournamentResult,
@@ -83,10 +83,7 @@ interface UserContextType {
 
   // JWT Authentication methods
   isAuthenticated: boolean;
-  authenticateWithTelegram: (
-    initData: string,
-    referralCode?: string,
-  ) => Promise<void>;
+  authenticateWithTelegram: (initData: string, referralCode?: string) => Promise<void>;
   signOut: () => void;
 }
 
@@ -160,7 +157,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkAuthState = () => {
       const authStatus = isUserAuthenticated();
-
       setIsAuthenticated(authStatus);
 
       if (!authStatus) {
@@ -198,83 +194,78 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [telegramUser]);
 
   // JWT Authentication method
-  const authenticateWithTelegram = useCallback(
-    async (initData: string, referralCode?: string) => {
-      setIsLoading(true);
-      setError(null);
+  const authenticateWithTelegram = useCallback(async (initData: string, referralCode?: string) => {
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        // Use JWT authentication
-        const authUser = await authenticateUser(initData, referralCode);
+    try {
+      // Use JWT authentication
+      const authUser = await authenticateUser(initData, referralCode);
 
-        // Convert auth user to regular user format for compatibility
-        const user: User = {
-          id: authUser.id,
-          trust_score: authUser.trust_score,
-          telegram_id: authUser.telegram_id,
-          first_name: authUser.first_name,
-          last_name: authUser.last_name,
-          username: authUser.username,
-          language_code: telegramUser?.language_code,
-          is_premium: telegramUser?.is_premium || false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          attempts_remaining: authUser.attempts_remaining,
-          last_attempt_at: undefined,
-          attempts_reset_at: undefined,
-          referral_code: "",
-          referred_by: undefined,
-          referral_bonus: 5,
-          referral_count: 0,
-          total_games: authUser.total_games,
-          total_score: 0,
-          best_score: 0,
-          current_level: authUser.current_level,
-          current_league_id: undefined,
-          reaction_games: 0,
-          reaction_best_score: 0,
-          reaction_best_time: 0,
-          reaction_average_time: 0,
-          survival_games: 0,
-          survival_best_score: 0,
-          survival_best_time: 0,
-          survival_max_level: 0,
-          survival_best_streak: 0,
-          physics_games: 0,
-          physics_best_score: 0,
-          physics_best_time: 0,
-          physics_total_hits: 0,
-          physics_best_hits: 0,
-          physics_least_mistakes: 0,
-          rotation_games: 0,
-          rotation_best_score: 0,
-          rotation_best_time: 0,
-          rotation_max_level: 0,
-          rotation_best_streak: 0,
-          rotation_total_hits: 0,
-          total_correct_hits: 0,
-          total_wrong_hits: 0,
-          total_missed_circles: 0,
-          best_accuracy: 0,
-          last_played_at: undefined,
-          is_active: true,
-        };
+      // Convert auth user to regular user format for compatibility
+      const user: User = {
+        id: authUser.id,
+        trust_score: authUser.trust_score,
+        telegram_id: authUser.telegram_id,
+        first_name: authUser.first_name,
+        last_name: authUser.last_name,
+        username: authUser.username,
+        language_code: telegramUser?.language_code,
+        is_premium: telegramUser?.is_premium || false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        attempts_remaining: authUser.attempts_remaining,
+        last_attempt_at: undefined,
+        attempts_reset_at: undefined,
+        referral_code: "",
+        referred_by: undefined,
+        referral_bonus: 5,
+        referral_count: 0,
+        total_games: authUser.total_games,
+        total_score: 0,
+        best_score: 0,
+        current_level: authUser.current_level,
+        current_league_id: undefined,
+        reaction_games: 0,
+        reaction_best_score: 0,
+        reaction_best_time: 0,
+        reaction_average_time: 0,
+        survival_games: 0,
+        survival_best_score: 0,
+        survival_best_time: 0,
+        survival_max_level: 0,
+        survival_best_streak: 0,
+        physics_games: 0,
+        physics_best_score: 0,
+        physics_best_time: 0,
+        physics_total_hits: 0,
+        physics_best_hits: 0,
+        physics_least_mistakes: 0,
+        rotation_games: 0,
+        rotation_best_score: 0,
+        rotation_best_time: 0,
+        rotation_max_level: 0,
+        rotation_best_streak: 0,
+        rotation_total_hits: 0,
+        total_correct_hits: 0,
+        total_wrong_hits: 0,
+        total_missed_circles: 0,
+        best_accuracy: 0,
+        last_played_at: undefined,
+        is_active: true,
+      };
 
-        setUser(user);
-        setIsAuthenticated(true);
-        setIsLoading(false);
-        invalidateAttemptsCache();
-      } catch (error) {
-        console.error("JWT Authentication failed:", error);
-        setError(
-          error instanceof Error ? error.message : "Authentication failed",
-        );
-        setIsLoading(false);
-        throw error;
-      }
-    },
-    [telegramUser],
-  );
+      setUser(user);
+      setIsAuthenticated(true);
+      setIsLoading(false);
+      invalidateAttemptsCache();
+    } catch (error) {
+      console.error("JWT Authentication failed:", error);
+      setError(error instanceof Error ? error.message : "Authentication failed");
+      setIsLoading(false);
+      throw error;
+    }
+  }, [telegramUser]);
 
   // Sign out method
   const signOut = useCallback(() => {
@@ -299,9 +290,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  // UPDATED: refreshUser method with API-first approach
+  // UPDATED: Strict refreshUser method - API only, no fallback to direct Supabase
   const refreshUser = useCallback(async (): Promise<void> => {
-    if (!telegramUser && !isAuthenticated) {
+    if (!isAuthenticated) {
+      console.log("User not authenticated, skipping refresh");
       return;
     }
 
@@ -309,87 +301,82 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setIsLoading(true);
       setError(null);
 
-      if (isAuthenticated) {
-        // UPDATED: Use JWT-protected refresh via API
-        try {
-          const userData = await authService.refreshUserData();
-          // Convert to User format and update
-          const user: User = {
-            id: userData.id,
-            trust_score: userData.trust_score,
-            telegram_id: userData.telegram_id,
-            first_name: userData.first_name,
-            last_name: userData.last_name,
-            username: userData.username,
-            language_code: telegramUser?.language_code,
-            is_premium: telegramUser?.is_premium || false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            attempts_remaining: userData.attempts_remaining,
-            last_attempt_at: undefined,
-            attempts_reset_at: undefined,
-            referral_code: "",
-            referred_by: undefined,
-            referral_bonus: 5,
-            referral_count: 0,
-            total_games: userData.total_games,
-            total_score: 0,
-            best_score: 0,
-            current_level: userData.current_level,
-            current_league_id: undefined,
-            reaction_games: 0,
-            reaction_best_score: 0,
-            reaction_best_time: 0,
-            reaction_average_time: 0,
-            survival_games: 0,
-            survival_best_score: 0,
-            survival_best_time: 0,
-            survival_max_level: 0,
-            survival_best_streak: 0,
-            physics_games: 0,
-            physics_best_score: 0,
-            physics_best_time: 0,
-            physics_total_hits: 0,
-            physics_best_hits: 0,
-            physics_least_mistakes: 0,
-            rotation_games: 0,
-            rotation_best_score: 0,
-            rotation_best_time: 0,
-            rotation_max_level: 0,
-            rotation_best_streak: 0,
-            rotation_total_hits: 0,
-            total_correct_hits: 0,
-            total_wrong_hits: 0,
-            total_missed_circles: 0,
-            best_accuracy: 0,
-            last_played_at: undefined,
-            is_active: true,
-          };
+      console.log("Refreshing user data via API...");
 
-          setUser(user);
-        } catch (jwtError) {
-          console.error(
-            "JWT refresh failed, falling back to direct user service",
-          );
-          if (telegramUser) {
-            const dbUser = await userService.findByTelegramId(telegramUser.id);
+      // STRICT: Only use API calls for authenticated users
+      const userData = await authService.refreshUserData();
 
-            setUser(dbUser);
-          }
-        }
-      } else if (telegramUser) {
-        // Fallback to original method for non-authenticated users
-        const dbUser = await userService.findByTelegramId(telegramUser.id);
+      // Convert to User format and update
+      const user: User = {
+        id: userData.id,
+        trust_score: userData.trust_score,
+        telegram_id: userData.telegram_id,
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+        username: userData.username,
+        language_code: telegramUser?.language_code,
+        is_premium: telegramUser?.is_premium || false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        attempts_remaining: userData.attempts_remaining,
+        last_attempt_at: undefined,
+        attempts_reset_at: undefined,
+        referral_code: "",
+        referred_by: undefined,
+        referral_bonus: 5,
+        referral_count: 0,
+        total_games: userData.total_games,
+        total_score: 0,
+        best_score: 0,
+        current_level: userData.current_level,
+        current_league_id: undefined,
+        reaction_games: 0,
+        reaction_best_score: 0,
+        reaction_best_time: 0,
+        reaction_average_time: 0,
+        survival_games: 0,
+        survival_best_score: 0,
+        survival_best_time: 0,
+        survival_max_level: 0,
+        survival_best_streak: 0,
+        physics_games: 0,
+        physics_best_score: 0,
+        physics_best_time: 0,
+        physics_total_hits: 0,
+        physics_best_hits: 0,
+        physics_least_mistakes: 0,
+        rotation_games: 0,
+        rotation_best_score: 0,
+        rotation_best_time: 0,
+        rotation_max_level: 0,
+        rotation_best_streak: 0,
+        rotation_total_hits: 0,
+        total_correct_hits: 0,
+        total_wrong_hits: 0,
+        total_missed_circles: 0,
+        best_accuracy: 0,
+        last_played_at: undefined,
+        is_active: true,
+      };
 
-        setUser(dbUser);
-      }
+      setUser(user);
+      console.log("User data refreshed successfully via API");
     } catch (err) {
-      console.error("useUser - Error updating user data:", err);
-      setError(err instanceof Error ? err.message : "Неизвестная ошибка");
+      console.error("Failed to refresh user data via API:", err);
+      setError(err instanceof Error ? err.message : "Failed to refresh user data");
+
+      // CRITICAL: Do not fallback to direct Supabase calls
+      // If API fails, sign out user to force re-authentication
+      if (err instanceof Error && err.message.includes('Authentication expired')) {
+        console.log("Token expired, signing out user");
+        signOut();
+      }
+
+      throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [telegramUser, isAuthenticated]);
+  }, [telegramUser, isAuthenticated, signOut]);
 
   // Инвалидация кэша попыток
   const invalidateAttemptsCache = useCallback(() => {
@@ -416,10 +403,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return null;
   }, [attemptsCache]);
 
-  // UPDATED: getAttemptsStatus method with API-first approach
+  // UPDATED: Strict getAttemptsStatus method - API only, no fallback
   const getAttemptsStatus = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!telegramUser) {
-      throw new Error("Пользователь Telegram не найден");
+    if (!isAuthenticated) {
+      throw new Error("User not authenticated");
     }
 
     const now = Date.now();
@@ -432,33 +419,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       now - attemptsCache.lastUpdate < CACHE_DURATION
     ) {
       console.log("Returning cached attempts status");
-
       return attemptsCache.status;
     }
 
     try {
-      console.log("Fetching fresh attempts status from server");
+      console.log("Fetching fresh attempts status via API...");
 
-      let status: AttemptsStatus;
-
-      if (isAuthenticated) {
-        // UPDATED: Use JWT-protected method via API
-        try {
-          status = await authService.getAttemptsStatus();
-        } catch (jwtError) {
-          console.warn(
-            "JWT attempts check failed, falling back to direct service",
-          );
-          status = await userService.checkAndUpdateAttemptsWithServerValidation(
-            telegramUser.id,
-          );
-        }
-      } else {
-        // Fallback to original method
-        status = await userService.checkAndUpdateAttemptsWithServerValidation(
-          telegramUser.id,
-        );
-      }
+      // STRICT: Only use API calls for authenticated users
+      const status = await authService.getAttemptsStatus();
 
       // Обновление кэша только серверными данными
       setAttemptsCache({
@@ -468,68 +436,61 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         source: "server",
       });
 
+      console.log("Attempts status fetched successfully via API");
       return status;
     } catch (error) {
-      console.error("Error fetching attempts status:", error);
-      // При ошибке инвалидация кэша
+      console.error("Error fetching attempts status via API:", error);
+
+      // CRITICAL: Do not fallback to direct Supabase calls
       invalidateAttemptsCache();
+
+      if (error instanceof Error && error.message.includes('Authentication expired')) {
+        console.log("Token expired during attempts check, signing out user");
+        signOut();
+      }
+
       throw error;
     }
-  }, [telegramUser, attemptsCache, invalidateAttemptsCache, isAuthenticated]);
+  }, [attemptsCache, invalidateAttemptsCache, isAuthenticated, signOut]);
 
-  // Безопасное потребление попытки для игры
-  const consumeAttemptForGame =
-    useCallback(async (): Promise<AttemptsStatus> => {
-      if (!telegramUser) {
-        throw new Error("Пользователь Telegram не найден");
+  // UPDATED: Strict consumeAttemptForGame method - API only
+  const consumeAttemptForGame = useCallback(async (): Promise<AttemptsStatus> => {
+    if (!isAuthenticated) {
+      throw new Error("User not authenticated");
+    }
+
+    console.log("Consuming attempt via API...");
+
+    try {
+      // STRICT: Only use API calls for authenticated users
+      const newStatus = await consumeSecureAttempt();
+
+      const now = Date.now();
+
+      // Обновление кэша после успешного серверного запроса
+      setAttemptsCache({
+        status: newStatus,
+        lastUpdate: now,
+        isValid: true,
+        source: "server",
+      });
+
+      console.log("Attempt consumed successfully via API");
+      return newStatus;
+    } catch (error) {
+      console.error("Error consuming attempt via API:", error);
+
+      // CRITICAL: Do not fallback to direct Supabase calls
+      invalidateAttemptsCache();
+
+      if (error instanceof Error && error.message.includes('Authentication expired')) {
+        console.log("Token expired during attempt consumption, signing out user");
+        signOut();
       }
 
-      console.log("Consuming attempt on server (security-critical operation)");
-
-      try {
-        let newStatus: AttemptsStatus;
-
-        if (isAuthenticated) {
-          // Use JWT-protected method
-          try {
-            newStatus = await consumeSecureAttempt();
-          } catch (jwtError) {
-            console.warn(
-              "JWT attempt consumption failed, falling back to direct service",
-            );
-            newStatus = await userService.consumeAttemptWithServerValidation(
-              telegramUser.id,
-            );
-          }
-        } else {
-          // Fallback to original method
-          newStatus = await userService.consumeAttemptWithServerValidation(
-            telegramUser.id,
-          );
-        }
-
-        const now = Date.now();
-
-        // Обновление кэша после успешного серверного запроса
-        setAttemptsCache({
-          status: newStatus,
-          lastUpdate: now,
-          isValid: true,
-          source: "server",
-        });
-
-        console.log(
-          "Attempt consumed successfully, cache updated with server data",
-        );
-
-        return newStatus;
-      } catch (error) {
-        console.error("Error consuming attempt:", error);
-        // При ошибке инвалидация кэша и требование повторной проверки
-        invalidateAttemptsCache();
-        throw error;
-      }
-    }, [telegramUser, invalidateAttemptsCache, isAuthenticated]);
+      throw error;
+    }
+  }, [invalidateAttemptsCache, isAuthenticated, signOut]);
 
   // Achievement notification methods
   const showAchievement = useCallback(
@@ -583,21 +544,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             });
           },
           (gameResult.levelChanged ? 3000 : 0) +
-            (gameResult.leagueChanged ? 3000 : 0),
+          (gameResult.leagueChanged ? 3000 : 0),
         );
       }
     },
     [showAchievement],
   );
 
-  // Автоматическая загрузка пользователя из базы данных при установке telegramUser
-  useEffect(() => {
-    if (telegramUser && !user && !isLoading && !isAuthenticated) {
-      refreshUser().catch((err) => {
-        console.error("useUser - Failed to auto-load user:", err);
-      });
-    }
-  }, [telegramUser, user, isLoading, refreshUser, isAuthenticated]);
+  // REMOVED: Auto-load user logic for non-authenticated users
+  // This was causing direct Supabase calls
 
   // Инвалидация кэша при смене пользователя
   useEffect(() => {
@@ -606,11 +561,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [telegramUser, invalidateAttemptsCache]);
 
-  // Enhanced saveGameResult with JWT protection and fallback
+  // UPDATED: Strict saveGameResult with API only
   const saveGameResult = useCallback(
     async (gameResult: GameResult): Promise<GameSaveResult> => {
-      if (!telegramUser) {
-        throw new Error("Пользователь Telegram не найден");
+      if (!isAuthenticated) {
+        throw new Error("User not authenticated");
       }
 
       // Проверка турнирного результата
@@ -628,56 +583,25 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         return { success: true }; // Return basic success for tournament games
       }
 
-      console.log("Saving regular game result:", {
+      console.log("Saving regular game result via API:", {
         mode: gameResult.mode,
         score: gameResult.score,
         duration: gameResult.duration,
       });
 
       const saveOperation = async (): Promise<GameSaveResult> => {
-        if (isAuthenticated) {
-          // Try JWT-protected save first
-          try {
-            const result = await saveSecureGameResult(gameResult);
-
-            await refreshUser();
-            invalidateAttemptsCache();
-
-            return result;
-          } catch (jwtError) {
-            console.warn(
-              "JWT game save failed, falling back to direct service",
-            );
-            // Fallback to original method
-            const result = await userService.saveGameResult(
-              telegramUser.id,
-              gameResult,
-            );
-
-            await refreshUser();
-            invalidateAttemptsCache();
-
-            return result;
-          }
-        } else {
-          // Use original method
-          const result = await userService.saveGameResult(
-            telegramUser.id,
-            gameResult,
-          );
-
-          await refreshUser();
-          invalidateAttemptsCache();
-
-          return result;
-        }
+        // STRICT: Only use API calls for authenticated users
+        const result = await saveSecureGameResult(gameResult);
+        await refreshUser();
+        invalidateAttemptsCache();
+        return result;
       };
 
       try {
         const result = await retryOperation(saveOperation, 3, 1000);
 
         console.log(
-          "Game result saved successfully (with potential retries):",
+          "Game result saved successfully via API:",
           result,
         );
 
@@ -687,24 +611,29 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         return result;
       } catch (err) {
         console.error(
-          "Failed to save game result after all retry attempts:",
+          "Failed to save game result via API after all retry attempts:",
           err,
         );
 
+        if (err instanceof Error && err.message.includes('Authentication expired')) {
+          console.log("Token expired during game save, signing out user");
+          signOut();
+        }
+
         const errorMessage =
           err instanceof Error
-            ? `Не удалось сохранить результат игры после 3 попыток: ${err.message}`
-            : "Не удалось сохранить результат игры после 3 попыток. Попробуйте позже.";
+            ? `Failed to save game result via API: ${err.message}`
+            : "Failed to save game result via API";
 
         throw new Error(errorMessage);
       }
     },
     [
-      telegramUser,
+      isAuthenticated,
       refreshUser,
       invalidateAttemptsCache,
       processLeagueAchievements,
-      isAuthenticated,
+      signOut,
     ],
   );
 
@@ -713,11 +642,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       tournamentId: string,
       gameResult: SurvivalGameResult,
     ): Promise<TournamentSaveResponse> => {
-      if (!telegramUser || !user) {
-        throw new Error("Пользователь не найден");
+      if (!isAuthenticated || !user) {
+        throw new Error("User not authenticated");
       }
 
-      console.log("Saving tournament result with accumulation:", {
+      console.log("Saving tournament result via API:", {
         tournamentId,
         mode: gameResult.mode,
         score: gameResult.score,
@@ -725,72 +654,39 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       });
 
       const saveOperation = async (): Promise<TournamentSaveResponse> => {
-        if (isAuthenticated) {
-          // Try JWT-protected save first
-          try {
-            return await saveSecureTournamentResult(tournamentId, gameResult);
-          } catch (jwtError) {
-            console.warn(
-              "JWT tournament save failed, falling back to direct service",
-            );
-
-            // Fallback to original method
-            return await tournamentService.saveTournamentResult(
-              tournamentId,
-              user.id,
-              telegramUser.id,
-              {
-                survivalTime: gameResult.survivalTime,
-                score: gameResult.score,
-                maxLevelReached: gameResult.maxLevelReached,
-                perfectStreak: gameResult.perfectStreak,
-                correctHits: gameResult.correctHits,
-                deathCause: gameResult.deathCause,
-              },
-            );
-          }
-        } else {
-          // Use original method
-          return await tournamentService.saveTournamentResult(
-            tournamentId,
-            user.id,
-            telegramUser.id,
-            {
-              survivalTime: gameResult.survivalTime,
-              score: gameResult.score,
-              maxLevelReached: gameResult.maxLevelReached,
-              perfectStreak: gameResult.perfectStreak,
-              correctHits: gameResult.correctHits,
-              deathCause: gameResult.deathCause,
-            },
-          );
-        }
+        // STRICT: Only use API calls for authenticated users
+        return await saveSecureTournamentResult(tournamentId, gameResult);
       };
 
       try {
         const result = await retryOperation(saveOperation, 3, 1000);
 
         console.log(
-          "Tournament result with point accumulation saved successfully:",
+          "Tournament result saved successfully via API:",
           result,
         );
 
         return result;
       } catch (err) {
         console.error(
-          "Failed to save tournament result after all retry attempts:",
+          "Failed to save tournament result via API:",
           err,
         );
 
+        if (err instanceof Error && err.message.includes('Authentication expired')) {
+          console.log("Token expired during tournament save, signing out user");
+          signOut();
+        }
+
         const errorMessage =
           err instanceof Error
-            ? `Не удалось сохранить результат турнира после 3 попыток: ${err.message}`
-            : "Не удалось сохранить результат турнира после 3 попыток. Попробуйте позже.";
+            ? `Failed to save tournament result via API: ${err.message}`
+            : "Failed to save tournament result via API";
 
         throw new Error(errorMessage);
       }
     },
-    [telegramUser, user, isAuthenticated],
+    [isAuthenticated, user, signOut],
   );
 
   const contextValue: UserContextType = {
