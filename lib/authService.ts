@@ -23,6 +23,9 @@ export interface AuthUser {
     current_level: number;
     attempts_remaining: number;
     total_games: number;
+    total_score: number;
+    best_score: number;
+    current_league_id?: number;
     trust_score: number;
     blocked_until?: string;
 }
