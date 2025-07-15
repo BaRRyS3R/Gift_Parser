@@ -1,4 +1,5 @@
-// src/hooks/useUser.tsx - Enhanced useUser hook preserving original functionality with JWT protection
+// src/hooks/useUser.tsx - Minimal changes to existing functionality
+// Only updating methods that cause direct Supabase calls on main page
 
 "use client";
 
@@ -290,6 +291,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setIsLoading(false);
   }, []);
 
+  // UPDATED: refreshUser method with API-first approach
   const refreshUser = useCallback(async (): Promise<void> => {
     if (!telegramUser && !isAuthenticated) {
       return;
@@ -300,7 +302,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setError(null);
 
       if (isAuthenticated) {
-        // Use JWT-protected refresh
+        // UPDATED: Use JWT-protected refresh via API
         try {
           const userData = await authService.refreshUserData();
           // Convert to User format and update
@@ -364,7 +366,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           }
         }
       } else if (telegramUser) {
-        // Fallback to original method
+        // Fallback to original method for non-authenticated users
         const dbUser = await userService.findByTelegramId(telegramUser.id);
         setUser(dbUser);
       }
@@ -401,7 +403,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return null;
   }, [attemptsCache]);
 
-  // Получение актуального статуса попыток с кэшированием
+  // UPDATED: getAttemptsStatus method with API-first approach
   const getAttemptsStatus = useCallback(async (): Promise<AttemptsStatus> => {
     if (!telegramUser) {
       throw new Error("Пользователь Telegram не найден");
@@ -426,9 +428,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       let status: AttemptsStatus;
 
       if (isAuthenticated) {
-        // Use JWT-protected method
+        // UPDATED: Use JWT-protected method via API
         try {
-          status = await getSecureAttemptsStatus();
+          status = await authService.getAttemptsStatus();
         } catch (jwtError) {
           console.warn("JWT attempts check failed, falling back to direct service");
           status = await userService.checkAndUpdateAttemptsWithServerValidation(telegramUser.id);
