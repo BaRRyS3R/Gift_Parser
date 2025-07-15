@@ -1,0 +1,278 @@
+TABLES
+| table_schema | table_name                 |
+| ------------ | -------------------------- |
+| public       | league_rewards             |
+| public       | leagues                    |
+| public       | purchases                  |
+| public       | tasks                      |
+| public       | tournament_leaderboard     |
+| public       | tournaments                |
+| public       | user_blocks                |
+| public       | user_league_rewards        |
+| public       | user_leagues               |
+| public       | user_task_completions      |
+| public       | users                      |
+
+TABLES COLUMNS
+| table_name             | column_name            | data_type                | is_nullable | column_default                                  |
+| ---------------------- | ---------------------- | ------------------------ | ----------- | ----------------------------------------------- |
+| league_rewards         | id                     | integer                  | NO          | nextval('league_rewards_id_seq'::regclass)      |
+| league_rewards         | league_id              | integer                  | YES         | null                                            |
+| league_rewards         | position               | integer                  | NO          | null                                            |
+| league_rewards         | name                   | character varying        | NO          | null                                            |
+| league_rewards         | created_at             | timestamp with time zone | YES         | now()                                           |
+| leagues                | id                     | integer                  | NO          | nextval('leagues_id_seq'::regclass)             |
+| leagues                | name                   | character varying        | NO          | null                                            |
+| leagues                | display_name_en        | character varying        | NO          | null                                            |
+| leagues                | display_name_ru        | character varying        | NO          | null                                            |
+| leagues                | min_games              | integer                  | NO          | null                                            |
+| leagues                | max_games              | integer                  | YES         | null                                            |
+| leagues                | color                  | character varying        | NO          | null                                            |
+| leagues                | icon                   | character varying        | NO          | null                                            |
+| leagues                | rewards_count          | integer                  | NO          | 5                                               |
+| leagues                | created_at             | timestamp with time zone | YES         | now()                                           |
+| purchases              | id                     | uuid                     | NO          | gen_random_uuid()                               |
+| purchases              | user_id                | uuid                     | NO          | null                                            |
+| purchases              | telegram_id            | bigint                   | NO          | null                                            |
+| purchases              | transaction_id         | character varying        | NO          | null                                            |
+| purchases              | amount_stars           | integer                  | NO          | null                                            |
+| purchases              | product_type           | character varying        | NO          | 'additional_attempts'::character varying        |
+| purchases              | status                 | character varying        | NO          | 'completed'::character varying                  |
+| purchases              | created_at             | timestamp with time zone | YES         | now()                                           |
+| purchases              | updated_at             | timestamp with time zone | YES         | now()                                           |
+| purchases              | refund_reason          | text                     | YES         | null                                            |
+| purchases              | refunded_at            | timestamp with time zone | YES         | null                                            |
+| purchases              | refunded_by            | character varying        | YES         | null                                            |
+| tasks                  | id                     | uuid                     | NO          | gen_random_uuid()                               |
+| tasks                  | name                   | text                     | NO          | null                                            |
+| tasks                  | type                   | USER-DEFINED             | NO          | null                                            |
+| tasks                  | telegram_id            | bigint                   | YES         | null                                            |
+| tasks                  | url                    | text                     | NO          | null                                            |
+| tasks                  | reward_attempts        | integer                  | NO          | 1                                               |
+| tasks                  | color                  | text                     | YES         | 'from-blue-500/20 to-cyan-500/20'::text         |
+| tasks                  | is_active              | boolean                  | YES         | true                                            |
+| tasks                  | cooldown_minutes       | integer                  | YES         | null                                            |
+| tasks                  | created_at             | timestamp with time zone | YES         | now()                                           |
+| tasks                  | updated_at             | timestamp with time zone | YES         | now()                                           |
+| tournament_leaderboard | id                     | uuid                     | NO          | gen_random_uuid()                               |
+| tournament_leaderboard | tournament_id          | uuid                     | NO          | null                                            |
+| tournament_leaderboard | user_id                | uuid                     | NO          | null                                            |
+| tournament_leaderboard | telegram_id            | bigint                   | NO          | null                                            |
+| tournament_leaderboard | survival_time          | bigint                   | NO          | null                                            |
+| tournament_leaderboard | survival_score         | integer                  | NO          | null                                            |
+| tournament_leaderboard | max_level_reached      | integer                  | NO          | null                                            |
+| tournament_leaderboard | perfect_streak         | integer                  | NO          | null                                            |
+| tournament_leaderboard | correct_hits           | integer                  | NO          | null                                            |
+| tournament_leaderboard | death_cause            | text                     | NO          | null                                            |
+| tournament_leaderboard | created_at             | timestamp with time zone | YES         | now()                                           |
+| tournament_leaderboard | games_played           | integer                  | YES         | 1                                               |
+| tournament_leaderboard | updated_at             | timestamp with time zone | YES         | now()                                           |
+| tournament_leaderboard | last_game_score        | integer                  | YES         | 0                                               |
+| tournaments            | id                     | uuid                     | NO          | gen_random_uuid()                               |
+| tournaments            | name                   | text                     | NO          | null                                            |
+| tournaments            | start_date             | timestamp with time zone | NO          | null                                            |
+| tournaments            | end_date               | timestamp with time zone | NO          | null                                            |
+| tournaments            | prizes                 | ARRAY                    | NO          | '{}'::text[]                                    |
+| tournaments            | created_at             | timestamp with time zone | YES         | now()                                           |
+| tournaments            | updated_at             | timestamp with time zone | YES         | now()                                           |
+| tournaments            | sponsor_name           | text                     | YES         | null                                            |
+| tournaments            | sponsor_channel_url    | text                     | YES         | null                                            |
+| tournaments            | sponsor_image_url      | text                     | YES         | null                                            |
+| user_blocks            | id                     | uuid                     | NO          | gen_random_uuid()                               |
+| user_blocks            | user_id                | uuid                     | NO          | null                                            |
+| user_blocks            | telegram_id            | bigint                   | NO          | null                                            |
+| user_blocks            | block_reason           | character varying        | NO          | null                                            |
+| user_blocks            | blocked_at             | timestamp with time zone | YES         | CURRENT_TIMESTAMP                               |
+| user_blocks            | unblocked_at           | timestamp with time zone | YES         | null                                            |
+| user_blocks            | block_duration_minutes | integer                  | NO          | 2                                               |
+| user_blocks            | is_active              | boolean                  | YES         | true                                            |
+| user_blocks            | created_at             | timestamp with time zone | YES         | CURRENT_TIMESTAMP                               |
+| user_blocks            | updated_at             | timestamp with time zone | YES         | CURRENT_TIMESTAMP                               |
+| user_league_rewards    | id                     | integer                  | NO          | nextval('user_league_rewards_id_seq'::regclass) |
+| user_league_rewards    | user_id                | uuid                     | YES         | null                                            |
+| user_league_rewards    | league_id              | integer                  | YES         | null                                            |
+| user_league_rewards    | reward_id              | integer                  | YES         | null                                            |
+| user_league_rewards    | position               | integer                  | NO          | null                                            |
+| user_league_rewards    | games_count            | integer                  | NO          | null                                            |
+| user_league_rewards    | received_at            | timestamp with time zone | YES         | now()                                           |
+| user_leagues           | id                     | integer                  | NO          | nextval('user_leagues_id_seq'::regclass)        |
+| user_leagues           | user_id                | uuid                     | YES         | null                                            |
+| user_leagues           | league_id              | integer                  | YES         | null                                            |
+| user_leagues           | games_at_promotion     | integer                  | NO          | null                                            |
+| user_leagues           | promoted_at            | timestamp with time zone | YES         | now()                                           |
+| user_leagues           | is_current             | boolean                  | YES         | true                                            |
+| user_leagues           | created_at             | timestamp with time zone | YES         | now()                                           |
+| user_task_completions  | id                     | uuid                     | NO          | gen_random_uuid()                               |
+| user_task_completions  | user_id                | uuid                     | NO          | null                                            |
+| user_task_completions  | task_id                | uuid                     | NO          | null                                            |
+| user_task_completions  | started_at             | timestamp with time zone | YES         | now()                                           |
+| user_task_completions  | completed_at           | timestamp with time zone | YES         | null                                            |
+| user_task_completions  | claimed_at             | timestamp with time zone | YES         | null                                            |
+| user_task_completions  | status                 | text                     | YES         | 'started'::text                                 |
+| user_task_completions  | created_at             | timestamp with time zone | YES         | now()                                           |
+| user_task_completions  | updated_at             | timestamp with time zone | YES         | now()                                           |
+| users                  | id                     | uuid                     | NO          | uuid_generate_v4()                              |
+| users                  | telegram_id            | bigint                   | NO          | null                                            |
+| users                  | first_name             | character varying        | NO          | null                                            |
+| users                  | last_name              | character varying        | YES         | null                                            |
+| users                  | username               | character varying        | YES         | null                                            |
+| users                  | language_code          | character varying        | YES         | null                                            |
+| users                  | is_premium             | boolean                  | YES         | false                                           |
+| users                  | created_at             | timestamp with time zone | YES         | now()                                           |
+| users                  | updated_at             | timestamp with time zone | YES         | now()                                           |
+| users                  | total_games            | integer                  | YES         | 0                                               |
+| users                  | total_score            | integer                  | YES         | 0                                               |
+| users                  | best_score             | integer                  | YES         | 0                                               |
+| users                  | reaction_games         | integer                  | YES         | 0                                               |
+| users                  | reaction_best_score    | integer                  | YES         | 0                                               |
+| users                  | reaction_best_time     | integer                  | YES         | 0                                               |
+| users                  | reaction_average_time  | integer                  | YES         | 0                                               |
+| users                  | survival_games         | integer                  | YES         | 0                                               |
+| users                  | survival_best_score    | integer                  | YES         | 0                                               |
+| users                  | survival_best_time     | integer                  | YES         | 0                                               |
+| users                  | survival_max_level     | integer                  | YES         | 0                                               |
+| users                  | survival_best_streak   | integer                  | YES         | 0                                               |
+| users                  | total_correct_hits     | integer                  | YES         | 0                                               |
+| users                  | total_wrong_hits       | integer                  | YES         | 0                                               |
+| users                  | total_missed_circles   | integer                  | YES         | 0                                               |
+| users                  | best_accuracy          | numeric                  | YES         | 0.00                                            |
+| users                  | last_played_at         | timestamp with time zone | YES         | null                                            |
+| users                  | is_active              | boolean                  | YES         | true                                            |
+| users                  | attempts_remaining     | integer                  | YES         | 5                                               |
+| users                  | last_attempt_at        | timestamp with time zone | YES         | null                                            |
+| users                  | attempts_reset_at      | timestamp with time zone | YES         | null                                            |
+| users                  | referral_code          | character varying        | NO          | null                                            |
+| users                  | referred_by            | character varying        | YES         | null                                            |
+| users                  | referral_bonus         | integer                  | YES         | 1                                               |
+| users                  | referral_count         | integer                  | YES         | 0                                               |
+| users                  | physics_games          | integer                  | YES         | 0                                               |
+| users                  | physics_best_score     | integer                  | YES         | 0                                               |
+| users                  | physics_best_time      | integer                  | YES         | 0                                               |
+| users                  | physics_total_hits     | integer                  | YES         | 0                                               |
+| users                  | physics_best_hits      | integer                  | YES         | 0                                               |
+| users                  | physics_least_mistakes | integer                  | YES         | null                                            |
+| users                  | rotation_games         | integer                  | NO          | 0                                               |
+| users                  | rotation_best_score    | integer                  | NO          | 0                                               |
+| users                  | rotation_best_time     | integer                  | NO          | 0                                               |
+| users                  | rotation_max_level     | integer                  | NO          | 0                                               |
+| users                  | rotation_best_streak   | integer                  | NO          | 0                                               |
+| users                  | rotation_total_hits    | integer                  | NO          | 0                                               |
+| users                  | current_level          | integer                  | YES         | 1                                               |
+| users                  | current_league_id      | integer                  | YES         | null                                            |
+| users                  | trust_score            | integer                  | YES         | 50                                              |
+| users                  | blocked_until          | timestamp with time zone | YES         | null                                            |
+
+TABLES RLS
+| table_name             | policyname                                    | command | permissive | roles    | using_expression                                                                                                                                                                                                   | with_check_expression |
+| ---------------------- | --------------------------------------------- | ------- | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
+| league_rewards         | Authenticated users can view league rewards   | SELECT  | PERMISSIVE | {public} | (((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text) IS NOT NULL)                                                                                                                       | null                  |
+| league_rewards         | No direct league rewards deletion             | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| league_rewards         | No direct league rewards manipulation         | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| league_rewards         | No direct league rewards updates              | UPDATE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| leagues                | Authenticated users can view leagues          | SELECT  | PERMISSIVE | {public} | (((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text) IS NOT NULL)                                                                                                                       | null                  |
+| leagues                | No direct league deletion                     | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| leagues                | No direct league manipulation                 | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| leagues                | No direct league updates                      | UPDATE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| leagues                | Temporary user access                         | SELECT  | PERMISSIVE | {public} | true                                                                                                                                                                                                               | null                  |
+| purchases              | Admins can view all refund data               | SELECT  | PERMISSIVE | {public} | (EXISTS ( SELECT 1
+   FROM auth.users
+  WHERE ((auth.uid() = users.id) AND ((users.email)::text ~~ '%@yourdomain.com'::text))))                                                                                    | null                  |
+| purchases              | Authenticated users can view purchases        | SELECT  | PERMISSIVE | {public} | (((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text) IS NOT NULL)                                                                                                                       | null                  |
+| purchases              | No direct purchases deletion                  | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| purchases              | No direct purchases manipulation              | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| purchases              | No direct purchases updates                   | UPDATE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| purchases              | Users can view own purchases                  | SELECT  | PERMISSIVE | {public} | ((auth.uid())::text = (user_id)::text)                                                                                                                                                                             | null                  |
+| tasks                  | Allow read for all                            | SELECT  | PERMISSIVE | {public} | true                                                                                                                                                                                                               | null                  |
+| tasks                  | Authenticated users can view tasks            | SELECT  | PERMISSIVE | {public} | (((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text) IS NOT NULL)                                                                                                                       | null                  |
+| tasks                  | No direct tasks deletion                      | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| tasks                  | No direct tasks manipulation                  | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| tasks                  | No direct tasks updates                       | UPDATE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| tournament_leaderboard | Public read access for tournament_leaderboard | SELECT  | PERMISSIVE | {public} | true                                                                                                                                                                                                               | null                  |
+| tournament_leaderboard | Users can insert own tournament results       | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | true                  |
+| tournament_leaderboard | Users can update own tournament results       | UPDATE  | PERMISSIVE | {public} | true                                                                                                                                                                                                               | null                  |
+| tournaments            | Authenticated users can view tournaments      | SELECT  | PERMISSIVE | {public} | (((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text) IS NOT NULL)                                                                                                                       | null                  |
+| tournaments            | No direct tournament deletion                 | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| tournaments            | No direct tournament manipulation             | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| tournaments            | No direct tournament updates                  | UPDATE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| tournaments            | Public read access for tournaments            | SELECT  | PERMISSIVE | {public} | true                                                                                                                                                                                                               | null                  |
+| user_blocks            | No direct block deletion                      | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| user_blocks            | No direct block manipulation                  | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| user_blocks            | No direct block updates                       | UPDATE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| user_blocks            | Users can view own blocks                     | SELECT  | PERMISSIVE | {public} | (((user_id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text)) OR ((telegram_id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'telegramId'::text))) | null                  |
+| user_league_rewards    | No direct user league rewards deletion        | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| user_league_rewards    | No direct user league rewards manipulation    | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| user_league_rewards    | No direct user league rewards updates         | UPDATE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| user_league_rewards    | Temporary user access                         | SELECT  | PERMISSIVE | {public} | true                                                                                                                                                                                                               | null                  |
+| user_league_rewards    | Users can view own league rewards             | SELECT  | PERMISSIVE | {public} | ((user_id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text))                                                                                                                 | null                  |
+| user_leagues           | No direct user leagues deletion               | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| user_leagues           | No direct user leagues manipulation           | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| user_leagues           | No direct user leagues updates                | UPDATE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| user_leagues           | Temporary user access                         | SELECT  | PERMISSIVE | {public} | true                                                                                                                                                                                                               | null                  |
+| user_leagues           | Users can view own league data                | SELECT  | PERMISSIVE | {public} | ((user_id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text))                                                                                                                 | null                  |
+| user_task_completions  | No direct task completions deletion           | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| user_task_completions  | No direct task completions manipulation       | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| user_task_completions  | No direct task completions updates            | UPDATE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| user_task_completions  | Users can view own task completions           | SELECT  | PERMISSIVE | {public} | ((user_id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text))                                                                                                                 | null                  |
+| users                  | No direct user creation                       | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | false                 |
+| users                  | No direct user deletion                       | DELETE  | PERMISSIVE | {public} | false                                                                                                                                                                                                              | null                  |
+| users                  | Temporary user access                         | SELECT  | PERMISSIVE | {public} | true                                                                                                                                                                                                               | null                  |
+| users                  | Users can insert data                         | INSERT  | PERMISSIVE | {public} | null                                                                                                                                                                                                               | true                  |
+| users                  | Users can update own data                     | UPDATE  | PERMISSIVE | {public} | true                                                                                                                                                                                                               | null                  |
+| users                  | Users can update own profile                  | UPDATE  | PERMISSIVE | {public} | (((id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text)) OR ((telegram_id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'telegramId'::text)))      | null                  |
+| users                  | Users can view own profile                    | SELECT  | PERMISSIVE | {public} | (((id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'userId'::text)) OR ((telegram_id)::text = ((current_setting('request.jwt.claims'::text, true))::json ->> 'telegramId'::text)))      | null                  |
+
+FUNCTIONS
+| routine_schema | routine_name                            | routine_type | data_type                |
+| -------------- | --------------------------------------- | ------------ | ------------------------ |
+| public         | add_purchased_attempts                  | FUNCTION     | boolean                  |
+| public         | block_user                              | FUNCTION     | boolean                  |
+| public         | check_and_unblock_user                  | FUNCTION     | boolean                  |
+| public         | claim_league_reward                     | FUNCTION     | json                     |
+| public         | generate_referral_code                  | FUNCTION     | character varying        |
+| public         | get_active_tournament                   | FUNCTION     | record                   |
+| public         | get_current_timestamp                   | FUNCTION     | timestamp with time zone |
+| public         | get_refund_stats                        | FUNCTION     | record                   |
+| public         | get_tournament_leaderboard              | FUNCTION     | record                   |
+| public         | get_tournament_leaderboard_accumulative | FUNCTION     | record                   |
+| public         | get_user_overall_ranking                | FUNCTION     | integer                  |
+| public         | get_user_overall_stats                  | FUNCTION     | record                   |
+| public         | get_user_reaction_ranking               | FUNCTION     | integer                  |
+| public         | get_user_rotation_ranking               | FUNCTION     | integer                  |
+| public         | get_user_survival_ranking               | FUNCTION     | integer                  |
+| public         | get_user_tournament_result              | FUNCTION     | record                   |
+| public         | is_user_blocked                         | FUNCTION     | boolean                  |
+| public         | log_refund_change                       | FUNCTION     | trigger                  |
+| public         | process_refund                          | FUNCTION     | record                   |
+| public         | revert_purchased_attempts               | FUNCTION     | boolean                  |
+| public         | save_tournament_result                  | FUNCTION     | uuid                     |
+| public         | save_tournament_result_accumulative     | FUNCTION     | json                     |
+| public         | update_rotation_stats                   | FUNCTION     | boolean                  |
+| public         | update_tournaments_updated_at           | FUNCTION     | trigger                  |
+| public         | update_trust_score                      | FUNCTION     | integer                  |
+| public         | update_updated_at_column                | FUNCTION     | trigger                  |
+
+TRIGGERS
+| table_schema | table_name            | trigger_name                            | action_timing | event  | action_statement                                       |
+| ------------ | --------------------- | --------------------------------------- | ------------- | ------ | ------------------------------------------------------ |
+| public       | purchases             | trigger_log_refunds                     | AFTER         | UPDATE | EXECUTE FUNCTION log_refund_change()                   |
+| public       | purchases             | update_purchases_updated_at             | BEFORE        | UPDATE | EXECUTE FUNCTION update_updated_at_column()            |
+| public       | tasks                 | update_tasks_updated_at                 | BEFORE        | UPDATE | EXECUTE FUNCTION update_updated_at_column()            |
+| public       | tournaments           | update_tournaments_updated_at           | BEFORE        | UPDATE | EXECUTE FUNCTION update_tournaments_updated_at()       |
+| public       | user_task_completions | update_user_task_completions_updated_at | BEFORE        | UPDATE | EXECUTE FUNCTION update_updated_at_column()            |
+| public       | users                 | update_users_updated_at                 | BEFORE        | UPDATE | EXECUTE FUNCTION update_updated_at_column()            |
+
+
+RLS
+| table_schema | table_name                 | rls_enabled | rls_forced |
+| ------------ | -------------------------- | ----------- | ---------- |
+| public       | league_rewards             | true        | false      |
+| public       | leagues                    | true        | false      |
+| public       | purchases                  | true        | false      |
+| public       | tasks                      | true        | false      |
+| public       | tournament_leaderboard     | true        | false      |
+| public       | tournaments                | true        | false      |
+| public       | user_blocks                | true        | false      |
+| public       | user_league_rewards        | true        | false      |
+| public       | user_leagues               | true        | false      |
+| public       | user_task_completions      | true        | false      |
+| public       | users                      | true        | false      |

@@ -1,109 +1,55 @@
 // src/app/api/game/save-result/route.ts - Protected game result saving
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuthAndRateLimit } from '@/lib/authMiddleware';
-import { userService } from '@/lib/supabase';
-import { GameMode } from '@/types/game-modes/common';
+import { withAuth } from '@/lib/authMiddleware';
+import { supabaseServer } from '@/lib/supabaseServer';
+import leagueService from '@/lib/league_service';
 
-export const POST = withAuthAndRateLimit(async (request) => {
+export const POST = withAuth(async (request) => {
     try {
         const { user } = request;
-        const gameResult = await request.json();
+        const body = await request.json();
+        const { mode, score, duration, ...rest } = body;
 
-        // Validate game result structure
-        if (!gameResult || !gameResult.mode || !gameResult.score || !gameResult.duration) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Invalid game result data',
-                },
-                { status: 400 }
-            );
+        // Получаем пользователя
+        const { data: userData, error: userError } = await supabaseServer
+            .from('users')
+            .select('*')
+            .eq('telegram_id', user.telegramId)
+            .maybeSingle();
+        if (userError || !userData) {
+            return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
         }
 
-        // Validate game mode
-        const validModes = Object.values(GameMode);
-        if (!validModes.includes(gameResult.mode)) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Invalid game mode',
-                },
-                { status: 400 }
-            );
+        // Пример обновления статистики (реализовать для каждого режима)
+        let updates: any = {
+            total_games: userData.total_games + 1,
+            total_score: userData.total_score + score,
+            best_score: Math.max(userData.best_score, score),
+            last_played_at: new Date().toISOString(),
+        };
+        // Можно добавить обновление по режимам (reaction, survival и т.д.)
+        if (mode === 'reaction') {
+            updates.reaction_games = (userData.reaction_games || 0) + 1;
+            updates.reaction_best_score = Math.max(userData.reaction_best_score || 0, score);
+            updates.reaction_best_time = Math.max(userData.reaction_best_time || 0, duration);
+        }
+        // ... (аналогично для других режимов)
+
+        const { error: updateError } = await supabaseServer
+            .from('users')
+            .update(updates)
+            .eq('telegram_id', user.telegramId);
+        if (updateError) {
+            return NextResponse.json({ success: false, error: updateError.message }, { status: 500 });
         }
 
-        // Additional validation for different game modes
-        const isValidResult = validateGameResult(gameResult);
-        if (!isValidResult.valid) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Invalid game result',
-                    message: isValidResult.error,
-                },
-                { status: 400 }
-            );
-        }
+        // Обновить прогресс лиги (если нужно)
+        // await leagueService.getUserLeagueProgress(userData.id, updates.total_games);
 
-        // Save game result
-        const saveResult = await userService.saveGameResult(user.telegramId, gameResult);
-
-        return NextResponse.json({
-            success: true,
-            saveResult,
-        });
+        return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error saving game result:', error);
-
-        return NextResponse.json(
-            {
-                success: false,
-                error: 'Failed to save game result',
-                message: error instanceof Error ? error.message : 'Unknown error occurred',
-            },
-            { status: 500 }
-        );
+        return NextResponse.json({ success: false, error: 'Failed to save game result' }, { status: 500 });
     }
 });
-
-function validateGameResult(gameResult: any): { valid: boolean; error?: string } {
-    // Basic validation
-    if (typeof gameResult.score !== 'number' || gameResult.score < 0) {
-        return { valid: false, error: 'Invalid score value' };
-    }
-
-    if (typeof gameResult.duration !== 'number' || gameResult.duration < 0) {
-        return { valid: false, error: 'Invalid duration value' };
-    }
-
-    // Mode-specific validation
-    switch (gameResult.mode) {
-        case GameMode.REACTION:
-            if (typeof gameResult.reactionTime !== 'number' || gameResult.reactionTime < 0) {
-                return { valid: false, error: 'Invalid reaction time' };
-            }
-            break;
-
-        case GameMode.SURVIVAL:
-        case GameMode.ROTATION:
-            if (typeof gameResult.survivalTime !== 'number' || gameResult.survivalTime < 0) {
-                return { valid: false, error: 'Invalid survival time' };
-            }
-            if (typeof gameResult.maxLevelReached !== 'number' || gameResult.maxLevelReached < 1) {
-                return { valid: false, error: 'Invalid max level reached' };
-            }
-            break;
-
-        case GameMode.PHYSICS:
-            if (typeof gameResult.gameTime !== 'number' || gameResult.gameTime < 0) {
-                return { valid: false, error: 'Invalid game time' };
-            }
-            if (typeof gameResult.totalHits !== 'number' || gameResult.totalHits < 0) {
-                return { valid: false, error: 'Invalid total hits' };
-            }
-            break;
-    }
-
-    return { valid: true };
-}

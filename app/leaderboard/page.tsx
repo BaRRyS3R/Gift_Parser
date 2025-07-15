@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Updated with rotation mode support
+// src/app/leaderboard/page.tsx - Refactored: fetch leaderboards via API
 
 "use client";
 
@@ -19,13 +19,7 @@ import {
   RotateCw,
 } from "lucide-react";
 
-import {
-  userService,
-  type ReactionLeaderboard,
-  type SurvivalLeaderboard,
-  type PhysicsLeaderboard,
-  type RotationLeaderboard,
-} from "@/lib/supabase";
+// import { userService, type ReactionLeaderboard, type SurvivalLeaderboard, type PhysicsLeaderboard, type RotationLeaderboard } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
 import {
   formatSurvivalTime,
@@ -35,24 +29,18 @@ import {
 import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
 import { useT } from "@/contexts/LocalizationContext";
 
+// Типы можно импортировать отдельно, если нужно
+
 type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
 export default function LeaderboardPage() {
   const { user } = useUser();
   const t = useT();
   const [activeTab, setActiveTab] = useState<LeaderboardType>("reaction");
-  const [reactionLeaderboard, setReactionLeaderboard] = useState<
-    ReactionLeaderboard[]
-  >([]);
-  const [survivalLeaderboard, setSurvivalLeaderboard] = useState<
-    SurvivalLeaderboard[]
-  >([]);
-  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<
-    PhysicsLeaderboard[]
-  >([]);
-  const [rotationLeaderboard, setRotationLeaderboard] = useState<
-    RotationLeaderboard[]
-  >([]);
+  const [reactionLeaderboard, setReactionLeaderboard] = useState<any[]>([]);
+  const [survivalLeaderboard, setSurvivalLeaderboard] = useState<any[]>([]);
+  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<any[]>([]);
+  const [rotationLeaderboard, setRotationLeaderboard] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,18 +49,16 @@ export default function LeaderboardPage() {
       try {
         setIsLoading(true);
         setError(null);
-
         const [reaction, survival, physics, rotation] = await Promise.all([
-          userService.getReactionLeaderboard(50),
-          userService.getSurvivalLeaderboard(50),
-          userService.getPhysicsLeaderboard(50),
-          userService.getRotationLeaderboard(50),
+          fetch("/api/leaderboard/reaction", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } }).then(r => r.json()),
+          fetch("/api/leaderboard/survival", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } }).then(r => r.json()),
+          fetch("/api/leaderboard/physics", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } }).then(r => r.json()),
+          fetch("/api/leaderboard/rotation", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } }).then(r => r.json()),
         ]);
-
-        setReactionLeaderboard(reaction);
-        setSurvivalLeaderboard(survival);
-        setPhysicsLeaderboard(physics);
-        setRotationLeaderboard(rotation);
+        setReactionLeaderboard(reaction.leaderboard || []);
+        setSurvivalLeaderboard(survival.leaderboard || []);
+        setPhysicsLeaderboard(physics.leaderboard || []);
+        setRotationLeaderboard(rotation.leaderboard || []);
       } catch (err) {
         console.error("Error loading leaderboards:", err);
         setError(t("leaderboard.failedToLoad"));
@@ -80,7 +66,6 @@ export default function LeaderboardPage() {
         setIsLoading(false);
       }
     };
-
     loadLeaderboards();
   }, [t]);
 
@@ -127,7 +112,7 @@ export default function LeaderboardPage() {
   };
 
   const renderReactionLeaderboardEntry = (
-    entry: ReactionLeaderboard,
+    entry: any,
     position: number,
   ) => {
     const getRatingFromTime = (time: number): string => {
@@ -226,7 +211,7 @@ export default function LeaderboardPage() {
   };
 
   const renderSurvivalLeaderboardEntry = (
-    entry: SurvivalLeaderboard,
+    entry: any,
     position: number,
   ) => {
     return (
@@ -317,7 +302,7 @@ export default function LeaderboardPage() {
   };
 
   const renderPhysicsLeaderboardEntry = (
-    entry: PhysicsLeaderboard,
+    entry: any,
     position: number,
   ) => {
     return (
@@ -408,7 +393,7 @@ export default function LeaderboardPage() {
   };
 
   const renderRotationLeaderboardEntry = (
-    entry: RotationLeaderboard,
+    entry: any,
     position: number,
   ) => {
     return (
@@ -608,16 +593,16 @@ export default function LeaderboardPage() {
               <span className="font-bold text-white">
                 {currentLeaderboard[0]
                   ? isReactionTab
-                    ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}ms`
+                    ? `${(currentLeaderboard[0] as any).best_reaction_time}ms`
                     : isSurvivalTab
                       ? formatSurvivalTime(
-                          (currentLeaderboard[0] as SurvivalLeaderboard)
+                          (currentLeaderboard[0] as any)
                             .best_survival_time,
                         )
                       : isPhysicsTab
-                        ? `${(currentLeaderboard[0] as PhysicsLeaderboard).best_physics_score} pts`
+                        ? `${(currentLeaderboard[0] as any).best_physics_score} pts`
                         : formatRotationTime(
-                            (currentLeaderboard[0] as RotationLeaderboard)
+                            (currentLeaderboard[0] as any)
                               .best_rotation_time,
                           )
                   : "0"}
@@ -677,21 +662,21 @@ export default function LeaderboardPage() {
             {currentLeaderboard.map((entry, index) =>
               isReactionTab
                 ? renderReactionLeaderboardEntry(
-                    entry as ReactionLeaderboard,
+                    entry,
                     index + 1,
                   )
                 : isSurvivalTab
                   ? renderSurvivalLeaderboardEntry(
-                      entry as SurvivalLeaderboard,
+                      entry,
                       index + 1,
                     )
                   : isPhysicsTab
                     ? renderPhysicsLeaderboardEntry(
-                        entry as PhysicsLeaderboard,
+                        entry,
                         index + 1,
                       )
                     : renderRotationLeaderboardEntry(
-                        entry as RotationLeaderboard,
+                        entry,
                         index + 1,
                       ),
             )}

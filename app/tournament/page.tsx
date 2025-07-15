@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Обновленная страница турниров с полным отображением победителей и локализацией
+// src/app/tournament/page.tsx - Refactored: fetch tournaments and leaderboard via API
 
 "use client";
 
@@ -35,7 +35,7 @@ import {
     Calendar,
 } from "lucide-react";
 
-import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
+// import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
 import type {
     TournamentWithStatus,
     TournamentListResponse
@@ -1555,12 +1555,15 @@ export default function TournamentsPage() {
             try {
                 setIsLoading(true);
                 setError(null);
-                const tournamentsData = await tournamentService.getAllTournaments();
+                // Получаем список турниров через API
+                const res = await fetch("/api/tournament/list", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+                const tournamentsData = await res.json();
                 setTournaments(tournamentsData);
-
                 if (tournamentsData.active.length > 0) {
                     const activeTournament = tournamentsData.active[0];
-                    const leaderboard = await tournamentService.getTournamentLeaderboard(activeTournament.id, 100);
+                    // Получаем лидерборд через API
+                    const lbRes = await fetch(`/api/tournament/leaderboard?tournamentId=${activeTournament.id}`, { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+                    const leaderboard = await lbRes.json();
                     setActiveLeaderboard(leaderboard);
                 }
             } catch (err) {
@@ -1570,7 +1573,6 @@ export default function TournamentsPage() {
                 setIsLoading(false);
             }
         };
-
         loadTournaments();
     }, [t]);
 

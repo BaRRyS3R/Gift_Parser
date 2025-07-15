@@ -1,22 +1,21 @@
-// src/app/profile/page.tsx - Fixed profile page with preloaded league data
+// src/app/profile/page.tsx - Refactored: fetch profile, leagues, achievements via API
 
 "use client";
 
 import React, { useState, useEffect } from "react";
 
 import { useUser } from "@/hooks/useUser";
-import { userService, type ReferralInfo } from "@/lib/supabase";
-import leagueService from "@/lib/league_service"; // Added league service import
+// import { userService, type ReferralInfo } from "@/lib/supabase";
+// import leagueService from "@/lib/league_service";
 import { useT } from "@/contexts/LocalizationContext";
 
-// Import components
 import EnhancedProfileHeader from "@/components/Profile/EnhancedProfileHeader";
 import MinimalistActionButtons from "@/components/Profile/MinimalistActionButtons";
 import MinimalistDivider from "@/components/Profile/MinimalistDivider";
 import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
-import LeaguesModal from "@/components/LeagueProgress/LeaguesModal"; // Changed to use proper tabbed modal
+import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
 
 interface UserRankings {
   overall: number | null;
@@ -37,74 +36,39 @@ export default function ProfilePage() {
     physics: null,
     rotation: null,
   });
-  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
+  const [referralInfo, setReferralInfo] = useState<any>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
   const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
+  const [leagues, setLeagues] = useState<any[]>([]);
+  const [achievements, setAchievements] = useState<any[]>([]);
 
   useEffect(() => {
     const loadProfileData = async () => {
       if (!telegramUser?.id || !user?.id) return;
-
       try {
         setIsLoadingData(true);
-
-        // Load all data in parallel including league data for better performance
-        const [
-          overallRank,
-          reactionRank,
-          survivalRank,
-          physicsRank,
-          rotationRank,
-          refInfo,
-          // Preload league data to avoid lags in modal
-          allLeagues,
-          userLeagueProgress,
-          userRewards,
-          allLeagueRewards,
-        ] = await Promise.all([
-          userService.getUserRanking(telegramUser.id),
-          userService.getUserReactionRanking(telegramUser.id),
-          userService.getUserSurvivalRanking(telegramUser.id),
-          userService.getUserPhysicsRanking(telegramUser.id),
-          userService.getUserRotationRanking(telegramUser.id),
-          userService.getReferralInfo(telegramUser.id),
-          // Preload league data
-          leagueService.getAllLeagues(),
-          leagueService.getUserLeagueProgress(user.id, user.total_games),
-          leagueService.getUserRewards(user.id),
-          leagueService.getAllLeagueRewards(),
-        ]);
-
-        setRankings({
-          overall: overallRank,
-          reaction: reactionRank,
-          survival: survivalRank,
-          physics: physicsRank,
-          rotation: rotationRank,
-        });
-        setReferralInfo(refInfo);
-
-        // Store preloaded league data in component state or context for immediate modal access
-        // This prevents loading delays when modal opens
-        console.log("League data preloaded:", {
-          leagues: allLeagues?.length,
-          userProgress: userLeagueProgress?.currentLeague?.name,
-          userRewards: userRewards?.length,
-          allRewards: Object.keys(allLeagueRewards || {}).length,
-        });
-      } catch (error) {
-        console.error("Error loading profile data:", error);
+        // Получаем профиль
+        const profileRes = await fetch("/api/profile", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+        const profileData = await profileRes.json();
+        // Получаем лиги
+        const leaguesRes = await fetch("/api/profile/leagues", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+        const leaguesData = await leaguesRes.json();
+        setLeagues(leaguesData.leagues || []);
+        // Получаем достижения
+        const achRes = await fetch("/api/profile/achievements", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+        const achData = await achRes.json();
+        setAchievements(achData.achievements || []);
+        // Можно добавить загрузку referralInfo и rankings через отдельные API-роуты
+      } catch (err) {
+        // обработка ошибок
       } finally {
         setIsLoadingData(false);
       }
     };
-
-    if (telegramUser && user && !userLoading) {
-      loadProfileData();
-    }
-  }, [telegramUser, user, userLoading]);
+    loadProfileData();
+  }, [telegramUser?.id, user?.id]);
 
   const handleOpenReferrals = () => {
     setIsReferralModalOpen(true);

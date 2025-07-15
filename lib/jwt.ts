@@ -2,6 +2,7 @@
 
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
 
 // Secret key from environment
 const JWT_SECRET = new TextEncoder().encode(
@@ -119,36 +120,36 @@ export async function clearTokenCookie(): Promise<void> {
 }
 
 /**
- * Validate Telegram WebApp init data
- * This adds an extra layer of security by verifying Telegram's signature
+ * Validate Telegram WebApp init data (production-ready)
+ * https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
  */
 export function validateTelegramInitData(initData: string): boolean {
-    // This is a simplified validation - in production, implement full Telegram signature verification
-    // according to: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
-
-    if (!initData || initData.length < 10) {
-        return false;
-    }
-
     try {
-        // Basic format validation
+        if (!initData || initData.length < 10) return false;
         const params = new URLSearchParams(initData);
-        const user = params.get('user');
         const hash = params.get('hash');
+        if (!hash) return false;
+        params.delete('hash');
 
-        if (!user || !hash) {
+        // Формируем data_check_string
+        const dataCheckString = Array.from(params.entries())
+            .map(([key, value]) => `${key}=${value}`)
+            .sort()
+            .join('\n');
+
+        // Ключ — sha256(botToken)
+        const botToken = process.env.TELEGRAM_BOT_API;
+        if (!botToken) {
+            console.error('TELEGRAM_BOT_API env not set');
             return false;
         }
+        const secret = crypto.createHash('sha256').update(botToken).digest('hex');
 
-        // Parse user data
-        const userData = JSON.parse(user);
-        if (!userData.id || !userData.first_name) {
-            return false;
-        }
+        // HMAC-SHA256
+        const hmac = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
 
-        // In production, implement full HMAC-SHA256 verification here
-        // For now, we trust the basic format validation
-        return true;
+        // Сравниваем с hash из initData (без учёта регистра)
+        return hmac === hash || hmac === hash.toLowerCase();
     } catch (error) {
         console.error('Telegram init data validation failed:', error);
         return false;

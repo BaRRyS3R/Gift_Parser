@@ -1,66 +1,46 @@
 // src/app/api/tournament/save-result/route.ts - Protected tournament result saving
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuthAndRateLimit } from '@/lib/authMiddleware';
-import { tournamentService } from '@/lib/supabase_tournament_extension';
-import { GameMode } from '@/types/game-modes';
+import { withAuth } from '@/lib/authMiddleware';
+import { supabaseServer } from '@/lib/supabaseServer';
 
-export const POST = withAuthAndRateLimit(async (request) => {
+export const POST = withAuth(async (request) => {
     try {
         const { user } = request;
-        const { tournamentId, gameResult } = await request.json();
+        const body = await request.json();
+        const { tournamentId, survivalTime, score, maxLevelReached, perfectStreak, correctHits, deathCause } = body;
 
-        // Validate tournament result
-        if (!tournamentId || !gameResult) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Missing tournament ID or game result',
-                },
-                { status: 400 }
-            );
+        // Получаем пользователя
+        const { data: userData, error: userError } = await supabaseServer
+            .from('users')
+            .select('id, telegram_id')
+            .eq('telegram_id', user.telegramId)
+            .maybeSingle();
+        if (userError || !userData) {
+            return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
         }
 
-        // Validate survival game result for tournament
-        if (gameResult.mode !== GameMode.SURVIVAL) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Only survival mode results allowed for tournaments',
-                },
-                { status: 400 }
-            );
+        // Сохраняем результат турнира (пример для таблицы tournament_leaderboard)
+        const { error: insertError } = await supabaseServer
+            .from('tournament_leaderboard')
+            .insert({
+                tournament_id: tournamentId,
+                user_id: userData.id,
+                telegram_id: user.telegramId,
+                survival_time: survivalTime,
+                survival_score: score,
+                max_level_reached: maxLevelReached,
+                perfect_streak: perfectStreak,
+                correct_hits: correctHits,
+                death_cause: deathCause,
+                created_at: new Date().toISOString(),
+            });
+        if (insertError) {
+            return NextResponse.json({ success: false, error: insertError.message }, { status: 500 });
         }
-
-        // Save tournament result
-        const tournamentResult = await tournamentService.saveTournamentResult(
-            tournamentId,
-            user.userId,
-            user.telegramId,
-            {
-                survivalTime: gameResult.survivalTime,
-                score: gameResult.score,
-                maxLevelReached: gameResult.maxLevelReached,
-                perfectStreak: gameResult.perfectStreak,
-                correctHits: gameResult.correctHits,
-                deathCause: gameResult.deathCause,
-            }
-        );
-
-        return NextResponse.json({
-            success: true,
-            tournamentResult,
-        });
+        return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error saving tournament result:', error);
-
-        return NextResponse.json(
-            {
-                success: false,
-                error: 'Failed to save tournament result',
-                message: error instanceof Error ? error.message : 'Unknown error occurred',
-            },
-            { status: 500 }
-        );
+        return NextResponse.json({ success: false, error: 'Failed to save tournament result' }, { status: 500 });
     }
 });

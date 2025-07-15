@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Исправленная версия с корректными отступами
+// src/app/tasks/page.tsx - Refactored: fetch tasks and actions via API
 
 "use client";
 
@@ -23,7 +23,7 @@ import { SiTelegram, SiX } from "react-icons/si";
 
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
-import { taskService } from "@/lib/supabase_tasks";
+// import { taskService } from "@/lib/supabase_tasks";
 
 interface TaskProcessing {
   [taskId: string]: TaskProcessingState;
@@ -61,28 +61,26 @@ export default function TasksPage() {
       if (telegramUser) {
         try {
           await refreshUser();
-
           return;
         } catch (err) {
           console.error("Error refreshing user:", err);
           setError(t("tasks.errors.userNotFound"));
           setLoading(false);
-
           return;
         }
       } else {
         console.log("No telegramUser available, cannot refresh user");
         setError(t("tasks.errors.userNotFound"));
         setLoading(false);
-
         return;
       }
     }
     try {
       setError(null);
-      const tasksData = await taskService.getTasksForUser(user.id);
-
-      setTasks(tasksData);
+      // Получаем задания через API
+      const res = await fetch("/api/tasks", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+      const data = await res.json();
+      setTasks(data.tasks || []);
     } catch (err) {
       console.error("Error loading tasks:", err);
       setError(t("tasks.errors.unknownError"));
@@ -145,24 +143,37 @@ export default function TasksPage() {
     }));
 
     try {
-      await taskService.startTask(user.id, task.id);
+      // Запускаем задание через API
+      const res = await fetch(`/api/tasks/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
+        body: JSON.stringify({ userId: user.id, taskId: task.id })
+      });
+      const data = await res.json();
 
-      if (task.type === "story_share") {
-        handleStoryTask(task);
+      if (data.success) {
+        if (task.type === "story_share") {
+          handleStoryTask(task);
+        } else {
+          openTaskLink(task);
+        }
+
+        if (task.type === "telegram_channel" || task.type === "telegram_chat") {
+          setTimeout(() => handleCheckTask(task.id), 3000);
+        } else if (task.type !== "story_share") {
+          setProcessing((prev) => ({
+            ...prev,
+            [task.id]: { countdown: 10000 },
+          }));
+        }
+
+        await loadTasks();
       } else {
-        openTaskLink(task);
-      }
-
-      if (task.type === "telegram_channel" || task.type === "telegram_chat") {
-        setTimeout(() => handleCheckTask(task.id), 3000);
-      } else if (task.type !== "story_share") {
         setProcessing((prev) => ({
           ...prev,
-          [task.id]: { countdown: 10000 },
+          [task.id]: { error: t("tasks.errors.unknownError") },
         }));
       }
-
-      await loadTasks();
     } catch (err) {
       console.error("Error starting task:", err);
       setProcessing((prev) => ({
@@ -224,32 +235,37 @@ export default function TasksPage() {
     }));
 
     try {
-      const isCompleted = await taskService.checkTaskCompletion(
-        user.id,
-        taskId,
-        telegramUser.id,
-      );
+      // Проверяем выполнение задания через API
+      const res = await fetch(`/api/tasks/check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
+        body: JSON.stringify({ userId: user.id, taskId, telegramUserId: telegramUser.id })
+      });
+      const data = await res.json();
 
-      if (isCompleted) {
-        await taskService.completeTask(user.id, taskId);
+      if (data.isCompleted) {
+        await handleCompleteTask(taskId);
         await loadTasks();
-
-        setProcessing((prev) => ({
-          ...prev,
-          [taskId]: {},
-        }));
+        setProcessing((prev) => ({ ...prev, [taskId]: {} }));
       } else {
-        setProcessing((prev) => ({
-          ...prev,
-          [taskId]: { error: t("tasks.errors.notSubscribed") },
-        }));
+        setProcessing((prev) => ({ ...prev, [taskId]: { error: t("tasks.errors.notSubscribed") } }));
       }
     } catch (err) {
       console.error("Error checking task:", err);
-      setProcessing((prev) => ({
-        ...prev,
-        [taskId]: { error: t("tasks.errors.verificationFailed") },
-      }));
+      setProcessing((prev) => ({ ...prev, [taskId]: { error: t("tasks.errors.verificationFailed") } }));
+    }
+  };
+
+  const handleCompleteTask = async (taskId: string) => {
+    if (!user) return;
+    try {
+      await fetch(`/api/tasks/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
+        body: JSON.stringify({ userId: user.id, taskId })
+      });
+    } catch (err) {
+      console.error("Error completing task:", err);
     }
   };
 
@@ -262,11 +278,13 @@ export default function TasksPage() {
     }));
 
     try {
-      const result = await taskService.claimTaskReward(
-        user.id,
-        task.id,
-        telegramUser.id,
-      );
+      // Получаем награду через API
+      const res = await fetch(`/api/tasks/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') },
+        body: JSON.stringify({ userId: user.id, taskId: task.id, telegramUserId: telegramUser.id })
+      });
+      const result = await res.json();
 
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");

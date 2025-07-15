@@ -20,7 +20,7 @@ import { useUser } from "@/hooks/useUser";
 import { useSecurity } from "@/hooks/useSecurity";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
-import { tournamentService } from "@/lib/supabase_tournament_extension";
+// import { tournamentService } from "@/lib/supabase_tournament_extension"; // Удалено
 import { formatTimeRemaining } from "@/types/tournaments";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
@@ -171,24 +171,22 @@ export default function MainPage() {
   useEffect(() => {
     const loadTournamentStatus = async () => {
       try {
-        const tournamentStatus = await tournamentService.getTournamentStatus();
-
+        // Получаем статус турнира через API
+        const res = await fetch("/api/tournament/active", { headers: { "Authorization": "Bearer " + (localStorage.getItem('jwt') || '') } });
+        const tournamentStatus = await res.json();
         if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
           setActiveTournament(tournamentStatus.activeTournament);
           setShowTournamentButton(true);
-
           if (tournamentStatus.timeRemaining) {
             setTournamentTimeRemaining(
               formatTimeRemaining(tournamentStatus.timeRemaining),
             );
-
             const interval = setInterval(() => {
               const now = new Date();
               const endDate = new Date(
-                tournamentStatus.activeTournament!.end_date,
+                tournamentStatus.activeTournament.end_date,
               );
               const diff = endDate.getTime() - now.getTime();
-
               if (diff <= 0) {
                 setActiveTournament(null);
                 setShowTournamentButton(false);
@@ -198,7 +196,6 @@ export default function MainPage() {
                 setTournamentTimeRemaining(formatTimeRemaining(diff));
               }
             }, 1000);
-
             return () => clearInterval(interval);
           }
         } else {
@@ -211,7 +208,6 @@ export default function MainPage() {
         setShowTournamentButton(false);
       }
     };
-
     loadTournamentStatus();
   }, []);
 
