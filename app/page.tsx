@@ -324,8 +324,32 @@ export default function IntroPage(): JSX.Element {
         return;
       }
 
-      // На этом этапе мы не знаем, есть ли пользователь в базе, поэтому не делаем автоматическую регистрацию
-      // Просто сохраняем TelegramUser и показываем приветственный экран
+      // --- ДОБАВЛЕНО: Проверка существования пользователя через API ---
+      try {
+        const profileRes = await fetch("/api/user/profile", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            // Можно добавить авторизационный токен, если требуется
+          },
+        });
+        if (profileRes.ok) {
+          // Пользователь найден, сразу аутентифицируем и редиректим
+          console.log("User profile found, authenticating and redirecting to main...");
+          await performJWTAuthentication(telegramUser, referralCode);
+          setStableLoadingState(prev => ({ ...prev, isAuthReady: true }));
+          setTimeout(() => {
+            router.push("/main");
+          }, 500);
+          return;
+        }
+      } catch (e) {
+        // Ошибку игнорируем, если пользователь не найден — покажем приветственный экран
+        console.log("User profile not found or error, showing registration screen");
+      }
+      // --- КОНЕЦ ДОБАВЛЕНИЯ ---
+
+      // Если не найден — показываем приветственный экран
       setAuthState((prev) => ({
         ...prev,
         isChecking: false,
