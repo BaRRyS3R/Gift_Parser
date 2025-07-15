@@ -44,6 +44,7 @@ import type { TournamentLeaderboardEntry } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
+import { formatTournamentSurvivalTime } from "@/game-modes/tournament";
 
 // Полноэкранный спонсорский баннер для активного турнира
 interface SponsorBannerProps {
@@ -1376,11 +1377,14 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
     if (loadedWinners[tournamentId]) return;
 
     try {
-      // ИСПРАВЛЕНО: Загружаем всех победителей согласно количеству призов
-      const winners = await tournamentService.getTournamentWinners(
-        tournamentId,
-        prizeCount,
-      );
+      // Получаем победителей через API
+      const res = await fetch(`/api/tournament/leaderboard?tournamentId=${tournamentId}`, {
+        headers: {
+          Authorization: "Bearer " + (localStorage.getItem("jwt") || ""),
+        },
+      });
+      const data = await res.json();
+      const winners = Array.isArray(data.leaderboard) ? data.leaderboard.slice(0, prizeCount) : [];
       setLoadedWinners((prev) => ({ ...prev, [tournamentId]: winners }));
     } catch (error) {
       console.error("Error loading winners:", error);
