@@ -1,4 +1,4 @@
-// src/lib/authService.ts - Enhanced with complete profile API integration
+// src/lib/authService.ts - Enhanced with complete profile API integration and tasks/purchases support
 
 import type {
   Tournament,
@@ -7,6 +7,15 @@ import type {
   TournamentStatus,
   TournamentListResponse,
 } from "@/types/tournaments";
+import type {
+  TaskWithCompletion,
+  UserTaskCompletion,
+  TaskStats,
+} from "@/types/tasks";
+import type {
+  ProductType,
+  CreateInvoiceResponse,
+} from "@/types/purchases";
 
 import {
   GameSaveResult,
@@ -161,6 +170,23 @@ export interface LeagueProgressInfo {
   gamesToNextLeague: number;
   progressPercent: number;
   isMaxLeague: boolean;
+}
+
+export interface TaskRewardResult {
+  completion: UserTaskCompletion;
+  reward: number;
+}
+
+export interface PurchaseProcessResult {
+  success: boolean;
+  product?: {
+    type: ProductType;
+    title: string;
+    attempts_bonus?: number;
+    is_instant_reset?: boolean;
+  };
+  message?: string;
+  error?: string;
 }
 
 type GameResult =
@@ -483,6 +509,280 @@ class AuthService {
   }
 
   // ============================================================================
+  // TASKS API METHODS
+  // ============================================================================
+
+  async getTasks(): Promise<TaskWithCompletion[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<{ tasks: TaskWithCompletion[] }>(
+      "/tasks",
+    ).then((data) => data.tasks);
+  }
+
+  async startTask(taskId: string): Promise<UserTaskCompletion> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<{ taskCompletion: UserTaskCompletion }>(
+      "/tasks/start",
+      {
+        method: "POST",
+        body: JSON.stringify({ taskId }),
+      },
+    ).then((data) => data.taskCompletion);
+  }
+
+  async completeTask(taskId: string): Promise<UserTaskCompletion> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<{ taskCompletion: UserTaskCompletion }>(
+      "/tasks/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({ taskId }),
+      },
+    ).then((data) => data.taskCompletion);
+  }
+
+  async claimTaskReward(taskId: string): Promise<TaskRewardResult> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<{ result: TaskRewardResult }>(
+      "/tasks/claim",
+      {
+        method: "POST",
+        body: JSON.stringify({ taskId }),
+      },
+    ).then((data) => data.result);
+  }
+
+  async getTaskStats(): Promise<TaskStats> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<{ stats: TaskStats }>(
+      "/tasks/stats",
+    ).then((data) => data.stats);
+  }
+
+  // ============================================================================
+  // PURCHASES API METHODS
+  // ============================================================================
+
+  async createPurchaseInvoice(productType: ProductType): Promise<CreateInvoiceResponse> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User authentication required");
+    }
+
+    try {
+      // Get Telegram initData for PHP backend
+      const initData = this.getTelegramInitData();
+
+      return this.makeAuthenticatedRequest<CreateInvoiceResponse>(
+        "/purchases/create-invoice",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            productType,
+            initData
+          }),
+        },
+      );
+    } catch (error) {
+      console.error("Error creating purchase invoice:", error);
+      throw new Error(
+        error instanceof Error
+          ? `Invoice creation failed: ${error.message}`
+          : "Failed to create purchase invoice"
+      );
+    }
+  }
+
+  async checkPurchaseStatus(): Promise<{
+    success: boolean;
+    user?: any;
+    cache_invalidate?: boolean;
+  }> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User authentication required");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<{
+        success: boolean;
+        user?: any;
+        cache_invalidate?: boolean;
+        message: string;
+      }>("/purchases/status");
+
+      // If cache invalidation is signaled, refresh user data
+      if (response.cache_invalidate) {
+        console.log("Purchase detected - refreshing user data");
+        await this.refreshUserData();
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Error checking purchase status:", error);
+      throw new Error(
+        error instanceof Error
+          ? `Status check failed: ${error.message}`
+          : "Failed to check purchase status"
+      );
+    }
+  }
+
+  async processPurchase(
+    productType: ProductType,
+    paymentResult: boolean,
+  ): Promise<PurchaseProcessResult> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User authentication required");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<PurchaseProcessResult>(
+        "/purchases/process",
+        {
+          method: "POST",
+          body: JSON.stringify({ productType, paymentResult }),
+        },
+      );
+
+      // Refresh user data after successful purchase processing
+      if (response.success) {
+        console.log("Purchase processed successfully - refreshing user data");
+        await this.refreshUserData();
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Error processing purchase:", error);
+      throw new Error(
+        error instanceof Error
+          ? `Purchase processing failed: ${error.message}`
+          : "Failed to process purchase"
+      );
+    }
+  }
+
+  /**
+   * Complete purchase flow - handles the entire purchase process
+   */
+  async completePurchaseFlow(productType: ProductType): Promise<{
+    success: boolean;
+    invoiceUrl?: string;
+    error?: string;
+  }> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User authentication required");
+    }
+
+    try {
+      console.log(`Initiating purchase flow for product: ${productType}`);
+
+      // Step 1: Create invoice via PHP backend
+      const invoiceResult = await this.createPurchaseInvoice(productType);
+
+      if (!invoiceResult.success || !invoiceResult.invoice_url) {
+        throw new Error(invoiceResult.error || "Failed to create payment invoice");
+      }
+
+      console.log("Invoice created successfully - ready for payment");
+
+      return {
+        success: true,
+        invoiceUrl: invoiceResult.invoice_url,
+      };
+
+    } catch (error) {
+      console.error("Purchase flow error:", error);
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Purchase flow failed",
+      };
+    }
+  }
+
+  /**
+   * Handle post-payment processing
+   */
+  async handlePaymentResult(
+    productType: ProductType,
+    paymentSuccess: boolean
+  ): Promise<PurchaseProcessResult> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User authentication required");
+    }
+
+    try {
+      console.log(`Processing payment result: ${paymentSuccess ? 'success' : 'failed'} for ${productType}`);
+
+      if (!paymentSuccess) {
+        return {
+          success: false,
+          error: "Payment was cancelled or failed",
+        };
+      }
+
+      // Process successful payment
+      const result = await this.processPurchase(productType, paymentSuccess);
+
+      if (result.success) {
+        // Allow time for webhook processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Check status to ensure updates are reflected
+        await this.checkPurchaseStatus();
+
+        console.log("Payment processing completed successfully");
+      }
+
+      return result;
+
+    } catch (error) {
+      console.error("Error handling payment result:", error);
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Payment processing failed",
+      };
+    }
+  }
+
+  /**
+   * Get Telegram initData for PHP backend authentication
+   */
+  private getTelegramInitData(): string {
+    if (typeof window === "undefined") {
+      throw new Error("Window object not available");
+    }
+
+    if (!window.Telegram?.WebApp?.initData) {
+      throw new Error("Telegram WebApp initData not available");
+    }
+
+    const initData = window.Telegram.WebApp.initData;
+
+    // Validate initData format
+    if (!initData.includes('user=') || !initData.includes('auth_date=')) {
+      throw new Error("Invalid Telegram WebApp initData format");
+    }
+
+    return initData;
+  }
+
+  // ============================================================================
   // USER METHODS
   // ============================================================================
 
@@ -610,6 +910,7 @@ class AuthService {
       return [];
     }
   }
+
   async getTournamentStatus(): Promise<TournamentStatus> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -980,4 +1281,45 @@ export async function getAllSecureProfileData(): Promise<{
   leagueData: LeagueData;
 }> {
   return authService.getAllProfileData();
+}
+
+// Tasks helper functions
+export async function getSecureTasks(): Promise<TaskWithCompletion[]> {
+  return authService.getTasks();
+}
+
+export async function startSecureTask(taskId: string): Promise<UserTaskCompletion> {
+  return authService.startTask(taskId);
+}
+
+export async function completeSecureTask(taskId: string): Promise<UserTaskCompletion> {
+  return authService.completeTask(taskId);
+}
+
+export async function claimSecureTaskReward(taskId: string): Promise<TaskRewardResult> {
+  return authService.claimTaskReward(taskId);
+}
+
+export async function getSecureTaskStats(): Promise<TaskStats> {
+  return authService.getTaskStats();
+}
+
+// Purchases helper functions
+export async function createSecurePurchaseInvoice(productType: ProductType): Promise<CreateInvoiceResponse> {
+  return authService.createPurchaseInvoice(productType);
+}
+
+export async function checkSecurePurchaseStatus(): Promise<{
+  success: boolean;
+  user?: any;
+  cache_invalidate?: boolean;
+}> {
+  return authService.checkPurchaseStatus();
+}
+
+export async function processSecurePurchase(
+  productType: ProductType,
+  paymentResult: boolean,
+): Promise<PurchaseProcessResult> {
+  return authService.processPurchase(productType, paymentResult);
 }

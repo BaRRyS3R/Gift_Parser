@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Исправленная версия с корректными отступами
+// src/app/tasks/page.tsx - Updated with secure API integration
 
 "use client";
 
@@ -23,7 +23,7 @@ import { SiTelegram, SiX } from "react-icons/si";
 
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
-import { taskService } from "@/lib/supabase_tasks";
+import { authService } from "@/lib/authService";
 
 interface TaskProcessing {
   [taskId: string]: TaskProcessingState;
@@ -48,7 +48,7 @@ const getTaskIcon = (taskType: TaskType) => {
 
 export default function TasksPage() {
   const router = useRouter();
-  const { user, refreshUser, telegramUser } = useUser();
+  const { user, refreshUser, telegramUser, isAuthenticated } = useUser();
   const t = useT();
 
   const [tasks, setTasks] = useState<TaskWithCompletion[]>([]);
@@ -56,44 +56,50 @@ export default function TasksPage() {
   const [processing, setProcessing] = useState<TaskProcessing>({});
   const [error, setError] = useState<string | null>(null);
 
-  const loadTasks = useCallback(async () => {
-    if (!user) {
-      if (telegramUser) {
-        try {
-          await refreshUser();
-
-          return;
-        } catch (err) {
-          console.error("Error refreshing user:", err);
-          setError(t("tasks.errors.userNotFound"));
-          setLoading(false);
-
-          return;
-        }
-      } else {
-        console.log("No telegramUser available, cannot refresh user");
-        setError(t("tasks.errors.userNotFound"));
-        setLoading(false);
-
-        return;
-      }
+  // Check authentication status and redirect if needed
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated, redirecting to login");
+      router.push("/");
+      return;
     }
+  }, [isAuthenticated, router]);
+
+  const loadTasks = useCallback(async () => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated, skipping task load");
+      return;
+    }
+
     try {
       setError(null);
-      const tasksData = await taskService.getTasksForUser(user.id);
+      setLoading(true);
+
+      console.log("Loading tasks via secure API...");
+      const tasksData = await authService.getTasks();
 
       setTasks(tasksData);
+      console.log("Tasks loaded successfully via secure API");
     } catch (err) {
-      console.error("Error loading tasks:", err);
+      console.error("Error loading tasks via secure API:", err);
+
+      if (err instanceof Error && err.message.includes("Authentication expired")) {
+        console.log("Token expired during task load, user will be signed out");
+        // The useUser hook will handle sign out and redirect
+        return;
+      }
+
       setError(t("tasks.errors.unknownError"));
     } finally {
       setLoading(false);
     }
-  }, [user, telegramUser, refreshUser, t]);
+  }, [isAuthenticated, t]);
 
   useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
+    if (isAuthenticated) {
+      loadTasks();
+    }
+  }, [loadTasks, isAuthenticated]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -131,13 +137,16 @@ export default function TasksPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
 
   const handleStartTask = async (task: TaskWithCompletion) => {
-    if (!user || !telegramUser) return;
+    if (!isAuthenticated || !telegramUser) {
+      console.log("User not authenticated, cannot start task");
+      return;
+    }
 
     setProcessing((prev) => ({
       ...prev,
@@ -145,7 +154,8 @@ export default function TasksPage() {
     }));
 
     try {
-      await taskService.startTask(user.id, task.id);
+      console.log("Starting task via secure API:", task.id);
+      await authService.startTask(task.id);
 
       if (task.type === "story_share") {
         handleStoryTask(task);
@@ -163,8 +173,15 @@ export default function TasksPage() {
       }
 
       await loadTasks();
+      console.log("Task started successfully via secure API");
     } catch (err) {
-      console.error("Error starting task:", err);
+      console.error("Error starting task via secure API:", err);
+
+      if (err instanceof Error && err.message.includes("Authentication expired")) {
+        console.log("Token expired during task start, user will be signed out");
+        return;
+      }
+
       setProcessing((prev) => ({
         ...prev,
         [task.id]: { error: t("tasks.errors.unknownError") },
@@ -216,7 +233,10 @@ export default function TasksPage() {
   };
 
   const handleCheckTask = async (taskId: string) => {
-    if (!user || !telegramUser) return;
+    if (!isAuthenticated || !telegramUser) {
+      console.log("User not authenticated, cannot check task");
+      return;
+    }
 
     setProcessing((prev) => ({
       ...prev,
@@ -224,28 +244,24 @@ export default function TasksPage() {
     }));
 
     try {
-      const isCompleted = await taskService.checkTaskCompletion(
-        user.id,
-        taskId,
-        telegramUser.id,
-      );
+      console.log("Checking task via secure API:", taskId);
+      await authService.completeTask(taskId);
 
-      if (isCompleted) {
-        await taskService.completeTask(user.id, taskId);
-        await loadTasks();
+      await loadTasks();
+      console.log("Task checked successfully via secure API");
 
-        setProcessing((prev) => ({
-          ...prev,
-          [taskId]: {},
-        }));
-      } else {
-        setProcessing((prev) => ({
-          ...prev,
-          [taskId]: { error: t("tasks.errors.notSubscribed") },
-        }));
-      }
+      setProcessing((prev) => ({
+        ...prev,
+        [taskId]: {},
+      }));
     } catch (err) {
-      console.error("Error checking task:", err);
+      console.error("Error checking task via secure API:", err);
+
+      if (err instanceof Error && err.message.includes("Authentication expired")) {
+        console.log("Token expired during task check, user will be signed out");
+        return;
+      }
+
       setProcessing((prev) => ({
         ...prev,
         [taskId]: { error: t("tasks.errors.verificationFailed") },
@@ -254,7 +270,10 @@ export default function TasksPage() {
   };
 
   const handleClaimReward = async (task: TaskWithCompletion) => {
-    if (!user || !telegramUser) return;
+    if (!isAuthenticated || !telegramUser) {
+      console.log("User not authenticated, cannot claim reward");
+      return;
+    }
 
     setProcessing((prev) => ({
       ...prev,
@@ -262,11 +281,8 @@ export default function TasksPage() {
     }));
 
     try {
-      const result = await taskService.claimTaskReward(
-        user.id,
-        task.id,
-        telegramUser.id,
-      );
+      console.log("Claiming task reward via secure API:", task.id);
+      const result = await authService.claimTaskReward(task.id);
 
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
@@ -274,13 +290,20 @@ export default function TasksPage() {
 
       await refreshUser();
       await loadTasks();
+      console.log("Task reward claimed successfully via secure API");
 
       setProcessing((prev) => ({
         ...prev,
         [task.id]: {},
       }));
     } catch (err) {
-      console.error("Error claiming reward:", err);
+      console.error("Error claiming task reward via secure API:", err);
+
+      if (err instanceof Error && err.message.includes("Authentication expired")) {
+        console.log("Token expired during reward claim, user will be signed out");
+        return;
+      }
+
       setProcessing((prev) => ({
         ...prev,
         [task.id]: { error: t("tasks.errors.rewardClaimFailed") },
@@ -429,17 +452,17 @@ export default function TasksPage() {
       task.type !== "story_share" && task.user_completion?.status === "claimed",
   );
 
+  // Don't render anything if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
           <p className="text-white/60">{t("tasks.loading")}</p>
-          <div className="mt-4 text-xs text-white/40">
-            <p>User: {user ? "Loaded" : "Not loaded"}</p>
-            <p>TelegramUser: {telegramUser ? "Loaded" : "Not loaded"}</p>
-            <p>Tasks: {tasks.length}</p>
-          </div>
         </div>
       </div>
     );
@@ -551,7 +574,7 @@ export default function TasksPage() {
           )}
       </div>
 
-      {/* Bottom spacing for safe area - КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ */}
+      {/* Bottom spacing for safe area */}
       <div className="h-24" />
     </div>
   );
@@ -582,16 +605,15 @@ function TaskCard({
   return (
     <Card
       className={`
-                relative overflow-hidden
-                ${
-                  isSpecial
-                    ? "bg-gradient-to-r from-white/20 to-white/15 border-2 border-white/40"
-                    : "bg-gradient-to-r from-white/10 to-white/5 border border-white/20"
-                } 
-                hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
-                transition-all duration-200
-                ${isCompleted ? "opacity-75" : ""}
-            `}
+        relative overflow-hidden
+        ${isSpecial
+          ? "bg-gradient-to-r from-white/20 to-white/15 border-2 border-white/40"
+          : "bg-gradient-to-r from-white/10 to-white/5 border border-white/20"
+        } 
+        hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
+        transition-all duration-200
+        ${isCompleted ? "opacity-75" : ""}
+      `}
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
@@ -636,18 +658,17 @@ function TaskCard({
               {!isCompleted && (
                 <Button
                   className={`
-                                        relative z-20
-                                        ${
-                                          buttonState.color === "success"
-                                            ? "bg-white text-black hover:bg-white/90"
-                                            : buttonState.color === "primary"
-                                              ? "bg-white/20 text-white border border-white/40 hover:bg-white/30"
-                                              : buttonState.color === "danger"
-                                                ? "bg-white/10 text-white border border-white/20 hover:bg-white/20"
-                                                : "bg-white/10 text-white/60 border border-white/20"
-                                        }
-                                        ${buttonState.disabled ? "cursor-not-allowed" : "cursor-pointer"}
-                                    `}
+                    relative z-20
+                    ${buttonState.color === "success"
+                      ? "bg-white text-black hover:bg-white/90"
+                      : buttonState.color === "primary"
+                        ? "bg-white/20 text-white border border-white/40 hover:bg-white/30"
+                        : buttonState.color === "danger"
+                          ? "bg-white/10 text-white border border-white/20 hover:bg-white/20"
+                          : "bg-white/10 text-white/60 border border-white/20"
+                    }
+                    ${buttonState.disabled ? "cursor-not-allowed" : "cursor-pointer"}
+                  `}
                   isDisabled={buttonState.disabled}
                   isLoading={buttonState.loading}
                   size="sm"

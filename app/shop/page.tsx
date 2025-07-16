@@ -1,8 +1,8 @@
-// src/app/shop/page.tsx - Обновленный дизайн магазина с монохромными карточками в стиле заданий
+// src/app/shop/page.tsx - Production shop with PHP backend integration
 
 "use client";
 
-import type { CreateInvoiceResponse } from "@/types/purchases";
+import type { ProductType } from "@/types/purchases";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -14,11 +14,12 @@ import {
   CheckCircle,
   Clock,
   ShoppingCart,
+  Loader2,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { purchaseService } from "@/lib/purchaseService";
-import { PRODUCTS, ProductType } from "@/types/purchases";
+import { authService } from "@/lib/authService";
+import { PRODUCTS } from "@/types/purchases";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface PurchaseState {
@@ -37,7 +38,7 @@ interface SuccessNotification {
 
 export default function ShopPage() {
   const router = useRouter();
-  const { user, refreshUser } = useUser();
+  const { user, refreshUser, isAuthenticated } = useUser();
   const t = useT();
   const [isExploding, setIsExploding] = useState(false);
 
@@ -56,16 +57,27 @@ export default function ShopPage() {
       icon: null,
     });
 
+  // Authentication verification and navigation setup
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log("Authentication required - redirecting to main page");
+      router.push("/");
+      return;
+    }
+  }, [isAuthenticated, router]);
+
+  // Error message auto-dismiss
   useEffect(() => {
     if (purchaseState.error) {
       const timer = setTimeout(() => {
         setPurchaseState((prev) => ({ ...prev, error: null }));
-      }, 4000);
+      }, 5000);
 
       return () => clearTimeout(timer);
     }
   }, [purchaseState.error]);
 
+  // Telegram WebApp navigation setup
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -77,7 +89,7 @@ export default function ShopPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -102,9 +114,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-          attempts: attemptsText,
-          plural: plural,
-        });
+        attempts: attemptsText,
+        plural: plural,
+      });
 
     setSuccessNotification({
       show: true,
@@ -114,17 +126,16 @@ export default function ShopPage() {
     });
 
     setIsExploding(true);
-    setTimeout(() => {
-      setIsExploding(false);
-    }, 2000);
-
+    setTimeout(() => setIsExploding(false), 2000);
     setTimeout(() => {
       setSuccessNotification((prev) => ({ ...prev, show: false }));
-    }, 3000);
+    }, 4000);
   };
 
   const handlePurchase = async (productType: ProductType) => {
-    if (purchaseState.isLoading || purchaseState.isProcessing) return;
+    if (purchaseState.isLoading || purchaseState.isProcessing || !isAuthenticated) {
+      return;
+    }
 
     setPurchaseState({
       isLoading: true,
@@ -134,12 +145,16 @@ export default function ShopPage() {
     });
 
     try {
-      const invoiceResult: CreateInvoiceResponse =
-        await purchaseService.createInvoice(productType);
+      console.log("Initiating purchase process for product:", productType);
 
-      if (!invoiceResult.success || !invoiceResult.invoice_url) {
-        throw new Error(invoiceResult.error || t("errors.createInvoice"));
+      // Step 1: Create invoice through PHP backend
+      const invoiceResult = await authService.completePurchaseFlow(productType);
+
+      if (!invoiceResult.success || !invoiceResult.invoiceUrl) {
+        throw new Error(invoiceResult.error || "Failed to create payment invoice");
       }
+
+      console.log("Invoice created - opening Telegram payment interface");
 
       setPurchaseState((prev) => ({
         ...prev,
@@ -147,23 +162,35 @@ export default function ShopPage() {
         isProcessing: true,
       }));
 
-      const paymentResult = await purchaseService.openInvoice(
-        invoiceResult.invoice_url,
-      );
+      // Step 2: Open Telegram Stars payment interface
+      const paymentResult = await openTelegramInvoice(invoiceResult.invoiceUrl);
 
+      // Step 3: Process payment result
       if (paymentResult) {
-        await purchaseService.checkPurchaseStatus();
-        await refreshUser();
+        console.log("Payment successful - processing purchase");
 
-        showSuccessNotification(productType);
+        const processResult = await authService.handlePaymentResult(productType, true);
 
-        setPurchaseState({
-          isLoading: false,
-          isProcessing: false,
-          error: null,
-          loadingProduct: null,
-        });
+        if (processResult.success) {
+          console.log("Purchase processing completed successfully");
+
+          // Refresh user data to reflect updated attempts
+          await refreshUser();
+
+          // Show success notification
+          showSuccessNotification(productType);
+
+          setPurchaseState({
+            isLoading: false,
+            isProcessing: false,
+            error: null,
+            loadingProduct: null,
+          });
+        } else {
+          throw new Error(processResult.error || "Purchase processing failed");
+        }
       } else {
+        console.log("Payment cancelled or failed by user");
         setPurchaseState({
           isLoading: false,
           isProcessing: false,
@@ -172,13 +199,73 @@ export default function ShopPage() {
         });
       }
     } catch (error) {
+      console.error("Purchase process error:", error);
+
+      if (error instanceof Error && error.message.includes("Authentication")) {
+        console.log("Authentication error during purchase");
+        return;
+      }
+
       setPurchaseState({
         isLoading: false,
         isProcessing: false,
-        error:
-          error instanceof Error ? error.message : t("errors.unknownError"),
+        error: error instanceof Error ? error.message : t("errors.unknownError"),
         loadingProduct: null,
       });
+    }
+  };
+
+  const openTelegramInvoice = async (invoiceUrl: string): Promise<boolean> => {
+    try {
+      if (typeof window === "undefined") {
+        throw new Error("Window object not available");
+      }
+
+      if (!window.Telegram?.WebApp) {
+        console.error("Telegram WebApp API not available");
+        throw new Error("Telegram payment interface not available");
+      }
+
+      const tg = window.Telegram.WebApp;
+
+      if (!tg.openInvoice) {
+        console.error("Telegram openInvoice API not available");
+        throw new Error("Payment interface not supported");
+      }
+
+      console.log("Opening Telegram Stars invoice");
+
+      return new Promise((resolve) => {
+        tg.openInvoice(invoiceUrl, (status: string) => {
+          console.log("Payment completed with status:", status);
+
+          switch (status) {
+            case "paid":
+              console.log("Payment successful");
+              resolve(true);
+              break;
+            case "cancelled":
+              console.log("Payment cancelled by user");
+              resolve(false);
+              break;
+            case "failed":
+              console.log("Payment failed");
+              resolve(false);
+              break;
+            case "pending":
+              console.log("Payment pending");
+              resolve(false);
+              break;
+            default:
+              console.warn("Unknown payment status:", status);
+              resolve(false);
+              break;
+          }
+        });
+      });
+    } catch (error) {
+      console.error("Error opening Telegram invoice:", error);
+      throw error;
     }
   };
 
@@ -220,6 +307,11 @@ export default function ShopPage() {
     return t("shop.buy");
   };
 
+  // Render guard for unauthenticated users
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {isExploding && (
@@ -234,7 +326,7 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header Section */}
       <div className="text-center space-y-4 mb-8 pt-6">
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
           {t("shop.title")}
@@ -244,20 +336,21 @@ export default function ShopPage() {
         </p>
       </div>
 
-      {/* Error message */}
+      {/* Error Display */}
       {purchaseState.error && (
         <div className="max-w-2xl mx-auto mb-6">
-          <Card className="bg-white/10 border border-white/20">
+          <Card className="bg-red-500/10 border border-red-500/20">
             <CardBody className="p-4">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="text-white" size={20} />
-                <span className="text-white">{purchaseState.error}</span>
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="text-red-400 flex-shrink-0" size={20} />
+                <span className="text-red-100 text-sm">{purchaseState.error}</span>
               </div>
             </CardBody>
           </Card>
         </div>
       )}
 
+      {/* Products Grid */}
       <div className="max-w-2xl mx-auto space-y-4">
         {Object.entries(PRODUCTS).map(([key, product]) => {
           const productType = key as ProductType;
@@ -283,15 +376,15 @@ export default function ShopPage() {
       {successNotification.show && (
         <div
           className={`
-                        fixed top-4 left-4 right-4 z-50
-                        transform transition-all duration-500 ease-out
-                        ${successNotification.show ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}
-                    `}
+            fixed top-4 left-4 right-4 z-50
+            transform transition-all duration-500 ease-out
+            ${successNotification.show ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}
+          `}
         >
-          <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
+          <Card className="bg-gradient-to-r from-green-500/20 to-green-400/15 border border-green-400/30 backdrop-blur-md shadow-2xl">
             <CardBody className="p-4">
               <div className="flex items-center space-x-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <div className="flex-shrink-0 w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
                   {successNotification.icon}
                 </div>
                 <div className="flex-1">
@@ -308,7 +401,7 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Bottom spacing for safe area - КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ */}
+      {/* Bottom spacing for safe area */}
       <div className="h-24" />
     </div>
   );
@@ -336,10 +429,12 @@ function ProductCard({
   return (
     <Card
       className={`
-                relative overflow-hidden
-                hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
-                transition-all duration-200
-            `}
+        relative overflow-hidden
+        bg-gradient-to-r from-white/10 to-white/5 border border-white/20
+        hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
+        transition-all duration-200
+        ${loading ? 'opacity-80' : ''}
+      `}
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -right-12 top-1/2 transform -translate-y-1/2 opacity-10">
@@ -378,21 +473,27 @@ function ProductCard({
 
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Star className="text-white" size={16} />
+                <Star className="text-yellow-400" size={16} />
                 <span className="text-white font-bold">{product.price}</span>
               </div>
 
               <Button
                 className="
-                                    relative z-20 
-                                    bg-white/20 text-white border border-white/40 
-                                    hover:bg-white/30 hover:border-white/60
-                                    disabled:opacity-50 disabled:cursor-not-allowed
-                                "
+                  relative z-20 
+                  bg-white/20 text-white border border-white/40 
+                  hover:bg-white/30 hover:border-white/60
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  min-w-[100px]
+                "
                 isDisabled={loading}
-                isLoading={loading}
                 size="sm"
-                startContent={!loading ? <ShoppingCart size={16} /> : null}
+                startContent={
+                  loading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <ShoppingCart size={16} />
+                  )
+                }
                 onPress={() => onPurchase(productType)}
               >
                 {getButtonText(productType)}
