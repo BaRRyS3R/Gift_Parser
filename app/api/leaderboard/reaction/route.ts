@@ -14,7 +14,6 @@ interface SafeReactionLeaderboardEntry {
     bestReactionTime: number;
     reactionGames: number;
     bestReactionScore: number;
-    lastPlayedAt?: string;
     isCurrentUser: boolean;
 }
 
@@ -37,7 +36,6 @@ export const GET = withAuth(async (request) => {
                 bestReactionTime: entry.best_reaction_time,
                 reactionGames: entry.reaction_games,
                 bestReactionScore: entry.best_reaction_score,
-                lastPlayedAt: entry.last_played_at,
                 isCurrentUser: entry.telegram_id === user.telegramId,
             })
         );

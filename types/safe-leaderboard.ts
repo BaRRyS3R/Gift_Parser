@@ -5,7 +5,6 @@ export interface SafeLeaderboardEntry {
     displayName: string;
     username?: string;
     isPremium: boolean;
-    lastPlayedAt?: string;
     isCurrentUser: boolean;
 }
 

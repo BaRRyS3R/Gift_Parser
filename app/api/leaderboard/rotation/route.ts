@@ -16,7 +16,6 @@ interface SafeRotationLeaderboardEntry {
     bestStreak: number;
     totalHits: number;
     rotationGames: number;
-    lastPlayedAt?: string;
     isCurrentUser: boolean;
 }
 
@@ -41,7 +40,6 @@ export const GET = withAuth(async (request) => {
                 bestStreak: entry.best_streak,
                 totalHits: entry.total_hits,
                 rotationGames: entry.rotation_games,
-                lastPlayedAt: entry.last_played_at,
                 isCurrentUser: entry.telegram_id === user.telegramId,
             })
         );

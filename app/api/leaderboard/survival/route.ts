@@ -15,7 +15,6 @@ interface SafeSurvivalLeaderboardEntry {
     maxLevel: number;
     bestStreak: number;
     survivalGames: number;
-    lastPlayedAt?: string;
     isCurrentUser: boolean;
 }
 
@@ -39,7 +38,6 @@ export const GET = withAuth(async (request) => {
                 maxLevel: entry.max_level,
                 bestStreak: entry.best_streak,
                 survivalGames: entry.survival_games,
-                lastPlayedAt: entry.last_played_at,
                 isCurrentUser: entry.telegram_id === user.telegramId,
             })
         );

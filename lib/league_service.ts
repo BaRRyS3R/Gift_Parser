@@ -79,7 +79,6 @@ export interface LeagueLeaderboard {
   userPosition: number | null;
   userGamesToNextReward: number | null;
   topPlayers: Array<{
-    user_id: string;
     first_name: string;
     last_name?: string;
     username?: string;
@@ -666,7 +665,6 @@ export const leagueService = {
 
       if (leagueError || !league) {
         console.error("Error fetching league:", leagueError);
-
         return null;
       }
 
@@ -674,12 +672,12 @@ export const leagueService = {
         .from("users")
         .select(
           `
-                    id,
-                    first_name,
-                    last_name,
-                    username,
-                    total_games
-                `,
+        id,
+        first_name,
+        last_name,
+        username,
+        total_games
+      `,
         )
         .gte("total_games", league.min_games)
         .lte("total_games", league.max_games || 999999)
@@ -688,7 +686,6 @@ export const leagueService = {
 
       if (usersError) {
         console.error("Error fetching users in league:", usersError);
-
         return null;
       }
 
@@ -736,16 +733,17 @@ export const leagueService = {
         }
       }
 
+      // ИСПРАВЛЕНИЕ: Убираем user_id из topPlayers для безопасности
       const topPlayers = (usersInLeague || [])
         .slice(0, 5)
         .map((user, index) => ({
-          user_id: user.id,
+          // user_id: user.id, // УБРАНО: не передаем чувствительную информацию
           first_name: user.first_name,
           last_name: user.last_name,
           username: user.username,
           games_count: user.total_games,
           position: index + 1,
-          got_reward: rewardedUserIds.has(user.id),
+          got_reward: rewardedUserIds.has(user.id), // используем для проверки, но не передаем
         }));
 
       let nextRewardAt: number | null = null;
@@ -770,7 +768,6 @@ export const leagueService = {
       };
     } catch (error) {
       console.error("Error getting league leaderboard:", error);
-
       return null;
     }
   },

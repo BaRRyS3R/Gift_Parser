@@ -16,7 +16,6 @@ interface SafePhysicsLeaderboardEntry {
     bestHits: number;
     leastMistakes: number;
     physicsGames: number;
-    lastPlayedAt?: string;
     isCurrentUser: boolean;
 }
 
@@ -41,7 +40,6 @@ export const GET = withAuth(async (request) => {
                 bestHits: entry.best_hits,
                 leastMistakes: entry.least_mistakes,
                 physicsGames: entry.physics_games,
-                lastPlayedAt: entry.last_played_at,
                 isCurrentUser: entry.telegram_id === user.telegramId,
             })
         );

@@ -399,8 +399,8 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                             <div className={`text-xs ${colors.accent}`}>
                               {leaderboard.rewardsRemaining > 0
                                 ? t("leagues.rewardsSection.rewardsLeft", {
-                                    count: leaderboard.rewardsRemaining,
-                                  })
+                                  count: leaderboard.rewardsRemaining,
+                                })
                                 : t("leagues.rewardsSection.allClaimed")}
                             </div>
                           </div>
@@ -428,7 +428,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                             <div className="flex items-center space-x-1">
                               <Gift className={colors.text} size={14} />
                               {leaderboard &&
-                              leaderboard.rewardsGiven >= reward.position ? (
+                                leaderboard.rewardsGiven >= reward.position ? (
                                 <span className="text-red-400 text-xs">
                                   {t("leagues.rewardsSection.claimed")}
                                 </span>
@@ -455,7 +455,8 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
     );
   };
 
-  // Leaderboard Tab Component
+  // В LeaderboardTab компоненте нужно изменить key с player.user_id на player.position
+
   const LeaderboardTab = () => {
     if (!leagueData) return null;
 
@@ -512,14 +513,14 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                   {leaderboard.topPlayers.length > 0 ? (
                     leaderboard.topPlayers.map((player: any) => (
                       <div
-                        key={player.user_id}
+                        // ИСПРАВЛЕНИЕ: Используем position вместо user_id для безопасности
+                        key={`${leaderboard.league.id}-${player.position}`}
                         className="flex items-center justify-between p-2 rounded bg-white/5"
                       >
                         <div className="flex items-center space-x-3">
                           <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                              player.position <= 3 ? colors.bg : "bg-white/10"
-                            } ${player.position <= 3 ? colors.text : "text-white/60"}`}
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${player.position <= 3 ? colors.bg : "bg-white/10"
+                              } ${player.position <= 3 ? colors.text : "text-white/60"}`}
                           >
                             {player.position}
                           </div>
