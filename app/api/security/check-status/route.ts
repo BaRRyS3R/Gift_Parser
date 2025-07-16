@@ -1,8 +1,16 @@
-// src/app/api/security/check-status/route.ts - Security check status API endpoint
+// src/app/api/security/check-status/route.ts - Updated with new trust score thresholds
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseServer } from "@/lib/supabase-server";
+
+// Updated trust score thresholds
+const TRUST_SCORE_THRESHOLDS = {
+  GYROSCOPE: 10, // Below this requires gyroscope
+  BIOMETRIC: 20, // Below this requires biometric  
+  CAPTCHA: 40,   // Below this requires captcha
+  GOOD: 60,      // Above this is considered good
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -82,12 +90,21 @@ export async function GET(request: NextRequest) {
 
     const trustScore = user.trust_score || 50;
 
+    // Enhanced logic with new thresholds including gyroscope
+    const needsGyroscope = !isBlocked && trustScore < TRUST_SCORE_THRESHOLDS.GYROSCOPE;
+    const needsBiometric = !isBlocked && trustScore < TRUST_SCORE_THRESHOLDS.BIOMETRIC && !needsGyroscope;
+    const needsCaptcha = !isBlocked && trustScore < TRUST_SCORE_THRESHOLDS.CAPTCHA && !needsBiometric && !needsGyroscope;
+
+    console.log(`Security check for user ${telegramId}: trust_score=${trustScore}, gyroscope=${needsGyroscope}, biometric=${needsBiometric}, captcha=${needsCaptcha}`);
+
     return NextResponse.json({
       success: true,
       securityResult: {
         isBlocked,
-        needsCaptcha: !isBlocked && trustScore < 40,
-        needsBiometric: !isBlocked && trustScore < 20,
+        needsCaptcha,
+        needsBiometric,
+        needsGyroscope, // NEW: Added gyroscope requirement
+        trustScore,
         timeUntilUnblock:
           timeUntilUnblock && timeUntilUnblock > 0
             ? timeUntilUnblock

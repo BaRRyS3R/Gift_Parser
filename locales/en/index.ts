@@ -17,6 +17,7 @@ import { about } from "./about";
 import { leagues } from "./leagues";
 import { achievements } from "./achievements";
 import { tasks } from "./tasks";
+import { security } from "./security";
 
 export const en = {
   // Common UI elements
@@ -27,6 +28,9 @@ export const en = {
 
   // Tasks
   tasks,
+
+  // Security
+  security,
 
   // Main page
   main,

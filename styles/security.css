@@ -1,0 +1,378 @@
+/* src/styles/security.css - Security components styling */
+
+/* Security Modal Animations */
+.security-modal-enter {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+}
+
+.security-modal-enter-active {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    transition: all 300ms ease-out;
+}
+
+.security-modal-exit {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+}
+
+.security-modal-exit-active {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+    transition: all 250ms ease-in;
+}
+
+/* Motion Detection Animation */
+.motion-pulse {
+    animation: motion-pulse 2s ease-in-out infinite;
+}
+
+@keyframes motion-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+/* Gyroscope Animation */
+.gyroscope-shake {
+    animation: gyroscope-shake 0.5s ease-in-out;
+}
+
+@keyframes gyroscope-shake {
+
+    0%,
+    100% {
+        transform: rotate(0deg);
+    }
+
+    25% {
+        transform: rotate(-5deg);
+    }
+
+    75% {
+        transform: rotate(5deg);
+    }
+}
+
+/* Trust Score Bar Animation */
+.trust-score-bar {
+    position: relative;
+    overflow: hidden;
+    border-radius: 4px;
+    background: rgba(75, 85, 99, 0.3);
+}
+
+.trust-score-fill {
+    height: 100%;
+    transition: width 1s ease-out, background-color 0.5s ease;
+    position: relative;
+}
+
+.trust-score-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, 0.2),
+            transparent);
+    animation: trust-score-shimmer 2s infinite;
+}
+
+@keyframes trust-score-shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Security Warning Banner */
+.security-warning {
+    background: linear-gradient(135deg,
+            rgba(251, 191, 36, 0.1),
+            rgba(245, 158, 11, 0.1));
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    animation: warning-glow 3s ease-in-out infinite;
+}
+
+@keyframes warning-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 5px rgba(251, 191, 36, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+    }
+}
+
+/* Blocked Page Gradients */
+.blocked-gradient {
+    background: linear-gradient(135deg,
+            rgba(15, 23, 42, 0.9),
+            rgba(30, 41, 59, 0.9),
+            rgba(15, 23, 42, 0.9));
+}
+
+.block-reason-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.block-reason-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, 0.05),
+            transparent);
+    animation: card-shimmer 3s infinite;
+}
+
+@keyframes card-shimmer {
+    0% {
+        left: -100%;
+    }
+
+    100% {
+        left: 100%;
+    }
+}
+
+/* Countdown Timer */
+.countdown-timer {
+    font-family: 'Courier New', monospace;
+    position: relative;
+}
+
+.countdown-timer::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+            transparent,
+            currentColor,
+            transparent);
+    animation: timer-progress 1s ease-in-out infinite;
+}
+
+@keyframes timer-progress {
+
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Biometric Scan Animation */
+.biometric-scan {
+    position: relative;
+}
+
+.biometric-scan::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(59, 130, 246, 0.8),
+            transparent);
+    animation: scan-line 2s ease-in-out infinite;
+}
+
+@keyframes scan-line {
+    0% {
+        transform: translateY(0);
+    }
+
+    100% {
+        transform: translateY(200%);
+    }
+}
+
+/* Security Level Indicators */
+.security-level-critical {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.1));
+    border-color: rgba(239, 68, 68, 0.3);
+    color: rgb(248, 113, 113);
+}
+
+.security-level-low {
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.1), rgba(234, 88, 12, 0.1));
+    border-color: rgba(251, 146, 60, 0.3);
+    color: rgb(251, 146, 60);
+}
+
+.security-level-fair {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
+    border-color: rgba(251, 191, 36, 0.3);
+    color: rgb(251, 191, 36);
+}
+
+.security-level-good {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.1));
+    border-color: rgba(34, 197, 94, 0.3);
+    color: rgb(34, 197, 94);
+}
+
+/* Button States */
+.security-button {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.security-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.security-button:active {
+    transform: translateY(0);
+}
+
+.security-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, 0.1),
+            transparent);
+    transition: left 0.5s;
+}
+
+.security-button:hover::before {
+    left: 100%;
+}
+
+/* Loading States */
+.security-loading {
+    position: relative;
+}
+
+.security-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.1);
+    animation: loading-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+
+    0%,
+    100% {
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+    .security-modal-content {
+        margin: 1rem;
+        max-height: calc(100vh - 2rem);
+    }
+
+    .countdown-timer {
+        font-size: 2rem;
+    }
+
+    .trust-score-bar {
+        height: 6px;
+    }
+}
+
+/* Dark Mode Enhancements */
+@media (prefers-color-scheme: dark) {
+    .security-modal {
+        backdrop-filter: blur(20px);
+    }
+
+    .block-reason-card {
+        background: rgba(17, 24, 39, 0.8);
+        border-color: rgba(75, 85, 99, 0.5);
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .security-level-critical {
+        border-width: 2px;
+        background: rgba(239, 68, 68, 0.2);
+    }
+
+    .security-level-low {
+        border-width: 2px;
+        background: rgba(251, 146, 60, 0.2);
+    }
+
+    .security-level-fair {
+        border-width: 2px;
+        background: rgba(251, 191, 36, 0.2);
+    }
+
+    .security-level-good {
+        border-width: 2px;
+        background: rgba(34, 197, 94, 0.2);
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+
+    .motion-pulse,
+    .gyroscope-shake,
+    .trust-score-fill,
+    .warning-glow,
+    .card-shimmer,
+    .timer-progress,
+    .scan-line,
+    .loading-pulse {
+        animation: none;
+    }
+
+    .security-button {
+        transition: none;
+    }
+}

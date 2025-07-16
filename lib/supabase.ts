@@ -31,10 +31,17 @@ const ATTEMPTS_CONFIG = {
   REFERRAL_BONUS: 5,
 } as const;
 
-// SECURITY: Block duration configuration (easily adjustable)
+const SECURITY_THRESHOLDS = {
+  GYROSCOPE: 10,   // Below this requires gyroscope
+  BIOMETRIC: 20,   // Below this requires biometric  
+  CAPTCHA: 40,     // Below this requires captcha
+  GOOD: 60,        // Above this is considered good
+} as const;
+
+// Updated block durations with new values
 const BLOCK_DURATIONS = {
-  CAPTCHA_FAILED: 2, // minutes
-  BIOMETRIC_FAILED: 5, // minutes
+  CAPTCHA_FAILED: 2,     // minutes
+  BIOMETRIC_FAILED: 5,   // minutes  
   SUSPICIOUS_ACTIVITY: 10, // minutes
 } as const;
 
@@ -150,6 +157,7 @@ export interface SecurityCheckResult {
   isBlocked: boolean;
   needsCaptcha: boolean;
   needsBiometric: boolean;
+  needsGyroscope?: boolean; // NEW: Added gyroscope requirement
   trustScore: number;
   timeUntilUnblock?: number;
   blockReason?: string;
@@ -593,7 +601,7 @@ export const userService = {
    */
   async checkUserBlockStatus(telegramId: number): Promise<SecurityCheckResult> {
     try {
-      // First check and unblock if time has passed
+      // Check and unblock if time has passed
       const { error: unblockError } = await supabase.rpc(
         "check_and_unblock_user",
         {
@@ -641,10 +649,16 @@ export const userService = {
 
       const trustScore = user.trust_score || 50;
 
+      // Enhanced logic with new thresholds including gyroscope
+      const needsGyroscope = !isBlocked && trustScore < SECURITY_THRESHOLDS.GYROSCOPE;
+      const needsBiometric = !isBlocked && trustScore < SECURITY_THRESHOLDS.BIOMETRIC && !needsGyroscope;
+      const needsCaptcha = !isBlocked && trustScore < SECURITY_THRESHOLDS.CAPTCHA && !needsBiometric && !needsGyroscope;
+
       return {
         isBlocked,
-        needsCaptcha: !isBlocked && trustScore < 40,
-        needsBiometric: !isBlocked && trustScore < 20,
+        needsCaptcha,
+        needsBiometric,
+        needsGyroscope,
         trustScore,
         timeUntilUnblock:
           timeUntilUnblock && timeUntilUnblock > 0
@@ -754,19 +768,23 @@ export const userService = {
     try {
       const isCorrect = userInput.toLowerCase() === correctAnswer.toLowerCase();
 
-      if (isCorrect && completedInTime) {
-        // Captcha passed - increase trust score
-        const newTrustScore = await this.updateTrustScore(telegramId, 15);
+      // Special handling for gyroscope motion detection
+      const isMotionValidation = userInput === "MOTION" && correctAnswer === "MOTION";
 
-        secureLog(`Captcha passed for user ${telegramId}`);
+      if ((isCorrect || isMotionValidation) && completedInTime) {
+        // Captcha/Motion passed - increase trust score by 40 points
+        const newTrustScore = await this.updateTrustScore(telegramId, 40);
+
+        secureLog(`Captcha/Motion passed for user ${telegramId}, trust score increased by 40`);
 
         return { success: true, newTrustScore };
       } else {
-        // Captcha failed - block user and decrease trust score
-        await this.updateTrustScore(telegramId, -10);
+        // Captcha/Motion failed - decrease trust score by 20 points and block user
+        await this.updateTrustScore(telegramId, -20);
         await this.blockUser(telegramId, "captcha_failed");
+
         secureLog(
-          `Captcha failed for user ${telegramId}: ${!isCorrect ? "incorrect answer" : "timeout"}`,
+          `Captcha/Motion failed for user ${telegramId}: ${!isCorrect ? "incorrect answer" : "timeout"}, trust score decreased by 20`,
         );
 
         return { success: false, newTrustScore: 0 };
@@ -780,6 +798,7 @@ export const userService = {
     }
   },
 
+
   /**
    * Validate biometric authentication and update trust score
    */
@@ -790,18 +809,19 @@ export const userService = {
   ): Promise<{ success: boolean; newTrustScore: number }> {
     try {
       if (success && completedInTime) {
-        // Biometric passed - increase trust score significantly
-        const newTrustScore = await this.updateTrustScore(telegramId, 30);
+        // Biometric passed - increase trust score by 20 points
+        const newTrustScore = await this.updateTrustScore(telegramId, 20);
 
-        secureLog(`Biometric authentication passed for user ${telegramId}`);
+        secureLog(`Biometric authentication passed for user ${telegramId}, trust score increased by 20`);
 
         return { success: true, newTrustScore };
       } else {
-        // Biometric failed - block user and decrease trust score
-        await this.updateTrustScore(telegramId, -15);
+        // Biometric failed - decrease trust score by 20 points and block user
+        await this.updateTrustScore(telegramId, -20);
         await this.blockUser(telegramId, "biometric_failed");
+
         secureLog(
-          `Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"}`,
+          `Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"}, trust score decreased by 20`,
         );
 
         return { success: false, newTrustScore: 0 };
@@ -960,8 +980,8 @@ export const userService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
-              (totalReactionGames + 1)
+              reactionResult.reactionTime) /
+            (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
@@ -1404,7 +1424,7 @@ export interface LeaderboardEntry {
   total_games: number;
   last_played_at?: string;
 }
-
+export const TRUST_SCORE_THRESHOLDS = SECURITY_THRESHOLDS;
 export interface ReactionLeaderboard {
   telegram_id: number;
   first_name: string;

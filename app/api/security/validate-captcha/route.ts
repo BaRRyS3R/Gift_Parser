@@ -1,4 +1,4 @@
-// src/app/api/security/validate-captcha/route.ts - Validate captcha API endpoint
+// src/app/api/security/validate-captcha/route.ts - Updated with new trust score values
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -36,29 +36,30 @@ export async function POST(request: NextRequest) {
     const isCorrect = userInput.toLowerCase() === correctAnswer.toLowerCase();
 
     if (isCorrect && completedInTime) {
-      // Captcha passed - increase trust score
+      // Captcha passed - increase trust score by 40 points
       const { data: newTrustScore, error: trustError } =
         await supabaseServer.rpc("update_trust_score", {
           user_telegram_id: parseInt(telegramId),
-          score_change: 15,
+          score_change: 40,
         });
 
       if (trustError) {
         console.error("Error updating trust score:", trustError);
       }
 
-      console.log(`Captcha passed for user ${telegramId}`);
+      console.log(`Captcha passed for user ${telegramId}, trust score increased by 40`);
 
       return NextResponse.json({
         success: true,
+        newTrustScore: newTrustScore || 0,
       });
     } else {
-      // Captcha failed - decrease trust score and block user
+      // Captcha failed - decrease trust score by 20 points and block user
       const { error: trustError } = await supabaseServer.rpc(
         "update_trust_score",
         {
           user_telegram_id: parseInt(telegramId),
-          score_change: -10,
+          score_change: -20,
         },
       );
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(
-        `Captcha failed for user ${telegramId}: ${!isCorrect ? "incorrect answer" : "timeout"}`,
+        `Captcha failed for user ${telegramId}: ${!isCorrect ? "incorrect answer" : "timeout"}, trust score decreased by 20`,
       );
 
       return NextResponse.json({

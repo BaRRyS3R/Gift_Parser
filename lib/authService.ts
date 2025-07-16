@@ -1067,6 +1067,25 @@ class AuthService {
     });
   }
 
+  // NEW: Gyroscope validation (treated as captcha with special motion code)
+  async validateGyroscope(
+    motionDetected: boolean,
+    completedInTime: boolean,
+  ): Promise<{ success: boolean; newTrustScore: number }> {
+    // Gyroscope uses the same endpoint as captcha with special motion validation
+    return this.makeAuthenticatedRequest<{
+      success: boolean;
+      newTrustScore: number;
+    }>("/security/validate-captcha", {
+      method: "POST",
+      body: JSON.stringify({
+        userInput: "MOTION",
+        correctAnswer: "MOTION",
+        completedInTime: motionDetected && completedInTime,
+      }),
+    });
+  }
+
   async updateTrustScore(scoreChange: number): Promise<number> {
     return this.makeAuthenticatedRequest<{ newTrustScore: number }>(
       "/security/update-trust-score",
@@ -1075,24 +1094,6 @@ class AuthService {
         body: JSON.stringify({ scoreChange }),
       },
     ).then((data) => data.newTrustScore);
-  }
-
-  async checkUserBlockedStatus(
-    telegramId: number,
-  ): Promise<SecurityCheckResult> {
-    try {
-      if (this.isAuthenticated()) {
-        return await this.checkUserSecurityStatus();
-      } else {
-        console.warn("User not authenticated, using direct service call");
-
-        return await userService.checkUserBlockStatus(telegramId);
-      }
-    } catch (error) {
-      console.warn("Auth API failed, using direct service call");
-
-      return await userService.checkUserBlockStatus(telegramId);
-    }
   }
 
   // ============================================================================
@@ -1291,6 +1292,14 @@ export async function validateSecureBiometric(
   completedInTime: boolean,
 ): Promise<{ success: boolean; newTrustScore: number }> {
   return authService.validateBiometric(success, completedInTime);
+}
+
+// NEW: Gyroscope validation helper
+export async function validateSecureGyroscope(
+  motionDetected: boolean,
+  completedInTime: boolean,
+): Promise<{ success: boolean; newTrustScore: number }> {
+  return authService.validateGyroscope(motionDetected, completedInTime);
 }
 
 export async function updateSecureTrustScore(

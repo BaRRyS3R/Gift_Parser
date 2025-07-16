@@ -1,4 +1,4 @@
-// src/app/api/security/validate-biometric/route.ts - Validate biometric API endpoint
+// src/app/api/security/validate-biometric/route.ts - Updated with new trust score values
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -34,29 +34,30 @@ export async function POST(request: NextRequest) {
     }
 
     if (success && completedInTime) {
-      // Biometric passed - increase trust score significantly
+      // Biometric passed - increase trust score by 20 points
       const { data: newTrustScore, error: trustError } =
         await supabaseServer.rpc("update_trust_score", {
           user_telegram_id: parseInt(telegramId),
-          score_change: 30,
+          score_change: 20,
         });
 
       if (trustError) {
         console.error("Error updating trust score:", trustError);
       }
 
-      console.log(`Biometric authentication passed for user ${telegramId}`);
+      console.log(`Biometric authentication passed for user ${telegramId}, trust score increased by 20`);
 
       return NextResponse.json({
         success: true,
+        newTrustScore: newTrustScore || 0,
       });
     } else {
-      // Biometric failed - decrease trust score and block user
+      // Biometric failed - decrease trust score by 20 points and block user
       const { error: trustError } = await supabaseServer.rpc(
         "update_trust_score",
         {
           user_telegram_id: parseInt(telegramId),
-          score_change: -15,
+          score_change: -20,
         },
       );
 
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(
-        `Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"}`,
+        `Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"}, trust score decreased by 20`,
       );
 
       return NextResponse.json({
