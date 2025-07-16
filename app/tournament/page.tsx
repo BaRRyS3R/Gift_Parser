@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Обновленная страница турниров с защищенными API запросами
+// src/app/tournament/page.tsx - Updated tournament page with secure user identification
 
 "use client";
 
@@ -42,7 +42,7 @@ import {
 
 import { authService } from "@/lib/authService";
 import { formatTournamentSurvivalTime } from "@/utils/timeFormatter";
-import { formatTimeRemaining } from "@/types/tournaments";
+import { formatTimeRemaining, getUserPositionInTournament } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
 
@@ -322,14 +322,9 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({
   leaderboard,
   tournament,
 }) => {
-  const { user } = useUser();
   const t = useT();
 
-  if (!user) return null;
-
-  const userEntry = leaderboard.find(
-    (entry) => entry.telegram_id === user.telegram_id,
-  );
+  const userEntry = getUserPositionInTournament(leaderboard);
 
   if (!userEntry) {
     return (
@@ -357,11 +352,10 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({
     <div
       className={`
             w-full px-6 py-6 border-y transition-all duration-300
-            ${
-              isWinner
-                ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/40"
-                : "bg-white/5 border-white/10"
-            }
+            ${isWinner
+          ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/40"
+          : "bg-white/5 border-white/10"
+        }
         `}
     >
       <div className="flex items-center justify-between">
@@ -369,11 +363,10 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({
           <div
             className={`
                         w-12 h-12 rounded-xl flex items-center justify-center border-2
-                        ${
-                          isWinner
-                            ? "bg-yellow-400/20 border-yellow-400/60"
-                            : "bg-white/10 border-white/30"
-                        }
+                        ${isWinner
+                ? "bg-yellow-400/20 border-yellow-400/60"
+                : "bg-white/10 border-white/30"
+              }
                     `}
           >
             {userEntry.rank <= 3 ? (
@@ -457,7 +450,6 @@ interface TopParticipantsProps {
 
 const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
   const t = useT();
-  const { user } = useUser();
 
   const getRankIcon = (position: number) => {
     switch (position) {
@@ -472,10 +464,6 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
           <span className="text-white/50 text-sm font-medium">#{position}</span>
         );
     }
-  };
-
-  const isCurrentUser = (telegramId: number) => {
-    return user?.telegram_id === telegramId;
   };
 
   const topParticipants = leaderboard.slice(0, 5);
@@ -497,11 +485,10 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
             key={participant.id}
             className={`
                             flex items-center space-x-4 p-3 rounded-lg transition-all duration-300
-                            ${
-                              isCurrentUser(participant.telegram_id)
-                                ? "bg-white/15 border border-white/40"
-                                : "bg-white/10 hover:bg-white/15"
-                            }
+                            ${participant.is_current_user
+                ? "bg-white/15 border border-white/40"
+                : "bg-white/10 hover:bg-white/15"
+              }
                         `}
           >
             <div className="flex items-center justify-center w-8">
@@ -511,14 +498,11 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <span
-                  className={`font-medium text-sm ${isCurrentUser(participant.telegram_id) ? "text-white" : "text-white/90"}`}
+                  className={`font-medium text-sm ${participant.is_current_user ? "text-white" : "text-white/90"}`}
                 >
                   {participant.first_name} {participant.last_name || ""}
                 </span>
-                {participant.is_premium && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                )}
-                {isCurrentUser(participant.telegram_id) && (
+                {participant.is_current_user && (
                   <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded">
                     {t("tournament.you")}
                   </span>
@@ -575,7 +559,6 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
   tournament,
 }) => {
   const t = useT();
-  const { user } = useUser();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
   const totalPages = Math.ceil(participants.length / itemsPerPage);
@@ -600,9 +583,6 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
         );
     }
   };
-
-  const isCurrentUser = (telegramId: number) =>
-    user?.telegram_id === telegramId;
 
   return (
     <Modal
@@ -645,13 +625,12 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                 key={participant.id}
                 className={`
                                     flex items-center space-x-4 p-3 rounded-lg border transition-all duration-300
-                                    ${
-                                      isCurrentUser(participant.telegram_id)
-                                        ? "bg-white/15 border-white/40 ring-1 ring-white/30"
-                                        : isWinner
-                                          ? "bg-yellow-500/10 border-yellow-400/30"
-                                          : "bg-white/5 border-white/20 hover:bg-white/10"
-                                    }
+                                    ${participant.is_current_user
+                    ? "bg-white/15 border-white/40 ring-1 ring-white/30"
+                    : isWinner
+                      ? "bg-yellow-500/10 border-yellow-400/30"
+                      : "bg-white/5 border-white/20 hover:bg-white/10"
+                  }
                                 `}
               >
                 <div className="flex items-center justify-center w-8">
@@ -661,20 +640,16 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2">
                     <span
-                      className={`font-medium text-sm ${
-                        isCurrentUser(participant.telegram_id)
+                      className={`font-medium text-sm ${participant.is_current_user
                           ? "text-white"
                           : isWinner
                             ? "text-yellow-400"
                             : "text-white/90"
-                      }`}
+                        }`}
                     >
                       {participant.first_name} {participant.last_name || ""}
                     </span>
-                    {participant.is_premium && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                    )}
-                    {isCurrentUser(participant.telegram_id) && (
+                    {participant.is_current_user && (
                       <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded">
                         {t("tournament.you")}
                       </span>
@@ -804,21 +779,19 @@ const PrizesModal: React.FC<PrizesModalProps> = ({
               key={index}
               className={`
                                 flex items-center space-x-4 p-4 rounded-lg border transition-all duration-300
-                                ${
-                                  index < 3
-                                    ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/30"
-                                    : "bg-white/5 border-white/20"
-                                }
+                                ${index < 3
+                  ? "bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-400/30"
+                  : "bg-white/5 border-white/20"
+                }
                             `}
             >
               <div
                 className={`
                                 w-12 h-12 rounded-xl flex items-center justify-center border
-                                ${
-                                  index < 3
-                                    ? "bg-yellow-400/20 border-yellow-400/40"
-                                    : "bg-white/10 border-white/30"
-                                }
+                                ${index < 3
+                    ? "bg-yellow-400/20 border-yellow-400/40"
+                    : "bg-white/10 border-white/30"
+                  }
                             `}
               >
                 {getRankIcon(index + 1)}
@@ -827,9 +800,8 @@ const PrizesModal: React.FC<PrizesModalProps> = ({
               <div className="flex-1">
                 <div className="flex items-center space-x-2">
                   <span
-                    className={`text-lg font-bold ${
-                      index < 3 ? "text-yellow-400" : "text-white"
-                    }`}
+                    className={`text-lg font-bold ${index < 3 ? "text-yellow-400" : "text-white"
+                      }`}
                   >
                     {index + 1} {t("tournament.place")}
                   </span>
@@ -1046,11 +1018,10 @@ const ActiveTournamentSection: React.FC<ActiveTournamentSectionProps> = ({
         <button
           className={`
                         w-full px-6 py-4 rounded-xl text-lg font-bold transition-all duration-300 flex items-center justify-center space-x-3
-                        ${
-                          hasAttemptsRemaining
-                            ? "bg-white/15 border-2 border-white/40 text-white hover:border-white/60 hover:bg-white/20 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
-                            : "bg-white/5 border border-white/20 text-white/50 cursor-not-allowed opacity-60"
-                        }
+                        ${hasAttemptsRemaining
+              ? "bg-white/15 border-2 border-white/40 text-white hover:border-white/60 hover:bg-white/20 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+              : "bg-white/5 border border-white/20 text-white/50 cursor-not-allowed opacity-60"
+            }
                     `}
           disabled={!hasAttemptsRemaining}
           onClick={onPlayClick}
@@ -1649,7 +1620,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                           {Math.ceil(
                             (new Date(tournament.end_date).getTime() -
                               new Date(tournament.start_date).getTime()) /
-                              (1000 * 60 * 60 * 24),
+                            (1000 * 60 * 60 * 24),
                           )}{" "}
                           {t("tournament.days")}
                         </div>
@@ -1735,7 +1706,13 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                               return (
                                 <div
                                   key={winner.id}
-                                  className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/8 transition-all duration-300"
+                                  className={`
+                                                    flex items-center justify-between p-3 rounded-lg border transition-all duration-300
+                                                    ${winner.is_current_user
+                                      ? "bg-white/15 border-white/40"
+                                      : "bg-white/5 border-white/10 hover:bg-white/8"
+                                    }
+                                                `}
                                 >
                                   <div className="flex items-center space-x-4">
                                     <div className="flex items-center justify-center w-8">
@@ -1745,6 +1722,11 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                                       <div className="text-sm font-bold text-white/80">
                                         {winner.first_name}{" "}
                                         {winner.last_name || ""}
+                                        {winner.is_current_user && (
+                                          <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded ml-2">
+                                            {t("tournament.you")}
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="flex items-center space-x-2 text-xs text-white/50">
                                         <div className="flex items-center space-x-1">
@@ -1869,7 +1851,7 @@ export default function TournamentsPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);

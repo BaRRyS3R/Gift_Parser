@@ -547,19 +547,6 @@ export default function MainPage() {
 
       {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
-        {/* Trust Score Indicator */}
-        <div>
-          {!securityState.isLoading && (
-            <div className="flex items-center space-x-2 px-3 py-1 bg-black/30 backdrop-blur-sm border border-white/20 rounded-full">
-              <Shield className={trustScoreInfo.color} size={14} />
-              <span className={`text-xs font-bold ${trustScoreInfo.color}`}>
-                {securityState.trustScore}
-              </span>
-              <span className="text-white/60 text-xs">/ 100</span>
-            </div>
-          )}
-        </div>
-
         {/* Title Section */}
         <div className="relative">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">

@@ -1,4 +1,4 @@
-// src/app/api/tournament/save-result/route.ts - Save tournament result
+// src/app/api/tournament/save-result/route.ts - Save tournament result with minimal response
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseServer } from "@/lib/supabase-server";
@@ -76,33 +76,32 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Error saving tournament result:", error);
 
-      return NextResponse.json(
-        {
+      return NextResponse.json({
+        success: false,
+        tournamentResult: {
           success: false,
-          error: "Failed to save tournament result",
+          message: "bad save"
         },
-        { status: 500 },
-      );
+      });
     }
 
-    // Parse response data (might be JSON string)
-    const saveResponse = typeof data === "string" ? JSON.parse(data) : data;
-
+    // Return minimal success response without sensitive data
     return NextResponse.json({
       success: true,
-      tournamentResult: saveResponse,
+      tournamentResult: {
+        success: true,
+        message: "success"
+      },
     });
   } catch (error) {
     console.error("Save tournament result API error:", error);
 
-    return NextResponse.json(
-      {
+    return NextResponse.json({
+      success: false,
+      tournamentResult: {
         success: false,
-        error: "Failed to save tournament result",
-        message:
-          error instanceof Error ? error.message : "Unknown error occurred",
+        message: "bad save"
       },
-      { status: 500 },
-    );
+    });
   }
 }

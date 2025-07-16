@@ -1,4 +1,4 @@
-// src/app/api/tournament/leaderboard/route.ts - Get tournament leaderboard
+// src/app/api/tournament/leaderboard/route.ts - Get tournament leaderboard with current user flag
 import { NextRequest, NextResponse } from "next/server";
 
 import { supabaseServer } from "@/lib/supabase-server";
@@ -53,9 +53,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Filter out sensitive data and add current user flag
+    const currentUserTelegramId = parseInt(telegramId);
+    const filteredLeaderboard = (data || []).map((entry: any) => ({
+      id: entry.id,
+      first_name: entry.first_name,
+      last_name: entry.last_name,
+      username: entry.username,
+      survival_time: entry.survival_time,
+      survival_score: entry.survival_score,
+      max_level_reached: entry.max_level_reached,
+      perfect_streak: entry.perfect_streak,
+      correct_hits: entry.correct_hits,
+      games_played: entry.games_played,
+      rank: entry.rank,
+      is_current_user: entry.telegram_id === currentUserTelegramId,
+    }));
+
     return NextResponse.json({
       success: true,
-      leaderboard: data || [],
+      leaderboard: filteredLeaderboard,
     });
   } catch (error) {
     console.error("Tournament leaderboard API error:", error);

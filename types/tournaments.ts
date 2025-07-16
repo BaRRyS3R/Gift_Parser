@@ -1,4 +1,4 @@
-// src/types/tournaments.ts - Complete tournament types with sponsor fields
+// src/types/tournaments.ts - Complete tournament types with secure user identification
 
 import { SurvivalGameResult } from "./game-modes/survival";
 
@@ -25,26 +25,20 @@ export interface Tournament {
   sponsor_image_url?: string;
 }
 
-// Extended tournament leaderboard entry interface with point accumulation support
+// Updated secure tournament leaderboard entry interface with current user flag
 export interface TournamentLeaderboardEntry {
   id: string;
-  tournament_id: string;
-  user_id: string;
-  telegram_id: number;
   first_name: string;
   last_name?: string;
   username?: string;
-  is_premium: boolean;
   survival_time: number; // Best survival time
   survival_score: number; // Accumulated points for all tournament games
-  last_game_score: number; // Points for last game
   max_level_reached: number; // Maximum level reached
   perfect_streak: number; // Best streak without errors
   correct_hits: number; // Total correct hits for all games
-  death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
   games_played: number; // Number of games played in tournament
-  created_at: string;
   rank: number;
+  is_current_user?: boolean; // Flag to identify current user's entry
 }
 
 // Interface for saving tournament game result
@@ -77,13 +71,10 @@ export interface TournamentGameResult extends SurvivalGameResult {
   tournamentId: string;
 }
 
-// Server response interface when saving result with point accumulation
+// Updated secure tournament save response interface - simplified for security
 export interface TournamentSaveResponse {
-  result_id: string;
-  total_score: number; // Total accumulated points
-  game_score: number; // Points for current game
-  games_played: number; // Total number of games
-  previous_total: number; // Previous total score
+  success: boolean;
+  message?: string;
 }
 
 // Tournament with status interface for comprehensive tournament listing
@@ -290,13 +281,12 @@ export const sortTournamentsByPriority = (
 };
 
 /**
- * Get user position in tournament
+ * Get user position in tournament using is_current_user flag
  */
 export const getUserPositionInTournament = (
   leaderboard: TournamentLeaderboardEntry[],
-  telegramId: number,
 ): TournamentLeaderboardEntry | null => {
-  return leaderboard.find((entry) => entry.telegram_id === telegramId) || null;
+  return leaderboard.find((entry) => entry.is_current_user === true) || null;
 };
 
 /**
