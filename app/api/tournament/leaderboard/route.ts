@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     // Filter out sensitive data and add current user flag
     const currentUserTelegramId = parseInt(telegramId);
     const filteredLeaderboard = (data || []).map((entry: any) => ({
-      id: entry.id,
+     // id: entry.id,
       first_name: entry.first_name,
       last_name: entry.last_name,
       username: entry.username,
