@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        newTrustScore: newTrustScore || 50,
       });
     } else {
       // Captcha failed - decrease trust score and block user

@@ -61,7 +61,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      newTrustScore: newTrustScore || 0,
     });
   } catch (error) {
     console.error("Update trust score API error:", error);

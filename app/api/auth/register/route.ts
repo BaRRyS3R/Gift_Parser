@@ -152,7 +152,6 @@ export async function POST(request: NextRequest) {
 
     // Return safe user data
     const safeUser = {
-      id: newUser.id,
       telegram_id: newUser.telegram_id,
       first_name: newUser.first_name,
       last_name: newUser.last_name,

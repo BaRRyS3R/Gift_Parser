@@ -1,4 +1,4 @@
-// src/lib/authService.ts - Enhanced with complete profile API integration
+// src/lib/authService.ts - Полная версия с интегрированной системой безопасности
 
 import type {
   Tournament,
@@ -11,7 +11,6 @@ import type {
 import {
   GameSaveResult,
   AttemptsStatus,
-  SecurityCheckResult,
   userService,
 } from "@/lib/supabase";
 import {
@@ -22,7 +21,6 @@ import {
 } from "@/types/game-modes";
 import { TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
 
-// Enhanced profile types
 export interface ProfileData {
   user: {
     telegram_id: number;
@@ -35,33 +33,27 @@ export interface ProfileData {
     total_games: number;
     total_score: number;
     best_score: number;
-
-    // Game mode statistics
     reaction_games: number;
     reaction_best_score: number;
     reaction_best_time: number;
     reaction_average_time: number;
-
     survival_games: number;
     survival_best_score: number;
     survival_best_time: number;
     survival_max_level: number;
     survival_best_streak: number;
-
     physics_games: number;
     physics_best_score: number;
     physics_best_time: number;
     physics_total_hits: number;
     physics_best_hits: number;
     physics_least_mistakes: number;
-
     rotation_games: number;
     rotation_best_score: number;
     rotation_best_time: number;
     rotation_max_level: number;
     rotation_best_streak: number;
     rotation_total_hits: number;
-
     referral_count: number;
     last_played_at?: string;
   };
@@ -95,7 +87,6 @@ export interface LeagueData {
 }
 
 export interface AuthUser {
-  id: string;
   telegram_id: number;
   first_name: string;
   last_name?: string;
@@ -106,7 +97,6 @@ export interface AuthUser {
   total_score: number;
   best_score: number;
   current_league_id?: number;
-  trust_score: number;
   blocked_until?: string;
 }
 
@@ -161,6 +151,23 @@ export interface LeagueProgressInfo {
   gamesToNextLeague: number;
   progressPercent: number;
   isMaxLeague: boolean;
+}
+
+export interface SecurityEvaluation {
+  status: "allow" | "require_verification" | "block";
+  method?: "interactive" | "biometric";
+  token?: string;
+  expires?: number;
+}
+
+export interface SecurityChallenge {
+  question: string;
+  expectedAnswer: string;
+}
+
+export interface VerificationResult {
+  verified: boolean;
+  status: string;
 }
 
 type GameResult =
@@ -248,7 +255,6 @@ class AuthService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-
         throw new Error(
           errorData.message || `Request failed with status ${response.status}`,
         );
@@ -330,7 +336,6 @@ class AuthService {
       };
     } catch (error) {
       console.error("Login check error:", error);
-
       return {
         success: false,
         error: error instanceof Error ? error.message : "Login failed",
@@ -374,7 +379,6 @@ class AuthService {
       };
     } catch (error) {
       console.error("Registration error:", error);
-
       return {
         success: false,
         error: error instanceof Error ? error.message : "Registration failed",
@@ -506,16 +510,6 @@ class AuthService {
     ).then((data) => data.user);
   }
 
-  async checkUserSecurityStatus(): Promise<SecurityCheckResult> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    return this.makeAuthenticatedRequest<{
-      securityResult: SecurityCheckResult;
-    }>("/security/check-status").then((data) => data.securityResult);
-  }
-
   async getLeagueProgress(): Promise<LeagueProgressInfo> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -524,6 +518,74 @@ class AuthService {
     return this.makeAuthenticatedRequest<{ progressInfo: LeagueProgressInfo }>(
       "/leagues/progress",
     ).then((data) => data.progressInfo);
+  }
+
+  // ============================================================================
+  // ENHANCED SECURITY METHODS
+  // ============================================================================
+
+  async evaluateSecurityRequirements(action: string = "game_access"): Promise<SecurityEvaluation> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<SecurityEvaluation>(
+      "/security/evaluate",
+      {
+        method: "POST",
+        body: JSON.stringify({ action }),
+      },
+    );
+  }
+
+  async submitVerification(
+    token: string,
+    method: "interactive" | "biometric",
+    payload: any
+  ): Promise<VerificationResult> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<VerificationResult>(
+      "/security/verify",
+      {
+        method: "POST",
+        body: JSON.stringify({ token, method, payload }),
+      },
+    );
+  }
+
+  async generateInteractiveChallenge(): Promise<SecurityChallenge> {
+    const operations = [
+      { op: "+", symbol: "+" },
+      { op: "-", symbol: "-" },
+      { op: "*", symbol: "×" }
+    ];
+
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
+    const operation = operations[Math.floor(Math.random() * operations.length)];
+
+    let result: number;
+    switch (operation.op) {
+      case "+":
+        result = num1 + num2;
+        break;
+      case "-":
+        result = num1 - num2;
+        break;
+      case "*":
+        result = num1 * num2;
+        break;
+      default:
+        result = num1 + num2;
+    }
+
+    return {
+      question: `${num1} ${operation.symbol} ${num2} = ?`,
+      expectedAnswer: result.toString()
+    };
   }
 
   // ============================================================================
@@ -564,7 +626,6 @@ class AuthService {
       return response.tournament;
     } catch (error) {
       console.error("Error getting active tournament:", error);
-
       return null;
     }
   }
@@ -582,7 +643,6 @@ class AuthService {
       return response.tournaments;
     } catch (error) {
       console.error("Error getting all tournaments:", error);
-
       return {
         active: [],
         upcoming: [],
@@ -610,6 +670,7 @@ class AuthService {
       return [];
     }
   }
+
   async getTournamentStatus(): Promise<TournamentStatus> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -623,7 +684,6 @@ class AuthService {
       return response.status;
     } catch (error) {
       console.error("Error getting tournament status:", error);
-
       return {
         isActive: false,
         activeTournament: null,
@@ -647,7 +707,6 @@ class AuthService {
       return response.leaderboard;
     } catch (error) {
       console.error("Error getting tournament leaderboard:", error);
-
       return [];
     }
   }
@@ -667,7 +726,6 @@ class AuthService {
       return response.result;
     } catch (error) {
       console.error("Error getting user tournament result:", error);
-
       return null;
     }
   }
@@ -692,79 +750,25 @@ class AuthService {
   }
 
   // ============================================================================
-  // SECURITY METHODS
+  // LEGACY SECURITY METHODS (для совместимости)
   // ============================================================================
 
-  async generateCaptcha(): Promise<{
-    challenge: string;
-    correctAnswer: string;
-    expiresAt: number;
-  }> {
-    return this.makeAuthenticatedRequest<{
-      challenge: string;
-      correctAnswer: string;
-      expiresAt: number;
-    }>("/security/generate-captcha", { method: "POST" });
-  }
-
-  async validateCaptcha(
-    userInput: string,
-    correctAnswer: string,
-    completedInTime: boolean,
-  ): Promise<{ success: boolean; newTrustScore: number }> {
-    return this.makeAuthenticatedRequest<{
-      success: boolean;
-      newTrustScore: number;
-    }>("/security/validate-captcha", {
-      method: "POST",
-      body: JSON.stringify({
-        userInput,
-        correctAnswer,
-        completedInTime,
-      }),
-    });
-  }
-
-  async validateBiometric(
-    success: boolean,
-    completedInTime: boolean,
-  ): Promise<{ success: boolean; newTrustScore: number }> {
-    return this.makeAuthenticatedRequest<{
-      success: boolean;
-      newTrustScore: number;
-    }>("/security/validate-biometric", {
-      method: "POST",
-      body: JSON.stringify({
-        success,
-        completedInTime,
-      }),
-    });
-  }
-
-  async updateTrustScore(scoreChange: number): Promise<number> {
-    return this.makeAuthenticatedRequest<{ newTrustScore: number }>(
-      "/security/update-trust-score",
-      {
-        method: "POST",
-        body: JSON.stringify({ scoreChange }),
-      },
-    ).then((data) => data.newTrustScore);
-  }
-
-  async checkUserBlockedStatus(
-    telegramId: number,
-  ): Promise<SecurityCheckResult> {
+  async checkUserBlockedStatus(telegramId: number): Promise<any> {
     try {
       if (this.isAuthenticated()) {
-        return await this.checkUserSecurityStatus();
+        const evaluation = await this.evaluateSecurityRequirements("status_check");
+        return {
+          isBlocked: evaluation.status === "block",
+          needsCaptcha: evaluation.status === "require_verification" && evaluation.method === "interactive",
+          needsBiometric: evaluation.status === "require_verification" && evaluation.method === "biometric",
+          trustScore: 50, // Фиктивное значение для совместимости
+        };
       } else {
         console.warn("User not authenticated, using direct service call");
-
         return await userService.checkUserBlockStatus(telegramId);
       }
     } catch (error) {
       console.warn("Auth API failed, using direct service call");
-
       return await userService.checkUserBlockStatus(telegramId);
     }
   }
@@ -838,39 +842,6 @@ export async function saveSecureTournamentResult(
   return authService.saveTournamentResult(tournamentId, gameResult);
 }
 
-export async function checkSecurityStatus(): Promise<SecurityCheckResult> {
-  return authService.checkUserSecurityStatus();
-}
-
-export async function generateSecureCaptcha(): Promise<{
-  challenge: string;
-  correctAnswer: string;
-  expiresAt: number;
-}> {
-  return authService.generateCaptcha();
-}
-
-export async function validateSecureCaptcha(
-  userInput: string,
-  correctAnswer: string,
-  completedInTime: boolean,
-): Promise<{ success: boolean; newTrustScore: number }> {
-  return authService.validateCaptcha(userInput, correctAnswer, completedInTime);
-}
-
-export async function validateSecureBiometric(
-  success: boolean,
-  completedInTime: boolean,
-): Promise<{ success: boolean; newTrustScore: number }> {
-  return authService.validateBiometric(success, completedInTime);
-}
-
-export async function updateSecureTrustScore(
-  scoreChange: number,
-): Promise<number> {
-  return authService.updateTrustScore(scoreChange);
-}
-
 export async function getSecureLeagueProgress(): Promise<LeagueProgressInfo> {
   return authService.getLeagueProgress();
 }
@@ -889,7 +860,6 @@ export async function registerNewUser(
   return authService.registerUser(initData, referralCode);
 }
 
-// Enhanced profile helper functions
 export async function getSecureProfileData(): Promise<ProfileData> {
   return authService.getFullProfile();
 }

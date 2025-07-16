@@ -88,7 +88,6 @@ export async function GET(request: NextRequest) {
         isBlocked,
         needsCaptcha: !isBlocked && trustScore < 40,
         needsBiometric: !isBlocked && trustScore < 20,
-        trustScore,
         timeUntilUnblock:
           timeUntilUnblock && timeUntilUnblock > 0
             ? timeUntilUnblock
