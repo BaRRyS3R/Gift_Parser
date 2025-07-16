@@ -449,21 +449,44 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
     const handleGyroscopeSuccess = async () => {
         if (isProcessing || !motionDetected || isClosing) return;
 
+        console.log('Starting gyroscope success handler...');
         setIsProcessing(true);
 
         try {
+            // First try the simple approach without enhanced validation
+            console.log('Attempting simple gyroscope validation...');
+            const result = await validateSecureCaptcha("MOTION", "MOTION", true);
+
+            console.log('Simple validation result:', result);
+
+            if (result.success) {
+                console.log('Simple validation successful, closing modal...');
+                setIsClosing(true);
+
+                // Close modal immediately on success
+                setTimeout(() => {
+                    console.log('Calling onSuccess callback...');
+                    onSuccess();
+                }, 1000);
+
+                return;
+            }
+
+            // If simple approach fails, try enhanced validation
+            console.log('Simple validation failed, trying enhanced validation...');
+
             const now = Date.now();
             const verificationDuration = now - startTime;
 
             if (verificationDuration < 3000) {
-                console.warn('Gyroscope verification too fast - potential manipulation');
+                console.warn('Gyroscope verification too fast');
                 setError('Verification failed: Too fast');
                 onFailure();
                 return;
             }
 
             if (motionSamples.length < 15) {
-                console.warn('Insufficient motion samples - potential manipulation');
+                console.warn('Insufficient motion samples');
                 setError('Verification failed: Insufficient motion data');
                 onFailure();
                 return;
@@ -481,6 +504,8 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                 sessionFingerprint
             };
 
+            console.log('Sending enhanced validation request...', verificationData);
+
             const response = await fetch('/api/security/validate-captcha', {
                 method: 'POST',
                 headers: {
@@ -497,21 +522,43 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                 })
             });
 
-            const result = await response.json();
+            console.log('Enhanced validation response status:', response.status);
+            const enhancedResult = await response.json();
+            console.log('Enhanced validation result:', enhancedResult);
 
-            if (result.success) {
-                console.log('Gyroscope verification successful, closing modal...');
+            if (enhancedResult.success) {
+                console.log('Enhanced validation successful, closing modal...');
                 setIsClosing(true);
                 setTimeout(() => {
-                    console.log('Calling onSuccess...');
+                    console.log('Calling onSuccess callback...');
                     onSuccess();
-                }, 2000);
+                }, 1000);
             } else {
+                console.error('Enhanced validation failed:', enhancedResult);
                 onFailure();
             }
         } catch (error) {
-            console.error("Error validating gyroscope:", error);
-            onFailure();
+            console.error("Error in gyroscope validation:", error);
+
+            // Fallback: try simple validation one more time
+            try {
+                console.log('Fallback: trying simple validation again...');
+                const fallbackResult = await validateSecureCaptcha("MOTION", "MOTION", true);
+
+                if (fallbackResult.success) {
+                    console.log('Fallback validation successful, closing modal...');
+                    setIsClosing(true);
+                    setTimeout(() => {
+                        console.log('Calling onSuccess callback...');
+                        onSuccess();
+                    }, 1000);
+                } else {
+                    onFailure();
+                }
+            } catch (fallbackError) {
+                console.error("Fallback validation also failed:", fallbackError);
+                onFailure();
+            }
         } finally {
             setIsProcessing(false);
         }
