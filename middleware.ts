@@ -14,6 +14,7 @@ const protectedApiPaths = [
   "/api/security/",
   "/api/leagues/",
   "/api/profile/",
+  "/api/tasks/",
   "/api/leaderboard/", // All leaderboard endpoints are protected
   "/api/purchases/", // All purchase endpoints are protected
 ];
@@ -140,6 +141,9 @@ export async function middleware(request: NextRequest) {
         requestHeaders.set("x-request-timestamp", Date.now().toString());
       } else if (pathname.startsWith("/api/purchases/")) {
         requestHeaders.set("x-protected-resource", "purchases");
+        requestHeaders.set("x-request-timestamp", Date.now().toString());
+      } else if (pathname.startsWith("/api/tasks/")) {
+        requestHeaders.set("x-protected-resource", "tasks");
         requestHeaders.set("x-request-timestamp", Date.now().toString());
       }
 
