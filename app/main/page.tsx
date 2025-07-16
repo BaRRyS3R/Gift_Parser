@@ -599,7 +599,7 @@ export default function MainPage() {
                   {isTransitioning
                     ? t("main.loading")
                     : isUIBlocked
-                      ? "VERIFICATION REQUIRED"
+                      ? "LOCKED"
                       : t("main.startGame")}
                 </span>
               </div>

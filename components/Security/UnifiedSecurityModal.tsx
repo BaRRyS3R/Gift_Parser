@@ -1,4 +1,4 @@
-// src/components/Security/UnifiedSecurityModal.tsx - Unified security verification modal
+// src/components/Security/UnifiedSecurityModal.tsx - Fixed version with corrected timer logic
 
 "use client";
 
@@ -34,6 +34,8 @@ const TIMEOUTS = {
     gyroscope: 10000, // 10 seconds
 };
 
+const PERMISSION_TIMEOUT = 30000; // 30 seconds for permission
+
 const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
     isOpen,
     type,
@@ -67,7 +69,6 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
     const [motionDetected, setMotionDetected] = useState(false);
     const [gyroscopeSupported, setGyroscopeSupported] = useState(false);
     const [motionIntensity, setMotionIntensity] = useState(0);
-    const deviceOrientationRef = useRef<DeviceOrientationEvent | null>(null);
 
     const timeout = TIMEOUTS[type];
 
@@ -81,6 +82,8 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
         setError(null);
         setIsProcessing(false);
         setUserInput("");
+        setMotionDetected(false);
+        setMotionIntensity(0);
 
         // Initialize based on type
         switch (type) {
@@ -96,9 +99,14 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
         }
     }, [isOpen, type]);
 
-    // Timer countdown
+    // FIXED: Main timer countdown - paused during permission request
     useEffect(() => {
         if (!isOpen || timeRemaining <= 0) return;
+
+        // CRITICAL FIX: Pause timer during biometric permission request
+        if (type === "biometric" && isWaitingForPermission) {
+            return; // Don't run timer during permission request
+        }
 
         const timer = setInterval(() => {
             const elapsed = Date.now() - startTime;
@@ -111,7 +119,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
         }, 100);
 
         return () => clearInterval(timer);
-    }, [isOpen, startTime, timeout, timeRemaining]);
+    }, [isOpen, startTime, timeout, timeRemaining, type, isWaitingForPermission]);
 
     // Auto-focus input for captcha (but don't open keyboard)
     useEffect(() => {
@@ -155,25 +163,37 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
             if (!manager.isBiometricAvailable) {
                 setError(t("security.biometricNotAvailable" as any));
             } else if (!manager.isAccessGranted) {
-                // Start 30-second timer for permission
+                // FIXED: Start permission flow with separate 30-second timer
                 setIsWaitingForPermission(true);
                 setPermissionTimer(30);
 
-                const timerInterval = setInterval(() => {
+                const permissionInterval = setInterval(() => {
                     setPermissionTimer((prev) => {
                         if (prev <= 1) {
-                            clearInterval(timerInterval);
-                            // Check permission again after 30 seconds
+                            clearInterval(permissionInterval);
+
+                            // After 30 seconds, check permission status
                             if (manager.isAccessGranted) {
+                                // Permission granted - resume normal operation
                                 setIsWaitingForPermission(false);
+                                // Reset main timer for biometric verification
+                                const now = Date.now();
+                                setStartTime(now);
+                                setTimeRemaining(timeout);
                             } else {
-                                // Request access
+                                // Permission denied - request access one more time
                                 manager.requestAccess(
                                     { reason: t("security.securityCheckRequired" as any) },
                                     (granted: boolean) => {
                                         setIsWaitingForPermission(false);
-                                        if (!granted) {
+                                        if (granted) {
+                                            // Permission granted - reset timer
+                                            const now = Date.now();
+                                            setStartTime(now);
+                                            setTimeRemaining(timeout);
+                                        } else {
                                             setError(t("security.biometricAccessDenied" as any));
+                                            setTimeout(() => onFailure(), 1000);
                                         }
                                     }
                                 );
@@ -216,12 +236,15 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
         }
     };
 
+    // FIXED: Improved motion detection logic
     const startMotionDetection = () => {
         let lastTime = Date.now();
         let lastAlpha = 0;
         let lastBeta = 0;
         let lastGamma = 0;
         let totalMotion = 0;
+        let motionSamples: number[] = [];
+        let isFirstReading = true;
 
         const handleOrientation = (event: DeviceOrientationEvent) => {
             const now = Date.now();
@@ -233,18 +256,45 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
             const beta = event.beta || 0;
             const gamma = event.gamma || 0;
 
-            // Calculate motion intensity
+            // Skip first reading to establish baseline
+            if (isFirstReading) {
+                lastAlpha = alpha;
+                lastBeta = beta;
+                lastGamma = gamma;
+                lastTime = now;
+                isFirstReading = false;
+                return;
+            }
+
+            // Calculate motion intensity with threshold
             const deltaAlpha = Math.abs(alpha - lastAlpha);
             const deltaBeta = Math.abs(beta - lastBeta);
             const deltaGamma = Math.abs(gamma - lastGamma);
 
+            // Only count significant motion (filter out device noise)
             const motion = deltaAlpha + deltaBeta + deltaGamma;
-            totalMotion += motion;
+            const motionThreshold = 5; // Minimum motion to count
+
+            if (motion > motionThreshold) {
+                motionSamples.push(motion);
+
+                // Keep only recent samples (last 2 seconds)
+                const maxSamples = 20; // 2 seconds at 10 FPS
+                if (motionSamples.length > maxSamples) {
+                    motionSamples = motionSamples.slice(-maxSamples);
+                }
+
+                // Calculate total motion from recent samples
+                totalMotion = motionSamples.reduce((sum, sample) => sum + sample, 0);
+            }
 
             setMotionIntensity(totalMotion);
 
-            // Check if enough motion detected
-            if (totalMotion > 50 && !motionDetected) {
+            // FIXED: Require sustained motion over threshold
+            const requiredMotion = 100; // Increased threshold
+            const minSamples = 10; // Need at least 10 motion samples
+
+            if (totalMotion > requiredMotion && motionSamples.length >= minSamples && !motionDetected) {
                 setMotionDetected(true);
                 handleGyroscopeSuccess();
             }
@@ -298,7 +348,6 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
         if (!biometricManager || !isSupported || isProcessing) return;
 
         setIsProcessing(true);
-        const authStartTime = Date.now();
 
         try {
             biometricManager.authenticate(
@@ -420,13 +469,28 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
 
                 {/* Content */}
                 <div className="p-6">
-                    {/* Timer */}
+                    {/* Timer - FIXED: Shows appropriate timer based on state */}
                     <div className="flex items-center justify-center space-x-2 text-sm mb-6">
-                        <Clock className={timeRemaining < 3000 ? "text-red-400" : "text-orange-400"} size={16} />
-                        <span className={`font-bold ${timeRemaining < 3000 ? "text-red-400" : "text-orange-400"}`}>
-                            {formatTime(timeRemaining)}
+                        <Clock className={
+                            (type === "biometric" && isWaitingForPermission)
+                                ? (permissionTimer < 10 ? "text-red-400" : "text-blue-400")
+                                : (timeRemaining < 3000 ? "text-red-400" : "text-orange-400")
+                        } size={16} />
+                        <span className={`font-bold ${(type === "biometric" && isWaitingForPermission)
+                                ? (permissionTimer < 10 ? "text-red-400" : "text-blue-400")
+                                : (timeRemaining < 3000 ? "text-red-400" : "text-orange-400")
+                            }`}>
+                            {(type === "biometric" && isWaitingForPermission)
+                                ? `${permissionTimer}s`
+                                : formatTime(timeRemaining)
+                            }
                         </span>
-                        <span className="text-gray-500">{t("security.timeRemaining" as any)}</span>
+                        <span className="text-gray-500">
+                            {(type === "biometric" && isWaitingForPermission)
+                                ? "to grant access"
+                                : t("security.timeRemaining" as any)
+                            }
+                        </span>
                     </div>
 
                     {/* Type-specific content */}
@@ -497,15 +561,15 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                 </div>
                             ) : isWaitingForPermission ? (
                                 <div className="text-center space-y-4">
-                                    <div className="bg-yellow-500/20 border border-yellow-500/40 rounded-lg p-4">
+                                    <div className="bg-blue-500/20 border border-blue-500/40 rounded-lg p-4">
                                         <div className="flex items-center justify-center space-x-2 mb-3">
-                                            <Clock className="text-yellow-400" size={20} />
-                                            <span className="text-yellow-300 font-semibold">Waiting for biometric access</span>
+                                            <Clock className="text-blue-400" size={20} />
+                                            <span className="text-blue-300 font-semibold">Waiting for biometric access</span>
                                         </div>
-                                        <div className="text-3xl font-bold text-yellow-400 font-mono mb-2">
+                                        <div className="text-3xl font-bold text-blue-400 font-mono mb-2">
                                             {permissionTimer}s
                                         </div>
-                                        <p className="text-yellow-200/80 text-sm">
+                                        <p className="text-blue-200/80 text-sm">
                                             Please enable biometric authentication in your device settings
                                         </p>
                                     </div>
@@ -590,7 +654,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                                     }`}
                                                 size={48}
                                                 style={{
-                                                    transform: `rotate(${Math.sin(motionIntensity / 10) * 5}deg)`
+                                                    transform: `rotate(${Math.sin(motionIntensity / 30) * 3}deg)`
                                                 }}
                                             />
                                         </div>
@@ -601,7 +665,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                             {t("security.motionInstructions" as any)}
                                         </p>
 
-                                        {/* Enhanced Motion Progress Bar */}
+                                        {/* FIXED: Motion Progress Bar with better calculation */}
                                         <div className="space-y-3">
                                             <div className="relative">
                                                 <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
@@ -609,7 +673,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                                         className={`h-full rounded-full transition-all duration-500 relative ${motionDetected ? 'bg-green-400' : 'bg-purple-400'
                                                             }`}
                                                         style={{
-                                                            width: `${Math.min(100, (motionIntensity / 50) * 100)}%`,
+                                                            width: `${Math.min(100, (motionIntensity / 100) * 100)}%`,
                                                         }}
                                                     >
                                                         <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
@@ -623,7 +687,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                             <div className="flex justify-between text-xs">
                                                 <span className="text-gray-500">Progress</span>
                                                 <span className={`font-bold ${motionDetected ? 'text-green-400' : 'text-purple-400'}`}>
-                                                    {Math.round((motionIntensity / 50) * 100)}%
+                                                    {Math.round((motionIntensity / 100) * 100)}%
                                                 </span>
                                             </div>
 
@@ -632,12 +696,12 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                                 {[...Array(5)].map((_, i) => (
                                                     <div
                                                         key={i}
-                                                        className={`w-2 h-6 rounded-full transition-all duration-300 ${(motionIntensity / 50) * 100 > (i + 1) * 20
-                                                                ? motionDetected ? 'bg-green-400' : 'bg-purple-400'
-                                                                : 'bg-gray-600'
+                                                        className={`w-2 h-6 rounded-full transition-all duration-300 ${(motionIntensity / 100) * 100 > (i + 1) * 20
+                                                            ? motionDetected ? 'bg-green-400' : 'bg-purple-400'
+                                                            : 'bg-gray-600'
                                                             }`}
                                                         style={{
-                                                            height: `${Math.max(8, Math.min(24, 8 + (motionIntensity / 10) * i))}px`
+                                                            height: `${Math.max(8, Math.min(24, 8 + (motionIntensity / 20) * i))}px`
                                                         }}
                                                     />
                                                 ))}
