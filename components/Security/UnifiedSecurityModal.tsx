@@ -446,119 +446,61 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
         }
     };
 
+    // Generate random verification string for gyroscope
+    const generateVerificationString = (): string => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+        const length = Math.floor(Math.random() * 3) + 14; // 14-16 characters
+        let result = '';
+
+        for (let i = 0; i < length; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+
+        return result;
+    };
+
     const handleGyroscopeSuccess = async () => {
         if (isProcessing || !motionDetected || isClosing) return;
 
-        console.log('Starting gyroscope success handler...');
+        console.log('Starting simplified gyroscope verification...');
         setIsProcessing(true);
 
         try {
-            // First try the simple approach without enhanced validation
-            console.log('Attempting simple gyroscope validation...');
-            const result = await validateSecureCaptcha("MOTION", "MOTION", true);
+            // Generate random verification string
+            const verificationString = generateVerificationString();
+            console.log('Generated verification string:', verificationString);
 
-            console.log('Simple validation result:', result);
-
-            if (result.success) {
-                console.log('Simple validation successful, closing modal...');
-                setIsClosing(true);
-
-                // Close modal immediately on success
-                setTimeout(() => {
-                    console.log('Calling onSuccess callback...');
-                    onSuccess();
-                }, 1000);
-
-                return;
-            }
-
-            // If simple approach fails, try enhanced validation
-            console.log('Simple validation failed, trying enhanced validation...');
-
-            const now = Date.now();
-            const verificationDuration = now - startTime;
-
-            if (verificationDuration < 3000) {
-                console.warn('Gyroscope verification too fast');
-                setError('Verification failed: Too fast');
-                onFailure();
-                return;
-            }
-
-            if (motionSamples.length < 15) {
-                console.warn('Insufficient motion samples');
-                setError('Verification failed: Insufficient motion data');
-                onFailure();
-                return;
-            }
-
-            const totalIntensity = motionSamples.reduce((sum, s) => sum + s.motion, 0);
-            const signature = generateMotionSignature(motionSamples, startTime);
-            const timestamps = motionSamples.map(s => s.timestamp);
-
-            const verificationData: VerificationData = {
-                samples: motionSamples.length,
-                intensity: totalIntensity,
-                signature,
-                timestamps,
-                sessionFingerprint
-            };
-
-            console.log('Sending enhanced validation request...', verificationData);
-
-            const response = await fetch('/api/security/validate-captcha', {
+            // Send to simplified gyroscope API endpoint
+            const response = await fetch('/api/security/validate-gyroscope', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                 },
                 body: JSON.stringify({
-                    userInput: "MOTION",
-                    correctAnswer: "MOTION",
-                    completedInTime: true,
-                    startTime: startTime,
-                    verificationData: verificationData,
-                    clientFingerprint: sessionFingerprint
+                    verificationString: verificationString
                 })
             });
 
-            console.log('Enhanced validation response status:', response.status);
-            const enhancedResult = await response.json();
-            console.log('Enhanced validation result:', enhancedResult);
+            console.log('Gyroscope validation response status:', response.status);
+            const result = await response.json();
+            console.log('Gyroscope validation result:', result);
 
-            if (enhancedResult.success) {
-                console.log('Enhanced validation successful, closing modal...');
+            if (result.success) {
+                console.log('Gyroscope verification successful, redirecting to login...');
                 setIsClosing(true);
+
+                // Force redirect to main page to reset everything
                 setTimeout(() => {
-                    console.log('Calling onSuccess callback...');
-                    onSuccess();
-                }, 1000);
+                    window.location.href = '/';
+                }, 500);
             } else {
-                console.error('Enhanced validation failed:', enhancedResult);
+                console.error('Gyroscope validation failed:', result);
                 onFailure();
             }
         } catch (error) {
             console.error("Error in gyroscope validation:", error);
-
-            // Fallback: try simple validation one more time
-            try {
-                console.log('Fallback: trying simple validation again...');
-                const fallbackResult = await validateSecureCaptcha("MOTION", "MOTION", true);
-
-                if (fallbackResult.success) {
-                    console.log('Fallback validation successful, closing modal...');
-                    setIsClosing(true);
-                    setTimeout(() => {
-                        console.log('Calling onSuccess callback...');
-                        onSuccess();
-                    }, 1000);
-                } else {
-                    onFailure();
-                }
-            } catch (fallbackError) {
-                console.error("Fallback validation also failed:", fallbackError);
-                onFailure();
-            }
+            onFailure();
         } finally {
             setIsProcessing(false);
         }
