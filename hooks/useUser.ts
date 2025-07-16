@@ -1,4 +1,4 @@
-// src/hooks/useUser.tsx - Исправленная версия с предотвращением бесконечных вызовов
+// src/hooks/useUser.tsx - Complete secured version with full functionality
 
 "use client";
 
@@ -11,7 +11,6 @@ import React, {
   useContext,
   createContext,
   useEffect,
-  useRef,
 } from "react";
 
 import {
@@ -94,13 +93,6 @@ interface UserProviderProps {
 const CACHE_DURATION = 60000; // 60 seconds for optimal user experience
 const OPTIMISTIC_UPDATE_TIMEOUT = 5000; // 5 seconds for optimistic update rollback
 
-// КРИТИЧЕСКИ ВАЖНО: Глобальные флаги для предотвращения множественных инициализаций
-const GLOBAL_AUTH_STATE = {
-  isInitializing: false,
-  isInitialized: false,
-  initializationPromise: null as Promise<void> | null,
-};
-
 // Helper function for operation retries
 const retryOperation = async <T>(
   operation: () => Promise<T>,
@@ -158,63 +150,29 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     source: "initial",
   });
 
-  // ИСПРАВЛЕНО: Добавлены рефы для предотвращения повторных инициализаций
-  const authInitializedRef = useRef<boolean>(false);
-  const authInitializingRef = useRef<boolean>(false);
-
-  // ИСПРАВЛЕНО: Единократная инициализация состояния аутентификации
+  // Initialize authentication state
   useEffect(() => {
-    // Предотвращаем множественные инициализации
-    if (authInitializedRef.current || authInitializingRef.current) {
-      return;
-    }
+    const checkAuthState = () => {
+      const authStatus = isUserAuthenticated();
 
-    authInitializingRef.current = true;
+      setIsAuthenticated(authStatus);
 
-    const initializeAuthState = () => {
-      try {
-        const authStatus = isUserAuthenticated();
-        console.log("Initial auth state check:", authStatus);
-
-        setIsAuthenticated(authStatus);
-
-        if (!authStatus) {
-          setUser(null);
-          setIsLoading(false);
-        }
-
-        authInitializedRef.current = true;
-      } catch (error) {
-        console.error("Error initializing auth state:", error);
-        setIsAuthenticated(false);
+      if (!authStatus) {
         setUser(null);
         setIsLoading(false);
-        authInitializedRef.current = true;
-      } finally {
-        authInitializingRef.current = false;
       }
     };
 
-    // Выполняем инициализацию в следующем тике для предотвращения конфликтов
-    const timeoutId = setTimeout(initializeAuthState, 0);
+    checkAuthState();
+  }, []);
 
-    return () => {
-      clearTimeout(timeoutId);
-      authInitializingRef.current = false;
-    };
-  }, []); // КРИТИЧЕСКИ ВАЖНО: Пустой массив зависимостей
-
-  // ИСПРАВЛЕНО: Автоматическая инициализация Telegram пользователя (только один раз)
+  // Automatic Telegram user initialization on first render
   useEffect(() => {
     if (
-      telegramUser || // Уже установлен
-      typeof window === "undefined" || // SSR
-      !window.Telegram?.WebApp // API недоступен
+      !telegramUser &&
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp
     ) {
-      return;
-    }
-
-    try {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
 
@@ -228,118 +186,88 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           is_premium: user.is_premium,
         };
 
-        console.log("Auto-setting Telegram user data:", user.id);
         setTelegramUserState(telegramUserData);
       }
-    } catch (error) {
-      console.error("Error setting Telegram user:", error);
     }
-  }, []); // КРИТИЧЕСКИ ВАЖНО: Пустой массив зависимостей
+  }, [telegramUser]);
 
-  // ИСПРАВЛЕНО: Упрощенная аутентификация с Telegram
+  // JWT Authentication method
   const authenticateWithTelegram = useCallback(
     async (initData: string, referralCode?: string) => {
-      // Предотвращаем множественные попытки аутентификации
-      if (GLOBAL_AUTH_STATE.isInitializing) {
-        console.log("Authentication already in progress, waiting...");
-        if (GLOBAL_AUTH_STATE.initializationPromise) {
-          await GLOBAL_AUTH_STATE.initializationPromise;
-        }
-        return;
-      }
-
-      if (GLOBAL_AUTH_STATE.isInitialized && isAuthenticated) {
-        console.log("User already authenticated, skipping");
-        return;
-      }
-
-      GLOBAL_AUTH_STATE.isInitializing = true;
       setIsLoading(true);
       setError(null);
 
-      const authPromise = (async () => {
-        try {
-          console.log("Starting Telegram authentication...");
+      try {
+        // Use JWT authentication
+        const authUser = await authenticateUser(initData, referralCode);
 
-          const authUser = await authenticateUser(initData, referralCode);
+        // Convert auth user to regular user format for compatibility
+        const user: User = {
+          id: authUser.id,
+          trust_score: authUser.trust_score,
+          telegram_id: authUser.telegram_id,
+          first_name: authUser.first_name,
+          last_name: authUser.last_name,
+          username: authUser.username,
+          language_code: telegramUser?.language_code,
+          is_premium: telegramUser?.is_premium || false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          attempts_remaining: authUser.attempts_remaining,
+          last_attempt_at: undefined,
+          attempts_reset_at: undefined,
+          referral_code: "",
+          referred_by: undefined,
+          referral_bonus: 5,
+          referral_count: 0,
+          total_games: authUser.total_games,
+          total_score: 0,
+          best_score: 0,
+          current_level: authUser.current_level,
+          current_league_id: undefined,
+          reaction_games: 0,
+          reaction_best_score: 0,
+          reaction_best_time: 0,
+          reaction_average_time: 0,
+          survival_games: 0,
+          survival_best_score: 0,
+          survival_best_time: 0,
+          survival_max_level: 0,
+          survival_best_streak: 0,
+          physics_games: 0,
+          physics_best_score: 0,
+          physics_best_time: 0,
+          physics_total_hits: 0,
+          physics_best_hits: 0,
+          physics_least_mistakes: 0,
+          rotation_games: 0,
+          rotation_best_score: 0,
+          rotation_best_time: 0,
+          rotation_max_level: 0,
+          rotation_best_streak: 0,
+          rotation_total_hits: 0,
+          total_correct_hits: 0,
+          total_wrong_hits: 0,
+          total_missed_circles: 0,
+          best_accuracy: 0,
+          last_played_at: undefined,
+          is_active: true,
+        };
 
-          // Создаем объект пользователя
-          const user: User = {
-            id: `temp-${authUser.telegram_id}`,
-            telegram_id: authUser.telegram_id,
-            first_name: authUser.first_name,
-            last_name: authUser.last_name,
-            username: authUser.username,
-            language_code: telegramUser?.language_code,
-            is_premium: telegramUser?.is_premium || false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            attempts_remaining: authUser.attempts_remaining,
-            last_attempt_at: undefined,
-            attempts_reset_at: undefined,
-            blocked_until: authUser.blocked_until,
-            referral_code: "",
-            referred_by: undefined,
-            referral_bonus: 5,
-            referral_count: 0,
-            total_games: authUser.total_games,
-            total_score: authUser.total_score,
-            best_score: authUser.best_score,
-            current_level: authUser.current_level,
-            current_league_id: authUser.current_league_id,
-            reaction_games: 0,
-            reaction_best_score: 0,
-            reaction_best_time: 0,
-            reaction_average_time: 0,
-            survival_games: 0,
-            survival_best_score: 0,
-            survival_best_time: 0,
-            survival_max_level: 0,
-            survival_best_streak: 0,
-            physics_games: 0,
-            physics_best_score: 0,
-            physics_best_time: 0,
-            physics_total_hits: 0,
-            physics_best_hits: 0,
-            physics_least_mistakes: 0,
-            rotation_games: 0,
-            rotation_best_score: 0,
-            rotation_best_time: 0,
-            rotation_max_level: 0,
-            rotation_best_streak: 0,
-            rotation_total_hits: 0,
-            total_correct_hits: 0,
-            total_wrong_hits: 0,
-            total_missed_circles: 0,
-            best_accuracy: 0,
-            last_played_at: undefined,
-            is_active: true,
-          };
-
-          setUser(user);
-          setIsAuthenticated(true);
-          setIsLoading(false);
-          invalidateAttemptsCache();
-
-          GLOBAL_AUTH_STATE.isInitialized = true;
-          console.log("Authentication completed successfully");
-        } catch (error) {
-          console.error("Authentication failed:", error);
-          setError(
-            error instanceof Error ? error.message : "Authentication failed",
-          );
-          setIsLoading(false);
-          throw error;
-        } finally {
-          GLOBAL_AUTH_STATE.isInitializing = false;
-          GLOBAL_AUTH_STATE.initializationPromise = null;
-        }
-      })();
-
-      GLOBAL_AUTH_STATE.initializationPromise = authPromise;
-      await authPromise;
+        setUser(user);
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        invalidateAttemptsCache();
+      } catch (error) {
+        console.error("JWT Authentication failed:", error);
+        setError(
+          error instanceof Error ? error.message : "Authentication failed",
+        );
+        setIsLoading(false);
+        throw error;
+      }
     },
-    [telegramUser], // Убраны лишние зависимости
+    [telegramUser],
   );
 
   // Sign out method
@@ -350,12 +278,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setTelegramUserState(null);
     invalidateAttemptsCache();
     setError(null);
-
-    // Сбрасываем глобальные флаги
-    GLOBAL_AUTH_STATE.isInitializing = false;
-    GLOBAL_AUTH_STATE.isInitialized = false;
-    GLOBAL_AUTH_STATE.initializationPromise = null;
-    authInitializedRef.current = false;
   }, []);
 
   // Method for direct user update in context
@@ -371,10 +293,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  // ИСПРАВЛЕНО: Упрощенный refreshUser без автоматических вызовов
+  // Secure refreshUser method using API only
   const refreshUser = useCallback(async (): Promise<void> => {
     if (!isAuthenticated) {
       console.log("User not authenticated, skipping refresh");
+
       return;
     }
 
@@ -386,8 +309,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       const userData = await authService.refreshUserData();
 
+      // Convert to User format and update
       const user: User = {
-        id: `temp-${userData.telegram_id}`,
+        id: userData.id,
+        trust_score: userData.trust_score,
         telegram_id: userData.telegram_id,
         first_name: userData.first_name,
         last_name: userData.last_name,
@@ -399,16 +324,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         attempts_remaining: userData.attempts_remaining,
         last_attempt_at: undefined,
         attempts_reset_at: undefined,
-        blocked_until: userData.blocked_until,
         referral_code: "",
         referred_by: undefined,
         referral_bonus: 5,
         referral_count: 0,
         total_games: userData.total_games,
-        total_score: userData.total_score,
-        best_score: userData.best_score,
+        total_score: 0,
+        best_score: 0,
         current_level: userData.current_level,
-        current_league_id: userData.current_league_id,
+        current_league_id: undefined,
         reaction_games: 0,
         reaction_best_score: 0,
         reaction_best_time: 0,
@@ -634,15 +558,19 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             });
           },
           (gameResult.levelChanged ? 3000 : 0) +
-          (gameResult.leagueChanged ? 3000 : 0),
+            (gameResult.leagueChanged ? 3000 : 0),
         );
       }
     },
     [showAchievement],
   );
 
-  // ИСПРАВЛЕНО: Убран автоматический эффект инвалидации кэша
-  // Cache invalidation on user change убран для предотвращения циклов
+  // Cache invalidation on user change
+  useEffect(() => {
+    if (telegramUser) {
+      invalidateAttemptsCache();
+    }
+  }, [telegramUser, invalidateAttemptsCache]);
 
   // Secure saveGameResult using API only
   const saveGameResult = useCallback(
@@ -675,7 +603,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const saveOperation = async (): Promise<GameSaveResult> => {
         const result = await saveSecureGameResult(gameResult);
 
-        // ИСПРАВЛЕНО: Убран автоматический refreshUser для предотвращения циклов
+        await refreshUser();
         invalidateAttemptsCache();
 
         return result;
@@ -714,7 +642,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     },
     [
       isAuthenticated,
-      invalidateAttemptsCache, // refreshUser убран
+      refreshUser,
+      invalidateAttemptsCache,
       processLeagueAchievements,
       signOut,
     ],

@@ -1,8 +1,7 @@
-// src/lib/jwt.ts - JWT service with enhanced security and hidden UUIDs
+// src/lib/jwt.ts - JWT service for secure token management
 
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import crypto from "crypto";
 
 // Secret key from environment
 const JWT_SECRET = new TextEncoder().encode(
@@ -12,7 +11,7 @@ const JWT_SECRET = new TextEncoder().encode(
 const JWT_EXPIRES_IN = "7d"; // Token validity period
 
 export interface CustomJWTPayload {
-  sessionId: string; // Hashed identifier instead of UUID
+  userId: string;
   telegramId: number;
   iat: number;
   exp: number;
@@ -25,26 +24,15 @@ export interface TokenValidationResult {
 }
 
 /**
- * Generate secure session identifier from UUID
- */
-function generateSessionId(userId: string): string {
-  const hash = crypto.createHash('sha256');
-  hash.update(userId + process.env.JWT_SECRET);
-  return hash.digest('hex').substring(0, 32);
-}
-
-/**
- * Generate JWT token for authenticated user with secure session ID
+ * Generate JWT token for authenticated user
  */
 export async function generateToken(
   userId: string,
   telegramId: number,
 ): Promise<string> {
   try {
-    const sessionId = generateSessionId(userId);
-
     const token = await new SignJWT({
-      sessionId, // Secure hashed session ID instead of UUID
+      userId,
       telegramId,
     })
       .setProtectedHeader({ alg: "HS256" })
@@ -183,13 +171,9 @@ export function validateTelegramInitData(initData: string): boolean {
 }
 
 /**
- * Middleware helper for API route protection with session resolution
+ * Middleware helper for API route protection
  */
-export async function requireAuth(request: Request): Promise<{
-  sessionId: string;
-  telegramId: number;
-  userId?: string; // Only available server-side when needed
-}> {
+export async function requireAuth(request: Request): Promise<CustomJWTPayload> {
   const token = extractTokenFromHeaders(request.headers);
 
   if (!token) {
@@ -202,16 +186,5 @@ export async function requireAuth(request: Request): Promise<{
     throw new Error(validation.error || "Invalid authentication token");
   }
 
-  return {
-    sessionId: validation.payload.sessionId,
-    telegramId: validation.payload.telegramId,
-  };
-}
-
-/**
- * Server-side function to resolve user ID from session ID (when needed)
- */
-export function resolveUserIdFromSession(sessionId: string, candidateUserId: string): boolean {
-  const expectedSessionId = generateSessionId(candidateUserId);
-  return sessionId === expectedSessionId;
+  return validation.payload;
 }

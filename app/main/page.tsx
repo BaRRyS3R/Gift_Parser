@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Исправленная главная страница без избыточных проверок аутентификации
+// src/app/main/page.tsx - Updated main page with secured tournament API calls
 
 "use client";
 
@@ -13,6 +13,7 @@ import {
   Trophy,
   Clock,
   Shield,
+  AlertTriangle,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -26,7 +27,8 @@ import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
 import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
 import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal";
-import UnifiedSecurityModal from "@/components/Security/UnifiedSecurityModal";
+import CaptchaModal from "@/components/Security/CaptchaModal";
+import BiometricModal from "@/components/Security/BiometricModal";
 
 export default function MainPage() {
   const router = useRouter();
@@ -40,25 +42,34 @@ export default function MainPage() {
 
   const {
     securityState,
-    evaluateAccess,
-    submitVerification,
-    resetSecurityState,
+    showCaptcha,
+    showBiometric,
+    captchaData,
+    handleCaptchaSuccess,
+    handleCaptchaFailure,
+    handleBiometricSuccess,
+    handleBiometricFailure,
+    isSecurityCheckNeeded,
+    formatTrustScore,
   } = useSecurity();
 
   const { settings } = useSettings();
   const t = useT();
 
-  // ИСПРАВЛЕНО: Добавлены флаги для предотвращения множественных редиректов
-  const redirectHandledRef = useRef<boolean>(false);
-  const pageInitializedRef = useRef<boolean>(false);
-
+  /* -------------------------------------------------
+   * Animation control - First visit detection
+   * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
+
     return !sessionStorage.getItem("mainPageVisited");
   };
 
   const isFirstVisit = checkFirstVisit();
 
+  /* -------------------------------------------------
+   * UI state
+   * -------------------------------------------------*/
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
   const [showButton, setShowButton] = useState(!isFirstVisit);
@@ -70,17 +81,25 @@ export default function MainPage() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isLeagueProgressOpen, setIsLeagueProgressOpen] = useState(false);
 
-  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
-  const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
+  /* -------------------------------------------------
+   * Tournament state
+   * -------------------------------------------------*/
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(
+    null,
+  );
+  const [tournamentTimeRemaining, setTournamentTimeRemaining] =
+    useState<string>("");
   const [showTournamentButton, setShowTournamentButton] = useState(false);
   const [tournamentLoading, setTournamentLoading] = useState(false);
 
-  // State for managing pending navigation actions
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  /* -------------------------------------------------
+   * Security state
+   * -------------------------------------------------*/
+  const [securityWarningVisible, setSecurityWarningVisible] = useState(false);
 
-  // Ref to prevent multiple navigation attempts
-  const navigationInProgressRef = useRef<boolean>(false);
-
+  /* -------------------------------------------------
+   * Dynamic offset for Telegram system UI
+   * -------------------------------------------------*/
   const DEFAULT_TG_HEADER = 60;
   const EXTRA_OFFSET = 40;
   const [headerOffset, setHeaderOffset] = useState<number>(
@@ -89,75 +108,70 @@ export default function MainPage() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
+
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
   }, []);
 
-  // ИСПРАВЛЕНО: Упрощенная проверка аутентификации без циклических вызовов
+  // Check authentication status and redirect if needed
   useEffect(() => {
-    // Предотвращаем множественные проверки
-    if (redirectHandledRef.current || pageInitializedRef.current) {
-      return;
-    }
-
-    pageInitializedRef.current = true;
-
-    // Простая проверка без дополнительных API вызовов
     if (!isAuthenticated && !userLoading) {
       console.log("User not authenticated, redirecting to login");
-      redirectHandledRef.current = true;
       router.push("/");
+
       return;
     }
-
-    console.log("Main page initialized successfully");
   }, [isAuthenticated, userLoading, router]);
 
-  // React to security state changes for pending navigation
+  // Check if user is blocked and redirect
   useEffect(() => {
-    if (pendingNavigation &&
-      !securityState.requiresVerification &&
-      !securityState.isBlocked &&
-      !securityState.isLoading &&
-      !navigationInProgressRef.current) {
-
-      console.log("Security verification complete, proceeding with navigation:", pendingNavigation);
-      navigationInProgressRef.current = true;
-      setIsTransitioning(true);
-
-      setTimeout(() => {
-        router.push(pendingNavigation);
-      }, 600);
-
-      setPendingNavigation(null);
+    if (securityState.isBlocked) {
+      console.log("User is blocked, redirecting to blocked page");
+      router.push("/blocked");
     }
-  }, [securityState.requiresVerification, securityState.isBlocked, securityState.isLoading, pendingNavigation, router]);
+  }, [securityState.isBlocked, router]);
 
+  // Show security warning for low trust scores
+  useEffect(() => {
+    if (
+      securityState.trustScore < 40 &&
+      !securityState.isBlocked &&
+      !securityState.isLoading
+    ) {
+      setSecurityWarningVisible(true);
+    } else {
+      setSecurityWarningVisible(false);
+    }
+  }, [
+    securityState.trustScore,
+    securityState.isBlocked,
+    securityState.isLoading,
+  ]);
+
+  // Mark page as visited
   useEffect(() => {
     if (isFirstVisit && typeof window !== "undefined") {
       sessionStorage.setItem("mainPageVisited", "true");
     }
   }, [isFirstVisit]);
 
+  // Initialize greeting for non-first visits
   useEffect(() => {
     if (!isFirstVisit && user?.first_name) {
       const fullGreeting = t("main.greeting", { name: user.first_name });
+
       setGreetingText(fullGreeting);
     }
   }, [isFirstVisit, user?.first_name, t]);
 
-  // ИСПРАВЛЕНО: Упрощенная инициализация Telegram пользователя
+  // Initialize telegramUser safely without direct Supabase calls
   useEffect(() => {
     if (
-      telegramUser || // Уже установлен
-      typeof window === "undefined" || // SSR
-      !window.Telegram?.WebApp // API недоступен
+      !telegramUser &&
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp
     ) {
-      return;
-    }
-
-    try {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
 
@@ -171,32 +185,29 @@ export default function MainPage() {
           is_premium: user.is_premium,
         };
 
-        console.log("Setting Telegram user data on main page");
         setTelegramUser(telegramUserData);
       }
-    } catch (error) {
-      console.error("Error setting Telegram user on main page:", error);
     }
-  }, []); // Пустой массив зависимостей для предотвращения циклов
+  }, [telegramUser, setTelegramUser]);
 
-  // ИСПРАВЛЕНО: Упрощенная загрузка турнирного статуса
+  /* -------------------------------------------------
+   * UPDATED: Secure tournament data loading
+   * -------------------------------------------------*/
   useEffect(() => {
-    // Предотвращаем множественные загрузки
-    if (!isAuthenticated || tournamentLoading) {
-      return;
-    }
-
-    let isMounted = true;
-
     const loadTournamentStatus = async () => {
+      // Only load tournament data if user is authenticated
+      if (!isAuthenticated) {
+        console.log("User not authenticated, skipping tournament data load");
+
+        return;
+      }
+
+      setTournamentLoading(true);
+
       try {
-        setTournamentLoading(true);
         console.log("Loading tournament status via secure API...");
 
         const tournamentStatus = await authService.getTournamentStatus();
-
-        // Проверяем, что компонент все еще смонтирован
-        if (!isMounted) return;
 
         if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
           setActiveTournament(tournamentStatus.activeTournament);
@@ -208,11 +219,6 @@ export default function MainPage() {
             );
 
             const interval = setInterval(() => {
-              if (!isMounted) {
-                clearInterval(interval);
-                return;
-              }
-
               const now = new Date();
               const endDate = new Date(
                 tournamentStatus.activeTournament!.end_date,
@@ -229,9 +235,7 @@ export default function MainPage() {
               }
             }, 1000);
 
-            return () => {
-              clearInterval(interval);
-            };
+            return () => clearInterval(interval);
           }
         } else {
           setActiveTournament(null);
@@ -242,30 +246,40 @@ export default function MainPage() {
       } catch (error) {
         console.error("Error loading tournament status via secure API:", error);
 
-        if (isMounted) {
-          setActiveTournament(null);
-          setShowTournamentButton(false);
+        // Handle authentication errors
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "Token expired during tournament load, user will be signed out",
+          );
+          // The useUser hook will handle sign out and redirect
         }
+
+        setActiveTournament(null);
+        setShowTournamentButton(false);
       } finally {
-        if (isMounted) {
-          setTournamentLoading(false);
-        }
+        setTournamentLoading(false);
       }
     };
 
-    loadTournamentStatus();
+    // Only attempt to load if authenticated
+    if (isAuthenticated) {
+      loadTournamentStatus();
+    }
+  }, [isAuthenticated]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthenticated]); // Минимальные зависимости
-
+  /* -------------------------------------------------
+   * Background video logic
+   * -------------------------------------------------*/
   const videoRef = useRef<HTMLVideoElement>(null);
   const username = user?.first_name || "unknown";
   const fullGreeting = t("main.greeting", { name: username });
 
   useEffect(() => {
     const video = videoRef.current;
+
     if (!video || !settings.showBackgroundVideo) return;
 
     const handleLoadedMetadata = () => {
@@ -286,6 +300,9 @@ export default function MainPage() {
     };
   }, [settings.showBackgroundVideo]);
 
+  /* -------------------------------------------------
+   * Mount / animation logic
+   * -------------------------------------------------*/
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
       setPageLoaded(true);
@@ -300,6 +317,7 @@ export default function MainPage() {
     return () => clearTimeout(pageLoadTimer);
   }, [isFirstVisit]);
 
+  // Greeting typing animation for first visit only
   useEffect(() => {
     if (!showGreeting || userLoading || !isFirstVisit) {
       return;
@@ -318,42 +336,35 @@ export default function MainPage() {
     return () => clearInterval(typingInterval);
   }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
 
-  // ИСПРАВЛЕНО: Упрощенный обработчик запуска игры
-  const handleStartGame = async () => {
-    if (isTransitioning || pendingNavigation || navigationInProgressRef.current) {
-      console.log("Navigation already in progress, ignoring click");
+  /* -------------------------------------------------
+   * Handlers
+   * -------------------------------------------------*/
+  const handleStartGame = () => {
+    // Check if security verification is needed before allowing game access
+    if (isSecurityCheckNeeded()) {
+      console.log("Security check needed, blocking game access");
+
       return;
     }
 
-    console.log("User clicked start game, evaluating security...");
-    setPendingNavigation("/game");
-
-    try {
-      await evaluateAccess("game_access");
-      console.log("Security evaluation initiated for game access");
-    } catch (error) {
-      console.error("Security evaluation failed:", error);
-      setPendingNavigation(null);
-    }
+    setIsTransitioning(true);
+    setTimeout(() => {
+      router.push("/game");
+    }, 600);
   };
 
-  // ИСПРАВЛЕНО: Упрощенный обработчик турнира
-  const handleOpenTournament = async () => {
-    if (isTransitioning || pendingNavigation || navigationInProgressRef.current) {
-      console.log("Navigation already in progress, ignoring click");
+  const handleOpenTournament = () => {
+    // Check if security verification is needed before allowing tournament access
+    if (isSecurityCheckNeeded()) {
+      console.log("Security check needed, blocking tournament access");
+
       return;
     }
 
-    console.log("User clicked tournament, evaluating security...");
-    setPendingNavigation("/tournament");
-
-    try {
-      await evaluateAccess("tournament_access");
-      console.log("Security evaluation initiated for tournament access");
-    } catch (error) {
-      console.error("Security evaluation failed:", error);
-      setPendingNavigation(null);
-    }
+    setIsTransitioning(true);
+    setTimeout(() => {
+      router.push("/tournament");
+    }, 600);
   };
 
   const handleOpenSettings = () => {
@@ -374,6 +385,8 @@ export default function MainPage() {
 
   const handleOpenLeagueProgress = () => {
     console.log("League progress click detected");
+    console.log("Current user:", user);
+    console.log("User loading:", userLoading);
     setIsLeagueProgressOpen(true);
   };
 
@@ -382,43 +395,30 @@ export default function MainPage() {
     setIsLeagueProgressOpen(false);
   };
 
-  const handleSecurityVerificationSuccess = () => {
-    console.log("Security verification successful");
-    resetSecurityState();
-    // Navigation will be handled automatically by the useEffect watching securityState
-  };
+  // Get trust score display info
+  const trustScoreInfo = formatTrustScore(securityState.trustScore);
 
-  const handleSecurityVerificationFailure = () => {
-    console.log("Security verification failed");
-    setPendingNavigation(null);
-    navigationInProgressRef.current = false;
-    router.push("/blocked");
-  };
-
-  // Reset navigation flag when transitioning completes
-  useEffect(() => {
-    if (isTransitioning) {
-      const timer = setTimeout(() => {
-        navigationInProgressRef.current = false;
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isTransitioning]);
-
-  // ИСПРАВЛЕНО: Ранний возврат без дополнительных проверок аутентификации
-  if (!isAuthenticated && !userLoading && !redirectHandledRef.current) {
-    return null;
+  /* -------------------------------------------------
+   * Early return if not authenticated to prevent any data loading
+   * -------------------------------------------------*/
+  if (!isAuthenticated && !userLoading) {
+    return null; // Will redirect in useEffect
   }
 
+  /* -------------------------------------------------
+   * Render
+   * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
-        }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : pageLoaded
+            ? "opacity-100 transition-opacity duration-1000 ease-out"
+            : "opacity-0"
+      }`}
     >
+      {/* Background Video */}
       {settings.showBackgroundVideo && (
         <div
           className="fixed top-0 left-0 w-full h-full z-0"
@@ -426,6 +426,7 @@ export default function MainPage() {
             filter: "brightness(0.15) contrast(1.2) grayscale(1)",
           }}
         >
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video
             ref={videoRef}
             autoPlay
@@ -439,14 +440,36 @@ export default function MainPage() {
         </div>
       )}
 
+      {/* Security Warning Banner */}
+      {securityWarningVisible && (
+        <div
+          className="fixed top-0 left-0 right-0 z-40 p-4"
+          style={{ top: headerOffset - 20 }}
+        >
+          <div className="max-w-md mx-auto bg-yellow-500/20 border border-yellow-400/40 rounded-lg p-3 backdrop-blur-sm">
+            <div className="flex items-center space-x-2 text-yellow-300">
+              <AlertTriangle size={16} />
+              <span className="text-sm font-semibold">Security Notice</span>
+            </div>
+            <p className="text-yellow-200/80 text-xs mt-1">
+              Your trust score is low ({securityState.trustScore}/100).
+              Additional security checks may be required.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed left-0 right-0 z-30 px-6 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -482,12 +505,13 @@ export default function MainPage() {
             </button>
           </div>
 
+          {/* Tournament Button */}
           {showTournamentButton && activeTournament && (
             <button
               aria-label="Active Tournament"
               className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={
-                isTransitioning || tournamentLoading || pendingNavigation === "/tournament" || navigationInProgressRef.current
+                isTransitioning || isSecurityCheckNeeded() || tournamentLoading
               }
               onClick={handleOpenTournament}
             >
@@ -511,6 +535,7 @@ export default function MainPage() {
             </button>
           )}
 
+          {/* Tournament Loading Indicator */}
           {tournamentLoading && (
             <div className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full">
               <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
@@ -520,43 +545,59 @@ export default function MainPage() {
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
+        {/* Trust Score Indicator */}
+        <div>
+          {!securityState.isLoading && (
+            <div className="flex items-center space-x-2 px-3 py-1 bg-black/30 backdrop-blur-sm border border-white/20 rounded-full">
+              <Shield className={trustScoreInfo.color} size={14} />
+              <span className={`text-xs font-bold ${trustScoreInfo.color}`}>
+                {securityState.trustScore}
+              </span>
+              <span className="text-white/60 text-xs">/ 100</span>
+            </div>
+          )}
+        </div>
+
+        {/* Title Section */}
         <div className="relative">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
             circusle
           </h1>
         </div>
 
+        {/* Action Button */}
         <div
-          className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
 
             <button
-              className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${securityState.requiresVerification || pendingNavigation === "/game"
-                ? "border-yellow-500/60 text-yellow-300 opacity-75"
-                : "border-white/60 hover:border-white"
-                } ${isTransitioning ? "opacity-50" : ""}`}
-              disabled={isTransitioning || pendingNavigation !== null || navigationInProgressRef.current}
+              className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${
+                isSecurityCheckNeeded()
+                  ? "border-yellow-500/60 text-yellow-300 opacity-75"
+                  : "border-white/60 hover:border-white"
+              } ${isTransitioning ? "opacity-50" : ""}`}
+              disabled={isTransitioning}
               title={
-                securityState.requiresVerification
+                isSecurityCheckNeeded()
                   ? "Security verification required"
                   : undefined
               }
               onClick={handleStartGame}
             >
               <div className="flex items-center justify-center space-x-4">
-                {securityState.requiresVerification ? (
+                {isSecurityCheckNeeded() ? (
                   <Shield
                     className="text-yellow-300 group-hover:translate-x-1 transition-transform duration-300"
                     size={24}
                   />
-                ) : pendingNavigation === "/game" || securityState.isLoading ? (
-                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <Play
                     className="text-white group-hover:translate-x-1 transition-transform duration-300"
@@ -566,25 +607,26 @@ export default function MainPage() {
                 <span className="tracking-wider">
                   {isTransitioning
                     ? t("main.loading")
-                    : pendingNavigation === "/game" || securityState.isLoading
-                      ? "CHECKING..."
-                      : securityState.requiresVerification
-                        ? "VERIFICATION NEEDED"
-                        : t("main.startGame")}
+                    : isSecurityCheckNeeded()
+                      ? "VERIFICATION NEEDED"
+                      : t("main.startGame")}
                 </span>
               </div>
             </button>
           </div>
         </div>
 
+        {/* User Greeting */}
         <div
-          className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showGreeting
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showGreeting
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -609,15 +651,24 @@ export default function MainPage() {
         </div>
       </div>
 
-      <UnifiedSecurityModal
-        isOpen={securityState.requiresVerification}
-        method={securityState.verificationMethod || "interactive"}
-        challenge={securityState.challenge}
-        onSubmit={submitVerification}
-        onSuccess={handleSecurityVerificationSuccess}
-        onFailure={handleSecurityVerificationFailure}
+      {/* Security Modals */}
+      <CaptchaModal
+        description="Your trust score requires additional verification. Please complete the captcha to continue."
+        isOpen={showCaptcha}
+        title="Security Verification Required"
+        onFailure={handleCaptchaFailure}
+        onSuccess={handleCaptchaSuccess}
       />
 
+      <BiometricModal
+        description="Your trust score is very low. Please authenticate using biometrics to continue."
+        isOpen={showBiometric}
+        title="Biometric Authentication Required"
+        onFailure={handleBiometricFailure}
+        onSuccess={handleBiometricSuccess}
+      />
+
+      {/* Modals */}
       <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
       <LeagueProgressModal
@@ -625,28 +676,34 @@ export default function MainPage() {
         onClose={handleCloseLeagueProgress}
       />
 
+      {/* Attempts Display */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed bottom-0 left-0 right-0 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay />
       </div>
 
+      {/* Level and League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showLeagueDisplay
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-4"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showLeagueDisplay
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-4"
+                }`
+              : "opacity-100 translate-y-0"
+          }`}
           style={{
             bottom: "96px",
             zIndex: 50,

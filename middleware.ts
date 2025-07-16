@@ -1,7 +1,9 @@
-// middleware.ts - Enhanced middleware with updated JWT structure and comprehensive security
+// middleware.ts - Enhanced middleware with comprehensive tournament API protection
 
 import type { NextRequest } from "next/server";
+
 import { NextResponse } from "next/server";
+
 import { verifyToken } from "@/lib/jwt";
 
 // Define paths that require authentication
@@ -19,11 +21,11 @@ const publicApiPaths = ["/api/auth/login", "/api/auth/register", "/api/health"];
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 25; // Adjusted for new security system
+const RATE_LIMIT_MAX_REQUESTS = 30; // Increased limit for tournament operations
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
 
 /**
- * Enhanced rate limiting implementation with session-based tracking
+ * Basic rate limiting implementation
  */
 function checkRateLimit(identifier: string): boolean {
   const now = Date.now();
@@ -31,6 +33,7 @@ function checkRateLimit(identifier: string): boolean {
 
   if (!userLimit || now - userLimit.lastReset > RATE_LIMIT_WINDOW) {
     rateLimitMap.set(identifier, { count: 1, lastReset: now });
+
     return true;
   }
 
@@ -39,11 +42,12 @@ function checkRateLimit(identifier: string): boolean {
   }
 
   userLimit.count++;
+
   return true;
 }
 
 /**
- * Enhanced middleware with updated JWT structure and security improvements
+ * Enhanced middleware with tournament-specific protection
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -84,7 +88,7 @@ export async function middleware(request: NextRequest) {
     const token = authHeader.substring(7);
 
     try {
-      // Verify JWT token with new structure
+      // Verify JWT token
       const validation = await verifyToken(token);
 
       if (!validation.isValid || !validation.payload) {
@@ -101,12 +105,12 @@ export async function middleware(request: NextRequest) {
         );
       }
 
-      // FIXED: Use sessionId instead of userId for rate limiting
-      const rateLimitKey = `session_${validation.payload.sessionId}`;
+      // Apply rate limiting per authenticated user
+      const rateLimitKey = `user_${validation.payload.userId}`;
 
       if (!checkRateLimit(rateLimitKey)) {
         console.warn(
-          `Rate limit exceeded for session: ${validation.payload.sessionId.substring(0, 8)}... on ${pathname}`,
+          `Rate limit exceeded for user ${validation.payload.userId} on ${pathname}`,
         );
 
         return NextResponse.json(
@@ -119,11 +123,10 @@ export async function middleware(request: NextRequest) {
         );
       }
 
-      // Add secure session info to request headers for API routes to use
+      // Add user info to request headers for API routes to use
       const requestHeaders = new Headers(request.headers);
 
-      // FIXED: Use sessionId instead of userId
-      requestHeaders.set("x-session-id", validation.payload.sessionId);
+      requestHeaders.set("x-user-id", validation.payload.userId);
       requestHeaders.set(
         "x-telegram-id",
         validation.payload.telegramId.toString(),
@@ -133,12 +136,6 @@ export async function middleware(request: NextRequest) {
       if (pathname.startsWith("/api/tournament/")) {
         requestHeaders.set("x-protected-resource", "tournament");
         requestHeaders.set("x-request-timestamp", Date.now().toString());
-      }
-
-      // Add security context headers for other protected endpoints
-      if (pathname.startsWith("/api/security/")) {
-        requestHeaders.set("x-security-context", "high");
-        requestHeaders.set("x-verification-required", "conditional");
       }
 
       return NextResponse.next({
@@ -162,9 +159,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Log unprotected API access for monitoring
-  if (process.env.NODE_ENV === "development") {
-    console.info(`Unprotected API access: ${pathname}`);
-  }
+  console.info(`Unprotected API access: ${pathname}`);
 
   return NextResponse.next();
 }
@@ -177,8 +172,7 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
-     * - manifest and service worker files
      */
-    "/((?!_next/static|_next/image|favicon.ico|public|videos|fonts|manifest.json|sw.js).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public|videos|fonts).*)",
   ],
 };

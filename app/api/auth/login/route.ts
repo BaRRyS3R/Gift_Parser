@@ -1,4 +1,4 @@
-// src/app/api/auth/login/route.ts - Updated authentication endpoint with secure response
+// src/app/api/auth/login/route.ts - Updated authentication endpoint with API-based security checks
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -140,8 +140,9 @@ export async function POST(request: NextRequest) {
       // Generate JWT token for existing user
       const token = await generateToken(user.id, telegramUser.id);
 
-      // SECURITY FIX: Return safe user data without trust_score and with obfuscated ID
+      // Return safe user data
       const safeUser = {
+        id: user.id,
         telegram_id: user.telegram_id,
         first_name: user.first_name,
         last_name: user.last_name,
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
         current_level: user.current_level,
         attempts_remaining: user.attempts_remaining,
         total_games: user.total_games,
-        // trust_score: REMOVED for security
+        trust_score: user.trust_score,
         blocked_until: user.blocked_until,
         total_score: user.total_score,
         best_score: user.best_score,
@@ -192,7 +193,6 @@ export async function POST(request: NextRequest) {
     // This should not be reached, but included for completeness
     const token = await generateToken(user.id, telegramUser.id);
 
-    // SECURITY FIX: Return safe user data without trust_score
     const safeUser = {
       telegram_id: user.telegram_id,
       first_name: user.first_name,
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
       current_level: user.current_level,
       attempts_remaining: user.attempts_remaining,
       total_games: user.total_games,
-      // trust_score: REMOVED for security
+      trust_score: user.trust_score,
       blocked_until: user.blocked_until,
     };
 
