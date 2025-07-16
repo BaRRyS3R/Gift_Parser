@@ -98,7 +98,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
         const nav = performance.navigation;
         const screen = window.screen;
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
+        
         const fingerprint = [
             nav.type,
             screen.width,
@@ -107,32 +107,32 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
             timeZone,
             Date.now().toString(36)
         ].join(':');
-
+        
         let hash = 0;
         for (let i = 0; i < fingerprint.length; i++) {
             const char = fingerprint.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
             hash = hash & hash;
         }
-
+        
         return hash.toString(36);
     };
 
     // Generate cryptographic signature for motion data
     const generateMotionSignature = (samples: MotionSample[], startTime: number): string => {
-        const dataPoints = samples.map(s =>
+        const dataPoints = samples.map(s => 
             `${s.timestamp}:${Math.floor(s.motion * 100)}:${Math.floor(s.alpha || 0)}:${Math.floor(s.beta || 0)}:${Math.floor(s.gamma || 0)}`
         ).join('|');
-
+        
         const signatureData = `${startTime}:${samples.length}:${dataPoints}`;
-
+        
         let hash = 0;
         for (let i = 0; i < signatureData.length; i++) {
             const char = signatureData.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
             hash = hash & hash;
         }
-
+        
         return hash.toString(36);
     };
 
@@ -150,7 +150,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
         setMotionIntensity(0);
         setVerificationCompleted(false);
         setMotionSamples([]);
-
+        
         // Generate session fingerprint for security
         setSessionFingerprint(generateSessionFingerprint());
 
@@ -240,7 +240,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                     setPermissionTimer((prev) => {
                         if (prev <= 1) {
                             clearInterval(permissionInterval);
-
+                            
                             // After 30 seconds, check permission status
                             if (manager.isAccessGranted) {
                                 // Permission granted - resume normal operation
@@ -360,9 +360,9 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                     beta,
                     gamma
                 };
-
+                
                 motionSamplesLocal.push(sample);
-
+                
                 // Keep only recent samples (last 3 seconds)
                 const maxSamples = 30; // 3 seconds at 10 FPS
                 if (motionSamplesLocal.length > maxSamples) {
@@ -476,7 +476,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
             // Enhanced security validation
             const now = Date.now();
             const verificationDuration = now - startTime;
-
+            
             // Basic validation checks
             if (verificationDuration < 3000) {
                 console.warn('Gyroscope verification too fast - potential manipulation');
@@ -484,7 +484,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                 onFailure();
                 return;
             }
-
+            
             if (motionSamples.length < 15) {
                 console.warn('Insufficient motion samples - potential manipulation');
                 setError('Verification failed: Insufficient motion data');
@@ -525,7 +525,10 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
             const result = await response.json();
 
             if (result.success) {
-                onSuccess();
+                // FIXED: Add delay before calling onSuccess to show completion state
+                setTimeout(() => {
+                    onSuccess();
+                }, 1500);
             } else {
                 onFailure();
             }
@@ -608,21 +611,22 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                     {/* Timer - FIXED: Shows appropriate timer based on state */}
                     <div className="flex items-center justify-center space-x-2 text-sm mb-6">
                         <Clock className={
-                            (type === "biometric" && isWaitingForPermission)
+                            (type === "biometric" && isWaitingForPermission) 
                                 ? (permissionTimer < 10 ? "text-red-400" : "text-blue-400")
                                 : (timeRemaining < 3000 ? "text-red-400" : "text-orange-400")
                         } size={16} />
-                        <span className={`font-bold ${(type === "biometric" && isWaitingForPermission)
+                        <span className={`font-bold ${
+                            (type === "biometric" && isWaitingForPermission) 
                                 ? (permissionTimer < 10 ? "text-red-400" : "text-blue-400")
                                 : (timeRemaining < 3000 ? "text-red-400" : "text-orange-400")
-                            }`}>
-                            {(type === "biometric" && isWaitingForPermission)
+                        }`}>
+                            {(type === "biometric" && isWaitingForPermission) 
                                 ? `${permissionTimer}s`
                                 : formatTime(timeRemaining)
                             }
                         </span>
                         <span className="text-gray-500">
-                            {(type === "biometric" && isWaitingForPermission)
+                            {(type === "biometric" && isWaitingForPermission) 
                                 ? "to grant access"
                                 : t("security.timeRemaining" as any)
                             }
@@ -708,7 +712,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                         <p className="text-blue-200/80 text-sm mb-4">
                                             Please enable biometric authentication in your device settings
                                         </p>
-
+                                        
                                         {/* NEW: Button to request access immediately */}
                                         <button
                                             className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 mb-3"
@@ -842,8 +846,8 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                                     <div
                                                         key={i}
                                                         className={`w-2 h-6 rounded-full transition-all duration-300 ${(motionIntensity / 300) * 100 > (i + 1) * 20
-                                                            ? motionDetected ? 'bg-green-400' : 'bg-purple-400'
-                                                            : 'bg-gray-600'
+                                                                ? motionDetected ? 'bg-green-400' : 'bg-purple-400'
+                                                                : 'bg-gray-600'
                                                             }`}
                                                         style={{
                                                             height: `${Math.max(8, Math.min(24, 8 + (motionIntensity / 60) * i))}px`
@@ -949,7 +953,7 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                         <p className="text-blue-200/80 text-sm mb-4">
                                             Please enable biometric authentication in your device settings
                                         </p>
-
+                                        
                                         {/* NEW: Button to request access immediately */}
                                         <button
                                             className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 mb-3"
@@ -1083,8 +1087,8 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                                     <div
                                                         key={i}
                                                         className={`w-2 h-6 rounded-full transition-all duration-300 ${(motionIntensity / 300) * 100 > (i + 1) * 20
-                                                            ? motionDetected ? 'bg-green-400' : 'bg-purple-400'
-                                                            : 'bg-gray-600'
+                                                                ? motionDetected ? 'bg-green-400' : 'bg-purple-400'
+                                                                : 'bg-gray-600'
                                                             }`}
                                                         style={{
                                                             height: `${Math.max(8, Math.min(24, 8 + (motionIntensity / 60) * i))}px`
