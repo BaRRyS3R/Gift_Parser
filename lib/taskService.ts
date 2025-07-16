@@ -1,4 +1,4 @@
-// src/lib/taskService.ts - Service for task management
+// src/lib/taskService.ts - Service for task management with enhanced user lookup
 
 import { supabase } from "./supabase";
 import type {
@@ -102,11 +102,54 @@ export const taskService = {
         }
     },
 
-    // Выполнение задания
+    // ENHANCED: Надежный поиск пользователя с fallback по telegramId
+    async findUserReliably(userId: string, telegramId?: number): Promise<{
+        user: any;
+        foundBy: 'uuid' | 'telegram_id' | 'not_found';
+    }> {
+        try {
+            // Сначала пробуем найти по UUID
+            const { data: userByUuid, error: uuidError } = await supabase
+                .from("users")
+                .select("id, telegram_id, attempts_remaining")
+                .eq("id", userId)
+                .single();
+
+            if (userByUuid && !uuidError) {
+                console.log(`User found by UUID: ${userId}`);
+                return { user: userByUuid, foundBy: 'uuid' };
+            }
+
+            // Если не найден по UUID и есть telegramId, пробуем найти по telegramId
+            if (telegramId) {
+                console.log(`User not found by UUID ${userId}, trying telegramId ${telegramId}`);
+
+                const { data: userByTelegramId, error: telegramError } = await supabase
+                    .from("users")
+                    .select("id, telegram_id, attempts_remaining")
+                    .eq("telegram_id", telegramId)
+                    .single();
+
+                if (userByTelegramId && !telegramError) {
+                    console.log(`User found by telegramId: ${telegramId}, UUID: ${userByTelegramId.id}`);
+                    return { user: userByTelegramId, foundBy: 'telegram_id' };
+                }
+            }
+
+            console.error(`User not found by UUID ${userId}${telegramId ? ` or telegramId ${telegramId}` : ''}`);
+            return { user: null, foundBy: 'not_found' };
+        } catch (error) {
+            console.error("Error in findUserReliably:", error);
+            return { user: null, foundBy: 'not_found' };
+        }
+    },
+
+    // ENHANCED: Выполнение задания с улучшенным поиском пользователя
     async completeTask(
         userId: string,
         taskId: number,
-        verificationData?: any
+        verificationData?: any,
+        telegramId?: number
     ): Promise<TaskCompletionResponse> {
         try {
             console.log(`Starting task completion for user ${userId}, task ${taskId}`);
@@ -139,25 +182,23 @@ export const taskService = {
 
             console.log(`Processing task ${taskId} for user ${userId}, reward: ${task.attempts_reward}`);
 
-            // Проверяем существование пользователя
-            const { data: existingUser, error: userCheckError } = await supabase
-                .from("users")
-                .select("id, attempts_remaining")
-                .eq("id", userId)
-                .single();
+            // ENHANCED: Надежный поиск пользователя
+            const { user: existingUser, foundBy } = await this.findUserReliably(userId, telegramId);
 
-            if (userCheckError || !existingUser) {
-                console.error(`User ${userId} not found:`, userCheckError);
+            if (!existingUser) {
+                console.error(`User not found with ID: ${userId}${telegramId ? ` or telegramId: ${telegramId}` : ''}`);
                 return {
                     success: false,
                     message: "User not found",
                     attempts_awarded: 0,
                     new_attempts_total: 0,
-                    error: `User not found with ID: ${userId}`
+                    error: `User not found with ID: ${userId}${telegramId ? ` or telegramId: ${telegramId}` : ''}`
                 };
             }
 
-            console.log(`User ${userId} found with ${existingUser.attempts_remaining} attempts`);
+            // Если пользователь найден по telegramId, используем его реальный UUID
+            const actualUserId = existingUser.id;
+            console.log(`User found by ${foundBy}: ${actualUserId} with ${existingUser.attempts_remaining} attempts`);
 
             // Выполняем операции атомарно
             const newAttemptsTotal = existingUser.attempts_remaining + task.attempts_reward;
@@ -169,7 +210,7 @@ export const taskService = {
                     attempts_remaining: newAttemptsTotal,
                     updated_at: new Date().toISOString()
                 })
-                .eq("id", userId)
+                .eq("id", actualUserId)
                 .eq("attempts_remaining", existingUser.attempts_remaining); // Optimistic locking
 
             if (updateError) {
@@ -183,13 +224,13 @@ export const taskService = {
                 };
             }
 
-            console.log(`Successfully updated attempts for user ${userId}: ${existingUser.attempts_remaining} -> ${newAttemptsTotal}`);
+            console.log(`Successfully updated attempts for user ${actualUserId}: ${existingUser.attempts_remaining} -> ${newAttemptsTotal}`);
 
-            // Записываем выполнение задания
+            // Записываем выполнение задания с правильным userId
             const { error: insertError } = await supabase
                 .from("user_tasks")
                 .insert({
-                    user_id: userId,
+                    user_id: actualUserId,
                     task_id: taskId,
                     attempts_awarded: task.attempts_reward,
                     verification_data: verificationData || null,
@@ -206,7 +247,7 @@ export const taskService = {
                         attempts_remaining: existingUser.attempts_remaining,
                         updated_at: new Date().toISOString()
                     })
-                    .eq("id", userId);
+                    .eq("id", actualUserId);
 
                 return {
                     success: false,
@@ -217,7 +258,7 @@ export const taskService = {
                 };
             }
 
-            console.log(`Task ${taskId} completed successfully for user ${userId}, awarded ${task.attempts_reward} attempts`);
+            console.log(`Task ${taskId} completed successfully for user ${actualUserId}, awarded ${task.attempts_reward} attempts`);
 
             return {
                 success: true,

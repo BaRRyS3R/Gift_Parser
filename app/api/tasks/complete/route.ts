@@ -1,4 +1,4 @@
-// src/app/api/tasks/complete/route.ts - API endpoint for completing tasks
+// src/app/api/tasks/complete/route.ts - API endpoint for completing tasks with enhanced user lookup
 
 import { NextResponse } from "next/server";
 
@@ -49,11 +49,12 @@ export const POST = withAuth(async (request) => {
 
         console.log(`User ${user.telegramId} (${user.userId}) attempting to complete task ${taskId}`);
 
-        // Complete the task
+        // ENHANCED: Complete the task with telegramId fallback
         const completionResult = await taskService.completeTask(
             user.userId,
             taskId,
-            verificationData
+            verificationData,
+            user.telegramId // Pass telegramId for fallback lookup
         );
 
         if (!completionResult.success) {
