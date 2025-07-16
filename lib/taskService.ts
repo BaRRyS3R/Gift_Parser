@@ -109,9 +109,12 @@ export const taskService = {
         verificationData?: any
     ): Promise<TaskCompletionResponse> {
         try {
+            console.log(`Starting task completion for user ${userId}, task ${taskId}`);
+
             // Проверяем, не выполнено ли задание уже
             const isCompleted = await this.isTaskCompleted(userId, taskId);
             if (isCompleted) {
+                console.log(`Task ${taskId} already completed for user ${userId}`);
                 return {
                     success: false,
                     message: "Task already completed",
@@ -124,6 +127,7 @@ export const taskService = {
             // Получаем информацию о задании
             const task = await this.getTask(taskId);
             if (!task) {
+                console.log(`Task ${taskId} not found`);
                 return {
                     success: false,
                     message: "Task not found",
@@ -132,6 +136,54 @@ export const taskService = {
                     error: "Task not found"
                 };
             }
+
+            console.log(`Processing task ${taskId} for user ${userId}, reward: ${task.attempts_reward}`);
+
+            // Проверяем существование пользователя
+            const { data: existingUser, error: userCheckError } = await supabase
+                .from("users")
+                .select("id, attempts_remaining")
+                .eq("id", userId)
+                .single();
+
+            if (userCheckError || !existingUser) {
+                console.error(`User ${userId} not found:`, userCheckError);
+                return {
+                    success: false,
+                    message: "User not found",
+                    attempts_awarded: 0,
+                    new_attempts_total: 0,
+                    error: `User not found with ID: ${userId}`
+                };
+            }
+
+            console.log(`User ${userId} found with ${existingUser.attempts_remaining} attempts`);
+
+            // Выполняем операции атомарно
+            const newAttemptsTotal = existingUser.attempts_remaining + task.attempts_reward;
+
+            // Начинаем транзакцию - обновляем попытки пользователя
+            const { error: updateError } = await supabase
+                .from("users")
+                .update({
+                    attempts_remaining: newAttemptsTotal,
+                    updated_at: new Date().toISOString()
+                })
+                .eq("id", userId)
+                .eq("attempts_remaining", existingUser.attempts_remaining); // Optimistic locking
+
+            if (updateError) {
+                console.error("Error updating user attempts:", updateError);
+                return {
+                    success: false,
+                    message: "Failed to update attempts",
+                    attempts_awarded: 0,
+                    new_attempts_total: 0,
+                    error: updateError.message
+                };
+            }
+
+            console.log(`Successfully updated attempts for user ${userId}: ${existingUser.attempts_remaining} -> ${newAttemptsTotal}`);
 
             // Записываем выполнение задания
             const { error: insertError } = await supabase
@@ -145,7 +197,17 @@ export const taskService = {
                 });
 
             if (insertError) {
-                console.error("Error completing task:", insertError);
+                console.error("Error completing task, rolling back attempts:", insertError);
+
+                // Откатываем изменения попыток при ошибке записи задания
+                await supabase
+                    .from("users")
+                    .update({
+                        attempts_remaining: existingUser.attempts_remaining,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq("id", userId);
+
                 return {
                     success: false,
                     message: "Failed to complete task",
@@ -155,27 +217,7 @@ export const taskService = {
                 };
             }
 
-            // Обновляем попытки пользователя атомарно через RPC функцию
-            const { data: updatedUser, error: updateError } = await supabase
-                .rpc('increment_user_attempts', {
-                    p_user_id: userId,
-                    p_attempts_to_add: task.attempts_reward
-                });
-
-            if (updateError) {
-                console.error("Error updating user attempts:", updateError);
-                return {
-                    success: false,
-                    message: "Failed to update attempts",
-                    attempts_awarded: 0,
-                    new_attempts_total: 0,
-                    error: updateError.message
-                };
-            }
-
-            const newAttemptsTotal = updatedUser || 0;
-
-            console.log(`Task ${taskId} completed by user ${userId}, awarded ${task.attempts_reward} attempts`);
+            console.log(`Task ${taskId} completed successfully for user ${userId}, awarded ${task.attempts_reward} attempts`);
 
             return {
                 success: true,

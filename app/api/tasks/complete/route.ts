@@ -10,6 +10,8 @@ export const POST = withAuth(async (request) => {
     try {
         const { user } = request;
 
+        console.log(`Task completion request from user: ${user.userId}, telegram_id: ${user.telegramId}`);
+
         // Parse request body
         let requestBody: TaskCompletionRequest;
         try {
@@ -32,6 +34,7 @@ export const POST = withAuth(async (request) => {
 
         // Validate input
         if (!taskId || typeof taskId !== 'number') {
+            console.error("Invalid task ID:", taskId);
             return NextResponse.json(
                 {
                     success: false,
@@ -44,7 +47,7 @@ export const POST = withAuth(async (request) => {
             );
         }
 
-        console.log(`User ${user.telegramId} attempting to complete task ${taskId}`);
+        console.log(`User ${user.telegramId} (${user.userId}) attempting to complete task ${taskId}`);
 
         // Complete the task
         const completionResult = await taskService.completeTask(
@@ -62,7 +65,7 @@ export const POST = withAuth(async (request) => {
             );
         }
 
-        console.log(`Task ${taskId} completed successfully by user ${user.telegramId}, awarded ${completionResult.attempts_awarded} attempts`);
+        console.log(`Task ${taskId} completed successfully by user ${user.telegramId} (${user.userId}), awarded ${completionResult.attempts_awarded} attempts`);
 
         return NextResponse.json(completionResult);
     } catch (error) {
