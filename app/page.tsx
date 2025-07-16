@@ -47,6 +47,7 @@ export default function IntroPage(): JSX.Element {
     isAuthenticated,
     user: contextUser,
     isLoading: contextLoading,
+    authenticateWithTelegram, // ИСПРАВЛЕНО: Добавлен импорт метода аутентификации
   } = useUser();
   const t = useT();
 
@@ -79,7 +80,7 @@ export default function IntroPage(): JSX.Element {
   const [isPlaying, setIsPlaying] = useState(false);
 
   // ИСПРАВЛЕНО: Правильный порядок объявления функций
-  
+
   // 1. Вспомогательные функции для работы с Telegram
   const getTelegramUser = useCallback((): TelegramUser | null => {
     if (typeof window === "undefined") {
@@ -339,8 +340,21 @@ export default function IntroPage(): JSX.Element {
       }
 
       if (loginResult.success && loginResult.user) {
-        // Existing user successfully logged in
+        // ИСПРАВЛЕНО: Использование контекстного метода аутентификации
         console.log("Existing user logged in successfully");
+
+        try {
+          // Используем метод из контекста для полной аутентификации
+          const initData = getTelegramInitData();
+          if (initData) {
+            await authenticateWithTelegram(initData, referralCode);
+            console.log("User authenticated through context successfully");
+            return true;
+          }
+        } catch (contextError) {
+          console.error("Context authentication failed:", contextError);
+          // Fallback to manual user creation if context auth fails
+        }
 
         const user = {
           id: `temp-${loginResult.user.telegram_id}`,
@@ -426,7 +440,7 @@ export default function IntroPage(): JSX.Element {
         isChecking: false,
         error: loginResult.error || "Authentication failed",
       }));
-      
+
       return false;
     } catch (error) {
       console.error("Error initializing authorization:", error);
@@ -435,7 +449,7 @@ export default function IntroPage(): JSX.Element {
         isChecking: false,
         error: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")}`,
       }));
-      
+
       return false;
     }
   }, [
@@ -445,11 +459,13 @@ export default function IntroPage(): JSX.Element {
     router,
     setTelegramUser,
     updateUser,
+    authenticateWithTelegram, // ИСПРАВЛЕНО: Добавлена зависимость
+    getTelegramInitData,
     t,
   ]);
 
   // 4. useEffect хуки в правильном порядке
-  
+
   // Восстановленная автоматическая проверка аутентификации при загрузке
   useEffect(() => {
     // Предотвращаем множественные проверки
@@ -475,11 +491,11 @@ export default function IntroPage(): JSX.Element {
     const checkAuthPromise = (async () => {
       try {
         console.log("Performing single auth check...");
-        
+
         if (isAuthenticated && contextUser) {
           console.log("User already authenticated, redirecting to main");
           setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-          
+
           // Небольшая задержка для плавности
           setTimeout(() => {
             router.push("/main");
@@ -489,7 +505,7 @@ export default function IntroPage(): JSX.Element {
 
         // Автоматическая инициализация аутентификации при загрузке
         const authSuccess = await initializeAuthOnUserAction();
-        
+
         if (authSuccess) {
           // Если аутентификация прошла успешно, переходим на главную
           setTimeout(() => {
@@ -499,7 +515,7 @@ export default function IntroPage(): JSX.Element {
           // Если нужна регистрация или есть ошибка, обновляем состояние UI
           setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
         }
-        
+
         GLOBAL_INIT_STATE.hasCheckedAuth = true;
       } catch (error) {
         console.error("Auth check error:", error);
@@ -649,7 +665,7 @@ export default function IntroPage(): JSX.Element {
   }, [router, registerNewUser, isAuthenticated, authState]); // Минимальные зависимости
 
   // 5. Обработчики событий
-  
+
   // Упрощенная функция запуска видео с инициализацией
   const handleStart = async () => {
     const video = videoRef.current;
@@ -658,7 +674,7 @@ export default function IntroPage(): JSX.Element {
     try {
       // Сначала инициализируем аутентификацию
       const authSuccess = await initializeAuthOnUserAction();
-      
+
       if (authSuccess) {
         // Если аутентификация прошла успешно, сразу переходим
         router.push("/main");
@@ -684,7 +700,7 @@ export default function IntroPage(): JSX.Element {
 
     try {
       const authSuccess = await initializeAuthOnUserAction();
-      
+
       if (authSuccess) {
         // Если аутентификация прошла успешно
         router.push("/main");
@@ -711,7 +727,7 @@ export default function IntroPage(): JSX.Element {
   };
 
   // 6. Вспомогательные функции для UI
-  
+
   // Function to format referrer display name
   const getDisplayReferrerName = (): string => {
     if (authState.referrerUsername) {
@@ -823,7 +839,7 @@ export default function IntroPage(): JSX.Element {
               GLOBAL_INIT_STATE.hasCheckedAuth = false;
               GLOBAL_INIT_STATE.isCheckingAuth = false;
               GLOBAL_INIT_STATE.checkPromise = null;
-              
+
               setAuthState((prev) => ({
                 ...prev,
                 error: null,
