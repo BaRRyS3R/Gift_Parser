@@ -1,58 +1,27 @@
-// src/app/api/purchases/create-invoice/route.ts - Production integration with PHP backend
+// src/app/api/purchases/create-invoice/route.ts - Fixed version
 
 import { NextResponse } from "next/server";
-
 import { withAuth } from "@/lib/authMiddleware";
 import { userService } from "@/lib/supabase";
 import { PRODUCTS, type ProductType } from "@/types/purchases";
 
-// Get Telegram initData from request headers
-async function extractInitData(request: Request): Promise<string> {
-    try {
-        // First try to get from request body
-        const body = await request.clone().json();
-        if (body.initData) {
-            return body.initData;
-        }
-
-        // Fallback: construct from headers (set by middleware)
-        const telegramId = request.headers.get("x-telegram-id");
-        const userId = request.headers.get("x-user-id");
-
-        if (!telegramId) {
-            throw new Error("Telegram ID not available");
-        }
-
-        // Get user data to construct minimal initData
-        const userData = await userService.findByTelegramId(parseInt(telegramId));
-        if (!userData) {
-            throw new Error("User not found");
-        }
-
-        // Construct minimal valid initData
-        const userObject = {
-            id: userData.telegram_id,
-            first_name: userData.first_name,
-            last_name: userData.last_name || undefined,
-            username: userData.username || undefined,
-            is_premium: userData.is_premium
-        };
-
-        const initDataParams = new URLSearchParams();
-        initDataParams.append('user', JSON.stringify(userObject));
-        initDataParams.append('auth_date', Math.floor(Date.now() / 1000).toString());
-
-        return initDataParams.toString();
-    } catch (error) {
-        console.error("Error extracting initData:", error);
-        throw new Error("Failed to prepare authentication data");
-    }
-}
-
 export const POST = withAuth(async (request) => {
     try {
         const { user } = request;
-        const { productType } = await request.json();
+
+        // Safely parse request body
+        let requestBody;
+        try {
+            requestBody = await request.json();
+        } catch (error) {
+            console.error("Error parsing request body:", error);
+            return NextResponse.json(
+                { success: false, error: "Invalid request body" },
+                { status: 400 },
+            );
+        }
+
+        const { productType, initData } = requestBody;
 
         // Validate input
         if (!productType) {
@@ -79,8 +48,36 @@ export const POST = withAuth(async (request) => {
             );
         }
 
-        // Extract initData for PHP backend
-        const initData = await extractInitData(request);
+        // Prepare initData for PHP backend
+        let finalInitData: string;
+
+        if (initData) {
+            // Use provided initData
+            finalInitData = initData;
+        } else {
+            // Fallback: construct from user data
+            try {
+                const userObject = {
+                    id: userData.telegram_id,
+                    first_name: userData.first_name,
+                    last_name: userData.last_name || undefined,
+                    username: userData.username || undefined,
+                    is_premium: userData.is_premium
+                };
+
+                const initDataParams = new URLSearchParams();
+                initDataParams.append('user', JSON.stringify(userObject));
+                initDataParams.append('auth_date', Math.floor(Date.now() / 1000).toString());
+
+                finalInitData = initDataParams.toString();
+            } catch (error) {
+                console.error("Error constructing initData:", error);
+                return NextResponse.json(
+                    { success: false, error: "Failed to prepare authentication data" },
+                    { status: 500 },
+                );
+            }
+        }
 
         // Get PHP backend URL
         const phpBackendUrl = process.env.NEXT_PUBLIC_PHP_BACKEND_URL;
@@ -93,44 +90,53 @@ export const POST = withAuth(async (request) => {
         }
 
         // Call PHP backend to create invoice
-        const response = await fetch(`${phpBackendUrl}/create_invoice.php`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                initData,
-                productType,
-            }),
-        });
+        try {
+            const response = await fetch(`${phpBackendUrl}/create_invoice.php`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    initData: finalInitData,
+                    productType,
+                }),
+            });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("PHP backend error:", response.status, errorText);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("PHP backend error:", response.status, errorText);
 
+                return NextResponse.json(
+                    { success: false, error: "Failed to create invoice" },
+                    { status: 500 },
+                );
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                console.error("PHP backend returned error:", result.error);
+                return NextResponse.json(
+                    { success: false, error: result.error || "Failed to create invoice" },
+                    { status: 400 },
+                );
+            }
+
+            // Return invoice data
+            return NextResponse.json({
+                success: true,
+                invoice_url: result.invoice_url,
+                product: result.product,
+                payload: result.payload,
+            });
+
+        } catch (fetchError) {
+            console.error("Error calling PHP backend:", fetchError);
             return NextResponse.json(
-                { success: false, error: "Failed to create invoice" },
-                { status: 500 },
+                { success: false, error: "Payment service unavailable" },
+                { status: 503 },
             );
         }
-
-        const result = await response.json();
-
-        if (!result.success) {
-            console.error("PHP backend returned error:", result.error);
-            return NextResponse.json(
-                { success: false, error: result.error || "Failed to create invoice" },
-                { status: 400 },
-            );
-        }
-
-        // Return invoice data
-        return NextResponse.json({
-            success: true,
-            invoice_url: result.invoice_url,
-            product: result.product,
-            payload: result.payload,
-        });
 
     } catch (error) {
         console.error("Error creating invoice:", error);
