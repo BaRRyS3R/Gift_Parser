@@ -770,6 +770,78 @@ class AuthService {
   }
 
   // ============================================================================
+  // LEADERBOARD METHODS
+  // ============================================================================
+
+  async getReactionLeaderboard(limit: number = 50): Promise<import("@/types/safe-leaderboard").SafeReactionLeaderboardEntry[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<import("@/types/safe-leaderboard").LeaderboardResponse<import("@/types/safe-leaderboard").SafeReactionLeaderboardEntry>>(
+        `/leaderboard/reaction?limit=${limit}`
+      );
+
+      return response.leaderboard;
+    } catch (error) {
+      console.error("Error fetching reaction leaderboard:", error);
+      throw error;
+    }
+  }
+
+  async getSurvivalLeaderboard(limit: number = 50): Promise<import("@/types/safe-leaderboard").SafeSurvivalLeaderboardEntry[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<import("@/types/safe-leaderboard").LeaderboardResponse<import("@/types/safe-leaderboard").SafeSurvivalLeaderboardEntry>>(
+        `/leaderboard/survival?limit=${limit}`
+      );
+
+      return response.leaderboard;
+    } catch (error) {
+      console.error("Error fetching survival leaderboard:", error);
+      throw error;
+    }
+  }
+
+  async getPhysicsLeaderboard(limit: number = 50): Promise<import("@/types/safe-leaderboard").SafePhysicsLeaderboardEntry[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<import("@/types/safe-leaderboard").LeaderboardResponse<import("@/types/safe-leaderboard").SafePhysicsLeaderboardEntry>>(
+        `/leaderboard/physics?limit=${limit}`
+      );
+
+      return response.leaderboard;
+    } catch (error) {
+      console.error("Error fetching physics leaderboard:", error);
+      throw error;
+    }
+  }
+
+  async getRotationLeaderboard(limit: number = 50): Promise<import("@/types/safe-leaderboard").SafeRotationLeaderboardEntry[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<import("@/types/safe-leaderboard").LeaderboardResponse<import("@/types/safe-leaderboard").SafeRotationLeaderboardEntry>>(
+        `/leaderboard/rotation?limit=${limit}`
+      );
+
+      return response.leaderboard;
+    } catch (error) {
+      console.error("Error fetching rotation leaderboard:", error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
   // UTILITY METHODS
   // ============================================================================
 

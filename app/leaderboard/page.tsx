@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Updated with rotation mode support
+// src/app/leaderboard/page.tsx - Обновлена с использованием защищенной системы API
 
 "use client";
 
@@ -19,14 +19,8 @@ import {
   RotateCw,
 } from "lucide-react";
 
-import {
-  userService,
-  type ReactionLeaderboard,
-  type SurvivalLeaderboard,
-  type PhysicsLeaderboard,
-  type RotationLeaderboard,
-} from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
+import { authService } from "@/lib/authService";
 import {
   formatSurvivalTime,
   formatPhysicsTime,
@@ -35,54 +29,71 @@ import {
 import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
 import { useT } from "@/contexts/LocalizationContext";
 
+// Импорт безопасных типов
+import type {
+  SafeReactionLeaderboardEntry,
+  SafeSurvivalLeaderboardEntry,
+  SafePhysicsLeaderboardEntry,
+  SafeRotationLeaderboardEntry,
+} from "@/types/safe-leaderboard";
+
 type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
 export default function LeaderboardPage() {
-  const { user } = useUser();
+  const { isAuthenticated } = useUser();
   const t = useT();
   const [activeTab, setActiveTab] = useState<LeaderboardType>("reaction");
-  const [reactionLeaderboard, setReactionLeaderboard] = useState<
-    ReactionLeaderboard[]
-  >([]);
-  const [survivalLeaderboard, setSurvivalLeaderboard] = useState<
-    SurvivalLeaderboard[]
-  >([]);
-  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<
-    PhysicsLeaderboard[]
-  >([]);
-  const [rotationLeaderboard, setRotationLeaderboard] = useState<
-    RotationLeaderboard[]
-  >([]);
+  const [reactionLeaderboard, setReactionLeaderboard] = useState<SafeReactionLeaderboardEntry[]>([]);
+  const [survivalLeaderboard, setSurvivalLeaderboard] = useState<SafeSurvivalLeaderboardEntry[]>([]);
+  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<SafePhysicsLeaderboardEntry[]>([]);
+  const [rotationLeaderboard, setRotationLeaderboard] = useState<SafeRotationLeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadLeaderboards = async () => {
+      if (!isAuthenticated) {
+        console.log("User not authenticated, skipping leaderboard load");
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         setError(null);
 
+        console.log("Loading leaderboards via secure API...");
+
         const [reaction, survival, physics, rotation] = await Promise.all([
-          userService.getReactionLeaderboard(50),
-          userService.getSurvivalLeaderboard(50),
-          userService.getPhysicsLeaderboard(50),
-          userService.getRotationLeaderboard(50),
+          authService.getReactionLeaderboard(50),
+          authService.getSurvivalLeaderboard(50),
+          authService.getPhysicsLeaderboard(50),
+          authService.getRotationLeaderboard(50),
         ]);
 
         setReactionLeaderboard(reaction);
         setSurvivalLeaderboard(survival);
         setPhysicsLeaderboard(physics);
         setRotationLeaderboard(rotation);
+
+        console.log("Leaderboards loaded successfully via secure API");
       } catch (err) {
-        console.error("Error loading leaderboards:", err);
-        setError(t("leaderboard.failedToLoad"));
+        console.error("Error loading leaderboards via secure API:", err);
+
+        // Handle authentication errors
+        if (err instanceof Error && err.message.includes("Authentication expired")) {
+          console.log("Authentication expired during leaderboard load");
+          setError(t("leaderboard.authenticationRequired"));
+        } else {
+          setError(t("leaderboard.failedToLoad"));
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadLeaderboards();
-  }, [t]);
+  }, [isAuthenticated, t]);
 
   const getRankIcon = (position: number) => {
     switch (position) {
@@ -97,10 +108,6 @@ export default function LeaderboardPage() {
           <span className="text-white/60 text-sm font-bold">#{position}</span>
         );
     }
-  };
-
-  const isCurrentUser = (telegramId: number) => {
-    return user?.telegram_id === telegramId;
   };
 
   const getTabColors = (tab: LeaderboardType, isActive: boolean) => {
@@ -127,7 +134,7 @@ export default function LeaderboardPage() {
   };
 
   const renderReactionLeaderboardEntry = (
-    entry: ReactionLeaderboard,
+    entry: SafeReactionLeaderboardEntry,
     position: number,
   ) => {
     const getRatingFromTime = (time: number): string => {
@@ -135,21 +142,20 @@ export default function LeaderboardPage() {
       if (time <= 200) return "EXCELLENT";
       if (time <= 300) return "GOOD";
       if (time <= 500) return "AVERAGE";
-
       return "SLOW";
     };
 
-    const rating = getRatingFromTime(entry.best_reaction_time);
+    const rating = getRatingFromTime(entry.bestReactionTime);
 
     return (
       <div
-        key={entry.telegram_id}
+        key={entry.rank}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
           hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
           transition-all duration-200
-          ${isCurrentUser(entry.telegram_id) ? "ring-1 ring-white/60 bg-white/25" : ""}
+          ${entry.isCurrentUser ? "ring-1 ring-white/60 bg-white/25" : ""}
           rounded-lg
         `}
       >
@@ -175,17 +181,17 @@ export default function LeaderboardPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
                     <h3
-                      className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}
+                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
                     >
-                      {entry.first_name} {entry.last_name || ""}
+                      {entry.displayName}
                     </h3>
-                    {entry.is_premium && (
+                    {entry.isPremium && (
                       <Star
                         className="text-yellow-400 flex-shrink-0"
                         size={12}
                       />
                     )}
-                    {isCurrentUser(entry.telegram_id) && (
+                    {entry.isCurrentUser && (
                       <span className="text-xs bg-white/30 text-white px-2 py-0.5 rounded border border-white/30">
                         {t("leaderboard.you")}
                       </span>
@@ -208,13 +214,13 @@ export default function LeaderboardPage() {
                   </div>
                   <div className="flex items-center space-x-1 text-xs text-white/80">
                     <Activity size={10} />
-                    <span>{entry.reaction_games}</span>
+                    <span>{entry.reactionGames}</span>
                   </div>
                 </div>
 
                 <div className="text-right">
                   <div className="text-lg font-bold text-white">
-                    {entry.best_reaction_time}ms
+                    {entry.bestReactionTime}ms
                   </div>
                 </div>
               </div>
@@ -226,18 +232,18 @@ export default function LeaderboardPage() {
   };
 
   const renderSurvivalLeaderboardEntry = (
-    entry: SurvivalLeaderboard,
+    entry: SafeSurvivalLeaderboardEntry,
     position: number,
   ) => {
     return (
       <div
-        key={entry.telegram_id}
+        key={entry.rank}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
           hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
           transition-all duration-200
-          ${isCurrentUser(entry.telegram_id) ? "ring-1 ring-red-400/60 bg-red-500/25" : ""}
+          ${entry.isCurrentUser ? "ring-1 ring-red-400/60 bg-red-500/25" : ""}
           rounded-lg
         `}
       >
@@ -263,17 +269,17 @@ export default function LeaderboardPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
                     <h3
-                      className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}
+                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
                     >
-                      {entry.first_name} {entry.last_name || ""}
+                      {entry.displayName}
                     </h3>
-                    {entry.is_premium && (
+                    {entry.isPremium && (
                       <Star
                         className="text-yellow-400 flex-shrink-0"
                         size={12}
                       />
                     )}
-                    {isCurrentUser(entry.telegram_id) && (
+                    {entry.isCurrentUser && (
                       <span className="text-xs bg-red-500/30 text-red-200 px-2 py-0.5 rounded border border-red-400/30">
                         {t("leaderboard.you")}
                       </span>
@@ -291,21 +297,21 @@ export default function LeaderboardPage() {
                 <div className="flex items-center space-x-2 text-xs text-white/80">
                   <div className="flex items-center space-x-1">
                     <TrendingUp size={10} />
-                    <span>L{entry.max_level}</span>
+                    <span>L{entry.maxLevel}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Target size={10} />
-                    <span>{entry.best_streak}</span>
+                    <span>{entry.bestStreak}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Activity size={10} />
-                    <span>{entry.survival_games}</span>
+                    <span>{entry.survivalGames}</span>
                   </div>
                 </div>
 
                 <div className="text-right">
                   <div className="text-lg font-bold text-white">
-                    {formatSurvivalTime(entry.best_survival_time)}
+                    {formatSurvivalTime(entry.bestSurvivalTime)}
                   </div>
                 </div>
               </div>
@@ -317,18 +323,18 @@ export default function LeaderboardPage() {
   };
 
   const renderPhysicsLeaderboardEntry = (
-    entry: PhysicsLeaderboard,
+    entry: SafePhysicsLeaderboardEntry,
     position: number,
   ) => {
     return (
       <div
-        key={entry.telegram_id}
+        key={entry.rank}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
           hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
           transition-all duration-200
-          ${isCurrentUser(entry.telegram_id) ? "ring-1 ring-purple-400/60 bg-purple-500/25" : ""}
+          ${entry.isCurrentUser ? "ring-1 ring-purple-400/60 bg-purple-500/25" : ""}
           rounded-lg
         `}
       >
@@ -354,17 +360,17 @@ export default function LeaderboardPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
                     <h3
-                      className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}
+                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
                     >
-                      {entry.first_name} {entry.last_name || ""}
+                      {entry.displayName}
                     </h3>
-                    {entry.is_premium && (
+                    {entry.isPremium && (
                       <Star
                         className="text-yellow-400 flex-shrink-0"
                         size={12}
                       />
                     )}
-                    {isCurrentUser(entry.telegram_id) && (
+                    {entry.isCurrentUser && (
                       <span className="text-xs bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded border border-purple-400/30">
                         {t("leaderboard.you")}
                       </span>
@@ -382,21 +388,21 @@ export default function LeaderboardPage() {
                 <div className="flex items-center space-x-2 text-xs text-white/80">
                   <div className="flex items-center space-x-1">
                     <Clock size={10} />
-                    <span>{formatPhysicsTime(entry.best_physics_time)}</span>
+                    <span>{formatPhysicsTime(entry.bestPhysicsTime)}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Target size={10} />
-                    <span>{entry.best_hits}</span>
+                    <span>{entry.bestHits}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Activity size={10} />
-                    <span>{entry.physics_games}</span>
+                    <span>{entry.physicsGames}</span>
                   </div>
                 </div>
 
                 <div className="text-right">
                   <div className="text-lg font-bold text-white">
-                    {entry.best_physics_score}
+                    {entry.bestPhysicsScore}
                   </div>
                 </div>
               </div>
@@ -408,18 +414,18 @@ export default function LeaderboardPage() {
   };
 
   const renderRotationLeaderboardEntry = (
-    entry: RotationLeaderboard,
+    entry: SafeRotationLeaderboardEntry,
     position: number,
   ) => {
     return (
       <div
-        key={entry.telegram_id}
+        key={entry.rank}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
           hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
           transition-all duration-200
-          ${isCurrentUser(entry.telegram_id) ? "ring-1 ring-orange-400/60 bg-orange-500/25" : ""}
+          ${entry.isCurrentUser ? "ring-1 ring-orange-400/60 bg-orange-500/25" : ""}
           rounded-lg
         `}
       >
@@ -445,17 +451,17 @@ export default function LeaderboardPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
                     <h3
-                      className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}
+                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
                     >
-                      {entry.first_name} {entry.last_name || ""}
+                      {entry.displayName}
                     </h3>
-                    {entry.is_premium && (
+                    {entry.isPremium && (
                       <Star
                         className="text-yellow-400 flex-shrink-0"
                         size={12}
                       />
                     )}
-                    {isCurrentUser(entry.telegram_id) && (
+                    {entry.isCurrentUser && (
                       <span className="text-xs bg-orange-500/30 text-orange-200 px-2 py-0.5 rounded border border-orange-400/30">
                         {t("leaderboard.you")}
                       </span>
@@ -473,21 +479,21 @@ export default function LeaderboardPage() {
                 <div className="flex items-center space-x-2 text-xs text-white/80">
                   <div className="flex items-center space-x-1">
                     <TrendingUp size={10} />
-                    <span>L{entry.max_level}</span>
+                    <span>L{entry.maxLevel}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Target size={10} />
-                    <span>{entry.best_streak}</span>
+                    <span>{entry.bestStreak}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Activity size={10} />
-                    <span>{entry.rotation_games}</span>
+                    <span>{entry.rotationGames}</span>
                   </div>
                 </div>
 
                 <div className="text-right">
                   <div className="text-lg font-bold text-white">
-                    {formatRotationTime(entry.best_rotation_time)}
+                    {formatRotationTime(entry.bestRotationTime)}
                   </div>
                 </div>
               </div>
@@ -497,6 +503,19 @@ export default function LeaderboardPage() {
       </div>
     );
   };
+
+  // Check authentication and show appropriate message
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <TrendingUp className="text-white/60 mx-auto" size={48} />
+          <h2 className="text-white text-xl font-bold">Authentication Required</h2>
+          <p className="text-white/80">Please log in to view leaderboards</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -608,18 +627,18 @@ export default function LeaderboardPage() {
               <span className="font-bold text-white">
                 {currentLeaderboard[0]
                   ? isReactionTab
-                    ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}ms`
+                    ? `${(currentLeaderboard[0] as SafeReactionLeaderboardEntry).bestReactionTime}ms`
                     : isSurvivalTab
                       ? formatSurvivalTime(
-                          (currentLeaderboard[0] as SurvivalLeaderboard)
-                            .best_survival_time,
-                        )
+                        (currentLeaderboard[0] as SafeSurvivalLeaderboardEntry)
+                          .bestSurvivalTime,
+                      )
                       : isPhysicsTab
-                        ? `${(currentLeaderboard[0] as PhysicsLeaderboard).best_physics_score} pts`
+                        ? `${(currentLeaderboard[0] as SafePhysicsLeaderboardEntry).bestPhysicsScore} pts`
                         : formatRotationTime(
-                            (currentLeaderboard[0] as RotationLeaderboard)
-                              .best_rotation_time,
-                          )
+                          (currentLeaderboard[0] as SafeRotationLeaderboardEntry)
+                            .bestRotationTime,
+                        )
                   : "0"}
               </span>
             </div>
@@ -677,29 +696,29 @@ export default function LeaderboardPage() {
             {currentLeaderboard.map((entry, index) =>
               isReactionTab
                 ? renderReactionLeaderboardEntry(
-                    entry as ReactionLeaderboard,
-                    index + 1,
-                  )
+                  entry as SafeReactionLeaderboardEntry,
+                  index + 1,
+                )
                 : isSurvivalTab
                   ? renderSurvivalLeaderboardEntry(
-                      entry as SurvivalLeaderboard,
-                      index + 1,
-                    )
+                    entry as SafeSurvivalLeaderboardEntry,
+                    index + 1,
+                  )
                   : isPhysicsTab
                     ? renderPhysicsLeaderboardEntry(
-                        entry as PhysicsLeaderboard,
-                        index + 1,
-                      )
+                      entry as SafePhysicsLeaderboardEntry,
+                      index + 1,
+                    )
                     : renderRotationLeaderboardEntry(
-                        entry as RotationLeaderboard,
-                        index + 1,
-                      ),
+                      entry as SafeRotationLeaderboardEntry,
+                      index + 1,
+                    ),
             )}
           </div>
         )}
       </div>
 
-      {/* Bottom spacing for safe area - КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ */}
+      {/* Bottom spacing for safe area */}
       <div className="h-24" />
     </div>
   );

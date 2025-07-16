@@ -14,6 +14,7 @@ const protectedApiPaths = [
   "/api/security/",
   "/api/leagues/",
   "/api/profile/",
+  "/api/leaderboard/", // All leaderboard endpoints are protected
 ];
 
 // Define paths that don't require authentication
