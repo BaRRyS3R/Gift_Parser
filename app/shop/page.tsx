@@ -1,4 +1,4 @@
-// src/app/shop/page.tsx - Production shop with PHP backend integration
+// src/app/shop/page.tsx - Fixed version with immediate attempts counter update
 
 "use client";
 
@@ -38,7 +38,7 @@ interface SuccessNotification {
 
 export default function ShopPage() {
   const router = useRouter();
-  const { user, refreshUser, isAuthenticated } = useUser();
+  const { user, refreshUser, isAuthenticated, forceRefreshAttempts } = useUser();
   const t = useT();
   const [isExploding, setIsExploding] = useState(false);
 
@@ -174,8 +174,27 @@ export default function ShopPage() {
         if (processResult.success) {
           console.log("Purchase processing completed successfully");
 
-          // Refresh user data to reflect updated attempts
+          // CRITICAL FIX: Comprehensive attempts counter update
+          console.log("Shop: Starting comprehensive attempts counter update...");
+
+          // Step 1: Refresh user data
           await refreshUser();
+          console.log("Shop: User data refreshed");
+
+          // Step 2: Force refresh attempts (bypass cache)
+          await forceRefreshAttempts();
+          console.log("Shop: Attempts force refreshed");
+
+          // Step 3: Dispatch custom event for AttemptsDisplay
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent('attemptsUpdated'));
+            console.log("Shop: Attempts update event dispatched");
+          }
+
+          // Step 4: Small delay to ensure all updates propagate
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          console.log("Shop: Attempts counter update complete");
 
           // Show success notification
           showSuccessNotification(productType);

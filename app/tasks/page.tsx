@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Tasks page with design similar to shop page
+// src/app/tasks/page.tsx - Fixed version with immediate attempts counter update
 
 "use client";
 
@@ -59,7 +59,7 @@ interface TaskStats {
 
 export default function TasksPage() {
     const router = useRouter();
-    const { user, refreshUser, isAuthenticated } = useUser();
+    const { user, refreshUser, isAuthenticated, forceRefreshAttempts } = useUser();
     const t = useT();
     const [isExploding, setIsExploding] = useState(false);
 
@@ -345,8 +345,27 @@ export default function TasksPage() {
                 completionRate: prev.totalTasks > 0 ? ((prev.completedTasks + 1) / prev.totalTasks) * 100 : 0,
             }));
 
-            // Refresh user data to reflect updated attempts
+            // CRITICAL FIX: Comprehensive attempts counter update
+            console.log("Tasks: Starting comprehensive attempts counter update...");
+
+            // Step 1: Refresh user data
             await refreshUser();
+            console.log("Tasks: User data refreshed");
+
+            // Step 2: Force refresh attempts (bypass cache)
+            await forceRefreshAttempts();
+            console.log("Tasks: Attempts force refreshed");
+
+            // Step 3: Dispatch custom event for AttemptsDisplay
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent('attemptsUpdated'));
+                console.log("Tasks: Attempts update event dispatched");
+            }
+
+            // Step 4: Small delay to ensure all updates propagate
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            console.log("Tasks: Attempts counter update complete");
 
             // Show success notification
             showSuccessNotification(task, data.attempts_awarded);

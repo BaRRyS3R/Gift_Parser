@@ -1,4 +1,4 @@
-// src/hooks/useUser.tsx - Complete secured version with full functionality
+// src/hooks/useUser.tsx - Complete secured version with fixed attempts cache management
 
 "use client";
 
@@ -69,6 +69,12 @@ interface UserContextType {
   consumeAttemptForGame: () => Promise<AttemptsStatus>;
   invalidateAttemptsCache: () => void;
   getCachedAttemptsStatus: () => AttemptsStatus | null;
+
+  // NEW: Force refresh attempts from server
+  forceRefreshAttempts: () => Promise<AttemptsStatus>;
+
+  // NEW: Trigger for external updates
+  triggerAttemptsUpdate: () => void;
 
   // Achievement notifications
   currentAchievement: AchievementNotificationData | null;
@@ -149,6 +155,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     isValid: false,
     source: "initial",
   });
+
+  // NEW: Trigger for external updates (购买、任务等)
+  const [attemptsUpdateTrigger, setAttemptsUpdateTrigger] = useState(0);
 
   // Initialize authentication state
   useEffect(() => {
@@ -293,11 +302,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  // Secure refreshUser method using API only
+  // FIXED: Enhanced refreshUser method with attempts cache invalidation
   const refreshUser = useCallback(async (): Promise<void> => {
     if (!isAuthenticated) {
       console.log("User not authenticated, skipping refresh");
-
       return;
     }
 
@@ -363,6 +371,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       };
 
       setUser(user);
+
+      // CRITICAL FIX: Invalidate attempts cache after user refresh
+      invalidateAttemptsCache();
+
+      // CRITICAL FIX: Trigger attempts update for components
+      triggerAttemptsUpdate();
+
       console.log("User data refreshed successfully via secure API");
     } catch (err) {
       console.error("Failed to refresh user data via API:", err);
@@ -392,6 +407,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       isValid: false,
       source: "initial",
     });
+    console.log("Attempts cache invalidated");
+  }, []);
+
+  // NEW: Trigger attempts update for external components
+  const triggerAttemptsUpdate = useCallback(() => {
+    setAttemptsUpdateTrigger(prev => prev + 1);
+    console.log("Attempts update triggered");
   }, []);
 
   // Get cached attempts status for interface
@@ -462,6 +484,51 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [attemptsCache, invalidateAttemptsCache, isAuthenticated, signOut]);
 
+  // NEW: Force refresh attempts from server (bypass cache)
+  const forceRefreshAttempts = useCallback(async (): Promise<AttemptsStatus> => {
+    if (!isAuthenticated) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      console.log("Force refreshing attempts status from server...");
+
+      // Invalidate cache first
+      invalidateAttemptsCache();
+
+      // Fetch fresh data
+      const status = await authService.getAttemptsStatus();
+
+      // Update cache with fresh data
+      const now = Date.now();
+      setAttemptsCache({
+        status,
+        lastUpdate: now,
+        isValid: true,
+        source: "server",
+      });
+
+      // Trigger update for components
+      triggerAttemptsUpdate();
+
+      console.log("Attempts status force refreshed successfully");
+
+      return status;
+    } catch (error) {
+      console.error("Error force refreshing attempts status:", error);
+
+      if (
+        error instanceof Error &&
+        error.message.includes("Authentication expired")
+      ) {
+        console.log("Token expired during force refresh, signing out user");
+        signOut();
+      }
+
+      throw error;
+    }
+  }, [isAuthenticated, invalidateAttemptsCache, triggerAttemptsUpdate, signOut]);
+
   // Secure consumeAttemptForGame method using API only
   const consumeAttemptForGame =
     useCallback(async (): Promise<AttemptsStatus> => {
@@ -484,6 +551,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           source: "server",
         });
 
+        // Trigger update for components
+        triggerAttemptsUpdate();
+
         console.log("Attempt consumed successfully via secure API");
 
         return newStatus;
@@ -504,7 +574,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
         throw error;
       }
-    }, [invalidateAttemptsCache, isAuthenticated, signOut]);
+    }, [invalidateAttemptsCache, isAuthenticated, signOut, triggerAttemptsUpdate]);
 
   // Achievement notification methods
   const showAchievement = useCallback(
@@ -558,7 +628,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             });
           },
           (gameResult.levelChanged ? 3000 : 0) +
-            (gameResult.leagueChanged ? 3000 : 0),
+          (gameResult.leagueChanged ? 3000 : 0),
         );
       }
     },
@@ -603,8 +673,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       const saveOperation = async (): Promise<GameSaveResult> => {
         const result = await saveSecureGameResult(gameResult);
 
+        // CRITICAL: Refresh user data and attempts after game save
         await refreshUser();
-        invalidateAttemptsCache();
+
+        // CRITICAL: Force refresh attempts to ensure UI is updated
+        await forceRefreshAttempts();
 
         return result;
       };
@@ -643,7 +716,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     [
       isAuthenticated,
       refreshUser,
-      invalidateAttemptsCache,
+      forceRefreshAttempts,
       processLeagueAchievements,
       signOut,
     ],
@@ -715,6 +788,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     consumeAttemptForGame,
     invalidateAttemptsCache,
     getCachedAttemptsStatus,
+    forceRefreshAttempts,
+    triggerAttemptsUpdate,
     // Achievement notifications
     currentAchievement,
     showAchievement,
