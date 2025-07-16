@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Updated with security system integration
+// src/app/game/page.tsx - Updated with progression indicators
 
 "use client";
 
@@ -18,15 +18,12 @@ import {
   RotateCw,
   TrendingUp,
   Coffee,
-  Lock,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { useSecurity } from "@/hooks/useSecurity";
 import { type AttemptsStatus } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
 import TournamentCard from "@/components/TournamentCard/TournamentCard";
-import UnifiedSecurityModal from "@/components/Security/UnifiedSecurityModal";
 
 interface GameMode {
   id: string;
@@ -186,6 +183,7 @@ const AttemptsDisplay = ({
 }) => {
   const t = useT();
 
+  // Показываем placeholder если данные еще загружаются
   if (isLoading || !attemptsStatus) {
     return (
       <div className="bg-white/10 border border-white/30 backdrop-blur-sm rounded-xl p-4">
@@ -213,18 +211,21 @@ const AttemptsDisplay = ({
   const getBatteryLevel = () => {
     if (attemptsRemaining <= 0) return 0;
     if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
+
     return 100;
   };
 
   const getBatteryColor = () => {
     if (isEmpty) return "text-red-400";
     if (isLow) return "text-orange-400";
+
     return "text-green-400";
   };
 
   const getBatteryBgColor = () => {
     if (isEmpty) return "bg-red-500/20 border-red-400/40";
     if (isLow) return "bg-orange-500/20 border-orange-400/40";
+
     return "bg-white/10 border-white/30";
   };
 
@@ -246,12 +247,13 @@ const AttemptsDisplay = ({
 
       <div className="mb-3">
         <div
-          className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
+          className={`w-full h-2 rounded-full overflow-hidden ${
+            isEmpty
               ? "bg-red-400/20"
               : isLow
                 ? "bg-orange-400/20"
                 : "bg-white/20"
-            }`}
+          }`}
         >
           <div
             className={`h-full transition-all duration-500 ${getBatteryColor().replace(
@@ -301,10 +303,11 @@ const ProgressIndicator = ({ mode }: { mode: GameMode }) => {
 
   return (
     <div
-      className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${isCompetitive
+      className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
+        isCompetitive
           ? "bg-green-500/10 border-green-400/30 text-green-300"
           : "bg-gray-500/10 border-gray-400/30 text-gray-300"
-        }`}
+      }`}
     >
       {isCompetitive ? <TrendingUp size={12} /> : <Coffee size={12} />}
       <span>{t(mode.progressInfoKey as any)}</span>
@@ -320,7 +323,6 @@ const CompactGameModeCard = ({
   isDisabled,
   isCurrentModeLoading,
   isAnyModeLoading,
-  isUIBlocked,
 }: {
   mode: GameMode;
   isExpanded: boolean;
@@ -329,19 +331,16 @@ const CompactGameModeCard = ({
   isDisabled: boolean;
   isCurrentModeLoading: boolean;
   isAnyModeLoading: boolean;
-  isUIBlocked: boolean;
 }) => {
   const t = useT();
   const Icon = mode.icon;
-
-  const effectivelyDisabled = isDisabled || isUIBlocked;
 
   return (
     <div
       className={`
         relative backdrop-blur-sm border rounded-xl transition-all duration-300 overflow-hidden
         ${mode.color.background} ${mode.color.border}
-        ${effectivelyDisabled || isAnyModeLoading ? "opacity-50" : mode.color.hover}
+        ${isDisabled || isAnyModeLoading ? "opacity-50" : mode.color.hover}
         ${isExpanded ? "ring-1 ring-white/20" : ""}
       `}
     >
@@ -375,14 +374,15 @@ const CompactGameModeCard = ({
                 </span>
                 <div className="w-1 h-1 rounded-full bg-white/40" />
                 <span
-                  className={`${mode.difficulty === "💋😈"
+                  className={`${
+                    mode.difficulty === "💋😈"
                       ? "text-red-400"
                       : mode.difficulty === "👉👌"
                         ? "text-purple-400"
                         : mode.difficulty === "🌀"
                           ? "text-orange-400"
                           : mode.color.accent
-                    }`}
+                  }`}
                 >
                   {mode.difficulty}
                 </span>
@@ -424,14 +424,15 @@ const CompactGameModeCard = ({
                 {mode.featuresKeys.map((featureKey, index) => (
                   <div key={index} className="flex items-center space-x-2">
                     <div
-                      className={`w-1 h-1 rounded-full ${mode.id === "reaction"
+                      className={`w-1 h-1 rounded-full ${
+                        mode.id === "reaction"
                           ? "bg-white/60"
                           : mode.id === "survival"
                             ? "bg-red-400/60"
                             : mode.id === "physics"
                               ? "bg-purple-400/60"
                               : "bg-orange-400/60" // rotation
-                        }`}
+                      }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
                       {t(featureKey as any)}
@@ -449,12 +450,13 @@ const CompactGameModeCard = ({
             w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg relative z-20
             text-sm font-bold transition-all duration-300
             ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-            ${effectivelyDisabled || isAnyModeLoading
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
+            ${
+              isDisabled || isAnyModeLoading
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
             }
           `}
-          disabled={isAnyModeLoading || effectivelyDisabled}
+          disabled={isAnyModeLoading || isDisabled}
           onClick={onStart}
         >
           {isCurrentModeLoading ? (
@@ -466,9 +468,7 @@ const CompactGameModeCard = ({
             <>
               <Play size={16} />
               <span>
-                {isDisabled
-                  ? t("game.general.noAttempts")
-                  : t("common.play")}
+                {isDisabled ? t("game.general.noAttempts") : t("common.play")}
               </span>
             </>
           )}
@@ -476,7 +476,7 @@ const CompactGameModeCard = ({
       </div>
 
       {/* Disabled Overlay */}
-      {effectivelyDisabled && !isAnyModeLoading && (
+      {isDisabled && !isAnyModeLoading && (
         <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
           <div className="text-center space-y-2">
             <Shield className="text-white/60 mx-auto" size={24} />
@@ -492,23 +492,11 @@ const CompactGameModeCard = ({
 
 export default function GamePage() {
   const router = useRouter();
-  const { telegramUser, getAttemptsStatus, getCachedAttemptsStatus } = useUser();
-
-  // NEW: Security integration
-  const {
-    securityState,
-    showSecurityModal,
-    securityModalType,
-    handleSecuritySuccess,
-    handleSecurityFailure,
-    isSecurityCheckNeeded,
-    shouldBlockUI,
-    manualTriggerSecurityCheck,
-  } = useSecurity();
-
+  const { telegramUser, getAttemptsStatus, getCachedAttemptsStatus } =
+    useUser();
   const t = useT();
 
-  // Component state
+  // Состояния компонента
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
   const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus | null>(
@@ -517,19 +505,17 @@ export default function GamePage() {
   const [timeUntilReset, setTimeUntilReset] = useState<string>("");
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // NEW: UI blocking based on security state
-  const isUIBlocked = shouldBlockUI();
-  const needsVerification = isSecurityCheckNeeded();
-
-  // Check attempts with caching
+  // Проверка попыток с использованием кэша
   const checkAttempts = useCallback(async () => {
     if (!telegramUser?.id) return;
 
     try {
       const status = await getAttemptsStatus();
+
       setAttemptsStatus(status);
     } catch (error) {
       console.error("Error checking attempts:", error);
+      // В случае ошибки показываем безопасное состояние
       setAttemptsStatus({
         canPlay: false,
         attemptsRemaining: 0,
@@ -537,23 +523,28 @@ export default function GamePage() {
     }
   }, [telegramUser?.id, getAttemptsStatus]);
 
-  // Initialize data on component load
+  // Инициализация данных при загрузке компонента
   useEffect(() => {
     const initializeData = async () => {
       if (!telegramUser?.id) {
         setIsInitialLoading(false);
+
         return;
       }
 
+      // Сначала пытаемся получить кэшированные данные для быстрого отображения UI
       const cachedStatus = getCachedAttemptsStatus();
 
       if (cachedStatus) {
         setAttemptsStatus(cachedStatus);
         setIsInitialLoading(false);
+
+        // Затем в фоне обновляем данные с сервера
         checkAttempts().finally(() => {
-          // Data may have changed, but UI is already displayed
+          // Данные могли измениться, но UI уже отображается
         });
       } else {
+        // Если кэша нет, загружаем данные с сервера
         await checkAttempts();
         setIsInitialLoading(false);
       }
@@ -562,10 +553,11 @@ export default function GamePage() {
     initializeData();
   }, [telegramUser?.id, getCachedAttemptsStatus, checkAttempts]);
 
-  // Timer for countdown
+  // Таймер для обратного отсчета
   useEffect(() => {
     if (!attemptsStatus?.resetTime || attemptsStatus.canPlay) {
       setTimeUntilReset("");
+
       return;
     }
 
@@ -575,10 +567,11 @@ export default function GamePage() {
 
       if (diff <= 0) {
         setTimeUntilReset("");
-        checkAttempts();
+        checkAttempts(); // Обновляем статус при истечении времени сброса
       } else {
         const minutes = Math.floor(diff / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
+
         setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
       }
     }, 1000);
@@ -586,23 +579,15 @@ export default function GamePage() {
     return () => clearInterval(interval);
   }, [attemptsStatus?.resetTime, attemptsStatus?.canPlay, checkAttempts]);
 
-  // Game start handler with security checks
+  // Обработчик запуска игры с безопасной проверкой
   const handleModeStart = useCallback(
     async (mode: GameMode) => {
-      // NEW: Check security first
-      if (isUIBlocked) {
-        console.log("UI blocked due to security requirements");
-        if (needsVerification) {
-          await manualTriggerSecurityCheck();
-        }
-        return;
-      }
-
       if (!attemptsStatus?.canPlay || loadingModeId) return;
 
       setLoadingModeId(mode.id);
 
       try {
+        // КРИТИЧЕСКИ ВАЖНО: всегда проверяем попытки на сервере перед запуском игры
         console.log(`Starting ${mode.id} game - verifying attempts on server`);
         const freshStatus = await getAttemptsStatus();
 
@@ -610,9 +595,11 @@ export default function GamePage() {
           console.warn("Attempts check failed - cannot start game");
           setAttemptsStatus(freshStatus);
           setLoadingModeId(null);
+
           return;
         }
 
+        // Если проверка прошла успешно, переходим к игре
         setTimeout(() => {
           router.push(mode.route);
         }, 600);
@@ -621,15 +608,7 @@ export default function GamePage() {
         setLoadingModeId(null);
       }
     },
-    [
-      isUIBlocked,
-      needsVerification,
-      manualTriggerSecurityCheck,
-      attemptsStatus?.canPlay,
-      loadingModeId,
-      getAttemptsStatus,
-      router,
-    ],
+    [attemptsStatus?.canPlay, loadingModeId, getAttemptsStatus, router],
   );
 
   const handleToggleExpand = useCallback(
@@ -661,28 +640,21 @@ export default function GamePage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
 
-  // Check if user is blocked and redirect
-  useEffect(() => {
-    if (securityState.isBlocked) {
-      console.log("User is blocked, redirecting to blocked page");
-      router.push("/blocked");
-    }
-  }, [securityState.isBlocked, router]);
-
-  // Determine if games can be played
+  // Определяем можно ли играть
   const canPlay = attemptsStatus?.canPlay ?? false;
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${
+        loadingModeId
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
+      }`}
     >
       {/* Header */}
       <div className="text-center space-y-4 mb-8">
@@ -718,7 +690,6 @@ export default function GamePage() {
             isCurrentModeLoading={loadingModeId === mode.id}
             isDisabled={!canPlay}
             isExpanded={expandedModes.includes(mode.id)}
-            isUIBlocked={isUIBlocked}
             mode={mode}
             onStart={() => handleModeStart(mode)}
             onToggleExpand={() => handleToggleExpand(mode.id)}
@@ -730,16 +701,6 @@ export default function GamePage() {
       <div className="text-center space-y-2 animate-fade-in pb-8">
         <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
       </div>
-
-      {/* NEW: Security Modal */}
-      {showSecurityModal && securityModalType && (
-        <UnifiedSecurityModal
-          isOpen={showSecurityModal}
-          type={securityModalType}
-          onSuccess={handleSecuritySuccess}
-          onFailure={handleSecurityFailure}
-        />
-      )}
     </div>
   );
 }

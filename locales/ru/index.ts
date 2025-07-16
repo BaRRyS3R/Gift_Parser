@@ -31,7 +31,7 @@ export const ru = {
 
   // Security
   security,
-
+  
   // Main page
   main,
 

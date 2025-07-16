@@ -1,4 +1,4 @@
-// src/app/api/security/validate-biometric/route.ts - Updated with new trust score values
+// src/app/api/security/validate-biometric/route.ts - Updated biometric validation with new trust score logic
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -34,30 +34,32 @@ export async function POST(request: NextRequest) {
     }
 
     if (success && completedInTime) {
-      // Biometric passed - increase trust score by 20 points
-      const { data: newTrustScore, error: trustError } =
-        await supabaseServer.rpc("update_trust_score", {
+      // Biometric passed - set trust score to 39
+      const { error: trustError } = await supabaseServer.rpc(
+        "update_trust_score_absolute",
+        {
           user_telegram_id: parseInt(telegramId),
-          score_change: 20,
-        });
+          new_score: 39,
+        },
+      );
 
       if (trustError) {
         console.error("Error updating trust score:", trustError);
       }
 
-      console.log(`Biometric authentication passed for user ${telegramId}, trust score increased by 20`);
+      console.log(`Biometric authentication passed for user ${telegramId} - trust score set to 39`);
 
       return NextResponse.json({
         success: true,
-        newTrustScore: newTrustScore || 0,
+        newTrustScore: 39,
       });
     } else {
-      // Biometric failed - decrease trust score by 20 points and block user
+      // Biometric failed - set trust score to 9 and block for 24 hours
       const { error: trustError } = await supabaseServer.rpc(
-        "update_trust_score",
+        "update_trust_score_absolute",
         {
           user_telegram_id: parseInt(telegramId),
-          score_change: -20,
+          new_score: 9,
         },
       );
 
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
       const { error: blockError } = await supabaseServer.rpc("block_user", {
         user_telegram_id: parseInt(telegramId),
         reason: "biometric_failed",
-        duration_minutes: 5,
+        duration_minutes: 24 * 60, // 24 hours in minutes
       });
 
       if (blockError) {
@@ -76,12 +78,14 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(
-        `Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"}, trust score decreased by 20`,
+        `Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"} - trust score set to 9, blocked for 24 hours`,
       );
 
       return NextResponse.json({
         success: false,
-        newTrustScore: 0,
+        newTrustScore: 9,
+        blocked: true,
+        message: "Account blocked for 24 hours due to failed biometric verification",
       });
     }
   } catch (error) {

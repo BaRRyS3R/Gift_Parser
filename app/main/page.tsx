@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated with security UI blocking and unified modal
+// src/app/main/page.tsx - Updated main page with silent security check and UI locking
 
 "use client";
 
@@ -28,7 +28,9 @@ import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
 import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
 import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal";
-import UnifiedSecurityModal from "@/components/Security/UnifiedSecurityModal";
+import CaptchaModal from "@/components/Security/CaptchaModal";
+import BiometricModal from "@/components/Security/BiometricModal";
+import GyroscopeModal from "@/components/Security/GyroscopeModal";
 
 export default function MainPage() {
   const router = useRouter();
@@ -42,15 +44,20 @@ export default function MainPage() {
 
   const {
     securityState,
-    showSecurityModal,
-    securityModalType,
+    showCaptcha,
+    showBiometric,
+    showGyroscope,
     captchaData,
-    handleSecuritySuccess,
-    handleSecurityFailure,
+    isSilentCheck,
+    handleCaptchaSuccess,
+    handleCaptchaFailure,
+    handleBiometricSuccess,
+    handleBiometricFailure,
+    handleGyroscopeSuccess,
+    handleGyroscopeFailure,
     isSecurityCheckNeeded,
-    shouldBlockUI,
     formatTrustScore,
-    manualTriggerSecurityCheck,
+    performSilentCheck,
   } = useSecurity();
 
   const { settings } = useSettings();
@@ -89,15 +96,11 @@ export default function MainPage() {
   const [tournamentLoading, setTournamentLoading] = useState(false);
 
   /* -------------------------------------------------
-   * Security state
+   * Security state and UI locking
    * -------------------------------------------------*/
   const [securityWarningVisible, setSecurityWarningVisible] = useState(false);
-
-  /* -------------------------------------------------
-   * NEW: UI blocking logic based on security state
-   * -------------------------------------------------*/
-  const isUIBlocked = shouldBlockUI();
-  const needsVerification = isSecurityCheckNeeded();
+  const [isUILocked, setIsUILocked] = useState(false);
+  const [silentCheckCompleted, setSilentCheckCompleted] = useState(false);
 
   /* -------------------------------------------------
    * Dynamic offset for Telegram system UI
@@ -132,12 +135,37 @@ export default function MainPage() {
     }
   }, [securityState.isBlocked, router]);
 
-  // Show security warning for low trust scores but don't show exact score
+  // NEW: Perform silent security check on page load
+  useEffect(() => {
+    if (isAuthenticated && !silentCheckCompleted && !securityState.isLoading) {
+      console.log("Performing silent security check...");
+      setIsUILocked(true);
+
+      performSilentCheck()
+        .then(() => {
+          console.log("Silent security check completed");
+          setSilentCheckCompleted(true);
+        })
+        .catch((error) => {
+          console.error("Silent security check failed:", error);
+          setSilentCheckCompleted(true);
+        })
+        .finally(() => {
+          // Delay unlocking UI to ensure smooth transition
+          setTimeout(() => {
+            setIsUILocked(false);
+          }, 500);
+        });
+    }
+  }, [isAuthenticated, performSilentCheck, silentCheckCompleted, securityState.isLoading]);
+
+  // Show security warning for low trust scores
   useEffect(() => {
     if (
-      securityState.trustScore < 40 &&
+      securityState.trustScore < 50 &&
       !securityState.isBlocked &&
-      !securityState.isLoading
+      !securityState.isLoading &&
+      silentCheckCompleted
     ) {
       setSecurityWarningVisible(true);
     } else {
@@ -147,6 +175,7 @@ export default function MainPage() {
     securityState.trustScore,
     securityState.isBlocked,
     securityState.isLoading,
+    silentCheckCompleted,
   ]);
 
   // Mark page as visited
@@ -189,13 +218,11 @@ export default function MainPage() {
     }
   }, [telegramUser, setTelegramUser]);
 
-  /* -------------------------------------------------
-   * Tournament data loading
-   * -------------------------------------------------*/
+  // Tournament data loading
   useEffect(() => {
     const loadTournamentStatus = async () => {
-      if (!isAuthenticated) {
-        console.log("User not authenticated, skipping tournament data load");
+      if (!isAuthenticated || !silentCheckCompleted) {
+        console.log("Waiting for authentication and security check before loading tournament data");
         return;
       }
 
@@ -203,7 +230,6 @@ export default function MainPage() {
 
       try {
         console.log("Loading tournament status via secure API...");
-
         const tournamentStatus = await authService.getTournamentStatus();
 
         if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
@@ -247,9 +273,7 @@ export default function MainPage() {
           error instanceof Error &&
           error.message.includes("Authentication expired")
         ) {
-          console.log(
-            "Token expired during tournament load, user will be signed out",
-          );
+          console.log("Token expired during tournament load, user will be signed out");
         }
 
         setActiveTournament(null);
@@ -259,10 +283,8 @@ export default function MainPage() {
       }
     };
 
-    if (isAuthenticated) {
-      loadTournamentStatus();
-    }
-  }, [isAuthenticated]);
+    loadTournamentStatus();
+  }, [isAuthenticated, silentCheckCompleted]);
 
   /* -------------------------------------------------
    * Background video logic
@@ -331,15 +353,12 @@ export default function MainPage() {
   }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
 
   /* -------------------------------------------------
-   * Handlers - Updated with security checks
+   * Handlers
    * -------------------------------------------------*/
-  const handleStartGame = async () => {
-    // NEW: Check security before allowing any action
-    if (isUIBlocked) {
-      console.log("UI blocked due to security requirements");
-      if (needsVerification) {
-        await manualTriggerSecurityCheck();
-      }
+  const handleStartGame = () => {
+    // Check if UI is locked or security verification is needed
+    if (isUILocked || isSilentCheck || isSecurityCheckNeeded()) {
+      console.log("Game access blocked - UI locked or security check needed");
       return;
     }
 
@@ -349,13 +368,10 @@ export default function MainPage() {
     }, 600);
   };
 
-  const handleOpenTournament = async () => {
-    // NEW: Check security before allowing any action
-    if (isUIBlocked) {
-      console.log("UI blocked due to security requirements");
-      if (needsVerification) {
-        await manualTriggerSecurityCheck();
-      }
+  const handleOpenTournament = () => {
+    // Check if UI is locked or security verification is needed
+    if (isUILocked || isSilentCheck || isSecurityCheckNeeded()) {
+      console.log("Tournament access blocked - UI locked or security check needed");
       return;
     }
 
@@ -366,7 +382,7 @@ export default function MainPage() {
   };
 
   const handleOpenSettings = () => {
-    // Settings should always be accessible
+    if (isUILocked || isSilentCheck) return;
     setIsSettingsOpen(true);
   };
 
@@ -375,7 +391,7 @@ export default function MainPage() {
   };
 
   const handleOpenAbout = () => {
-    // About should always be accessible
+    if (isUILocked || isSilentCheck) return;
     setIsAboutOpen(true);
   };
 
@@ -384,9 +400,8 @@ export default function MainPage() {
   };
 
   const handleOpenLeagueProgress = () => {
+    if (isUILocked || isSilentCheck) return;
     console.log("League progress click detected");
-    console.log("Current user:", user);
-    console.log("User loading:", userLoading);
     setIsLeagueProgressOpen(true);
   };
 
@@ -397,6 +412,9 @@ export default function MainPage() {
 
   // Get trust score display info
   const trustScoreInfo = formatTrustScore(securityState.trustScore);
+
+  // Determine if UI should be locked
+  const shouldLockUI = isUILocked || isSilentCheck || isSecurityCheckNeeded();
 
   /* -------------------------------------------------
    * Early return if not authenticated
@@ -425,6 +443,7 @@ export default function MainPage() {
             filter: "brightness(0.15) contrast(1.2) grayscale(1)",
           }}
         >
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video
             ref={videoRef}
             autoPlay
@@ -438,8 +457,30 @@ export default function MainPage() {
         </div>
       )}
 
+      {/* NEW: UI Lock Overlay */}
+      {shouldLockUI && (
+        <div className="fixed inset-0 z-60 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-gray-900/90 border border-gray-700 rounded-xl p-6 text-center max-w-sm mx-4">
+            <Lock className="text-yellow-400 mx-auto mb-4" size={32} />
+            <h3 className="text-white font-semibold mb-2">
+              {isSilentCheck ? t("security.silentSecurityCheck") : t("security.locked")}
+            </h3>
+            <p className="text-gray-400 text-sm">
+              {isSilentCheck
+                ? "Please wait while we verify your security status..."
+                : "UI is temporarily locked for security verification"}
+            </p>
+            {isSilentCheck && (
+              <div className="mt-4">
+                <div className="w-8 h-8 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin mx-auto"></div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Security Warning Banner */}
-      {securityWarningVisible && (
+      {securityWarningVisible && !shouldLockUI && (
         <div
           className="fixed top-0 left-0 right-0 z-40 p-4"
           style={{ top: headerOffset - 20 }}
@@ -447,10 +488,10 @@ export default function MainPage() {
           <div className="max-w-md mx-auto bg-yellow-500/20 border border-yellow-400/40 rounded-lg p-3 backdrop-blur-sm">
             <div className="flex items-center space-x-2 text-yellow-300">
               <AlertTriangle size={16} />
-              <span className="text-sm font-semibold">{t("security.securityNotice" as any)}</span>
+              <span className="text-sm font-semibold">{t("security.securityNotice")}</span>
             </div>
             <p className="text-yellow-200/80 text-xs mt-1">
-              {t("security.lowTrustScore" as any)}
+              {t("security.lowTrustScore")} ({securityState.trustScore}/100)
             </p>
           </div>
         </div>
@@ -464,7 +505,7 @@ export default function MainPage() {
               : "opacity-0 -translate-y-8"
             }`
             : "opacity-100 translate-y-0"
-          }`}
+          } ${shouldLockUI ? "pointer-events-none opacity-50" : ""}`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -472,7 +513,7 @@ export default function MainPage() {
             <button
               aria-label={t("common.settings")}
               className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning}
+              disabled={shouldLockUI || isTransitioning}
               onClick={handleOpenSettings}
             >
               <div className="flex items-center justify-center">
@@ -487,7 +528,7 @@ export default function MainPage() {
             <button
               aria-label="About"
               className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning}
+              disabled={shouldLockUI || isTransitioning}
               onClick={handleOpenAbout}
             >
               <div className="flex items-center justify-center">
@@ -500,31 +541,22 @@ export default function MainPage() {
             </button>
           </div>
 
-          {/* Tournament Button - Updated with security blocking */}
+          {/* Tournament Button */}
           {showTournamentButton && activeTournament && (
             <button
               aria-label="Active Tournament"
-              className={`group relative px-4 py-2 backdrop-blur-sm border-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isUIBlocked
-                  ? "bg-gray-500/20 border-gray-500/40 text-gray-400"
-                  : "bg-gradient-to-br from-yellow-400/20 to-orange-500/20 border-yellow-400/40 text-yellow-300 hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30"
-                }`}
-              disabled={isTransitioning || isUIBlocked || tournamentLoading}
+              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={shouldLockUI || isTransitioning || tournamentLoading}
               onClick={handleOpenTournament}
             >
               <div className="flex items-center space-x-2">
-                {isUIBlocked ? (
-                  <Lock size={16} className="text-gray-400" />
-                ) : (
-                  <Trophy
-                    className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
-                    size={16}
-                  />
-                )}
+                <Trophy
+                  className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
+                  size={16}
+                />
                 <div className="text-xs">
-                  <div className="font-bold">
-                    {isUIBlocked ? "LOCKED" : "TOURNAMENT"}
-                  </div>
-                  {tournamentTimeRemaining && !isUIBlocked && (
+                  <div className="font-bold text-yellow-300">TOURNAMENT</div>
+                  {tournamentTimeRemaining && (
                     <div className="text-yellow-400/80 flex items-center space-x-1">
                       <Clock size={10} />
                       <span>{tournamentTimeRemaining}</span>
@@ -532,12 +564,8 @@ export default function MainPage() {
                   )}
                 </div>
               </div>
-              {!isUIBlocked && (
-                <>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-                  <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
-                </>
-              )}
+              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+              <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
             </button>
           )}
 
@@ -560,7 +588,7 @@ export default function MainPage() {
           </h1>
         </div>
 
-        {/* Action Button - Updated with security blocking */}
+        {/* Action Button */}
         <div
           className={`${isFirstVisit
               ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
@@ -571,20 +599,29 @@ export default function MainPage() {
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
 
             <button
-              className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${isUIBlocked
-                  ? "border-white/60 text-white opacity-75"
-                  : "border-white/60 hover:border-white"
+              className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${shouldLockUI
+                  ? "border-gray-500/60 text-gray-400 opacity-50"
+                  : isSecurityCheckNeeded()
+                    ? "border-yellow-500/60 text-yellow-300 opacity-75"
+                    : "border-white/60 hover:border-white"
                 } ${isTransitioning ? "opacity-50" : ""}`}
-              disabled={isTransitioning}
+              disabled={shouldLockUI || isTransitioning}
+              title={
+                shouldLockUI
+                  ? "Please wait for security verification"
+                  : isSecurityCheckNeeded()
+                    ? "Security verification required"
+                    : undefined
+              }
               onClick={handleStartGame}
             >
               <div className="flex items-center justify-center space-x-4">
-                {isUIBlocked ? (
+                {shouldLockUI ? (
                   <Lock
                     className="text-gray-400 group-hover:translate-x-1 transition-transform duration-300"
                     size={24}
                   />
-                ) : needsVerification ? (
+                ) : isSecurityCheckNeeded() ? (
                   <Shield
                     className="text-yellow-300 group-hover:translate-x-1 transition-transform duration-300"
                     size={24}
@@ -598,9 +635,11 @@ export default function MainPage() {
                 <span className="tracking-wider">
                   {isTransitioning
                     ? t("main.loading")
-                    : isUIBlocked
-                      ? "LOCKED"
-                      : t("main.startGame")}
+                    : shouldLockUI
+                      ? t("security.locked")
+                      : isSecurityCheckNeeded()
+                        ? t("security.verificationNeeded")
+                        : t("main.startGame")}
                 </span>
               </div>
             </button>
@@ -640,21 +679,36 @@ export default function MainPage() {
         </div>
       </div>
 
-      {/* Security Modal - NEW: Unified modal */}
-      {showSecurityModal && securityModalType && (
-        <UnifiedSecurityModal
-          isOpen={showSecurityModal}
-          type={securityModalType}
-          onSuccess={handleSecuritySuccess}
-          onFailure={handleSecurityFailure}
-        />
-      )}
+      {/* Security Modals */}
+      <CaptchaModal
+        description={t("security.captchaDescription")}
+        isOpen={showCaptcha}
+        title={t("security.captchaTitle")}
+        onFailure={handleCaptchaFailure}
+        onSuccess={handleCaptchaSuccess}
+      />
 
-      {/* Other Modals */}
-      <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
-      <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
+      <BiometricModal
+        description={t("security.biometricDescription")}
+        isOpen={showBiometric}
+        title={t("security.biometricTitle")}
+        onFailure={handleBiometricFailure}
+        onSuccess={handleBiometricSuccess}
+      />
+
+      <GyroscopeModal
+        description={t("security.gyroscopeDescription")}
+        isOpen={showGyroscope}
+        title={t("security.gyroscopeTitle")}
+        onFailure={handleGyroscopeFailure}
+        onSuccess={handleGyroscopeSuccess}
+      />
+
+      {/* Modals */}
+      <Settings isOpen={isSettingsOpen && !shouldLockUI} onClose={handleCloseSettings} />
+      <AboutModal isOpen={isAboutOpen && !shouldLockUI} onClose={handleCloseAbout} />
       <LeagueProgressModal
-        isOpen={isLeagueProgressOpen}
+        isOpen={isLeagueProgressOpen && !shouldLockUI}
         onClose={handleCloseLeagueProgress}
       />
 
@@ -666,7 +720,7 @@ export default function MainPage() {
               : "opacity-0 translate-y-8"
             }`
             : "opacity-100 translate-y-0"
-          }`}
+          } ${shouldLockUI ? "pointer-events-none opacity-50" : ""}`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay />
@@ -675,7 +729,8 @@ export default function MainPage() {
       {/* Level and League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
+          className={`fixed left-0 right-0 flex justify-center ${shouldLockUI ? "pointer-events-none opacity-50" : "pointer-events-auto"
+            } ${isFirstVisit
               ? `transition-all duration-1000 transform ${showLeagueDisplay
                 ? "opacity-100 translate-y-0"
                 : "opacity-0 translate-y-4"

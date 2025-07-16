@@ -1,4 +1,4 @@
-// src/hooks/useSecurity.ts - Updated with unified modal and new trust score thresholds
+// src/hooks/useSecurity.ts - Updated with new security thresholds and gyroscope
 
 "use client";
 
@@ -6,15 +6,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { SecurityCheckResult } from "@/lib/supabase";
-import {
-  authService,
-  generateSecureCaptcha,
-  validateSecureCaptcha,
-  validateSecureBiometric,
-} from "@/lib/authService";
+import { authService } from "@/lib/authService";
 import { useUser } from "@/hooks/useUser";
-
-export type SecurityType = "captcha" | "biometric" | "gyroscope";
 
 export interface SecurityState {
   isLoading: boolean;
@@ -37,36 +30,30 @@ export interface CaptchaData {
 interface SecurityHookReturn {
   // State
   securityState: SecurityState;
-  showSecurityModal: boolean;
-  securityModalType: SecurityType | null;
+  showCaptcha: boolean;
+  showBiometric: boolean;
+  showGyroscope: boolean;
   captchaData: CaptchaData | null;
+  isSilentCheck: boolean;
 
   // Actions
   checkSecurity: () => Promise<SecurityCheckResult>;
-  handleSecuritySuccess: () => void;
-  handleSecurityFailure: () => void;
+  performSilentCheck: () => Promise<void>;
+  handleCaptchaSuccess: () => void;
+  handleCaptchaFailure: () => void;
+  handleBiometricSuccess: () => void;
+  handleBiometricFailure: () => void;
+  handleGyroscopeSuccess: () => void;
+  handleGyroscopeFailure: () => void;
   dismissSecurityCheck: () => void;
   refreshSecurityStatus: () => Promise<void>;
-  manualTriggerSecurityCheck: () => Promise<void>;
 
   // Utils
   isSecurityCheckNeeded: () => boolean;
-  getRequiredSecurityType: () => SecurityType | null;
   formatTrustScore: (score: number) => { color: string; label: string };
-
-  // Security check visibility - new feature
-  shouldBlockUI: () => boolean;
 }
 
 const SECURITY_CHECK_CACHE_DURATION = 30000; // 30 seconds cache
-
-// Updated trust score thresholds
-const TRUST_SCORE_THRESHOLDS = {
-  GYROSCOPE: 10, // Below this requires gyroscope
-  BIOMETRIC: 20, // Below this requires biometric  
-  CAPTCHA: 40,   // Below this requires captcha
-  GOOD: 60,      // Above this is considered good
-};
 
 export function useSecurity(): SecurityHookReturn {
   const router = useRouter();
@@ -81,14 +68,17 @@ export function useSecurity(): SecurityHookReturn {
     trustScore: 50,
   });
 
-  const [showSecurityModal, setShowSecurityModal] = useState(false);
-  const [securityModalType, setSecurityModalType] = useState<SecurityType | null>(null);
+  const [showCaptcha, setShowCaptcha] = useState(false);
+  const [showBiometric, setShowBiometric] = useState(false);
+  const [showGyroscope, setShowGyroscope] = useState(false);
   const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
+  const [isSilentCheck, setIsSilentCheck] = useState(false);
 
   const isCheckingRef = useRef(false);
   const lastSecurityCheckRef = useRef<number>(0);
+  const silentCheckInProgressRef = useRef(false);
 
-  // Enhanced security check with new thresholds
+  // Updated security check with new thresholds
   const checkSecurity = useCallback(async (): Promise<SecurityCheckResult> => {
     if (!isAuthenticated || isCheckingRef.current) {
       throw new Error(
@@ -100,11 +90,11 @@ export function useSecurity(): SecurityHookReturn {
     const now = Date.now();
     if (now - lastSecurityCheckRef.current < SECURITY_CHECK_CACHE_DURATION) {
       console.log("Using cached security status");
-
       return {
         isBlocked: securityState.isBlocked,
         needsCaptcha: securityState.needsCaptcha,
         needsBiometric: securityState.needsBiometric,
+        needsGyroscope: securityState.needsGyroscope,
         trustScore: securityState.trustScore,
         timeUntilUnblock: securityState.timeUntilUnblock,
         blockReason: securityState.blockReason,
@@ -116,15 +106,13 @@ export function useSecurity(): SecurityHookReturn {
 
     try {
       console.log("Checking security status via API...");
-
       const result = await authService.checkUserSecurityStatus();
 
-      // Enhanced logic with new thresholds
-      const needsGyroscope = !result.isBlocked && result.trustScore < TRUST_SCORE_THRESHOLDS.GYROSCOPE;
-      const needsBiometric = !result.isBlocked && result.trustScore < TRUST_SCORE_THRESHOLDS.BIOMETRIC && !needsGyroscope;
-      const needsCaptcha = !result.isBlocked && result.trustScore < TRUST_SCORE_THRESHOLDS.CAPTCHA && !needsBiometric && !needsGyroscope;
+      // Update state with new thresholds
+      const needsCaptcha = !result.isBlocked && result.trustScore < 50;
+      const needsBiometric = !result.isBlocked && result.trustScore < 20;
+      const needsGyroscope = !result.isBlocked && result.trustScore < 10;
 
-      // Update state with enhanced security checks
       setSecurityState({
         isLoading: false,
         isBlocked: result.isBlocked,
@@ -151,12 +139,10 @@ export function useSecurity(): SecurityHookReturn {
         ...result,
         needsCaptcha,
         needsBiometric,
-        // Extending the result with gyroscope check
         needsGyroscope,
-      } as SecurityCheckResult & { needsGyroscope: boolean };
+      };
     } catch (error) {
       console.error("Error checking security status via API:", error);
-
       setSecurityState((prev) => ({
         ...prev,
         isLoading: false,
@@ -176,6 +162,27 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, [isAuthenticated, router, securityState, signOut]);
 
+  // Silent security check for main page
+  const performSilentCheck = useCallback(async (): Promise<void> => {
+    if (!isAuthenticated || silentCheckInProgressRef.current) {
+      return;
+    }
+
+    silentCheckInProgressRef.current = true;
+    setIsSilentCheck(true);
+
+    try {
+      console.log("Performing silent security check...");
+      await checkSecurity();
+      console.log("Silent security check completed");
+    } catch (error) {
+      console.error("Silent security check failed:", error);
+    } finally {
+      silentCheckInProgressRef.current = false;
+      setIsSilentCheck(false);
+    }
+  }, [isAuthenticated, checkSecurity]);
+
   // Auto check security on mount and authentication changes
   useEffect(() => {
     if (isAuthenticated && !isCheckingRef.current) {
@@ -183,7 +190,6 @@ export function useSecurity(): SecurityHookReturn {
         console.error("Initial security check failed:", error);
       });
     } else if (!isAuthenticated) {
-      // Reset security state for non-authenticated users
       setSecurityState({
         isLoading: false,
         isBlocked: false,
@@ -195,18 +201,46 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, [isAuthenticated, checkSecurity]);
 
-  // Get required security type based on trust score
-  const getRequiredSecurityType = useCallback((): SecurityType | null => {
-    if (securityState.isBlocked) return null;
+  // Handle security check triggers with priority order: Gyroscope > Biometric > Captcha
+  const triggerSecurityCheck = useCallback(async () => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated, skipping security check trigger");
+      return;
+    }
 
-    if (securityState.needsGyroscope) return "gyroscope";
-    if (securityState.needsBiometric) return "biometric";
-    if (securityState.needsCaptcha) return "captcha";
+    try {
+      const result = await checkSecurity();
 
-    return null;
-  }, [securityState]);
+      // Show appropriate modal based on priority
+      if (result.needsGyroscope && !result.isBlocked) {
+        setShowGyroscope(true);
+      } else if (result.needsBiometric && !result.isBlocked) {
+        setShowBiometric(true);
+      } else if (result.needsCaptcha && !result.isBlocked) {
+        // Generate captcha using API method
+        try {
+          console.log("Generating captcha via API...");
+          const captcha = await authService.generateCaptcha();
+          setCaptchaData(captcha);
+          setShowCaptcha(true);
+          console.log("Captcha generated successfully via API");
+        } catch (error) {
+          console.error("Failed to generate captcha via API:", error);
+          if (
+            error instanceof Error &&
+            error.message.includes("Authentication expired")
+          ) {
+            console.log("Token expired during captcha generation, signing out user");
+            signOut();
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error triggering security check:", error);
+    }
+  }, [checkSecurity, isAuthenticated, signOut]);
 
-  // Check if security verification is needed
+  // Check if security check is needed
   const isSecurityCheckNeeded = useCallback((): boolean => {
     return (
       (securityState.needsCaptcha ||
@@ -216,79 +250,103 @@ export function useSecurity(): SecurityHookReturn {
     );
   }, [securityState]);
 
-  // NEW: Check if UI should be blocked (immediate check without waiting for modals)
-  const shouldBlockUI = useCallback((): boolean => {
-    return isSecurityCheckNeeded() || securityState.isLoading;
-  }, [isSecurityCheckNeeded, securityState.isLoading]);
-
-  // Handle security check triggers with new unified modal
-  const triggerSecurityCheck = useCallback(async () => {
-    if (!isAuthenticated || securityState.isBlocked) {
-      console.log("User not authenticated or blocked, skipping security check trigger");
-      return;
-    }
-
-    try {
-      const result = await checkSecurity();
-      const requiredType = getRequiredSecurityType();
-
-      if (requiredType && !showSecurityModal) {
-        console.log(`Triggering security check: ${requiredType}`);
-
-        // Generate captcha if needed
-        if (requiredType === "captcha" || requiredType === "gyroscope") {
-          try {
-            console.log("Generating captcha via API...");
-            const captcha = await authService.generateCaptcha();
-            setCaptchaData(captcha);
-            console.log("Captcha generated successfully via API");
-          } catch (error) {
-            console.error("Failed to generate captcha via API:", error);
-            if (
-              error instanceof Error &&
-              error.message.includes("Authentication expired")
-            ) {
-              console.log("Token expired during captcha generation, signing out user");
-              signOut();
-              return;
-            }
-          }
-        }
-
-        setSecurityModalType(requiredType);
-        setShowSecurityModal(true);
-      }
-    } catch (error) {
-      console.error("Error triggering security check:", error);
-    }
-  }, [checkSecurity, isAuthenticated, securityState.isBlocked, showSecurityModal, getRequiredSecurityType, signOut]);
-
-  // Enhanced security handlers
-  const handleSecuritySuccess = useCallback(() => {
-    console.log("Security verification successful");
-    setShowSecurityModal(false);
-    setSecurityModalType(null);
+  // Captcha handlers with updated trust scores
+  const handleCaptchaSuccess = useCallback(() => {
+    console.log("Captcha verification successful");
+    setShowCaptcha(false);
     setCaptchaData(null);
 
-    // Refresh security status and user data
+    // Update trust score to 40
+    setSecurityState(prev => ({
+      ...prev,
+      trustScore: 40,
+      needsCaptcha: false,
+    }));
+
     refreshSecurityStatus();
     refreshUser();
   }, [refreshUser]);
 
-  const handleSecurityFailure = useCallback(() => {
-    console.log("Security verification failed - user will be blocked");
-    setShowSecurityModal(false);
-    setSecurityModalType(null);
+  const handleCaptchaFailure = useCallback(() => {
+    console.log("Captcha verification failed - user will be blocked");
+    setShowCaptcha(false);
     setCaptchaData(null);
 
-    // Redirect to blocked page
+    // Trust score will be set to 19 by the API
+    setSecurityState(prev => ({
+      ...prev,
+      trustScore: 19,
+      isBlocked: true,
+    }));
+
+    router.push("/blocked");
+  }, [router]);
+
+  // Biometric handlers with updated trust scores
+  const handleBiometricSuccess = useCallback(() => {
+    console.log("Biometric verification successful");
+    setShowBiometric(false);
+
+    // Update trust score to 39
+    setSecurityState(prev => ({
+      ...prev,
+      trustScore: 39,
+      needsBiometric: false,
+      needsCaptcha: false,
+    }));
+
+    refreshSecurityStatus();
+    refreshUser();
+  }, [refreshUser]);
+
+  const handleBiometricFailure = useCallback(() => {
+    console.log("Biometric verification failed - user will be blocked");
+    setShowBiometric(false);
+
+    // Trust score will be set to 9 by the API
+    setSecurityState(prev => ({
+      ...prev,
+      trustScore: 9,
+      isBlocked: true,
+    }));
+
+    router.push("/blocked");
+  }, [router]);
+
+  // Gyroscope handlers
+  const handleGyroscopeSuccess = useCallback(() => {
+    console.log("Gyroscope verification successful");
+    setShowGyroscope(false);
+
+    // Update trust score to 19
+    setSecurityState(prev => ({
+      ...prev,
+      trustScore: 19,
+      needsGyroscope: false,
+    }));
+
+    refreshSecurityStatus();
+    refreshUser();
+  }, [refreshUser]);
+
+  const handleGyroscopeFailure = useCallback(() => {
+    console.log("Gyroscope verification failed - user will be permanently blocked");
+    setShowGyroscope(false);
+
+    // User will be blocked for 1 year
+    setSecurityState(prev => ({
+      ...prev,
+      isBlocked: true,
+    }));
+
     router.push("/blocked");
   }, [router]);
 
   // Dismiss security checks (for testing/admin)
   const dismissSecurityCheck = useCallback(() => {
-    setShowSecurityModal(false);
-    setSecurityModalType(null);
+    setShowCaptcha(false);
+    setShowBiometric(false);
+    setShowGyroscope(false);
     setCaptchaData(null);
   }, []);
 
@@ -309,29 +367,32 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, [checkSecurity, isAuthenticated]);
 
-  // Format trust score for display
+  // Format trust score for display with updated thresholds
   const formatTrustScore = useCallback((score: number) => {
-    if (score >= TRUST_SCORE_THRESHOLDS.GOOD) {
+    if (score >= 50) {
       return { color: "text-green-400", label: "Good" };
-    } else if (score >= TRUST_SCORE_THRESHOLDS.CAPTCHA) {
+    } else if (score >= 20) {
       return { color: "text-yellow-400", label: "Fair" };
-    } else if (score >= TRUST_SCORE_THRESHOLDS.BIOMETRIC) {
+    } else if (score >= 10) {
       return { color: "text-orange-400", label: "Low" };
     } else {
-      return { color: "text-red-400", label: "Very Low" };
+      return { color: "text-red-400", label: "Critical" };
     }
   }, []);
 
-  // Auto-trigger security checks when needed but don't show to user immediately
+  // Auto-trigger security checks when needed with priority
   useEffect(() => {
     if (
       isAuthenticated &&
       isSecurityCheckNeeded() &&
-      !showSecurityModal
+      !showCaptcha &&
+      !showBiometric &&
+      !showGyroscope &&
+      !isSilentCheck
     ) {
-      // Small delay to ensure UI is ready, but don't auto-show modal
+      // Small delay to ensure UI is ready
       const timer = setTimeout(() => {
-        console.log("Security check needed but not auto-triggering modal");
+        triggerSecurityCheck();
       }, 1000);
 
       return () => clearTimeout(timer);
@@ -339,42 +400,44 @@ export function useSecurity(): SecurityHookReturn {
   }, [
     isAuthenticated,
     isSecurityCheckNeeded,
-    showSecurityModal,
+    showCaptcha,
+    showBiometric,
+    showGyroscope,
+    triggerSecurityCheck,
+    isSilentCheck,
   ]);
-
-  // Manual trigger method for when user tries to perform actions
-  const manualTriggerSecurityCheck = useCallback(async () => {
-    if (isSecurityCheckNeeded()) {
-      await triggerSecurityCheck();
-    }
-  }, [isSecurityCheckNeeded, triggerSecurityCheck]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       isCheckingRef.current = false;
+      silentCheckInProgressRef.current = false;
     };
   }, []);
 
   return {
     // State
     securityState,
-    showSecurityModal,
-    securityModalType,
+    showCaptcha,
+    showBiometric,
+    showGyroscope,
     captchaData,
+    isSilentCheck,
 
     // Actions
     checkSecurity,
-    handleSecuritySuccess,
-    handleSecurityFailure,
+    performSilentCheck,
+    handleCaptchaSuccess,
+    handleCaptchaFailure,
+    handleBiometricSuccess,
+    handleBiometricFailure,
+    handleGyroscopeSuccess,
+    handleGyroscopeFailure,
     dismissSecurityCheck,
     refreshSecurityStatus,
-    manualTriggerSecurityCheck,
 
     // Utils
     isSecurityCheckNeeded,
-    getRequiredSecurityType,
     formatTrustScore,
-    shouldBlockUI,
   };
 }
