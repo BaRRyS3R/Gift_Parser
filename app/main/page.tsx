@@ -572,17 +572,10 @@ export default function MainPage() {
 
             <button
               className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${isUIBlocked
-                  ? "border-gray-500/60 text-gray-400 opacity-75"
-                  : needsVerification
-                    ? "border-yellow-500/60 text-yellow-300 opacity-75"
-                    : "border-white/60 hover:border-white"
+                  ? "border-white/60 text-white opacity-75"
+                  : "border-white/60 hover:border-white"
                 } ${isTransitioning ? "opacity-50" : ""}`}
               disabled={isTransitioning}
-              title={
-                isUIBlocked
-                  ? t("security.verificationRequired" as any)
-                  : undefined
-              }
               onClick={handleStartGame}
             >
               <div className="flex items-center justify-center space-x-4">

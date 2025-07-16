@@ -246,12 +246,13 @@ const AttemptsDisplay = ({
 
       <div className="mb-3">
         <div
-          className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
+          className={`w-full h-2 rounded-full overflow-hidden ${
+            isEmpty
               ? "bg-red-400/20"
               : isLow
                 ? "bg-orange-400/20"
                 : "bg-white/20"
-            }`}
+          }`}
         >
           <div
             className={`h-full transition-all duration-500 ${getBatteryColor().replace(
@@ -301,10 +302,11 @@ const ProgressIndicator = ({ mode }: { mode: GameMode }) => {
 
   return (
     <div
-      className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${isCompetitive
+      className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
+        isCompetitive
           ? "bg-green-500/10 border-green-400/30 text-green-300"
           : "bg-gray-500/10 border-gray-400/30 text-gray-300"
-        }`}
+      }`}
     >
       {isCompetitive ? <TrendingUp size={12} /> : <Coffee size={12} />}
       <span>{t(mode.progressInfoKey as any)}</span>
@@ -375,14 +377,15 @@ const CompactGameModeCard = ({
                 </span>
                 <div className="w-1 h-1 rounded-full bg-white/40" />
                 <span
-                  className={`${mode.difficulty === "💋😈"
+                  className={`${
+                    mode.difficulty === "💋😈"
                       ? "text-red-400"
                       : mode.difficulty === "👉👌"
                         ? "text-purple-400"
                         : mode.difficulty === "🌀"
                           ? "text-orange-400"
                           : mode.color.accent
-                    }`}
+                  }`}
                 >
                   {mode.difficulty}
                 </span>
@@ -424,14 +427,15 @@ const CompactGameModeCard = ({
                 {mode.featuresKeys.map((featureKey, index) => (
                   <div key={index} className="flex items-center space-x-2">
                     <div
-                      className={`w-1 h-1 rounded-full ${mode.id === "reaction"
+                      className={`w-1 h-1 rounded-full ${
+                        mode.id === "reaction"
                           ? "bg-white/60"
                           : mode.id === "survival"
                             ? "bg-red-400/60"
                             : mode.id === "physics"
                               ? "bg-purple-400/60"
                               : "bg-orange-400/60" // rotation
-                        }`}
+                      }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
                       {t(featureKey as any)}
@@ -449,9 +453,10 @@ const CompactGameModeCard = ({
             w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg relative z-20
             text-sm font-bold transition-all duration-300
             ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-            ${effectivelyDisabled || isAnyModeLoading
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
+            ${
+              effectivelyDisabled || isAnyModeLoading
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
             }
           `}
           disabled={isAnyModeLoading || effectivelyDisabled}
@@ -464,17 +469,11 @@ const CompactGameModeCard = ({
             </>
           ) : (
             <>
-              {isUIBlocked ? (
-                <Lock size={16} />
-              ) : (
-                <Play size={16} />
-              )}
+              <Play size={16} />
               <span>
-                {isUIBlocked
-                  ? "VERIFICATION REQUIRED"
-                  : isDisabled
-                    ? t("game.general.noAttempts")
-                    : t("common.play")}
+                {isDisabled
+                  ? t("game.general.noAttempts")
+                  : t("common.play")}
               </span>
             </>
           )}
@@ -485,15 +484,9 @@ const CompactGameModeCard = ({
       {effectivelyDisabled && !isAnyModeLoading && (
         <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
           <div className="text-center space-y-2">
-            {isUIBlocked ? (
-              <Lock className="text-white/60 mx-auto" size={24} />
-            ) : (
-              <Shield className="text-white/60 mx-auto" size={24} />
-            )}
+            <Shield className="text-white/60 mx-auto" size={24} />
             <p className="text-white/80 text-sm font-bold">
-              {isUIBlocked
-                ? "SECURITY VERIFICATION NEEDED"
-                : t("game.general.noAttemptsLeft")}
+              {t("game.general.noAttemptsLeft")}
             </p>
           </div>
         </div>
@@ -673,7 +666,7 @@ export default function GamePage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -691,10 +684,11 @@ export default function GamePage() {
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${
+        loadingModeId
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
+      }`}
     >
       {/* Header */}
       <div className="text-center space-y-4 mb-8">
@@ -705,23 +699,6 @@ export default function GamePage() {
           {t("game.modes.subtitle")}
         </p>
       </div>
-
-      {/* NEW: Security warning banner */}
-      {needsVerification && !securityState.isLoading && (
-        <div className="mb-6 bg-yellow-500/20 border border-yellow-400/40 rounded-lg p-4 animate-fade-in">
-          <div className="flex items-center space-x-3">
-            <Shield className="text-yellow-400 flex-shrink-0" size={20} />
-            <div>
-              <p className="text-yellow-300 font-semibold text-sm">
-                {t("security.verificationRequired" as any)}
-              </p>
-              <p className="text-yellow-200/80 text-xs mt-1">
-                {t("security.securityCheckRequired" as any)}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Attempts Display */}
       <div className="mb-8 animate-fade-in">

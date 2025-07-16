@@ -60,6 +60,8 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
     const [isSupported, setIsSupported] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const [biometricType, setBiometricType] = useState<"finger" | "face" | "unknown">("unknown");
+    const [isWaitingForPermission, setIsWaitingForPermission] = useState(false);
+    const [permissionTimer, setPermissionTimer] = useState(0);
 
     // Gyroscope specific state
     const [motionDetected, setMotionDetected] = useState(false);
@@ -153,14 +155,34 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
             if (!manager.isBiometricAvailable) {
                 setError(t("security.biometricNotAvailable" as any));
             } else if (!manager.isAccessGranted) {
-                manager.requestAccess(
-                    { reason: t("security.securityCheckRequired" as any) },
-                    (granted: boolean) => {
-                        if (!granted) {
-                            setError(t("security.biometricAccessDenied" as any));
+                // Start 30-second timer for permission
+                setIsWaitingForPermission(true);
+                setPermissionTimer(30);
+
+                const timerInterval = setInterval(() => {
+                    setPermissionTimer((prev) => {
+                        if (prev <= 1) {
+                            clearInterval(timerInterval);
+                            // Check permission again after 30 seconds
+                            if (manager.isAccessGranted) {
+                                setIsWaitingForPermission(false);
+                            } else {
+                                // Request access
+                                manager.requestAccess(
+                                    { reason: t("security.securityCheckRequired" as any) },
+                                    (granted: boolean) => {
+                                        setIsWaitingForPermission(false);
+                                        if (!granted) {
+                                            setError(t("security.biometricAccessDenied" as any));
+                                        }
+                                    }
+                                );
+                            }
+                            return 0;
                         }
-                    }
-                );
+                        return prev - 1;
+                    });
+                }, 1000);
             }
         });
     };
@@ -473,6 +495,31 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                     </div>
                                     <p className="text-gray-400">{t("security.processing" as any)}</p>
                                 </div>
+                            ) : isWaitingForPermission ? (
+                                <div className="text-center space-y-4">
+                                    <div className="bg-yellow-500/20 border border-yellow-500/40 rounded-lg p-4">
+                                        <div className="flex items-center justify-center space-x-2 mb-3">
+                                            <Clock className="text-yellow-400" size={20} />
+                                            <span className="text-yellow-300 font-semibold">Waiting for biometric access</span>
+                                        </div>
+                                        <div className="text-3xl font-bold text-yellow-400 font-mono mb-2">
+                                            {permissionTimer}s
+                                        </div>
+                                        <p className="text-yellow-200/80 text-sm">
+                                            Please enable biometric authentication in your device settings
+                                        </p>
+                                    </div>
+
+                                    {biometricManager?.openSettings && (
+                                        <button
+                                            className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                                            onClick={() => biometricManager.openSettings()}
+                                        >
+                                            <Settings size={16} />
+                                            <span>{t("security.openSettings" as any)}</span>
+                                        </button>
+                                    )}
+                                </div>
                             ) : !isSupported || error ? (
                                 <div className="text-center space-y-4">
                                     <div className="flex items-center justify-center space-x-2 p-4 bg-red-500/20 border border-red-500/40 rounded-lg">
@@ -535,43 +582,79 @@ const UnifiedSecurityModal: React.FC<UnifiedSecurityModalProps> = ({
                                     </div>
                                 </div>
                             ) : (
-                                <div className="space-y-4">
+                                <div className="space-y-6">
                                     <div className="bg-gray-800 border border-gray-600 rounded-lg p-6 text-center">
                                         <div className={`transition-all duration-300 ${motionDetected ? 'scale-110' : 'scale-100'}`}>
                                             <Smartphone
                                                 className={`mx-auto mb-4 transition-colors duration-300 ${motionDetected ? 'text-green-400' : 'text-purple-400'
                                                     }`}
                                                 size={48}
+                                                style={{
+                                                    transform: `rotate(${Math.sin(motionIntensity / 10) * 5}deg)`
+                                                }}
                                             />
                                         </div>
                                         <h3 className="text-white font-semibold mb-2">
                                             {motionDetected ? t("security.motionDetected" as any) : t("security.shakeDevice" as any)}
                                         </h3>
-                                        <p className="text-gray-400 text-sm">
+                                        <p className="text-gray-400 text-sm mb-4">
                                             {t("security.motionInstructions" as any)}
                                         </p>
 
-                                        {/* Motion intensity indicator */}
-                                        <div className="mt-4">
-                                            <div className="w-full bg-gray-700 rounded-full h-2">
-                                                <div
-                                                    className={`h-2 rounded-full transition-all duration-300 ${motionDetected ? 'bg-green-400' : 'bg-purple-400'
-                                                        }`}
-                                                    style={{
-                                                        width: `${Math.min(100, (motionIntensity / 50) * 100)}%`,
-                                                    }}
-                                                />
+                                        {/* Enhanced Motion Progress Bar */}
+                                        <div className="space-y-3">
+                                            <div className="relative">
+                                                <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-500 relative ${motionDetected ? 'bg-green-400' : 'bg-purple-400'
+                                                            }`}
+                                                        style={{
+                                                            width: `${Math.min(100, (motionIntensity / 50) * 100)}%`,
+                                                        }}
+                                                    >
+                                                        <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                                                    </div>
+                                                </div>
+                                                <div className="absolute inset-y-0 left-0 flex items-center pl-2">
+                                                    <div className={`w-2 h-2 rounded-full ${motionDetected ? 'bg-green-200' : 'bg-purple-200'} animate-pulse`}></div>
+                                                </div>
                                             </div>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                {Math.round((motionIntensity / 50) * 100)}% {t("security.processing" as any)}
-                                            </p>
+
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-500">Progress</span>
+                                                <span className={`font-bold ${motionDetected ? 'text-green-400' : 'text-purple-400'}`}>
+                                                    {Math.round((motionIntensity / 50) * 100)}%
+                                                </span>
+                                            </div>
+
+                                            {/* Motion intensity visualization */}
+                                            <div className="flex justify-center space-x-1">
+                                                {[...Array(5)].map((_, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className={`w-2 h-6 rounded-full transition-all duration-300 ${(motionIntensity / 50) * 100 > (i + 1) * 20
+                                                                ? motionDetected ? 'bg-green-400' : 'bg-purple-400'
+                                                                : 'bg-gray-600'
+                                                            }`}
+                                                        style={{
+                                                            height: `${Math.max(8, Math.min(24, 8 + (motionIntensity / 10) * i))}px`
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
 
                                     {motionDetected && (
-                                        <div className="bg-green-500/20 border border-green-500/40 rounded-lg p-3 text-center">
-                                            <p className="text-green-300 text-sm font-semibold">
-                                                {t("security.verificationSuccessful" as any)}
+                                        <div className="bg-green-500/20 border border-green-500/40 rounded-lg p-4 text-center">
+                                            <div className="flex items-center justify-center space-x-2 mb-2">
+                                                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                                                <p className="text-green-300 text-sm font-semibold">
+                                                    {t("security.verificationSuccessful" as any)}
+                                                </p>
+                                            </div>
+                                            <p className="text-green-200/80 text-xs">
+                                                Motion verification completed successfully
                                             </p>
                                         </div>
                                     )}
