@@ -94,7 +94,6 @@ export interface LeagueNeighbors {
   userPosition: number;
   userGames: number;
   playersAhead: Array<{
-    user_id: string;
     first_name: string;
     last_name?: string;
     username?: string;
@@ -103,7 +102,6 @@ export interface LeagueNeighbors {
     games_ahead: number;
   }>;
   playersBehind: Array<{
-    user_id: string;
     first_name: string;
     last_name?: string;
     username?: string;
@@ -279,7 +277,6 @@ export const leagueService = {
       const playersAhead = usersInLeague
         .slice(Math.max(0, userIndex - 2), userIndex)
         .map((player, index) => ({
-          user_id: player.id,
           first_name: player.first_name,
           last_name: player.last_name,
           username: player.username,
@@ -291,7 +288,6 @@ export const leagueService = {
       const playersBehind = usersInLeague
         .slice(userIndex + 1, userIndex + 3)
         .map((player, index) => ({
-          user_id: player.id,
           first_name: player.first_name,
           last_name: player.last_name,
           username: player.username,
