@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeagueProgressModal.tsx - Updated to use API calls only
+// src/components/LeagueProgress/LeagueProgressModal.tsx - Updated to use authService API only
 
 "use client";
 
@@ -25,28 +25,7 @@ import {
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import { authService } from "@/lib/authService";
-
-interface LeagueProgressInfo {
-  currentLevel: number;
-  totalGames: number;
-  currentLeague: {
-    id: number;
-    name: string;
-    display_name_en: string;
-    color: string;
-    icon: string;
-  };
-  nextLeague?: {
-    id: number;
-    name: string;
-    display_name_en: string;
-    color: string;
-    icon: string;
-  };
-  gamesToNextLeague: number;
-  progressPercent: number;
-  isMaxLeague: boolean;
-}
+import type { LeagueProgressInfo } from "@/lib/authService";
 
 interface LeagueProgressModalProps {
   isOpen: boolean;
@@ -57,41 +36,41 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { user, isAuthenticated } = useUser();
+  const { isAuthenticated } = useUser();
   const t = useT();
 
-  const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(
-    null,
-  );
+  const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadProgressInfo = async () => {
-      if (!user || !isAuthenticated || !isOpen) {
+      if (!isAuthenticated || !isOpen) {
         return;
       }
 
       try {
         setIsLoading(true);
-        console.log("LeagueProgressModal: Fetching league progress via API...");
+        console.log("LeagueProgressModal: Fetching league progress via authService API...");
+
         const progress = await authService.getLeagueProgress();
 
         setProgressInfo(progress);
-        console.log(
-          "LeagueProgressModal: League progress fetched successfully",
-        );
+        console.log("LeagueProgressModal: League progress fetched successfully");
       } catch (error) {
-        console.error(
-          "LeagueProgressModal: Error loading league progress via API:",
-          error,
-        );
+        console.error("LeagueProgressModal: Error loading league progress:", error);
+
+        // Handle authentication errors gracefully
+        if (error instanceof Error && error.message.includes("Authentication expired")) {
+          console.log("LeagueProgressModal: Authentication expired, closing modal");
+          onClose();
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProgressInfo();
-  }, [user, isAuthenticated, isOpen]);
+  }, [isAuthenticated, isOpen, onClose]);
 
   // Helper functions
   const getLeagueIcon = (leagueName: string) => {

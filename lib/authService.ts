@@ -1,4 +1,4 @@
-// src/lib/authService.ts - Updated with correct tournament type imports
+// src/lib/authService.ts - Enhanced with complete profile API integration
 
 import type {
   Tournament,
@@ -21,8 +21,79 @@ import {
   RotationGameResult,
 } from "@/types/game-modes";
 
-// FIXED: Import tournament types from correct location
 import { TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
+
+// Enhanced profile types
+export interface ProfileData {
+  user: {
+    telegram_id: number;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+    is_premium: boolean;
+    current_level: number;
+    attempts_remaining: number;
+    total_games: number;
+    total_score: number;
+    best_score: number;
+
+    // Game mode statistics
+    reaction_games: number;
+    reaction_best_score: number;
+    reaction_best_time: number;
+    reaction_average_time: number;
+
+    survival_games: number;
+    survival_best_score: number;
+    survival_best_time: number;
+    survival_max_level: number;
+    survival_best_streak: number;
+
+    physics_games: number;
+    physics_best_score: number;
+    physics_best_time: number;
+    physics_total_hits: number;
+    physics_best_hits: number;
+    physics_least_mistakes: number;
+
+    rotation_games: number;
+    rotation_best_score: number;
+    rotation_best_time: number;
+    rotation_max_level: number;
+    rotation_best_streak: number;
+    rotation_total_hits: number;
+
+    referral_count: number;
+    last_played_at?: string;
+  };
+  rankings: {
+    overall: number | null;
+    reaction: number | null;
+    survival: number | null;
+    physics: number | null;
+    rotation: number | null;
+  };
+  referralInfo: any;
+  leagueProgress: any;
+}
+
+export interface AchievementData {
+  categories: any[];
+  stats: {
+    total: number;
+    unlocked: number;
+    percentage: number;
+  };
+}
+
+export interface LeagueData {
+  allLeagues: any[];
+  userLeagueProgress: any;
+  userRewards: any[];
+  allLeagueRewards: Record<number, any[]>;
+  leagueNeighbors: any;
+  leaderboards: Record<number, any>;
+}
 
 export interface AuthUser {
   id: string;
@@ -48,7 +119,6 @@ export interface AuthState {
   error: string | null;
 }
 
-// Registration result interface
 export interface RegistrationResult {
   success: boolean;
   user?: AuthUser;
@@ -58,7 +128,6 @@ export interface RegistrationResult {
   error?: string;
 }
 
-// Login result interface
 export interface LoginResult {
   success: boolean;
   user?: AuthUser;
@@ -73,7 +142,6 @@ export interface LoginResult {
   blockReason?: string;
 }
 
-// League progress interface
 export interface LeagueProgressInfo {
   currentLevel: number;
   totalGames: number;
@@ -205,9 +273,10 @@ class AuthService {
     }
   }
 
-  /**
-   * Check login status (for existing users)
-   */
+  // ============================================================================
+  // AUTHENTICATION METHODS
+  // ============================================================================
+
   async checkLoginStatus(
     initData: string,
     referralCode?: string,
@@ -227,7 +296,6 @@ class AuthService {
       const data = await response.json();
 
       if (response.status === 202) {
-        // Registration needed
         return {
           success: false,
           needsRegistration: true,
@@ -237,7 +305,6 @@ class AuthService {
       }
 
       if (response.status === 403) {
-        // User is blocked
         return {
           success: false,
           isBlocked: true,
@@ -272,9 +339,6 @@ class AuthService {
     }
   }
 
-  /**
-   * Register new user
-   */
   async registerUser(
     initData: string,
     referralCode?: string,
@@ -319,14 +383,10 @@ class AuthService {
     }
   }
 
-  /**
-   * Legacy method for backward compatibility
-   */
   async authenticateWithTelegram(
     initData: string,
     referralCode?: string,
   ): Promise<AuthUser> {
-    // First try login
     const loginResult = await this.checkLoginStatus(initData, referralCode);
 
     if (loginResult.success && loginResult.user) {
@@ -338,7 +398,6 @@ class AuthService {
     }
 
     if (loginResult.needsRegistration) {
-      // Auto-register for backward compatibility
       const registerResult = await this.registerUser(initData, referralCode);
 
       if (registerResult.success && registerResult.user) {
@@ -362,6 +421,71 @@ class AuthService {
   signOut(): void {
     this.removeTokenFromStorage();
   }
+
+  // ============================================================================
+  // PROFILE API METHODS
+  // ============================================================================
+
+  async getFullProfile(): Promise<ProfileData> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<{ profile: ProfileData }>(
+      "/profile",
+    ).then((data) => data.profile);
+  }
+
+  async getAchievements(): Promise<AchievementData> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<{ achievements: AchievementData }>(
+      "/profile/achievements",
+    ).then((data) => data.achievements);
+  }
+
+  async getLeagueData(): Promise<LeagueData> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<{ leagueData: LeagueData }>(
+      "/profile/leagues",
+    ).then((data) => data.leagueData);
+  }
+
+  async getAllProfileData(): Promise<{
+    profile: ProfileData;
+    achievements: AchievementData;
+    leagueData: LeagueData;
+  }> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const [profile, achievements, leagueData] = await Promise.all([
+        this.getFullProfile(),
+        this.getAchievements(),
+        this.getLeagueData(),
+      ]);
+
+      return {
+        profile,
+        achievements,
+        leagueData,
+      };
+    } catch (error) {
+      console.error("Error fetching all profile data:", error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // USER METHODS
+  // ============================================================================
 
   async getAttemptsStatus(): Promise<AttemptsStatus> {
     if (!this.isAuthenticated()) {
@@ -425,12 +549,9 @@ class AuthService {
   }
 
   // ============================================================================
-  // TOURNAMENT METHODS - Complete implementation with secured API calls
+  // TOURNAMENT METHODS
   // ============================================================================
 
-  /**
-   * Get active tournament
-   */
   async getActiveTournament(): Promise<Tournament | null> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -444,14 +565,10 @@ class AuthService {
       return response.tournament;
     } catch (error) {
       console.error("Error getting active tournament:", error);
-
       return null;
     }
   }
 
-  /**
-   * Get all tournaments categorized by status
-   */
   async getAllTournaments(): Promise<TournamentListResponse> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -465,7 +582,6 @@ class AuthService {
       return response.tournaments;
     } catch (error) {
       console.error("Error getting all tournaments:", error);
-
       return {
         active: [],
         upcoming: [],
@@ -474,9 +590,6 @@ class AuthService {
     }
   }
 
-  /**
-   * Get tournament status
-   */
   async getTournamentStatus(): Promise<TournamentStatus> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -490,7 +603,6 @@ class AuthService {
       return response.status;
     } catch (error) {
       console.error("Error getting tournament status:", error);
-
       return {
         isActive: false,
         activeTournament: null,
@@ -498,9 +610,6 @@ class AuthService {
     }
   }
 
-  /**
-   * Get tournament leaderboard
-   */
   async getTournamentLeaderboard(
     tournamentId: string,
     limit: number = 50,
@@ -517,14 +626,10 @@ class AuthService {
       return response.leaderboard;
     } catch (error) {
       console.error("Error getting tournament leaderboard:", error);
-
       return [];
     }
   }
 
-  /**
-   * Get user tournament result
-   */
   async getUserTournamentResult(
     tournamentId: string,
   ): Promise<TournamentResult | null> {
@@ -540,14 +645,10 @@ class AuthService {
       return response.result;
     } catch (error) {
       console.error("Error getting user tournament result:", error);
-
       return null;
     }
   }
 
-  /**
-   * Save tournament result
-   */
   async saveTournamentResult(
     tournamentId: string,
     gameResult: SurvivalGameResult,
@@ -565,76 +666,6 @@ class AuthService {
         gameResult,
       }),
     }).then((data) => data.tournamentResult);
-  }
-
-  /**
-   * Get tournament winners (top N participants)
-   */
-  async getTournamentWinners(
-    tournamentId: string,
-    prizeCount: number,
-  ): Promise<TournamentLeaderboardEntry[]> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const leaderboard = await this.getTournamentLeaderboard(
-        tournamentId,
-        prizeCount,
-      );
-
-      return leaderboard.slice(0, prizeCount);
-    } catch (error) {
-      console.error("Error getting tournament winners:", error);
-
-      return [];
-    }
-  }
-
-  /**
-   * Check if user has participated in tournament
-   */
-  async hasUserParticipated(tournamentId: string): Promise<boolean> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const result = await this.getUserTournamentResult(tournamentId);
-
-      return result !== null;
-    } catch (error) {
-      console.error("Error checking user participation:", error);
-
-      return false;
-    }
-  }
-
-  /**
-   * Get tournament by ID
-   */
-  async getTournamentById(tournamentId: string): Promise<Tournament | null> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      // For now, get from all tournaments and find by ID
-      // Could be optimized with a dedicated endpoint if needed
-      const allTournaments = await this.getAllTournaments();
-      const allTournamentsList = [
-        ...allTournaments.active,
-        ...allTournaments.upcoming,
-        ...allTournaments.completed,
-      ];
-
-      return allTournamentsList.find((t) => t.id === tournamentId) || null;
-    } catch (error) {
-      console.error("Error getting tournament by ID:", error);
-
-      return null;
-    }
   }
 
   // ============================================================================
@@ -705,15 +736,17 @@ class AuthService {
         return await this.checkUserSecurityStatus();
       } else {
         console.warn("User not authenticated, using direct service call");
-
         return await userService.checkUserBlockStatus(telegramId);
       }
     } catch (error) {
       console.warn("Auth API failed, using direct service call");
-
       return await userService.checkUserBlockStatus(telegramId);
     }
   }
+
+  // ============================================================================
+  // UTILITY METHODS
+  // ============================================================================
 
   async makeRequestWithRetry<T>(
     requestFn: () => Promise<T>,
@@ -780,7 +813,6 @@ export async function saveSecureTournamentResult(
   return authService.saveTournamentResult(tournamentId, gameResult);
 }
 
-// Security helper functions
 export async function checkSecurityStatus(): Promise<SecurityCheckResult> {
   return authService.checkUserSecurityStatus();
 }
@@ -818,7 +850,6 @@ export async function getSecureLeagueProgress(): Promise<LeagueProgressInfo> {
   return authService.getLeagueProgress();
 }
 
-// Registration helper functions
 export async function checkUserLoginStatus(
   initData: string,
   referralCode?: string,
@@ -831,4 +862,25 @@ export async function registerNewUser(
   referralCode?: string,
 ): Promise<RegistrationResult> {
   return authService.registerUser(initData, referralCode);
+}
+
+// Enhanced profile helper functions
+export async function getSecureProfileData(): Promise<ProfileData> {
+  return authService.getFullProfile();
+}
+
+export async function getSecureAchievements(): Promise<AchievementData> {
+  return authService.getAchievements();
+}
+
+export async function getSecureLeagueData(): Promise<LeagueData> {
+  return authService.getLeagueData();
+}
+
+export async function getAllSecureProfileData(): Promise<{
+  profile: ProfileData;
+  achievements: AchievementData;
+  leagueData: LeagueData;
+}> {
+  return authService.getAllProfileData();
 }

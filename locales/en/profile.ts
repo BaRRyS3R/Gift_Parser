@@ -2,6 +2,11 @@
 
 export const profile = {
   title: "PROFILE",
+  error: "Error",
+  you: "You",
+  games: "Games",
+  notAuthenticated: "Not Authenticated",
+  pleaseLogin: "Please Login",
   loadingProfile: "LOADING PROFILE...",
   notFound: "PROFILE NOT FOUND",
   overallStats: "Overall Stats",

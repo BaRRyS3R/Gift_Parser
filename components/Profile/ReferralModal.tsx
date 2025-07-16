@@ -1,8 +1,6 @@
-// src/components/Profile/ReferralModal.tsx - Compact referral information modal
+// src/components/Profile/ReferralModal.tsx - Updated to use data from profileData
 
 "use client";
-
-import type { ReferralInfo } from "@/lib/supabase";
 
 import React, { useState } from "react";
 import {
@@ -17,6 +15,15 @@ import {
 import { Share2, Copy, Users, Gift, Check, Star, X } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
+
+interface ReferralInfo {
+  referralCode: string;
+  referralLink: string;
+  referralCount: number;
+  referralBonus: number;
+  referredBy?: string;
+  referredByName?: string;
+}
 
 interface ReferralModalProps {
   isOpen: boolean;

@@ -46,6 +46,10 @@ export const leagues = {
   leaderboardSection: {
     title: "League Leaderboard",
     topPlayers: "Top Players",
+    noPlayers: "No Players",
+    aloneInLeague: "Alone In League",
+    leagueLeader: "Leader",
+    leagueRange: "Range",
     yourPosition: "Your Position: #{position}",
     notInLeague: "Not in this league",
     gamesNeeded: "Games needed",
