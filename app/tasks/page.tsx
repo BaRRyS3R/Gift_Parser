@@ -40,6 +40,7 @@ interface TaskState {
     isCompleting: boolean;
     error: string | null;
     completingTask: number | null;
+    taskStates: Map<number, 'available' | 'link_opened' | 'verifying' | 'completed'>;
 }
 
 interface SuccessNotification {
@@ -75,6 +76,7 @@ export default function TasksPage() {
         isCompleting: false,
         error: null,
         completingTask: null,
+        taskStates: new Map(),
     });
 
     const [successNotification, setSuccessNotification] = useState<SuccessNotification>({
@@ -212,26 +214,75 @@ export default function TasksPage() {
         }, 4000);
     };
 
-    const handleTaskComplete = async (task: TaskWithCompletion) => {
+    const handleTaskAction = async (task: TaskWithCompletion) => {
         if (taskState.isCompleting || !isAuthenticated || task.is_completed) {
             return;
         }
 
+        const currentTaskState = taskState.taskStates.get(task.id) || 'available';
+
+        if (currentTaskState === 'available') {
+            // First click - open link and change state
+            await openTaskLink(task);
+
+            setTaskState(prev => ({
+                ...prev,
+                taskStates: new Map(prev.taskStates.set(task.id, 'link_opened'))
+            }));
+        } else if (currentTaskState === 'link_opened') {
+            // Second click - verify and complete task
+            await verifyAndCompleteTask(task);
+        }
+    };
+
+    const verifyAndCompleteTask = async (task: TaskWithCompletion) => {
         setTaskState(prev => ({
             ...prev,
             isCompleting: true,
             error: null,
             completingTask: task.id,
+            taskStates: new Map(prev.taskStates.set(task.id, 'verifying'))
         }));
 
         try {
-            console.log("Completing task:", task.id, task.type);
+            console.log("Verifying and completing task:", task.id, task.type);
 
-            // For tasks requiring external action, open link first
-            if (task.type !== "visit_website") {
-                await openTaskLink(task);
-                // Add a small delay to ensure user has time to complete the action
-                await new Promise(resolve => setTimeout(resolve, 1000));
+            // For trust-based tasks, complete immediately
+            const trustBasedTasks = ['visit_website', 'telegram_story', 'twitter_follow', 'twitter_repost'];
+            let verificationResult = { success: true, verified: true };
+
+            if (!trustBasedTasks.includes(task.type)) {
+                // For telegram channels/chats, perform actual verification
+                const response = await fetch("/api/tasks/verify", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${authService.getToken()}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        taskId: task.id,
+                        verificationType: task.type,
+                        verificationData: {
+                            timestamp: Date.now(),
+                            user_agent: navigator.userAgent,
+                        },
+                    }),
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        console.log("Authentication expired during task verification");
+                        router.push("/");
+                        return;
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                verificationResult = await response.json();
+            }
+
+            if (!verificationResult.success || !verificationResult.verified) {
+                throw new Error("Task verification failed");
             }
 
             // Complete the task
@@ -247,6 +298,7 @@ export default function TasksPage() {
                         timestamp: Date.now(),
                         user_agent: navigator.userAgent,
                         task_type: task.type,
+                        verification_result: verificationResult,
                     },
                 }),
             });
@@ -277,6 +329,14 @@ export default function TasksPage() {
                 )
             );
 
+            // Update task state
+            setTaskState(prev => ({
+                ...prev,
+                isCompleting: false,
+                completingTask: null,
+                taskStates: new Map(prev.taskStates.set(task.id, 'completed'))
+            }));
+
             // Update stats
             setTaskStats(prev => ({
                 ...prev,
@@ -290,14 +350,8 @@ export default function TasksPage() {
 
             // Show success notification
             showSuccessNotification(task, data.attempts_awarded);
-
-            setTaskState(prev => ({
-                ...prev,
-                isCompleting: false,
-                completingTask: null,
-            }));
         } catch (error) {
-            console.error("Task completion error:", error);
+            console.error("Task verification/completion error:", error);
 
             if (error instanceof Error && error.message.includes("Authentication")) {
                 console.log("Authentication error during task completion");
@@ -305,10 +359,12 @@ export default function TasksPage() {
                 return;
             }
 
+            // Reset task state on error
             setTaskState(prev => ({
                 ...prev,
                 isCompleting: false,
                 completingTask: null,
+                taskStates: new Map(prev.taskStates.set(task.id, 'available')),
                 error: error instanceof Error ? error.message : t("tasks.errors.unknownError"),
             }));
         }
@@ -357,16 +413,48 @@ export default function TasksPage() {
         return taskState.completingTask === taskId && taskState.isCompleting;
     };
 
+    const getTaskCurrentState = (task: TaskWithCompletion) => {
+        if (task.is_completed) return 'completed';
+        return taskState.taskStates.get(task.id) || 'available';
+    };
+
     const getButtonText = (task: TaskWithCompletion) => {
-        if (task.is_completed) {
+        const currentState = getTaskCurrentState(task);
+
+        if (currentState === 'completed') {
             return t("tasks.buttons.completed");
         }
 
         if (isTaskLoading(task.id)) {
+            if (currentState === 'verifying') {
+                return t("tasks.buttons.verifying");
+            }
             return t("tasks.buttons.completing");
         }
 
+        if (currentState === 'link_opened') {
+            return t("tasks.buttons.verify");
+        }
+
         return t("tasks.buttons.complete");
+    };
+
+    const getButtonIcon = (task: TaskWithCompletion) => {
+        const currentState = getTaskCurrentState(task);
+
+        if (currentState === 'completed') {
+            return <CheckCircle size={16} />;
+        }
+
+        if (isTaskLoading(task.id)) {
+            return <Loader2 size={16} className="animate-spin" />;
+        }
+
+        if (currentState === 'link_opened') {
+            return <CheckCircle size={16} />;
+        }
+
+        return <ExternalLink size={16} />;
     };
 
     const getTaskInstruction = (task: TaskWithCompletion) => {
@@ -479,9 +567,10 @@ export default function TasksPage() {
                             task={task}
                             badge={getTaskBadge(task)}
                             loading={isTaskLoading(task.id)}
-                            onComplete={handleTaskComplete}
-                            onOpenLink={openTaskLink}
+                            currentState={getTaskCurrentState(task)}
+                            onAction={handleTaskAction}
                             getButtonText={getButtonText}
+                            getButtonIcon={getButtonIcon}
                             getTaskTypeIcon={getTaskTypeIcon}
                             getTaskInstruction={getTaskInstruction}
                             t={t}
@@ -529,9 +618,10 @@ interface TaskCardProps {
     task: TaskWithCompletion;
     badge: { text: string; textKey: string; color: string } | null;
     loading: boolean;
-    onComplete: (task: TaskWithCompletion) => void;
-    onOpenLink: (task: TaskWithCompletion) => void;
+    currentState: 'available' | 'link_opened' | 'verifying' | 'completed';
+    onAction: (task: TaskWithCompletion) => void;
     getButtonText: (task: TaskWithCompletion) => string;
+    getButtonIcon: (task: TaskWithCompletion) => React.ReactNode;
     getTaskTypeIcon: (type: TaskType) => React.ReactNode;
     getTaskInstruction: (task: TaskWithCompletion) => string;
     t: any;
@@ -541,9 +631,10 @@ function TaskCard({
     task,
     badge,
     loading,
-    onComplete,
-    onOpenLink,
+    currentState,
+    onAction,
     getButtonText,
+    getButtonIcon,
     getTaskTypeIcon,
     getTaskInstruction,
     t,
@@ -622,44 +713,24 @@ function TaskCard({
                                 </div>
                             </div>
 
-                            <div className="flex items-center space-x-2">
-                                {!task.is_completed && task.type !== "visit_website" && (
-                                    <Button
-                                        className="bg-white/10 text-white border border-white/30 hover:bg-white/20 hover:border-white/50"
-                                        isDisabled={loading}
-                                        size="sm"
-                                        startContent={<ExternalLink size={14} />}
-                                        onClick={() => onOpenLink(task)}
-                                    >
-                                        {t("tasks.buttons.openLink")}
-                                    </Button>
-                                )}
-
-                                <Button
-                                    className={`
-                    relative z-20 min-w-[100px]
-                    ${task.is_completed
-                                            ? 'bg-green-500/20 text-green-300 border border-green-400/30'
+                            <Button
+                                className={`
+                  relative z-20 min-w-[120px]
+                  ${currentState === 'completed'
+                                        ? 'bg-green-500/20 text-green-300 border border-green-400/30'
+                                        : currentState === 'link_opened'
+                                            ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30 hover:bg-blue-500/30 hover:border-blue-400/50'
                                             : 'bg-white/20 text-white border border-white/40 hover:bg-white/30 hover:border-white/60'
-                                        }
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                  `}
-                                    isDisabled={loading || task.is_completed}
-                                    size="sm"
-                                    startContent={
-                                        loading ? (
-                                            <Loader2 size={16} className="animate-spin" />
-                                        ) : task.is_completed ? (
-                                            <CheckCircle size={16} />
-                                        ) : (
-                                            <Trophy size={16} />
-                                        )
                                     }
-                                    onClick={() => onComplete(task)}
-                                >
-                                    {getButtonText(task)}
-                                </Button>
-                            </div>
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+                                isDisabled={loading || currentState === 'completed'}
+                                size="sm"
+                                startContent={getButtonIcon(task)}
+                                onClick={() => onAction(task)}
+                            >
+                                {getButtonText(task)}
+                            </Button>
                         </div>
                     </div>
                 </div>

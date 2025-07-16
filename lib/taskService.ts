@@ -155,33 +155,12 @@ export const taskService = {
                 };
             }
 
-            // Обновляем попытки пользователя
-            const { data: userData, error: userError } = await supabase
-                .from("users")
-                .select("attempts_remaining")
-                .eq("id", userId)
-                .single();
-
-            if (userError) {
-                console.error("Error fetching user data:", userError);
-                return {
-                    success: false,
-                    message: "Failed to update user attempts",
-                    attempts_awarded: 0,
-                    new_attempts_total: 0,
-                    error: userError.message
-                };
-            }
-
-            const newAttemptsTotal = userData.attempts_remaining + task.attempts_reward;
-
-            const { error: updateError } = await supabase
-                .from("users")
-                .update({
-                    attempts_remaining: newAttemptsTotal,
-                    updated_at: new Date().toISOString()
-                })
-                .eq("id", userId);
+            // Обновляем попытки пользователя атомарно через RPC функцию
+            const { data: updatedUser, error: updateError } = await supabase
+                .rpc('increment_user_attempts', {
+                    p_user_id: userId,
+                    p_attempts_to_add: task.attempts_reward
+                });
 
             if (updateError) {
                 console.error("Error updating user attempts:", updateError);
@@ -193,6 +172,8 @@ export const taskService = {
                     error: updateError.message
                 };
             }
+
+            const newAttemptsTotal = updatedUser || 0;
 
             console.log(`Task ${taskId} completed by user ${userId}, awarded ${task.attempts_reward} attempts`);
 
