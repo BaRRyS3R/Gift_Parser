@@ -1,4 +1,4 @@
-// src/lib/supabase_tasks.ts - Сервис для работы с заданиями
+// src/lib/supabase_tasks.ts - Исправленный сервис для работы с заданиями
 
 import { supabase } from "./supabase";
 
@@ -19,7 +19,6 @@ export interface Task {
   telegram_id?: number;
   url: string;
   reward_attempts: number;
-  icon: string;
   color: string;
   is_active: boolean;
   cooldown_minutes?: number;
@@ -37,7 +36,7 @@ export interface UserTaskCompletion {
   status: TaskStatus;
   created_at: string;
   updated_at: string;
-  task?: Task; // Подключаемые данные задания
+  task?: Task;
 }
 
 export interface TaskWithCompletion extends Task {
@@ -76,7 +75,7 @@ export const taskService = {
     }
 
     try {
-      // Get active tasks with timeout
+      // Get active tasks
       console.log("Fetching active tasks...");
       const { data: tasks, error: tasksError } = await supabase
         .from("tasks")
@@ -96,7 +95,7 @@ export const taskService = {
         return [];
       }
 
-      // Get user completions with better error handling
+      // Get user completions
       console.log("Fetching user completions for user ID:", userId);
       const { data: completions, error: completionsError } = await supabase
         .from("user_task_completions")
@@ -105,13 +104,13 @@ export const taskService = {
 
       if (completionsError) {
         console.error("Error fetching user completions:", completionsError);
-        // Don't throw here - continue with empty completions
+        // Continue with empty completions instead of throwing
         console.log("Continuing with empty completions due to error");
       }
 
       console.log("User completions found:", completions?.length || 0);
 
-      // Build completions map safely
+      // Build completions map
       const completionsMap = new Map<string, UserTaskCompletion[]>();
 
       if (completions && Array.isArray(completions)) {
@@ -152,7 +151,6 @@ export const taskService = {
                 }
               } catch (dateError) {
                 console.error("Error processing cooldown for task:", task.id, dateError);
-                // Continue with default values
               }
             }
           } else {
@@ -169,20 +167,9 @@ export const taskService = {
             next_available_at: nextAvailableAt,
           };
 
-          console.log(`Task ${task.id} (${task.name}):`, {
-            type: task.type,
-            can_complete: canComplete,
-            user_completion: latestCompletion ? {
-              status: latestCompletion.status,
-              claimed_at: latestCompletion.claimed_at,
-            } : null,
-            next_available_at: nextAvailableAt,
-          });
-
           return taskWithCompletion;
         } catch (taskProcessingError) {
           console.error("Error processing task:", task.id, taskProcessingError);
-          // Return task with default values
           return {
             ...task,
             user_completion: undefined,
@@ -207,9 +194,9 @@ export const taskService = {
     }
   },
 
-  // Начало выполнения задания
+  // Начало выполнения задания - использует новую функцию БД
   async startTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
-    console.log("=== TASK SERVICE startTask (RLS-safe) START ===");
+    console.log("=== TASK SERVICE startTask START ===");
     console.log("Input parameters:", { userId, taskId });
 
     try {
@@ -273,7 +260,7 @@ export const taskService = {
       console.error("Error in startTask:", error);
       throw error;
     } finally {
-      console.log("=== TASK SERVICE startTask (RLS-safe) END ===");
+      console.log("=== TASK SERVICE startTask END ===");
     }
   },
 
@@ -327,18 +314,16 @@ export const taskService = {
       }
 
       const result = await response.json();
-
       return result.is_member;
     } catch (error) {
       console.error("Error checking telegram membership:", error);
-
       return false;
     }
   },
 
-  // Завершение задания (отметка как выполненное)
+  // Завершение задания - использует новую функцию БД
   async completeTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
-    console.log("=== TASK SERVICE completeTask (RLS-safe) START ===");
+    console.log("=== TASK SERVICE completeTask START ===");
     console.log("Input parameters:", { userId, taskId });
 
     try {
@@ -373,16 +358,16 @@ export const taskService = {
       console.error("Error in completeTask:", error);
       throw error;
     } finally {
-      console.log("=== TASK SERVICE completeTask (RLS-safe) END ===");
+      console.log("=== TASK SERVICE completeTask END ===");
     }
   },
 
-  // Получение награды за задание
+  // Получение награды за задание - использует новую функцию БД
   async claimTaskReward(userId: string, taskId: string, telegramUserId: number): Promise<{
     completion: UserTaskCompletion;
     reward: number;
   }> {
-    console.log("=== TASK SERVICE claimTaskReward (RLS-safe) START ===");
+    console.log("=== TASK SERVICE claimTaskReward START ===");
     console.log("Input parameters:", { userId, taskId, telegramUserId });
 
     try {
@@ -425,7 +410,7 @@ export const taskService = {
       console.error("Error in claimTaskReward:", error);
       throw error;
     } finally {
-      console.log("=== TASK SERVICE claimTaskReward (RLS-safe) END ===");
+      console.log("=== TASK SERVICE claimTaskReward END ===");
     }
   },
 
@@ -464,7 +449,6 @@ export const taskService = {
     }
 
     const today = new Date();
-
     today.setHours(0, 0, 0, 0);
 
     const stats = {
@@ -476,7 +460,6 @@ export const taskService = {
     if (completions) {
       for (const completion of completions) {
         const task = completion.task as unknown as Task;
-
         stats.total_attempts_earned += task.reward_attempts;
 
         if (completion.claimed_at && new Date(completion.claimed_at) >= today) {

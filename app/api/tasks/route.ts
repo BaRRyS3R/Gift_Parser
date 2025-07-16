@@ -1,10 +1,9 @@
-// src/app/api/tasks/route.ts - Corrected version
+// src/app/api/tasks/route.ts - Исправленная версия
 
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/authMiddleware";
-import { userService } from "@/lib/supabase";
+import { userService, supabase } from "@/lib/supabase";
 import { taskService } from "@/lib/supabase_tasks";
-import { supabase } from "@/lib/supabase"; // Import supabase client directly
 
 export const GET = withAuth(async (request) => {
     console.log("=== TASKS API GET START ===");
@@ -48,26 +47,36 @@ export const GET = withAuth(async (request) => {
 
         if (!userData) {
             console.error("User not found in database for telegram_id:", user.telegramId);
+            console.log("Attempting to find user by userId:", user.userId);
 
-            // Check if user exists with different ID using direct supabase client
-            console.log("Checking if user exists with userId:", user.userId);
+            // Try to find by UUID as fallback
             try {
-                const { data: userByUuid } = await supabase
+                const { data: userByUuid, error: uuidError } = await supabase
                     .from("users")
                     .select("*")
                     .eq("id", user.userId)
                     .single();
 
-                if (userByUuid) {
-                    console.log("User found by UUID but telegram_id mismatch:", {
+                if (uuidError) {
+                    console.log("User not found by UUID either:", uuidError.message);
+                } else if (userByUuid) {
+                    console.log("Found user by UUID but telegram_id mismatch:", {
                         storedTelegramId: userByUuid.telegram_id,
                         requestTelegramId: user.telegramId
                     });
+
+                    // Use the user found by UUID
+                    userData = userByUuid;
+                } else {
+                    console.log("No user found by UUID");
                 }
             } catch (uuidError) {
-                console.log("User not found by UUID either");
+                console.error("Error checking user by UUID:", uuidError);
             }
+        }
 
+        if (!userData) {
+            console.error("User not found in database");
             return NextResponse.json(
                 { success: false, error: "User not found" },
                 { status: 404 },

@@ -1,4 +1,4 @@
-// src/app/api/tasks/start/route.ts - Fixed version with better error handling
+// src/app/api/tasks/start/route.ts - Исправленная версия
 
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/authMiddleware";
@@ -6,13 +6,31 @@ import { userService } from "@/lib/supabase";
 import { taskService } from "@/lib/supabase_tasks";
 
 export const POST = withAuth(async (request) => {
+    console.log("=== TASKS/START API START ===");
+
     try {
         const { user } = request;
+        console.log("Authenticated user:", {
+            userId: user.userId,
+            telegramId: user.telegramId,
+            iat: user.iat,
+            exp: user.exp
+        });
+
+        // Validate user payload
+        if (!user.userId || !user.telegramId) {
+            console.error("Invalid user payload:", user);
+            return NextResponse.json(
+                { success: false, error: "Invalid authentication payload" },
+                { status: 401 },
+            );
+        }
 
         // Safely parse request body
         let requestBody;
         try {
             requestBody = await request.json();
+            console.log("Request body parsed:", requestBody);
         } catch (error) {
             console.error("Error parsing request body:", error);
             return NextResponse.json(
@@ -22,17 +40,20 @@ export const POST = withAuth(async (request) => {
         }
 
         const { taskId } = requestBody;
+        console.log("Task ID from request:", taskId);
 
         if (!taskId) {
+            console.error("Task ID is missing");
             return NextResponse.json(
                 { success: false, error: "Task ID is required" },
                 { status: 400 },
             );
         }
 
-        // Validate taskId format (should be UUID)
+        // Validate taskId format
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(taskId)) {
+            console.error("Invalid task ID format:", taskId);
             return NextResponse.json(
                 { success: false, error: "Invalid task ID format" },
                 { status: 400 },
@@ -40,9 +61,16 @@ export const POST = withAuth(async (request) => {
         }
 
         // Get user data
+        console.log("Fetching user data for telegram_id:", user.telegramId);
         let userData;
         try {
             userData = await userService.findByTelegramId(user.telegramId);
+            console.log("User data fetched:", userData ? {
+                id: userData.id,
+                telegram_id: userData.telegram_id,
+                first_name: userData.first_name,
+                is_active: userData.is_active
+            } : "null");
         } catch (error) {
             console.error("Error fetching user data:", error);
             return NextResponse.json(
@@ -52,15 +80,32 @@ export const POST = withAuth(async (request) => {
         }
 
         if (!userData) {
+            console.error("User not found in database");
             return NextResponse.json(
                 { success: false, error: "User not found" },
                 { status: 404 },
             );
         }
 
-        // Start task with detailed error handling
+        // Check if user is active
+        if (!userData.is_active) {
+            console.error("User account is inactive:", userData.id);
+            return NextResponse.json(
+                { success: false, error: "User account is inactive" },
+                { status: 403 },
+            );
+        }
+
+        // Start task using the new database function
+        console.log("Starting task with params:", {
+            userId: userData.id,
+            taskId: taskId
+        });
+
         try {
+            console.log("Calling taskService.startTask...");
             const taskCompletion = await taskService.startTask(userData.id, taskId);
+            console.log("Task started successfully:", taskCompletion);
 
             return NextResponse.json({
                 success: true,
@@ -68,33 +113,51 @@ export const POST = withAuth(async (request) => {
             });
 
         } catch (taskError) {
-            console.error("Error starting task:", taskError);
+            console.error("ERROR IN TASK SERVICE:", taskError);
+            console.error("Task error details:", {
+                message: taskError instanceof Error ? taskError.message : 'Unknown error',
+                stack: taskError instanceof Error ? taskError.stack : undefined,
+                name: taskError instanceof Error ? taskError.name : undefined
+            });
 
-            // Handle specific task service errors
+            // Handle specific errors from database functions
             if (taskError instanceof Error) {
-                if (taskError.message === "Task not found") {
+                if (taskError.message.includes("Task not found or inactive")) {
                     return NextResponse.json(
-                        { success: false, error: "Task not found" },
+                        { success: false, error: "Task not found or inactive" },
                         { status: 404 },
                     );
                 }
 
-                if (taskError.message === "Task cannot be completed at this time") {
-                    return NextResponse.json(
-                        { success: false, error: "Task cannot be completed at this time" },
-                        { status: 400 },
-                    );
-                }
-
-                // Handle Supabase/database errors
-                if (taskError.message.includes("duplicate key value")) {
+                if (taskError.message.includes("Task already started")) {
                     return NextResponse.json(
                         { success: false, error: "Task already started" },
                         { status: 409 },
                     );
                 }
 
-                // Handle database connection errors
+                if (taskError.message.includes("Task already completed")) {
+                    return NextResponse.json(
+                        { success: false, error: "Task already completed" },
+                        { status: 409 },
+                    );
+                }
+
+                if (taskError.message.includes("Task is on cooldown")) {
+                    return NextResponse.json(
+                        { success: false, error: "Task is on cooldown" },
+                        { status: 429 },
+                    );
+                }
+
+                if (taskError.message.includes("Database function error")) {
+                    return NextResponse.json(
+                        { success: false, error: "Database error occurred" },
+                        { status: 503 },
+                    );
+                }
+
+                // Handle connection errors
                 if (taskError.message.includes("connect") || taskError.message.includes("timeout")) {
                     return NextResponse.json(
                         { success: false, error: "Database connection error" },
@@ -117,14 +180,25 @@ export const POST = withAuth(async (request) => {
         }
 
     } catch (error) {
-        console.error("Unexpected error in tasks/start:", error);
+        console.error("UNEXPECTED ERROR IN TASKS/START:", error);
+        console.error("Error details:", {
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
+            name: error instanceof Error ? error.name : undefined
+        });
 
         return NextResponse.json(
             {
                 success: false,
-                error: error instanceof Error ? error.message : "Failed to start task"
+                error: error instanceof Error ? error.message : "Internal server error",
+                debug: process.env.NODE_ENV === 'development' ? {
+                    errorType: error instanceof Error ? error.name : typeof error,
+                    errorMessage: error instanceof Error ? error.message : String(error)
+                } : undefined
             },
             { status: 500 },
         );
+    } finally {
+        console.log("=== TASKS/START API END ===");
     }
 });
