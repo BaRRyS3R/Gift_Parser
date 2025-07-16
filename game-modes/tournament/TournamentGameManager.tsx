@@ -12,8 +12,8 @@ import {
   Target,
   RotateCcw,
   Trophy,
-  Plus,
   Star,
+  CheckCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -234,7 +234,7 @@ export default function TournamentGameManager({
           }));
 
           console.log(
-            "Tournament result saved with accumulation via secure API:",
+            "Tournament result saved successfully via secure API:",
             saveResponse,
           );
         } catch (error) {
@@ -564,27 +564,14 @@ export default function TournamentGameManager({
             </div>
           </div>
 
-          {/* Информация о накоплении очков */}
-          {saveStatus.saveResponse && (
-            <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
+          {/* UPDATED: Упрощенное отображение статуса сохранения без детальных очков */}
+          {saveStatus.isSuccess && saveStatus.saveResponse?.success && (
+            <div className="bg-green-500/10 border border-green-400/30 rounded-xl p-4">
               <div className="text-center space-y-2">
                 <div className="flex items-center justify-center space-x-2">
-                  <Plus className="text-yellow-400" size={16} />
-                  <span className="text-sm text-yellow-300 uppercase tracking-wider">
-                    {t("tournament.pointsEarned")}
-                  </span>
-                </div>
-                <div className="text-3xl font-bold text-yellow-400">
-                  +{saveStatus.saveResponse.game_score} pts
-                </div>
-                <div className="text-sm text-yellow-300/80">
-                  {t("tournament.addedToTotal")}
-                </div>
-                <div className="flex items-center justify-center space-x-2 text-sm text-yellow-300/60">
-                  <Star className="text-yellow-400" size={14} />
-                  <span>
-                    {t("tournament.totalPoints")}:{" "}
-                    {saveStatus.saveResponse.total_score} pts
+                  <CheckCircle className="text-green-400" size={20} />
+                  <span className="text-sm text-green-300 uppercase tracking-wider">
+                    {t("tournament.resultSaved")}
                   </span>
                 </div>
               </div>
