@@ -512,42 +512,47 @@ class AuthService {
   // TASKS API METHODS
   // ============================================================================
 
-  async getTasks(): Promise<TaskWithCompletion[]> {
+  async getTasks(): Promise<any[]> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
-    return this.makeAuthenticatedRequest<{ tasks: TaskWithCompletion[] }>(
-      "/tasks",
-    ).then((data) => data.tasks);
+    console.log("Getting tasks via API...");
+    return this.makeAuthenticatedRequest<{ tasks: any[] }>("/tasks")
+      .then((data) => {
+        console.log("Tasks fetched successfully:", data.tasks?.length || 0);
+        return data.tasks;
+      });
   }
 
-  async startTask(taskId: string): Promise<UserTaskCompletion> {
+  async startTask(taskId: string): Promise<any> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
-    return this.makeAuthenticatedRequest<{ taskCompletion: UserTaskCompletion }>(
-      "/tasks/start",
-      {
-        method: "POST",
-        body: JSON.stringify({ taskId }),
-      },
-    ).then((data) => data.taskCompletion);
+    console.log("Starting task via API:", taskId);
+    return this.makeAuthenticatedRequest<{ taskCompletion: any }>("/tasks/start", {
+      method: "POST",
+      body: JSON.stringify({ taskId }),
+    }).then((data) => {
+      console.log("Task started successfully");
+      return data.taskCompletion;
+    });
   }
 
-  async completeTask(taskId: string): Promise<UserTaskCompletion> {
+  async completeTask(taskId: string): Promise<any> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
-    return this.makeAuthenticatedRequest<{ taskCompletion: UserTaskCompletion }>(
-      "/tasks/complete",
-      {
-        method: "POST",
-        body: JSON.stringify({ taskId }),
-      },
-    ).then((data) => data.taskCompletion);
+    console.log("Completing task via API:", taskId);
+    return this.makeAuthenticatedRequest<{ taskCompletion: any }>("/tasks/complete", {
+      method: "POST",
+      body: JSON.stringify({ taskId }),
+    }).then((data) => {
+      console.log("Task completed successfully");
+      return data.taskCompletion;
+    });
   }
 
   async claimTaskReward(taskId: string): Promise<TaskRewardResult> {
@@ -555,23 +560,23 @@ class AuthService {
       throw new Error("User not authenticated");
     }
 
-    return this.makeAuthenticatedRequest<{ result: TaskRewardResult }>(
-      "/tasks/claim",
-      {
-        method: "POST",
-        body: JSON.stringify({ taskId }),
-      },
-    ).then((data) => data.result);
+    console.log("Claiming task reward via API:", taskId);
+    return this.makeAuthenticatedRequest<{ result: TaskRewardResult }>("/tasks/claim", {
+      method: "POST",
+      body: JSON.stringify({ taskId }),
+    }).then((data) => {
+      console.log("Task reward claimed successfully");
+      return data.result;
+    });
   }
 
-  async getTaskStats(): Promise<TaskStats> {
+  async getTaskStats(): Promise<any> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
-    return this.makeAuthenticatedRequest<{ stats: TaskStats }>(
-      "/tasks/stats",
-    ).then((data) => data.stats);
+    return this.makeAuthenticatedRequest<{ stats: any }>("/tasks/stats")
+      .then((data) => data.stats);
   }
 
   // ============================================================================

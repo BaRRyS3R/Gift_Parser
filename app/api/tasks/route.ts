@@ -1,142 +1,194 @@
-// src/app/api/tasks/route.ts - Гибридный подход с публичным доступом
+// src/app/api/tasks/route.ts - Полная авторизация с исправлениями
 
-import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { NextResponse } from "next/server";
+import { withAuth } from "@/lib/authMiddleware";
+import { userService, supabase } from "@/lib/supabase";
 import { taskService } from "@/lib/supabase_tasks";
-import { extractTokenFromHeaders, verifyToken } from "@/lib/jwt";
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request) => {
     console.log("=== TASKS API GET START ===");
+    console.log("Request URL:", request.url);
+    console.log("Request headers:", Object.fromEntries(request.headers.entries()));
 
     try {
-        // Проверяем наличие токена авторизации
-        const authHeader = request.headers.get("authorization");
-        let userId: string | null = null;
-        let isAuthenticated = false;
+        const { user } = request;
+        console.log("Authenticated user payload:", {
+            userId: user.userId,
+            telegramId: user.telegramId,
+            iat: user.iat,
+            exp: user.exp,
+            tokenAge: Date.now() / 1000 - user.iat
+        });
 
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-            const token = authHeader.substring(7);
+        // Validate user payload
+        if (!user.userId || !user.telegramId) {
+            console.error("Invalid user payload:", user);
+            return NextResponse.json(
+                { success: false, error: "Invalid authentication payload" },
+                { status: 401 },
+            );
+        }
+
+        // Check token expiration
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (user.exp && currentTime > user.exp) {
+            console.error("Token expired:", { exp: user.exp, current: currentTime });
+            return NextResponse.json(
+                { success: false, error: "Token expired" },
+                { status: 401 },
+            );
+        }
+
+        // Primary: Get user data by telegram_id
+        console.log("Looking up user by telegram_id:", user.telegramId);
+        let userData;
+        try {
+            userData = await userService.findByTelegramId(user.telegramId);
+            console.log("User lookup by telegram_id result:", userData ? {
+                id: userData.id,
+                telegram_id: userData.telegram_id,
+                first_name: userData.first_name,
+                is_active: userData.is_active
+            } : "null");
+        } catch (dbError) {
+            console.error("Database error during user lookup by telegram_id:", dbError);
+            return NextResponse.json(
+                { success: false, error: "Database connection error" },
+                { status: 503 },
+            );
+        }
+
+        // Fallback: Try to find user by UUID
+        if (!userData) {
+            console.log("User not found by telegram_id, trying UUID lookup...");
             try {
-                const validation = await verifyToken(token);
-                if (validation.isValid && validation.payload) {
-                    // Проверяем существование пользователя
-                    const { data: userData } = await supabase
-                        .from("users")
-                        .select("id, telegram_id, is_active")
-                        .eq("telegram_id", validation.payload.telegramId)
-                        .single();
+                const { data: userByUuid, error: uuidError } = await supabase
+                    .from("users")
+                    .select("*")
+                    .eq("id", user.userId)
+                    .single();
 
-                    if (userData && userData.is_active) {
-                        userId = userData.id;
-                        isAuthenticated = true;
-                        console.log("User authenticated:", {
-                            userId: userData.id,
-                            telegramId: userData.telegram_id
-                        });
-                    }
+                if (uuidError) {
+                    console.error("UUID lookup error:", uuidError.message);
+                } else if (userByUuid) {
+                    console.log("Found user by UUID:", {
+                        id: userByUuid.id,
+                        telegram_id: userByUuid.telegram_id,
+                        storedTelegramId: userByUuid.telegram_id,
+                        requestTelegramId: user.telegramId
+                    });
+                    
+                    // Use the user found by UUID regardless of telegram_id mismatch
+                    // This handles cases where JWT was created with different telegram_id
+                    userData = userByUuid;
+                    console.log("Using user found by UUID, telegram_id mismatch will be ignored");
+                } else {
+                    console.log("No user found by UUID either");
                 }
-            } catch (error) {
-                console.log("Token validation failed, continuing as anonymous:", error);
+            } catch (uuidError) {
+                console.error("Error during UUID lookup:", uuidError);
+                return NextResponse.json(
+                    { success: false, error: "Database error during user verification" },
+                    { status: 503 },
+                );
             }
         }
 
-        // Получаем все активные задачи (публично доступно)
-        console.log("Fetching active tasks...");
-        const { data: tasks, error: tasksError } = await supabase
-            .from("tasks")
-            .select("*")
-            .eq("is_active", true)
-            .order("created_at", { ascending: true });
+        // Additional fallback: Search by different combinations
+        if (!userData) {
+            console.log("Attempting broader user search...");
+            try {
+                // Try to find any user with similar characteristics
+                const { data: users, error: searchError } = await supabase
+                    .from("users")
+                    .select("*")
+                    .or(`id.eq.${user.userId},telegram_id.eq.${user.telegramId}`)
+                    .limit(5);
 
-        if (tasksError) {
-            console.error("Error fetching tasks:", tasksError);
+                if (searchError) {
+                    console.error("Search error:", searchError);
+                } else {
+                    console.log("Found users in broader search:", users?.map(u => ({ 
+                        id: u.id, 
+                        telegram_id: u.telegram_id,
+                        first_name: u.first_name 
+                    })));
+                    
+                    if (users && users.length > 0) {
+                        userData = users[0]; // Use the first match
+                        console.log("Using first user from broader search");
+                    }
+                }
+            } catch (searchError) {
+                console.error("Error during broader search:", searchError);
+            }
+        }
+
+        if (!userData) {
+            console.error("User not found in database after all attempts");
+            console.log("Debug info:", {
+                requestedTelegramId: user.telegramId,
+                requestedUserId: user.userId,
+                tokenIat: user.iat,
+                tokenExp: user.exp
+            });
+            
+            return NextResponse.json(
+                { 
+                    success: false, 
+                    error: "User not found",
+                    debug: process.env.NODE_ENV === 'development' ? {
+                        requestedTelegramId: user.telegramId,
+                        requestedUserId: user.userId,
+                        tokenAge: currentTime - user.iat
+                    } : undefined
+                },
+                { status: 404 },
+            );
+        }
+
+        // Check if user is active
+        if (!userData.is_active) {
+            console.error("User account is inactive:", userData.id);
+            return NextResponse.json(
+                { success: false, error: "User account is inactive" },
+                { status: 403 },
+            );
+        }
+
+        // Get tasks for user
+        console.log("Fetching tasks for user:", userData.id);
+        let tasks;
+        try {
+            tasks = await taskService.getTasksForUser(userData.id);
+            console.log("Tasks fetched successfully. Count:", tasks.length);
+        } catch (taskError) {
+            console.error("Error fetching tasks:", taskError);
+            console.error("Task error details:", {
+                message: taskError instanceof Error ? taskError.message : String(taskError),
+                stack: taskError instanceof Error ? taskError.stack : undefined
+            });
             return NextResponse.json(
                 { success: false, error: "Failed to fetch tasks" },
                 { status: 500 },
             );
         }
 
-        console.log("Active tasks found:", tasks?.length || 0);
-
-        if (!tasks || tasks.length === 0) {
-            return NextResponse.json({
-                success: true,
-                tasks: [],
-                isAuthenticated,
-            });
-        }
-
-        // Если пользователь авторизован, получаем его выполнения заданий
-        let userCompletions: any[] = [];
-        if (isAuthenticated && userId) {
-            console.log("Fetching user completions for authenticated user...");
-            const { data: completions, error: completionsError } = await supabase
-                .from("user_task_completions")
-                .select("*")
-                .eq("user_id", userId);
-
-            if (completionsError) {
-                console.error("Error fetching user completions:", completionsError);
-                // Продолжаем без выполнений
-            } else {
-                userCompletions = completions || [];
-                console.log("User completions found:", userCompletions.length);
-            }
-        }
-
-        // Обрабатываем задачи с учетом выполнений пользователя
-        const processedTasks = tasks.map((task) => {
-            const userTaskCompletions = userCompletions.filter(c => c.task_id === task.id);
-            const latestCompletion = userTaskCompletions.sort(
-                (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            )[0];
-
-            let canComplete = true;
-            let nextAvailableAt: string | undefined;
-
-            if (isAuthenticated) {
-                // Логика для авторизованных пользователей
-                if (task.type === "story_share") {
-                    if (task.cooldown_minutes && latestCompletion?.claimed_at) {
-                        try {
-                            const lastClaimedAt = new Date(latestCompletion.claimed_at);
-                            const cooldownMs = task.cooldown_minutes * 60 * 1000;
-                            const nextAvailable = new Date(lastClaimedAt.getTime() + cooldownMs);
-
-                            if (new Date() < nextAvailable) {
-                                canComplete = false;
-                                nextAvailableAt = nextAvailable.toISOString();
-                            }
-                        } catch (dateError) {
-                            console.error("Error processing cooldown for task:", task.id, dateError);
-                        }
-                    }
-                } else {
-                    // Для остальных заданий - только одно выполнение
-                    if (latestCompletion?.status === "claimed") {
-                        canComplete = false;
-                    }
-                }
-            }
-
-            return {
-                ...task,
-                user_completion: isAuthenticated ? latestCompletion : undefined,
-                can_complete: canComplete,
-                next_available_at: nextAvailableAt,
-            };
-        });
-
-        console.log("Processed tasks count:", processedTasks.length);
-
+        // Return successful response
+        console.log("Returning tasks response");
         return NextResponse.json({
             success: true,
-            tasks: processedTasks,
-            isAuthenticated,
+            tasks,
+            userInfo: {
+                id: userData.id,
+                telegram_id: userData.telegram_id,
+                first_name: userData.first_name
+            }
         });
 
     } catch (error) {
         console.error("Unexpected error in tasks API:", error);
+        console.error("Error stack:", error instanceof Error ? error.stack : undefined);
         return NextResponse.json(
             {
                 success: false,
@@ -151,4 +203,4 @@ export async function GET(request: NextRequest) {
     } finally {
         console.log("=== TASKS API GET END ===");
     }
-}
+});
