@@ -1,30 +1,63 @@
-// middleware.ts - Enhanced middleware with comprehensive API protection including tasks and purchases
+// middleware.ts - Enhanced middleware with trust score verification
 
 import type { NextRequest } from "next/server";
 
 import { NextResponse } from "next/server";
 
 import { verifyToken } from "@/lib/jwt";
+import { supabaseServer } from "@/lib/supabase-server";
 
 // Define paths that require authentication
 const protectedApiPaths = [
   "/api/user/",
   "/api/game/",
-  "/api/tournament/", // All tournament endpoints are protected
+  "/api/tournament/",
   "/api/security/",
   "/api/leagues/",
   "/api/profile/",
   "/api/tasks/",
-  "/api/leaderboard/", // All leaderboard endpoints are protected
-  "/api/purchases/", // All purchase endpoints are protected
+  "/api/leaderboard/",
+  "/api/purchases/",
 ];
 
 // Define paths that don't require authentication
-const publicApiPaths = ["/api/auth/login", "/api/auth/register", "/api/health", "/api/check-telegram-membership"];
+const publicApiPaths = [
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/health",
+  "/api/check-telegram-membership"
+];
+
+// SECURITY: Define paths that require trust score verification
+const trustScoreProtectedPaths = [
+  "/api/game/",           // All game-related actions
+  "/api/tournament/",     // Tournament participation
+  "/api/purchases/",      // Purchase actions (prevent fraud)
+  "/api/tasks/complete",  // Task completion (prevent automation)
+  "/api/user/profile",    // Profile updates (prevent abuse)
+];
+
+// SECURITY: Define paths that should NEVER require trust score (to allow verification)
+const trustScoreExemptPaths = [
+  "/api/security/",           // Security verification endpoints
+  "/api/auth/",              // Authentication endpoints
+  "/api/user/attempts-status", // Allow checking attempts
+  "/api/profile/",           // Allow profile viewing
+  "/api/tasks",              // Allow viewing tasks (but not completing)
+  "/api/leaderboard/",       // Allow viewing leaderboards
+];
+
+// Trust score thresholds
+const TRUST_SCORE_THRESHOLDS = {
+  GYROSCOPE: 10,
+  BIOMETRIC: 20,
+  CAPTCHA: 40,
+  GOOD: 60,
+} as const;
 
 // Rate limiting configuration
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 60; // Increased limit for tasks and purchases operations
+const RATE_LIMIT_WINDOW = 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 60;
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
 
 /**
@@ -36,7 +69,6 @@ function checkRateLimit(identifier: string): boolean {
 
   if (!userLimit || now - userLimit.lastReset > RATE_LIMIT_WINDOW) {
     rateLimitMap.set(identifier, { count: 1, lastReset: now });
-
     return true;
   }
 
@@ -45,12 +77,102 @@ function checkRateLimit(identifier: string): boolean {
   }
 
   userLimit.count++;
-
   return true;
 }
 
 /**
- * Enhanced middleware with tasks and purchases protection
+ * SECURITY: Check user trust score and determine if verification is needed
+ */
+async function checkTrustScore(telegramId: number): Promise<{
+  isBlocked: boolean;
+  needsVerification: boolean;
+  trustScore: number;
+  verificationType?: "gyroscope" | "biometric" | "captcha";
+  timeUntilUnblock?: number;
+}> {
+  try {
+    // First check and unblock if time has passed
+    const { error: unblockError } = await supabaseServer.rpc(
+      "check_and_unblock_user",
+      { user_telegram_id: telegramId }
+    );
+
+    if (unblockError) {
+      console.error("Error checking unblock status:", unblockError.message);
+    }
+
+    // Get current user data
+    const { data: user, error: userError } = await supabaseServer
+      .from("users")
+      .select("trust_score, blocked_until, is_active")
+      .eq("telegram_id", telegramId)
+      .single();
+
+    if (userError || !user) {
+      console.error("Database error fetching user for trust check:", userError);
+      // If we can't verify trust score, deny access
+      return {
+        isBlocked: true,
+        needsVerification: false,
+        trustScore: 0,
+      };
+    }
+
+    // Check if user is currently blocked
+    const serverTime = new Date();
+    const isBlocked = user.blocked_until
+      ? new Date(user.blocked_until) > serverTime
+      : false;
+
+    if (isBlocked) {
+      const timeUntilUnblock = user.blocked_until
+        ? new Date(user.blocked_until).getTime() - serverTime.getTime()
+        : 0;
+
+      return {
+        isBlocked: true,
+        needsVerification: false,
+        trustScore: user.trust_score || 0,
+        timeUntilUnblock: timeUntilUnblock > 0 ? timeUntilUnblock : 0,
+      };
+    }
+
+    const trustScore = user.trust_score || 50;
+
+    // Determine verification requirements based on trust score
+    let needsVerification = false;
+    let verificationType: "gyroscope" | "biometric" | "captcha" | undefined;
+
+    if (trustScore < TRUST_SCORE_THRESHOLDS.GYROSCOPE) {
+      needsVerification = true;
+      verificationType = "gyroscope";
+    } else if (trustScore < TRUST_SCORE_THRESHOLDS.BIOMETRIC) {
+      needsVerification = true;
+      verificationType = "biometric";
+    } else if (trustScore < TRUST_SCORE_THRESHOLDS.CAPTCHA) {
+      needsVerification = true;
+      verificationType = "captcha";
+    }
+
+    return {
+      isBlocked: false,
+      needsVerification,
+      trustScore,
+      verificationType,
+    };
+  } catch (error) {
+    console.error("Error checking trust score:", error);
+    // On error, deny access for security
+    return {
+      isBlocked: true,
+      needsVerification: false,
+      trustScore: 0,
+    };
+  }
+}
+
+/**
+ * Enhanced middleware with trust score verification
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -67,7 +189,7 @@ export async function middleware(request: NextRequest) {
 
   // Check if this is a protected API path
   const isProtectedPath = protectedApiPaths.some((path) =>
-    pathname.startsWith(path),
+    pathname.startsWith(path)
   );
 
   if (isProtectedPath) {
@@ -84,7 +206,7 @@ export async function middleware(request: NextRequest) {
           message: "No valid authorization header provided",
           requiredAuth: true,
         },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
@@ -104,7 +226,7 @@ export async function middleware(request: NextRequest) {
             message: validation.error || "Token validation failed",
             requiredAuth: true,
           },
-          { status: 401 },
+          { status: 401 }
         );
       }
 
@@ -113,7 +235,7 @@ export async function middleware(request: NextRequest) {
 
       if (!checkRateLimit(rateLimitKey)) {
         console.warn(
-          `Rate limit exceeded for user ${validation.payload.userId} on ${pathname}`,
+          `Rate limit exceeded for user ${validation.payload.userId} on ${pathname}`
         );
 
         return NextResponse.json(
@@ -122,7 +244,71 @@ export async function middleware(request: NextRequest) {
             error: "Rate limit exceeded",
             message: "Too many requests. Please try again later.",
           },
-          { status: 429 },
+          { status: 429 }
+        );
+      }
+
+      // SECURITY: Check if this path requires trust score verification
+      const requiresTrustCheck = trustScoreProtectedPaths.some((path) =>
+        pathname.startsWith(path)
+      );
+
+      const isExemptFromTrustCheck = trustScoreExemptPaths.some((path) =>
+        pathname.startsWith(path)
+      );
+
+      if (requiresTrustCheck && !isExemptFromTrustCheck) {
+        console.log(`Checking trust score for protected path: ${pathname}`);
+
+        const trustCheck = await checkTrustScore(validation.payload.telegramId);
+
+        // If user is blocked, return block status
+        if (trustCheck.isBlocked) {
+          console.warn(
+            `Blocked user ${validation.payload.telegramId} attempted to access: ${pathname}`
+          );
+
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Account blocked",
+              message: "Your account is temporarily restricted",
+              isBlocked: true,
+              timeUntilUnblock: trustCheck.timeUntilUnblock,
+              blockStatus: {
+                isBlocked: true,
+                timeUntilUnblock: trustCheck.timeUntilUnblock,
+              },
+            },
+            { status: 403 }
+          );
+        }
+
+        // If user needs verification, return verification requirement
+        if (trustCheck.needsVerification) {
+          console.warn(
+            `User ${validation.payload.telegramId} needs ${trustCheck.verificationType} verification for: ${pathname}`
+          );
+
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Verification required",
+              message: "Please complete security verification to continue",
+              needsVerification: true,
+              verificationType: trustCheck.verificationType,
+              securityStatus: {
+                needsVerification: true,
+                verificationType: trustCheck.verificationType,
+                trustScore: trustCheck.trustScore,
+              },
+            },
+            { status: 423 } // 423 Locked - custom status for verification needed
+          );
+        }
+
+        console.log(
+          `Trust score check passed for user ${validation.payload.telegramId} (score: ${trustCheck.trustScore}) on ${pathname}`
         );
       }
 
@@ -132,7 +318,7 @@ export async function middleware(request: NextRequest) {
       requestHeaders.set("x-user-id", validation.payload.userId);
       requestHeaders.set(
         "x-telegram-id",
-        validation.payload.telegramId.toString(),
+        validation.payload.telegramId.toString()
       );
 
       // Add additional security headers for specific endpoints
@@ -144,6 +330,9 @@ export async function middleware(request: NextRequest) {
         requestHeaders.set("x-request-timestamp", Date.now().toString());
       } else if (pathname.startsWith("/api/tasks/")) {
         requestHeaders.set("x-protected-resource", "tasks");
+        requestHeaders.set("x-request-timestamp", Date.now().toString());
+      } else if (pathname.startsWith("/api/game/")) {
+        requestHeaders.set("x-protected-resource", "game");
         requestHeaders.set("x-request-timestamp", Date.now().toString());
       }
 
@@ -162,7 +351,7 @@ export async function middleware(request: NextRequest) {
           message: "Token verification failed",
           requiredAuth: true,
         },
-        { status: 401 },
+        { status: 401 }
       );
     }
   }

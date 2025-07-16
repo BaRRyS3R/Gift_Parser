@@ -1,4 +1,4 @@
-// src/components/Navigation/NavigationWrapper.tsx - Updated with security integration
+// src/components/Navigation/NavigationWrapper.tsx - Updated with accessibility fixes
 
 "use client";
 
@@ -74,11 +74,19 @@ export default function NavigationWrapper() {
     prevPathRef.current = pathname;
   }, [pathname, shouldShowNav, isInitialized]);
 
-  // Handle blocked navigation click
+  // Handle blocked navigation interaction with keyboard support
   const handleBlockedInteraction = async () => {
     if (isNavBlocked) {
       console.log("Navigation blocked due to security requirements");
       await manualTriggerSecurityCheck();
+    }
+  };
+
+  // Handle keyboard events for accessibility
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleBlockedInteraction();
     }
   };
 
@@ -95,17 +103,23 @@ export default function NavigationWrapper() {
     >
       {/* Security overlay when navigation is blocked */}
       {isNavBlocked && (
-        <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 rounded-t-lg cursor-pointer"
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 rounded-t-lg cursor-pointer border-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-white/40 focus:ring-inset"
           onClick={handleBlockedInteraction}
+          onKeyDown={handleKeyDown}
+          aria-label="Security verification required - tap to continue"
+          aria-describedby="security-overlay-description"
         >
           <div className="flex items-center justify-center h-full">
             <div className="text-white/80 text-center">
               <div className="w-6 h-6 mx-auto mb-1 border-2 border-white/60 rounded border-dashed animate-pulse"></div>
-              <p className="text-xs font-medium">Tap to continue</p>
+              <p id="security-overlay-description" className="text-xs font-medium">
+                Tap to continue
+              </p>
             </div>
           </div>
-        </div>
+        </button>
       )}
 
       <BottomNav isBlocked={isNavBlocked} onBlockedClick={handleBlockedInteraction} />
