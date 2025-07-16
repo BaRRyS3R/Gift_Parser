@@ -1,9 +1,8 @@
-// src/app/api/tasks/claim/route.ts - Исправленная версия
+// src/app/api/tasks/claim/route.ts - Защищенный доступ для получения наград
 
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/authMiddleware";
-import { userService } from "@/lib/supabase";
-import { taskService } from "@/lib/supabase_tasks";
+import { userService, supabase } from "@/lib/supabase";
 
 export const POST = withAuth(async (request) => {
     console.log("=== TASKS/CLAIM API START ===");
@@ -82,6 +81,35 @@ export const POST = withAuth(async (request) => {
 
         if (!userData) {
             console.error("User not found in database");
+
+            // Try to find by UUID as fallback
+            console.log("Attempting to find user by userId:", user.userId);
+            try {
+                const { data: userByUuid, error: uuidError } = await supabase
+                    .from("users")
+                    .select("*")
+                    .eq("id", user.userId)
+                    .single();
+
+                if (uuidError) {
+                    console.log("User not found by UUID either:", uuidError.message);
+                } else if (userByUuid) {
+                    console.log("Found user by UUID but telegram_id mismatch:", {
+                        storedTelegramId: userByUuid.telegram_id,
+                        requestTelegramId: user.telegramId
+                    });
+
+                    // Use the user found by UUID
+                    userData = userByUuid;
+                } else {
+                    console.log("No user found by UUID");
+                }
+            } catch (uuidError) {
+                console.error("Error checking user by UUID:", uuidError);
+            }
+        }
+
+        if (!userData) {
             return NextResponse.json(
                 { success: false, error: "User not found" },
                 { status: 404 },
@@ -97,83 +125,89 @@ export const POST = withAuth(async (request) => {
             );
         }
 
-        // Claim task reward using the new database function
-        console.log("Claiming task reward with params:", {
+        // Use the database function to claim reward safely
+        console.log("Claiming task reward using database function:", {
             userId: userData.id,
-            taskId: taskId,
-            telegramId: userData.telegram_id
+            taskId: taskId
         });
 
         try {
-            console.log("Calling taskService.claimTaskReward...");
-            const result = await taskService.claimTaskReward(
-                userData.id,
-                taskId,
-                userData.telegram_id,
-            );
-            console.log("Task reward claimed successfully:", result);
-
-            return NextResponse.json({
-                success: true,
-                result,
+            console.log("Calling database function claim_task_reward...");
+            const { data, error } = await supabase.rpc('claim_task_reward', {
+                p_user_id: userData.id,
+                p_task_id: taskId
             });
 
-        } catch (taskError) {
-            console.error("ERROR IN TASK SERVICE:", taskError);
-            console.error("Task error details:", {
-                message: taskError instanceof Error ? taskError.message : 'Unknown error',
-                stack: taskError instanceof Error ? taskError.stack : undefined,
-                name: taskError instanceof Error ? taskError.name : undefined
-            });
+            if (error) {
+                console.error("Database function error:", error);
+                return NextResponse.json(
+                    { success: false, error: "Database error occurred" },
+                    { status: 503 },
+                );
+            }
 
-            // Handle specific errors from database functions
-            if (taskError instanceof Error) {
-                if (taskError.message.includes("Completed task not found")) {
+            const result = typeof data === 'string' ? JSON.parse(data) : data;
+
+            if (!result.success) {
+                console.error("Function returned error:", result.error);
+
+                // Handle specific errors from database function
+                if (result.error.includes("Completed task not found")) {
                     return NextResponse.json(
                         { success: false, error: "Task not completed or already claimed" },
                         { status: 400 },
                     );
                 }
 
-                if (taskError.message.includes("Task not found")) {
+                if (result.error.includes("Task not found")) {
                     return NextResponse.json(
                         { success: false, error: "Task not found" },
                         { status: 404 },
                     );
                 }
 
-                if (taskError.message.includes("User not found")) {
-                    return NextResponse.json(
-                        { success: false, error: "User not found" },
-                        { status: 404 },
-                    );
-                }
-
-                if (taskError.message.includes("Database function error")) {
-                    return NextResponse.json(
-                        { success: false, error: "Database error occurred" },
-                        { status: 503 },
-                    );
-                }
-
-                // Handle connection errors
-                if (taskError.message.includes("connect") || taskError.message.includes("timeout")) {
-                    return NextResponse.json(
-                        { success: false, error: "Database connection error" },
-                        { status: 503 },
-                    );
-                }
-
-                // Return the specific error message
                 return NextResponse.json(
-                    { success: false, error: taskError.message },
+                    { success: false, error: result.error },
                     { status: 500 },
                 );
             }
 
-            // Fallback for non-Error objects
+            console.log("Task reward claimed successfully:", {
+                completion: result.task_completion,
+                reward: result.reward_attempts,
+                newTotal: result.new_attempts_total
+            });
+
+            // Return the result in the expected format
+            const claimResult = {
+                completion: result.task_completion,
+                reward: result.reward_attempts,
+            };
+
+            return NextResponse.json({
+                success: true,
+                result: claimResult,
+            });
+
+        } catch (taskError) {
+            console.error("ERROR IN DATABASE FUNCTION:", taskError);
+            console.error("Task error details:", {
+                message: taskError instanceof Error ? taskError.message : 'Unknown error',
+                stack: taskError instanceof Error ? taskError.stack : undefined,
+                name: taskError instanceof Error ? taskError.name : undefined
+            });
+
+            // Handle connection errors
+            if (taskError instanceof Error && (taskError.message.includes("connect") || taskError.message.includes("timeout"))) {
+                return NextResponse.json(
+                    { success: false, error: "Database connection error" },
+                    { status: 503 },
+                );
+            }
+
+            // Return the specific error message
             return NextResponse.json(
-                { success: false, error: "Failed to claim task reward" },
+                { success: false, error: taskError instanceof Error ? taskError.message : "Failed to claim task reward" },
                 { status: 500 },
             );
         }

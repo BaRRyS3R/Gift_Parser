@@ -44,6 +44,7 @@ export const tasks = {
 
   // Error messages
   errors: {
+    authRequired: "Auth Required",
     notSubscribed: "You are not subscribed to this channel/chat",
     taskNotFound: "Task not found",
     alreadyCompleted: "Task already completed",

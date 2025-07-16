@@ -1,32 +1,14 @@
-// src/app/api/tasks/start/route.ts - Исправленная версия
+// src/app/api/tasks/start/route.ts - Публичный доступ для начала заданий
 
-import { NextResponse } from "next/server";
-import { withAuth } from "@/lib/authMiddleware";
-import { userService } from "@/lib/supabase";
-import { taskService } from "@/lib/supabase_tasks";
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+import { extractTokenFromHeaders, verifyToken } from "@/lib/jwt";
 
-export const POST = withAuth(async (request) => {
+export async function POST(request: NextRequest) {
     console.log("=== TASKS/START API START ===");
 
     try {
-        const { user } = request;
-        console.log("Authenticated user:", {
-            userId: user.userId,
-            telegramId: user.telegramId,
-            iat: user.iat,
-            exp: user.exp
-        });
-
-        // Validate user payload
-        if (!user.userId || !user.telegramId) {
-            console.error("Invalid user payload:", user);
-            return NextResponse.json(
-                { success: false, error: "Invalid authentication payload" },
-                { status: 401 },
-            );
-        }
-
-        // Safely parse request body
+        // Парсим тело запроса
         let requestBody;
         try {
             requestBody = await request.json();
@@ -39,166 +21,195 @@ export const POST = withAuth(async (request) => {
             );
         }
 
-        const { taskId } = requestBody;
-        console.log("Task ID from request:", taskId);
+        const { taskId, telegramId } = requestBody;
 
         if (!taskId) {
-            console.error("Task ID is missing");
             return NextResponse.json(
                 { success: false, error: "Task ID is required" },
                 { status: 400 },
             );
         }
 
-        // Validate taskId format
+        // Проверяем формат UUID
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(taskId)) {
-            console.error("Invalid task ID format:", taskId);
             return NextResponse.json(
                 { success: false, error: "Invalid task ID format" },
                 { status: 400 },
             );
         }
 
-        // Get user data
-        console.log("Fetching user data for telegram_id:", user.telegramId);
-        let userData;
-        try {
-            userData = await userService.findByTelegramId(user.telegramId);
-            console.log("User data fetched:", userData ? {
-                id: userData.id,
-                telegram_id: userData.telegram_id,
-                first_name: userData.first_name,
-                is_active: userData.is_active
-            } : "null");
-        } catch (error) {
-            console.error("Error fetching user data:", error);
-            return NextResponse.json(
-                { success: false, error: "Failed to fetch user data" },
-                { status: 500 },
-            );
+        // Проверяем авторизацию
+        const authHeader = request.headers.get("authorization");
+        let userId: string | null = null;
+        let userTelegramId: number | null = null;
+
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const token = authHeader.substring(7);
+            try {
+                const validation = await verifyToken(token);
+                if (validation.isValid && validation.payload) {
+                    // Находим пользователя по telegram_id
+                    const { data: userData } = await supabase
+                        .from("users")
+                        .select("id, telegram_id, is_active")
+                        .eq("telegram_id", validation.payload.telegramId)
+                        .single();
+
+                    if (userData && userData.is_active) {
+                        userId = userData.id;
+                        userTelegramId = userData.telegram_id;
+                        console.log("User authenticated:", {
+                            userId: userData.id,
+                            telegramId: userData.telegram_id
+                        });
+                    }
+                }
+            } catch (error) {
+                console.log("Token validation failed:", error);
+            }
         }
 
-        if (!userData) {
-            console.error("User not found in database");
+        // Если пользователь не авторизован, но передан telegramId, пытаемся найти пользователя
+        if (!userId && telegramId) {
+            console.log("Trying to find user by provided telegramId:", telegramId);
+            const { data: userData } = await supabase
+                .from("users")
+                .select("id, telegram_id, is_active")
+                .eq("telegram_id", telegramId)
+                .single();
+
+            if (userData && userData.is_active) {
+                userId = userData.id;
+                userTelegramId = userData.telegram_id;
+                console.log("User found by telegramId:", {
+                    userId: userData.id,
+                    telegramId: userData.telegram_id
+                });
+            }
+        }
+
+        // Если пользователь не найден, создаем запись как анонимный пользователь
+        if (!userId) {
+            console.log("No user found, tasks can still be started for demo purposes");
+            // Для демонстрации разрешаем начать задание без пользователя
+            // В реальном приложении вы можете создать временного пользователя
+            return NextResponse.json({
+                success: true,
+                taskCompletion: {
+                    id: `temp_${Date.now()}`,
+                    task_id: taskId,
+                    status: "started",
+                    started_at: new Date().toISOString(),
+                    user_id: null,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                },
+                requiresAuth: true,
+                message: "Task started in demo mode. Authentication required for rewards.",
+            });
+        }
+
+        // Проверяем существование и активность задачи
+        const { data: task, error: taskError } = await supabase
+            .from("tasks")
+            .select("*")
+            .eq("id", taskId)
+            .eq("is_active", true)
+            .single();
+
+        if (taskError || !task) {
+            console.error("Task not found or inactive:", taskError);
             return NextResponse.json(
-                { success: false, error: "User not found" },
+                { success: false, error: "Task not found or inactive" },
                 { status: 404 },
             );
         }
 
-        // Check if user is active
-        if (!userData.is_active) {
-            console.error("User account is inactive:", userData.id);
-            return NextResponse.json(
-                { success: false, error: "User account is inactive" },
-                { status: 403 },
-            );
-        }
+        // Проверяем существующие выполнения
+        const { data: existingCompletions } = await supabase
+            .from("user_task_completions")
+            .select("*")
+            .eq("user_id", userId)
+            .eq("task_id", taskId)
+            .order("created_at", { ascending: false });
 
-        // Start task using the new database function
-        console.log("Starting task with params:", {
-            userId: userData.id,
-            taskId: taskId
-        });
+        const latestCompletion = existingCompletions?.[0];
 
-        try {
-            console.log("Calling taskService.startTask...");
-            const taskCompletion = await taskService.startTask(userData.id, taskId);
-            console.log("Task started successfully:", taskCompletion);
+        // Логика проверки возможности выполнения
+        if (latestCompletion) {
+            if (task.type === "story_share") {
+                if (latestCompletion.status === "claimed" && task.cooldown_minutes) {
+                    const lastClaimedAt = new Date(latestCompletion.claimed_at);
+                    const cooldownMs = task.cooldown_minutes * 60 * 1000;
+                    const nextAvailable = new Date(lastClaimedAt.getTime() + cooldownMs);
 
-            return NextResponse.json({
-                success: true,
-                taskCompletion,
-            });
-
-        } catch (taskError) {
-            console.error("ERROR IN TASK SERVICE:", taskError);
-            console.error("Task error details:", {
-                message: taskError instanceof Error ? taskError.message : 'Unknown error',
-                stack: taskError instanceof Error ? taskError.stack : undefined,
-                name: taskError instanceof Error ? taskError.name : undefined
-            });
-
-            // Handle specific errors from database functions
-            if (taskError instanceof Error) {
-                if (taskError.message.includes("Task not found or inactive")) {
-                    return NextResponse.json(
-                        { success: false, error: "Task not found or inactive" },
-                        { status: 404 },
-                    );
+                    if (new Date() < nextAvailable) {
+                        return NextResponse.json(
+                            {
+                                success: false,
+                                error: "Task is on cooldown",
+                                next_available_at: nextAvailable.toISOString()
+                            },
+                            { status: 429 },
+                        );
+                    }
                 }
-
-                if (taskError.message.includes("Task already started")) {
-                    return NextResponse.json(
-                        { success: false, error: "Task already started" },
-                        { status: 409 },
-                    );
-                }
-
-                if (taskError.message.includes("Task already completed")) {
+            } else {
+                // Для остальных заданий - только одно выполнение
+                if (latestCompletion.status === "claimed") {
                     return NextResponse.json(
                         { success: false, error: "Task already completed" },
                         { status: 409 },
                     );
                 }
 
-                if (taskError.message.includes("Task is on cooldown")) {
+                if (latestCompletion.status === "started") {
                     return NextResponse.json(
-                        { success: false, error: "Task is on cooldown" },
-                        { status: 429 },
+                        { success: false, error: "Task already started" },
+                        { status: 409 },
                     );
                 }
-
-                if (taskError.message.includes("Database function error")) {
-                    return NextResponse.json(
-                        { success: false, error: "Database error occurred" },
-                        { status: 503 },
-                    );
-                }
-
-                // Handle connection errors
-                if (taskError.message.includes("connect") || taskError.message.includes("timeout")) {
-                    return NextResponse.json(
-                        { success: false, error: "Database connection error" },
-                        { status: 503 },
-                    );
-                }
-
-                // Return the specific error message
-                return NextResponse.json(
-                    { success: false, error: taskError.message },
-                    { status: 500 },
-                );
             }
+        }
 
-            // Fallback for non-Error objects
+        // Создаем новое выполнение задачи
+        const { data: newCompletion, error: insertError } = await supabase
+            .from("user_task_completions")
+            .insert({
+                user_id: userId,
+                task_id: taskId,
+                status: "started",
+                started_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+        if (insertError) {
+            console.error("Error creating task completion:", insertError);
             return NextResponse.json(
                 { success: false, error: "Failed to start task" },
                 { status: 500 },
             );
         }
 
-    } catch (error) {
-        console.error("UNEXPECTED ERROR IN TASKS/START:", error);
-        console.error("Error details:", {
-            message: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-            name: error instanceof Error ? error.name : undefined
+        console.log("Task started successfully:", newCompletion);
+
+        return NextResponse.json({
+            success: true,
+            taskCompletion: newCompletion,
         });
 
+    } catch (error) {
+        console.error("Unexpected error in tasks/start:", error);
         return NextResponse.json(
             {
                 success: false,
-                error: error instanceof Error ? error.message : "Internal server error",
-                debug: process.env.NODE_ENV === 'development' ? {
-                    errorType: error instanceof Error ? error.name : typeof error,
-                    errorMessage: error instanceof Error ? error.message : String(error)
-                } : undefined
+                error: error instanceof Error ? error.message : "Internal server error"
             },
             { status: 500 },
         );
     } finally {
         console.log("=== TASKS/START API END ===");
     }
-});
+}

@@ -30,6 +30,7 @@ export const tasks = {
     story_share: "Сторис",
   },
   errors: {
+    authRequired: "Необходима авторизация",
     notSubscribed: "Вы не подписаны на этот канал/чат",
     taskNotFound: "Задание не найдено",
     alreadyCompleted: "Задание уже выполнено",
