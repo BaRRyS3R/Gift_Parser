@@ -1,4 +1,4 @@
-// src/lib/authService.ts - Полная версия с интегрированной системой безопасности
+// src/lib/authService.ts - Очищенная версия без устаревших security методов
 
 import type {
   Tournament,
@@ -11,7 +11,6 @@ import type {
 import {
   GameSaveResult,
   AttemptsStatus,
-  userService,
 } from "@/lib/supabase";
 import {
   ReactionGameResult,
@@ -278,10 +277,6 @@ class AuthService {
     }
   }
 
-  // ============================================================================
-  // AUTHENTICATION METHODS
-  // ============================================================================
-
   async checkLoginStatus(
     initData: string,
     referralCode?: string,
@@ -425,10 +420,6 @@ class AuthService {
     this.removeTokenFromStorage();
   }
 
-  // ============================================================================
-  // PROFILE API METHODS
-  // ============================================================================
-
   async getFullProfile(): Promise<ProfileData> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -486,10 +477,6 @@ class AuthService {
     }
   }
 
-  // ============================================================================
-  // USER METHODS
-  // ============================================================================
-
   async getAttemptsStatus(): Promise<AttemptsStatus> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -519,10 +506,6 @@ class AuthService {
       "/leagues/progress",
     ).then((data) => data.progressInfo);
   }
-
-  // ============================================================================
-  // ENHANCED SECURITY METHODS
-  // ============================================================================
 
   async evaluateSecurityRequirements(action: string = "game_access"): Promise<SecurityEvaluation> {
     if (!this.isAuthenticated()) {
@@ -588,10 +571,6 @@ class AuthService {
     };
   }
 
-  // ============================================================================
-  // GAME METHODS
-  // ============================================================================
-
   async consumeAttempt(): Promise<AttemptsStatus> {
     return this.makeAuthenticatedRequest<{ attemptsStatus: AttemptsStatus }>(
       "/game/consume-attempt",
@@ -608,10 +587,6 @@ class AuthService {
       },
     ).then((data) => data.saveResult);
   }
-
-  // ============================================================================
-  // TOURNAMENT METHODS
-  // ============================================================================
 
   async getActiveTournament(): Promise<Tournament | null> {
     if (!this.isAuthenticated()) {
@@ -749,34 +724,6 @@ class AuthService {
     }).then((data) => data.tournamentResult);
   }
 
-  // ============================================================================
-  // LEGACY SECURITY METHODS (для совместимости)
-  // ============================================================================
-
-  async checkUserBlockedStatus(telegramId: number): Promise<any> {
-    try {
-      if (this.isAuthenticated()) {
-        const evaluation = await this.evaluateSecurityRequirements("status_check");
-        return {
-          isBlocked: evaluation.status === "block",
-          needsCaptcha: evaluation.status === "require_verification" && evaluation.method === "interactive",
-          needsBiometric: evaluation.status === "require_verification" && evaluation.method === "biometric",
-          trustScore: 50, // Фиктивное значение для совместимости
-        };
-      } else {
-        console.warn("User not authenticated, using direct service call");
-        return await userService.checkUserBlockStatus(telegramId);
-      }
-    } catch (error) {
-      console.warn("Auth API failed, using direct service call");
-      return await userService.checkUserBlockStatus(telegramId);
-    }
-  }
-
-  // ============================================================================
-  // UTILITY METHODS
-  // ============================================================================
-
   async makeRequestWithRetry<T>(
     requestFn: () => Promise<T>,
     maxRetries: number = 3,
@@ -802,10 +749,8 @@ class AuthService {
   }
 }
 
-// Singleton instance
 export const authService = new AuthService();
 
-// Helper functions for backward compatibility
 export async function authenticateUser(
   initData: string,
   referralCode?: string,

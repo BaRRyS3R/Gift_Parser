@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated main page with secured tournament API calls
+// src/app/main/page.tsx - Обновленная главная страница с унифицированной системой безопасности
 
 "use client";
 
@@ -27,8 +27,7 @@ import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
 import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
 import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal";
-import CaptchaModal from "@/components/Security/CaptchaModal";
-import BiometricModal from "@/components/Security/BiometricModal";
+import UnifiedSecurityModal from "@/components/Security/UnifiedSecurityModal";
 
 export default function MainPage() {
   const router = useRouter();
@@ -42,34 +41,21 @@ export default function MainPage() {
 
   const {
     securityState,
-    showCaptcha,
-    showBiometric,
-    captchaData,
-    handleCaptchaSuccess,
-    handleCaptchaFailure,
-    handleBiometricSuccess,
-    handleBiometricFailure,
-    isSecurityCheckNeeded,
-    formatTrustScore,
+    evaluateAccess,
+    submitVerification,
+    resetSecurityState,
   } = useSecurity();
 
   const { settings } = useSettings();
   const t = useT();
 
-  /* -------------------------------------------------
-   * Animation control - First visit detection
-   * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
-
     return !sessionStorage.getItem("mainPageVisited");
   };
 
   const isFirstVisit = checkFirstVisit();
 
-  /* -------------------------------------------------
-   * UI state
-   * -------------------------------------------------*/
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [pageLoaded, setPageLoaded] = useState(false);
   const [showButton, setShowButton] = useState(!isFirstVisit);
@@ -81,25 +67,13 @@ export default function MainPage() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isLeagueProgressOpen, setIsLeagueProgressOpen] = useState(false);
 
-  /* -------------------------------------------------
-   * Tournament state
-   * -------------------------------------------------*/
-  const [activeTournament, setActiveTournament] = useState<Tournament | null>(
-    null,
-  );
-  const [tournamentTimeRemaining, setTournamentTimeRemaining] =
-    useState<string>("");
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
+  const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
   const [showTournamentButton, setShowTournamentButton] = useState(false);
   const [tournamentLoading, setTournamentLoading] = useState(false);
 
-  /* -------------------------------------------------
-   * Security state
-   * -------------------------------------------------*/
   const [securityWarningVisible, setSecurityWarningVisible] = useState(false);
 
-  /* -------------------------------------------------
-   * Dynamic offset for Telegram system UI
-   * -------------------------------------------------*/
   const DEFAULT_TG_HEADER = 60;
   const EXTRA_OFFSET = 40;
   const [headerOffset, setHeaderOffset] = useState<number>(
@@ -108,23 +82,19 @@ export default function MainPage() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
-
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
   }, []);
 
-  // Check authentication status and redirect if needed
   useEffect(() => {
     if (!isAuthenticated && !userLoading) {
       console.log("User not authenticated, redirecting to login");
       router.push("/");
-
       return;
     }
   }, [isAuthenticated, userLoading, router]);
 
-  // Check if user is blocked and redirect
   useEffect(() => {
     if (securityState.isBlocked) {
       console.log("User is blocked, redirecting to blocked page");
@@ -132,40 +102,19 @@ export default function MainPage() {
     }
   }, [securityState.isBlocked, router]);
 
-  // Show security warning for low trust scores
-  useEffect(() => {
-    if (
-      securityState.trustScore < 40 &&
-      !securityState.isBlocked &&
-      !securityState.isLoading
-    ) {
-      setSecurityWarningVisible(true);
-    } else {
-      setSecurityWarningVisible(false);
-    }
-  }, [
-    securityState.trustScore,
-    securityState.isBlocked,
-    securityState.isLoading,
-  ]);
-
-  // Mark page as visited
   useEffect(() => {
     if (isFirstVisit && typeof window !== "undefined") {
       sessionStorage.setItem("mainPageVisited", "true");
     }
   }, [isFirstVisit]);
 
-  // Initialize greeting for non-first visits
   useEffect(() => {
     if (!isFirstVisit && user?.first_name) {
       const fullGreeting = t("main.greeting", { name: user.first_name });
-
       setGreetingText(fullGreeting);
     }
   }, [isFirstVisit, user?.first_name, t]);
 
-  // Initialize telegramUser safely without direct Supabase calls
   useEffect(() => {
     if (
       !telegramUser &&
@@ -184,21 +133,15 @@ export default function MainPage() {
           language_code: user.language_code,
           is_premium: user.is_premium,
         };
-
         setTelegramUser(telegramUserData);
       }
     }
   }, [telegramUser, setTelegramUser]);
 
-  /* -------------------------------------------------
-   * UPDATED: Secure tournament data loading
-   * -------------------------------------------------*/
   useEffect(() => {
     const loadTournamentStatus = async () => {
-      // Only load tournament data if user is authenticated
       if (!isAuthenticated) {
         console.log("User not authenticated, skipping tournament data load");
-
         return;
       }
 
@@ -206,7 +149,6 @@ export default function MainPage() {
 
       try {
         console.log("Loading tournament status via secure API...");
-
         const tournamentStatus = await authService.getTournamentStatus();
 
         if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
@@ -246,7 +188,6 @@ export default function MainPage() {
       } catch (error) {
         console.error("Error loading tournament status via secure API:", error);
 
-        // Handle authentication errors
         if (
           error instanceof Error &&
           error.message.includes("Authentication expired")
@@ -254,7 +195,6 @@ export default function MainPage() {
           console.log(
             "Token expired during tournament load, user will be signed out",
           );
-          // The useUser hook will handle sign out and redirect
         }
 
         setActiveTournament(null);
@@ -264,22 +204,17 @@ export default function MainPage() {
       }
     };
 
-    // Only attempt to load if authenticated
     if (isAuthenticated) {
       loadTournamentStatus();
     }
   }, [isAuthenticated]);
 
-  /* -------------------------------------------------
-   * Background video logic
-   * -------------------------------------------------*/
   const videoRef = useRef<HTMLVideoElement>(null);
   const username = user?.first_name || "unknown";
   const fullGreeting = t("main.greeting", { name: username });
 
   useEffect(() => {
     const video = videoRef.current;
-
     if (!video || !settings.showBackgroundVideo) return;
 
     const handleLoadedMetadata = () => {
@@ -300,9 +235,6 @@ export default function MainPage() {
     };
   }, [settings.showBackgroundVideo]);
 
-  /* -------------------------------------------------
-   * Mount / animation logic
-   * -------------------------------------------------*/
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
       setPageLoaded(true);
@@ -317,7 +249,6 @@ export default function MainPage() {
     return () => clearTimeout(pageLoadTimer);
   }, [isFirstVisit]);
 
-  // Greeting typing animation for first visit only
   useEffect(() => {
     if (!showGreeting || userLoading || !isFirstVisit) {
       return;
@@ -336,35 +267,34 @@ export default function MainPage() {
     return () => clearInterval(typingInterval);
   }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
 
-  /* -------------------------------------------------
-   * Handlers
-   * -------------------------------------------------*/
-  const handleStartGame = () => {
-    // Check if security verification is needed before allowing game access
-    if (isSecurityCheckNeeded()) {
-      console.log("Security check needed, blocking game access");
-
-      return;
+  const handleStartGame = async () => {
+    try {
+      await evaluateAccess("game_access");
+      
+      if (!securityState.requiresVerification && !securityState.isBlocked) {
+        setIsTransitioning(true);
+        setTimeout(() => {
+          router.push("/game");
+        }, 600);
+      }
+    } catch (error) {
+      console.error("Security evaluation failed:", error);
     }
-
-    setIsTransitioning(true);
-    setTimeout(() => {
-      router.push("/game");
-    }, 600);
   };
 
-  const handleOpenTournament = () => {
-    // Check if security verification is needed before allowing tournament access
-    if (isSecurityCheckNeeded()) {
-      console.log("Security check needed, blocking tournament access");
-
-      return;
+  const handleOpenTournament = async () => {
+    try {
+      await evaluateAccess("tournament_access");
+      
+      if (!securityState.requiresVerification && !securityState.isBlocked) {
+        setIsTransitioning(true);
+        setTimeout(() => {
+          router.push("/tournament");
+        }, 600);
+      }
+    } catch (error) {
+      console.error("Security evaluation failed:", error);
     }
-
-    setIsTransitioning(true);
-    setTimeout(() => {
-      router.push("/tournament");
-    }, 600);
   };
 
   const handleOpenSettings = () => {
@@ -385,8 +315,6 @@ export default function MainPage() {
 
   const handleOpenLeagueProgress = () => {
     console.log("League progress click detected");
-    console.log("Current user:", user);
-    console.log("User loading:", userLoading);
     setIsLeagueProgressOpen(true);
   };
 
@@ -395,19 +323,20 @@ export default function MainPage() {
     setIsLeagueProgressOpen(false);
   };
 
-  // Get trust score display info
-  const trustScoreInfo = formatTrustScore(securityState.trustScore);
+  const handleSecurityVerificationSuccess = () => {
+    console.log("Security verification successful");
+    resetSecurityState();
+  };
 
-  /* -------------------------------------------------
-   * Early return if not authenticated to prevent any data loading
-   * -------------------------------------------------*/
+  const handleSecurityVerificationFailure = () => {
+    console.log("Security verification failed");
+    router.push("/blocked");
+  };
+
   if (!isAuthenticated && !userLoading) {
-    return null; // Will redirect in useEffect
+    return null;
   }
 
-  /* -------------------------------------------------
-   * Render
-   * -------------------------------------------------*/
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
@@ -418,7 +347,6 @@ export default function MainPage() {
             : "opacity-0"
       }`}
     >
-      {/* Background Video */}
       {settings.showBackgroundVideo && (
         <div
           className="fixed top-0 left-0 w-full h-full z-0"
@@ -426,7 +354,6 @@ export default function MainPage() {
             filter: "brightness(0.15) contrast(1.2) grayscale(1)",
           }}
         >
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video
             ref={videoRef}
             autoPlay
@@ -440,26 +367,6 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* Security Warning Banner */}
-      {securityWarningVisible && (
-        <div
-          className="fixed top-0 left-0 right-0 z-40 p-4"
-          style={{ top: headerOffset - 20 }}
-        >
-          <div className="max-w-md mx-auto bg-yellow-500/20 border border-yellow-400/40 rounded-lg p-3 backdrop-blur-sm">
-            <div className="flex items-center space-x-2 text-yellow-300">
-              <AlertTriangle size={16} />
-              <span className="text-sm font-semibold">Security Notice</span>
-            </div>
-            <p className="text-yellow-200/80 text-xs mt-1">
-              Your trust score is low ({securityState.trustScore}/100).
-              Additional security checks may be required.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Top Navigation Icons */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${
           isFirstVisit
@@ -505,13 +412,12 @@ export default function MainPage() {
             </button>
           </div>
 
-          {/* Tournament Button */}
           {showTournamentButton && activeTournament && (
             <button
               aria-label="Active Tournament"
               className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={
-                isTransitioning || isSecurityCheckNeeded() || tournamentLoading
+                isTransitioning || securityState.requiresVerification || tournamentLoading
               }
               onClick={handleOpenTournament}
             >
@@ -535,7 +441,6 @@ export default function MainPage() {
             </button>
           )}
 
-          {/* Tournament Loading Indicator */}
           {tournamentLoading && (
             <div className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full">
               <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
@@ -545,29 +450,13 @@ export default function MainPage() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
-        {/* Trust Score Indicator */}
-        <div>
-          {!securityState.isLoading && (
-            <div className="flex items-center space-x-2 px-3 py-1 bg-black/30 backdrop-blur-sm border border-white/20 rounded-full">
-              <Shield className={trustScoreInfo.color} size={14} />
-              <span className={`text-xs font-bold ${trustScoreInfo.color}`}>
-                {securityState.trustScore}
-              </span>
-              <span className="text-white/60 text-xs">/ 100</span>
-            </div>
-          )}
-        </div>
-
-        {/* Title Section */}
         <div className="relative">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
             circusle
           </h1>
         </div>
 
-        {/* Action Button */}
         <div
           className={`${
             isFirstVisit
@@ -580,20 +469,20 @@ export default function MainPage() {
 
             <button
               className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${
-                isSecurityCheckNeeded()
+                securityState.requiresVerification
                   ? "border-yellow-500/60 text-yellow-300 opacity-75"
                   : "border-white/60 hover:border-white"
               } ${isTransitioning ? "opacity-50" : ""}`}
               disabled={isTransitioning}
               title={
-                isSecurityCheckNeeded()
+                securityState.requiresVerification
                   ? "Security verification required"
                   : undefined
               }
               onClick={handleStartGame}
             >
               <div className="flex items-center justify-center space-x-4">
-                {isSecurityCheckNeeded() ? (
+                {securityState.requiresVerification ? (
                   <Shield
                     className="text-yellow-300 group-hover:translate-x-1 transition-transform duration-300"
                     size={24}
@@ -607,7 +496,7 @@ export default function MainPage() {
                 <span className="tracking-wider">
                   {isTransitioning
                     ? t("main.loading")
-                    : isSecurityCheckNeeded()
+                    : securityState.requiresVerification
                       ? "VERIFICATION NEEDED"
                       : t("main.startGame")}
                 </span>
@@ -616,7 +505,6 @@ export default function MainPage() {
           </div>
         </div>
 
-        {/* User Greeting */}
         <div
           className={`${
             isFirstVisit
@@ -651,24 +539,15 @@ export default function MainPage() {
         </div>
       </div>
 
-      {/* Security Modals */}
-      <CaptchaModal
-        description="Your trust score requires additional verification. Please complete the captcha to continue."
-        isOpen={showCaptcha}
-        title="Security Verification Required"
-        onFailure={handleCaptchaFailure}
-        onSuccess={handleCaptchaSuccess}
+      <UnifiedSecurityModal
+        isOpen={securityState.requiresVerification}
+        method={securityState.verificationMethod || "interactive"}
+        challenge={securityState.challenge}
+        onSubmit={submitVerification}
+        onSuccess={handleSecurityVerificationSuccess}
+        onFailure={handleSecurityVerificationFailure}
       />
 
-      <BiometricModal
-        description="Your trust score is very low. Please authenticate using biometrics to continue."
-        isOpen={showBiometric}
-        title="Biometric Authentication Required"
-        onFailure={handleBiometricFailure}
-        onSuccess={handleBiometricSuccess}
-      />
-
-      {/* Modals */}
       <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
       <LeagueProgressModal
@@ -676,7 +555,6 @@ export default function MainPage() {
         onClose={handleCloseLeagueProgress}
       />
 
-      {/* Attempts Display */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${
           isFirstVisit
@@ -692,7 +570,6 @@ export default function MainPage() {
         <AttemptsDisplay />
       </div>
 
-      {/* Level and League Display */}
       {user && !userLoading && (
         <div
           className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${
