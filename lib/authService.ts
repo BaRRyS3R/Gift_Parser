@@ -8,11 +8,6 @@ import type {
   TournamentListResponse,
 } from "@/types/tournaments";
 import type {
-  TaskWithCompletion,
-  UserTaskCompletion,
-  TaskStats,
-} from "@/types/tasks";
-import type {
   ProductType,
   CreateInvoiceResponse,
 } from "@/types/purchases";
@@ -30,6 +25,14 @@ import {
   RotationGameResult,
 } from "@/types/game-modes";
 import { TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
+
+import type {
+  TaskWithCompletion,
+  TaskCompletionResponse,
+  TaskVerificationResponse,
+  TaskListResponse,
+  TaskType
+} from "@/types/tasks";
 
 // Enhanced profile types
 export interface ProfileData {
@@ -170,11 +173,6 @@ export interface LeagueProgressInfo {
   gamesToNextLeague: number;
   progressPercent: number;
   isMaxLeague: boolean;
-}
-
-export interface TaskRewardResult {
-  completion: UserTaskCompletion;
-  reward: number;
 }
 
 export interface PurchaseProcessResult {
@@ -447,6 +445,99 @@ class AuthService {
     this.removeTokenFromStorage();
   }
 
+  /**
+ * Get all tasks for the authenticated user
+ */
+  async getTasks(): Promise<TaskListResponse> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<{
+        success: boolean;
+        tasks: TaskWithCompletion[];
+        total: number;
+        stats: {
+          totalTasks: number;
+          completedTasks: number;
+          completionRate: number;
+          totalAttemptsEarned: number;
+        };
+        error?: string;
+      }>("/tasks");
+
+      return {
+        success: response.success,
+        tasks: response.tasks,
+        total: response.total,
+        error: response.error,
+      };
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Complete a task
+   */
+  async completeTask(taskId: number, verificationData?: any): Promise<TaskCompletionResponse> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<TaskCompletionResponse>("/tasks/complete", {
+        method: "POST",
+        body: JSON.stringify({
+          taskId,
+          verificationData,
+        }),
+      });
+
+      // Refresh user data if task was completed successfully
+      if (response.success) {
+        console.log("Task completed successfully - refreshing user data");
+        await this.refreshUserData();
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Error completing task:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify a task
+   */
+  async verifyTask(
+    taskId: number,
+    verificationType: TaskType,
+    verificationData?: any
+  ): Promise<TaskVerificationResponse> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<TaskVerificationResponse>("/tasks/verify", {
+        method: "POST",
+        body: JSON.stringify({
+          taskId,
+          verificationType,
+          verificationData,
+        }),
+      });
+
+      return response;
+    } catch (error) {
+      console.error("Error verifying task:", error);
+      throw error;
+    }
+  }
+
   // ============================================================================
   // PROFILE API METHODS
   // ============================================================================
@@ -506,77 +597,6 @@ class AuthService {
       console.error("Error fetching all profile data:", error);
       throw error;
     }
-  }
-
-  // ============================================================================
-  // TASKS API METHODS
-  // ============================================================================
-
-  async getTasks(): Promise<any[]> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    console.log("Getting tasks via API...");
-    return this.makeAuthenticatedRequest<{ tasks: any[] }>("/tasks")
-      .then((data) => {
-        console.log("Tasks fetched successfully:", data.tasks?.length || 0);
-        return data.tasks;
-      });
-  }
-
-  async startTask(taskId: string): Promise<any> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    console.log("Starting task via API:", taskId);
-    return this.makeAuthenticatedRequest<{ taskCompletion: any }>("/tasks/start", {
-      method: "POST",
-      body: JSON.stringify({ taskId }),
-    }).then((data) => {
-      console.log("Task started successfully");
-      return data.taskCompletion;
-    });
-  }
-
-  async completeTask(taskId: string): Promise<any> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    console.log("Completing task via API:", taskId);
-    return this.makeAuthenticatedRequest<{ taskCompletion: any }>("/tasks/complete", {
-      method: "POST",
-      body: JSON.stringify({ taskId }),
-    }).then((data) => {
-      console.log("Task completed successfully");
-      return data.taskCompletion;
-    });
-  }
-
-  async claimTaskReward(taskId: string): Promise<TaskRewardResult> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    console.log("Claiming task reward via API:", taskId);
-    return this.makeAuthenticatedRequest<{ result: TaskRewardResult }>("/tasks/claim", {
-      method: "POST",
-      body: JSON.stringify({ taskId }),
-    }).then((data) => {
-      console.log("Task reward claimed successfully");
-      return data.result;
-    });
-  }
-
-  async getTaskStats(): Promise<any> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    return this.makeAuthenticatedRequest<{ stats: any }>("/tasks/stats")
-      .then((data) => data.stats);
   }
 
   // ============================================================================
@@ -1179,6 +1199,36 @@ class AuthService {
 // Singleton instance
 export const authService = new AuthService();
 
+// Также добавить эти helper functions в конец файла:
+
+/**
+ * Get secure tasks list
+ */
+export async function getSecureTasks(): Promise<TaskListResponse> {
+  return authService.getTasks();
+}
+
+/**
+ * Complete secure task
+ */
+export async function completeSecureTask(
+  taskId: number,
+  verificationData?: any
+): Promise<TaskCompletionResponse> {
+  return authService.completeTask(taskId, verificationData);
+}
+
+/**
+ * Verify secure task
+ */
+export async function verifySecureTask(
+  taskId: number,
+  verificationType: TaskType,
+  verificationData?: any
+): Promise<TaskVerificationResponse> {
+  return authService.verifyTask(taskId, verificationType, verificationData);
+}
+
 // Helper functions for backward compatibility
 export async function authenticateUser(
   initData: string,
@@ -1286,27 +1336,6 @@ export async function getAllSecureProfileData(): Promise<{
   leagueData: LeagueData;
 }> {
   return authService.getAllProfileData();
-}
-
-// Tasks helper functions
-export async function getSecureTasks(): Promise<TaskWithCompletion[]> {
-  return authService.getTasks();
-}
-
-export async function startSecureTask(taskId: string): Promise<UserTaskCompletion> {
-  return authService.startTask(taskId);
-}
-
-export async function completeSecureTask(taskId: string): Promise<UserTaskCompletion> {
-  return authService.completeTask(taskId);
-}
-
-export async function claimSecureTaskReward(taskId: string): Promise<TaskRewardResult> {
-  return authService.claimTaskReward(taskId);
-}
-
-export async function getSecureTaskStats(): Promise<TaskStats> {
-  return authService.getTaskStats();
 }
 
 // Purchases helper functions
