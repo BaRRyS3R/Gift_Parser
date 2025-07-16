@@ -1,4 +1,4 @@
-// src/app/page.tsx - Исправленная страница входа без бесконечных вызовов
+// src/app/page.tsx - Полная исправленная страница входа без бесконечных вызовов
 
 "use client";
 
@@ -50,7 +50,7 @@ export default function IntroPage(): JSX.Element {
   } = useUser();
   const t = useT();
 
-  // ИСПРАВЛЕНО: Убраны множественные флаги, оставлен только основной контроль
+  // ИСПРАВЛЕНО: Флаги для предотвращения множественных операций
   const pageInitializedRef = useRef<boolean>(false);
   const videoCompletedRef = useRef<boolean>(false);
 
@@ -78,97 +78,9 @@ export default function IntroPage(): JSX.Element {
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // ИСПРАВЛЕНО: Единая проверка аутентификации при загрузке страницы
-  useEffect(() => {
-    // Предотвращаем множественные проверки
-    if (GLOBAL_INIT_STATE.hasCheckedAuth || GLOBAL_INIT_STATE.isCheckingAuth) {
-      if (GLOBAL_INIT_STATE.checkPromise) {
-        GLOBAL_INIT_STATE.checkPromise.then(() => {
-          if (isAuthenticated && contextUser) {
-            console.log("User already authenticated (from global check), redirecting");
-            router.push("/main");
-          }
-        });
-      }
-      return;
-    }
-
-    if (pageInitializedRef.current) {
-      return;
-    }
-
-    pageInitializedRef.current = true;
-    GLOBAL_INIT_STATE.isCheckingAuth = true;
-
-    const checkAuthPromise = (async () => {
-      try {
-        console.log("Performing single auth check...");
-
-        if (isAuthenticated && contextUser) {
-          console.log("User already authenticated, redirecting to main");
-          setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-
-          // Небольшая задержка для плавности
-          setTimeout(() => {
-            router.push("/main");
-          }, 500);
-          return;
-        }
-
-        // Если пользователь не аутентифицирован, продолжаем с инициализацией
-        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-        setAuthState((prev) => ({ ...prev, isChecking: false }));
-
-        GLOBAL_INIT_STATE.hasCheckedAuth = true;
-      } catch (error) {
-        console.error("Auth check error:", error);
-        setAuthState((prev) => ({
-          ...prev,
-          isChecking: false,
-          error: "Authentication check failed",
-        }));
-        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-        GLOBAL_INIT_STATE.hasCheckedAuth = true;
-      } finally {
-        GLOBAL_INIT_STATE.isCheckingAuth = false;
-        GLOBAL_INIT_STATE.checkPromise = null;
-      }
-    })();
-
-    GLOBAL_INIT_STATE.checkPromise = checkAuthPromise;
-
-    return () => {
-      GLOBAL_INIT_STATE.isCheckingAuth = false;
-    };
-  }, [isAuthenticated, contextUser, router]);
-
-  // Extract referral code from Telegram start parameter
-  const extractReferralCode = useCallback((): string | undefined => {
-    if (typeof window === "undefined") return undefined;
-
-    if (window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      const startParam = tg.initDataUnsafe?.start_param;
-
-      if (startParam && startParam.length === 8) {
-        console.log("Referral code extracted from start param:", startParam);
-        return startParam;
-      }
-    }
-
-    if (process.env.NODE_ENV === "development") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const refCode = urlParams.get("ref");
-
-      if (refCode) {
-        console.log("Referral code extracted from URL (dev):", refCode);
-        return refCode;
-      }
-    }
-
-    return undefined;
-  }, []);
-
+  // ИСПРАВЛЕНО: Правильный порядок объявления функций
+  
+  // 1. Вспомогательные функции для работы с Telegram
   const getTelegramUser = useCallback((): TelegramUser | null => {
     if (typeof window === "undefined") {
       return null;
@@ -249,7 +161,34 @@ export default function IntroPage(): JSX.Element {
     return tg.initData || null;
   }, []);
 
-  // ИСПРАВЛЕНО: Упрощенная проверка статуса входа
+  // Extract referral code from Telegram start parameter
+  const extractReferralCode = useCallback((): string | undefined => {
+    if (typeof window === "undefined") return undefined;
+
+    if (window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      const startParam = tg.initDataUnsafe?.start_param;
+
+      if (startParam && startParam.length === 8) {
+        console.log("Referral code extracted from start param:", startParam);
+        return startParam;
+      }
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get("ref");
+
+      if (refCode) {
+        console.log("Referral code extracted from URL (dev):", refCode);
+        return refCode;
+      }
+    }
+
+    return undefined;
+  }, []);
+
+  // 2. API функции для аутентификации
   const checkUserLoginStatus = useCallback(
     async (
       telegramUser: TelegramUser,
@@ -267,7 +206,6 @@ export default function IntroPage(): JSX.Element {
     [getTelegramInitData, t],
   );
 
-  // ИСПРАВЛЕНО: Упрощенная регистрация нового пользователя
   const registerNewUser = useCallback(
     async (
       telegramUser: TelegramUser,
@@ -359,7 +297,7 @@ export default function IntroPage(): JSX.Element {
     [getTelegramInitData, updateUser, t],
   );
 
-  // ИСПРАВЛЕНО: Упрощенная инициализация при первом взаимодействии пользователя
+  // 3. Основная функция инициализации аутентификации
   const initializeAuthOnUserAction = useCallback(async () => {
     try {
       console.log("Initializing auth on user action...");
@@ -488,7 +426,7 @@ export default function IntroPage(): JSX.Element {
         isChecking: false,
         error: loginResult.error || "Authentication failed",
       }));
-
+      
       return false;
     } catch (error) {
       console.error("Error initializing authorization:", error);
@@ -497,7 +435,7 @@ export default function IntroPage(): JSX.Element {
         isChecking: false,
         error: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")}`,
       }));
-
+      
       return false;
     }
   }, [
@@ -509,6 +447,81 @@ export default function IntroPage(): JSX.Element {
     updateUser,
     t,
   ]);
+
+  // 4. useEffect хуки в правильном порядке
+  
+  // Восстановленная автоматическая проверка аутентификации при загрузке
+  useEffect(() => {
+    // Предотвращаем множественные проверки
+    if (GLOBAL_INIT_STATE.hasCheckedAuth || GLOBAL_INIT_STATE.isCheckingAuth) {
+      if (GLOBAL_INIT_STATE.checkPromise) {
+        GLOBAL_INIT_STATE.checkPromise.then(() => {
+          if (isAuthenticated && contextUser) {
+            console.log("User already authenticated (from global check), redirecting");
+            router.push("/main");
+          }
+        });
+      }
+      return;
+    }
+
+    if (pageInitializedRef.current) {
+      return;
+    }
+
+    pageInitializedRef.current = true;
+    GLOBAL_INIT_STATE.isCheckingAuth = true;
+
+    const checkAuthPromise = (async () => {
+      try {
+        console.log("Performing single auth check...");
+        
+        if (isAuthenticated && contextUser) {
+          console.log("User already authenticated, redirecting to main");
+          setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+          
+          // Небольшая задержка для плавности
+          setTimeout(() => {
+            router.push("/main");
+          }, 500);
+          return;
+        }
+
+        // Автоматическая инициализация аутентификации при загрузке
+        const authSuccess = await initializeAuthOnUserAction();
+        
+        if (authSuccess) {
+          // Если аутентификация прошла успешно, переходим на главную
+          setTimeout(() => {
+            router.push("/main");
+          }, 500);
+        } else {
+          // Если нужна регистрация или есть ошибка, обновляем состояние UI
+          setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+        }
+        
+        GLOBAL_INIT_STATE.hasCheckedAuth = true;
+      } catch (error) {
+        console.error("Auth check error:", error);
+        setAuthState((prev) => ({
+          ...prev,
+          isChecking: false,
+          error: "Authentication check failed",
+        }));
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+        GLOBAL_INIT_STATE.hasCheckedAuth = true;
+      } finally {
+        GLOBAL_INIT_STATE.isCheckingAuth = false;
+        GLOBAL_INIT_STATE.checkPromise = null;
+      }
+    })();
+
+    GLOBAL_INIT_STATE.checkPromise = checkAuthPromise;
+
+    return () => {
+      GLOBAL_INIT_STATE.isCheckingAuth = false;
+    };
+  }, [isAuthenticated, contextUser, router, initializeAuthOnUserAction]);
 
   // Initialize Service Worker and font
   useEffect(() => {
@@ -568,7 +581,7 @@ export default function IntroPage(): JSX.Element {
       setIsLoading(false);
     };
 
-    // ИСПРАВЛЕНО: Упрощенная обработка завершения видео
+    // Упрощенная обработка завершения видео
     const handleEnded = async () => {
       console.log("Video completed");
 
@@ -635,7 +648,9 @@ export default function IntroPage(): JSX.Element {
     };
   }, [router, registerNewUser, isAuthenticated, authState]); // Минимальные зависимости
 
-  // ИСПРАВЛЕНО: Упрощенная функция запуска видео с инициализацией
+  // 5. Обработчики событий
+  
+  // Упрощенная функция запуска видео с инициализацией
   const handleStart = async () => {
     const video = videoRef.current;
     if (!video) return;
@@ -643,7 +658,7 @@ export default function IntroPage(): JSX.Element {
     try {
       // Сначала инициализируем аутентификацию
       const authSuccess = await initializeAuthOnUserAction();
-
+      
       if (authSuccess) {
         // Если аутентификация прошла успешно, сразу переходим
         router.push("/main");
@@ -661,7 +676,7 @@ export default function IntroPage(): JSX.Element {
     }
   };
 
-  // ИСПРАВЛЕНО: Упрощенная быстрая инициализация
+  // Упрощенная быстрая инициализация
   const handleQuickInit = async () => {
     if (authState.isRegistering) {
       return;
@@ -669,7 +684,7 @@ export default function IntroPage(): JSX.Element {
 
     try {
       const authSuccess = await initializeAuthOnUserAction();
-
+      
       if (authSuccess) {
         // Если аутентификация прошла успешно
         router.push("/main");
@@ -695,6 +710,8 @@ export default function IntroPage(): JSX.Element {
     }
   };
 
+  // 6. Вспомогательные функции для UI
+  
   // Function to format referrer display name
   const getDisplayReferrerName = (): string => {
     if (authState.referrerUsername) {
@@ -733,13 +750,14 @@ export default function IntroPage(): JSX.Element {
     }
   };
 
-  // ИСПРАВЛЕНО: Упрощенное определение состояния загрузки
+  // Упрощенное определение состояния загрузки
   const isInitialLoading =
     stableLoadingState.isInitializing ||
     (authState.isChecking && !isPlaying) ||
     (contextLoading && !isPlaying && !GLOBAL_INIT_STATE.hasCheckedAuth) ||
     (isLoading && !videoError && !stableLoadingState.isVideoReady && !isPlaying);
 
+  // 7. JSX разметка
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
       {/* Loading screen */}
@@ -805,7 +823,7 @@ export default function IntroPage(): JSX.Element {
               GLOBAL_INIT_STATE.hasCheckedAuth = false;
               GLOBAL_INIT_STATE.isCheckingAuth = false;
               GLOBAL_INIT_STATE.checkPromise = null;
-
+              
               setAuthState((prev) => ({
                 ...prev,
                 error: null,
