@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Database error fetching user attempts:", error);
+
       return NextResponse.json(
         {
           success: false,
@@ -55,7 +56,9 @@ export async function GET(request: NextRequest) {
 
     // Get current server time
     const serverTime = new Date();
-    const resetTime = user.attempts_reset_at ? new Date(user.attempts_reset_at) : null;
+    const resetTime = user.attempts_reset_at
+      ? new Date(user.attempts_reset_at)
+      : null;
 
     // Check if reset time has passed
     if (resetTime && serverTime >= resetTime) {
@@ -71,6 +74,7 @@ export async function GET(request: NextRequest) {
 
       if (resetError) {
         console.error("Error resetting attempts:", resetError);
+
         return NextResponse.json(
           {
             success: false,
@@ -95,6 +99,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate time until reset
     let timeUntilReset: number | null = null;
+
     if (resetTime && user.attempts_remaining === 0) {
       timeUntilReset = Math.max(0, resetTime.getTime() - serverTime.getTime());
     }
@@ -115,7 +120,8 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error occurred",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
       },
       { status: 500 },
     );

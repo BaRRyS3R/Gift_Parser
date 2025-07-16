@@ -19,7 +19,6 @@ import {
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import { authService } from "@/lib/authService";
-import type { LeagueData } from "@/lib/authService";
 
 interface LeagueNeighborsDisplayProps {
   className?: string;
@@ -38,22 +37,35 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
     const loadNeighbors = async () => {
       if (!isAuthenticated) {
         setIsLoading(false);
+
         return;
       }
 
       try {
-        console.log("LeagueNeighborsDisplay: Fetching league data via authService API...");
+        console.log(
+          "LeagueNeighborsDisplay: Fetching league data via authService API...",
+        );
 
         const leagueData = await authService.getLeagueData();
 
         setNeighbors(leagueData.leagueNeighbors);
-        console.log("LeagueNeighborsDisplay: League neighbors data fetched successfully");
+        console.log(
+          "LeagueNeighborsDisplay: League neighbors data fetched successfully",
+        );
       } catch (error) {
-        console.error("LeagueNeighborsDisplay: Error loading league neighbors:", error);
+        console.error(
+          "LeagueNeighborsDisplay: Error loading league neighbors:",
+          error,
+        );
 
         // Handle authentication errors gracefully
-        if (error instanceof Error && error.message.includes("Authentication expired")) {
-          console.log("LeagueNeighborsDisplay: Authentication expired, component will not render");
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "LeagueNeighborsDisplay: Authentication expired, component will not render",
+          );
         }
       } finally {
         setIsLoading(false);

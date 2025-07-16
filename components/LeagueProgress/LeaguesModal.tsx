@@ -2,6 +2,8 @@
 
 "use client";
 
+import type { LeagueData, LeagueProgressInfo } from "@/lib/authService";
+
 import React, { useState, useEffect } from "react";
 import {
   Modal,
@@ -24,16 +26,11 @@ import {
   Award,
   ChevronRight,
   X,
-  Users,
-  Target,
-  ArrowUp,
-  ArrowDown,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import { authService } from "@/lib/authService";
-import type { LeagueData, LeagueProgressInfo } from "@/lib/authService";
 
 interface LeaguesModalProps {
   isOpen: boolean;
@@ -45,7 +42,9 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
   const t = useT();
 
   const [leagueData, setLeagueData] = useState<LeagueData | null>(null);
-  const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
+  const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(
+    null,
+  );
   const [selectedTab, setSelectedTab] = useState("progress");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,7 +55,9 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
       try {
         setIsLoading(true);
 
-        console.log("LeaguesModal: Fetching league data via authService API...");
+        console.log(
+          "LeaguesModal: Fetching league data via authService API...",
+        );
 
         // Get league data and progress info in parallel
         const [leagues, progress] = await Promise.all([
@@ -76,7 +77,10 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         console.error("LeaguesModal: Error loading league data:", error);
 
         // Handle authentication errors
-        if (error instanceof Error && error.message.includes("Authentication expired")) {
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
           console.log("LeaguesModal: Authentication expired, closing modal");
           onClose();
         }
@@ -202,10 +206,14 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                 </div>
                 <div>
                   <h3 className={`text-lg font-bold ${colors.text}`}>
-                    {t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
+                    {t(
+                      `leagues.names.${progressInfo.currentLeague.name}` as any,
+                    )}
                   </h3>
                   <p className={`text-sm ${colors.accent}`}>
-                    {t("profile.levelDisplay", { level: progressInfo.currentLevel })}
+                    {t("profile.levelDisplay", {
+                      level: progressInfo.currentLevel,
+                    })}
                   </p>
                 </div>
               </div>
@@ -227,7 +235,9 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                   <span className="text-white/70 text-sm">
                     {t("profile.levelProgress.gamesToNext")}
                   </span>
-                  <span className="text-white font-bold">{gamesToNextLevel}</span>
+                  <span className="text-white font-bold">
+                    {gamesToNextLevel}
+                  </span>
                 </div>
 
                 <div className="w-full bg-white/20 rounded-full h-2">
@@ -239,7 +249,9 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
 
                 <div className="text-center">
                   <span className="text-white/60 text-sm">
-                    {t("profile.levelProgress.nextLevel", { level: currentLevel + 1 })}
+                    {t("profile.levelProgress.nextLevel", {
+                      level: currentLevel + 1,
+                    })}
                   </span>
                 </div>
               </div>
@@ -316,12 +328,16 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                       <Gift className="text-green-400" size={20} />
                       <div>
                         <div className="font-bold text-green-400">
-                          {reward.reward?.name || t("leagues.rewardsSection.specialReward")}
+                          {reward.reward?.name ||
+                            t("leagues.rewardsSection.specialReward")}
                         </div>
                         <div className="text-xs text-green-300">
-                          {t("leagues.rewardsSection.position", { position: reward.position })}{" "}
+                          {t("leagues.rewardsSection.position", {
+                            position: reward.position,
+                          })}{" "}
                           {t("profile.inLeague")}{" "}
-                          {reward.league && t(`leagues.names.${reward.league.name}` as any)}
+                          {reward.league &&
+                            t(`leagues.names.${reward.league.name}` as any)}
                         </div>
                       </div>
                     </div>
@@ -377,13 +393,14 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                         {leaderboard && (
                           <div className="text-right mr-4">
                             <div className={`text-sm font-bold ${colors.text}`}>
-                              {leaderboard.rewardsRemaining}/{league.rewards_count}
+                              {leaderboard.rewardsRemaining}/
+                              {league.rewards_count}
                             </div>
                             <div className={`text-xs ${colors.accent}`}>
                               {leaderboard.rewardsRemaining > 0
                                 ? t("leagues.rewardsSection.rewardsLeft", {
-                                  count: leaderboard.rewardsRemaining,
-                                })
+                                    count: leaderboard.rewardsRemaining,
+                                  })
                                 : t("leagues.rewardsSection.allClaimed")}
                             </div>
                           </div>
@@ -404,11 +421,14 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                               >
                                 {reward.position}
                               </div>
-                              <span className="text-white text-sm">{reward.name}</span>
+                              <span className="text-white text-sm">
+                                {reward.name}
+                              </span>
                             </div>
                             <div className="flex items-center space-x-1">
                               <Gift className={colors.text} size={14} />
-                              {leaderboard && leaderboard.rewardsGiven >= reward.position ? (
+                              {leaderboard &&
+                              leaderboard.rewardsGiven >= reward.position ? (
                                 <span className="text-red-400 text-xs">
                                   {t("leagues.rewardsSection.claimed")}
                                 </span>
@@ -497,8 +517,9 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                       >
                         <div className="flex items-center space-x-3">
                           <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${player.position <= 3 ? colors.bg : "bg-white/10"
-                              } ${player.position <= 3 ? colors.text : "text-white/60"}`}
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                              player.position <= 3 ? colors.bg : "bg-white/10"
+                            } ${player.position <= 3 ? colors.text : "text-white/60"}`}
                           >
                             {player.position}
                           </div>
@@ -580,7 +601,8 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                 className="w-full"
                 classNames={{
                   base: "w-full",
-                  tabList: "w-full bg-white/5 rounded-none border-b border-white/10",
+                  tabList:
+                    "w-full bg-white/5 rounded-none border-b border-white/10",
                   cursor: "bg-white/20",
                   tab: "text-white/60 data-[selected=true]:text-white px-6 py-3",
                   tabContent: "text-sm font-medium",

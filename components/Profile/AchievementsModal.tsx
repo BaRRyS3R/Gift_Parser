@@ -49,10 +49,11 @@ const AchievementCard: React.FC<{
     <div
       className={`
       relative p-4 rounded-lg border transition-all duration-200
-      ${achievement.isUnlocked
+      ${
+        achievement.isUnlocked
           ? `${colors.bg} ${colors.border}`
           : "bg-white/5 border-white/10"
-        }
+      }
     `}
     >
       <div className="flex items-start space-x-3">
@@ -186,7 +187,8 @@ export default function AchievementsModal({
   const [selectedFilter, setSelectedFilter] = useState<
     "all" | "unlocked" | "locked"
   >("all");
-  const [achievementData, setAchievementData] = useState<AchievementData | null>(null);
+  const [achievementData, setAchievementData] =
+    useState<AchievementData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load achievements data when modal opens
@@ -198,7 +200,9 @@ export default function AchievementsModal({
 
       try {
         setIsLoading(true);
-        console.log("AchievementsModal: Fetching achievements via authService API...");
+        console.log(
+          "AchievementsModal: Fetching achievements via authService API...",
+        );
 
         const achievements = await authService.getAchievements();
 
@@ -208,8 +212,13 @@ export default function AchievementsModal({
         console.error("AchievementsModal: Error loading achievements:", error);
 
         // Handle authentication errors
-        if (error instanceof Error && error.message.includes("Authentication expired")) {
-          console.log("AchievementsModal: Authentication expired, closing modal");
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "AchievementsModal: Authentication expired, closing modal",
+          );
           onClose();
         }
       } finally {
@@ -229,10 +238,11 @@ export default function AchievementsModal({
     return achievementData.categories
       .map((category) => ({
         ...category,
-        achievements: category.achievements.filter((achievement: Achievement) =>
-          selectedFilter === "unlocked"
-            ? achievement.isUnlocked
-            : !achievement.isUnlocked,
+        achievements: category.achievements.filter(
+          (achievement: Achievement) =>
+            selectedFilter === "unlocked"
+              ? achievement.isUnlocked
+              : !achievement.isUnlocked,
         ),
       }))
       .filter((category) => category.achievements.length > 0);
@@ -325,9 +335,10 @@ export default function AchievementsModal({
                   <Button
                     key={filter.key}
                     className={`
-                      ${selectedFilter === filter.key
-                        ? "bg-white/20 text-white border-white/30"
-                        : "bg-transparent text-white/60 border-white/10 hover:bg-white/10"
+                      ${
+                        selectedFilter === filter.key
+                          ? "bg-white/20 text-white border-white/30"
+                          : "bg-transparent text-white/60 border-white/10 hover:bg-white/10"
                       }
                     `}
                     size="sm"

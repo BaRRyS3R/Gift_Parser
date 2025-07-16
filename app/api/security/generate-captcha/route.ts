@@ -21,22 +21,22 @@ export async function POST(request: NextRequest) {
     // Generate simple math captcha
     const num1 = Math.floor(Math.random() * 10) + 1;
     const num2 = Math.floor(Math.random() * 10) + 1;
-    const operators = ['+', '-', '*'];
+    const operators = ["+", "-", "*"];
     const operator = operators[Math.floor(Math.random() * operators.length)];
 
     let correctAnswer: number;
     let challenge: string;
 
     switch (operator) {
-      case '+':
+      case "+":
         correctAnswer = num1 + num2;
         challenge = `${num1} + ${num2} = ?`;
         break;
-      case '-':
+      case "-":
         correctAnswer = num1 - num2;
         challenge = `${num1} - ${num2} = ?`;
         break;
-      case '*':
+      case "*":
         correctAnswer = num1 * num2;
         challenge = `${num1} × ${num2} = ?`;
         break;
@@ -48,7 +48,9 @@ export async function POST(request: NextRequest) {
     // Set expiry time (5 minutes from now)
     const expiresAt = Date.now() + 5 * 60 * 1000;
 
-    console.log(`Generated captcha for user ${telegramId}: ${challenge} = ${correctAnswer}`);
+    console.log(
+      `Generated captcha for user ${telegramId}: ${challenge} = ${correctAnswer}`,
+    );
 
     return NextResponse.json({
       success: true,
@@ -63,7 +65,8 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error occurred",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
       },
       { status: 500 },
     );

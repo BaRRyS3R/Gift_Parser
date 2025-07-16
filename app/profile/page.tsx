@@ -2,11 +2,16 @@
 
 "use client";
 
+import type {
+  ProfileData,
+  AchievementData,
+  LeagueData,
+} from "@/lib/authService";
+
 import React, { useState, useEffect } from "react";
 
 import { useUser } from "@/hooks/useUser";
 import { authService } from "@/lib/authService";
-import type { ProfileData, AchievementData, LeagueData } from "@/lib/authService";
 import { useT } from "@/contexts/LocalizationContext";
 
 // Import components
@@ -27,12 +32,17 @@ interface UserRankings {
 }
 
 export default function ProfilePage() {
-  const { user: contextUser, isAuthenticated, isLoading: userLoading } = useUser();
+  const {
+    user: contextUser,
+    isAuthenticated,
+    isLoading: userLoading,
+  } = useUser();
   const t = useT();
 
   // Profile data states
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [achievementData, setAchievementData] = useState<AchievementData | null>(null);
+  const [achievementData, setAchievementData] =
+    useState<AchievementData | null>(null);
   const [leagueData, setLeagueData] = useState<LeagueData | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +62,9 @@ export default function ProfilePage() {
         setIsLoadingData(true);
         setError(null);
 
-        console.log("ProfilePage: Loading all profile data via authService API...");
+        console.log(
+          "ProfilePage: Loading all profile data via authService API...",
+        );
 
         // Use authService to get all profile data in parallel
         const {
@@ -72,11 +84,20 @@ export default function ProfilePage() {
         });
       } catch (error) {
         console.error("ProfilePage: Error loading profile data:", error);
-        setError(error instanceof Error ? error.message : "Failed to load profile data");
-        
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load profile data",
+        );
+
         // Handle authentication errors
-        if (error instanceof Error && error.message.includes("Authentication expired")) {
-          console.log("ProfilePage: Authentication expired, user will be redirected to login");
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "ProfilePage: Authentication expired, user will be redirected to login",
+          );
         }
       } finally {
         setIsLoadingData(false);
@@ -118,9 +139,7 @@ export default function ProfilePage() {
           <div className="w-16 h-16 bg-red-500/20 rounded-lg flex items-center justify-center mx-auto">
             <span className="text-red-400 text-2xl">⚠️</span>
           </div>
-          <h2 className="text-white text-xl font-bold">
-            {t("profile.error")}
-          </h2>
+          <h2 className="text-white text-xl font-bold">{t("profile.error")}</h2>
           <p className="text-white/80 text-sm">{error}</p>
           <button
             className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"

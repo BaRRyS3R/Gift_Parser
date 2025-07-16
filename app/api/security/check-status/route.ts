@@ -21,9 +21,12 @@ export async function GET(request: NextRequest) {
     }
 
     // First check and unblock if time has passed
-    const { error: unblockError } = await supabaseServer.rpc("check_and_unblock_user", {
-      user_telegram_id: parseInt(telegramId),
-    });
+    const { error: unblockError } = await supabaseServer.rpc(
+      "check_and_unblock_user",
+      {
+        user_telegram_id: parseInt(telegramId),
+      },
+    );
 
     if (unblockError) {
       console.error("Error checking unblock status:", unblockError);
@@ -38,6 +41,7 @@ export async function GET(request: NextRequest) {
 
     if (userError || !user) {
       console.error("Database error fetching user:", userError);
+
       return NextResponse.json(
         {
           success: false,
@@ -58,7 +62,8 @@ export async function GET(request: NextRequest) {
     let blockReason: string | undefined;
 
     if (isBlocked && user.blocked_until) {
-      timeUntilUnblock = new Date(user.blocked_until).getTime() - serverTime.getTime();
+      timeUntilUnblock =
+        new Date(user.blocked_until).getTime() - serverTime.getTime();
 
       // Get the most recent active block reason
       const { data: blockData } = await supabaseServer
@@ -84,7 +89,10 @@ export async function GET(request: NextRequest) {
         needsCaptcha: !isBlocked && trustScore < 40,
         needsBiometric: !isBlocked && trustScore < 20,
         trustScore,
-        timeUntilUnblock: timeUntilUnblock && timeUntilUnblock > 0 ? timeUntilUnblock : undefined,
+        timeUntilUnblock:
+          timeUntilUnblock && timeUntilUnblock > 0
+            ? timeUntilUnblock
+            : undefined,
         blockReason,
       },
     });
@@ -95,7 +103,8 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error occurred",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
       },
       { status: 500 },
     );

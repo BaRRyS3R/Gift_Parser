@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Database error fetching user:", error);
+
       return NextResponse.json(
         {
           success: false,
@@ -64,7 +65,10 @@ export async function POST(request: NextRequest) {
             attemptsRemaining: 0,
             resetTime: user.attempts_reset_at,
             timeUntilReset: user.attempts_reset_at
-              ? Math.max(0, new Date(user.attempts_reset_at).getTime() - Date.now())
+              ? Math.max(
+                  0,
+                  new Date(user.attempts_reset_at).getTime() - Date.now(),
+                )
               : null,
           },
         },
@@ -85,7 +89,10 @@ export async function POST(request: NextRequest) {
 
     // Set reset time if no attempts remaining
     if (newAttemptsRemaining === 0) {
-      const resetTime = new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS);
+      const resetTime = new Date(
+        serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS,
+      );
+
       updates.attempts_reset_at = resetTime.toISOString();
     }
 
@@ -97,6 +104,7 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error("Error updating user attempts:", updateError);
+
       return NextResponse.json(
         {
           success: false,
@@ -108,18 +116,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate time until reset
-    const timeUntilReset = newAttemptsRemaining === 0
-      ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS
-      : null;
+    const timeUntilReset =
+      newAttemptsRemaining === 0 ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS : null;
 
     return NextResponse.json({
       success: true,
       attemptsStatus: {
         canPlay: newAttemptsRemaining > 0,
         attemptsRemaining: newAttemptsRemaining,
-        resetTime: newAttemptsRemaining === 0
-          ? new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS).toISOString()
-          : null,
+        resetTime:
+          newAttemptsRemaining === 0
+            ? new Date(
+                serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS,
+              ).toISOString()
+            : null,
         timeUntilReset,
       },
     });
@@ -130,7 +140,8 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error occurred",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
       },
       { status: 500 },
     );

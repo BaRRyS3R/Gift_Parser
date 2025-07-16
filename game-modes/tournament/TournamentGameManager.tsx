@@ -102,6 +102,7 @@ export default function TournamentGameManager({
     if (!isAuthenticated) {
       console.log("User not authenticated in tournament game, redirecting");
       router.push("/");
+
       return;
     }
   }, [isAuthenticated, router]);
@@ -118,7 +119,7 @@ export default function TournamentGameManager({
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -126,6 +127,7 @@ export default function TournamentGameManager({
   // Initialize attempts status from cache
   useEffect(() => {
     const cachedStatus = getCachedAttemptsStatus();
+
     if (cachedStatus) {
       setAttemptsRemaining(cachedStatus.attemptsRemaining);
     }
@@ -157,8 +159,14 @@ export default function TournamentGameManager({
         console.error("Error consuming initial attempt via secure API:", error);
 
         // Handle authentication errors
-        if (error instanceof Error && error.message.includes('Authentication expired')) {
-          console.log("Token expired during attempt consumption, user will be redirected");
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "Token expired during attempt consumption, user will be redirected",
+          );
+
           return; // The useUser hook will handle sign out and redirect
         }
 
@@ -208,7 +216,9 @@ export default function TournamentGameManager({
         }
 
         try {
-          console.log(`Saving tournament result via secure API (attempt ${attemptCount})`);
+          console.log(
+            `Saving tournament result via secure API (attempt ${attemptCount})`,
+          );
 
           const saveResponse = await saveTournamentResult(
             tournament.id,
@@ -228,10 +238,16 @@ export default function TournamentGameManager({
             saveResponse,
           );
         } catch (error) {
-          console.error(`Tournament save attempt ${attemptCount} failed:`, error);
+          console.error(
+            `Tournament save attempt ${attemptCount} failed:`,
+            error,
+          );
 
           // Handle authentication errors
-          if (error instanceof Error && error.message.includes('Authentication expired')) {
+          if (
+            error instanceof Error &&
+            error.message.includes("Authentication expired")
+          ) {
             throw error; // Don't retry on auth errors
           }
 
@@ -250,7 +266,10 @@ export default function TournamentGameManager({
       try {
         await attemptSave();
       } catch (error) {
-        console.error("Failed to save tournament result after all attempts:", error);
+        console.error(
+          "Failed to save tournament result after all attempts:",
+          error,
+        );
 
         setSaveStatus((prev) => ({
           ...prev,
@@ -316,7 +335,7 @@ export default function TournamentGameManager({
     const levelConfig = getTournamentLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -450,17 +469,30 @@ export default function TournamentGameManager({
         startGame();
       }, 200);
     } catch (error) {
-      console.error("Error consuming attempt for restart via secure API:", error);
+      console.error(
+        "Error consuming attempt for restart via secure API:",
+        error,
+      );
 
       // Handle authentication errors
-      if (error instanceof Error && error.message.includes('Authentication expired')) {
+      if (
+        error instanceof Error &&
+        error.message.includes("Authentication expired")
+      ) {
         console.log("Token expired during restart, user will be redirected");
+
         return; // The useUser hook will handle sign out and redirect
       }
     } finally {
       setIsRestartLoading(false);
     }
-  }, [isAuthenticated, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame]);
+  }, [
+    isAuthenticated,
+    attemptsRemaining,
+    startGame,
+    isRestartLoading,
+    consumeAttemptForGame,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -623,81 +655,81 @@ export default function TournamentGameManager({
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-              <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span className="text-sm text-white/80">
-                        {saveStatus.showRetryDetails
-                          ? t("tournament.retryingSave", {
+            <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-sm text-white/80">
+                      {saveStatus.showRetryDetails
+                        ? t("tournament.retryingSave", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("tournament.savingResult")}
-                      </span>
-                    </div>
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-white/60" size={14} />
-                          <span className="text-xs text-white/60">
-                            {t("tournament.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-white/20 rounded-full h-1">
-                          <div
-                            className="bg-white h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                        : t("tournament.savingResult")}
+                    </span>
                   </div>
-                )}
-
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        ✓ {t("tournament.resultSaved")}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-white/60" size={14} />
+                        <span className="text-xs text-white/60">
+                          {t("tournament.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-white/20 rounded-full h-1">
+                        <div
+                          className="bg-white h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("tournament.resultSavedAfterRetries", {
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      ✓ {t("tournament.resultSaved")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("tournament.resultSavedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("tournament.dataSynchronized")}
-                    </div>
+                      : t("tournament.dataSynchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        ✗{" "}
-                        {t("tournament.saveFailedRetries", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("tournament.resultRecordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() => handleSaveTournamentResult(gameResult)}
-                    >
-                      {t("tournament.retrySave")}
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      ✗{" "}
+                      {t("tournament.saveFailedRetries", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="text-red-400/60 text-xs mb-3">
+                    {t("tournament.resultRecordedLocally")}
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() => handleSaveTournamentResult(gameResult)}
+                  >
+                    {t("tournament.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-3">
             <button

@@ -37,10 +37,11 @@ export async function POST(request: NextRequest) {
 
     if (isCorrect && completedInTime) {
       // Captcha passed - increase trust score
-      const { data: newTrustScore, error: trustError } = await supabaseServer.rpc("update_trust_score", {
-        user_telegram_id: parseInt(telegramId),
-        score_change: 15,
-      });
+      const { data: newTrustScore, error: trustError } =
+        await supabaseServer.rpc("update_trust_score", {
+          user_telegram_id: parseInt(telegramId),
+          score_change: 15,
+        });
 
       if (trustError) {
         console.error("Error updating trust score:", trustError);
@@ -54,10 +55,13 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Captcha failed - decrease trust score and block user
-      const { error: trustError } = await supabaseServer.rpc("update_trust_score", {
-        user_telegram_id: parseInt(telegramId),
-        score_change: -10,
-      });
+      const { error: trustError } = await supabaseServer.rpc(
+        "update_trust_score",
+        {
+          user_telegram_id: parseInt(telegramId),
+          score_change: -10,
+        },
+      );
 
       if (trustError) {
         console.error("Error updating trust score:", trustError);
@@ -73,7 +77,9 @@ export async function POST(request: NextRequest) {
         console.error("Error blocking user:", blockError);
       }
 
-      console.log(`Captcha failed for user ${telegramId}: ${!isCorrect ? "incorrect answer" : "timeout"}`);
+      console.log(
+        `Captcha failed for user ${telegramId}: ${!isCorrect ? "incorrect answer" : "timeout"}`,
+      );
 
       return NextResponse.json({
         success: false,
@@ -87,7 +93,8 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error occurred",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
       },
       { status: 500 },
     );

@@ -198,6 +198,7 @@ export default function MainPage() {
       // Only load tournament data if user is authenticated
       if (!isAuthenticated) {
         console.log("User not authenticated, skipping tournament data load");
+
         return;
       }
 
@@ -246,8 +247,13 @@ export default function MainPage() {
         console.error("Error loading tournament status via secure API:", error);
 
         // Handle authentication errors
-        if (error instanceof Error && error.message.includes('Authentication expired')) {
-          console.log("Token expired during tournament load, user will be signed out");
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "Token expired during tournament load, user will be signed out",
+          );
           // The useUser hook will handle sign out and redirect
         }
 
@@ -404,12 +410,13 @@ export default function MainPage() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : pageLoaded
             ? "opacity-100 transition-opacity duration-1000 ease-out"
             : "opacity-0"
-        }`}
+      }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -454,13 +461,15 @@ export default function MainPage() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
+        className={`fixed left-0 right-0 z-30 px-6 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
             : "opacity-100 translate-y-0"
-          }`}
+        }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -501,7 +510,9 @@ export default function MainPage() {
             <button
               aria-label="Active Tournament"
               className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning || isSecurityCheckNeeded() || tournamentLoading}
+              disabled={
+                isTransitioning || isSecurityCheckNeeded() || tournamentLoading
+              }
               onClick={handleOpenTournament}
             >
               <div className="flex items-center space-x-2">
@@ -558,19 +569,21 @@ export default function MainPage() {
 
         {/* Action Button */}
         <div
-          className={`${isFirstVisit
+          className={`${
+            isFirstVisit
               ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
               : "opacity-100 translate-y-0"
-            }`}
+          }`}
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
 
             <button
-              className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${isSecurityCheckNeeded()
+              className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${
+                isSecurityCheckNeeded()
                   ? "border-yellow-500/60 text-yellow-300 opacity-75"
                   : "border-white/60 hover:border-white"
-                } ${isTransitioning ? "opacity-50" : ""}`}
+              } ${isTransitioning ? "opacity-50" : ""}`}
               disabled={isTransitioning}
               title={
                 isSecurityCheckNeeded()
@@ -605,13 +618,15 @@ export default function MainPage() {
 
         {/* User Greeting */}
         <div
-          className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showGreeting
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-8"
-              }`
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showGreeting
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`
               : "opacity-100 translate-y-0"
-            }`}
+          }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -663,13 +678,15 @@ export default function MainPage() {
 
       {/* Attempts Display */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
+        className={`fixed bottom-0 left-0 right-0 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
             : "opacity-100 translate-y-0"
-          }`}
+        }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay />
@@ -678,13 +695,15 @@ export default function MainPage() {
       {/* Level and League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
-              ? `transition-all duration-1000 transform ${showLeagueDisplay
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-4"
-              }`
+          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showLeagueDisplay
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-4"
+                }`
               : "opacity-100 translate-y-0"
-            }`}
+          }`}
           style={{
             bottom: "96px",
             zIndex: 50,

@@ -34,13 +34,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Use RPC function to update trust score
-    const { data: newTrustScore, error } = await supabaseServer.rpc("update_trust_score", {
-      user_telegram_id: parseInt(telegramId),
-      score_change: scoreChange,
-    });
+    const { data: newTrustScore, error } = await supabaseServer.rpc(
+      "update_trust_score",
+      {
+        user_telegram_id: parseInt(telegramId),
+        score_change: scoreChange,
+      },
+    );
 
     if (error) {
       console.error("Error updating trust score:", error);
+
       return NextResponse.json(
         {
           success: false,
@@ -51,7 +55,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Trust score updated for user ${telegramId}: ${scoreChange > 0 ? "+" : ""}${scoreChange}`);
+    console.log(
+      `Trust score updated for user ${telegramId}: ${scoreChange > 0 ? "+" : ""}${scoreChange}`,
+    );
 
     return NextResponse.json({
       success: true,
@@ -64,7 +70,8 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error occurred",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
       },
       { status: 500 },
     );

@@ -2,13 +2,14 @@
 
 "use client";
 
+import type { LeagueProgressInfo } from "@/lib/authService";
+
 import React, { useState, useEffect } from "react";
 import { Trophy, Star, Medal, Award, Crown } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import { authService } from "@/lib/authService";
-import type { LeagueProgressInfo } from "@/lib/authService";
 
 interface CompactLeagueDisplayProps {
   className?: string;
@@ -22,28 +23,43 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
   const { isAuthenticated } = useUser();
   const t = useT();
 
-  const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
+  const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadProgressInfo = async () => {
       if (!isAuthenticated) {
         setIsLoading(false);
+
         return;
       }
 
       try {
-        console.log("CompactLeagueDisplay: Fetching league progress via authService API...");
+        console.log(
+          "CompactLeagueDisplay: Fetching league progress via authService API...",
+        );
         const progress = await authService.getLeagueProgress();
 
         setProgressInfo(progress);
-        console.log("CompactLeagueDisplay: League progress fetched successfully");
+        console.log(
+          "CompactLeagueDisplay: League progress fetched successfully",
+        );
       } catch (error) {
-        console.error("CompactLeagueDisplay: Error loading league progress:", error);
+        console.error(
+          "CompactLeagueDisplay: Error loading league progress:",
+          error,
+        );
 
         // Handle authentication errors gracefully
-        if (error instanceof Error && error.message.includes("Authentication expired")) {
-          console.log("CompactLeagueDisplay: Authentication expired, component will not render");
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "CompactLeagueDisplay: Authentication expired, component will not render",
+          );
         }
       } finally {
         setIsLoading(false);

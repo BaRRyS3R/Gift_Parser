@@ -35,10 +35,11 @@ export async function POST(request: NextRequest) {
 
     if (success && completedInTime) {
       // Biometric passed - increase trust score significantly
-      const { data: newTrustScore, error: trustError } = await supabaseServer.rpc("update_trust_score", {
-        user_telegram_id: parseInt(telegramId),
-        score_change: 30,
-      });
+      const { data: newTrustScore, error: trustError } =
+        await supabaseServer.rpc("update_trust_score", {
+          user_telegram_id: parseInt(telegramId),
+          score_change: 30,
+        });
 
       if (trustError) {
         console.error("Error updating trust score:", trustError);
@@ -52,10 +53,13 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Biometric failed - decrease trust score and block user
-      const { error: trustError } = await supabaseServer.rpc("update_trust_score", {
-        user_telegram_id: parseInt(telegramId),
-        score_change: -15,
-      });
+      const { error: trustError } = await supabaseServer.rpc(
+        "update_trust_score",
+        {
+          user_telegram_id: parseInt(telegramId),
+          score_change: -15,
+        },
+      );
 
       if (trustError) {
         console.error("Error updating trust score:", trustError);
@@ -71,7 +75,9 @@ export async function POST(request: NextRequest) {
         console.error("Error blocking user:", blockError);
       }
 
-      console.log(`Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"}`);
+      console.log(
+        `Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"}`,
+      );
 
       return NextResponse.json({
         success: false,
@@ -85,7 +91,8 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error occurred",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
       },
       { status: 500 },
     );

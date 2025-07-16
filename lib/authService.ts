@@ -20,7 +20,6 @@ import {
   PhysicsGameResult,
   RotationGameResult,
 } from "@/types/game-modes";
-
 import { TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
 
 // Enhanced profile types
@@ -565,6 +564,7 @@ class AuthService {
       return response.tournament;
     } catch (error) {
       console.error("Error getting active tournament:", error);
+
       return null;
     }
   }
@@ -582,6 +582,7 @@ class AuthService {
       return response.tournaments;
     } catch (error) {
       console.error("Error getting all tournaments:", error);
+
       return {
         active: [],
         upcoming: [],
@@ -590,6 +591,25 @@ class AuthService {
     }
   }
 
+  async getTournamentWinners(
+    tournamentId: string,
+    prizeCount: number,
+  ): Promise<TournamentLeaderboardEntry[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await this.makeAuthenticatedRequest<{
+        winners: TournamentLeaderboardEntry[];
+      }>(`/tournament/winners?tournamentId=${tournamentId}&limit=${prizeCount}`);
+
+      return response.winners;
+    } catch (error) {
+      console.error("Error getting tournament winners:", error);
+      return [];
+    }
+  }
   async getTournamentStatus(): Promise<TournamentStatus> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -603,6 +623,7 @@ class AuthService {
       return response.status;
     } catch (error) {
       console.error("Error getting tournament status:", error);
+
       return {
         isActive: false,
         activeTournament: null,
@@ -626,6 +647,7 @@ class AuthService {
       return response.leaderboard;
     } catch (error) {
       console.error("Error getting tournament leaderboard:", error);
+
       return [];
     }
   }
@@ -645,6 +667,7 @@ class AuthService {
       return response.result;
     } catch (error) {
       console.error("Error getting user tournament result:", error);
+
       return null;
     }
   }
@@ -736,10 +759,12 @@ class AuthService {
         return await this.checkUserSecurityStatus();
       } else {
         console.warn("User not authenticated, using direct service call");
+
         return await userService.checkUserBlockStatus(telegramId);
       }
     } catch (error) {
       console.warn("Auth API failed, using direct service call");
+
       return await userService.checkUserBlockStatus(telegramId);
     }
   }
