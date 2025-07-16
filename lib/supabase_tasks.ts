@@ -209,7 +209,7 @@ export const taskService = {
 
   // Начало выполнения задания
   async startTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
-    console.log("=== TASK SERVICE startTask DEBUG START ===");
+    console.log("=== TASK SERVICE startTask (RLS-safe) START ===");
     console.log("Input parameters:", { userId, taskId });
 
     try {
@@ -219,99 +219,61 @@ export const taskService = {
         throw new Error("Missing required parameters");
       }
 
-      // Check if we can get tasks for user
-      console.log("Getting tasks for user to validate task existence...");
-      let tasksWithCompletion;
-      try {
-        tasksWithCompletion = await this.getTasksForUser(userId);
-        console.log("Tasks retrieved successfully. Count:", tasksWithCompletion.length);
-      } catch (error) {
-        console.error("Error in getTasksForUser:", error);
-        throw new Error(`Failed to retrieve tasks: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Validate UUID formats
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(userId) || !uuidRegex.test(taskId)) {
+        console.error("Invalid UUID format:", { userId, taskId });
+        throw new Error("Invalid UUID format");
       }
 
-      // Find specific task
-      console.log("Looking for task with ID:", taskId);
-      const task = tasksWithCompletion.find((t) => t.id === taskId);
-
-      if (!task) {
-        console.error("Task not found. Available task IDs:", tasksWithCompletion.map(t => t.id));
-        throw new Error("Task not found");
-      }
-
-      console.log("Task found:", {
-        id: task.id,
-        name: task.name,
-        type: task.type,
-        can_complete: task.can_complete,
-        user_completion: task.user_completion ? {
-          id: task.user_completion.id,
-          status: task.user_completion.status
-        } : null
+      // Call database function to start task
+      console.log("Calling database function start_user_task...");
+      const { data, error } = await supabase.rpc('start_user_task', {
+        p_user_id: userId,
+        p_task_id: taskId
       });
 
-      // Check if task can be completed
-      if (!task.can_complete) {
-        console.error("Task cannot be completed:", {
-          can_complete: task.can_complete,
-          next_available_at: task.next_available_at,
-          user_completion_status: task.user_completion?.status
-        });
-        throw new Error("Task cannot be completed at this time");
+      if (error) {
+        console.error("Database function error:", error);
+        throw new Error(`Database function error: ${error.message}`);
       }
 
-      // Insert task completion record
-      console.log("Inserting task completion record...");
-      const insertData = {
-        user_id: userId,
-        task_id: taskId,
-        status: "started" as const,
-      };
-      console.log("Insert data:", insertData);
-
-      try {
-        const { data, error } = await supabase
-          .from("user_task_completions")
-          .insert(insertData)
-          .select()
-          .single();
-
-        if (error) {
-          console.error("Supabase insert error:", error);
-          console.error("Error details:", {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint
-          });
-          throw new Error(`Database error: ${error.message}`);
-        }
-
-        if (!data) {
-          console.error("No data returned from insert operation");
-          throw new Error("No data returned from database");
-        }
-
-        console.log("Task completion record created successfully:", {
-          id: data.id,
-          user_id: data.user_id,
-          task_id: data.task_id,
-          status: data.status,
-          created_at: data.created_at
-        });
-
-        return data;
-
-      } catch (supabaseError) {
-        console.error("Error in Supabase operation:", supabaseError);
-        throw supabaseError;
+      if (!data) {
+        console.error("No data returned from database function");
+        throw new Error("No data returned from database function");
       }
+
+      console.log("Database function result:", data);
+
+      // Parse the JSON result
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+
+      if (!result.success) {
+        console.error("Function returned error:", result.error);
+        throw new Error(result.error || "Task start failed");
+      }
+
+      if (!result.task_completion) {
+        console.error("No task completion data in result");
+        throw new Error("No task completion data returned");
+      }
+
+      const taskCompletion = result.task_completion;
+      console.log("Task started successfully:", {
+        id: taskCompletion.id,
+        user_id: taskCompletion.user_id,
+        task_id: taskCompletion.task_id,
+        status: taskCompletion.status,
+        started_at: taskCompletion.started_at
+      });
+
+      return taskCompletion;
 
     } catch (error) {
       console.error("Error in startTask:", error);
       throw error;
     } finally {
-      console.log("=== TASK SERVICE startTask DEBUG END ===");
+      console.log("=== TASK SERVICE startTask (RLS-safe) END ===");
     }
   },
 
@@ -375,113 +337,96 @@ export const taskService = {
   },
 
   // Завершение задания (отметка как выполненное)
-  async completeTask(
-    userId: string,
-    taskId: string,
-  ): Promise<UserTaskCompletion> {
-    // Находим последнее начатое выполнение задания
-    const { data: completion, error: findError } = await supabase
-      .from("user_task_completions")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("task_id", taskId)
-      .eq("status", "started")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
+  async completeTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
+    console.log("=== TASK SERVICE completeTask (RLS-safe) START ===");
+    console.log("Input parameters:", { userId, taskId });
 
-    if (findError || !completion) {
-      throw new Error("Task completion not found or not started");
-    }
+    try {
+      // Validate input parameters
+      if (!userId || !taskId) {
+        throw new Error("Missing required parameters");
+      }
 
-    const { data, error } = await supabase
-      .from("user_task_completions")
-      .update({
-        completed_at: new Date().toISOString(),
-        status: "completed",
-      })
-      .eq("id", completion.id)
-      .select()
-      .single();
+      // Call database function to complete task
+      console.log("Calling database function complete_user_task...");
+      const { data, error } = await supabase.rpc('complete_user_task', {
+        p_user_id: userId,
+        p_task_id: taskId
+      });
 
-    if (error) {
-      console.error("Error completing task:", error);
+      if (error) {
+        console.error("Database function error:", error);
+        throw new Error(`Database function error: ${error.message}`);
+      }
+
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+
+      if (!result.success) {
+        console.error("Function returned error:", result.error);
+        throw new Error(result.error || "Task completion failed");
+      }
+
+      console.log("Task completed successfully:", result.task_completion);
+      return result.task_completion;
+
+    } catch (error) {
+      console.error("Error in completeTask:", error);
       throw error;
+    } finally {
+      console.log("=== TASK SERVICE completeTask (RLS-safe) END ===");
     }
-
-    return data;
   },
 
   // Получение награды за задание
-  async claimTaskReward(
-    userId: string,
-    taskId: string,
-    telegramUserId: number,
-  ): Promise<{
+  async claimTaskReward(userId: string, taskId: string, telegramUserId: number): Promise<{
     completion: UserTaskCompletion;
     reward: number;
   }> {
-    // Находим завершенное задание
-    const { data: completion, error: findError } = await supabase
-      .from("user_task_completions")
-      .select("*, task:tasks(*)")
-      .eq("user_id", userId)
-      .eq("task_id", taskId)
-      .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
+    console.log("=== TASK SERVICE claimTaskReward (RLS-safe) START ===");
+    console.log("Input parameters:", { userId, taskId, telegramUserId });
 
-    if (findError || !completion) {
-      throw new Error("Completed task not found");
+    try {
+      // Validate input parameters
+      if (!userId || !taskId || !telegramUserId) {
+        throw new Error("Missing required parameters");
+      }
+
+      // Call database function to claim reward
+      console.log("Calling database function claim_task_reward...");
+      const { data, error } = await supabase.rpc('claim_task_reward', {
+        p_user_id: userId,
+        p_task_id: taskId
+      });
+
+      if (error) {
+        console.error("Database function error:", error);
+        throw new Error(`Database function error: ${error.message}`);
+      }
+
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+
+      if (!result.success) {
+        console.error("Function returned error:", result.error);
+        throw new Error(result.error || "Task reward claim failed");
+      }
+
+      console.log("Task reward claimed successfully:", {
+        completion: result.task_completion,
+        reward: result.reward_attempts,
+        newTotal: result.new_attempts_total
+      });
+
+      return {
+        completion: result.task_completion,
+        reward: result.reward_attempts,
+      };
+
+    } catch (error) {
+      console.error("Error in claimTaskReward:", error);
+      throw error;
+    } finally {
+      console.log("=== TASK SERVICE claimTaskReward (RLS-safe) END ===");
     }
-
-    const task = completion.task as unknown as Task;
-
-    // Обновляем статус на "claimed" и добавляем время получения награды
-    const { data: updatedCompletion, error: updateError } = await supabase
-      .from("user_task_completions")
-      .update({
-        claimed_at: new Date().toISOString(),
-        status: "claimed",
-      })
-      .eq("id", completion.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error("Error claiming task reward:", updateError);
-      throw updateError;
-    }
-
-    // Начисляем попытки пользователю
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("attempts_remaining")
-      .eq("id", userId)
-      .single();
-
-    if (userError || !user) {
-      throw new Error("User not found");
-    }
-
-    const { error: updateUserError } = await supabase
-      .from("users")
-      .update({
-        attempts_remaining: user.attempts_remaining + task.reward_attempts,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-
-    if (updateUserError) {
-      console.error("Error updating user attempts:", updateUserError);
-      throw updateUserError;
-    }
-
-    return {
-      completion: updatedCompletion,
-      reward: task.reward_attempts,
-    };
   },
 
   // Получение выполненных заданий пользователя
