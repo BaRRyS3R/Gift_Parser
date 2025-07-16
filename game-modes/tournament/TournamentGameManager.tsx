@@ -1,4 +1,4 @@
-// src/game-modes/tournament/TournamentGameManager.tsx - Обновленная версия с системой накопления очков
+// src/game-modes/tournament/TournamentGameManager.tsx - Обновленная версия с защищенными API вызовами
 
 "use client";
 
@@ -31,7 +31,6 @@ import {
 } from "./TournamentGameLogic";
 
 import { useUser } from "@/hooks/useUser";
-import { userService } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
   SurvivalGameState,
@@ -69,7 +68,14 @@ interface TournamentGameManagerProps {
 export default function TournamentGameManager({
   tournament,
 }: TournamentGameManagerProps) {
-  const { telegramUser, user, saveTournamentResult } = useUser();
+  const {
+    telegramUser,
+    user,
+    saveTournamentResult,
+    consumeAttemptForGame,
+    getCachedAttemptsStatus,
+    isAuthenticated,
+  } = useUser();
   const router = useRouter();
   const t = useT();
 
@@ -91,6 +97,15 @@ export default function TournamentGameManager({
     gameStateRef.current = gameState;
   }, [gameState]);
 
+  // Check authentication and redirect if needed
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated in tournament game, redirecting");
+      router.push("/");
+      return;
+    }
+  }, [isAuthenticated, router]);
+
   // Настройка кнопки "Назад" в Telegram WebApp
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -103,30 +118,50 @@ export default function TournamentGameManager({
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
 
-  // Потребление попытки при инициализации компонента
+  // Initialize attempts status from cache
+  useEffect(() => {
+    const cachedStatus = getCachedAttemptsStatus();
+    if (cachedStatus) {
+      setAttemptsRemaining(cachedStatus.attemptsRemaining);
+    }
+  }, [getCachedAttemptsStatus]);
+
+  // UPDATED: Потребление попытки при инициализации компонента через защищенные API
   useEffect(() => {
     const consumeInitialAttempt = async () => {
-      if (!telegramUser?.id || hasConsumedInitialAttempt) return;
+      if (!isAuthenticated || hasConsumedInitialAttempt) {
+        return;
+      }
 
       try {
         setIsConsumingAttempt(true);
-        const newStatus = await userService.consumeAttemptWithServerValidation(
-          telegramUser.id,
-        );
+        console.log("Consuming initial attempt via secure API...");
+
+        // UPDATED: Используем защищенный метод из useUser хука
+        const newStatus = await consumeAttemptForGame();
 
         setAttemptsRemaining(newStatus.attemptsRemaining);
         setHasConsumedInitialAttempt(true);
+
+        console.log("Initial attempt consumed successfully via secure API");
 
         setTimeout(() => {
           startGame();
         }, 500);
       } catch (error) {
-        console.error("Error consuming initial attempt:", error);
+        console.error("Error consuming initial attempt via secure API:", error);
+
+        // Handle authentication errors
+        if (error instanceof Error && error.message.includes('Authentication expired')) {
+          console.log("Token expired during attempt consumption, user will be redirected");
+          return; // The useUser hook will handle sign out and redirect
+        }
+
         setHasConsumedInitialAttempt(true);
         setTimeout(() => {
           startGame();
@@ -137,7 +172,7 @@ export default function TournamentGameManager({
     };
 
     consumeInitialAttempt();
-  }, [telegramUser?.id, hasConsumedInitialAttempt]);
+  }, [isAuthenticated, hasConsumedInitialAttempt, consumeAttemptForGame]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -173,6 +208,8 @@ export default function TournamentGameManager({
         }
 
         try {
+          console.log(`Saving tournament result via secure API (attempt ${attemptCount})`);
+
           const saveResponse = await saveTournamentResult(
             tournament.id,
             result,
@@ -187,10 +224,17 @@ export default function TournamentGameManager({
           }));
 
           console.log(
-            "Tournament result saved with accumulation:",
+            "Tournament result saved with accumulation via secure API:",
             saveResponse,
           );
         } catch (error) {
+          console.error(`Tournament save attempt ${attemptCount} failed:`, error);
+
+          // Handle authentication errors
+          if (error instanceof Error && error.message.includes('Authentication expired')) {
+            throw error; // Don't retry on auth errors
+          }
+
           attemptCount++;
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
@@ -206,6 +250,8 @@ export default function TournamentGameManager({
       try {
         await attemptSave();
       } catch (error) {
+        console.error("Failed to save tournament result after all attempts:", error);
+
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
@@ -270,7 +316,7 @@ export default function TournamentGameManager({
     const levelConfig = getTournamentLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -382,28 +428,39 @@ export default function TournamentGameManager({
     }, 800);
   }, [scheduleNextActivation]);
 
+  // UPDATED: Перезапуск игры через защищенные API
   const restartGame = useCallback(async () => {
-    if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
+    if (!isAuthenticated || attemptsRemaining <= 0 || isRestartLoading) {
+      return;
+    }
 
     try {
       setIsRestartLoading(true);
+      console.log("Restarting game via secure API...");
 
-      const newStatus = await userService.consumeAttemptWithServerValidation(
-        telegramUser.id,
-      );
+      // UPDATED: Используем защищенный метод из useUser хука
+      const newStatus = await consumeAttemptForGame();
 
       setAttemptsRemaining(newStatus.attemptsRemaining);
       setShowCircles(false);
+
+      console.log("Game restart attempt consumed successfully via secure API");
 
       setTimeout(() => {
         startGame();
       }, 200);
     } catch (error) {
-      console.error("Error consuming attempt for restart:", error);
+      console.error("Error consuming attempt for restart via secure API:", error);
+
+      // Handle authentication errors
+      if (error instanceof Error && error.message.includes('Authentication expired')) {
+        console.log("Token expired during restart, user will be redirected");
+        return; // The useUser hook will handle sign out and redirect
+      }
     } finally {
       setIsRestartLoading(false);
     }
-  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading]);
+  }, [isAuthenticated, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame]);
 
   useEffect(() => {
     return () => {
@@ -438,6 +495,11 @@ export default function TournamentGameManager({
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
+
+  // Early return if not authenticated
+  if (!isAuthenticated) {
+    return null; // Will redirect in useEffect
+  }
 
   if (isConsumingAttempt) {
     return (
@@ -561,81 +623,81 @@ export default function TournamentGameManager({
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-            <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span className="text-sm text-white/80">
-                      {saveStatus.showRetryDetails
-                        ? t("tournament.retryingSave", {
+              <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="text-sm text-white/80">
+                        {saveStatus.showRetryDetails
+                          ? t("tournament.retryingSave", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("tournament.savingResult")}
-                    </span>
-                  </div>
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-white/60" size={14} />
-                        <span className="text-xs text-white/60">
-                          {t("tournament.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-white/20 rounded-full h-1">
-                        <div
-                          className="bg-white h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("tournament.savingResult")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      ✓ {t("tournament.resultSaved")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-white/60" size={14} />
+                          <span className="text-xs text-white/60">
+                            {t("tournament.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-white/20 rounded-full h-1">
+                          <div
+                            className="bg-white h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("tournament.resultSavedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        ✓ {t("tournament.resultSaved")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("tournament.resultSavedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("tournament.dataSynchronized")}
+                        : t("tournament.dataSynchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 text-sm">
-                      ✗{" "}
-                      {t("tournament.saveFailedRetries", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 text-sm">
+                        ✗{" "}
+                        {t("tournament.saveFailedRetries", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 text-xs mb-3">
+                      {t("tournament.resultRecordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => handleSaveTournamentResult(gameResult)}
+                    >
+                      {t("tournament.retrySave")}
+                    </button>
                   </div>
-                  <div className="text-red-400/60 text-xs mb-3">
-                    {t("tournament.resultRecordedLocally")}
-                  </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveTournamentResult(gameResult)}
-                  >
-                    {t("tournament.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           <div className="space-y-3">
             <button
@@ -643,7 +705,8 @@ export default function TournamentGameManager({
               disabled={
                 saveStatus.isLoading ||
                 attemptsRemaining <= 0 ||
-                isRestartLoading
+                isRestartLoading ||
+                !isAuthenticated
               }
               onClick={restartGame}
             >

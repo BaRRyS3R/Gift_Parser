@@ -13,7 +13,6 @@ const nextConfig = {
       "@": path.resolve(__dirname),
     };
 
-    // Добавляем обфускатор только для client-side production сборки
     if (!isServer && config.mode === "production") {
       config.plugins.push(
         new WebpackObfuscator(
@@ -23,7 +22,7 @@ const nextConfig = {
             stringArrayEncoding: ['rc4'],
             stringArrayThreshold: 0.75,
           },
-          ['excluded_bundle_name.js'] // можно указать конкретные файлы, которые не нужно обфусцировать
+          ['excluded_bundle_name.js']
         )
       );
     }
