@@ -115,7 +115,7 @@ export default function NavigationWrapper() {
             <div className="text-white/80 text-center">
               <div className="w-6 h-6 mx-auto mb-1 border-2 border-white/60 rounded border-dashed animate-pulse"></div>
               <p id="security-overlay-description" className="text-xs font-medium">
-                Tap to continue
+                Locked
               </p>
             </div>
           </div>
