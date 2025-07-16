@@ -191,7 +191,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [telegramUser]);
 
-  // JWT Authentication method
+  // JWT Authentication method - исправленная версия для useUser.ts
   const authenticateWithTelegram = useCallback(
     async (initData: string, referralCode?: string) => {
       setIsLoading(true);
@@ -201,10 +201,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         // Use JWT authentication
         const authUser = await authenticateUser(initData, referralCode);
 
-        // Convert auth user to regular user format for compatibility
+        // ИСПРАВЛЕНО: Убраны поля id и trust_score при преобразовании AuthUser в User
         const user: User = {
-          id: authUser.id,
-          trust_score: authUser.trust_score,
+          // Генерируем временный ID для совместимости
+          id: `temp-${authUser.telegram_id}`,
           telegram_id: authUser.telegram_id,
           first_name: authUser.first_name,
           last_name: authUser.last_name,
@@ -216,15 +216,17 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           attempts_remaining: authUser.attempts_remaining,
           last_attempt_at: undefined,
           attempts_reset_at: undefined,
+          // trust_score убран в соответствии с требованиями безопасности
+          blocked_until: authUser.blocked_until,
           referral_code: "",
           referred_by: undefined,
           referral_bonus: 5,
           referral_count: 0,
           total_games: authUser.total_games,
-          total_score: 0,
-          best_score: 0,
+          total_score: authUser.total_score,
+          best_score: authUser.best_score,
           current_level: authUser.current_level,
-          current_league_id: undefined,
+          current_league_id: authUser.current_league_id,
           reaction_games: 0,
           reaction_best_score: 0,
           reaction_best_time: 0,
@@ -293,11 +295,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  // Secure refreshUser method using API only
+  // Secure refreshUser method using API only - исправленная версия для useUser.ts
   const refreshUser = useCallback(async (): Promise<void> => {
     if (!isAuthenticated) {
       console.log("User not authenticated, skipping refresh");
-
       return;
     }
 
@@ -309,10 +310,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       const userData = await authService.refreshUserData();
 
-      // Convert to User format and update
+      // ИСПРАВЛЕНО: Убраны поля id и trust_score при создании User объекта
       const user: User = {
-        id: userData.id,
-        trust_score: userData.trust_score,
+        // Генерируем временный ID для совместимости
+        id: `temp-${userData.telegram_id}`,
         telegram_id: userData.telegram_id,
         first_name: userData.first_name,
         last_name: userData.last_name,
@@ -324,15 +325,17 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         attempts_remaining: userData.attempts_remaining,
         last_attempt_at: undefined,
         attempts_reset_at: undefined,
+        // trust_score убран в соответствии с требованиями безопасности
+        blocked_until: userData.blocked_until,
         referral_code: "",
         referred_by: undefined,
         referral_bonus: 5,
         referral_count: 0,
         total_games: userData.total_games,
-        total_score: 0,
-        best_score: 0,
+        total_score: userData.total_score,
+        best_score: userData.best_score,
         current_level: userData.current_level,
-        current_league_id: undefined,
+        current_league_id: userData.current_league_id,
         reaction_games: 0,
         reaction_best_score: 0,
         reaction_best_time: 0,
@@ -558,7 +561,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             });
           },
           (gameResult.levelChanged ? 3000 : 0) +
-            (gameResult.leagueChanged ? 3000 : 0),
+          (gameResult.leagueChanged ? 3000 : 0),
         );
       }
     },

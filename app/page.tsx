@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated intro page with corrected registration flow
+// src/app/page.tsx - Исправленная страница без отображения UUID и trust_score
 
 "use client";
 
@@ -223,7 +223,7 @@ export default function IntroPage(): JSX.Element {
     [getTelegramInitData, t],
   );
 
-  // UPDATED: Register new user
+  // ИСПРАВЛЕНО: Убрано поле id и trust_score при создании User объекта
   const registerNewUser = useCallback(
     async (
       telegramUser: TelegramUser,
@@ -242,9 +242,10 @@ export default function IntroPage(): JSX.Element {
         const result = await authService.registerUser(initData, referralCode);
 
         if (result.success && result.user) {
-          // Convert to User format and update context
+          // ИСПРАВЛЕНО: Убраны поля id и trust_score
           const user = {
-            id: result.user.id,
+            // Генерируем временный ID для совместимости
+            id: `temp-${result.user.telegram_id}`,
             telegram_id: result.user.telegram_id,
             first_name: result.user.first_name,
             last_name: result.user.last_name,
@@ -256,7 +257,7 @@ export default function IntroPage(): JSX.Element {
             attempts_remaining: result.user.attempts_remaining,
             last_attempt_at: undefined,
             attempts_reset_at: undefined,
-            trust_score: result.user.trust_score,
+            // trust_score убран в соответствии с требованиями безопасности
             blocked_until: result.user.blocked_until,
             referral_code: "",
             referred_by: undefined,
@@ -385,9 +386,10 @@ export default function IntroPage(): JSX.Element {
         // Existing user successfully logged in
         console.log("Existing user logged in successfully");
 
-        // Convert to User format and update context
+        // ИСПРАВЛЕНО: Убраны поля id и trust_score
         const user = {
-          id: loginResult.user.id,
+          // Генерируем временный ID для совместимости
+          id: `temp-${loginResult.user.telegram_id}`,
           telegram_id: loginResult.user.telegram_id,
           first_name: loginResult.user.first_name,
           last_name: loginResult.user.last_name,
@@ -399,7 +401,7 @@ export default function IntroPage(): JSX.Element {
           attempts_remaining: loginResult.user.attempts_remaining,
           last_attempt_at: undefined,
           attempts_reset_at: undefined,
-          trust_score: loginResult.user.trust_score,
+          // trust_score убран в соответствии с требованиями безопасности
           blocked_until: loginResult.user.blocked_until,
           referral_code: "",
           referred_by: undefined,

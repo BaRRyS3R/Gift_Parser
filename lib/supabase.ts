@@ -78,8 +78,8 @@ export interface User {
   last_attempt_at?: string;
   attempts_reset_at?: string;
 
-  // Security system
-  trust_score: number;
+  // Security system - trust_score скрыт от клиента по соображениям безопасности
+  trust_score?: number;
   blocked_until?: string;
 
   // Referral system
@@ -960,8 +960,8 @@ export const userService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
-              (totalReactionGames + 1)
+              reactionResult.reactionTime) /
+            (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
