@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Fixed main page without automatic security checks
+// src/app/main/page.tsx - Исправленная главная страница без избыточных проверок аутентификации
 
 "use client";
 
@@ -48,6 +48,10 @@ export default function MainPage() {
   const { settings } = useSettings();
   const t = useT();
 
+  // ИСПРАВЛЕНО: Добавлены флаги для предотвращения множественных редиректов
+  const redirectHandledRef = useRef<boolean>(false);
+  const pageInitializedRef = useRef<boolean>(false);
+
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
     return !sessionStorage.getItem("mainPageVisited");
@@ -90,16 +94,25 @@ export default function MainPage() {
     }
   }, []);
 
+  // ИСПРАВЛЕНО: Упрощенная проверка аутентификации без циклических вызовов
   useEffect(() => {
+    // Предотвращаем множественные проверки
+    if (redirectHandledRef.current || pageInitializedRef.current) {
+      return;
+    }
+
+    pageInitializedRef.current = true;
+
+    // Простая проверка без дополнительных API вызовов
     if (!isAuthenticated && !userLoading) {
       console.log("User not authenticated, redirecting to login");
+      redirectHandledRef.current = true;
       router.push("/");
       return;
     }
-  }, [isAuthenticated, userLoading, router]);
 
-  // REMOVED: Automatic security state monitoring to prevent infinite loops
-  // Security checks will only be performed when user explicitly attempts actions
+    console.log("Main page initialized successfully");
+  }, [isAuthenticated, userLoading, router]);
 
   // React to security state changes for pending navigation
   useEffect(() => {
@@ -134,12 +147,17 @@ export default function MainPage() {
     }
   }, [isFirstVisit, user?.first_name, t]);
 
+  // ИСПРАВЛЕНО: Упрощенная инициализация Telegram пользователя
   useEffect(() => {
     if (
-      !telegramUser &&
-      typeof window !== "undefined" &&
-      window.Telegram?.WebApp
+      telegramUser || // Уже установлен
+      typeof window === "undefined" || // SSR
+      !window.Telegram?.WebApp // API недоступен
     ) {
+      return;
+    }
+
+    try {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
 
@@ -152,23 +170,33 @@ export default function MainPage() {
           language_code: user.language_code,
           is_premium: user.is_premium,
         };
+
+        console.log("Setting Telegram user data on main page");
         setTelegramUser(telegramUserData);
       }
+    } catch (error) {
+      console.error("Error setting Telegram user on main page:", error);
     }
-  }, [telegramUser, setTelegramUser]);
+  }, []); // Пустой массив зависимостей для предотвращения циклов
 
+  // ИСПРАВЛЕНО: Упрощенная загрузка турнирного статуса
   useEffect(() => {
+    // Предотвращаем множественные загрузки
+    if (!isAuthenticated || tournamentLoading) {
+      return;
+    }
+
+    let isMounted = true;
+
     const loadTournamentStatus = async () => {
-      if (!isAuthenticated) {
-        console.log("User not authenticated, skipping tournament data load");
-        return;
-      }
-
-      setTournamentLoading(true);
-
       try {
+        setTournamentLoading(true);
         console.log("Loading tournament status via secure API...");
+
         const tournamentStatus = await authService.getTournamentStatus();
+
+        // Проверяем, что компонент все еще смонтирован
+        if (!isMounted) return;
 
         if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
           setActiveTournament(tournamentStatus.activeTournament);
@@ -180,6 +208,11 @@ export default function MainPage() {
             );
 
             const interval = setInterval(() => {
+              if (!isMounted) {
+                clearInterval(interval);
+                return;
+              }
+
               const now = new Date();
               const endDate = new Date(
                 tournamentStatus.activeTournament!.end_date,
@@ -196,7 +229,9 @@ export default function MainPage() {
               }
             }, 1000);
 
-            return () => clearInterval(interval);
+            return () => {
+              clearInterval(interval);
+            };
           }
         } else {
           setActiveTournament(null);
@@ -207,26 +242,23 @@ export default function MainPage() {
       } catch (error) {
         console.error("Error loading tournament status via secure API:", error);
 
-        if (
-          error instanceof Error &&
-          error.message.includes("Authentication expired")
-        ) {
-          console.log(
-            "Token expired during tournament load, user will be signed out",
-          );
+        if (isMounted) {
+          setActiveTournament(null);
+          setShowTournamentButton(false);
         }
-
-        setActiveTournament(null);
-        setShowTournamentButton(false);
       } finally {
-        setTournamentLoading(false);
+        if (isMounted) {
+          setTournamentLoading(false);
+        }
       }
     };
 
-    if (isAuthenticated) {
-      loadTournamentStatus();
-    }
-  }, [isAuthenticated]);
+    loadTournamentStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]); // Минимальные зависимости
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const username = user?.first_name || "unknown";
@@ -286,7 +318,7 @@ export default function MainPage() {
     return () => clearInterval(typingInterval);
   }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
 
-  // FIXED: Simplified game start handler without automatic security checks
+  // ИСПРАВЛЕНО: Упрощенный обработчик запуска игры
   const handleStartGame = async () => {
     if (isTransitioning || pendingNavigation || navigationInProgressRef.current) {
       console.log("Navigation already in progress, ignoring click");
@@ -305,7 +337,7 @@ export default function MainPage() {
     }
   };
 
-  // FIXED: Simplified tournament access handler
+  // ИСПРАВЛЕНО: Упрощенный обработчик турнира
   const handleOpenTournament = async () => {
     if (isTransitioning || pendingNavigation || navigationInProgressRef.current) {
       console.log("Navigation already in progress, ignoring click");
@@ -373,17 +405,18 @@ export default function MainPage() {
     }
   }, [isTransitioning]);
 
-  if (!isAuthenticated && !userLoading) {
+  // ИСПРАВЛЕНО: Ранний возврат без дополнительных проверок аутентификации
+  if (!isAuthenticated && !userLoading && !redirectHandledRef.current) {
     return null;
   }
 
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : pageLoaded
-            ? "opacity-100 transition-opacity duration-1000 ease-out"
-            : "opacity-0"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : pageLoaded
+          ? "opacity-100 transition-opacity duration-1000 ease-out"
+          : "opacity-0"
         }`}
     >
       {settings.showBackgroundVideo && (
@@ -408,11 +441,11 @@ export default function MainPage() {
 
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           }`}
         style={{ top: headerOffset }}
       >
@@ -496,8 +529,8 @@ export default function MainPage() {
 
         <div
           className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+            : "opacity-100 translate-y-0"
             }`}
         >
           <div className="relative group">
@@ -505,8 +538,8 @@ export default function MainPage() {
 
             <button
               className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${securityState.requiresVerification || pendingNavigation === "/game"
-                  ? "border-yellow-500/60 text-yellow-300 opacity-75"
-                  : "border-white/60 hover:border-white"
+                ? "border-yellow-500/60 text-yellow-300 opacity-75"
+                : "border-white/60 hover:border-white"
                 } ${isTransitioning ? "opacity-50" : ""}`}
               disabled={isTransitioning || pendingNavigation !== null || navigationInProgressRef.current}
               title={
@@ -546,11 +579,11 @@ export default function MainPage() {
 
         <div
           className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showGreeting
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-8"
-              }`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
             }`}
         >
           {userLoading ? (
@@ -594,11 +627,11 @@ export default function MainPage() {
 
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           }`}
         style={{ paddingBottom: "140px" }}
       >
@@ -608,11 +641,11 @@ export default function MainPage() {
       {user && !userLoading && (
         <div
           className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
-              ? `transition-all duration-1000 transform ${showLeagueDisplay
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-4"
-              }`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showLeagueDisplay
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-4"
+            }`
+            : "opacity-100 translate-y-0"
             }`}
           style={{
             bottom: "96px",
