@@ -209,34 +209,110 @@ export const taskService = {
 
   // Начало выполнения задания
   async startTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
-    // Проверяем, можно ли начать задание
-    const tasksWithCompletion = await this.getTasksForUser(userId);
-    const task = tasksWithCompletion.find((t) => t.id === taskId);
+    console.log("=== TASK SERVICE startTask DEBUG START ===");
+    console.log("Input parameters:", { userId, taskId });
 
-    if (!task) {
-      throw new Error("Task not found");
-    }
+    try {
+      // Validate input parameters
+      if (!userId || !taskId) {
+        console.error("Missing required parameters:", { userId: !!userId, taskId: !!taskId });
+        throw new Error("Missing required parameters");
+      }
 
-    if (!task.can_complete) {
-      throw new Error("Task cannot be completed at this time");
-    }
+      // Check if we can get tasks for user
+      console.log("Getting tasks for user to validate task existence...");
+      let tasksWithCompletion;
+      try {
+        tasksWithCompletion = await this.getTasksForUser(userId);
+        console.log("Tasks retrieved successfully. Count:", tasksWithCompletion.length);
+      } catch (error) {
+        console.error("Error in getTasksForUser:", error);
+        throw new Error(`Failed to retrieve tasks: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
 
-    const { data, error } = await supabase
-      .from("user_task_completions")
-      .insert({
+      // Find specific task
+      console.log("Looking for task with ID:", taskId);
+      const task = tasksWithCompletion.find((t) => t.id === taskId);
+
+      if (!task) {
+        console.error("Task not found. Available task IDs:", tasksWithCompletion.map(t => t.id));
+        throw new Error("Task not found");
+      }
+
+      console.log("Task found:", {
+        id: task.id,
+        name: task.name,
+        type: task.type,
+        can_complete: task.can_complete,
+        user_completion: task.user_completion ? {
+          id: task.user_completion.id,
+          status: task.user_completion.status
+        } : null
+      });
+
+      // Check if task can be completed
+      if (!task.can_complete) {
+        console.error("Task cannot be completed:", {
+          can_complete: task.can_complete,
+          next_available_at: task.next_available_at,
+          user_completion_status: task.user_completion?.status
+        });
+        throw new Error("Task cannot be completed at this time");
+      }
+
+      // Insert task completion record
+      console.log("Inserting task completion record...");
+      const insertData = {
         user_id: userId,
         task_id: taskId,
-        status: "started",
-      })
-      .select()
-      .single();
+        status: "started" as const,
+      };
+      console.log("Insert data:", insertData);
 
-    if (error) {
-      console.error("Error starting task:", error);
+      try {
+        const { data, error } = await supabase
+          .from("user_task_completions")
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (error) {
+          console.error("Supabase insert error:", error);
+          console.error("Error details:", {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+          });
+          throw new Error(`Database error: ${error.message}`);
+        }
+
+        if (!data) {
+          console.error("No data returned from insert operation");
+          throw new Error("No data returned from database");
+        }
+
+        console.log("Task completion record created successfully:", {
+          id: data.id,
+          user_id: data.user_id,
+          task_id: data.task_id,
+          status: data.status,
+          created_at: data.created_at
+        });
+
+        return data;
+
+      } catch (supabaseError) {
+        console.error("Error in Supabase operation:", supabaseError);
+        throw supabaseError;
+      }
+
+    } catch (error) {
+      console.error("Error in startTask:", error);
       throw error;
+    } finally {
+      console.log("=== TASK SERVICE startTask DEBUG END ===");
     }
-
-    return data;
   },
 
   // Проверка выполнения задания
