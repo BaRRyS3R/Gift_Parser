@@ -1,6 +1,6 @@
-// src/lib/taskService.ts - Service for task management with enhanced user lookup
+// src/lib/taskService.ts - Service for task management with server-side database access
 
-import { supabase } from "./supabase";
+import { supabaseServer } from "./supabase-server";
 import type {
     Task,
     UserTask,
@@ -16,7 +16,7 @@ export const taskService = {
     async getUserTasks(userId: string): Promise<TaskWithCompletion[]> {
         try {
             // Получаем все активные задания
-            const { data: tasks, error: tasksError } = await supabase
+            const { data: tasks, error: tasksError } = await supabaseServer
                 .from("tasks")
                 .select("*")
                 .eq("is_active", true)
@@ -28,7 +28,7 @@ export const taskService = {
             }
 
             // Получаем выполненные задания пользователя
-            const { data: completedTasks, error: completedError } = await supabase
+            const { data: completedTasks, error: completedError } = await supabaseServer
                 .from("user_tasks")
                 .select("*")
                 .eq("user_id", userId);
@@ -61,7 +61,7 @@ export const taskService = {
     // Получение конкретного задания
     async getTask(taskId: number): Promise<Task | null> {
         try {
-            const { data: task, error } = await supabase
+            const { data: task, error } = await supabaseServer
                 .from("tasks")
                 .select("*")
                 .eq("id", taskId)
@@ -83,7 +83,7 @@ export const taskService = {
     // Проверка выполнения задания пользователем
     async isTaskCompleted(userId: string, taskId: number): Promise<boolean> {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseServer
                 .from("user_tasks")
                 .select("id")
                 .eq("user_id", userId)
@@ -102,18 +102,22 @@ export const taskService = {
         }
     },
 
-    // ENHANCED: Надежный поиск пользователя с fallback по telegramId
+    // Надежный поиск пользователя с fallback по telegramId
     async findUserReliably(userId: string, telegramId?: number): Promise<{
         user: any;
         foundBy: 'uuid' | 'telegram_id' | 'not_found';
     }> {
         try {
-            // Сначала пробуем найти по UUID
-            const { data: userByUuid, error: uuidError } = await supabase
+            console.log(`Searching for user: UUID=${userId}, telegramId=${telegramId}`);
+
+            // Сначала пробуем найти по UUID в таблице users
+            const { data: userByUuid, error: uuidError } = await supabaseServer
                 .from("users")
                 .select("id, telegram_id, attempts_remaining")
                 .eq("id", userId)
                 .single();
+
+            console.log(`Search by UUID result:`, { userByUuid, uuidError });
 
             if (userByUuid && !uuidError) {
                 console.log(`User found by UUID: ${userId}`);
@@ -124,11 +128,13 @@ export const taskService = {
             if (telegramId) {
                 console.log(`User not found by UUID ${userId}, trying telegramId ${telegramId}`);
 
-                const { data: userByTelegramId, error: telegramError } = await supabase
+                const { data: userByTelegramId, error: telegramError } = await supabaseServer
                     .from("users")
                     .select("id, telegram_id, attempts_remaining")
                     .eq("telegram_id", telegramId)
                     .single();
+
+                console.log(`Search by telegramId result:`, { userByTelegramId, telegramError });
 
                 if (userByTelegramId && !telegramError) {
                     console.log(`User found by telegramId: ${telegramId}, UUID: ${userByTelegramId.id}`);
@@ -144,7 +150,7 @@ export const taskService = {
         }
     },
 
-    // ENHANCED: Выполнение задания с улучшенным поиском пользователя
+    // Выполнение задания с улучшенным поиском пользователя
     async completeTask(
         userId: string,
         taskId: number,
@@ -182,7 +188,7 @@ export const taskService = {
 
             console.log(`Processing task ${taskId} for user ${userId}, reward: ${task.attempts_reward}`);
 
-            // ENHANCED: Надежный поиск пользователя
+            // Надежный поиск пользователя
             const { user: existingUser, foundBy } = await this.findUserReliably(userId, telegramId);
 
             if (!existingUser) {
@@ -203,8 +209,8 @@ export const taskService = {
             // Выполняем операции атомарно
             const newAttemptsTotal = existingUser.attempts_remaining + task.attempts_reward;
 
-            // Начинаем транзакцию - обновляем попытки пользователя
-            const { error: updateError } = await supabase
+            // Начинаем транзакцию - обновляем попытки пользователя в таблице users
+            const { error: updateError } = await supabaseServer
                 .from("users")
                 .update({
                     attempts_remaining: newAttemptsTotal,
@@ -214,7 +220,7 @@ export const taskService = {
                 .eq("attempts_remaining", existingUser.attempts_remaining); // Optimistic locking
 
             if (updateError) {
-                console.error("Error updating user attempts:", updateError);
+                console.error("Error updating user attempts in users table:", updateError);
                 return {
                     success: false,
                     message: "Failed to update attempts",
@@ -227,7 +233,7 @@ export const taskService = {
             console.log(`Successfully updated attempts for user ${actualUserId}: ${existingUser.attempts_remaining} -> ${newAttemptsTotal}`);
 
             // Записываем выполнение задания с правильным userId
-            const { error: insertError } = await supabase
+            const { error: insertError } = await supabaseServer
                 .from("user_tasks")
                 .insert({
                     user_id: actualUserId,
@@ -241,7 +247,7 @@ export const taskService = {
                 console.error("Error completing task, rolling back attempts:", insertError);
 
                 // Откатываем изменения попыток при ошибке записи задания
-                await supabase
+                await supabaseServer
                     .from("users")
                     .update({
                         attempts_remaining: existingUser.attempts_remaining,
@@ -373,10 +379,7 @@ export const taskService = {
         verificationData?: any
     ): Promise<TaskVerificationResponse> {
         try {
-            // В продакшене здесь должна быть интеграция с Twitter API
             console.log(`Verifying Twitter follow for user ${userId}, task ${taskId}`);
-
-            // Имитация проверки подписки
             const isVerified = true; // В реальности нужно проверить через Twitter API
 
             return {
@@ -402,10 +405,7 @@ export const taskService = {
         verificationData?: any
     ): Promise<TaskVerificationResponse> {
         try {
-            // В продакшене здесь должна быть интеграция с Twitter API
             console.log(`Verifying Twitter repost for user ${userId}, task ${taskId}`);
-
-            // Имитация проверки репоста
             const isVerified = true; // В реальности нужно проверить через Twitter API
 
             return {
@@ -431,7 +431,6 @@ export const taskService = {
         verificationData?: any
     ): Promise<TaskVerificationResponse> {
         try {
-            // Для посещения сайта верификация не требуется - пользователь просто подтверждает
             console.log(`Verifying website visit for user ${userId}, task ${taskId}`);
 
             return {
@@ -457,10 +456,7 @@ export const taskService = {
         verificationData?: any
     ): Promise<TaskVerificationResponse> {
         try {
-            // В продакшене здесь должна быть интеграция с Telegram API
             console.log(`Verifying Telegram story for user ${userId}, task ${taskId}`);
-
-            // Имитация проверки публикации
             const isVerified = true; // В реальности нужно проверить через Telegram API
 
             return {
@@ -487,12 +483,12 @@ export const taskService = {
         total_attempts_earned: number;
     }> {
         try {
-            const { data: totalTasks, error: totalError } = await supabase
+            const { data: totalTasks, error: totalError } = await supabaseServer
                 .from("tasks")
                 .select("id", { count: "exact" })
                 .eq("is_active", true);
 
-            const { data: completedTasks, error: completedError } = await supabase
+            const { data: completedTasks, error: completedError } = await supabaseServer
                 .from("user_tasks")
                 .select("attempts_awarded", { count: "exact" })
                 .eq("user_id", userId);
