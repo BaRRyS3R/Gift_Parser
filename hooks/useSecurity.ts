@@ -1,7 +1,7 @@
-// src/hooks/useSecurity.ts - Enhanced security hook with automatic evaluation
+// src/hooks/useSecurity.ts - Fixed security hook without infinite loops
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/lib/authService";
 import { useUser } from "@/hooks/useUser";
@@ -18,7 +18,7 @@ interface SecurityState {
   isBlocked: boolean;
   sessionToken?: string;
   challenge?: SecurityChallenge;
-  hasEvaluated: boolean; // Track if initial evaluation is complete
+  hasEvaluated: boolean;
 }
 
 interface SecurityEvaluation {
@@ -44,39 +44,63 @@ export function useSecurity() {
     hasEvaluated: false,
   });
 
-  // Automatic security evaluation on hook initialization
-  useEffect(() => {
-    if (isAuthenticated && !securityState.hasEvaluated) {
-      console.log("Performing automatic security evaluation...");
-      performInitialSecurityCheck();
-    }
-  }, [isAuthenticated, securityState.hasEvaluated]);
+  // Ref to prevent multiple simultaneous evaluations
+  const evaluationInProgressRef = useRef<boolean>(false);
 
-  const performInitialSecurityCheck = useCallback(async (): Promise<void> => {
-    if (!isAuthenticated) return;
+  // REMOVED: Automatic security evaluation on hook initialization to prevent infinite loops
+  // The security check will only be performed when explicitly requested via evaluateAccess
+
+  const performSecurityCheck = useCallback(async (action: string): Promise<SecurityEvaluation> => {
+    if (!isAuthenticated || evaluationInProgressRef.current) {
+      throw new Error("Security check not available");
+    }
+
+    evaluationInProgressRef.current = true;
+
+    try {
+      console.log(`Performing security check for action: ${action}`);
+      const evaluation: SecurityEvaluation = await authService.evaluateSecurityRequirements(action);
+      console.log(`Security evaluation result: ${evaluation.status}`);
+      return evaluation;
+    } finally {
+      evaluationInProgressRef.current = false;
+    }
+  }, [isAuthenticated]);
+
+  const evaluateAccess = useCallback(async (action: string = "game_access"): Promise<void> => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated, skipping security evaluation");
+      return;
+    }
+
+    if (evaluationInProgressRef.current) {
+      console.log("Security evaluation already in progress, skipping");
+      return;
+    }
 
     setSecurityState(prev => ({
       ...prev,
       isLoading: true,
-      hasEvaluated: true // Mark as evaluated to prevent multiple calls
+      hasEvaluated: true
     }));
 
     try {
-      const evaluation: SecurityEvaluation = await authService.evaluateSecurityRequirements("page_access");
+      const evaluation = await performSecurityCheck(action);
 
       if (evaluation.status === "block") {
-        console.log("User is blocked, redirecting to blocked page");
+        console.log("Access blocked, redirecting to blocked page");
         setSecurityState(prev => ({
           ...prev,
           isLoading: false,
-          isBlocked: true
+          isBlocked: true,
+          requiresVerification: false
         }));
         router.push("/blocked");
         return;
       }
 
       if (evaluation.status === "require_verification") {
-        console.log("Verification required:", evaluation.method);
+        console.log(`Verification required: ${evaluation.method}`);
         let challenge: SecurityChallenge | undefined;
 
         if (evaluation.method === "interactive") {
@@ -89,82 +113,42 @@ export function useSecurity() {
           requiresVerification: true,
           verificationMethod: evaluation.method,
           sessionToken: evaluation.token,
-          challenge
+          challenge,
+          isBlocked: false
         }));
         return;
       }
 
       // Status is "allow"
-      console.log("Security check passed - access allowed");
+      console.log("Access granted");
       setSecurityState(prev => ({
         ...prev,
         isLoading: false,
-        requiresVerification: false
+        requiresVerification: false,
+        isBlocked: false
       }));
     } catch (error) {
-      console.error("Initial security evaluation failed:", error);
+      console.error("Security evaluation failed:", error);
       // On error, allow access but log the issue
       setSecurityState(prev => ({
         ...prev,
         isLoading: false,
-        requiresVerification: false
+        requiresVerification: false,
+        isBlocked: false
       }));
     }
-  }, [isAuthenticated, router]);
-
-  const evaluateAccess = useCallback(async (action: string = "game_access"): Promise<void> => {
-    if (!isAuthenticated) return;
-
-    setSecurityState(prev => ({ ...prev, isLoading: true }));
-
-    try {
-      const evaluation: SecurityEvaluation = await authService.evaluateSecurityRequirements(action);
-
-      if (evaluation.status === "block") {
-        setSecurityState(prev => ({
-          ...prev,
-          isLoading: false,
-          isBlocked: true
-        }));
-        router.push("/blocked");
-        return;
-      }
-
-      if (evaluation.status === "require_verification") {
-        let challenge: SecurityChallenge | undefined;
-
-        if (evaluation.method === "interactive") {
-          challenge = await authService.generateInteractiveChallenge();
-        }
-
-        setSecurityState(prev => ({
-          ...prev,
-          isLoading: false,
-          requiresVerification: true,
-          verificationMethod: evaluation.method,
-          sessionToken: evaluation.token,
-          challenge
-        }));
-        return;
-      }
-
-      setSecurityState(prev => ({
-        ...prev,
-        isLoading: false,
-        requiresVerification: false
-      }));
-    } catch (error) {
-      console.error("Security evaluation failed:", error);
-      setSecurityState(prev => ({
-        ...prev,
-        isLoading: false,
-        requiresVerification: false
-      }));
-    }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, performSecurityCheck, router]);
 
   const submitVerification = useCallback(async (userInput: string | boolean): Promise<void> => {
-    if (!securityState.sessionToken || !securityState.verificationMethod) return;
+    if (!securityState.sessionToken || !securityState.verificationMethod) {
+      console.error("No active verification session");
+      return;
+    }
+
+    if (evaluationInProgressRef.current) {
+      console.log("Verification already in progress, skipping");
+      return;
+    }
 
     setSecurityState(prev => ({ ...prev, isLoading: true }));
 
@@ -193,48 +177,57 @@ export function useSecurity() {
           isLoading: false,
           requiresVerification: false,
           sessionToken: undefined,
-          challenge: undefined
+          challenge: undefined,
+          isBlocked: false
         }));
       } else {
-        console.log("Verification failed, user will be blocked");
+        console.log("Verification failed, redirecting to blocked page");
         setSecurityState(prev => ({
           ...prev,
           isLoading: false,
-          isBlocked: true
+          isBlocked: true,
+          requiresVerification: false
         }));
         router.push("/blocked");
       }
     } catch (error) {
-      console.error("Verification failed:", error);
+      console.error("Verification submission failed:", error);
       setSecurityState(prev => ({
         ...prev,
         isLoading: false,
-        isBlocked: true
+        isBlocked: true,
+        requiresVerification: false
       }));
       router.push("/blocked");
     }
-  }, [securityState, router]);
+  }, [securityState.sessionToken, securityState.verificationMethod, securityState.challenge, router]);
 
   const resetSecurityState = useCallback(() => {
+    console.log("Resetting security state");
+    evaluationInProgressRef.current = false;
     setSecurityState({
       isLoading: false,
       requiresVerification: false,
       isBlocked: false,
-      hasEvaluated: false, // Allow re-evaluation
+      hasEvaluated: false,
     });
   }, []);
 
-  // Force re-evaluation (for manual refresh)
-  const forceSecurityEvaluation = useCallback(async () => {
-    setSecurityState(prev => ({ ...prev, hasEvaluated: false }));
-    await performInitialSecurityCheck();
-  }, [performInitialSecurityCheck]);
+  // Manual security evaluation (for explicit checks)
+  const checkSecurityStatus = useCallback(async (): Promise<void> => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated, cannot check security status");
+      return;
+    }
+
+    await evaluateAccess("security_check");
+  }, [isAuthenticated, evaluateAccess]);
 
   return {
     securityState,
     evaluateAccess,
     submitVerification,
     resetSecurityState,
-    forceSecurityEvaluation,
+    checkSecurityStatus, // New method for manual security checks
   };
 }

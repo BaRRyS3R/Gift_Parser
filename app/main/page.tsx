@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Enhanced security integration with proper state management
+// src/app/main/page.tsx - Fixed main page without automatic security checks
 
 "use client";
 
@@ -13,7 +13,6 @@ import {
   Trophy,
   Clock,
   Shield,
-  AlertTriangle,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -75,6 +74,9 @@ export default function MainPage() {
   // State for managing pending navigation actions
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
+  // Ref to prevent multiple navigation attempts
+  const navigationInProgressRef = useRef<boolean>(false);
+
   const DEFAULT_TG_HEADER = 60;
   const EXTRA_OFFSET = 40;
   const [headerOffset, setHeaderOffset] = useState<number>(
@@ -96,24 +98,25 @@ export default function MainPage() {
     }
   }, [isAuthenticated, userLoading, router]);
 
-  useEffect(() => {
-    if (securityState.isBlocked) {
-      console.log("User is blocked, redirecting to blocked page");
-      router.push("/blocked");
-    }
-  }, [securityState.isBlocked, router]);
+  // REMOVED: Automatic security state monitoring to prevent infinite loops
+  // Security checks will only be performed when user explicitly attempts actions
 
-  // ENHANCED: React to security state changes for pending navigation
+  // React to security state changes for pending navigation
   useEffect(() => {
     if (pendingNavigation &&
       !securityState.requiresVerification &&
       !securityState.isBlocked &&
-      !securityState.isLoading) {
+      !securityState.isLoading &&
+      !navigationInProgressRef.current) {
+
       console.log("Security verification complete, proceeding with navigation:", pendingNavigation);
+      navigationInProgressRef.current = true;
       setIsTransitioning(true);
+
       setTimeout(() => {
         router.push(pendingNavigation);
       }, 600);
+
       setPendingNavigation(null);
     }
   }, [securityState.requiresVerification, securityState.isBlocked, securityState.isLoading, pendingNavigation, router]);
@@ -283,39 +286,38 @@ export default function MainPage() {
     return () => clearInterval(typingInterval);
   }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
 
-  // ENHANCED: Improved game start handler with proper async state management
+  // FIXED: Simplified game start handler without automatic security checks
   const handleStartGame = async () => {
-    if (isTransitioning || pendingNavigation) {
+    if (isTransitioning || pendingNavigation || navigationInProgressRef.current) {
       console.log("Navigation already in progress, ignoring click");
       return;
     }
 
-    try {
-      console.log("Evaluating security for game access...");
-      setPendingNavigation("/game"); // Set pending navigation first
-      await evaluateAccess("game_access");
+    console.log("User clicked start game, evaluating security...");
+    setPendingNavigation("/game");
 
-      // The actual navigation will be handled by the useEffect that watches securityState
-      console.log("Security evaluation completed");
+    try {
+      await evaluateAccess("game_access");
+      console.log("Security evaluation initiated for game access");
     } catch (error) {
       console.error("Security evaluation failed:", error);
-      setPendingNavigation(null); // Clear pending navigation on error
+      setPendingNavigation(null);
     }
   };
 
-  // ENHANCED: Improved tournament access handler
+  // FIXED: Simplified tournament access handler
   const handleOpenTournament = async () => {
-    if (isTransitioning || pendingNavigation) {
+    if (isTransitioning || pendingNavigation || navigationInProgressRef.current) {
       console.log("Navigation already in progress, ignoring click");
       return;
     }
 
-    try {
-      console.log("Evaluating security for tournament access...");
-      setPendingNavigation("/tournament");
-      await evaluateAccess("tournament_access");
+    console.log("User clicked tournament, evaluating security...");
+    setPendingNavigation("/tournament");
 
-      console.log("Security evaluation completed for tournament");
+    try {
+      await evaluateAccess("tournament_access");
+      console.log("Security evaluation initiated for tournament access");
     } catch (error) {
       console.error("Security evaluation failed:", error);
       setPendingNavigation(null);
@@ -356,12 +358,20 @@ export default function MainPage() {
 
   const handleSecurityVerificationFailure = () => {
     console.log("Security verification failed");
-    setPendingNavigation(null); // Clear any pending navigation
+    setPendingNavigation(null);
+    navigationInProgressRef.current = false;
     router.push("/blocked");
   };
 
-  // ENHANCED: Show security warning when verification is required
-  const showSecurityWarning = securityState.requiresVerification && !pendingNavigation;
+  // Reset navigation flag when transitioning completes
+  useEffect(() => {
+    if (isTransitioning) {
+      const timer = setTimeout(() => {
+        navigationInProgressRef.current = false;
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isTransitioning]);
 
   if (!isAuthenticated && !userLoading) {
     return null;
@@ -444,7 +454,7 @@ export default function MainPage() {
               aria-label="Active Tournament"
               className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={
-                isTransitioning || securityState.requiresVerification || tournamentLoading || pendingNavigation === "/tournament"
+                isTransitioning || tournamentLoading || pendingNavigation === "/tournament" || navigationInProgressRef.current
               }
               onClick={handleOpenTournament}
             >
@@ -477,18 +487,6 @@ export default function MainPage() {
         </div>
       </div>
 
-      {/* ENHANCED: Security warning banner */}
-      {showSecurityWarning && (
-        <div className="fixed top-0 left-0 right-0 z-40 bg-yellow-500/20 border-b border-yellow-400/40 backdrop-blur-sm">
-          <div className="flex items-center justify-center space-x-2 py-3 px-4">
-            <Shield className="text-yellow-300" size={16} />
-            <span className="text-yellow-200 text-sm font-medium">
-              Security verification required before proceeding
-            </span>
-          </div>
-        </div>
-      )}
-
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
         <div className="relative">
           <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
@@ -510,7 +508,7 @@ export default function MainPage() {
                   ? "border-yellow-500/60 text-yellow-300 opacity-75"
                   : "border-white/60 hover:border-white"
                 } ${isTransitioning ? "opacity-50" : ""}`}
-              disabled={isTransitioning || pendingNavigation !== null}
+              disabled={isTransitioning || pendingNavigation !== null || navigationInProgressRef.current}
               title={
                 securityState.requiresVerification
                   ? "Security verification required"
@@ -524,7 +522,7 @@ export default function MainPage() {
                     className="text-yellow-300 group-hover:translate-x-1 transition-transform duration-300"
                     size={24}
                   />
-                ) : pendingNavigation === "/game" ? (
+                ) : pendingNavigation === "/game" || securityState.isLoading ? (
                   <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <Play
@@ -535,8 +533,8 @@ export default function MainPage() {
                 <span className="tracking-wider">
                   {isTransitioning
                     ? t("main.loading")
-                    : pendingNavigation === "/game"
-                      ? "VERIFYING..."
+                    : pendingNavigation === "/game" || securityState.isLoading
+                      ? "CHECKING..."
                       : securityState.requiresVerification
                         ? "VERIFICATION NEEDED"
                         : t("main.startGame")}
