@@ -1,4 +1,4 @@
-// src/app/api/auth/register/route.ts - New registration endpoint for completing user registration
+// src/app/api/auth/register/route.ts - Secure registration endpoint without trust_score exposure
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -147,10 +147,10 @@ export async function POST(request: NextRequest) {
       // Continue anyway, league can be initialized later
     }
 
-    // Generate JWT token
+    // Generate JWT token with secure session ID
     const token = await generateToken(newUser.id, telegramUser.id);
 
-    // Return safe user data
+    // SECURITY FIX: Return safe user data without trust_score and without UUID exposure
     const safeUser = {
       telegram_id: newUser.telegram_id,
       first_name: newUser.first_name,
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       current_level: newUser.current_level,
       attempts_remaining: newUser.attempts_remaining,
       total_games: newUser.total_games,
-      trust_score: newUser.trust_score,
+      // trust_score: REMOVED for security - not exposed to client
       blocked_until: newUser.blocked_until,
       total_score: newUser.total_score,
       best_score: newUser.best_score,
