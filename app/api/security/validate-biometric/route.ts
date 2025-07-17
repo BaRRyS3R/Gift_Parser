@@ -1,4 +1,4 @@
-// src/app/api/security/validate-biometric/route.ts - Validate biometric API endpoint
+// src/app/api/security/validate-biometric/route.ts - Updated with new blocking reasons
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body
-    const { success, completedInTime } = await request.json();
+    const { success, completedInTime, biometricSupported = true } = await request.json();
 
     if (success === undefined || completedInTime === undefined) {
       return NextResponse.json(
@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
+        newTrustScore,
       });
     } else {
       // Biometric failed - decrease trust score and block user
@@ -64,10 +65,17 @@ export async function POST(request: NextRequest) {
         console.error("Error updating trust score:", trustError);
       }
 
+      // Determine block reason and duration
+      const blockReason = !biometricSupported
+        ? "biometric_not_supported"
+        : "biometric_failed";
+
+      const blockDuration = !biometricSupported ? 10 : 5; // 10 minutes for unsupported, 5 for failed
+
       const { error: blockError } = await supabaseServer.rpc("block_user", {
         user_telegram_id: parseInt(telegramId),
-        reason: "biometric_failed",
-        duration_minutes: 5,
+        reason: blockReason,
+        duration_minutes: blockDuration,
       });
 
       if (blockError) {
@@ -75,7 +83,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(
-        `Biometric authentication failed for user ${telegramId}: ${!success ? "failed authentication" : "timeout"}`,
+        `Biometric authentication failed for user ${telegramId}: ${!biometricSupported ? "unsupported device" : !success ? "failed authentication" : "timeout"}`,
       );
 
       return NextResponse.json({

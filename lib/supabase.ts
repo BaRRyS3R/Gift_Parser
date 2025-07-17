@@ -35,6 +35,7 @@ const ATTEMPTS_CONFIG = {
 const BLOCK_DURATIONS = {
   CAPTCHA_FAILED: 2, // minutes
   BIOMETRIC_FAILED: 5, // minutes
+  BIOMETRIC_NOT_SUPPORTED: 10, // minutes
   SUSPICIOUS_ACTIVITY: 10, // minutes
 } as const;
 
@@ -137,7 +138,7 @@ export interface UserBlock {
   id: string;
   user_id: string;
   telegram_id: number;
-  block_reason: "captcha_failed" | "biometric_failed" | "suspicious_activity";
+  block_reason: "captcha_failed" | "biometric_failed" | "biometric_not_supported" | "suspicious_activity";
   blocked_at: string;
   unblocked_at?: string;
   block_duration_minutes: number;
@@ -666,7 +667,7 @@ export const userService = {
    */
   async blockUser(
     telegramId: number,
-    reason: "captcha_failed" | "biometric_failed" | "suspicious_activity",
+    reason: "captcha_failed" | "biometric_failed" | "biometric_not_supported" | "suspicious_activity",
   ): Promise<boolean> {
     try {
       let duration: number;
@@ -677,6 +678,9 @@ export const userService = {
           break;
         case "biometric_failed":
           duration = BLOCK_DURATIONS.BIOMETRIC_FAILED;
+          break;
+        case "biometric_not_supported":
+          duration = BLOCK_DURATIONS.BIOMETRIC_NOT_SUPPORTED;
           break;
         case "suspicious_activity":
           duration = BLOCK_DURATIONS.SUSPICIOUS_ACTIVITY;
@@ -960,8 +964,8 @@ export const userService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
-              (totalReactionGames + 1)
+              reactionResult.reactionTime) /
+            (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);

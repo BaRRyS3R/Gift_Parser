@@ -1,4 +1,4 @@
-// src/app/api/security/generate-captcha/route.ts - Generate captcha API endpoint
+// src/app/api/security/generate-captcha/route.ts - Updated with 15-second expiration
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -45,8 +45,8 @@ export async function POST(request: NextRequest) {
         challenge = `${num1} + ${num2} = ?`;
     }
 
-    // Set expiry time (5 minutes from now)
-    const expiresAt = Date.now() + 5 * 60 * 1000;
+    // Set expiry time (15 seconds from now) - updated from 5 minutes
+    const expiresAt = Date.now() + 15 * 1000;
 
     console.log(
       `Generated captcha for user ${telegramId}: ${challenge} = ${correctAnswer}`,

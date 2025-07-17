@@ -1,4 +1,4 @@
-// src/app/blocked/page.tsx - User blocked page
+// src/app/blocked/page.tsx - Updated with new block reason handling
 
 "use client";
 
@@ -54,7 +54,6 @@ export default function BlockedPage() {
   const checkBlockStatus = async () => {
     if (!telegramUser?.id) {
       router.push("/");
-
       return;
     }
 
@@ -78,7 +77,6 @@ export default function BlockedPage() {
       if (!securityResult.isBlocked) {
         await refreshUser();
         router.push("/main");
-
         return;
       }
 
@@ -112,6 +110,8 @@ export default function BlockedPage() {
         return "Failed Captcha Verification";
       case "biometric_failed":
         return "Failed Biometric Authentication";
+      case "biometric_not_supported":
+        return "Biometric Authentication Not Supported";
       case "suspicious_activity":
         return "Suspicious Activity Detected";
       default:
@@ -122,9 +122,11 @@ export default function BlockedPage() {
   const getBlockReasonDescription = (reason?: string): string => {
     switch (reason) {
       case "captcha_failed":
-        return "Your account was temporarily blocked due to multiple failed captcha attempts. This helps protect the system from automated access.";
+        return "Your account was temporarily blocked due to failed captcha verification. This helps protect the system from automated access.";
       case "biometric_failed":
         return "Your account was temporarily blocked due to failed biometric authentication. This is a security measure to protect your account.";
+      case "biometric_not_supported":
+        return "Your account was temporarily blocked because your device does not support biometric authentication, which is required for your current trust level.";
       case "suspicious_activity":
         return "Your account was temporarily blocked due to detected suspicious activity. This helps maintain the security and integrity of the platform.";
       default:
@@ -138,6 +140,8 @@ export default function BlockedPage() {
         return "2 minutes";
       case "biometric_failed":
         return "5 minutes";
+      case "biometric_not_supported":
+        return "10 minutes";
       case "suspicious_activity":
         return "10 minutes";
       default:
@@ -149,7 +153,6 @@ export default function BlockedPage() {
     if (score >= 60) return "text-green-400";
     if (score >= 40) return "text-yellow-400";
     if (score >= 20) return "text-orange-400";
-
     return "text-red-400";
   };
 
@@ -157,7 +160,6 @@ export default function BlockedPage() {
     if (score >= 60) return "Good";
     if (score >= 40) return "Fair";
     if (score >= 20) return "Low";
-
     return "Very Low";
   };
 
@@ -239,15 +241,14 @@ export default function BlockedPage() {
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
                 <div
-                  className={`h-2 rounded-full transition-all duration-500 ${
-                    (blockInfo?.trustScore || 0) >= 60
+                  className={`h-2 rounded-full transition-all duration-500 ${(blockInfo?.trustScore || 0) >= 60
                       ? "bg-green-400"
                       : (blockInfo?.trustScore || 0) >= 40
                         ? "bg-yellow-400"
                         : (blockInfo?.trustScore || 0) >= 20
                           ? "bg-orange-400"
                           : "bg-red-400"
-                  }`}
+                    }`}
                   style={{
                     width: `${Math.max(5, blockInfo?.trustScore || 0)}%`,
                   }}
@@ -315,6 +316,12 @@ export default function BlockedPage() {
               <div className="w-1 h-1 bg-gray-500 rounded-full mt-2 flex-shrink-0" />
               <p>Repeated violations may result in longer blocks</p>
             </div>
+            {blockInfo?.blockReason === "biometric_not_supported" && (
+              <div className="flex items-start space-x-2">
+                <div className="w-1 h-1 bg-gray-500 rounded-full mt-2 flex-shrink-0" />
+                <p>Consider using a device with biometric authentication support</p>
+              </div>
+            )}
           </div>
         </div>
 
