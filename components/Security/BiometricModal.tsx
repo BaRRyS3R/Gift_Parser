@@ -1,4 +1,4 @@
-// src/components/Security/BiometricModal.tsx - Fixed single window logic with automatic permission check
+// src/components/Security/BiometricModal.tsx - Added settings button in permission phase
 
 "use client";
 
@@ -286,8 +286,8 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
               <p className="text-red-300 text-sm">{error}</p>
             </div>
 
-            {/* Settings Button - only show if it's a permission issue and settings are available */}
-            {biometricManager?.openSettings && error.includes("access") && (
+            {/* Settings Button - show if biometric manager supports it */}
+            {biometricManager?.openSettings && (
               <button
                 className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
                 onClick={handleOpenSettings}
@@ -340,16 +340,33 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
               </p>
             </div>
 
-            {/* Manual Request Button - only show if automatic request failed */}
-            {permissionRequested && !biometricManager?.isAccessGranted && (
-              <button
-                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                onClick={requestBiometricPermission}
-              >
-                <Shield size={20} />
-                <span>Request Permission Again</span>
-              </button>
-            )}
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              {/* Settings Button - Always available in permission phase */}
+              {biometricManager?.openSettings && (
+                <button
+                  className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                  onClick={handleOpenSettings}
+                >
+                  <Settings size={16} />
+                  <span>Open Biometric Settings</span>
+                </button>
+              )}
+
+              {/* Manual Request Button - only show if automatic request was made */}
+              {permissionRequested && !biometricManager?.isAccessGranted && (
+                <button
+                  className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                  onClick={() => {
+                    setPermissionRequested(false);
+                    requestBiometricPermission();
+                  }}
+                >
+                  <Shield size={20} />
+                  <span>Request Permission Again</span>
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
