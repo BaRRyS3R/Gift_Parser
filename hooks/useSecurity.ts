@@ -91,16 +91,20 @@ interface SecurityHookReturn {
   securityState: SecurityState;
   showCaptcha: boolean;
   showBiometric: boolean;
+  showGyroscope: boolean; // NEW: Add gyroscope modal state
   captchaData: CaptchaData | null;
   checkSecurity: (force?: boolean) => Promise<SecurityCheckResult>;
   handleCaptchaSuccess: () => void;
   handleCaptchaFailure: () => void;
   handleBiometricSuccess: () => void;
   handleBiometricFailure: () => void;
+  handleGyroscopeSuccess: () => void; // NEW: Add gyroscope handlers
+  handleGyroscopeFailure: () => void; // NEW: Add gyroscope handlers
   dismissSecurityCheck: () => void;
   refreshSecurityStatus: () => Promise<void>;
   startCaptchaVerification: () => Promise<void>;
   startBiometricVerification: () => void;
+  startGyroscopeVerification: () => void; // NEW: Add gyroscope verification
   isSecurityCheckNeeded: () => boolean;
   formatTrustScore: (score: number) => { color: string; label: string };
   isSecurityInitialized: () => boolean;
@@ -134,6 +138,7 @@ export function useSecurity(): SecurityHookReturn {
   const [showBiometric, setShowBiometric] = useState(false);
   const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
   const [securityInitialized, setSecurityInitialized] = useState(false);
+  const [showGyroscope, setShowGyroscope] = useState(false); // NEW: Add gyroscope modal state
 
   // Single verification operation flag
   const verificationOperationRef = useRef(false);
@@ -293,7 +298,7 @@ export function useSecurity(): SecurityHookReturn {
   // Security check needed determination
   const isSecurityCheckNeeded = useCallback((): boolean => {
     return (
-      (securityState.needsCaptcha || securityState.needsBiometric) &&
+      (securityState.needsCaptcha || securityState.needsBiometric || securityState.needsGyroscope) && // NEW: Add gyroscope check
       !securityState.isBlocked &&
       securityState.trustScore > 0
     );
@@ -367,10 +372,55 @@ export function useSecurity(): SecurityHookReturn {
     router.push("/blocked");
   }, [router]);
 
+  // NEW: Add gyroscope verification function
+  const startGyroscopeVerification = useCallback(() => {
+    if (verificationOperationRef.current) {
+      console.log("Gyroscope verification already in progress, skipping");
+      return;
+    }
+
+    verificationOperationRef.current = true;
+    console.log("Starting gyroscope verification...");
+    setShowGyroscope(true);
+  }, []);
+
+  // NEW: Add gyroscope success handler
+  const handleGyroscopeSuccess = useCallback(async () => {
+    console.log("Gyroscope verification successful - updating security state");
+    setShowGyroscope(false);
+    verificationOperationRef.current = false;
+
+    // Clear security cache and force refresh
+    securityManager.clearCache();
+    setSecurityInitialized(true);
+
+    // Emit global event
+    emitSecurityStateChange();
+
+    try {
+      await Promise.all([
+        checkSecurity(true), // Force fresh check
+        refreshUser()
+      ]);
+      console.log("Post-gyroscope refresh completed successfully");
+    } catch (error) {
+      console.error("Error during post-gyroscope refresh:", error);
+    }
+  }, [checkSecurity, refreshUser]);
+
+  // NEW: Add gyroscope failure handler
+  const handleGyroscopeFailure = useCallback(() => {
+    console.log("Gyroscope verification failed - user will be blocked");
+    setShowGyroscope(false);
+    verificationOperationRef.current = false;
+    router.push("/blocked");
+  }, [router]);
+
   // Dismiss security checks
   const dismissSecurityCheck = useCallback(() => {
     setShowCaptcha(false);
     setShowBiometric(false);
+    setShowGyroscope(false); // NEW: Add gyroscope dismissal
     setCaptchaData(null);
     verificationOperationRef.current = false;
   }, []);

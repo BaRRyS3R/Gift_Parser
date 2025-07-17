@@ -173,6 +173,10 @@ export default function BlockedPage() {
         return "Failed Biometric Authentication";
       case "biometric_not_supported":
         return "Device Does Not Support Biometric Authentication";
+      case "gyroscope_failed":
+        return "Failed Gyroscope Verification";
+      case "gyroscope_not_supported":
+        return "Device Does Not Support Gyroscope Verification";
       case "suspicious_activity":
         return "Suspicious Activity Detected";
       default:
@@ -189,6 +193,10 @@ export default function BlockedPage() {
         return "Your account was temporarily blocked due to failed biometric authentication. This is a security measure to protect your account.";
       case "biometric_not_supported":
         return "Your account was blocked because your device does not support biometric authentication, which is required for accounts with very low trust scores. This is a security policy to protect the platform integrity.";
+      case "gyroscope_failed":
+        return "Your account was temporarily blocked due to failed gyroscope verification. This security measure ensures only human users can access the system.";
+      case "gyroscope_not_supported":
+        return "Your account was temporarily blocked because your device does not support gyroscope verification, which is required for accounts with extremely low trust scores.";
       case "suspicious_activity":
         return "Your account was temporarily blocked due to detected suspicious activity. This helps maintain the security and integrity of the platform.";
       default:
@@ -204,7 +212,11 @@ export default function BlockedPage() {
       case "biometric_failed":
         return "5 minutes";
       case "biometric_not_supported":
-        return "1 year"; // UPDATED: Changed from 10 minutes to 1 year
+        return "1 year";
+      case "gyroscope_failed":
+        return "2 hours";
+      case "gyroscope_not_supported":
+        return "2 hours";
       case "suspicious_activity":
         return "10 minutes";
       default:
@@ -255,14 +267,14 @@ export default function BlockedPage() {
       <div className="w-full max-w-md">
         {/* Main Block Information Card */}
         <div className={`bg-gray-900 border rounded-xl p-6 shadow-2xl ${isLongTermBlock(blockInfo?.blockReason)
-            ? "border-red-600/60"
-            : "border-red-500/40"
+          ? "border-red-600/60"
+          : "border-red-500/40"
           }`}>
           {/* Header Section */}
           <div className="text-center mb-6">
             <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${isLongTermBlock(blockInfo?.blockReason)
-                ? "bg-red-600/30"
-                : "bg-red-500/20"
+              ? "bg-red-600/30"
+              : "bg-red-500/20"
               }`}>
               {isLongTermBlock(blockInfo?.blockReason) ? (
                 <XCircle className="text-red-400" size={40} />
@@ -288,8 +300,8 @@ export default function BlockedPage() {
           <div className="space-y-4 mb-6">
             {/* Block Reason */}
             <div className={`border rounded-lg p-4 ${isLongTermBlock(blockInfo?.blockReason)
-                ? "bg-red-600/20 border-red-600/50"
-                : "bg-red-500/10 border-red-500/30"
+              ? "bg-red-600/20 border-red-600/50"
+              : "bg-red-500/10 border-red-500/30"
               }`}>
               <div className="flex items-center space-x-2 mb-2">
                 <AlertTriangle className="text-red-400 flex-shrink-0" size={16} />
@@ -362,12 +374,12 @@ export default function BlockedPage() {
                 <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
                   <div
                     className={`h-2 rounded-full transition-all duration-500 ${blockInfo.trustScore >= 60
-                        ? "bg-green-400"
-                        : blockInfo.trustScore >= 40
-                          ? "bg-yellow-400"
-                          : blockInfo.trustScore >= 20
-                            ? "bg-orange-400"
-                            : "bg-red-400"
+                      ? "bg-green-400"
+                      : blockInfo.trustScore >= 40
+                        ? "bg-yellow-400"
+                        : blockInfo.trustScore >= 20
+                          ? "bg-orange-400"
+                          : "bg-red-400"
                       }`}
                     style={{
                       width: `${Math.max(5, blockInfo.trustScore)}%`,
@@ -455,6 +467,12 @@ export default function BlockedPage() {
                   <div className="w-1 h-1 bg-gray-500 rounded-full mt-2 flex-shrink-0" />
                   <p>Repeated violations may result in longer blocks</p>
                 </div>
+                {(blockInfo?.blockReason === "gyroscope_failed" || blockInfo?.blockReason === "gyroscope_not_supported") && (
+                  <div className="flex items-start space-x-2">
+                    <div className="w-1 h-1 bg-gray-500 rounded-full mt-2 flex-shrink-0" />
+                    <p>Use a device with gyroscope support and move it carefully during verification</p>
+                  </div>
+                )}
               </>
             )}
           </div>

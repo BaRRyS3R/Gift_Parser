@@ -1037,6 +1037,40 @@ class AuthService {
   // SECURITY METHODS
   // ============================================================================
 
+  /**
+ * Validate gyroscope verification
+ */
+  async validateSecureGyroscope(
+    success: boolean,
+    completedInTime: boolean,
+    gyroscopeSupported: boolean = true,
+  ): Promise<{ success: boolean; newTrustScore: number }> {
+    try {
+      const response = await this.makeAuthenticatedRequest<{
+        success: boolean;
+        newTrustScore: number;
+        blockDuration?: number;
+        blockReason?: string;
+        message?: string;
+      }>("/security/validate-gyroscope", {
+        method: "POST",
+        body: JSON.stringify({
+          success,
+          completedInTime,
+          gyroscopeSupported,
+        }),
+      });
+
+      return {
+        success: response.success,
+        newTrustScore: response.newTrustScore,
+      };
+    } catch (error) {
+      console.error("Error validating gyroscope:", error);
+      throw error;
+    }
+  }
+
   async generateCaptcha(): Promise<{
     challenge: string;
     correctAnswer: string;
@@ -1329,6 +1363,14 @@ export async function generateSecureCaptcha(): Promise<{
   expiresAt: number;
 }> {
   return authService.generateCaptcha();
+}
+
+export async function validateSecureGyroscope(
+  success: boolean,
+  completedInTime: boolean,
+  gyroscopeSupported?: boolean,
+): Promise<{ success: boolean; newTrustScore: number }> {
+  return authService.validateSecureGyroscope(success, completedInTime, gyroscopeSupported);
 }
 
 export async function validateSecureCaptcha(

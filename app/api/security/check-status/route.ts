@@ -137,15 +137,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Calculate verification requirements based on trust score
-    const needsCaptcha = !isBlocked && trustScore < 40;
-    const needsBiometric = !isBlocked && trustScore < 20;
+    // Calculate verification requirements based on trust score with gyroscope support
+    const needsGyroscope = !isBlocked && trustScore < 10;  // NEW: Most restrictive verification
+    const needsBiometric = !isBlocked && trustScore < 20 && !needsGyroscope; // Only if not gyroscope
+    const needsCaptcha = !isBlocked && trustScore < 40 && !needsBiometric && !needsGyroscope; // Only if not biometric or gyroscope
 
     // Construct comprehensive security result
     const securityResult = {
       isBlocked,
       needsCaptcha,
       needsBiometric,
+      needsGyroscope,
       trustScore,
       timeUntilUnblock: timeUntilUnblock && timeUntilUnblock > 0 ? timeUntilUnblock : undefined,
       blockReason,
@@ -155,6 +157,7 @@ export async function GET(request: NextRequest) {
       trustScore: securityResult.trustScore,
       needsCaptcha: securityResult.needsCaptcha,
       needsBiometric: securityResult.needsBiometric,
+      needsGyroscope: securityResult.needsGyroscope, // NEW: Add gyroscope logging
       isBlocked: securityResult.isBlocked,
       hasBlockReason: !!securityResult.blockReason
     });
