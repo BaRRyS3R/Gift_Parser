@@ -27,8 +27,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // Disable closing confirmation for better UX
         tg.disableClosingConfirmation();
 
-        // NEW: Enhanced fullscreen settings (Bot API 7.7+)
-        if (tg.lockOrientation) {
+        // В providers.tsx добавьте условие для гироскопной верификации
+        const isGyroscopeVerificationActive = () => {
+          // Проверяет, активна ли в данный момент гироскопная верификация
+          return window.location.pathname === '/nebula' ||
+            document.querySelector('[data-gyroscope-verification="active"]');
+        };
+
+        // Блокировать ориентацию только если не идет гироскопная верификация
+        if (tg.lockOrientation && !isGyroscopeVerificationActive()) {
           try {
             tg.lockOrientation();
             console.log("Orientation locked successfully");

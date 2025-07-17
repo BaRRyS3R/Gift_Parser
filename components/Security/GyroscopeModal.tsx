@@ -1,4 +1,4 @@
-// src/components/Security/GyroscopeModal.tsx - Исправленная версия с правильной обработкой гироскопа
+// src/components/Security/GyroscopeModal.tsx - Исправленная версия с управлением ориентацией
 
 "use client";
 
@@ -12,6 +12,7 @@ import {
     CheckCircle2,
     XCircle,
     Smartphone,
+    RotateCw,
 } from "lucide-react";
 
 import { validateSecureGyroscope } from "@/lib/authService";
@@ -53,11 +54,13 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
     const [motionHistory, setMotionHistory] = useState<MotionData[]>([]);
     const [lastMotionUpdate, setLastMotionUpdate] = useState(0);
     const [initialValues, setInitialValues] = useState<{ alpha: number; beta: number; gamma: number } | null>(null);
+    const [orientationWasLocked, setOrientationWasLocked] = useState(false);
+    const [swipesWereDisabled, setSwipesWereDisabled] = useState(false);
 
     const verificationTimeout = 15000; // 15 seconds
-    const requiredMotionEvents = 30; // Minimum motion events needed
-    const motionUpdateInterval = 200; // Update every 200ms for better performance
-    const motionThreshold = 5; // Minimum change in degrees to count as motion
+    const requiredMotionEvents = 20; // Reduced for better UX
+    const motionUpdateInterval = 200; // Update every 200ms
+    const motionThreshold = 3; // Reduced threshold for better sensitivity
 
     // Initialize gyroscope verification
     useEffect(() => {
@@ -68,6 +71,15 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
 
         initializeGyroscope();
     }, [isOpen]);
+
+    // Cleanup on unmount or close
+    useEffect(() => {
+        return () => {
+            if (orientationWasLocked || swipesWereDisabled) {
+                restoreOrientationSettings();
+            }
+        };
+    }, [orientationWasLocked, swipesWereDisabled]);
 
     const resetState = () => {
         setCurrentPhase("initializing");
@@ -82,6 +94,74 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         setMotionHistory([]);
         setLastMotionUpdate(0);
         setInitialValues(null);
+
+        // Restore orientation settings if modal is closing
+        if (orientationWasLocked || swipesWereDisabled) {
+            restoreOrientationSettings();
+        }
+    };
+
+    const unlockOrientationForVerification = () => {
+        const tg = window.Telegram?.WebApp;
+        if (!tg) return;
+
+        console.log("Unlocking orientation for gyroscope verification...");
+
+        // Check if orientation is currently locked
+        if (tg.isOrientationLocked) {
+            setOrientationWasLocked(true);
+            if (tg.unlockOrientation) {
+                try {
+                    tg.unlockOrientation();
+                    console.log("✅ Orientation unlocked successfully");
+                } catch (error) {
+                    console.warn("Failed to unlock orientation:", error);
+                }
+            }
+        }
+
+        // Check if vertical swipes are disabled
+        if (!tg.isVerticalSwipesEnabled) {
+            setSwipesWereDisabled(true);
+            if (tg.enableVerticalSwipes) {
+                try {
+                    tg.enableVerticalSwipes();
+                    console.log("✅ Vertical swipes enabled successfully");
+                } catch (error) {
+                    console.warn("Failed to enable vertical swipes:", error);
+                }
+            }
+        }
+    };
+
+    const restoreOrientationSettings = () => {
+        const tg = window.Telegram?.WebApp;
+        if (!tg) return;
+
+        console.log("Restoring orientation settings...");
+
+        // Restore orientation lock if it was previously locked
+        if (orientationWasLocked && tg.lockOrientation) {
+            try {
+                tg.lockOrientation();
+                console.log("✅ Orientation locked restored");
+            } catch (error) {
+                console.warn("Failed to restore orientation lock:", error);
+            }
+        }
+
+        // Restore vertical swipes setting if they were previously disabled
+        if (swipesWereDisabled && tg.disableVerticalSwipes) {
+            try {
+                tg.disableVerticalSwipes();
+                console.log("✅ Vertical swipes disabled restored");
+            } catch (error) {
+                console.warn("Failed to restore vertical swipes setting:", error);
+            }
+        }
+
+        setOrientationWasLocked(false);
+        setSwipesWereDisabled(false);
     };
 
     const initializeGyroscope = async () => {
@@ -104,6 +184,14 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
             setIsGyroscopeSupported(false);
             return;
         }
+
+        // Log current orientation settings
+        console.log("Current orientation settings:", {
+            isOrientationLocked: tg.isOrientationLocked,
+            isVerticalSwipesEnabled: tg.isVerticalSwipesEnabled,
+            version: tg.version,
+            platform: tg.platform
+        });
 
         setDeviceOrientation(tg.DeviceOrientation);
         setCurrentPhase("instructions");
@@ -141,6 +229,9 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
             });
         }
 
+        // Restore orientation settings
+        restoreOrientationSettings();
+
         if (!attemptMade) {
             setError("Verification timeout. Please move your device more actively.");
             setAttemptMade(true);
@@ -157,6 +248,10 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         }
 
         console.log("Starting gyroscope verification");
+
+        // CRITICAL: Unlock orientation before starting verification
+        unlockOrientationForVerification();
+
         setIsVerifying(true);
         setAttemptMade(true);
         setCurrentPhase("verification");
@@ -167,35 +262,39 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         setError(null);
         setInitialValues(null);
 
-        // Start listening to device orientation with proper error handling
-        deviceOrientation.start(
-            { refresh_rate: motionUpdateInterval, need_absolute: false },
-            () => {
-                console.log("DeviceOrientation started successfully");
+        // Wait a bit for orientation unlock to take effect
+        setTimeout(() => {
+            // Start listening to device orientation with proper error handling
+            deviceOrientation.start(
+                { refresh_rate: motionUpdateInterval, need_absolute: false },
+                () => {
+                    console.log("DeviceOrientation started successfully");
 
-                // Wait a bit for initial values to stabilize
-                setTimeout(() => {
-                    if (deviceOrientation.isStarted) {
-                        // Store initial values for comparison
-                        const initial = {
-                            alpha: deviceOrientation.alpha || 0,
-                            beta: deviceOrientation.beta || 0,
-                            gamma: deviceOrientation.gamma || 0,
-                        };
-                        setInitialValues(initial);
-                        console.log("Initial orientation values:", initial);
-                        startMotionTracking();
-                    } else {
-                        console.error("DeviceOrientation failed to start");
-                        setError("Failed to start gyroscope sensor");
-                        setCurrentPhase("error");
-                        setTimeout(() => {
-                            handleGyroscopeFailure();
-                        }, 2000);
-                    }
-                }, 500);
-            }
-        );
+                    // Wait for initial values to stabilize
+                    setTimeout(() => {
+                        if (deviceOrientation.isStarted) {
+                            // Store initial values for comparison
+                            const initial = {
+                                alpha: deviceOrientation.alpha || 0,
+                                beta: deviceOrientation.beta || 0,
+                                gamma: deviceOrientation.gamma || 0,
+                            };
+                            setInitialValues(initial);
+                            console.log("Initial orientation values:", initial);
+                            startMotionTracking();
+                        } else {
+                            console.error("DeviceOrientation failed to start");
+                            setError("Failed to start gyroscope sensor. Please try again.");
+                            setCurrentPhase("error");
+                            restoreOrientationSettings();
+                            setTimeout(() => {
+                                handleGyroscopeFailure();
+                            }, 2000);
+                        }
+                    }, 800); // Increased delay for better stability
+                }
+            );
+        }, 300); // Wait for orientation unlock
     }, [deviceOrientation, isVerifying, attemptMade, isGyroscopeSupported, verificationTimeout]);
 
     const startMotionTracking = useCallback(() => {
@@ -222,7 +321,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                 const betaChange = Math.abs(currentValues.beta - initialValues.beta);
                 const gammaChange = Math.abs(currentValues.gamma - initialValues.gamma);
 
-                // Only record significant motion
+                // Record any significant motion
                 if (alphaChange > motionThreshold || betaChange > motionThreshold || gammaChange > motionThreshold) {
                     const motionData: MotionData = {
                         alpha: currentValues.alpha,
@@ -234,8 +333,8 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                     setMotionHistory(prev => {
                         const newHistory = [...prev, motionData];
 
-                        // Keep only recent motion data (last 5 seconds)
-                        const recentHistory = newHistory.filter(data => now - data.timestamp < 5000);
+                        // Keep only recent motion data (last 8 seconds for longer history)
+                        const recentHistory = newHistory.filter(data => now - data.timestamp < 8000);
 
                         // Calculate progress based on motion diversity
                         const progress = calculateMotionProgress(recentHistory);
@@ -245,6 +344,11 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                             alpha: currentValues.alpha.toFixed(2),
                             beta: currentValues.beta.toFixed(2),
                             gamma: currentValues.gamma.toFixed(2),
+                            changes: {
+                                alphaChange: alphaChange.toFixed(2),
+                                betaChange: betaChange.toFixed(2),
+                                gammaChange: gammaChange.toFixed(2)
+                            },
                             progress: progress.toFixed(1),
                             historyLength: recentHistory.length
                         });
@@ -259,6 +363,20 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                     });
 
                     setLastMotionUpdate(now);
+                } else {
+                    // Log current values even without significant motion for debugging
+                    if (process.env.NODE_ENV === "development") {
+                        console.log("Current values (no motion):", {
+                            alpha: currentValues.alpha.toFixed(2),
+                            beta: currentValues.beta.toFixed(2),
+                            gamma: currentValues.gamma.toFixed(2),
+                            changes: {
+                                alphaChange: alphaChange.toFixed(2),
+                                betaChange: betaChange.toFixed(2),
+                                gammaChange: gammaChange.toFixed(2)
+                            }
+                        });
+                    }
                 }
             }
         };
@@ -271,10 +389,10 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                 clearInterval(trackingInterval);
             }
         }, verificationTimeout);
-    }, [deviceOrientation, isVerifying, verificationTimeout, initialValues]);
+    }, [deviceOrientation, isVerifying, verificationTimeout, initialValues, motionThreshold]);
 
     const calculateMotionProgress = (history: MotionData[]): number => {
-        if (history.length < 5) return 0;
+        if (history.length < 3) return 0;
 
         // Calculate motion diversity across different axes
         const alphaValues = history.map(d => d.alpha);
@@ -285,10 +403,10 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         const betaRange = Math.max(...betaValues) - Math.min(...betaValues);
         const gammaRange = Math.max(...gammaValues) - Math.min(...gammaValues);
 
-        // Normalize ranges to 0-100 scale (typical device rotation is 0-360 degrees)
-        const alphaScore = Math.min((alphaRange / 30) * 100, 100); // 30 degrees = 100%
-        const betaScore = Math.min((betaRange / 30) * 100, 100);
-        const gammaScore = Math.min((gammaRange / 30) * 100, 100);
+        // More generous scoring for better UX
+        const alphaScore = Math.min((alphaRange / 20) * 100, 100); // 20 degrees = 100%
+        const betaScore = Math.min((betaRange / 20) * 100, 100);
+        const gammaScore = Math.min((gammaRange / 20) * 100, 100);
 
         // Calculate overall motion score
         const motionScore = (alphaScore + betaScore + gammaScore) / 3;
@@ -298,10 +416,10 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
 
         // Time progression bonus (encourage sustained motion)
         const timeSpan = history.length > 0 ? history[history.length - 1].timestamp - history[0].timestamp : 0;
-        const timeScore = Math.min((timeSpan / 3000) * 100, 100); // 3 seconds = 100%
+        const timeScore = Math.min((timeSpan / 2000) * 100, 100); // 2 seconds = 100%
 
         // Combine scores with weights
-        const totalScore = (motionScore * 0.5) + (eventScore * 0.3) + (timeScore * 0.2);
+        const totalScore = (motionScore * 0.4) + (eventScore * 0.4) + (timeScore * 0.2);
 
         return Math.min(totalScore, 100);
     };
@@ -317,6 +435,9 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                 console.log("DeviceOrientation stopped after successful verification");
             });
         }
+
+        // Restore orientation settings
+        restoreOrientationSettings();
 
         try {
             const result = await validateSecureGyroscope(true, true, isGyroscopeSupported);
@@ -343,6 +464,9 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                 console.log("DeviceOrientation stopped after failure");
             });
         }
+
+        // Restore orientation settings
+        restoreOrientationSettings();
 
         try {
             await validateSecureGyroscope(false, false, isGyroscopeSupported);
@@ -436,6 +560,20 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                             </p>
                         </div>
 
+                        {/* Orientation unlock notice */}
+                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                            <div className="flex items-start space-x-2">
+                                <RotateCw className="text-blue-400 flex-shrink-0 mt-0.5" size={16} />
+                                <div>
+                                    <h4 className="text-blue-300 font-semibold mb-1 text-sm">Orientation Settings</h4>
+                                    <p className="text-blue-200 text-xs">
+                                        Screen orientation will be temporarily unlocked during verification to ensure proper sensor functionality.
+                                        Settings will be restored after completion.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
                             <h4 className="text-purple-300 font-semibold mb-2 text-sm">Instructions:</h4>
                             <div className="text-purple-200 text-sm space-y-1">
@@ -523,6 +661,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                 <p className="text-blue-400">Beta: {deviceOrientation.beta?.toFixed(2) || "0"}</p>
                                 <p className="text-blue-400">Gamma: {deviceOrientation.gamma?.toFixed(2) || "0"}</p>
                                 <p className="text-yellow-400">Motion Events: {motionHistory.length}</p>
+                                <p className="text-purple-400">Orientation Unlocked: {orientationWasLocked ? "Yes" : "No"}</p>
                             </div>
                         )}
                     </div>
