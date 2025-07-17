@@ -3,7 +3,6 @@
 "use client";
 
 import React, { useRef, useEffect, useCallback } from "react";
-
 import { PhysicsGameState } from "@/types/game-modes/physics";
 import { PhysicsCircle } from "@/types/game-modes/common";
 
@@ -24,220 +23,168 @@ export default function PhysicsGameCanvas({
     const animationFrameRef = useRef<number>();
 
     // Touch handling refs for preventing multiple touches
-    const activeTouchesRef = useRef<
-        Map<
-            number,
-            {
-                startTime: number;
-                startPosition: { x: number; y: number };
-                currentPosition: { x: number; y: number };
-                circleId?: number;
-                processed: boolean;
-            }
-        >
-    >(new Map());
+    const activeTouchesRef = useRef<Map<number, {
+        startTime: number;
+        startPosition: { x: number; y: number };
+        currentPosition: { x: number; y: number };
+        circleId?: number;
+        processed: boolean;
+    }>>(new Map());
 
     // Function to get click position relative to canvas
-    const getClickPosition = useCallback(
-        (event: React.MouseEvent<HTMLCanvasElement>) => {
-            const canvas = canvasRef.current;
+    const getClickPosition = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return null;
 
-            if (!canvas) return null;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
 
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-
-            return {
-                x: (event.clientX - rect.left) * scaleX,
-                y: (event.clientY - rect.top) * scaleY,
-            };
-        },
-        [],
-    );
+        return {
+            x: (event.clientX - rect.left) * scaleX,
+            y: (event.clientY - rect.top) * scaleY,
+        };
+    }, []);
 
     // Function to check if click hit a circle
-    const getClickedCircle = useCallback(
-        (
-            clickX: number,
-            clickY: number,
-            circles: PhysicsCircle[],
-        ): PhysicsCircle | null => {
-            for (const circle of circles) {
-                const distance = Math.sqrt(
-                    Math.pow(clickX - circle.x, 2) + Math.pow(clickY - circle.y, 2),
-                );
-
-                if (distance <= circle.radius) {
-                    return circle;
-                }
+    const getClickedCircle = useCallback((
+        clickX: number,
+        clickY: number,
+        circles: PhysicsCircle[]
+    ): PhysicsCircle | null => {
+        for (const circle of circles) {
+            const distance = Math.sqrt(
+                Math.pow(clickX - circle.x, 2) + Math.pow(clickY - circle.y, 2)
+            );
+            if (distance <= circle.radius) {
+                return circle;
             }
-
-            return null;
-        },
-        [],
-    );
+        }
+        return null;
+    }, []);
 
     // Canvas click handler
-    const handleCanvasClick = useCallback(
-        (event: React.MouseEvent<HTMLCanvasElement>) => {
-            if (!isGameActive) return;
+    const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+        if (!isGameActive) return;
 
-            const clickPos = getClickPosition(event);
+        const clickPos = getClickPosition(event);
+        if (!clickPos) return;
 
-            if (!clickPos) return;
-
-            const clickedCircle = getClickedCircle(
-                clickPos.x,
-                clickPos.y,
-                gameState.circles,
-            );
-
-            if (clickedCircle) {
-                onCircleClick(clickedCircle.id, event);
-            }
-        },
-        [
-            isGameActive,
-            getClickPosition,
-            getClickedCircle,
-            gameState.circles,
-            onCircleClick,
-        ],
-    );
+        const clickedCircle = getClickedCircle(clickPos.x, clickPos.y, gameState.circles);
+        if (clickedCircle) {
+            onCircleClick(clickedCircle.id, event);
+        }
+    }, [isGameActive, getClickPosition, getClickedCircle, gameState.circles, onCircleClick]);
 
     // Enhanced touch handler with debouncing
-    const handleTouchStart = useCallback(
-        (event: React.TouchEvent<HTMLCanvasElement>) => {
-            event.preventDefault();
-            if (!isGameActive) return;
+    const handleTouchStart = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
+        event.preventDefault();
+        if (!isGameActive) return;
 
-            const canvas = canvasRef.current;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
 
-            if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const currentTime = Date.now();
 
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const currentTime = Date.now();
+        // Process each new touch
+        for (let i = 0; i < event.changedTouches.length; i++) {
+            const touch = event.changedTouches[i];
+            const touchId = touch.identifier;
 
-            // Process each new touch
-            for (let i = 0; i < event.changedTouches.length; i++) {
-                const touch = event.changedTouches[i];
-                const touchId = touch.identifier;
+            // Skip if touch is already being tracked
+            if (activeTouchesRef.current.has(touchId)) continue;
 
-                // Skip if touch is already being tracked
-                if (activeTouchesRef.current.has(touchId)) continue;
+            const touchPosition = {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY,
+            };
 
-                const touchPosition = {
+            const clickedCircle = getClickedCircle(touchPosition.x, touchPosition.y, gameState.circles);
+
+            if (clickedCircle) {
+                // Register new touch
+                activeTouchesRef.current.set(touchId, {
+                    startTime: currentTime,
+                    startPosition: touchPosition,
+                    currentPosition: touchPosition,
+                    circleId: clickedCircle.id,
+                    processed: false,
+                });
+
+                // Immediately process the touch
+                const syntheticEvent = {
+                    preventDefault: () => { },
+                    stopPropagation: () => { },
+                } as React.MouseEvent;
+
+                onCircleClick(clickedCircle.id, syntheticEvent);
+
+                // Mark as processed
+                const touchData = activeTouchesRef.current.get(touchId);
+                if (touchData) {
+                    touchData.processed = true;
+                }
+            }
+        }
+    }, [isGameActive, getClickedCircle, gameState.circles, onCircleClick]);
+
+    const handleTouchMove = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
+        event.preventDefault();
+        if (!isGameActive) return;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        // Update positions for tracked touches
+        for (let i = 0; i < event.changedTouches.length; i++) {
+            const touch = event.changedTouches[i];
+            const touchId = touch.identifier;
+            const touchData = activeTouchesRef.current.get(touchId);
+
+            if (touchData) {
+                touchData.currentPosition = {
                     x: (touch.clientX - rect.left) * scaleX,
                     y: (touch.clientY - rect.top) * scaleY,
                 };
-
-                const clickedCircle = getClickedCircle(
-                    touchPosition.x,
-                    touchPosition.y,
-                    gameState.circles,
-                );
-
-                if (clickedCircle) {
-                    // Register new touch
-                    activeTouchesRef.current.set(touchId, {
-                        startTime: currentTime,
-                        startPosition: touchPosition,
-                        currentPosition: touchPosition,
-                        circleId: clickedCircle.id,
-                        processed: false,
-                    });
-
-                    // Immediately process the touch
-                    const syntheticEvent = {
-                        preventDefault: () => { },
-                        stopPropagation: () => { },
-                    } as React.MouseEvent;
-
-                    onCircleClick(clickedCircle.id, syntheticEvent);
-
-                    // Mark as processed
-                    const touchData = activeTouchesRef.current.get(touchId);
-
-                    if (touchData) {
-                        touchData.processed = true;
-                    }
-                }
             }
-        },
-        [isGameActive, getClickedCircle, gameState.circles, onCircleClick],
-    );
+        }
+    }, [isGameActive]);
 
-    const handleTouchMove = useCallback(
-        (event: React.TouchEvent<HTMLCanvasElement>) => {
-            event.preventDefault();
-            if (!isGameActive) return;
+    const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
+        event.preventDefault();
 
-            const canvas = canvasRef.current;
+        // Clean up ended touches
+        for (let i = 0; i < event.changedTouches.length; i++) {
+            const touch = event.changedTouches[i];
+            const touchId = touch.identifier;
+            activeTouchesRef.current.delete(touchId);
+        }
+    }, []);
 
-            if (!canvas) return;
+    const handleTouchCancel = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
+        event.preventDefault();
 
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-
-            // Update positions for tracked touches
-            for (let i = 0; i < event.changedTouches.length; i++) {
-                const touch = event.changedTouches[i];
-                const touchId = touch.identifier;
-                const touchData = activeTouchesRef.current.get(touchId);
-
-                if (touchData) {
-                    touchData.currentPosition = {
-                        x: (touch.clientX - rect.left) * scaleX,
-                        y: (touch.clientY - rect.top) * scaleY,
-                    };
-                }
-            }
-        },
-        [isGameActive],
-    );
-
-    const handleTouchEnd = useCallback(
-        (event: React.TouchEvent<HTMLCanvasElement>) => {
-            event.preventDefault();
-
-            // Clean up ended touches
-            for (let i = 0; i < event.changedTouches.length; i++) {
-                const touch = event.changedTouches[i];
-                const touchId = touch.identifier;
-
-                activeTouchesRef.current.delete(touchId);
-            }
-        },
-        [],
-    );
-
-    const handleTouchCancel = useCallback(
-        (event: React.TouchEvent<HTMLCanvasElement>) => {
-            event.preventDefault();
-
-            // Clean up cancelled touches
-            for (let i = 0; i < event.changedTouches.length; i++) {
-                const touch = event.changedTouches[i];
-                const touchId = touch.identifier;
-
-                activeTouchesRef.current.delete(touchId);
-            }
-        },
-        [],
-    );
+        // Clean up cancelled touches
+        for (let i = 0; i < event.changedTouches.length; i++) {
+            const touch = event.changedTouches[i];
+            const touchId = touch.identifier;
+            activeTouchesRef.current.delete(touchId);
+        }
+    }, []);
 
     // Main drawing function - no boundary drawing, just circles
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
-
         if (!canvas) return;
 
         const ctx = canvas.getContext("2d");
-
         if (!ctx) return;
 
         // Clear canvas with transparent background
@@ -260,13 +207,9 @@ export default function PhysicsGameCanvas({
 
                     // Pulsing effect for red circles
                     const pulse = Math.sin(Date.now() * 0.01) * 0.1 + 1;
-
                     ctx.globalAlpha = 0.9;
                     ctx.scale(pulse, pulse);
-                    ctx.translate(
-                        (circle.x * (1 - pulse)) / pulse,
-                        (circle.y * (1 - pulse)) / pulse,
-                    );
+                    ctx.translate((circle.x * (1 - pulse)) / pulse, (circle.y * (1 - pulse)) / pulse);
                 } else {
                     // White active circle
                     ctx.fillStyle = "#ffffff";
@@ -293,23 +236,14 @@ export default function PhysicsGameCanvas({
             ctx.stroke();
 
             // Add velocity indicator for moving circles
-            if (
-                circle.vx &&
-                circle.vy &&
-                (Math.abs(circle.vx) > 0.1 || Math.abs(circle.vy) > 0.1)
-            ) {
-                const velocity = Math.sqrt(
-                    circle.vx * circle.vx + circle.vy * circle.vy,
-                );
-
+            if (circle.vx && circle.vy && (Math.abs(circle.vx) > 0.1 || Math.abs(circle.vy) > 0.1)) {
+                const velocity = Math.sqrt(circle.vx * circle.vx + circle.vy * circle.vy);
                 if (velocity > 0.5) {
                     const trailLength = Math.min(velocity * 3, 30);
                     const angle = Math.atan2(circle.vy, circle.vx);
 
                     ctx.strokeStyle = circle.isActive
-                        ? circle.isDecoy
-                            ? "#ef444460"
-                            : "#ffffff60"
+                        ? (circle.isDecoy ? "#ef444460" : "#ffffff60")
                         : "#ffffff30";
                     ctx.lineWidth = 2;
                     ctx.lineCap = "round";
@@ -317,7 +251,7 @@ export default function PhysicsGameCanvas({
                     ctx.beginPath();
                     ctx.moveTo(
                         circle.x - Math.cos(angle) * trailLength,
-                        circle.y - Math.sin(angle) * trailLength,
+                        circle.y - Math.sin(angle) * trailLength
                     );
                     ctx.lineTo(circle.x, circle.y);
                     ctx.stroke();
@@ -370,7 +304,6 @@ export default function PhysicsGameCanvas({
     // Update canvas dimensions when configuration changes
     useEffect(() => {
         const canvas = canvasRef.current;
-
         if (!canvas) return;
 
         canvas.width = gameState.config.containerWidth;
@@ -390,22 +323,22 @@ export default function PhysicsGameCanvas({
         >
             <canvas
                 ref={canvasRef}
+                width={gameState.config.containerWidth}
+                height={gameState.config.containerHeight}
                 className={`
                     w-full h-full cursor-crosshair transition-all duration-300 bg-transparent
                     ${isGameActive ? "opacity-100" : "opacity-50"}
                     ${showCanvas ? "scale-100" : "scale-95"}
                 `}
-                height={gameState.config.containerHeight}
+                onClick={handleCanvasClick}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchCancel}
                 style={{
                     touchAction: "none",
                     display: "block",
                 }}
-                width={gameState.config.containerWidth}
-                onClick={handleCanvasClick}
-                onTouchCancel={handleTouchCancel}
-                onTouchEnd={handleTouchEnd}
-                onTouchMove={handleTouchMove}
-                onTouchStart={handleTouchStart}
             />
         </div>
     );

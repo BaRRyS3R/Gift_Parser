@@ -1,12 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone", // важно для Cloudflare
   transpilePackages: ["@nextui-org/react"],
   images: {
     remotePatterns: [],
-  },
-  experimental: {
-    serverActions: {}, // Cloudflare не поддерживает пока
   },
   webpack: (config) => {
     config.resolve.alias = {
