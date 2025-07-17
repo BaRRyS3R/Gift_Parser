@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameLogic.ts - Updated with info panel boundary positioning
+// src/game-modes/physics/PhysicsGameLogic.ts - Оптимизированная версия для мобильных устройств
 
 import * as Matter from "matter-js";
 import {
@@ -35,35 +35,70 @@ export const getPhysicsLevelConfig = (gameTime: number): PhysicsLevelConfig => {
     return PHYSICS_LEVELS[levelIndex];
 };
 
+// Детекция мобильных устройств
+const isMobileDevice = (): boolean => {
+    return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+// Детекция слабых устройств
+const isLowPerformanceDevice = (): boolean => {
+    if (typeof navigator === 'undefined') return false;
+
+    // Проверка на основе UserAgent
+    const isOldAndroid = /Android [1-6]\./.test(navigator.userAgent);
+    const isOldIOS = /OS [1-9]_/.test(navigator.userAgent);
+
+    // Проверка производительности через navigator
+    const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+    const isSlowConnection = connection && (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g');
+
+    return isOldAndroid || isOldIOS || isSlowConnection;
+};
+
 export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 350;
     const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 500;
 
-    // Calculate container dimensions to end at info panel top
-    const infoBarHeight = 140; // Height of bottom info panel
+    const isMobile = isMobileDevice();
+    const isLowPerf = isLowPerformanceDevice();
+
+    // Адаптивные настройки для разных устройств
+    const infoBarHeight = 140;
     const containerWidth = screenWidth;
-    const containerHeight = screenHeight - infoBarHeight; // Stop at info panel top
+    const containerHeight = screenHeight - infoBarHeight;
+
+    // Уменьшаем количество кругов на слабых устройствах
+    let circleCount = 40;
+    if (isLowPerf) {
+        circleCount = 25;
+    } else if (isMobile) {
+        circleCount = 30;
+    }
+
+    // Адаптивный радиус кругов
+    const baseRadius = Math.max(26, Math.min(36, containerWidth / 18));
+    const circleRadius = isLowPerf ? Math.max(baseRadius - 4, 22) : baseRadius;
 
     return {
         id: "physics",
         name: "PHYSICS MODE",
-        circleCount: 40,
-        circleRadius: Math.max(26, Math.min(36, containerWidth / 18)),
+        circleCount,
+        circleRadius,
         containerWidth,
         containerHeight,
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
         impulseForce: 0.08,
-        maxMistakes: 5, // Maximum 5 mistakes
-        levelDuration: 360, // 3 minutes
+        maxMistakes: 5,
+        levelDuration: 360,
     };
 };
 
 export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
-    containerWidth: 350, // Will be overridden by adaptive config
-    containerHeight: 500, // Will be overridden by adaptive config
-    wallThickness: 20, // Increased thickness for screen boundaries
+    containerWidth: 350,
+    containerHeight: 500,
+    wallThickness: 20,
     gravity: { x: 0, y: 0.3 },
     restitution: 0.8,
     friction: 0.005,
@@ -78,9 +113,35 @@ export const IMPULSE_CONFIG: ImpulseConfig = {
 
 export const createPhysicsEngine = (): Matter.Engine => {
     const engine = Matter.Engine.create();
+    const isMobile = isMobileDevice();
+    const isLowPerf = isLowPerformanceDevice();
+
     engine.world.gravity.x = PHYSICS_ENGINE_CONFIG.gravity.x;
     engine.world.gravity.y = PHYSICS_ENGINE_CONFIG.gravity.y;
-    engine.timing.timeScale = 1;
+
+    // Оптимизация для разных устройств
+    if (isLowPerf) {
+        // Максимальная оптимизация для слабых устройств
+        engine.constraintIterations = 1;
+        engine.positionIterations = 2;
+        engine.velocityIterations = 1;
+        engine.timing.timeScale = 0.7;
+    } else if (isMobile) {
+        // Умеренная оптимизация для мобильных
+        engine.constraintIterations = 2;
+        engine.positionIterations = 3;
+        engine.velocityIterations = 2;
+        engine.timing.timeScale = 0.85;
+    } else {
+        // Полная производительность для ПК
+        engine.constraintIterations = 2;
+        engine.positionIterations = 4;
+        engine.velocityIterations = 2;
+        engine.timing.timeScale = 1;
+    }
+
+    // Matter.js создает движок без рендерера по умолчанию
+    // Мы используем собственный Canvas для отрисовки
 
     return engine;
 };
@@ -95,6 +156,10 @@ export const createPhysicsCircles = (
     const circles: PhysicsCircle[] = [];
     const margin = radius + 15;
     const maxAttempts = 100;
+    const isMobile = isMobileDevice();
+
+    // Уменьшаем плотность на мобильных для лучшей производительности
+    const density = isMobile ? 0.001 : 0.002;
 
     for (let i = 0; i < count; i++) {
         let x: number, y: number;
@@ -125,7 +190,7 @@ export const createPhysicsCircles = (
             restitution: PHYSICS_ENGINE_CONFIG.restitution,
             friction: PHYSICS_ENGINE_CONFIG.friction,
             frictionAir: PHYSICS_ENGINE_CONFIG.frictionAir,
-            density: 0.002,
+            density,
             label: `circle_${i}`,
         });
 
@@ -150,7 +215,6 @@ export const createPhysicsCircles = (
     return circles;
 };
 
-// Create invisible boundary walls at screen edges and info panel top
 export const createBoundaryWalls = (
     containerWidth: number,
     containerHeight: number,
@@ -166,7 +230,7 @@ export const createBoundaryWalls = (
             {
                 isStatic: true,
                 label: "wall_top",
-                render: { visible: false } // Invisible wall
+                render: { visible: false }
             }
         ),
         bottom: Matter.Bodies.rectangle(
@@ -177,7 +241,7 @@ export const createBoundaryWalls = (
             {
                 isStatic: true,
                 label: "wall_bottom",
-                render: { visible: false } // Wall at info panel top
+                render: { visible: false }
             }
         ),
         left: Matter.Bodies.rectangle(
@@ -308,7 +372,6 @@ export const activateRandomCircles = (
     const availableSlots = levelConfig.maxSimultaneousCircles - state.activeCircleIds.length;
     if (availableSlots <= 0) return state;
 
-    // Filter circles within visible area only
     const visibleCircles = state.circles.filter(circle =>
         !circle.isActive &&
         !circle.isAnimating &&
@@ -329,7 +392,6 @@ export const activateRandomCircles = (
         selectedCircles.push(selectedCircle);
     }
 
-    // 25% chance for decoy circles
     const decoyCount = Math.min(1, Math.floor(selectedCircles.length * 0.25));
     const decoyIds = selectedCircles.slice(0, decoyCount).map(c => c.id);
     const selectedIds = selectedCircles.map(c => c.id);
@@ -377,9 +439,9 @@ export const applyImpulse = (
     const clickedBody = state.engine.world.bodies.find(b => b.id === clickedCircle.matterBodyId);
     if (!clickedBody) return state;
 
-    console.log(`Applying impulse from circle ${clickedCircleId} at position:`, clickedBody.position);
-
     let affectedCircles = 0;
+    const isMobile = isMobileDevice();
+    const adjustedForce = isMobile ? IMPULSE_CONFIG.force * 0.8 : IMPULSE_CONFIG.force;
 
     state.circles.forEach((circle) => {
         if (circle.id === clickedCircleId) return;
@@ -396,7 +458,7 @@ export const applyImpulse = (
             const normalizedY = dy / distance;
 
             const distanceRatio = Math.max(0.1, 1 - (distance / IMPULSE_CONFIG.radius));
-            const forceMagnitude = IMPULSE_CONFIG.force * Math.pow(distanceRatio, 0.5) * 2;
+            const forceMagnitude = adjustedForce * Math.pow(distanceRatio, 0.5) * 2;
 
             Matter.Body.applyForce(body, body.position, {
                 x: normalizedX * forceMagnitude,
@@ -406,8 +468,6 @@ export const applyImpulse = (
             affectedCircles++;
         }
     });
-
-    console.log(`Impulse affected ${affectedCircles} circles`);
 
     return updatePhysicsPositions(state);
 };
@@ -427,7 +487,6 @@ export const handlePhysicsCircleClick = (
 
     if (clickedCircle.isActive && !clickedCircle.isAnimating) {
         if (clickedCircle.isDecoy) {
-            // Hit decoy circle - count as mistake and mark for immediate deactivation
             const newCircles = updatedState.circles.map((c) =>
                 c.id === clickedCircleId ? { ...c, isAnimating: true } : c,
             );
@@ -445,7 +504,6 @@ export const handlePhysicsCircleClick = (
                 result: "decoy",
             };
         } else {
-            // Hit correct circle - apply impulse, add score, and mark for immediate deactivation
             const stateWithImpulse = applyImpulse(updatedState, clickedCircleId);
 
             const newStats = {
@@ -469,7 +527,6 @@ export const handlePhysicsCircleClick = (
             };
         }
     } else {
-        // Hit inactive circle - count as mistake and mark for immediate deactivation if it was active
         const newCircles = updatedState.circles.map((c) =>
             c.id === clickedCircleId && c.isActive ? { ...c, isAnimating: true } : c,
         );
@@ -517,16 +574,14 @@ export const deactivatePhysicsCircle = (
     };
 };
 
-// Check if game should end based on escaped circles
 export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
     const containerWidth = state.config.containerWidth;
     const containerHeight = state.config.containerHeight;
-    const margin = 50; // Margin for escaped detection
+    const margin = 50;
 
     let escapedCount = 0;
 
     state.circles.forEach((circle) => {
-        // Check if circle is outside game boundaries
         if (
             circle.x < -margin ||
             circle.x > containerWidth + margin ||
@@ -537,7 +592,6 @@ export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
         }
     });
 
-    // Game ends when 80% of circles have escaped
     return escapedCount >= Math.floor(state.circles.length * 0.8);
 };
 

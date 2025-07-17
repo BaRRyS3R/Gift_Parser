@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
+// src/game-modes/physics/PhysicsGameManager.tsx - Оптимизированная версия с объединенной игровой петлей
 
 "use client";
 
@@ -59,6 +59,11 @@ const initialSaveStatus: SaveStatus = {
     showRetryDetails: false,
 };
 
+// Детекция мобильных устройств для адаптивной оптимизации
+const isMobileDevice = (): boolean => {
+    return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
 export default function PhysicsGameManager() {
     const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
     const router = useRouter();
@@ -75,29 +80,58 @@ export default function PhysicsGameManager() {
     const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
     const [isRestartLoading, setIsRestartLoading] = useState(false);
 
+    // Refs для производительности
     const gameStateRef = useRef<PhysicsGameState>(gameState);
-    const engineUpdateRef = useRef<number>();
+    const gameLoopRef = useRef<number>();
+    const lastUpdateTimeRef = useRef<number>(0);
+    const isCleaningUpRef = useRef<boolean>(false);
 
     useEffect(() => {
         gameStateRef.current = gameState;
     }, [gameState]);
 
-    // Setup Telegram WebApp back button
+    // Функция очистки ресурсов
+    const performCleanup = useCallback(() => {
+        if (isCleaningUpRef.current) return;
+        isCleaningUpRef.current = true;
+
+        try {
+            cleanupPhysicsGame(gameStateRef.current);
+            if (gameLoopRef.current) {
+                cancelAnimationFrame(gameLoopRef.current);
+                gameLoopRef.current = undefined;
+            }
+            lastUpdateTimeRef.current = 0;
+        } catch (error) {
+            console.error("Error during cleanup:", error);
+        } finally {
+            isCleaningUpRef.current = false;
+        }
+    }, []);
+
+    // Улучшенная настройка Telegram WebApp back button
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
 
-            tg.BackButton.show();
-            tg.BackButton.onClick(() => {
+            const handleBackButton = () => {
+                console.log("Telegram back button pressed, cleaning up physics game");
+                performCleanup();
                 router.push("/game");
-            });
+            };
+
+            // Очищаем все предыдущие обработчики
+            tg.BackButton.offClick(() => { });
+
+            tg.BackButton.show();
+            tg.BackButton.onClick(handleBackButton);
 
             return () => {
                 tg.BackButton.hide();
-                tg.BackButton.offClick(() => { });
+                tg.BackButton.offClick(handleBackButton);
             };
         }
-    }, [router]);
+    }, [router, performCleanup]);
 
     // Consume attempt immediately when component mounts
     useEffect(() => {
@@ -118,7 +152,6 @@ export default function PhysicsGameManager() {
             } catch (error) {
                 console.error("Error consuming initial attempt:", error);
                 setHasConsumedInitialAttempt(true);
-                // При ошибке возвращаемся к выбору игр
                 router.push("/game");
             } finally {
                 setIsConsumingAttempt(false);
@@ -194,55 +227,77 @@ export default function PhysicsGameManager() {
         [saveGameResult, t],
     );
 
-    // Physics engine update loop with level progression
-    const updatePhysicsEngine = useCallback(() => {
+    // Объединенная игровая петля для лучшей производительности
+    const gameLoop = useCallback(() => {
         const currentState = gameStateRef.current;
 
         if (!currentState.isActive || currentState.gameState !== GameState.PLAYING) {
-            if (engineUpdateRef.current) {
-                cancelAnimationFrame(engineUpdateRef.current);
-                engineUpdateRef.current = undefined;
+            if (gameLoopRef.current) {
+                cancelAnimationFrame(gameLoopRef.current);
+                gameLoopRef.current = undefined;
             }
             return;
         }
 
-        // Update Matter.js engine
-        Matter.Engine.update(currentState.engine, 16.67);
+        const currentTime = performance.now();
+        const deltaTime = currentTime - (lastUpdateTimeRef.current || currentTime);
+        lastUpdateTimeRef.current = currentTime;
 
-        // Update game state with physics and level progression
-        setGameState((prev) => {
-            const updatedState = updatePhysicsPositions(prev);
-            const levelUpdatedState = updatePhysicsLevel(updatedState);
+        // Ограничиваем deltaTime для стабильности на медленных устройствах
+        const clampedDelta = Math.min(deltaTime, 33.33); // Максимум 30 FPS
 
-            // Check win/loss conditions - mistakes first priority
-            const tooManyMistakes = levelUpdatedState.stats.currentMistakes >= levelUpdatedState.config.maxMistakes;
-            const escapedCircles = checkCirclesEscaped(levelUpdatedState);
-            const timeUp = levelUpdatedState.stats.gameTime >= levelUpdatedState.config.levelDuration * 1000;
+        try {
+            // Обновляем физический движок с адаптивным deltaTime
+            Matter.Engine.update(currentState.engine, clampedDelta);
 
-            if (tooManyMistakes || escapedCircles || timeUp) {
-                const deathCause = tooManyMistakes
-                    ? "mistakes"
-                    : escapedCircles
-                        ? "escaped_circles"
-                        : "timeout";
+            // Обновляем состояние игры
+            setGameState((prev) => {
+                const updatedState = updatePhysicsPositions(prev);
+                const levelUpdatedState = updatePhysicsLevel(updatedState);
 
-                endGame(deathCause);
-                return {
-                    ...levelUpdatedState,
-                    gameState: GameState.FINISHED,
-                    isActive: false,
-                };
-            }
+                // Проверяем условия окончания игры
+                const tooManyMistakes = levelUpdatedState.stats.currentMistakes >= levelUpdatedState.config.maxMistakes;
+                const escapedCircles = checkCirclesEscaped(levelUpdatedState);
+                const timeUp = levelUpdatedState.stats.gameTime >= levelUpdatedState.config.levelDuration * 1000;
 
-            return levelUpdatedState;
-        });
+                if (tooManyMistakes || escapedCircles || timeUp) {
+                    const deathCause = tooManyMistakes
+                        ? "mistakes"
+                        : escapedCircles
+                            ? "escaped_circles"
+                            : "timeout";
 
-        engineUpdateRef.current = requestAnimationFrame(updatePhysicsEngine);
+                    // Запускаем завершение игры асинхронно
+                    setTimeout(() => endGame(deathCause), 0);
+
+                    return {
+                        ...levelUpdatedState,
+                        gameState: GameState.FINISHED,
+                        isActive: false,
+                    };
+                }
+
+                return levelUpdatedState;
+            });
+
+            // Продолжаем игровую петлю
+            gameLoopRef.current = requestAnimationFrame(gameLoop);
+        } catch (error) {
+            console.error("Error in game loop:", error);
+            // В случае ошибки завершаем игру
+            endGame("timeout");
+        }
     }, []);
 
     const endGame = useCallback(
         (cause: "mistakes" | "escaped_circles" | "timeout") => {
             console.log("Physics game ended:", cause);
+
+            // Останавливаем игровую петлю
+            if (gameLoopRef.current) {
+                cancelAnimationFrame(gameLoopRef.current);
+                gameLoopRef.current = undefined;
+            }
 
             setGameState((prev) => {
                 const finalState = updatePhysicsPositions(prev);
@@ -250,7 +305,11 @@ export default function PhysicsGameManager() {
                 const result = createPhysicsGameResult(finalState, cause);
                 setGameResult(result);
                 handleSaveGameResult(result);
-                cleanupPhysicsGame(finalState);
+
+                // Очищаем ресурсы после небольшой задержки
+                setTimeout(() => {
+                    cleanupPhysicsGame(finalState);
+                }, 100);
 
                 return {
                     ...finalState,
@@ -286,7 +345,6 @@ export default function PhysicsGameManager() {
                             console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
 
                             if (!wasDecoy) {
-                                // Missed white circle - count as mistake
                                 setGameState((current) => {
                                     const updatedStats = {
                                         ...current.stats,
@@ -302,7 +360,6 @@ export default function PhysicsGameManager() {
                                     return deactivatePhysicsCircle(newState, circleId);
                                 });
                             } else {
-                                // Decoy timed out - just deactivate without penalty
                                 setGameState((current) =>
                                     deactivatePhysicsCircle(current, circleId),
                                 );
@@ -340,10 +397,7 @@ export default function PhysicsGameManager() {
             if (result === "correct") {
                 triggerHapticFeedback("success");
 
-                // Apply impulse effect immediately after correct click
                 const stateWithImpulse = applyImpulse(gameStateRef.current, circleId);
-
-                // Combine updated stats with impulse effects and immediately deactivate
                 const finalState = deactivatePhysicsCircle({
                     ...newState,
                     circles: stateWithImpulse.circles,
@@ -353,8 +407,6 @@ export default function PhysicsGameManager() {
 
             } else if (result === "decoy" || result === "wrong") {
                 triggerHapticFeedback("error");
-
-                // Update state with mistake count and immediately deactivate
                 const finalState = deactivatePhysicsCircle(newState, circleId);
                 setGameState(finalState);
             }
@@ -364,6 +416,9 @@ export default function PhysicsGameManager() {
 
     const startGame = useCallback(() => {
         console.log("Starting Physics Game...");
+
+        // Очищаем предыдущие ресурсы
+        performCleanup();
 
         setGameState(initializePhysicsGameState());
         setGameResult(null);
@@ -376,34 +431,27 @@ export default function PhysicsGameManager() {
         setTimeout(() => {
             setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-            // Start physics engine update loop immediately
+            // Запускаем объединенную игровую петлю
             setTimeout(() => {
-                updatePhysicsEngine();
+                lastUpdateTimeRef.current = performance.now();
+                gameLoop();
             }, 100);
 
-            // Schedule first circle activation
+            // Планируем первую активацию кругов
             setTimeout(() => {
                 scheduleNextActivation();
             }, 1000);
         }, 800);
-    }, [scheduleNextActivation, updatePhysicsEngine]);
+    }, [scheduleNextActivation, gameLoop, performCleanup]);
 
-    // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
     const restartGame = useCallback(async () => {
         if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
         setIsRestartLoading(true);
 
         try {
-            // Cleanup current game before restarting
-            cleanupPhysicsGame(gameStateRef.current);
-            if (engineUpdateRef.current) {
-                cancelAnimationFrame(engineUpdateRef.current);
-                engineUpdateRef.current = undefined;
-            }
+            performCleanup();
 
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
-            // Всегда потребляем попытку на сервере для обеспечения корректности данных
             console.log("Consuming attempt on server for restart (security-critical operation)");
 
             const newStatus = await consumeAttemptForGame();
@@ -416,22 +464,43 @@ export default function PhysicsGameManager() {
 
         } catch (error) {
             console.error("Error consuming attempt for restart:", error);
-            // При ошибке возвращаемся к выбору игр
             router.push("/game");
         } finally {
             setIsRestartLoading(false);
         }
-    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
+    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router, performCleanup]);
 
-    // Cleanup on component unmount
+    // Очистка при размонтировании компонента
     useEffect(() => {
         return () => {
-            cleanupPhysicsGame(gameStateRef.current);
-            if (engineUpdateRef.current) {
-                cancelAnimationFrame(engineUpdateRef.current);
+            performCleanup();
+        };
+    }, [performCleanup]);
+
+    // Обработка изменения видимости страницы для оптимизации производительности
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                // Приостанавливаем игровую петлю когда страница не видна
+                if (gameLoopRef.current) {
+                    cancelAnimationFrame(gameLoopRef.current);
+                    gameLoopRef.current = undefined;
+                }
+            } else {
+                // Возобновляем игровую петлю когда страница снова видна
+                if (gameStateRef.current.isActive && gameStateRef.current.gameState === GameState.PLAYING) {
+                    lastUpdateTimeRef.current = performance.now();
+                    gameLoop();
+                }
             }
         };
-    }, []);
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [gameLoop]);
 
     const getDeathCauseIcon = (deathCause: string) => {
         switch (deathCause) {
