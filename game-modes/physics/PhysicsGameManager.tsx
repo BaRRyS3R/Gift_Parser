@@ -26,6 +26,7 @@ import {
   deactivatePhysicsCircle,
   createPhysicsGameResult,
   cleanupPhysicsGame,
+  checkCirclesEscaped,
   formatPhysicsTime,
   applyImpulse,
   getPhysicsLevelConfig,
@@ -230,12 +231,17 @@ export default function PhysicsGameManager() {
       const tooManyMistakes =
         levelUpdatedState.stats.currentMistakes >=
         levelUpdatedState.config.maxMistakes;
+      const escapedCircles = checkCirclesEscaped(levelUpdatedState);
       const timeUp =
         levelUpdatedState.stats.gameTime >=
         levelUpdatedState.config.levelDuration * 1000;
 
-      if (tooManyMistakes || timeUp) {
-        const deathCause = tooManyMistakes ? "mistakes" : "timeout";
+      if (tooManyMistakes || escapedCircles || timeUp) {
+        const deathCause = tooManyMistakes
+          ? "mistakes"
+          : escapedCircles
+            ? "escaped_circles"
+            : "timeout";
 
         endGame(deathCause);
 

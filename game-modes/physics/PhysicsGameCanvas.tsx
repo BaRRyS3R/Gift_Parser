@@ -250,27 +250,40 @@ export default function PhysicsGameCanvas({
 
       ctx.save();
 
-      // Simplified circle rendering without effects
+      // Determine circle color and style
       if (circle.isActive) {
         if (circle.isDecoy) {
-          // Solid red circles for decoys
+          // Red trap circle
           ctx.fillStyle = "#ef4444";
-          ctx.strokeStyle = "#ef4444";
-          ctx.lineWidth = 2;
-          ctx.globalAlpha = 1;
+          ctx.strokeStyle = "#dc2626";
+          ctx.lineWidth = 3;
+
+          // Pulsing effect for red circles
+          const pulse = Math.sin(Date.now() * 0.01) * 0.1 + 1;
+
+          ctx.globalAlpha = 0.9;
+          ctx.scale(pulse, pulse);
+          ctx.translate(
+            (circle.x * (1 - pulse)) / pulse,
+            (circle.y * (1 - pulse)) / pulse,
+          );
         } else {
-          // White active circles with white fill
+          // White active circle
           ctx.fillStyle = "#ffffff";
-          ctx.strokeStyle = "#ffffff";
-          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#e5e5e5";
+          ctx.lineWidth = 3;
           ctx.globalAlpha = 1;
+
+          // Subtle glow effect
+          ctx.shadowColor = "#ffffff";
+          ctx.shadowBlur = 10;
         }
       } else {
-        // Inactive circles with transparent fill and white border
-        ctx.fillStyle = "transparent";
-        ctx.strokeStyle = "#ffffff";
+        // Inactive circle
+        ctx.fillStyle = "#ffffff20";
+        ctx.strokeStyle = "#ffffff40";
         ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.8;
+        ctx.globalAlpha = 0.7;
       }
 
       // Draw circle
@@ -278,6 +291,38 @@ export default function PhysicsGameCanvas({
       ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+
+      // Add velocity indicator for moving circles
+      if (
+        circle.vx &&
+        circle.vy &&
+        (Math.abs(circle.vx) > 0.1 || Math.abs(circle.vy) > 0.1)
+      ) {
+        const velocity = Math.sqrt(
+          circle.vx * circle.vx + circle.vy * circle.vy,
+        );
+
+        if (velocity > 0.5) {
+          const trailLength = Math.min(velocity * 3, 30);
+          const angle = Math.atan2(circle.vy, circle.vx);
+
+          ctx.strokeStyle = circle.isActive
+            ? circle.isDecoy
+              ? "#ef444460"
+              : "#ffffff60"
+            : "#ffffff30";
+          ctx.lineWidth = 2;
+          ctx.lineCap = "round";
+
+          ctx.beginPath();
+          ctx.moveTo(
+            circle.x - Math.cos(angle) * trailLength,
+            circle.y - Math.sin(angle) * trailLength,
+          );
+          ctx.lineTo(circle.x, circle.y);
+          ctx.stroke();
+        }
+      }
 
       ctx.restore();
     });
