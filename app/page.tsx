@@ -95,7 +95,7 @@ export default function IntroPage(): JSX.Element {
           if (securityResult.isBlocked) {
             console.log("User is blocked, redirecting to blocked page");
             router.push("/blocked");
-          } else if (securityResult.needsCaptcha || securityResult.needsBiometric) {
+          } else if (securityResult.needsCaptcha || securityResult.needsBiometric || securityResult.needsGyroscope) {
             console.log("User needs security verification, redirecting to Nebula");
             router.push("/nebula");
           } else {
@@ -338,7 +338,7 @@ export default function IntroPage(): JSX.Element {
         if (securityResult.isBlocked) {
           console.log("User is blocked, redirecting to blocked page");
           router.push("/blocked");
-        } else if (securityResult.needsCaptcha || securityResult.needsBiometric) {
+        } else if (securityResult.needsCaptcha || securityResult.needsBiometric || securityResult.needsGyroscope) {
           console.log("User needs security verification, redirecting to Nebula");
           router.push("/nebula");
         } else {
