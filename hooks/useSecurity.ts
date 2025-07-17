@@ -1,4 +1,4 @@
-// src/hooks/useSecurity.ts - Fixed state synchronization and removed auto-trigger on Nebula page
+// src/hooks/useSecurity.ts - Fixed race conditions and authentication state synchronization
 
 "use client";
 
@@ -69,7 +69,7 @@ export function useSecurity(): SecurityHookReturn {
   const { isAuthenticated, refreshUser, signOut } = useUser();
 
   const [securityState, setSecurityState] = useState<SecurityState>({
-    isLoading: true,
+    isLoading: false, // FIXED: Start as not loading to prevent immediate check
     isBlocked: false,
     needsCaptcha: false,
     needsBiometric: false,
@@ -83,22 +83,26 @@ export function useSecurity(): SecurityHookReturn {
   // Track security initialization with better logic
   const [securityInitialized, setSecurityInitialized] = useState(false);
 
+  // FIXED: Better race condition prevention
   const isCheckingRef = useRef(false);
   const lastSecurityCheckRef = useRef<number>(0);
+  const checkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if we're on the Nebula page
   const isOnNebulaPage = pathname === '/nebula';
+
+  // FIXED: Debounced initialization to prevent multiple calls
+  const initializationRef = useRef(false);
 
   // Enhanced security initialization logic
   useEffect(() => {
     if (!isAuthenticated) {
       setSecurityInitialized(false);
+      setSecurityState(prev => ({ ...prev, isLoading: false }));
       return;
     }
 
-    // Initialize security as ready if:
-    // 1. Not loading AND not blocked AND no verification needed
-    // 2. OR verification was already completed (high trust score)
+    // Initialize security as ready if conditions are met
     if (!securityState.isLoading) {
       const isVerificationNeeded = securityState.needsCaptcha || securityState.needsBiometric;
       const hasGoodTrustScore = securityState.trustScore >= 40;
@@ -118,20 +122,29 @@ export function useSecurity(): SecurityHookReturn {
     securityState.trustScore
   ]);
 
-  // Strict security check - API only, no fallback to direct Supabase
+  // FIXED: Improved security check with better race condition handling
   const checkSecurity = useCallback(async (): Promise<SecurityCheckResult> => {
-    if (!isAuthenticated || isCheckingRef.current) {
-      throw new Error(
-        "Cannot check security: user not authenticated or check in progress",
-      );
+    // CRITICAL: Check authentication state first
+    if (!isAuthenticated) {
+      console.log("Cannot check security: user not authenticated");
+      throw new Error("User not authenticated");
     }
 
-    // Use cache if recent
+    // CRITICAL: Prevent concurrent checks
+    if (isCheckingRef.current) {
+      console.log("Security check already in progress, skipping");
+      throw new Error("Security check already in progress");
+    }
+
     const now = Date.now();
 
-    if (now - lastSecurityCheckRef.current < SECURITY_CHECK_CACHE_DURATION) {
+    // Use cache if recent and valid
+    if (
+      now - lastSecurityCheckRef.current < SECURITY_CHECK_CACHE_DURATION &&
+      securityState.lastChecked &&
+      !securityState.isLoading
+    ) {
       console.log("Using cached security status");
-
       return {
         isBlocked: securityState.isBlocked,
         needsCaptcha: securityState.needsCaptcha,
@@ -142,13 +155,13 @@ export function useSecurity(): SecurityHookReturn {
       };
     }
 
+    // Set checking flag and loading state
     isCheckingRef.current = true;
     setSecurityState((prev) => ({ ...prev, isLoading: true }));
 
     try {
       console.log("Checking security status via API...");
 
-      // STRICT: Only use API calls for authenticated users
       const result = await authService.checkUserSecurityStatus();
 
       // Update state with results
@@ -172,16 +185,13 @@ export function useSecurity(): SecurityHookReturn {
       }
 
       console.log("Security status checked successfully via API");
-
       return result;
     } catch (error) {
       console.error("Error checking security status via API:", error);
 
-      // CRITICAL: Do not fallback to direct Supabase calls
       setSecurityState((prev) => ({
         ...prev,
         isLoading: false,
-        // On error, maintain previous state but stop loading
       }));
 
       if (
@@ -198,14 +208,41 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, [isAuthenticated, router, securityState, signOut]);
 
-  // Auto check security on mount and authentication changes
+  // FIXED: Controlled initialization with debounce
   useEffect(() => {
-    if (isAuthenticated && !isCheckingRef.current) {
-      checkSecurity().catch((error) => {
-        console.error("Initial security check failed:", error);
-      });
-    } else if (!isAuthenticated) {
-      // Reset security state for non-authenticated users
+    if (!isAuthenticated || initializationRef.current) {
+      return;
+    }
+
+    // Clear any existing timeout
+    if (checkTimeoutRef.current) {
+      clearTimeout(checkTimeoutRef.current);
+    }
+
+    // FIXED: Only perform initial security check if not on Nebula page or if user state is unclear
+    if (!isOnNebulaPage) {
+      initializationRef.current = true;
+
+      checkTimeoutRef.current = setTimeout(() => {
+        if (isAuthenticated && !isCheckingRef.current) {
+          checkSecurity().catch((error) => {
+            console.error("Initial security check failed:", error);
+            // Don't reset initialization flag on error to prevent infinite retries
+          });
+        }
+      }, 500); // Debounce initial check
+    }
+
+    return () => {
+      if (checkTimeoutRef.current) {
+        clearTimeout(checkTimeoutRef.current);
+      }
+    };
+  }, [isAuthenticated, isOnNebulaPage, checkSecurity]);
+
+  // Reset state for non-authenticated users
+  useEffect(() => {
+    if (!isAuthenticated) {
       setSecurityState({
         isLoading: false,
         isBlocked: false,
@@ -214,8 +251,10 @@ export function useSecurity(): SecurityHookReturn {
         trustScore: 50,
       });
       setSecurityInitialized(false);
+      initializationRef.current = false;
+      isCheckingRef.current = false;
     }
-  }, [isAuthenticated, checkSecurity]);
+  }, [isAuthenticated]);
 
   // Manual trigger for captcha verification (for Nebula page)
   const startCaptchaVerification = useCallback(async () => {
@@ -234,6 +273,7 @@ export function useSecurity(): SecurityHookReturn {
         console.log("Token expired during captcha generation, signing out user");
         signOut();
       }
+      throw error;
     }
   }, [signOut]);
 
@@ -377,43 +417,14 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, []);
 
-  // UPDATED: Do NOT auto-trigger security checks on Nebula page
-  // The Nebula page handles verification manually with buttons
-  useEffect(() => {
-    if (
-      isAuthenticated &&
-      isSecurityCheckNeeded() &&
-      !showCaptcha &&
-      !showBiometric &&
-      securityInitialized === false &&
-      !isOnNebulaPage // NEW: Don't auto-trigger on Nebula page
-    ) {
-      // Small delay to ensure UI is ready
-      const timer = setTimeout(() => {
-        // Only trigger if still not on Nebula page
-        if (!pathname.includes('/nebula')) {
-          console.log("Auto-triggering security check (not on Nebula page)");
-          // Handle security check triggering logic here if needed for other pages
-          // For now, we'll just log it since main page no longer has security logic
-        }
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [
-    isAuthenticated,
-    isSecurityCheckNeeded,
-    showCaptcha,
-    showBiometric,
-    securityInitialized,
-    isOnNebulaPage,
-    pathname,
-  ]);
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       isCheckingRef.current = false;
+      initializationRef.current = false;
+      if (checkTimeoutRef.current) {
+        clearTimeout(checkTimeoutRef.current);
+      }
     };
   }, []);
 
