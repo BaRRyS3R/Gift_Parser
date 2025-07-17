@@ -60,6 +60,8 @@ export default function BottomNav() {
   };
 
   const handleNavigation = (path: string) => {
+    console.log('Navigation attempt:', { path, isBlocked, isSecurityCheckNeeded: isSecurityCheckNeeded(), isSecurityInitialized: isSecurityInitialized() });
+
     // Block navigation if security verification is needed
     if (isBlocked) {
       console.log("Navigation blocked due to pending security verification");

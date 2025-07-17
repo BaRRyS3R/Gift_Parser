@@ -391,7 +391,8 @@ export function useSecurity(): SecurityHookReturn {
       isAuthenticated &&
       isSecurityCheckNeeded() &&
       !showCaptcha &&
-      !showBiometric
+      !showBiometric &&
+      securityInitialized === false
     ) {
       // Small delay to ensure UI is ready
       const timer = setTimeout(() => {
@@ -406,6 +407,7 @@ export function useSecurity(): SecurityHookReturn {
     showCaptcha,
     showBiometric,
     triggerSecurityCheck,
+    securityInitialized,
   ]);
 
   // Cleanup on unmount
@@ -443,11 +445,6 @@ export function useSecurity(): SecurityHookReturn {
       if (securityState.trustScore >= 40) {
         setSecurityInitialized(true);
       }
-
-      // Refresh from API in background
-      checkSecurity().catch(error => {
-        console.error('Error refreshing security after global event:', error);
-      });
     };
 
     if (typeof window !== 'undefined') {
@@ -457,7 +454,7 @@ export function useSecurity(): SecurityHookReturn {
         window.removeEventListener(SECURITY_EVENT, handleSecurityStateChange);
       };
     }
-  }, [isAuthenticated, checkSecurity, securityState.trustScore]);
+  }, [isAuthenticated, securityState.trustScore]);
 
   return {
     // State
