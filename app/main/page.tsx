@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated to use isSecurityInitialized() from useSecurity hook
+// src/app/main/page.tsx - Updated main page without interface blocking, with fallback security check
 
 "use client";
 
@@ -12,7 +12,6 @@ import {
   Info,
   Trophy,
   Clock,
-  Shield,
   AlertTriangle,
 } from "lucide-react";
 
@@ -27,8 +26,6 @@ import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
 import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
 import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal";
-import CaptchaModal from "@/components/Security/CaptchaModal";
-import BiometricModal from "@/components/Security/BiometricModal";
 
 export default function MainPage() {
   const router = useRouter();
@@ -42,15 +39,7 @@ export default function MainPage() {
 
   const {
     securityState,
-    showCaptcha,
-    showBiometric,
-    captchaData,
-    handleCaptchaSuccess,
-    handleCaptchaFailure,
-    handleBiometricSuccess,
-    handleBiometricFailure,
-    isSecurityCheckNeeded,
-    isSecurityInitialized, // UPDATED: Use from useSecurity hook
+    checkSecurity,
     formatTrustScore,
   } = useSecurity();
 
@@ -90,12 +79,10 @@ export default function MainPage() {
   const [tournamentLoading, setTournamentLoading] = useState(false);
 
   /* -------------------------------------------------
-   * Security state
+   * Security state - REMOVED BLOCKING LOGIC
    * -------------------------------------------------*/
   const [securityWarningVisible, setSecurityWarningVisible] = useState(false);
-
-  // UPDATED: Use isSecurityInitialized from useSecurity hook
-  const isSecurityBlocked = isSecurityCheckNeeded() || !isSecurityInitialized();
+  const [fallbackSecurityCheckDone, setFallbackSecurityCheckDone] = useState(false);
 
   /* -------------------------------------------------
    * Dynamic offset for Telegram system UI
@@ -130,15 +117,57 @@ export default function MainPage() {
     }
   }, [securityState.isBlocked, router]);
 
-  // Show security warning for low trust scores
+  // FALLBACK SECURITY CHECK - only redirects, doesn't block interface
+  useEffect(() => {
+    if (!isAuthenticated || fallbackSecurityCheckDone) return;
+
+    const performFallbackSecurityCheck = async () => {
+      try {
+        console.log("Main page: Performing fallback security check...");
+        const result = await checkSecurity();
+
+        // Only redirect if critical security issues are found
+        if (result.isBlocked) {
+          console.log("Main page: User is blocked, redirecting to blocked page");
+          router.push("/blocked");
+          return;
+        }
+
+        // Redirect to Nebula if user has low trust score (critical threshold)
+        if (result.trustScore < 20 && (result.needsCaptcha || result.needsBiometric)) {
+          console.log("Main page: Critical security verification needed, redirecting to Nebula");
+          router.push("/nebula");
+          return;
+        }
+
+        // Show warning for moderate security issues but don't block interface
+        if (result.trustScore < 40) {
+          setSecurityWarningVisible(true);
+        }
+
+        setFallbackSecurityCheckDone(true);
+        console.log("Main page: Fallback security check completed");
+      } catch (error) {
+        console.error("Main page: Error during fallback security check:", error);
+        setFallbackSecurityCheckDone(true);
+      }
+    };
+
+    // Delay security check to ensure smooth page load
+    const timer = setTimeout(performFallbackSecurityCheck, 2000);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, fallbackSecurityCheckDone, checkSecurity, router]);
+
+  // Show security warning for moderate issues (non-blocking)
   useEffect(() => {
     if (
       securityState.trustScore < 40 &&
+      securityState.trustScore >= 20 &&
       !securityState.isBlocked &&
       !securityState.isLoading
     ) {
       setSecurityWarningVisible(true);
-    } else {
+    } else if (securityState.trustScore >= 40) {
       setSecurityWarningVisible(false);
     }
   }, [
@@ -187,7 +216,7 @@ export default function MainPage() {
   }, [telegramUser, setTelegramUser]);
 
   /* -------------------------------------------------
-   * Tournament data loading (unchanged)
+   * Tournament data loading
    * -------------------------------------------------*/
   useEffect(() => {
     const loadTournamentStatus = async () => {
@@ -261,7 +290,7 @@ export default function MainPage() {
   }, [isAuthenticated]);
 
   /* -------------------------------------------------
-   * Background video logic (unchanged)
+   * Background video logic
    * -------------------------------------------------*/
   const videoRef = useRef<HTMLVideoElement>(null);
   const username = user?.first_name || "unknown";
@@ -290,7 +319,7 @@ export default function MainPage() {
   }, [settings.showBackgroundVideo]);
 
   /* -------------------------------------------------
-   * Mount / animation logic (unchanged)
+   * Mount / animation logic
    * -------------------------------------------------*/
   useEffect(() => {
     const pageLoadTimer = setTimeout(() => {
@@ -326,14 +355,9 @@ export default function MainPage() {
   }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
 
   /* -------------------------------------------------
-   * Handlers with security checks
+   * Handlers - NO SECURITY BLOCKING
    * -------------------------------------------------*/
   const handleStartGame = () => {
-    if (isSecurityBlocked) {
-      console.log("Game access blocked due to security requirements");
-      return;
-    }
-
     setIsTransitioning(true);
     setTimeout(() => {
       router.push("/game");
@@ -341,11 +365,6 @@ export default function MainPage() {
   };
 
   const handleOpenTournament = () => {
-    if (isSecurityBlocked) {
-      console.log("Tournament access blocked due to security requirements");
-      return;
-    }
-
     setIsTransitioning(true);
     setTimeout(() => {
       router.push("/tournament");
@@ -369,11 +388,6 @@ export default function MainPage() {
   };
 
   const handleOpenLeagueProgress = () => {
-    if (isSecurityBlocked) {
-      console.log("League progress blocked due to security requirements");
-      return;
-    }
-
     console.log("League progress click detected");
     console.log("Current user:", user);
     console.log("User loading:", userLoading);
@@ -428,7 +442,7 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* Security Warning Banner */}
+      {/* Security Warning Banner - NON-BLOCKING */}
       {securityWarningVisible && (
         <div
           className="fixed top-0 left-0 right-0 z-40 p-4"
@@ -441,13 +455,13 @@ export default function MainPage() {
             </div>
             <p className="text-yellow-200/80 text-xs mt-1">
               Your trust score is low ({securityState.trustScore}/100).
-              Additional security checks may be required.
+              Consider improving your security practices.
             </p>
           </div>
         </div>
       )}
 
-      {/* Top Navigation Icons */}
+      {/* Top Navigation Icons - ALWAYS FUNCTIONAL */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -462,8 +476,7 @@ export default function MainPage() {
           <div className="flex items-center gap-3">
             <button
               aria-label={t("common.settings")}
-              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning}
+              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95"
               onClick={handleOpenSettings}
             >
               <div className="flex items-center justify-center">
@@ -477,8 +490,7 @@ export default function MainPage() {
 
             <button
               aria-label="About"
-              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning}
+              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95"
               onClick={handleOpenAbout}
             >
               <div className="flex items-center justify-center">
@@ -491,14 +503,11 @@ export default function MainPage() {
             </button>
           </div>
 
-          {/* Tournament Button */}
+          {/* Tournament Button - ALWAYS FUNCTIONAL */}
           {showTournamentButton && activeTournament && (
             <button
               aria-label="Active Tournament"
-              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={
-                isTransitioning || isSecurityBlocked || tournamentLoading
-              }
+              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95"
               onClick={handleOpenTournament}
             >
               <div className="flex items-center space-x-2">
@@ -540,7 +549,7 @@ export default function MainPage() {
           </h1>
         </div>
 
-        {/* Action Button */}
+        {/* Action Button - ALWAYS FUNCTIONAL */}
         <div
           className={`${isFirstVisit
             ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
@@ -551,36 +560,16 @@ export default function MainPage() {
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
 
             <button
-              className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${isSecurityBlocked
-                ? "border-yellow-500/60 text-yellow-300 opacity-75"
-                : "border-white/60 hover:border-white"
-                } ${isTransitioning ? "opacity-50" : ""}`}
-              disabled={isTransitioning || isSecurityBlocked}
-              title={
-                isSecurityBlocked
-                  ? "Security verification required"
-                  : undefined
-              }
+              className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 group-hover:bg-white/5"
               onClick={handleStartGame}
             >
               <div className="flex items-center justify-center space-x-4">
-                {isSecurityBlocked ? (
-                  <Shield
-                    className="text-yellow-300 group-hover:translate-x-1 transition-transform duration-300"
-                    size={24}
-                  />
-                ) : (
-                  <Play
-                    className="text-white group-hover:translate-x-1 transition-transform duration-300"
-                    size={24}
-                  />
-                )}
+                <Play
+                  className="text-white group-hover:translate-x-1 transition-transform duration-300"
+                  size={24}
+                />
                 <span className="tracking-wider">
-                  {isTransitioning
-                    ? t("main.loading")
-                    : isSecurityBlocked
-                      ? "LOCKED"
-                      : t("main.startGame")}
+                  {isTransitioning ? t("main.loading") : t("main.startGame")}
                 </span>
               </div>
             </button>
@@ -620,19 +609,6 @@ export default function MainPage() {
         </div>
       </div>
 
-      {/* Security Modals - HIGHEST Z-INDEX */}
-      <CaptchaModal
-        isOpen={showCaptcha}
-        onFailure={handleCaptchaFailure}
-        onSuccess={handleCaptchaSuccess}
-      />
-
-      <BiometricModal
-        isOpen={showBiometric}
-        onFailure={handleBiometricFailure}
-        onSuccess={handleBiometricSuccess}
-      />
-
       {/* Modals */}
       <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
@@ -641,7 +617,7 @@ export default function MainPage() {
         onClose={handleCloseLeagueProgress}
       />
 
-      {/* Attempts Display */}
+      {/* Attempts Display - ALWAYS FUNCTIONAL */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -655,7 +631,7 @@ export default function MainPage() {
         <AttemptsDisplay />
       </div>
 
-      {/* League Display - FIXED Z-INDEX to be below security modals */}
+      {/* League Display - ALWAYS FUNCTIONAL */}
       {user && !userLoading && (
         <div
           className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
@@ -667,12 +643,12 @@ export default function MainPage() {
             }`}
           style={{
             bottom: "96px",
-            zIndex: 35, // FIXED: Lower than security modals (z-50)
+            zIndex: 35,
           }}
         >
           <div className="pointer-events-auto">
             <CompactLeagueDisplay
-              className={`cursor-pointer ${isSecurityBlocked ? "opacity-50 cursor-not-allowed" : ""}`}
+              className="cursor-pointer"
               onClick={handleOpenLeagueProgress}
             />
           </div>

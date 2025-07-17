@@ -1,9 +1,8 @@
-// src/components/Navigation/BottomNav.tsx - Fixed security verification blocking
+// src/components/Navigation/BottomNav.tsx - Updated navigation without security blocking
 
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
 import {
   Gamepad2,
   Trophy,
@@ -13,16 +12,11 @@ import {
 } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
-import { useSecurity } from "@/hooks/useSecurity";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const t = useT();
-  const { isSecurityCheckNeeded, isSecurityInitialized } = useSecurity();
-
-  // SECURITY FIX: Block immediately if security check needed or not initialized
-  const isBlocked = isSecurityCheckNeeded() || !isSecurityInitialized();
 
   const navItems = [
     {
@@ -60,14 +54,6 @@ export default function BottomNav() {
   };
 
   const handleNavigation = (path: string) => {
-    console.log('Navigation attempt:', { path, isBlocked, isSecurityCheckNeeded: isSecurityCheckNeeded(), isSecurityInitialized: isSecurityInitialized() });
-
-    // Block navigation if security verification is needed
-    if (isBlocked) {
-      console.log("Navigation blocked due to pending security verification");
-      return;
-    }
-
     if (pathname !== path) {
       router.push(path);
     }
@@ -90,38 +76,25 @@ export default function BottomNav() {
                   w-12 h-12 rounded-full transition-all duration-300 ease-out
                   ${active
                     ? "text-white scale-110"
-                    : isBlocked
-                      ? "text-white/30 cursor-not-allowed"
-                      : "text-white/60 hover:text-white/80 hover:scale-105"
+                    : "text-white/60 hover:text-white/80 hover:scale-105"
                   }
                 `}
-                disabled={isBlocked}
                 onClick={() => handleNavigation(item.path)}
               >
                 {/* Background highlight for active state */}
-                {active && !isBlocked && (
+                {active && (
                   <div className="absolute inset-0 bg-white/20 rounded-full transition-all duration-300" />
                 )}
 
-                {/* Background highlight on hover - disabled when blocked */}
-                {!isBlocked && (
-                  <div className="absolute inset-0 bg-white/10 rounded-full opacity-0 hover:opacity-100 transition-all duration-300" />
-                )}
-
-                {/* Security overlay when blocked */}
-                {isBlocked && (
-                  <div className="absolute inset-0 bg-red-500/10 rounded-full" />
-                )}
+                {/* Background highlight on hover */}
+                <div className="absolute inset-0 bg-white/10 rounded-full opacity-0 hover:opacity-100 transition-all duration-300" />
 
                 {/* Icon */}
                 <div className="relative z-10">
                   <Icon
-                    className={`
-                      transition-all duration-300
-                      ${active ? "stroke-2" : "stroke-1.5"}
-                      ${isBlocked ? "opacity-50" : ""}
-                    `}
+                    className="transition-all duration-300"
                     size={active ? 24 : 22}
+                    strokeWidth={active ? 2 : 1.5}
                   />
                 </div>
               </button>
@@ -132,17 +105,6 @@ export default function BottomNav() {
 
       {/* Full-width decorative line at the top */}
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/10" />
-
-      {/* Security warning overlay */}
-      {isBlocked && (
-        <div className="absolute inset-0 bg-red-500/5 border-t border-red-500/20">
-          <div className="flex items-center justify-center h-full">
-            <p className="text-red-300 text-xs font-medium">
-              {!isSecurityInitialized ? "Initializing security..." : "Security verification required"}
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
