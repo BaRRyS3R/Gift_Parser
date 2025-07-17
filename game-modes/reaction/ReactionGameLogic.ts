@@ -1,13 +1,12 @@
 // src/game-modes/reaction/ReactionGameLogic.ts - Updated with localized rating descriptions
 
-import type { TranslationFunction } from "@/types/localization";
-
 import {
   ReactionGameConfig,
   ReactionGameResult,
   ReactionGameState,
 } from "@/types/game-modes/reaction";
 import { Circle, GameState, GameMode } from "@/types/game-modes/common";
+import type { TranslationFunction } from "@/types/localization";
 
 export const REACTION_CONFIG: ReactionGameConfig = {
   id: "reaction",

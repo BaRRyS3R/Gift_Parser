@@ -1,24 +1,21 @@
-// src/app/page.tsx - Updated intro page with corrected registration flow
+// src/app/page.tsx - Updated to use service layer method
 
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
-import { Play, Zap, Wifi, WifiOff, Gift, Shield } from "lucide-react";
+import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
 
-import { type TelegramUser } from "@/lib/supabase";
+import { userService, type TelegramUser, type User } from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import {
-  authService,
-  type LoginResult,
-  type RegistrationResult,
-} from "@/lib/authService";
+import DebugLanguage from "@/components/DebugLanguage";
 
 interface AuthState {
   isChecking: boolean;
   isRegistering: boolean;
+  user: User | null;
   telegramUser: TelegramUser | null;
   error: string | null;
   needsRegistration: boolean;
@@ -26,73 +23,43 @@ interface AuthState {
   referralBonus?: number;
   referrerName?: string;
   referrerUsername?: string;
-  isBlocked?: boolean;
-  blockReason?: string;
-  timeUntilUnblock?: number;
 }
 
 export default function IntroPage(): JSX.Element {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const {
-    refreshUser,
-    updateUser,
-    setTelegramUser,
-    isAuthenticated,
-    user: contextUser,
-    isLoading: contextLoading,
-  } = useUser();
+  const { refreshUser, updateUser, setTelegramUser } = useUser();
   const t = useT();
 
-  // Flags to prevent duplicate operations
+  // Флаги для предотвращения повторных операций
   const authInitializedRef = useRef<boolean>(false);
   const registrationInProgressRef = useRef<boolean>(false);
-  const videoAuthenticationRef = useRef<boolean>(false);
-  const securityCheckRef = useRef<boolean>(false);
 
-  // Authorization state
+  // Состояние авторизации
   const [authState, setAuthState] = useState<AuthState>({
     isChecking: true,
     isRegistering: false,
+    user: null,
     telegramUser: null,
     error: null,
     needsRegistration: false,
   });
 
-  // Enhanced loading state management
-  const [stableLoadingState, setStableLoadingState] = useState({
-    isInitializing: true,
-    isVideoReady: false,
-    isAuthReady: false,
-  });
+  // Ref для хранения актуального состояния авторизации
+  const authStateRef = useRef<AuthState>(authState);
 
-  // Video state
+  // Обновляем ref при изменении состояния
+  useEffect(() => {
+    authStateRef.current = authState;
+  }, [authState]);
+
+  // Состояние видео
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [fontLoaded, setFontLoaded] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-
-  // Store current auth state in ref
-  const authStateRef = useRef<AuthState>(authState);
-
-  useEffect(() => {
-    authStateRef.current = authState;
-  }, [authState]);
-
-  // Check if already authenticated and redirect
-  useEffect(() => {
-    if (isAuthenticated && contextUser && !authInitializedRef.current) {
-      console.log("User already authenticated, redirecting to main");
-      setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-      setTimeout(() => {
-        router.push("/main");
-      }, 500);
-
-      return;
-    }
-  }, [isAuthenticated, contextUser, router]);
 
   // Extract referral code from Telegram start parameter
   const extractReferralCode = useCallback((): string | undefined => {
@@ -104,18 +71,17 @@ export default function IntroPage(): JSX.Element {
 
       if (startParam && startParam.length === 8) {
         console.log("Referral code extracted from start param:", startParam);
-
         return startParam;
       }
     }
 
+    // Fallback: check URL parameters for development
     if (process.env.NODE_ENV === "development") {
       const urlParams = new URLSearchParams(window.location.search);
       const refCode = urlParams.get("ref");
 
       if (refCode) {
         console.log("Referral code extracted from URL (dev):", refCode);
-
         return refCode;
       }
     }
@@ -128,10 +94,12 @@ export default function IntroPage(): JSX.Element {
       return null;
     }
 
+    // Проверяем наличие Telegram WebApp API
     if (!window.Telegram?.WebApp) {
-      console.log("Telegram WebApp API unavailable");
+      console.log("Telegram WebApp API недоступен");
+      // Для тестирования вне Telegram возвращаем тестового пользователя
       if (process.env.NODE_ENV === "development") {
-        console.log("Returning test user for development");
+        console.log("Возвращаем тестового пользователя для разработки");
 
         return {
           id: 430743609,
@@ -149,10 +117,11 @@ export default function IntroPage(): JSX.Element {
     const tg = window.Telegram.WebApp;
     const user = tg.initDataUnsafe?.user;
 
-    console.log("Telegram user data:", user);
+    console.log("Данные Telegram пользователя:", user);
 
     if (!user || !user.id) {
-      console.log("Telegram user not found or invalid");
+      console.log("Пользователь Telegram не найден или некорректен");
+      // Для тестирования возвращаем тестового пользователя
       if (process.env.NODE_ENV === "development") {
         return {
           id: 430743609,
@@ -177,135 +146,56 @@ export default function IntroPage(): JSX.Element {
     };
   }, []);
 
-  // Get Telegram WebApp init data for authentication
-  const getTelegramInitData = useCallback((): string | null => {
-    if (typeof window === "undefined") return null;
-
-    if (!window.Telegram?.WebApp) {
-      console.log("Telegram WebApp API unavailable");
-      if (process.env.NODE_ENV === "development") {
-        const mockUser = {
-          id: 430743609,
-          first_name: "Test User",
-          last_name: "Developer",
-          username: "testuser",
-          language_code: "en",
-          is_premium: false,
-        };
-
-        return `user=${JSON.stringify(mockUser)}&hash=mock_hash&auth_date=${Math.floor(Date.now() / 1000)}`;
+  const checkUserExists = useCallback(
+    async (telegramUser: TelegramUser): Promise<User | null> => {
+      try {
+        return await userService.findByTelegramId(telegramUser.id);
+      } catch (error) {
+        console.error("Ошибка при проверке пользователя:", error);
+        throw error;
       }
-
-      return null;
-    }
-
-    const tg = window.Telegram.WebApp;
-
-    return tg.initData || null;
-  }, []);
-
-  // UPDATED: Check login status first (for existing users)
-  const checkUserLoginStatus = useCallback(
-    async (
-      telegramUser: TelegramUser,
-      referralCode?: string,
-    ): Promise<LoginResult> => {
-      const initData = getTelegramInitData();
-
-      if (!initData) {
-        throw new Error(t("auth.telegramDataUnavailable"));
-      }
-
-      console.log("Checking user login status via API...");
-
-      return await authService.checkLoginStatus(initData, referralCode);
     },
-    [getTelegramInitData, t],
+    [],
   );
 
-  // UPDATED: Register new user
-  const registerNewUser = useCallback(
+  const registerUser = useCallback(
     async (
       telegramUser: TelegramUser,
       referralCode?: string,
-    ): Promise<RegistrationResult> => {
-      const initData = getTelegramInitData();
-
-      if (!initData) {
-        throw new Error(t("auth.telegramDataUnavailable"));
+    ): Promise<User> => {
+      if (registrationInProgressRef.current) {
+        throw new Error("Регистрация уже в процессе");
       }
 
-      setAuthState((prev) => ({ ...prev, isRegistering: true, error: null }));
-
       try {
-        console.log("Registering new user via API...");
-        const result = await authService.registerUser(initData, referralCode);
+        registrationInProgressRef.current = true;
 
-        if (result.success && result.user) {
-          // Convert to User format and update context
-          const user = {
-            id: result.user.id,
-            telegram_id: result.user.telegram_id,
-            first_name: result.user.first_name,
-            last_name: result.user.last_name,
-            username: result.user.username,
-            language_code: telegramUser.language_code,
-            is_premium: telegramUser.is_premium || false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            attempts_remaining: result.user.attempts_remaining,
-            last_attempt_at: undefined,
-            attempts_reset_at: undefined,
-            trust_score: result.user.trust_score,
-            blocked_until: result.user.blocked_until,
-            referral_code: "",
-            referred_by: undefined,
-            referral_bonus: 5,
-            referral_count: 0,
-            total_games: result.user.total_games,
-            total_score: result.user.total_score || 0,
-            best_score: result.user.best_score || 0,
-            current_level: result.user.current_level,
-            current_league_id: result.user.current_league_id,
-            reaction_games: 0,
-            reaction_best_score: 0,
-            reaction_best_time: 0,
-            reaction_average_time: 0,
-            survival_games: 0,
-            survival_best_score: 0,
-            survival_best_time: 0,
-            survival_max_level: 0,
-            survival_best_streak: 0,
-            physics_games: 0,
-            physics_best_score: 0,
-            physics_best_time: 0,
-            physics_total_hits: 0,
-            physics_best_hits: 0,
-            physics_least_mistakes: 0,
-            rotation_games: 0,
-            rotation_best_score: 0,
-            rotation_best_time: 0,
-            rotation_max_level: 0,
-            rotation_best_streak: 0,
-            rotation_total_hits: 0,
-            total_correct_hits: 0,
-            total_wrong_hits: 0,
-            total_missed_circles: 0,
-            best_accuracy: 0,
-            last_played_at: undefined,
-            is_active: true,
-          };
+        setAuthState((prev) => ({
+          ...prev,
+          isRegistering: true,
+          error: null,
+        }));
 
-          updateUser(user);
+        console.log("Создаем нового пользователя в БД...");
+        const newUser = await userService.create(telegramUser, referralCode);
 
-          console.log("User registration successful");
+        console.log("Пользователь успешно создан:", newUser);
 
-          return result;
-        } else {
-          throw new Error(result.error || "Registration failed");
-        }
+        // Обновляем локальное состояние
+        setAuthState((prev) => ({
+          ...prev,
+          user: newUser,
+          isRegistering: false,
+          needsRegistration: false,
+        }));
+
+        // КРИТИЧНО: Обновляем контекст приложения
+        console.log("Обновляем контекст пользователя...");
+        updateUser(newUser);
+
+        return newUser;
       } catch (error) {
-        console.error("User registration failed:", error);
+        console.error("Ошибка при регистрации:", error);
         setAuthState((prev) => ({
           ...prev,
           isRegistering: false,
@@ -313,224 +203,140 @@ export default function IntroPage(): JSX.Element {
         }));
         throw error;
       } finally {
-        setAuthState((prev) => ({ ...prev, isRegistering: false }));
+        registrationInProgressRef.current = false;
       }
     },
-    [getTelegramInitData, updateUser, t],
+    [updateUser, t],
   );
 
-  // UPDATED: Initialize auth with proper login/register flow
   const initializeAuth = useCallback(async () => {
     if (authInitializedRef.current) return;
 
     authInitializedRef.current = true;
 
     try {
-      console.log("Initializing authorization...");
-
-      // Skip if already authenticated
-      if (isAuthenticated && contextUser) {
-        console.log("User already authenticated, redirecting to main");
-        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-        setTimeout(() => {
-          router.push("/main");
-        }, 500);
-
-        return;
-      }
+      console.log("Инициализация авторизации...");
 
       const telegramUser = getTelegramUser();
       const referralCode = extractReferralCode();
 
-      console.log("Retrieved Telegram user:", telegramUser);
-      console.log("Referral code:", referralCode);
+      console.log("Полученный пользователь Telegram:", telegramUser);
+      console.log("Реферальный код:", referralCode);
 
       if (!telegramUser) {
-        console.error("Telegram user data unavailable");
+        console.error("Данные пользователя Telegram недоступны");
         setAuthState((prev) => ({
           ...prev,
           isChecking: false,
           error: t("auth.telegramDataUnavailable"),
         }));
-        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
 
         return;
       }
 
-      // Set telegram user in context
+      // Проверяем реферальный код если есть и получаем информацию о пригласившем
+      // Используем метод из сервисного слоя
+      let referralBonus = 0;
+      let referrerName: string | undefined;
+      let referrerUsername: string | undefined;
+
+      if (referralCode) {
+        const validation = await userService.validateReferralCodeAndGetReferrer(referralCode);
+
+        if (validation.isValid) {
+          referralBonus = validation.bonus;
+          referrerName = validation.referrerName;
+          referrerUsername = validation.referrerUsername;
+          console.log(
+            `Валидный реферальный код. Бонус: +${referralBonus} попыток. Пригласил: ${referrerName}`,
+          );
+        } else {
+          console.log("Невалидный реферальный код");
+        }
+      }
+
+      setAuthState((prev) => ({
+        ...prev,
+        telegramUser,
+        referralCode: referralCode,
+        referralBonus: referralBonus,
+        referrerName: referrerName,
+        referrerUsername: referrerUsername,
+      }));
+
+      // Устанавливаем telegram пользователя в контекст
       setTelegramUser(telegramUser);
 
-      // UPDATED: Check login status first
-      console.log("Checking login status...");
-      const loginResult = await checkUserLoginStatus(
-        telegramUser,
-        referralCode,
-      );
+      console.log("Проверяем существование пользователя в БД...");
+      const existingUser = await checkUserExists(telegramUser);
 
-      if (loginResult.isBlocked) {
-        console.log("User is blocked, redirecting to blocked page");
+      console.log("Результат проверки пользователя:", existingUser);
+
+      if (existingUser) {
+        console.log(
+          "Пользователь найден в базе данных, обновляем контекст и перенаправляем на /main",
+        );
         setAuthState((prev) => ({
           ...prev,
-          isChecking: false,
-          isBlocked: true,
-          blockReason: loginResult.blockReason,
-          timeUntilUnblock: loginResult.timeUntilUnblock,
-        }));
-        router.push("/blocked");
-
-        return;
-      }
-
-      if (loginResult.success && loginResult.user) {
-        // Existing user successfully logged in
-        console.log("Existing user logged in successfully");
-
-        // Convert to User format and update context
-        const user = {
-          id: loginResult.user.id,
-          telegram_id: loginResult.user.telegram_id,
-          first_name: loginResult.user.first_name,
-          last_name: loginResult.user.last_name,
-          username: loginResult.user.username,
-          language_code: telegramUser.language_code,
-          is_premium: telegramUser.is_premium || false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          attempts_remaining: loginResult.user.attempts_remaining,
-          last_attempt_at: undefined,
-          attempts_reset_at: undefined,
-          trust_score: loginResult.user.trust_score,
-          blocked_until: loginResult.user.blocked_until,
-          referral_code: "",
-          referred_by: undefined,
-          referral_bonus: 5,
-          referral_count: 0,
-          total_games: loginResult.user.total_games,
-          total_score: loginResult.user.total_score || 0,
-          best_score: loginResult.user.best_score || 0,
-          current_level: loginResult.user.current_level,
-          current_league_id: loginResult.user.current_league_id,
-          reaction_games: 0,
-          reaction_best_score: 0,
-          reaction_best_time: 0,
-          reaction_average_time: 0,
-          survival_games: 0,
-          survival_best_score: 0,
-          survival_best_time: 0,
-          survival_max_level: 0,
-          survival_best_streak: 0,
-          physics_games: 0,
-          physics_best_score: 0,
-          physics_best_time: 0,
-          physics_total_hits: 0,
-          physics_best_hits: 0,
-          physics_least_mistakes: 0,
-          rotation_games: 0,
-          rotation_best_score: 0,
-          rotation_best_time: 0,
-          rotation_max_level: 0,
-          rotation_best_streak: 0,
-          rotation_total_hits: 0,
-          total_correct_hits: 0,
-          total_wrong_hits: 0,
-          total_missed_circles: 0,
-          best_accuracy: 0,
-          last_played_at: undefined,
-          is_active: true,
-        };
-
-        updateUser(user);
-
-        setAuthState((prev) => ({
-          ...prev,
+          user: existingUser,
           isChecking: false,
           needsRegistration: false,
         }));
 
-        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+        // Обновляем контекст для существующего пользователя
+        updateUser(existingUser);
 
         setTimeout(() => {
           router.push("/main");
         }, 500);
-
-        return;
-      }
-
-      if (loginResult.needsRegistration) {
-        // New user needs registration - show registration screen
-        console.log("New user detected, showing registration screen");
-
+      } else {
+        console.log("Пользователь не найден в БД, требуется регистрация");
         setAuthState((prev) => ({
           ...prev,
-          telegramUser,
-          referralCode: loginResult.referralCode,
           isChecking: false,
           needsRegistration: true,
         }));
-        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-
-        return;
       }
-
-      // Handle other login errors
-      setAuthState((prev) => ({
-        ...prev,
-        isChecking: false,
-        error: loginResult.error || "Authentication failed",
-      }));
-      setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
     } catch (error) {
-      console.error("Error initializing authorization:", error);
+      console.error("Ошибка инициализации авторизации:", error);
       setAuthState((prev) => ({
         ...prev,
         isChecking: false,
         error: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")}`,
       }));
-      setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
     }
   }, [
-    isAuthenticated,
-    contextUser,
     getTelegramUser,
     extractReferralCode,
-    checkUserLoginStatus,
+    checkUserExists,
     router,
-    setTelegramUser,
     updateUser,
+    setTelegramUser,
     t,
   ]);
 
-  // Initialize Service Worker and font
+  // Инициализация Service Worker и шрифта
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
-        .then((registration) => console.log("ServiceWorker registered"))
+        .then((registration) => console.log("ServiceWorker зарегистрирован"))
         .catch((err) =>
-          console.error("ServiceWorker registration failed:", err),
+          console.error("ServiceWorker регистрация не удалась:", err),
         );
     }
 
     if ("fonts" in document) {
       document.fonts
         .load('1rem "BPDots Diamond"')
-        .then(() => {
-          setFontLoaded(true);
-          setStableLoadingState((prev) => ({ ...prev, isInitializing: false }));
-        })
-        .catch(() => {
-          setFontLoaded(true);
-          setStableLoadingState((prev) => ({ ...prev, isInitializing: false }));
-        });
+        .then(() => setFontLoaded(true))
+        .catch(() => setFontLoaded(true));
     } else {
-      setTimeout(() => {
-        setFontLoaded(true);
-        setStableLoadingState((prev) => ({ ...prev, isInitializing: false }));
-      }, 1000);
+      setTimeout(() => setFontLoaded(true), 1000);
     }
   }, []);
 
-  // Video initialization
+  // Инициализация видео
   useEffect(() => {
     const video = videoRef.current;
 
@@ -539,7 +345,6 @@ export default function IntroPage(): JSX.Element {
     const handleLoadedMetadata = () => {
       video.volume = 1;
       setIsReady(true);
-      setStableLoadingState((prev) => ({ ...prev, isVideoReady: true }));
     };
 
     const handleProgress = () => {
@@ -549,7 +354,6 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
-
           setLoadProgress(progress);
         }
       }
@@ -559,64 +363,70 @@ export default function IntroPage(): JSX.Element {
       setIsLoading(false);
     };
 
-    // UPDATED: Video end handling with corrected authentication flow
-    const handleEnded = async () => {
-      console.log("Video completed");
+    const handleEnded = () => {
+      console.log("Видео завершено");
 
-      if (videoAuthenticationRef.current) return;
-      videoAuthenticationRef.current = true;
-
+      // Используем актуальное состояние из ref
       const currentAuthState = authStateRef.current;
 
-      console.log("Current auth state after video:", {
+      console.log("Актуальное состояние авторизации:", {
         telegramUser: !!currentAuthState.telegramUser,
+        user: !!currentAuthState.user,
         isRegistering: currentAuthState.isRegistering,
         needsRegistration: currentAuthState.needsRegistration,
         referralCode: currentAuthState.referralCode,
-        isBlocked: currentAuthState.isBlocked,
       });
 
-      if (currentAuthState.isBlocked) {
-        console.log("User is blocked, redirecting to blocked page");
-        router.push("/blocked");
-
-        return;
-      }
-
-      // Perform registration after video ends (for new users)
+      // Выполняем регистрацию пользователя после окончания видео
       if (
         currentAuthState.telegramUser &&
-        currentAuthState.needsRegistration &&
+        !currentAuthState.user &&
         !currentAuthState.isRegistering
       ) {
-        console.log("Starting registration after video");
-        try {
-          const registrationResult = await registerNewUser(
-            currentAuthState.telegramUser,
-            currentAuthState.referralCode,
-          );
-
-          if (registrationResult.success) {
-            console.log(
-              "Registration successful, redirecting to main in 1 second",
-            );
+        console.log("Начинаем регистрацию после видео");
+        registerUser(
+          currentAuthState.telegramUser,
+          currentAuthState.referralCode,
+        )
+          .then((registeredUser) => {
+            console.log("Регистрация успешна, пользователь:", registeredUser);
+            console.log("Перенаправляем на main через 1 секунду");
+            // После успешной регистрации перенаправляем на main
             setTimeout(() => {
               router.push("/main");
             }, 1000);
-          }
-        } catch (error) {
-          console.error("Registration error after video:", error);
-          setTimeout(() => {
-            router.push("/main");
-          }, 2000);
-        }
-      } else if (isAuthenticated) {
-        console.log("User already authenticated, redirecting to main");
+          })
+          .catch((error) => {
+            console.error("Ошибка регистрации после видео:", error);
+            // Даже при ошибке регистрации пытаемся обновить контекст
+            setTimeout(() => {
+              refreshUser()
+                .then(() => {
+                  router.push("/main");
+                })
+                .catch(() => {
+                  router.push("/main");
+                });
+            }, 2000);
+          });
+      } else if (currentAuthState.user) {
+        console.log("Пользователь уже зарегистрирован, перенаправляем на main");
+        // Если пользователь уже зарегистрирован, просто перенаправляем
         router.push("/main");
       } else {
-        console.log("Unexpected state after video, forcing redirect");
+        console.log(
+          "Условия для регистрации не выполнены, принудительно перенаправляем",
+        );
+        console.log("Детали состояния:", currentAuthState);
+        // Принудительно обновляем контекст и перенаправляем
         setTimeout(() => {
-          router.push("/main");
+          refreshUser()
+            .then(() => {
+              router.push("/main");
+            })
+            .catch(() => {
+              router.push("/main");
+            });
         }, 1000);
       }
     };
@@ -641,19 +451,16 @@ export default function IntroPage(): JSX.Element {
       video.removeEventListener("ended", handleEnded);
       video.removeEventListener("error", handleError);
     };
-  }, [router, registerNewUser, isAuthenticated]);
+  }, [router, registerUser, refreshUser]);
 
-  // Initialize authorization
+  // Инициализация авторизации
   useEffect(() => {
-    if (
-      !authInitializedRef.current &&
-      stableLoadingState.isInitializing === false
-    ) {
+    if (!authInitializedRef.current) {
       initializeAuth();
     }
-  }, [initializeAuth, stableLoadingState.isInitializing]);
+  }, [initializeAuth]);
 
-  // Video start function
+  // Функция запуска видео
   const handleStart = async () => {
     const video = videoRef.current;
 
@@ -670,36 +477,32 @@ export default function IntroPage(): JSX.Element {
     }
   };
 
-  // UPDATED: Quick registration without video
+  // Быстрая регистрация без видео
   const handleQuickInit = async () => {
     if (
       !authState.telegramUser ||
       authState.isRegistering ||
-      registrationInProgressRef.current ||
-      authState.isBlocked ||
-      !authState.needsRegistration
+      registrationInProgressRef.current
     ) {
       return;
     }
 
     try {
-      const registrationResult = await registerNewUser(
+      const registeredUser = await registerUser(
         authState.telegramUser,
         authState.referralCode,
       );
 
-      if (registrationResult.success) {
-        console.log("Quick registration successful");
-        setTimeout(() => {
-          router.push("/main");
-        }, 1000);
-      }
+      console.log("Быстрая регистрация успешна:", registeredUser);
+      setTimeout(() => {
+        router.push("/main");
+      }, 1000);
     } catch (error) {
-      console.error("Quick registration error:", error);
+      console.error("Ошибка быстрой регистрации:", error);
     }
   };
 
-  // Function to format referrer display name
+  // Функция для форматирования отображаемого имени пригласившего
   const getDisplayReferrerName = (): string => {
     if (authState.referrerUsername) {
       return `@${authState.referrerUsername}`;
@@ -707,50 +510,15 @@ export default function IntroPage(): JSX.Element {
     if (authState.referrerName) {
       return authState.referrerName;
     }
-
     return "s0meone";
   };
 
-  // Format time remaining for blocked users
-  const formatTimeRemaining = (ms: number): string => {
-    const totalSeconds = Math.ceil(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-
-    if (minutes > 0) {
-      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-    } else {
-      return `${seconds}s`;
-    }
-  };
-
-  // Get block reason text
-  const getBlockReasonText = (reason?: string): string => {
-    switch (reason) {
-      case "captcha_failed":
-        return "Failed Captcha Verification";
-      case "biometric_failed":
-        return "Failed Biometric Authentication";
-      case "suspicious_activity":
-        return "Suspicious Activity Detected";
-      default:
-        return "Security Violation";
-    }
-  };
-
-  // Determine loading state
   const isInitialLoading =
-    stableLoadingState.isInitializing ||
-    (authState.isChecking && !isPlaying) ||
-    (contextLoading && !isPlaying) ||
-    (isLoading &&
-      !videoError &&
-      !stableLoadingState.isVideoReady &&
-      !isPlaying);
+    authState.isChecking || (isLoading && !videoError) || !fontLoaded;
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* Loading screen */}
+      {/* Экран загрузки */}
       {isInitialLoading && (
         <div className="loader-container">
           <div className="progress-bar">
@@ -764,44 +532,12 @@ export default function IntroPage(): JSX.Element {
               ? t("auth.checkingUser")
               : `${t("common.loading")} ${Math.round(loadProgress)}%`}
           </p>
+          <DebugLanguage />
         </div>
       )}
 
-      {/* Blocked user screen */}
-      {authState.isBlocked && !isInitialLoading && (
-        <div className="loader-container">
-          <div className="text-center space-y-6 max-w-sm">
-            <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto">
-              <Shield className="text-red-400" size={40} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                Account Blocked
-              </h2>
-              <p className="text-red-300 text-sm mb-4">
-                {getBlockReasonText(authState.blockReason)}
-              </p>
-              {authState.timeUntilUnblock && (
-                <div className="bg-red-500/20 border border-red-500/40 rounded-lg p-4">
-                  <p className="text-red-200 text-sm mb-2">Time remaining:</p>
-                  <p className="text-2xl font-bold text-red-400 font-mono">
-                    {formatTimeRemaining(authState.timeUntilUnblock)}
-                  </p>
-                </div>
-              )}
-            </div>
-            <button
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
-              onClick={() => router.push("/blocked")}
-            >
-              View Details
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Authorization error screen */}
-      {authState.error && !isInitialLoading && !authState.isBlocked && (
+      {/* Экран ошибки авторизации */}
+      {authState.error && !isInitialLoading && (
         <div className="loader-container">
           <p className="text-white text-center mb-4">{authState.error}</p>
           <button
@@ -809,19 +545,11 @@ export default function IntroPage(): JSX.Element {
             onClick={() => {
               authInitializedRef.current = false;
               registrationInProgressRef.current = false;
-              videoAuthenticationRef.current = false;
-              securityCheckRef.current = false;
               setAuthState((prev) => ({
                 ...prev,
                 error: null,
                 isChecking: true,
-                isBlocked: false,
               }));
-              setStableLoadingState({
-                isInitializing: false,
-                isVideoReady: false,
-                isAuthReady: false,
-              });
               initializeAuth();
             }}
           >
@@ -830,35 +558,29 @@ export default function IntroPage(): JSX.Element {
         </div>
       )}
 
-      {/* Video error screen */}
-      {videoError &&
-        !isInitialLoading &&
-        !authState.error &&
-        !authState.isBlocked && (
-          <div className="loader-container">
-            <p className="text-white text-center mb-4">{videoError}</p>
-            <button
-              className="px-4 py-2 bg-white text-black rounded mb-4"
-              onClick={handleStart}
-            >
-              {t("common.retry")}
-            </button>
-            {authState.needsRegistration && (
-              <button
-                className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
-                onClick={handleQuickInit}
-              >
-                {t("auth.continueWithoutVideo")}
-              </button>
-            )}
-          </div>
-        )}
+      {/* Экран ошибки видео */}
+      {videoError && !isInitialLoading && !authState.error && (
+        <div className="loader-container">
+          <p className="text-white text-center mb-4">{videoError}</p>
+          <button
+            className="px-4 py-2 bg-white text-black rounded mb-4"
+            onClick={handleStart}
+          >
+            {t("common.retry")}
+          </button>
+          <button
+            className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
+            onClick={handleQuickInit}
+          >
+            {t("auth.continueWithoutVideo")}
+          </button>
+        </div>
+      )}
 
-      {/* UPDATED: Registration screen - now shows for new users */}
+      {/* Экран регистрации */}
       {authState.needsRegistration &&
         !authState.isChecking &&
         !authState.error &&
-        !authState.isBlocked &&
         !videoError &&
         !isPlaying && (
           <div className="min-h-screen bg-black flex items-center justify-center p-6 fixed inset-0 z-50">
@@ -889,24 +611,31 @@ export default function IntroPage(): JSX.Element {
                       })}
                     </p>
 
-                    {/* Referral bonus info */}
-                    {authState.referralCode && (
-                      <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
-                        <div className="flex items-center justify-center space-x-2">
-                          <Gift className="text-green-400" size={20} />
-                          <span className="text-green-300 font-bold">
-                            {t("auth.referralBonus")}
-                          </span>
+                    {/* Referral Bonus Info - с отображением имени пригласившего */}
+                    {authState.referralCode &&
+                      authState.referralBonus &&
+                      authState.referralBonus > 0 && (
+                        <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
+                          <div className="flex items-center justify-center space-x-2">
+                            <Gift className="text-green-400" size={20} />
+                            <span className="text-green-300 font-bold">
+                              {t("auth.referralBonus")}
+                            </span>
+                          </div>
+                          <p className="text-green-400 text-sm">
+                            {t("auth.youllGet")}{" "}
+                            <span className="font-bold">
+                              +{authState.referralBonus}{" "}
+                              {authState.referralBonus > 1
+                                ? t("auth.extraAttempts")
+                                : t("auth.extraAttempt")}
+                            </span>
+                          </p>
+                          <p className="text-green-400/60 text-xs">
+                            {t("auth.referredBy")} {getDisplayReferrerName()}
+                          </p>
                         </div>
-                        <p className="text-green-400 text-sm">
-                          {t("auth.youllGet")}{" "}
-                          <span className="font-bold">+5 extra attempts</span>
-                        </p>
-                        <p className="text-green-400/60 text-xs">
-                          {t("auth.referredBy")} {getDisplayReferrerName()}
-                        </p>
-                      </div>
-                    )}
+                      )}
 
                     <p className="text-white/50 text-xs uppercase tracking-widest">
                       {t("main.chooseEntryMethod")}
@@ -939,6 +668,7 @@ export default function IntroPage(): JSX.Element {
                           </span>
                         </div>
 
+                        {/* Glow effect */}
                         <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
                       </button>
 
@@ -1003,7 +733,7 @@ export default function IntroPage(): JSX.Element {
           </div>
         )}
 
-      {/* Video container */}
+      {/* Видео контейнер */}
       <div
         className={`video-container ${isPlaying ? "opacity-100" : "opacity-0"} transition-opacity duration-500`}
       >

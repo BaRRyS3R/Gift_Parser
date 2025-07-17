@@ -6,7 +6,7 @@ export * from "./common";
 // Reaction mode
 export * from "./reaction";
 
-// Survival mode
+// Survival mode  
 export * from "./survival";
 
 // Physics mode
@@ -16,40 +16,27 @@ export * from "./physics";
 export * from "./rotation";
 
 // Type guards for game results
+import { GameMode } from "./common";
 import type { ReactionGameResult } from "./reaction";
 import type { SurvivalGameResult } from "./survival";
 import type { PhysicsGameResult } from "./physics";
 import type { RotationGameResult } from "./rotation";
 
-import { GameMode } from "./common";
+export type AnyGameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult;
 
-export type AnyGameResult =
-  | ReactionGameResult
-  | SurvivalGameResult
-  | PhysicsGameResult
-  | RotationGameResult;
-
-export function isReactionResult(
-  result: AnyGameResult,
-): result is ReactionGameResult {
+export function isReactionResult(result: AnyGameResult): result is ReactionGameResult {
   return result.mode === GameMode.REACTION;
 }
 
-export function isSurvivalResult(
-  result: AnyGameResult,
-): result is SurvivalGameResult {
+export function isSurvivalResult(result: AnyGameResult): result is SurvivalGameResult {
   return result.mode === GameMode.SURVIVAL;
 }
 
-export function isPhysicsResult(
-  result: AnyGameResult,
-): result is PhysicsGameResult {
+export function isPhysicsResult(result: AnyGameResult): result is PhysicsGameResult {
   return result.mode === GameMode.PHYSICS;
 }
 
-export function isRotationResult(
-  result: AnyGameResult,
-): result is RotationGameResult {
+export function isRotationResult(result: AnyGameResult): result is RotationGameResult {
   return result.mode === GameMode.ROTATION;
 }
 
@@ -107,7 +94,7 @@ export function getGameModeColors(mode: GameMode) {
     case GameMode.PHYSICS:
       return {
         primary: "text-purple-400",
-        secondary: "text-purple-300",
+        secondary: "text-purple-300", 
         accent: "text-purple-200",
         background: "bg-purple-500/5",
         border: "border-purple-400/20",
@@ -116,7 +103,7 @@ export function getGameModeColors(mode: GameMode) {
       return {
         primary: "text-orange-400",
         secondary: "text-orange-300",
-        accent: "text-orange-200",
+        accent: "text-orange-200", 
         background: "bg-orange-500/5",
         border: "border-orange-400/20",
       };

@@ -1,0 +1,25 @@
+create view public.survival_leaderboard as
+select
+  id,
+  telegram_id,
+  first_name,
+  last_name,
+  username,
+  is_premium,
+  survival_best_time,
+  survival_max_level,
+  survival_best_streak,
+  survival_games,
+  last_played_at,
+  row_number() over (
+    order by
+      survival_best_time desc,
+      survival_max_level desc
+  ) as rank
+from
+  users
+where
+  survival_games > 0
+order by
+  survival_best_time desc,
+  survival_max_level desc;

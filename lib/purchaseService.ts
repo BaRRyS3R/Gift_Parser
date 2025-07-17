@@ -1,4 +1,4 @@
-// src/lib/purchaseService.ts - Production service integrated with PHP backend
+// src/lib/purchaseService.ts - Исправленный сервис для работы с покупками
 
 import {
   ProductType,
@@ -7,122 +7,105 @@ import {
   PurchaseService,
 } from "@/types/purchases";
 
-// Configuration
+// URL вашего PHP backend (замените на реальный)
 const PHP_BACKEND_URL = process.env.NEXT_PUBLIC_PHP_BACKEND_URL;
 
-/**
- * Extract Telegram WebApp initData for backend authentication
- */
+// Получение initData от Telegram WebApp
 const getTelegramInitData = (): string => {
   if (typeof window === "undefined") {
-    throw new Error("Window object not available - this function must be called in browser context");
+    return "";
   }
 
-  // Get real initData from Telegram WebApp
+  // В продакшене используйте реальные данные от Telegram
   if (window.Telegram?.WebApp?.initData) {
-    const initData = window.Telegram.WebApp.initData;
-
-    // Validate that initData contains required parameters
-    if (initData.includes('user=') && initData.includes('auth_date=')) {
-      return initData;
-    }
+    return window.Telegram.WebApp.initData;
   }
 
-  // In production, this should never happen as the app runs inside Telegram
-  throw new Error("Telegram WebApp initData not available. Please ensure the app is running within Telegram.");
+  // Для разработки и тестирования
+  if (process.env.NODE_ENV === "development") {
+    console.warn("Using mock initData for development");
+    return "mock_init_data_for_development";
+  }
+
+  return "";
 };
 
-/**
- * Create invoice for purchase via PHP backend
- */
+// Создание инвойса для покупки - ОБНОВЛЕНО для всех типов товаров
 const createInvoice = async (
   productType: ProductType,
 ): Promise<CreateInvoiceResponse> => {
   try {
-    if (!PHP_BACKEND_URL) {
-      throw new Error("Payment service configuration missing");
-    }
-
     const initData = getTelegramInitData();
+
+    if (!initData) {
+      throw new Error("Telegram WebApp data not available");
+    }
 
     const requestData: CreateInvoiceRequest = {
       initData,
       productType,
     };
 
-    console.log("Creating invoice via PHP backend:", productType);
+    console.log("Creating invoice for product:", productType);
 
     const response = await fetch(`${PHP_BACKEND_URL}/create_invoice.php`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/json",
       },
       body: JSON.stringify(requestData),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`PHP backend HTTP error ${response.status}:`, errorText);
-
-      throw new Error(`Payment service error: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const result: CreateInvoiceResponse = await response.json();
 
     if (!result.success) {
-      console.error("PHP backend returned error:", result.error);
-      throw new Error(result.error || "Failed to create payment invoice");
+      throw new Error(result.error || "Failed to create invoice");
     }
 
-    if (!result.invoice_url) {
-      console.error("PHP backend did not return invoice URL");
-      throw new Error("Invalid response from payment service");
-    }
+    console.log("Invoice created successfully:", result);
 
-    console.log("Invoice created successfully via PHP backend");
     return result;
-
   } catch (error) {
     console.error("Error creating invoice:", error);
 
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Payment service unavailable",
+      error: error instanceof Error ? error.message : "Unknown error occurred",
     };
   }
 };
 
-/**
- * Open Telegram Stars invoice using WebApp API
- */
+// Открытие инвойса через Telegram WebApp
 const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
   try {
     if (typeof window === "undefined") {
       throw new Error("Window object not available");
     }
 
-    // Ensure Telegram WebApp API is available
+    // Проверяем доступность Telegram WebApp API
     if (!window.Telegram?.WebApp) {
-      console.error("Telegram WebApp API not available");
-      // In production, this should not happen, but provide fallback
+      console.warn("Telegram WebApp not available, opening in new tab");
       window.open(invoiceUrl, "_blank");
       return true;
     }
 
     const tg = window.Telegram.WebApp;
 
-    // Use native Telegram invoice opening
+    // Используем Telegram WebApp API для открытия инвойса
     if (tg.openInvoice) {
-      console.log("Opening Telegram Stars invoice");
+      console.log("Opening invoice via Telegram WebApp API");
 
       return new Promise((resolve) => {
         tg.openInvoice(invoiceUrl, (status: string) => {
-          console.log("Telegram invoice status:", status);
+          console.log("Invoice status:", status);
 
           switch (status) {
             case "paid":
-              console.log("Payment completed successfully");
+              console.log("Payment successful");
               resolve(true);
               break;
             case "cancelled":
@@ -133,87 +116,66 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
               console.log("Payment failed");
               resolve(false);
               break;
-            case "pending":
-              console.log("Payment is pending");
-              // For pending, we'll consider it as failed for now
-              resolve(false);
-              break;
             default:
-              console.warn("Unknown payment status:", status);
+              console.log("Unknown payment status:", status);
               resolve(false);
               break;
           }
         });
       });
     } else {
-      console.error("Telegram openInvoice API not available");
-      throw new Error("Payment interface not available");
+      // Fallback: открываем ссылку в новом окне
+      console.log("openInvoice API not available, using fallback");
+      window.open(invoiceUrl, "_blank");
+      return true;
     }
-
   } catch (error) {
     console.error("Error opening invoice:", error);
     return false;
   }
 };
 
-/**
- * Check purchase processing status
- * This allows time for webhook processing and user data updates
- */
+// Проверка статуса покупок - ОБНОВЛЕНО для обработки мгновенного сброса
 const checkPurchaseStatus = async (): Promise<void> => {
-  console.log("Checking purchase status - allowing time for webhook processing");
+  console.log("Checking purchase status...");
 
-  // Allow sufficient time for:
-  // 1. Telegram to send webhook to PHP backend
-  // 2. PHP backend to process payment and update database
-  // 3. Database changes to propagate
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  // Дополнительная задержка для обработки мгновенного сброса
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
-  console.log("Purchase status check completed");
+  // Здесь можно добавить дополнительную логику проверки статуса
+  // или просто обновить данные пользователя
 };
 
-/**
- * Initialize Telegram WebApp event handlers for payment processing
- */
-const setupTelegramWebAppHandlers = (): void => {
+// Обработка событий Telegram WebApp
+const setupTelegramWebAppHandlers = () => {
   if (typeof window === "undefined" || !window.Telegram?.WebApp) {
     return;
   }
 
   const tg = window.Telegram.WebApp;
 
-  // Configure WebApp settings
-  try {
-    tg.ready();
-    tg.expand();
+  // Слушаем события платежей
+  tg.onEvent("invoiceClosed", (eventData: any) => {
+    console.log("Invoice closed event:", eventData);
 
-    // Enable closing confirmation for better UX during payments
-    tg.enableClosingConfirmation();
+    if (eventData.status === "paid") {
+      console.log("Payment completed successfully");
+      // Здесь можно вызвать обновление состояния приложения
+      checkPurchaseStatus();
+    }
+  });
 
-    // Listen for invoice closure events
-    tg.onEvent("invoiceClosed", (eventData: any) => {
-      console.log("Invoice closed event received:", eventData);
-
-      if (eventData?.status === "paid") {
-        console.log("Payment completed - webhook should process attempts");
-
-        // Trigger status check after short delay
-        setTimeout(() => {
-          checkPurchaseStatus();
-        }, 1000);
-      }
-    });
-
-    console.log("Telegram WebApp handlers configured successfully");
-
-  } catch (error) {
-    console.error("Error setting up Telegram WebApp handlers:", error);
-  }
+  // Настройка основных параметров WebApp
+  tg.ready();
+  tg.expand();
 };
 
-/**
- * Validate product type against available products
- */
+// Утилиты для работы с Telegram Stars
+export const formatStarsAmount = (amount: number): string => {
+  return `${amount} ⭐`;
+};
+
+// ОБНОВЛЕНО: валидация для всех новых типов продуктов
 export const validateProductType = (
   productType: string,
 ): productType is ProductType => {
@@ -221,52 +183,24 @@ export const validateProductType = (
     "attempts_1",
     "attempts_5",
     "attempts_10",
-    "attempts_100",
+    "attempts_100"
   ];
-
   return validTypes.includes(productType as ProductType);
 };
 
-/**
- * Format Telegram Stars amount for display
- */
-export const formatStarsAmount = (amount: number): string => {
-  return `${amount} ⭐`;
-};
-
-/**
- * Get current Telegram user ID for logging and analytics
- */
-export const getCurrentTelegramUserId = (): number | null => {
-  if (typeof window === "undefined" || !window.Telegram?.WebApp) {
-    return null;
-  }
-
-  return window.Telegram.WebApp.initDataUnsafe?.user?.id || null;
-};
-
-/**
- * Main purchase service object
- */
+// Основной объект сервиса покупок
 export const purchaseService: PurchaseService = {
   createInvoice,
   openInvoice,
   checkPurchaseStatus,
 };
 
-/**
- * Initialize purchase service when loaded in browser
- */
+// Инициализация сервиса при загрузке модуля
 if (typeof window !== "undefined") {
-  // Setup handlers once DOM is ready
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", setupTelegramWebAppHandlers);
-  } else {
-    setupTelegramWebAppHandlers();
-  }
+  setupTelegramWebAppHandlers();
 }
 
-// Export individual functions for direct use
+// Экспорт всех функций
 export {
   createInvoice,
   openInvoice,

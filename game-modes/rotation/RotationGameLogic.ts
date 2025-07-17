@@ -128,10 +128,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
 ];
 
-export const createRotationCircleSet = (
-  count: number,
-  radius: number,
-): RotationCircle[] => {
+export const createRotationCircleSet = (count: number, radius: number): RotationCircle[] => {
   const angleStep = (2 * Math.PI) / count;
 
   return Array.from({ length: count }, (_, index) => ({
@@ -161,10 +158,7 @@ export const initializeRotationGameState = (): RotationGameState => {
       hitCount: 0,
       gameStartTime,
     },
-    circles: createRotationCircleSet(
-      ROTATION_CONFIG.circleCount,
-      ROTATION_CONFIG.radius,
-    ),
+    circles: createRotationCircleSet(ROTATION_CONFIG.circleCount, ROTATION_CONFIG.radius),
     currentLevel: 1,
     timeInCurrentLevel: 0,
     activeCircleIds: [],
@@ -180,22 +174,19 @@ export const initializeRotationGameState = (): RotationGameState => {
 
 export const getLevelConfig = (level: number): RotationLevelConfig => {
   const clampedLevel = Math.max(1, Math.min(level, ROTATION_LEVELS.length));
-
   return ROTATION_LEVELS[clampedLevel - 1];
 };
 
 // Updated function to preserve active circles during level transitions
 export const updateRotationLevel = (
   state: RotationGameState,
-  currentTime?: number,
+  currentTime?: number
 ): RotationGameState => {
   if (!state.isActive || !state.gameStartTime) return state;
 
   const now = currentTime || Date.now();
   const actualSurvivalTime = now - state.gameStartTime;
-  const newTimeInCurrentLevel =
-    actualSurvivalTime -
-    (state.currentLevel - 1) * state.config.intensityIncreaseInterval * 1000;
+  const newTimeInCurrentLevel = actualSurvivalTime - ((state.currentLevel - 1) * state.config.intensityIncreaseInterval * 1000);
 
   const shouldIncreaseLevel =
     newTimeInCurrentLevel >= state.config.intensityIncreaseInterval * 1000 &&
@@ -206,7 +197,7 @@ export const updateRotationLevel = (
     const levelConfig = getLevelConfig(newLevel);
 
     // CRITICAL: Preserve active circles and their states during level transition
-    const preservedCircles = state.circles.map((circle) => ({
+    const preservedCircles = state.circles.map(circle => ({
       ...circle,
       // Keep existing active state and position - DO NOT reset
     }));
@@ -256,7 +247,6 @@ export const getRandomCircleIds = (
   for (let i = 0; i < count; i++) {
     const randomIndex = Math.floor(Math.random() * availableIds.length);
     const selectedId = availableIds.splice(randomIndex, 1)[0];
-
     selectedIds.push(selectedId);
   }
 
@@ -269,8 +259,7 @@ export const activateRotationCircles = (
   onCircleTimeout: (circleId: number, wasDecoy: boolean) => void,
 ): RotationGameState => {
   const levelConfig = getLevelConfig(state.currentLevel);
-  const availableSlots =
-    levelConfig.simultaneousCircles - state.activeCircleIds.length;
+  const availableSlots = levelConfig.simultaneousCircles - state.activeCircleIds.length;
 
   if (availableSlots <= 0) return state;
 
@@ -283,18 +272,11 @@ export const activateRotationCircles = (
   if (selectedIds.length === 0) return state;
 
   // Determine red circles
-  const whiteCirclesNeeded = Math.max(
-    1,
-    selectedIds.length - levelConfig.redCircles,
-  );
-  const actualRedCircles = Math.min(
-    levelConfig.redCircles,
-    selectedIds.length - whiteCirclesNeeded,
-  );
+  const whiteCirclesNeeded = Math.max(1, selectedIds.length - levelConfig.redCircles);
+  const actualRedCircles = Math.min(levelConfig.redCircles, selectedIds.length - whiteCirclesNeeded);
 
   const shuffledIds = [...selectedIds].sort(() => Math.random() - 0.5);
-  const redIds =
-    actualRedCircles > 0 ? shuffledIds.slice(0, actualRedCircles) : [];
+  const redIds = actualRedCircles > 0 ? shuffledIds.slice(0, actualRedCircles) : [];
 
   // Update active circles
   const newActiveCircleIds = [...state.activeCircleIds, ...selectedIds];
@@ -318,7 +300,6 @@ export const activateRotationCircles = (
         isDecoy: redIds.includes(circle.id),
       };
     }
-
     return circle;
   });
 
@@ -407,9 +388,7 @@ export const deactivateRotationCircle = (
   state: RotationGameState,
   circleId: number,
 ): RotationGameState => {
-  const newActiveCircleIds = state.activeCircleIds.filter(
-    (id) => id !== circleId,
-  );
+  const newActiveCircleIds = state.activeCircleIds.filter((id) => id !== circleId);
 
   const newCircleTimeouts = new Map(state.circleTimeouts);
   const timeout = newCircleTimeouts.get(circleId);
@@ -458,10 +437,7 @@ export const createRotationGameResult = (
   state: RotationGameState,
 ): RotationGameResult => {
   const finalState = updateRotationLevel(state, Date.now());
-  const finalScore = calculateRotationScore(
-    finalState.stats,
-    finalState.currentLevel,
-  );
+  const finalScore = calculateRotationScore(finalState.stats, finalState.currentLevel);
   const deathCause = getRotationDeathCause(finalState.stats);
 
   return {
@@ -501,4 +477,4 @@ export const formatRotationTime = (milliseconds: number): string => {
   }
 
   return `${seconds}.${ms.toString().padStart(3, "0")}s`;
-};
+}

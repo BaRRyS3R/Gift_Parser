@@ -1,0 +1,39 @@
+create view public.purchases_summary as
+select
+  product_type,
+  count(*) as total_purchases,
+  sum(amount_stars) as total_stars_spent,
+  avg(amount_stars) as avg_stars_per_purchase,
+  min(created_at) as first_purchase,
+  max(created_at) as last_purchase,
+  count(
+    case
+      when status::text = 'completed'::text then 1
+      else null::integer
+    end
+  ) as completed_count,
+  count(
+    case
+      when status::text = 'refunded'::text then 1
+      else null::integer
+    end
+  ) as refunded_count,
+  sum(
+    case
+      when status::text = 'refunded'::text then amount_stars
+      else 0
+    end
+  ) as total_refunded_stars,
+  round(
+    count(
+      case
+        when status::text = 'refunded'::text then 1
+        else null::integer
+      end
+    )::numeric / NULLIF(count(*), 0)::numeric * 100::numeric,
+    2
+  ) as refund_rate_percent
+from
+  purchases p
+group by
+  product_type;
