@@ -1070,17 +1070,32 @@ class AuthService {
   async validateBiometric(
     success: boolean,
     completedInTime: boolean,
+    biometricSupported: boolean = true, // NEW: Added biometric support parameter
   ): Promise<{ success: boolean; newTrustScore: number }> {
-    return this.makeAuthenticatedRequest<{
-      success: boolean;
-      newTrustScore: number;
-    }>("/security/validate-biometric", {
-      method: "POST",
-      body: JSON.stringify({
-        success,
-        completedInTime,
-      }),
-    });
+    try {
+      const response = await this.makeAuthenticatedRequest<{
+        success: boolean;
+        newTrustScore: number;
+        blockDuration?: number;
+        blockReason?: string;
+        message?: string;
+      }>("/security/validate-biometric", {
+        method: "POST",
+        body: JSON.stringify({
+          success,
+          completedInTime,
+          biometricSupported, // NEW: Pass biometric support status to API
+        }),
+      });
+
+      return {
+        success: response.success,
+        newTrustScore: response.newTrustScore,
+      };
+    } catch (error) {
+      console.error("Error validating biometric:", error);
+      throw error;
+    }
   }
 
   async updateTrustScore(scoreChange: number): Promise<number> {
@@ -1327,8 +1342,9 @@ export async function validateSecureCaptcha(
 export async function validateSecureBiometric(
   success: boolean,
   completedInTime: boolean,
+  biometricSupported: boolean,
 ): Promise<{ success: boolean; newTrustScore: number }> {
-  return authService.validateBiometric(success, completedInTime);
+  return authService.validateBiometric(success, completedInTime, biometricSupported);
 }
 
 export async function updateSecureTrustScore(

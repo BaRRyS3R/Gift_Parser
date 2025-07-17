@@ -1,4 +1,4 @@
-// src/components/Security/BiometricModal.tsx - Simplified version with restart instructions
+// src/components/Security/BiometricModal.tsx - Updated with proper biometric availability handling
 
 "use client";
 
@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Shield,
   RotateCcw,
+  XCircle,
 } from "lucide-react";
 
 import { validateSecureBiometric } from "@/lib/authService";
@@ -23,7 +24,7 @@ interface BiometricModalProps {
 }
 
 type BiometricType = "finger" | "face" | "unknown";
-type AuthPhase = "initializing" | "permission_required" | "auth" | "error";
+type AuthPhase = "initializing" | "permission_required" | "auth" | "error" | "unsupported";
 
 const BiometricModal: React.FC<BiometricModalProps> = ({
   isOpen,
@@ -41,6 +42,7 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [attemptMade, setAttemptMade] = useState(false);
   const [authTimerActive, setAuthTimerActive] = useState(false);
+  const [isBiometricSupported, setIsBiometricSupported] = useState(true);
 
   const authTimeout = 15000; // 15 seconds for authentication
 
@@ -55,30 +57,32 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
       setBiometricManager(null);
       setBiometricType("unknown");
       setIsAuthenticating(false);
-
+      setIsBiometricSupported(true);
       return;
     }
 
     const initBiometric = async () => {
       console.log("Initializing biometric authentication");
 
-      if (typeof window === "undefined") return;
+      if (typeof window === "undefined") {
+        console.log("Window not available");
+        setError("Biometric authentication is not available in this environment");
+        setCurrentPhase("unsupported");
+        setIsBiometricSupported(false);
+        return;
+      }
 
       const tg = window.Telegram?.WebApp;
 
       if (!tg?.BiometricManager) {
-        console.log("BiometricManager not available");
-        setError("Biometric authentication is not supported on this device");
-        setCurrentPhase("error");
-        setTimeout(() => {
-          onFailure();
-        }, 2000);
-
+        console.log("BiometricManager not available - device/platform not supported");
+        setError("Biometric authentication is not supported on this device or platform");
+        setCurrentPhase("unsupported");
+        setIsBiometricSupported(false);
         return;
       }
 
       const manager = tg.BiometricManager;
-
       setBiometricManager(manager);
 
       // Initialize biometric manager
@@ -87,35 +91,28 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
         setBiometricType(manager.biometricType || "unknown");
 
         if (!manager.isBiometricAvailable) {
-          console.log("Biometric not available");
+          console.log("Biometric not available on device");
           setError("Biometric authentication is not available on this device");
-          setCurrentPhase("error");
-          setTimeout(() => {
-            onFailure();
-          }, 2000);
-
+          setCurrentPhase("unsupported");
+          setIsBiometricSupported(false);
           return;
         }
 
         // Check if permission is already granted
         if (manager.isAccessGranted) {
-          console.log(
-            "Permission already granted, proceeding to authentication",
-          );
+          console.log("Permission already granted, proceeding to authentication");
           setCurrentPhase("auth");
           setAuthTimeRemaining(authTimeout);
           setAuthTimerActive(true);
         } else {
-          console.log(
-            "Permission not granted, showing permission required screen",
-          );
+          console.log("Permission not granted, showing permission required screen");
           setCurrentPhase("permission_required");
         }
       });
     };
 
     initBiometric();
-  }, [isOpen, onFailure, authTimeout]);
+  }, [isOpen, authTimeout]);
 
   // Authentication phase timer
   useEffect(() => {
@@ -127,7 +124,6 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
 
         if (newTime <= 0) {
           handleAuthTimeout();
-
           return 0;
         }
 
@@ -147,10 +143,10 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
       setAttemptMade(true);
       setCurrentPhase("error");
       setTimeout(() => {
-        onFailure();
+        handleBiometricFailure();
       }, 1000);
     }
-  }, [attemptMade, onFailure]);
+  }, [attemptMade]);
 
   const handleAuthenticate = useCallback(async () => {
     if (
@@ -177,34 +173,52 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
           const completedInTime = authEndTime - authStartTime < authTimeout;
 
           try {
+            // Pass biometric support status to the API
             const result = await validateSecureBiometric(
               success,
               completedInTime,
+              isBiometricSupported // Pass the support status
             );
 
             if (result.success) {
+              console.log("Biometric authentication successful");
               onSuccess();
             } else {
-              onFailure();
+              console.log("Biometric authentication failed via API");
+              handleBiometricFailure();
             }
           } catch (error) {
             console.error("Error validating biometric:", error);
-            onFailure();
+            handleBiometricFailure();
           }
         },
       );
     } catch (error) {
       console.error("Error during biometric authentication:", error);
-      onFailure();
+      handleBiometricFailure();
     }
   }, [
     biometricManager,
     isAuthenticating,
     attemptMade,
     authTimeout,
+    isBiometricSupported,
     onSuccess,
-    onFailure,
   ]);
+
+  const handleBiometricFailure = useCallback(async () => {
+    console.log("Handling biometric failure, supported:", isBiometricSupported);
+
+    try {
+      // Send failure notification to API with support status
+      await validateSecureBiometric(false, false, isBiometricSupported);
+    } catch (error) {
+      console.error("Error sending biometric failure to API:", error);
+    }
+
+    // Always call onFailure to trigger blocking
+    onFailure();
+  }, [isBiometricSupported, onFailure]);
 
   const handleOpenSettings = useCallback(() => {
     if (biometricManager?.openSettings) {
@@ -231,6 +245,11 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
     }
   }, [biometricManager]);
 
+  const handleUnsupportedDevice = useCallback(() => {
+    console.log("Handling unsupported device - triggering 1-year block");
+    handleBiometricFailure();
+  }, [handleBiometricFailure]);
+
   const getBiometricIcon = () => {
     switch (biometricType) {
       case "finger":
@@ -255,7 +274,6 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
 
   const formatTime = (ms: number): string => {
     const seconds = Math.ceil(ms / 1000);
-
     return `${seconds}s`;
   };
 
@@ -268,7 +286,11 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
         <div className="text-center mb-6">
           <div className="flex items-center justify-center mb-4">
             <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center">
-              {getBiometricIcon()}
+              {currentPhase === "unsupported" ? (
+                <XCircle className="text-red-400" size={48} />
+              ) : (
+                getBiometricIcon()
+              )}
             </div>
           </div>
           <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
@@ -284,6 +306,54 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
             <p className="text-gray-400">
               Initializing biometric authentication...
             </p>
+          </div>
+        ) : currentPhase === "unsupported" ? (
+          <div className="text-center space-y-4">
+            <div className="flex items-center justify-center space-x-2 p-4 bg-red-500/20 border border-red-500/40 rounded-lg">
+              <XCircle className="text-red-400 flex-shrink-0" size={20} />
+              <div className="text-left">
+                <p className="text-red-300 text-sm font-semibold">Device Not Supported</p>
+                <p className="text-red-200 text-xs">{error}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <AlertTriangle className="text-orange-400 flex-shrink-0 mt-0.5" size={16} />
+                <div>
+                  <h4 className="text-orange-300 font-semibold mb-1 text-sm">
+                    Security Policy
+                  </h4>
+                  <p className="text-orange-200 text-xs">
+                    Due to security requirements, accounts with very low trust scores require biometric authentication.
+                    Since your device does not support this feature, your account will be blocked for security reasons.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <Shield className="text-red-400 flex-shrink-0 mt-0.5" size={16} />
+                <div>
+                  <h4 className="text-red-300 font-semibold mb-1 text-sm">
+                    Account Block Notice
+                  </h4>
+                  <p className="text-red-200 text-xs">
+                    Your account will be blocked for an extended period due to incompatible device security features.
+                    Please use a device with biometric authentication support to access this application.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+              onClick={handleUnsupportedDevice}
+            >
+              <Shield size={16} />
+              <span>I Understand</span>
+            </button>
           </div>
         ) : currentPhase === "error" ? (
           <div className="text-center space-y-4">
@@ -304,8 +374,7 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
 
             <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
               <p className="text-yellow-300 text-xs text-center">
-                Your account will be temporarily blocked due to biometric
-                authentication failure.
+                Your account will be temporarily blocked due to biometric authentication failure.
               </p>
             </div>
           </div>
@@ -320,8 +389,7 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
                 Biometric Permission Required
               </h3>
               <p className="text-gray-400 text-sm mb-4">
-                You need to grant biometric authentication permission to
-                continue
+                You need to grant biometric authentication permission to continue
               </p>
             </div>
 
@@ -331,31 +399,23 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
                 Instructions:
               </h4>
               <div className="text-blue-200 text-sm space-y-1">
-                <p>1. Tap &quot;Grant Permission&quot; or &quot;Open Settings&quot; below</p>
-                <p>
-                  2. Enable biometric authentication in your device settings
-                </p>
-                <p>
-                  3. <strong>Restart the application</strong> to apply changes
-                </p>
+                <p>1. Tap "Grant Permission" or "Open Settings" below</p>
+                <p>2. Enable biometric authentication in your device settings</p>
+                <p>3. <strong>Restart the application</strong> to apply changes</p>
               </div>
             </div>
 
             {/* Restart Requirement Highlight */}
             <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
               <div className="flex items-start space-x-2">
-                <RotateCcw
-                  className="text-orange-400 flex-shrink-0 mt-0.5"
-                  size={16}
-                />
+                <RotateCcw className="text-orange-400 flex-shrink-0 mt-0.5" size={16} />
                 <div>
                   <h4 className="text-orange-300 font-semibold mb-1 text-sm">
                     Application Restart Required
                   </h4>
                   <p className="text-orange-200 text-xs">
-                    After granting biometric permission, you must close and
-                    reopen the application for the changes to take effect. The
-                    permission will not work until you restart.
+                    After granting biometric permission, you must close and reopen the application for the changes to take effect.
+                    The permission will not work until you restart.
                   </p>
                 </div>
               </div>
@@ -363,7 +423,6 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              {/* Request Permission Button */}
               <button
                 className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
                 onClick={handleRequestPermission}
@@ -372,7 +431,6 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
                 <span>Grant Permission</span>
               </button>
 
-              {/* Settings Button */}
               {biometricManager?.openSettings && (
                 <button
                   className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
@@ -418,9 +476,7 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
             {/* Authentication Button */}
             <button
               className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-lg font-semibold"
-              disabled={
-                isAuthenticating || authTimeRemaining === 0 || attemptMade
-              }
+              disabled={isAuthenticating || authTimeRemaining === 0 || attemptMade}
               onClick={handleAuthenticate}
             >
               {isAuthenticating ? (
@@ -451,8 +507,10 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
         {/* Warning Message */}
         <div className="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
           <p className="text-red-300 text-xs text-center">
-            Biometric verification required due to low trust score. Your account
-            will be blocked if verification fails.
+            {currentPhase === "unsupported"
+              ? "Your account will be blocked for an extended period due to device incompatibility."
+              : "Biometric verification required due to low trust score. Your account will be blocked if verification fails."
+            }
           </p>
         </div>
       </div>
