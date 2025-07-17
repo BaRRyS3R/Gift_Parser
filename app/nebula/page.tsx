@@ -50,7 +50,7 @@ export default function NebulaSecurityPage() {
         }
     }, [isAuthenticated, router]);
 
-    // FIXED: Single initialization with security state dependency
+    // FIXED: Single initialization with enhanced trust score validation
     useEffect(() => {
         if (!isAuthenticated || initializationDoneRef.current) return;
 
@@ -59,52 +59,110 @@ export default function NebulaSecurityPage() {
                 console.log("Nebula Security: Initializing security verification...");
                 setIsInitializing(true);
 
-                // FIXED: Single security check call
+                // FIXED: Multiple attempts to get accurate security status
                 let result;
-                try {
-                    result = await checkSecurity();
-                } catch (error) {
-                    console.error("Nebula Security: Security check failed:", error);
+                let attempts = 0;
+                const maxAttempts = 3;
 
-                    // If authentication error, redirect to login
-                    if (error instanceof Error && error.message.includes("not authenticated")) {
-                        console.log("Nebula Security: Authentication error, redirecting to login");
-                        router.push("/");
-                        return;
+                while (attempts < maxAttempts) {
+                    try {
+                        result = await checkSecurity();
+
+                        // FIXED: Validate that we have a proper trust score
+                        if (typeof result.trustScore === 'number' && !isNaN(result.trustScore)) {
+                            console.log(`Nebula Security: Valid trust score received: ${result.trustScore} (attempt ${attempts + 1})`);
+                            break;
+                        } else {
+                            console.warn(`Nebula Security: Invalid trust score received: ${result.trustScore} (attempt ${attempts + 1})`);
+                            if (attempts < maxAttempts - 1) {
+                                // Wait and retry to get fresh data
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                                attempts++;
+                                continue;
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`Nebula Security: Security check failed (attempt ${attempts + 1}):`, error);
+
+                        if (attempts < maxAttempts - 1) {
+                            await new Promise(resolve => setTimeout(resolve, 1000 * (attempts + 1)));
+                            attempts++;
+                            continue;
+                        }
+
+                        // If all attempts failed and it's an authentication error, redirect to login
+                        if (error instanceof Error && error.message.includes("not authenticated")) {
+                            console.log("Nebula Security: Authentication error, redirecting to login");
+                            router.push("/");
+                            return;
+                        }
+
+                        // For other errors, use current security state as fallback
+                        console.log("Nebula Security: Using current security state as fallback");
+                        result = {
+                            isBlocked: securityState.isBlocked,
+                            needsCaptcha: securityState.needsCaptcha,
+                            needsBiometric: securityState.needsBiometric,
+                            trustScore: securityState.trustScore || 50,
+                            timeUntilUnblock: securityState.timeUntilUnblock,
+                            blockReason: securityState.blockReason,
+                        };
+                        break;
                     }
 
-                    // For other errors, use current security state as fallback
-                    console.log("Nebula Security: Using current security state as fallback");
-                    result = {
-                        isBlocked: securityState.isBlocked,
-                        needsCaptcha: securityState.needsCaptcha,
-                        needsBiometric: securityState.needsBiometric,
-                        trustScore: securityState.trustScore,
-                        timeUntilUnblock: securityState.timeUntilUnblock,
-                        blockReason: securityState.blockReason,
-                    };
+                    attempts++;
                 }
 
-                // Handle results
+                if (!result) {
+                    throw new Error("Failed to get security result after all attempts");
+                }
+
+                // FIXED: Enhanced decision logic with trust score validation
+                console.log("Nebula Security: Processing security result:", {
+                    trustScore: result.trustScore,
+                    needsCaptcha: result.needsCaptcha,
+                    needsBiometric: result.needsBiometric,
+                    isBlocked: result.isBlocked
+                });
+
+                // Handle blocked users
                 if (result.isBlocked) {
                     console.log("Nebula Security: User is blocked, redirecting to blocked page");
                     router.push("/blocked");
                     return;
                 }
 
+                // FIXED: Enhanced verification requirement logic
+                const actualTrustScore = typeof result.trustScore === 'number' && !isNaN(result.trustScore)
+                    ? result.trustScore
+                    : 50;
+
+                const requiresBiometric = actualTrustScore < 20;
+                const requiresCaptcha = actualTrustScore < 40 && !requiresBiometric;
+                const requiresVerification = requiresBiometric || requiresCaptcha;
+
+                console.log("Nebula Security: Verification analysis:", {
+                    actualTrustScore,
+                    requiresBiometric,
+                    requiresCaptcha,
+                    requiresVerification,
+                    apiSaysNeedsCaptcha: result.needsCaptcha,
+                    apiSaysNeedsBiometric: result.needsBiometric
+                });
+
                 // Only redirect to main if NO verification is needed
-                if (!result.needsCaptcha && !result.needsBiometric) {
-                    console.log("Nebula Security: No verification required, redirecting to main");
+                if (!requiresVerification) {
+                    console.log("Nebula Security: No verification required (trust score:", actualTrustScore, "), redirecting to main");
                     router.push("/main");
                     return;
                 }
 
-                // Determine verification type based on trust score and requirements
-                if (result.needsBiometric) {
-                    console.log("Nebula Security: Biometric verification required (trust score:", result.trustScore, ")");
+                // Determine verification type based on trust score
+                if (requiresBiometric) {
+                    console.log("Nebula Security: Biometric verification required (trust score:", actualTrustScore, ")");
                     setVerificationType('biometric');
-                } else if (result.needsCaptcha) {
-                    console.log("Nebula Security: Captcha verification required (trust score:", result.trustScore, ")");
+                } else if (requiresCaptcha) {
+                    console.log("Nebula Security: Captcha verification required (trust score:", actualTrustScore, ")");
                     setVerificationType('captcha');
                 }
 
@@ -117,21 +175,24 @@ export default function NebulaSecurityPage() {
                 initializationDoneRef.current = true;
 
                 // Use security state to determine verification type as fallback
-                const trustScore = securityState.trustScore || 50;
+                const fallbackTrustScore = securityState.trustScore || 50;
 
-                if (trustScore < 20) {
+                console.log("Nebula Security: Using fallback logic with trust score:", fallbackTrustScore);
+
+                if (fallbackTrustScore < 20) {
                     setVerificationType('biometric');
-                } else if (trustScore < 40) {
+                } else if (fallbackTrustScore < 40) {
                     setVerificationType('captcha');
                 } else {
                     // High trust score but somehow ended up here, redirect to main
+                    console.log("Nebula Security: High trust score in fallback, redirecting to main");
                     router.push("/main");
                     return;
                 }
             }
         };
 
-        // FIXED: Single initialization call with small delay
+        // Single initialization call with small delay
         const timeoutId = setTimeout(initializeSecurityCheck, 100);
 
         return () => clearTimeout(timeoutId);

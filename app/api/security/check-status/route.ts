@@ -1,4 +1,4 @@
-// src/app/api/security/check-status/route.ts - Security check status API endpoint
+// src/app/api/security/check-status/route.ts - Fixed trust score handling
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -20,19 +20,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // First check and unblock if time has passed
-    const { error: unblockError } = await supabaseServer.rpc(
-      "check_and_unblock_user",
-      {
-        user_telegram_id: parseInt(telegramId),
-      },
-    );
+    // Execute unblock check using internal API call for consistency
+    try {
+      const unblockResponse = await fetch(`${request.nextUrl.origin}/api/security/unblock-check`, {
+        method: "POST",
+        headers: {
+          "Authorization": request.headers.get("authorization") || "",
+          "x-user-id": userId,
+          "x-telegram-id": telegramId,
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (unblockError) {
-      console.error("Error checking unblock status:", unblockError);
+      if (!unblockResponse.ok) {
+        console.error("Unblock check failed:", unblockResponse.status);
+      }
+    } catch (error) {
+      console.error("Error performing unblock check:", error);
     }
 
-    // Get current user data
+    // FIXED: Retrieve current user security data with explicit trust_score selection
     const { data: user, error: userError } = await supabaseServer
       .from("users")
       .select("trust_score, blocked_until, is_active")
@@ -41,7 +48,6 @@ export async function GET(request: NextRequest) {
 
     if (userError || !user) {
       console.error("Database error fetching user:", userError);
-
       return NextResponse.json(
         {
           success: false,
@@ -52,8 +58,36 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get current server time
-    const serverTime = new Date();
+    // FIXED: Ensure trust_score is always a valid number
+    let trustScore = 50; // Default value
+    if (typeof user.trust_score === 'number' && !isNaN(user.trust_score)) {
+      trustScore = user.trust_score;
+    } else {
+      console.warn(`Invalid trust_score for user ${telegramId}:`, user.trust_score, "using default:", trustScore);
+    }
+
+    // Obtain server time using secure API endpoint
+    let serverTime = new Date();
+    try {
+      const timeResponse = await fetch(`${request.nextUrl.origin}/api/security/server-time`, {
+        method: "GET",
+        headers: {
+          "Authorization": request.headers.get("authorization") || "",
+          "x-user-id": userId,
+          "x-telegram-id": telegramId,
+        },
+      });
+
+      if (timeResponse.ok) {
+        const timeData = await timeResponse.json();
+        if (timeData.success && timeData.timestamp) {
+          serverTime = new Date(timeData.timestamp);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching server time:", error);
+    }
+
     const isBlocked = user.blocked_until
       ? new Date(user.blocked_until) > serverTime
       : false;
@@ -65,35 +99,50 @@ export async function GET(request: NextRequest) {
       timeUntilUnblock =
         new Date(user.blocked_until).getTime() - serverTime.getTime();
 
-      // Get the most recent active block reason
-      const { data: blockData } = await supabaseServer
-        .from("user_blocks")
-        .select("block_reason")
-        .eq("telegram_id", parseInt(telegramId))
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      // Retrieve block reason using secure API endpoint
+      try {
+        const blocksResponse = await fetch(`${request.nextUrl.origin}/api/security/user-blocks?active=true&limit=1`, {
+          method: "GET",
+          headers: {
+            "Authorization": request.headers.get("authorization") || "",
+            "x-user-id": userId,
+            "x-telegram-id": telegramId,
+          },
+        });
 
-      if (blockData) {
-        blockReason = blockData.block_reason;
+        if (blocksResponse.ok) {
+          const blocksData = await blocksResponse.json();
+          if (blocksData.success && blocksData.activeBlockReason) {
+            blockReason = blocksData.activeBlockReason;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching block reason:", error);
       }
     }
 
-    const trustScore = user.trust_score || 50;
+    // FIXED: Calculate verification requirements based on trust score
+    const needsCaptcha = !isBlocked && trustScore < 40;
+    const needsBiometric = !isBlocked && trustScore < 20;
+
+    // FIXED: Enhanced logging for debugging
+    console.log(`Security check for user ${telegramId}: trustScore=${trustScore}, needsCaptcha=${needsCaptcha}, needsBiometric=${needsBiometric}, isBlocked=${isBlocked}`);
+
+    const securityResult = {
+      isBlocked,
+      needsCaptcha,
+      needsBiometric,
+      trustScore, // FIXED: Ensure trust score is always included
+      timeUntilUnblock:
+        timeUntilUnblock && timeUntilUnblock > 0
+          ? timeUntilUnblock
+          : undefined,
+      blockReason,
+    };
 
     return NextResponse.json({
       success: true,
-      securityResult: {
-        isBlocked,
-        needsCaptcha: !isBlocked && trustScore < 40,
-        needsBiometric: !isBlocked && trustScore < 20,
-        timeUntilUnblock:
-          timeUntilUnblock && timeUntilUnblock > 0
-            ? timeUntilUnblock
-            : undefined,
-        blockReason,
-      },
+      securityResult,
     });
   } catch (error) {
     console.error("Security check status API error:", error);

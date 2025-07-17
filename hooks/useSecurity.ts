@@ -125,7 +125,7 @@ export function useSecurity(): SecurityHookReturn {
     securityState.trustScore
   ]);
 
-  // FIXED: Improved security check with single execution guarantee
+  // FIXED: Improved security check with trust score validation
   const checkSecurity = useCallback(async (): Promise<SecurityCheckResult> => {
     if (!isAuthenticated) {
       console.log("Cannot check security: user not authenticated");
@@ -133,27 +133,39 @@ export function useSecurity(): SecurityHookReturn {
     }
 
     if (isCheckingRef.current) {
-      console.log("Security check already in progress, returning cached result");
-      // Return current state as result instead of throwing error
-      return {
-        isBlocked: securityState.isBlocked,
-        needsCaptcha: securityState.needsCaptcha,
-        needsBiometric: securityState.needsBiometric,
-        trustScore: securityState.trustScore,
-        timeUntilUnblock: securityState.timeUntilUnblock,
-        blockReason: securityState.blockReason,
-      };
+      console.log("Security check already in progress, waiting for completion...");
+      // Wait for current check to complete instead of returning potentially stale cache
+      let attempts = 0;
+      while (isCheckingRef.current && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
+      // If still checking after wait, return current state
+      if (isCheckingRef.current) {
+        console.log("Security check timeout, returning current state");
+        return {
+          isBlocked: securityState.isBlocked,
+          needsCaptcha: securityState.needsCaptcha,
+          needsBiometric: securityState.needsBiometric,
+          trustScore: securityState.trustScore,
+          timeUntilUnblock: securityState.timeUntilUnblock,
+          blockReason: securityState.blockReason,
+        };
+      }
     }
 
     const now = Date.now();
 
-    // Use cache if recent and valid
+    // FIXED: Only use cache if trust score is valid and recent
     if (
       now - lastSecurityCheckRef.current < SECURITY_CHECK_CACHE_DURATION &&
       securityState.lastChecked &&
-      !securityState.isLoading
+      !securityState.isLoading &&
+      typeof securityState.trustScore === 'number' &&
+      !isNaN(securityState.trustScore)
     ) {
-      console.log("Using cached security status");
+      console.log("Using cached security status with valid trust score:", securityState.trustScore);
       return {
         isBlocked: securityState.isBlocked,
         needsCaptcha: securityState.needsCaptcha,
