@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameCanvas.tsx - Оптимизированная версия для мобильных устройств
+// src/game-modes/physics/PhysicsGameCanvas.tsx - Updated implementation without visible boundaries and proper screen positioning
 
 "use client";
 
@@ -13,23 +13,6 @@ interface PhysicsGameCanvasProps {
     showCanvas: boolean;
 }
 
-// Детекция типа устройства для оптимизации
-const isMobileDevice = (): boolean => {
-    return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
-
-const isLowPerformanceDevice = (): boolean => {
-    if (typeof navigator === 'undefined') return false;
-
-    const isOldAndroid = /Android [1-6]\./.test(navigator.userAgent);
-    const isOldIOS = /OS [1-9]_/.test(navigator.userAgent);
-
-    const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
-    const isSlowConnection = connection && (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g');
-
-    return isOldAndroid || isOldIOS || isSlowConnection;
-};
-
 export default function PhysicsGameCanvas({
     gameState,
     onCircleClick,
@@ -38,11 +21,6 @@ export default function PhysicsGameCanvas({
 }: PhysicsGameCanvasProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationFrameRef = useRef<number>();
-    const lastDrawTimeRef = useRef<number>(0);
-    const deviceTypeRef = useRef({
-        isMobile: isMobileDevice(),
-        isLowPerf: isLowPerformanceDevice()
-    });
 
     // Touch handling refs for preventing multiple touches
     const activeTouchesRef = useRef<Map<number, {
@@ -53,7 +31,7 @@ export default function PhysicsGameCanvas({
         processed: boolean;
     }>>(new Map());
 
-    // Оптимизированная функция получения позиции клика
+    // Function to get click position relative to canvas
     const getClickPosition = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (!canvas) return null;
@@ -68,22 +46,17 @@ export default function PhysicsGameCanvas({
         };
     }, []);
 
-    // Оптимизированная функция проверки попадания
+    // Function to check if click hit a circle
     const getClickedCircle = useCallback((
         clickX: number,
         clickY: number,
         circles: PhysicsCircle[]
     ): PhysicsCircle | null => {
-        // Проверяем только активные круги для лучшей производительности
-        const activeCircles = circles.filter(circle => circle.isActive && !circle.isAnimating);
-
-        for (const circle of activeCircles) {
-            const dx = clickX - circle.x;
-            const dy = clickY - circle.y;
-            const distanceSquared = dx * dx + dy * dy;
-            const radiusSquared = circle.radius * circle.radius;
-
-            if (distanceSquared <= radiusSquared) {
+        for (const circle of circles) {
+            const distance = Math.sqrt(
+                Math.pow(clickX - circle.x, 2) + Math.pow(clickY - circle.y, 2)
+            );
+            if (distance <= circle.radius) {
                 return circle;
             }
         }
@@ -103,7 +76,7 @@ export default function PhysicsGameCanvas({
         }
     }, [isGameActive, getClickPosition, getClickedCircle, gameState.circles, onCircleClick]);
 
-    // Optimized touch handlers with better debouncing for mobile
+    // Enhanced touch handler with debouncing
     const handleTouchStart = useCallback((event: React.TouchEvent<HTMLCanvasElement>) => {
         event.preventDefault();
         if (!isGameActive) return;
@@ -206,7 +179,7 @@ export default function PhysicsGameCanvas({
         }
     }, []);
 
-    // Высокооптимизированная функция отрисовки для мобильных устройств
+    // Main drawing function - no boundary drawing, just circles
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -214,181 +187,116 @@ export default function PhysicsGameCanvas({
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        const { isMobile, isLowPerf } = deviceTypeRef.current;
-
-        // Настройки оптимизации для разных типов устройств
-        if (isMobile) {
-            ctx.imageSmoothingEnabled = !isLowPerf; // Отключаем сглаживание на слабых устройствах
-        }
-
-        // Очищаем canvas
+        // Clear canvas with transparent background
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Группируем круги по типу для оптимизации
-        const activeCircles: PhysicsCircle[] = [];
-        const inactiveCircles: PhysicsCircle[] = [];
-        const decoyCircles: PhysicsCircle[] = [];
-
+        // Draw circles only - no boundaries
         gameState.circles.forEach((circle) => {
-            if (circle.isAnimating) return; // Пропускаем анимирующиеся круги
+            // Skip circles that are being deactivated immediately
+            if (circle.isAnimating) return;
 
+            ctx.save();
+
+            // Determine circle color and style
             if (circle.isActive) {
                 if (circle.isDecoy) {
-                    decoyCircles.push(circle);
+                    // Red trap circle
+                    ctx.fillStyle = "#ef4444";
+                    ctx.strokeStyle = "#dc2626";
+                    ctx.lineWidth = 3;
+
+                    // Pulsing effect for red circles
+                    const pulse = Math.sin(Date.now() * 0.01) * 0.1 + 1;
+                    ctx.globalAlpha = 0.9;
+                    ctx.scale(pulse, pulse);
+                    ctx.translate((circle.x * (1 - pulse)) / pulse, (circle.y * (1 - pulse)) / pulse);
                 } else {
-                    activeCircles.push(circle);
-                }
-            } else {
-                inactiveCircles.push(circle);
-            }
-        });
+                    // White active circle
+                    ctx.fillStyle = "#ffffff";
+                    ctx.strokeStyle = "#e5e5e5";
+                    ctx.lineWidth = 3;
+                    ctx.globalAlpha = 1;
 
-        // Рисуем неактивные круги одним проходом (для производительности)
-        if (inactiveCircles.length > 0) {
-            ctx.save();
-            ctx.fillStyle = "#ffffff20";
-            ctx.strokeStyle = "#ffffff40";
-            ctx.lineWidth = 2;
-            ctx.globalAlpha = 0.7;
-
-            ctx.beginPath();
-            inactiveCircles.forEach(circle => {
-                ctx.moveTo(circle.x + circle.radius, circle.y);
-                ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
-            });
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        // Рисуем активные белые круги
-        if (activeCircles.length > 0) {
-            activeCircles.forEach(circle => {
-                ctx.save();
-                ctx.fillStyle = "#ffffff";
-                ctx.strokeStyle = "#e5e5e5";
-                ctx.lineWidth = 3;
-                ctx.globalAlpha = 1;
-
-                // Добавляем тонкое свечение только на производительных устройствах
-                if (!isLowPerf) {
+                    // Subtle glow effect
                     ctx.shadowColor = "#ffffff";
                     ctx.shadowBlur = 10;
                 }
+            } else {
+                // Inactive circle
+                ctx.fillStyle = "#ffffff20";
+                ctx.strokeStyle = "#ffffff40";
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.7;
+            }
 
-                ctx.beginPath();
-                ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
+            // Draw circle
+            ctx.beginPath();
+            ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
 
-                // Отрисовка индикатора скорости (только для быстро движущихся кругов)
-                if (!isLowPerf && circle.vx && circle.vy && (Math.abs(circle.vx) > 0.1 || Math.abs(circle.vy) > 0.1)) {
-                    const velocity = Math.sqrt(circle.vx * circle.vx + circle.vy * circle.vy);
-                    if (velocity > 0.5) {
-                        const trailLength = Math.min(velocity * 3, 30);
-                        const angle = Math.atan2(circle.vy, circle.vx);
+            // Add velocity indicator for moving circles
+            if (circle.vx && circle.vy && (Math.abs(circle.vx) > 0.1 || Math.abs(circle.vy) > 0.1)) {
+                const velocity = Math.sqrt(circle.vx * circle.vx + circle.vy * circle.vy);
+                if (velocity > 0.5) {
+                    const trailLength = Math.min(velocity * 3, 30);
+                    const angle = Math.atan2(circle.vy, circle.vx);
 
-                        ctx.strokeStyle = "#ffffff60";
-                        ctx.lineWidth = 2;
-                        ctx.lineCap = "round";
-                        ctx.shadowBlur = 0; // Отключаем тень для линии
+                    ctx.strokeStyle = circle.isActive
+                        ? (circle.isDecoy ? "#ef444460" : "#ffffff60")
+                        : "#ffffff30";
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = "round";
 
-                        ctx.beginPath();
-                        ctx.moveTo(
-                            circle.x - Math.cos(angle) * trailLength,
-                            circle.y - Math.sin(angle) * trailLength
-                        );
-                        ctx.lineTo(circle.x, circle.y);
-                        ctx.stroke();
-                    }
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        circle.x - Math.cos(angle) * trailLength,
+                        circle.y - Math.sin(angle) * trailLength
+                    );
+                    ctx.lineTo(circle.x, circle.y);
+                    ctx.stroke();
                 }
+            }
 
-                ctx.restore();
-            });
-        }
-
-        // Рисуем красные круги-ловушки с пульсацией
-        if (decoyCircles.length > 0) {
-            const currentTime = Date.now();
-            const pulse = Math.sin(currentTime * 0.01) * 0.1 + 1;
-
-            decoyCircles.forEach(circle => {
-                ctx.save();
-                ctx.fillStyle = "#ef4444";
-                ctx.strokeStyle = "#dc2626";
-                ctx.lineWidth = 3;
-                ctx.globalAlpha = 0.9;
-
-                // Эффект пульсации только на производительных устройствах
-                if (!isLowPerf) {
-                    ctx.scale(pulse, pulse);
-                    ctx.translate((circle.x * (1 - pulse)) / pulse, (circle.y * (1 - pulse)) / pulse);
-                }
-
-                ctx.beginPath();
-                ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-
-                ctx.restore();
-            });
-        }
+            ctx.restore();
+        });
     }, [gameState]);
 
-    // Оптимизированная анимационная петля с контролем частоты кадров
+    // Animation loop
     const animate = useCallback(() => {
-        if (!showCanvas || !isGameActive) {
-            return;
+        draw();
+        if (showCanvas && isGameActive) {
+            animationFrameRef.current = requestAnimationFrame(animate);
         }
-
-        const currentTime = performance.now();
-        const { isMobile, isLowPerf } = deviceTypeRef.current;
-
-        // Ограничиваем FPS на слабых устройствах для лучшей производительности
-        const targetFPS = isLowPerf ? 30 : (isMobile ? 45 : 60);
-        const frameInterval = 1000 / targetFPS;
-
-        if (currentTime - lastDrawTimeRef.current >= frameInterval) {
-            draw();
-            lastDrawTimeRef.current = currentTime;
-        }
-
-        animationFrameRef.current = requestAnimationFrame(animate);
     }, [draw, showCanvas, isGameActive]);
 
-    // Clear all active touches when game becomes inactive
     useEffect(() => {
+        // Clear all active touches when game becomes inactive
         if (!isGameActive) {
             activeTouchesRef.current.clear();
         }
     }, [isGameActive]);
 
-    // Cleanup on component unmount
     useEffect(() => {
         return () => {
+            // Cleanup on component unmount
             activeTouchesRef.current.clear();
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
         };
     }, []);
 
     // Start/stop animation based on game state
     useEffect(() => {
         if (showCanvas && isGameActive) {
-            lastDrawTimeRef.current = performance.now();
             animate();
         } else {
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
-                animationFrameRef.current = undefined;
             }
         }
 
         return () => {
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
-                animationFrameRef.current = undefined;
             }
         };
     }, [showCanvas, isGameActive, animate]);
@@ -398,49 +306,9 @@ export default function PhysicsGameCanvas({
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Устанавливаем размеры с учетом устройства
-        const { isMobile, isLowPerf } = deviceTypeRef.current;
-
         canvas.width = gameState.config.containerWidth;
         canvas.height = gameState.config.containerHeight;
-
-        // Настройки контекста для оптимизации
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-            if (isMobile) {
-                // Оптимизации для мобильных устройств
-                ctx.imageSmoothingEnabled = !isLowPerf;
-                if (ctx.imageSmoothingEnabled) {
-                    ctx.imageSmoothingQuality = isLowPerf ? 'low' : 'medium';
-                }
-            }
-        }
     }, [gameState.config.containerWidth, gameState.config.containerHeight]);
-
-    // Обработка изменения видимости для экономии ресурсов
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.hidden) {
-                // Останавливаем анимацию когда страница не видна
-                if (animationFrameRef.current) {
-                    cancelAnimationFrame(animationFrameRef.current);
-                    animationFrameRef.current = undefined;
-                }
-            } else {
-                // Возобновляем анимацию когда страница снова видна
-                if (showCanvas && isGameActive) {
-                    lastDrawTimeRef.current = performance.now();
-                    animate();
-                }
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [showCanvas, isGameActive, animate]);
 
     return (
         <div
