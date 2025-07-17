@@ -100,14 +100,14 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     return {
         id: "physics",
         name: "PHYSICS MODE",
-        circleCount: 40,
+        circleCount: 30,
         circleRadius: Math.max(26, Math.min(36, containerWidth / 18)),
         containerWidth,
         containerHeight,
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
-        impulseForce: 0.15, // ИСПРАВЛЕНО: увеличил силу импульса
+        impulseForce: 0.1, // ИСПРАВЛЕНО: увеличил силу импульса
         maxMistakes: 5,
         levelDuration: 360,
     };
@@ -121,14 +121,14 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
     gravity: { x: 0, y: 1.0 }, // ИСПРАВЛЕНО: увеличил гравитацию с 0.5 до 1.2
     restitution: 0.7, // ИСПРАВЛЕНО: немного уменьшил упругость для более реалистичного поведения
     friction: 0.002, // ИСПРАВЛЕНО: уменьшил трение
-    frictionAir: 0.01, // ИСПРАВЛЕНО: существенно уменьшил воздушное трение с 0.015 до 0.005
+    frictionAir: 0.012, // ИСПРАВЛЕНО: существенно уменьшил воздушное трение с 0.015 до 0.005
 };
 
 // ИСПРАВЛЕНО: Увеличенная сила импульса
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.08, // ИСПРАВЛЕНО: увеличил силу импульса с 0.08 до 0.15
-    radius: 150,
-    falloff: 0.4,
+    force: 0.05, // ИСПРАВЛЕНО: увеличил силу импульса с 0.08 до 0.15
+    radius: 140,
+    falloff: 0.5,
 };
 
 export const createPhysicsEngine = (): Matter.Engine => {
@@ -183,7 +183,7 @@ export const createPhysicsCircles = (
             restitution: PHYSICS_ENGINE_CONFIG.restitution,
             friction: PHYSICS_ENGINE_CONFIG.friction,
             frictionAir: PHYSICS_ENGINE_CONFIG.frictionAir,
-            density: 0.002, // ИСПРАВЛЕНО: увеличил плотность с 0.002 до 0.008
+            density: 0.004, // ИСПРАВЛЕНО: увеличил плотность с 0.002 до 0.008
             label: `circle_${i}`,
         });
 
