@@ -117,16 +117,16 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
   containerWidth: 350, // Will be overridden by adaptive config
   containerHeight: 500, // Will be overridden by adaptive config
   wallThickness: 20, // Increased thickness for screen boundaries
-  gravity: { x: 0, y: 0.3 },
+  gravity: { x: 0, y: 0.5 },
   restitution: 0.8,
   friction: 0.005,
-  frictionAir: 0.025,
+  frictionAir: 0.015,
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
   force: 0.08,
   radius: 150,
-  falloff: 0.3,
+  falloff: 0.4,
 };
 
 export const createPhysicsEngine = (): Matter.Engine => {
