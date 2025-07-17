@@ -1,4 +1,4 @@
-// src/hooks/useSecurity.ts - Fixed auto-unlock after successful verification
+// src/hooks/useSecurity.ts - Fixed state synchronization after successful verification
 
 "use client";
 
@@ -45,8 +45,6 @@ interface SecurityHookReturn {
   // Utils
   isSecurityCheckNeeded: () => boolean;
   formatTrustScore: (score: number) => { color: string; label: string };
-
-  // FIX: Add security initialized state
   isSecurityInitialized: () => boolean;
 }
 
@@ -68,20 +66,40 @@ export function useSecurity(): SecurityHookReturn {
   const [showBiometric, setShowBiometric] = useState(false);
   const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
 
-  // FIX: Track security initialization
+  // FIX: Track security initialization with better logic
   const [securityInitialized, setSecurityInitialized] = useState(false);
 
   const isCheckingRef = useRef(false);
   const lastSecurityCheckRef = useRef<number>(0);
 
-  // FIX: Update security initialization when state is ready
+  // FIX: Enhanced security initialization logic
   useEffect(() => {
-    if (isAuthenticated && !securityState.isLoading) {
-      setSecurityInitialized(true);
-    } else if (!isAuthenticated) {
+    if (!isAuthenticated) {
       setSecurityInitialized(false);
+      return;
     }
-  }, [isAuthenticated, securityState.isLoading]);
+
+    // Initialize security as ready if:
+    // 1. Not loading AND not blocked AND no verification needed
+    // 2. OR verification was already completed (high trust score)
+    if (!securityState.isLoading) {
+      const isVerificationNeeded = securityState.needsCaptcha || securityState.needsBiometric;
+      const hasGoodTrustScore = securityState.trustScore >= 40;
+
+      if (!securityState.isBlocked && (!isVerificationNeeded || hasGoodTrustScore)) {
+        setSecurityInitialized(true);
+      } else if (securityState.isBlocked || isVerificationNeeded) {
+        setSecurityInitialized(false);
+      }
+    }
+  }, [
+    isAuthenticated,
+    securityState.isLoading,
+    securityState.isBlocked,
+    securityState.needsCaptcha,
+    securityState.needsBiometric,
+    securityState.trustScore
+  ]);
 
   // UPDATED: Strict security check - API only, no fallback to direct Supabase
   const checkSecurity = useCallback(async (): Promise<SecurityCheckResult> => {
@@ -237,17 +255,34 @@ export function useSecurity(): SecurityHookReturn {
     return securityInitialized;
   }, [securityInitialized]);
 
-  // UPDATED: Strict captcha handlers using API methods only
-  const handleCaptchaSuccess = useCallback(() => {
-    console.log("Captcha verification successful");
+  // FIX: Enhanced success handlers with forced state updates
+  const handleCaptchaSuccess = useCallback(async () => {
+    console.log("Captcha verification successful - updating security state");
     setShowCaptcha(false);
     setCaptchaData(null);
 
-    // FIX: Force security status refresh and re-initialization
-    refreshSecurityStatus().then(() => {
-      setSecurityInitialized(true);
-    });
-    refreshUser();
+    // FIX: Force immediate state update before API calls
+    setSecurityState(prev => ({
+      ...prev,
+      needsCaptcha: false,
+      trustScore: Math.min(100, prev.trustScore + 15), // Optimistic update
+    }));
+
+    // Force security to be initialized immediately
+    setSecurityInitialized(true);
+
+    try {
+      // Refresh security status and user data in parallel
+      await Promise.all([
+        refreshSecurityStatus(),
+        refreshUser()
+      ]);
+
+      console.log("Post-captcha refresh completed successfully");
+    } catch (error) {
+      console.error("Error during post-captcha refresh:", error);
+      // Even if refresh fails, keep the optimistic update
+    }
   }, [refreshUser]);
 
   const handleCaptchaFailure = useCallback(() => {
@@ -259,16 +294,34 @@ export function useSecurity(): SecurityHookReturn {
     router.push("/blocked");
   }, [router]);
 
-  // UPDATED: Strict biometric handlers using API methods only
-  const handleBiometricSuccess = useCallback(() => {
-    console.log("Biometric verification successful");
+  // FIX: Enhanced biometric success handler
+  const handleBiometricSuccess = useCallback(async () => {
+    console.log("Biometric verification successful - updating security state");
     setShowBiometric(false);
 
-    // FIX: Force security status refresh and re-initialization
-    refreshSecurityStatus().then(() => {
-      setSecurityInitialized(true);
-    });
-    refreshUser();
+    // FIX: Force immediate state update before API calls
+    setSecurityState(prev => ({
+      ...prev,
+      needsBiometric: false,
+      needsCaptcha: false, // Biometric success also clears captcha requirement
+      trustScore: Math.min(100, prev.trustScore + 30), // Optimistic update
+    }));
+
+    // Force security to be initialized immediately
+    setSecurityInitialized(true);
+
+    try {
+      // Refresh security status and user data in parallel
+      await Promise.all([
+        refreshSecurityStatus(),
+        refreshUser()
+      ]);
+
+      console.log("Post-biometric refresh completed successfully");
+    } catch (error) {
+      console.error("Error during post-biometric refresh:", error);
+      // Even if refresh fails, keep the optimistic update
+    }
   }, [refreshUser]);
 
   const handleBiometricFailure = useCallback(() => {
@@ -298,6 +351,7 @@ export function useSecurity(): SecurityHookReturn {
     lastSecurityCheckRef.current = 0;
 
     try {
+      console.log("Refreshing security status...");
       await checkSecurity();
     } catch (error) {
       console.error("Error refreshing security status:", error);
@@ -366,6 +420,6 @@ export function useSecurity(): SecurityHookReturn {
     // Utils
     isSecurityCheckNeeded,
     formatTrustScore,
-    isSecurityInitialized, // FIX: Export security initialization state
+    isSecurityInitialized,
   };
 }

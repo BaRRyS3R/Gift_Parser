@@ -20,8 +20,6 @@ interface BiometricModalProps {
   onSuccess: () => void;
   onFailure: () => void;
   onClose?: () => void;
-  title?: string;
-  description?: string;
 }
 
 type BiometricType = "finger" | "face" | "unknown";
@@ -32,9 +30,9 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
   onSuccess,
   onFailure,
   onClose,
-  title = "Biometric Authentication Required",
-  description = "Your trust score is very low. Please authenticate using biometrics to continue.",
 }) => {
+  const title = "Biometric Authentication Required";
+  const description = "Your trust score is very low. Please authenticate using biometrics to continue.";
   const [biometricManager, setBiometricManager] = useState<any>(null);
   const [biometricType, setBiometricType] = useState<BiometricType>("unknown");
   const [currentPhase, setCurrentPhase] = useState<AuthPhase>("initializing");

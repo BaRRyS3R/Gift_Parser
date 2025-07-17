@@ -579,7 +579,7 @@ export default function MainPage() {
                   {isTransitioning
                     ? t("main.loading")
                     : isSecurityBlocked
-                      ? "VERIFICATION NEEDED"
+                      ? "LOCKED"
                       : t("main.startGame")}
                 </span>
               </div>
@@ -622,17 +622,13 @@ export default function MainPage() {
 
       {/* Security Modals - HIGHEST Z-INDEX */}
       <CaptchaModal
-        description="Your trust score requires additional verification. Please complete the captcha to continue."
         isOpen={showCaptcha}
-        title="Security Verification Required"
         onFailure={handleCaptchaFailure}
         onSuccess={handleCaptchaSuccess}
       />
 
       <BiometricModal
-        description="Your trust score is very low. Please authenticate using biometrics to continue."
         isOpen={showBiometric}
-        title="Biometric Authentication Required"
         onFailure={handleBiometricFailure}
         onSuccess={handleBiometricSuccess}
       />

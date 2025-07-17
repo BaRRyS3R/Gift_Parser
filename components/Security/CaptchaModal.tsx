@@ -15,8 +15,6 @@ interface CaptchaModalProps {
   onSuccess: () => void;
   onFailure: () => void;
   onClose?: () => void;
-  title?: string;
-  description?: string;
 }
 
 const CaptchaModal: React.FC<CaptchaModalProps> = ({
@@ -24,9 +22,10 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
   onSuccess,
   onFailure,
   onClose,
-  title = "Security Verification",
-  description = "Please complete the captcha to continue",
+
 }) => {
+  const title = "Security Verification";
+  const description = "Please complete the captcha to continue";
   const [captchaData, setCaptchaData] = useState<{
     challenge: string;
     correctAnswer: string;

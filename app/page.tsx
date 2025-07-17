@@ -840,10 +840,7 @@ export default function IntroPage(): JSX.Element {
               </p>
               {authState.timeUntilUnblock && (
                 <div className="bg-red-500/20 border border-red-500/40 rounded-lg p-4">
-                  <p className="text-red-200 text-sm mb-2">Time remaining:</p>
-                  <p className="text-2xl font-bold text-red-400 font-mono">
-                    {formatTimeRemaining(authState.timeUntilUnblock)}
-                  </p>
+                  <p className="text-red-200 text-sm mb-2">Ha-ha. Blocked. Go.</p>
                 </div>
               )}
             </div>
