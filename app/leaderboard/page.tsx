@@ -2,13 +2,6 @@
 
 "use client";
 
-import type {
-  SafeReactionLeaderboardEntry,
-  SafeSurvivalLeaderboardEntry,
-  SafePhysicsLeaderboardEntry,
-  SafeRotationLeaderboardEntry,
-} from "@/types/safe-leaderboard";
-
 import { useState, useEffect } from "react";
 import {
   Crown,
@@ -37,6 +30,12 @@ import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic"
 import { useT } from "@/contexts/LocalizationContext";
 
 // Импорт безопасных типов
+import type {
+  SafeReactionLeaderboardEntry,
+  SafeSurvivalLeaderboardEntry,
+  SafePhysicsLeaderboardEntry,
+  SafeRotationLeaderboardEntry,
+} from "@/types/safe-leaderboard";
 
 type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
@@ -44,18 +43,10 @@ export default function LeaderboardPage() {
   const { isAuthenticated } = useUser();
   const t = useT();
   const [activeTab, setActiveTab] = useState<LeaderboardType>("reaction");
-  const [reactionLeaderboard, setReactionLeaderboard] = useState<
-    SafeReactionLeaderboardEntry[]
-  >([]);
-  const [survivalLeaderboard, setSurvivalLeaderboard] = useState<
-    SafeSurvivalLeaderboardEntry[]
-  >([]);
-  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<
-    SafePhysicsLeaderboardEntry[]
-  >([]);
-  const [rotationLeaderboard, setRotationLeaderboard] = useState<
-    SafeRotationLeaderboardEntry[]
-  >([]);
+  const [reactionLeaderboard, setReactionLeaderboard] = useState<SafeReactionLeaderboardEntry[]>([]);
+  const [survivalLeaderboard, setSurvivalLeaderboard] = useState<SafeSurvivalLeaderboardEntry[]>([]);
+  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<SafePhysicsLeaderboardEntry[]>([]);
+  const [rotationLeaderboard, setRotationLeaderboard] = useState<SafeRotationLeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +55,6 @@ export default function LeaderboardPage() {
       if (!isAuthenticated) {
         console.log("User not authenticated, skipping leaderboard load");
         setIsLoading(false);
-
         return;
       }
 
@@ -91,10 +81,7 @@ export default function LeaderboardPage() {
         console.error("Error loading leaderboards via secure API:", err);
 
         // Handle authentication errors
-        if (
-          err instanceof Error &&
-          err.message.includes("Authentication expired")
-        ) {
+        if (err instanceof Error && err.message.includes("Authentication expired")) {
           console.log("Authentication expired during leaderboard load");
           setError(t("leaderboard.authenticationRequired"));
         } else {
@@ -155,7 +142,6 @@ export default function LeaderboardPage() {
       if (time <= 200) return "EXCELLENT";
       if (time <= 300) return "GOOD";
       if (time <= 500) return "AVERAGE";
-
       return "SLOW";
     };
 
@@ -524,9 +510,7 @@ export default function LeaderboardPage() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <TrendingUp className="text-white/60 mx-auto" size={48} />
-          <h2 className="text-white text-xl font-bold">
-            Authentication Required
-          </h2>
+          <h2 className="text-white text-xl font-bold">Authentication Required</h2>
           <p className="text-white/80">Please log in to view leaderboards</p>
         </div>
       </div>
@@ -646,17 +630,15 @@ export default function LeaderboardPage() {
                     ? `${(currentLeaderboard[0] as SafeReactionLeaderboardEntry).bestReactionTime}ms`
                     : isSurvivalTab
                       ? formatSurvivalTime(
-                          (
-                            currentLeaderboard[0] as SafeSurvivalLeaderboardEntry
-                          ).bestSurvivalTime,
-                        )
+                        (currentLeaderboard[0] as SafeSurvivalLeaderboardEntry)
+                          .bestSurvivalTime,
+                      )
                       : isPhysicsTab
                         ? `${(currentLeaderboard[0] as SafePhysicsLeaderboardEntry).bestPhysicsScore} pts`
                         : formatRotationTime(
-                            (
-                              currentLeaderboard[0] as SafeRotationLeaderboardEntry
-                            ).bestRotationTime,
-                          )
+                          (currentLeaderboard[0] as SafeRotationLeaderboardEntry)
+                            .bestRotationTime,
+                        )
                   : "0"}
               </span>
             </div>
@@ -714,23 +696,23 @@ export default function LeaderboardPage() {
             {currentLeaderboard.map((entry, index) =>
               isReactionTab
                 ? renderReactionLeaderboardEntry(
-                    entry as SafeReactionLeaderboardEntry,
-                    index + 1,
-                  )
+                  entry as SafeReactionLeaderboardEntry,
+                  index + 1,
+                )
                 : isSurvivalTab
                   ? renderSurvivalLeaderboardEntry(
-                      entry as SafeSurvivalLeaderboardEntry,
-                      index + 1,
-                    )
+                    entry as SafeSurvivalLeaderboardEntry,
+                    index + 1,
+                  )
                   : isPhysicsTab
                     ? renderPhysicsLeaderboardEntry(
-                        entry as SafePhysicsLeaderboardEntry,
-                        index + 1,
-                      )
+                      entry as SafePhysicsLeaderboardEntry,
+                      index + 1,
+                    )
                     : renderRotationLeaderboardEntry(
-                        entry as SafeRotationLeaderboardEntry,
-                        index + 1,
-                      ),
+                      entry as SafeRotationLeaderboardEntry,
+                      index + 1,
+                    ),
             )}
           </div>
         )}

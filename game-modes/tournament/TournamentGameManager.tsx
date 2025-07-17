@@ -12,6 +12,7 @@ import {
   Target,
   RotateCcw,
   Trophy,
+  Star,
   CheckCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";

@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated login page with Nebula security redirection
+// src/app/page.tsx - Updated intro page with corrected registration flow
 
 "use client";
 
@@ -29,7 +29,6 @@ interface AuthState {
   isBlocked?: boolean;
   blockReason?: string;
   timeUntilUnblock?: number;
-  needsSecurityVerification?: boolean;
 }
 
 export default function IntroPage(): JSX.Element {
@@ -49,6 +48,7 @@ export default function IntroPage(): JSX.Element {
   const authInitializedRef = useRef<boolean>(false);
   const registrationInProgressRef = useRef<boolean>(false);
   const videoAuthenticationRef = useRef<boolean>(false);
+  const securityCheckRef = useRef<boolean>(false);
 
   // Authorization state
   const [authState, setAuthState] = useState<AuthState>({
@@ -81,31 +81,13 @@ export default function IntroPage(): JSX.Element {
     authStateRef.current = authState;
   }, [authState]);
 
-  // Check if already authenticated and perform security routing
+  // Check if already authenticated and redirect
   useEffect(() => {
     if (isAuthenticated && contextUser && !authInitializedRef.current) {
-      console.log("User already authenticated, performing security routing...");
+      console.log("User already authenticated, redirecting to main");
       setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-
-      // Perform security check to determine where to redirect
-      setTimeout(async () => {
-        try {
-          const securityResult = await authService.checkUserSecurityStatus();
-
-          if (securityResult.isBlocked) {
-            console.log("User is blocked, redirecting to blocked page");
-            router.push("/blocked");
-          } else if (securityResult.needsCaptcha || securityResult.needsBiometric || securityResult.needsGyroscope) {
-            console.log("User needs security verification, redirecting to Nebula");
-            router.push("/nebula");
-          } else {
-            console.log("User security verified, redirecting to main");
-            router.push("/main");
-          }
-        } catch (error) {
-          console.error("Error checking security status, defaulting to main:", error);
-          router.push("/main");
-        }
+      setTimeout(() => {
+        router.push("/main");
       }, 500);
 
       return;
@@ -122,6 +104,7 @@ export default function IntroPage(): JSX.Element {
 
       if (startParam && startParam.length === 8) {
         console.log("Referral code extracted from start param:", startParam);
+
         return startParam;
       }
     }
@@ -132,6 +115,7 @@ export default function IntroPage(): JSX.Element {
 
       if (refCode) {
         console.log("Referral code extracted from URL (dev):", refCode);
+
         return refCode;
       }
     }
@@ -148,6 +132,7 @@ export default function IntroPage(): JSX.Element {
       console.log("Telegram WebApp API unavailable");
       if (process.env.NODE_ENV === "development") {
         console.log("Returning test user for development");
+
         return {
           id: 430743609,
           first_name: "Test User",
@@ -157,6 +142,7 @@ export default function IntroPage(): JSX.Element {
           is_premium: false,
         };
       }
+
       return null;
     }
 
@@ -177,6 +163,7 @@ export default function IntroPage(): JSX.Element {
           is_premium: false,
         };
       }
+
       return null;
     }
 
@@ -205,16 +192,19 @@ export default function IntroPage(): JSX.Element {
           language_code: "en",
           is_premium: false,
         };
+
         return `user=${JSON.stringify(mockUser)}&hash=mock_hash&auth_date=${Math.floor(Date.now() / 1000)}`;
       }
+
       return null;
     }
 
     const tg = window.Telegram.WebApp;
+
     return tg.initData || null;
   }, []);
 
-  // Check login status and determine routing
+  // UPDATED: Check login status first (for existing users)
   const checkUserLoginStatus = useCallback(
     async (
       telegramUser: TelegramUser,
@@ -227,12 +217,13 @@ export default function IntroPage(): JSX.Element {
       }
 
       console.log("Checking user login status via API...");
+
       return await authService.checkLoginStatus(initData, referralCode);
     },
     [getTelegramInitData, t],
   );
 
-  // Register new user
+  // UPDATED: Register new user
   const registerNewUser = useCallback(
     async (
       telegramUser: TelegramUser,
@@ -306,7 +297,9 @@ export default function IntroPage(): JSX.Element {
           };
 
           updateUser(user);
+
           console.log("User registration successful");
+
           return result;
         } else {
           throw new Error(result.error || "Registration failed");
@@ -326,36 +319,10 @@ export default function IntroPage(): JSX.Element {
     [getTelegramInitData, updateUser, t],
   );
 
-  // Enhanced post-authentication routing
-  const performPostAuthRouting = useCallback(
-    async (user: any) => {
-      try {
-        console.log("Performing post-authentication security routing...");
-
-        // Check security status to determine routing destination
-        const securityResult = await authService.checkUserSecurityStatus();
-
-        if (securityResult.isBlocked) {
-          console.log("User is blocked, redirecting to blocked page");
-          router.push("/blocked");
-        } else if (securityResult.needsCaptcha || securityResult.needsBiometric || securityResult.needsGyroscope) {
-          console.log("User needs security verification, redirecting to Nebula");
-          router.push("/nebula");
-        } else {
-          console.log("User security verified, redirecting to main");
-          router.push("/main");
-        }
-      } catch (error) {
-        console.error("Error during post-auth routing, defaulting to main:", error);
-        router.push("/main");
-      }
-    },
-    [router],
-  );
-
-  // Initialize auth with enhanced routing logic
+  // UPDATED: Initialize auth with proper login/register flow
   const initializeAuth = useCallback(async () => {
     if (authInitializedRef.current) return;
+
     authInitializedRef.current = true;
 
     try {
@@ -363,9 +330,12 @@ export default function IntroPage(): JSX.Element {
 
       // Skip if already authenticated
       if (isAuthenticated && contextUser) {
-        console.log("User already authenticated, performing security routing");
+        console.log("User already authenticated, redirecting to main");
         setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-        await performPostAuthRouting(contextUser);
+        setTimeout(() => {
+          router.push("/main");
+        }, 500);
+
         return;
       }
 
@@ -383,15 +353,19 @@ export default function IntroPage(): JSX.Element {
           error: t("auth.telegramDataUnavailable"),
         }));
         setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+
         return;
       }
 
       // Set telegram user in context
       setTelegramUser(telegramUser);
 
-      // Check login status
+      // UPDATED: Check login status first
       console.log("Checking login status...");
-      const loginResult = await checkUserLoginStatus(telegramUser, referralCode);
+      const loginResult = await checkUserLoginStatus(
+        telegramUser,
+        referralCode,
+      );
 
       if (loginResult.isBlocked) {
         console.log("User is blocked, redirecting to blocked page");
@@ -403,6 +377,7 @@ export default function IntroPage(): JSX.Element {
           timeUntilUnblock: loginResult.timeUntilUnblock,
         }));
         router.push("/blocked");
+
         return;
       }
 
@@ -474,8 +449,10 @@ export default function IntroPage(): JSX.Element {
 
         setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
 
-        // Perform enhanced routing based on security status
-        await performPostAuthRouting(user);
+        setTimeout(() => {
+          router.push("/main");
+        }, 500);
+
         return;
       }
 
@@ -491,6 +468,7 @@ export default function IntroPage(): JSX.Element {
           needsRegistration: true,
         }));
         setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+
         return;
       }
 
@@ -516,7 +494,6 @@ export default function IntroPage(): JSX.Element {
     getTelegramUser,
     extractReferralCode,
     checkUserLoginStatus,
-    performPostAuthRouting,
     router,
     setTelegramUser,
     updateUser,
@@ -556,6 +533,7 @@ export default function IntroPage(): JSX.Element {
   // Video initialization
   useEffect(() => {
     const video = videoRef.current;
+
     if (!video) return;
 
     const handleLoadedMetadata = () => {
@@ -571,6 +549,7 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
+
           setLoadProgress(progress);
         }
       }
@@ -580,7 +559,7 @@ export default function IntroPage(): JSX.Element {
       setIsLoading(false);
     };
 
-    // Video end handling with enhanced routing
+    // UPDATED: Video end handling with corrected authentication flow
     const handleEnded = async () => {
       console.log("Video completed");
 
@@ -600,6 +579,7 @@ export default function IntroPage(): JSX.Element {
       if (currentAuthState.isBlocked) {
         console.log("User is blocked, redirecting to blocked page");
         router.push("/blocked");
+
         return;
       }
 
@@ -617,8 +597,12 @@ export default function IntroPage(): JSX.Element {
           );
 
           if (registrationResult.success) {
-            console.log("Registration successful, performing security routing");
-            await performPostAuthRouting(registrationResult.user);
+            console.log(
+              "Registration successful, redirecting to main in 1 second",
+            );
+            setTimeout(() => {
+              router.push("/main");
+            }, 1000);
           }
         } catch (error) {
           console.error("Registration error after video:", error);
@@ -627,8 +611,8 @@ export default function IntroPage(): JSX.Element {
           }, 2000);
         }
       } else if (isAuthenticated) {
-        console.log("User already authenticated, performing security routing");
-        await performPostAuthRouting(contextUser);
+        console.log("User already authenticated, redirecting to main");
+        router.push("/main");
       } else {
         console.log("Unexpected state after video, forcing redirect");
         setTimeout(() => {
@@ -657,7 +641,7 @@ export default function IntroPage(): JSX.Element {
       video.removeEventListener("ended", handleEnded);
       video.removeEventListener("error", handleError);
     };
-  }, [router, registerNewUser, isAuthenticated, contextUser, performPostAuthRouting]);
+  }, [router, registerNewUser, isAuthenticated]);
 
   // Initialize authorization
   useEffect(() => {
@@ -672,6 +656,7 @@ export default function IntroPage(): JSX.Element {
   // Video start function
   const handleStart = async () => {
     const video = videoRef.current;
+
     if (!video) return;
 
     try {
@@ -685,7 +670,7 @@ export default function IntroPage(): JSX.Element {
     }
   };
 
-  // Quick registration without video
+  // UPDATED: Quick registration without video
   const handleQuickInit = async () => {
     if (
       !authState.telegramUser ||
@@ -704,8 +689,10 @@ export default function IntroPage(): JSX.Element {
       );
 
       if (registrationResult.success) {
-        console.log("Quick registration successful, performing security routing");
-        await performPostAuthRouting(registrationResult.user);
+        console.log("Quick registration successful");
+        setTimeout(() => {
+          router.push("/main");
+        }, 1000);
       }
     } catch (error) {
       console.error("Quick registration error:", error);
@@ -720,6 +707,7 @@ export default function IntroPage(): JSX.Element {
     if (authState.referrerName) {
       return authState.referrerName;
     }
+
     return "s0meone";
   };
 
@@ -822,6 +810,7 @@ export default function IntroPage(): JSX.Element {
               authInitializedRef.current = false;
               registrationInProgressRef.current = false;
               videoAuthenticationRef.current = false;
+              securityCheckRef.current = false;
               setAuthState((prev) => ({
                 ...prev,
                 error: null,
@@ -865,7 +854,7 @@ export default function IntroPage(): JSX.Element {
           </div>
         )}
 
-      {/* Registration screen - now shows for new users */}
+      {/* UPDATED: Registration screen - now shows for new users */}
       {authState.needsRegistration &&
         !authState.isChecking &&
         !authState.error &&

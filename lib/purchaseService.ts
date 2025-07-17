@@ -15,9 +15,7 @@ const PHP_BACKEND_URL = process.env.NEXT_PUBLIC_PHP_BACKEND_URL;
  */
 const getTelegramInitData = (): string => {
   if (typeof window === "undefined") {
-    throw new Error(
-      "Window object not available - this function must be called in browser context",
-    );
+    throw new Error("Window object not available - this function must be called in browser context");
   }
 
   // Get real initData from Telegram WebApp
@@ -25,15 +23,13 @@ const getTelegramInitData = (): string => {
     const initData = window.Telegram.WebApp.initData;
 
     // Validate that initData contains required parameters
-    if (initData.includes("user=") && initData.includes("auth_date=")) {
+    if (initData.includes('user=') && initData.includes('auth_date=')) {
       return initData;
     }
   }
 
   // In production, this should never happen as the app runs inside Telegram
-  throw new Error(
-    "Telegram WebApp initData not available. Please ensure the app is running within Telegram.",
-  );
+  throw new Error("Telegram WebApp initData not available. Please ensure the app is running within Telegram.");
 };
 
 /**
@@ -60,14 +56,13 @@ const createInvoice = async (
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Accept: "application/json",
+        "Accept": "application/json",
       },
       body: JSON.stringify(requestData),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-
       console.error(`PHP backend HTTP error ${response.status}:`, errorText);
 
       throw new Error(`Payment service error: ${response.status}`);
@@ -86,15 +81,14 @@ const createInvoice = async (
     }
 
     console.log("Invoice created successfully via PHP backend");
-
     return result;
+
   } catch (error) {
     console.error("Error creating invoice:", error);
 
     return {
       success: false,
-      error:
-        error instanceof Error ? error.message : "Payment service unavailable",
+      error: error instanceof Error ? error.message : "Payment service unavailable",
     };
   }
 };
@@ -113,7 +107,6 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
       console.error("Telegram WebApp API not available");
       // In production, this should not happen, but provide fallback
       window.open(invoiceUrl, "_blank");
-
       return true;
     }
 
@@ -156,9 +149,9 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
       console.error("Telegram openInvoice API not available");
       throw new Error("Payment interface not available");
     }
+
   } catch (error) {
     console.error("Error opening invoice:", error);
-
     return false;
   }
 };
@@ -168,9 +161,7 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
  * This allows time for webhook processing and user data updates
  */
 const checkPurchaseStatus = async (): Promise<void> => {
-  console.log(
-    "Checking purchase status - allowing time for webhook processing",
-  );
+  console.log("Checking purchase status - allowing time for webhook processing");
 
   // Allow sufficient time for:
   // 1. Telegram to send webhook to PHP backend
@@ -214,6 +205,7 @@ const setupTelegramWebAppHandlers = (): void => {
     });
 
     console.log("Telegram WebApp handlers configured successfully");
+
   } catch (error) {
     console.error("Error setting up Telegram WebApp handlers:", error);
   }

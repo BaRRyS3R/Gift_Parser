@@ -1,4 +1,4 @@
-// src/app/api/security/validate-captcha/route.ts - Updated with 15-second timeout validation
+// src/app/api/security/validate-captcha/route.ts - Validate captcha API endpoint
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        newTrustScore,
       });
     } else {
       // Captcha failed - decrease trust score and block user

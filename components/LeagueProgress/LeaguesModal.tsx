@@ -399,8 +399,8 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                             <div className={`text-xs ${colors.accent}`}>
                               {leaderboard.rewardsRemaining > 0
                                 ? t("leagues.rewardsSection.rewardsLeft", {
-                                    count: leaderboard.rewardsRemaining,
-                                  })
+                                  count: leaderboard.rewardsRemaining,
+                                })
                                 : t("leagues.rewardsSection.allClaimed")}
                             </div>
                           </div>
@@ -428,7 +428,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                             <div className="flex items-center space-x-1">
                               <Gift className={colors.text} size={14} />
                               {leaderboard &&
-                              leaderboard.rewardsGiven >= reward.position ? (
+                                leaderboard.rewardsGiven >= reward.position ? (
                                 <span className="text-red-400 text-xs">
                                   {t("leagues.rewardsSection.claimed")}
                                 </span>
@@ -519,9 +519,8 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                       >
                         <div className="flex items-center space-x-3">
                           <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                              player.position <= 3 ? colors.bg : "bg-white/10"
-                            } ${player.position <= 3 ? colors.text : "text-white/60"}`}
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${player.position <= 3 ? colors.bg : "bg-white/10"
+                              } ${player.position <= 3 ? colors.text : "text-white/60"}`}
                           >
                             {player.position}
                           </div>

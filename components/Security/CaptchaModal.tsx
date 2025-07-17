@@ -1,4 +1,4 @@
-// src/components/Security/CaptchaModal.tsx - Updated with single attempt and 15-second timer
+// src/components/Security/CaptchaModal.tsx - Captcha security verification modal
 
 "use client";
 
@@ -15,6 +15,8 @@ interface CaptchaModalProps {
   onSuccess: () => void;
   onFailure: () => void;
   onClose?: () => void;
+  title?: string;
+  description?: string;
 }
 
 const CaptchaModal: React.FC<CaptchaModalProps> = ({
@@ -22,10 +24,9 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
   onSuccess,
   onFailure,
   onClose,
-
+  title = "Security Verification",
+  description = "Please complete the captcha to continue",
 }) => {
-  const title = "Security Verification";
-  const description = "Please complete the captcha to continue";
   const [captchaData, setCaptchaData] = useState<{
     challenge: string;
     correctAnswer: string;
@@ -37,11 +38,11 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attemptMade, setAttemptMade] = useState(false);
+  const [attempts, setAttempts] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const maxAttempts = 1; // Updated: only 1 attempt
-  const captchaTimeout = 15000; // Updated: 15 seconds
+  const maxAttempts = 3;
+  const captchaTimeout = 10000; // 10 seconds
 
   // Generate captcha when modal opens
   useEffect(() => {
@@ -78,7 +79,6 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
     setIsLoading(true);
     setError(null);
     setUserInput("");
-    setAttemptMade(false);
 
     try {
       const data = await generateSecureCaptcha();
@@ -94,12 +94,10 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!captchaData || !userInput.trim() || isValidating || attemptMade)
-      return;
+    if (!captchaData || !userInput.trim() || isValidating) return;
 
     setIsValidating(true);
     setError(null);
-    setAttemptMade(true);
 
     const completedInTime = Date.now() < captchaData.expiresAt;
 
@@ -113,27 +111,41 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
       if (result.success) {
         onSuccess();
       } else {
-        // Since we only have 1 attempt, go directly to failure
-        onFailure();
+        const newAttempts = attempts + 1;
+
+        setAttempts(newAttempts);
+
+        if (newAttempts >= maxAttempts) {
+          onFailure();
+        } else {
+          setError(
+            `Incorrect captcha. ${maxAttempts - newAttempts} attempts remaining.`,
+          );
+          await generateCaptcha();
+        }
       }
     } catch (error) {
       console.error("Error validating captcha:", error);
-      onFailure();
+      setError("Validation failed. Please try again.");
+      await generateCaptcha();
     } finally {
       setIsValidating(false);
     }
   };
 
   const handleTimeout = () => {
-    if (!attemptMade) {
-      setError("Time expired.");
-      setAttemptMade(true);
+    setError("Time expired. Please try again.");
+    setAttempts((prev) => prev + 1);
+
+    if (attempts + 1 >= maxAttempts) {
       onFailure();
+    } else {
+      generateCaptcha();
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isValidating && !attemptMade) {
+    if (e.key === "Enter" && !isValidating) {
       handleSubmit();
     }
   };
@@ -183,7 +195,7 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
             <div className="flex items-center justify-center space-x-2 text-sm">
               <Clock className="text-orange-400" size={16} />
               <span
-                className={`font-bold ${timeRemaining < 5000 ? "text-red-400" : "text-orange-400"}`}
+                className={`font-bold ${timeRemaining < 3000 ? "text-red-400" : "text-orange-400"}`}
               >
                 {formatTime(timeRemaining)}
               </span>
@@ -195,12 +207,12 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
               <input
                 ref={inputRef}
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white text-center font-mono text-lg tracking-widest focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                disabled={isValidating || timeRemaining === 0 || attemptMade}
-                maxLength={10}
-                placeholder="Enter answer"
+                disabled={isValidating || timeRemaining === 0}
+                maxLength={5}
+                placeholder="Enter captcha code"
                 type="text"
                 value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
+                onChange={(e) => setUserInput(e.target.value.toUpperCase())}
                 onKeyPress={handleKeyPress}
               />
             </div>
@@ -216,22 +228,28 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
               </div>
             )}
 
-            {/* Single Attempt Warning */}
+            {/* Attempts Counter */}
             <div className="text-center">
               <p className="text-gray-500 text-xs">
-                Single attempt only - be careful!
+                Attempt {attempts + 1} of {maxAttempts}
               </p>
             </div>
 
             {/* Actions */}
             <div className="flex space-x-3 pt-2">
               <button
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                disabled={isLoading || isValidating}
+                onClick={generateCaptcha}
+              >
+                <RefreshCw size={16} />
+                <span>Refresh</span>
+              </button>
+
+              <button
                 className="flex-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 disabled={
-                  !userInput.trim() ||
-                  isValidating ||
-                  timeRemaining === 0 ||
-                  attemptMade
+                  !userInput.trim() || isValidating || timeRemaining === 0
                 }
                 onClick={handleSubmit}
               >

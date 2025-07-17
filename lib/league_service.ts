@@ -665,7 +665,6 @@ export const leagueService = {
 
       if (leagueError || !league) {
         console.error("Error fetching league:", leagueError);
-
         return null;
       }
 
@@ -687,7 +686,6 @@ export const leagueService = {
 
       if (usersError) {
         console.error("Error fetching users in league:", usersError);
-
         return null;
       }
 
@@ -770,7 +768,6 @@ export const leagueService = {
       };
     } catch (error) {
       console.error("Error getting league leaderboard:", error);
-
       return null;
     }
   },

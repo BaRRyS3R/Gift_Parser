@@ -20,7 +20,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
     isAuthenticated,
     getAttemptsStatus,
     forceRefreshAttempts,
-    getCachedAttemptsStatus,
+    getCachedAttemptsStatus
   } = useUser();
   const t = useT();
 
@@ -32,63 +32,45 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const checkAttempts = useCallback(
-    async (forceRefresh = false) => {
-      if (!isAuthenticated) {
-        setIsLoading(false);
+  const checkAttempts = useCallback(async (forceRefresh = false) => {
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
 
-        return;
-      }
+    try {
+      console.log("AttemptsDisplay: Fetching attempts status via API...",
+        forceRefresh ? "(force refresh)" : "(normal)");
 
-      try {
-        console.log(
-          "AttemptsDisplay: Fetching attempts status via API...",
-          forceRefresh ? "(force refresh)" : "(normal)",
-        );
+      let status: AttemptsStatus;
 
-        let status: AttemptsStatus;
-
-        if (forceRefresh) {
-          // Force refresh bypasses cache
-          status = await forceRefreshAttempts();
+      if (forceRefresh) {
+        // Force refresh bypasses cache
+        status = await forceRefreshAttempts();
+      } else {
+        // Try cache first, then server
+        const cachedStatus = getCachedAttemptsStatus();
+        if (cachedStatus) {
+          console.log("AttemptsDisplay: Using cached attempts status");
+          status = cachedStatus;
         } else {
-          // Try cache first, then server
-          const cachedStatus = getCachedAttemptsStatus();
-
-          if (cachedStatus) {
-            console.log("AttemptsDisplay: Using cached attempts status");
-            status = cachedStatus;
-          } else {
-            status = await getAttemptsStatus();
-          }
+          status = await getAttemptsStatus();
         }
-
-        setAttemptsStatus(status);
-        console.log(
-          "AttemptsDisplay: Attempts status updated successfully:",
-          status,
-        );
-      } catch (error) {
-        console.error(
-          "AttemptsDisplay: Error checking attempts via API:",
-          error,
-        );
-        // Set default state on error
-        setAttemptsStatus({
-          canPlay: false,
-          attemptsRemaining: 0,
-        });
-      } finally {
-        setIsLoading(false);
       }
-    },
-    [
-      isAuthenticated,
-      getAttemptsStatus,
-      forceRefreshAttempts,
-      getCachedAttemptsStatus,
-    ],
-  );
+
+      setAttemptsStatus(status);
+      console.log("AttemptsDisplay: Attempts status updated successfully:", status);
+    } catch (error) {
+      console.error("AttemptsDisplay: Error checking attempts via API:", error);
+      // Set default state on error
+      setAttemptsStatus({
+        canPlay: false,
+        attemptsRemaining: 0,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, getAttemptsStatus, forceRefreshAttempts, getCachedAttemptsStatus]);
 
   // Initial load
   useEffect(() => {
@@ -100,9 +82,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
     const handleVisibilityChange = () => {
       // Force refresh when tab becomes visible (user might have made purchase in another tab)
       if (!document.hidden && isAuthenticated) {
-        console.log(
-          "AttemptsDisplay: Tab became visible, force refreshing attempts",
-        );
+        console.log("AttemptsDisplay: Tab became visible, force refreshing attempts");
         checkAttempts(true);
       }
     };
@@ -110,20 +90,18 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
     const handleFocus = () => {
       // Force refresh when window gains focus
       if (isAuthenticated) {
-        console.log(
-          "AttemptsDisplay: Window focused, force refreshing attempts",
-        );
+        console.log("AttemptsDisplay: Window focused, force refreshing attempts");
         checkAttempts(true);
       }
     };
 
     // Listen for browser events
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [isAuthenticated, checkAttempts]);
 
@@ -135,10 +113,10 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
     };
 
     // Listen for custom events
-    window.addEventListener("attemptsUpdated", handleAttemptsUpdate);
+    window.addEventListener('attemptsUpdated', handleAttemptsUpdate);
 
     return () => {
-      window.removeEventListener("attemptsUpdated", handleAttemptsUpdate);
+      window.removeEventListener('attemptsUpdated', handleAttemptsUpdate);
     };
   }, [checkAttempts]);
 
@@ -158,7 +136,6 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   useEffect(() => {
     if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
       setTimeUntilReset("");
-
       return;
     }
 
