@@ -49,6 +49,14 @@ interface SecurityHookReturn {
 }
 
 const SECURITY_CHECK_CACHE_DURATION = 30000; // 30 seconds cache
+const SECURITY_EVENT = 'security-state-changed';
+
+const emitSecurityStateChange = () => {
+  if (typeof window !== 'undefined') {
+    console.log('Emitting security state change event');
+    window.dispatchEvent(new CustomEvent(SECURITY_EVENT));
+  }
+};
 
 export function useSecurity(): SecurityHookReturn {
   const router = useRouter();
@@ -261,7 +269,7 @@ export function useSecurity(): SecurityHookReturn {
     setShowCaptcha(false);
     setCaptchaData(null);
 
-    // FIX: Force immediate state update before API calls
+    // Force immediate state update before API calls
     setSecurityState(prev => ({
       ...prev,
       needsCaptcha: false,
@@ -270,6 +278,9 @@ export function useSecurity(): SecurityHookReturn {
 
     // Force security to be initialized immediately
     setSecurityInitialized(true);
+
+    // Emit global event to sync all components
+    emitSecurityStateChange();
 
     try {
       // Refresh security status and user data in parallel
@@ -283,7 +294,7 @@ export function useSecurity(): SecurityHookReturn {
       console.error("Error during post-captcha refresh:", error);
       // Even if refresh fails, keep the optimistic update
     }
-  }, [refreshUser]);
+  }, [refreshUser])
 
   const handleCaptchaFailure = useCallback(() => {
     console.log("Captcha verification failed - user will be blocked");
@@ -299,7 +310,7 @@ export function useSecurity(): SecurityHookReturn {
     console.log("Biometric verification successful - updating security state");
     setShowBiometric(false);
 
-    // FIX: Force immediate state update before API calls
+    // Force immediate state update before API calls
     setSecurityState(prev => ({
       ...prev,
       needsBiometric: false,
@@ -309,6 +320,9 @@ export function useSecurity(): SecurityHookReturn {
 
     // Force security to be initialized immediately
     setSecurityInitialized(true);
+
+    // Emit global event to sync all components
+    emitSecurityStateChange();
 
     try {
       // Refresh security status and user data in parallel
@@ -400,6 +414,50 @@ export function useSecurity(): SecurityHookReturn {
       isCheckingRef.current = false;
     };
   }, []);
+
+  // Listen for global security state change events
+  useEffect(() => {
+    const handleSecurityStateChange = () => {
+      console.log('Security state change event received, forcing component sync');
+
+      if (!isAuthenticated) {
+        return;
+      }
+
+      // Force immediate security state refresh
+      lastSecurityCheckRef.current = 0; // Clear cache to force fresh check
+
+      // Update local state optimistically while waiting for API response
+      setSecurityState(prev => {
+        if (prev.trustScore >= 40) {
+          return {
+            ...prev,
+            needsCaptcha: false,
+            needsBiometric: false,
+          };
+        }
+        return prev;
+      });
+
+      // Ensure security is marked as initialized if trust score is good
+      if (securityState.trustScore >= 40) {
+        setSecurityInitialized(true);
+      }
+
+      // Refresh from API in background
+      checkSecurity().catch(error => {
+        console.error('Error refreshing security after global event:', error);
+      });
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(SECURITY_EVENT, handleSecurityStateChange);
+
+      return () => {
+        window.removeEventListener(SECURITY_EVENT, handleSecurityStateChange);
+      };
+    }
+  }, [isAuthenticated, checkSecurity, securityState.trustScore]);
 
   return {
     // State
