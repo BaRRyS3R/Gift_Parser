@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeagueNeighborsDisplay.tsx - Updated to use authService API only
+// src/components/LeagueProgress/LeagueNeighborsDisplay.tsx - Component for showing neighbor players in league
 
 "use client";
 
@@ -18,7 +18,7 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import { authService } from "@/lib/authService";
+import leagueService, { type LeagueNeighbors } from "@/lib/league_service";
 
 interface LeagueNeighborsDisplayProps {
   className?: string;
@@ -27,53 +27,36 @@ interface LeagueNeighborsDisplayProps {
 const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
   className = "",
 }) => {
-  const { isAuthenticated } = useUser();
+  const { user, telegramUser } = useUser();
   const t = useT();
 
-  const [neighbors, setNeighbors] = useState<any>(null);
+  const [neighbors, setNeighbors] = useState<LeagueNeighbors | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadNeighbors = async () => {
-      if (!isAuthenticated) {
+      if (!user || !telegramUser) {
         setIsLoading(false);
 
         return;
       }
 
       try {
-        console.log(
-          "LeagueNeighborsDisplay: Fetching league data via authService API...",
+        const neighborsData = await leagueService.getLeagueNeighbors(
+          user.id,
+          user.total_games,
         );
 
-        const leagueData = await authService.getLeagueData();
-
-        setNeighbors(leagueData.leagueNeighbors);
-        console.log(
-          "LeagueNeighborsDisplay: League neighbors data fetched successfully",
-        );
+        setNeighbors(neighborsData);
       } catch (error) {
-        console.error(
-          "LeagueNeighborsDisplay: Error loading league neighbors:",
-          error,
-        );
-
-        // Handle authentication errors gracefully
-        if (
-          error instanceof Error &&
-          error.message.includes("Authentication expired")
-        ) {
-          console.log(
-            "LeagueNeighborsDisplay: Authentication expired, component will not render",
-          );
-        }
+        console.error("Error loading league neighbors:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadNeighbors();
-  }, [isAuthenticated]);
+  }, [user, telegramUser]);
 
   if (isLoading) {
     return (
@@ -205,9 +188,9 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
         {/* Players List */}
         <div className="space-y-2">
           {/* Players Ahead */}
-          {neighbors.playersAhead.map((player: any) => (
+          {neighbors.playersAhead.map((player) => (
             <div
-              key={player.position}
+              key={player.user_id}
               className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-400/20"
             >
               <div className="flex items-center space-x-3">
@@ -246,7 +229,11 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
               </div>
               <div>
                 <div className="text-sm font-bold text-white">
-                  {t("profile.you")}
+                  {formatDisplayName(
+                    user?.first_name || "You",
+                    user?.last_name,
+                    user?.username,
+                  )}
                 </div>
                 <div className="text-xs text-white/60">Your position</div>
               </div>
@@ -260,9 +247,9 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
           </div>
 
           {/* Players Behind */}
-          {neighbors.playersBehind.map((player: any) => (
+          {neighbors.playersBehind.map((player) => (
             <div
-              key={player.position}
+              key={player.user_id}
               className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-400/20"
             >
               <div className="flex items-center space-x-3">
@@ -297,7 +284,7 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
               <div className="text-center py-4">
                 <Users className="text-white/40 mx-auto mb-2" size={24} />
                 <p className="text-white/60 text-sm">
-                  {t("leagues.leaderboardSection.aloneInLeague")}
+                  You are alone in this league
                 </p>
               </div>
             )}
@@ -307,7 +294,7 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
               <div className="text-center py-2 border-b border-white/10 mb-2">
                 <Crown className={colors.text} size={16} />
                 <p className={`text-xs ${colors.text} font-bold`}>
-                  {t("leagues.leaderboardSection.leagueLeader")}
+                  League Leader!
                 </p>
               </div>
             )}
@@ -316,13 +303,13 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
         {/* League Info */}
         <div className="mt-4 pt-3 border-t border-white/10">
           <div className="flex items-center justify-between text-xs text-white/60">
-            <span>{t("leagues.leaderboardSection.leagueRange")}</span>
+            <span>League Range:</span>
             <span>
               {neighbors.league.min_games}
               {neighbors.league.max_games
                 ? ` - ${neighbors.league.max_games}`
                 : "+"}{" "}
-              {t("profile.games")}
+              games
             </span>
           </div>
         </div>

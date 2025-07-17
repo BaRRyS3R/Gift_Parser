@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
 
     // Return safe user data (without sensitive fields)
     const safeUser = {
+      id: user.id,
       telegram_id: user.telegram_id,
       first_name: user.first_name,
       last_name: user.last_name,

@@ -1,4 +1,4 @@
-// src/components/AttemptsDisplay.tsx - Fixed version with force refresh capability
+// src/components/AttemptsDisplay.tsx - Updated to use API calls only
 
 "use client";
 
@@ -16,12 +16,7 @@ interface AttemptsDisplayProps {
 const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   className = "",
 }) => {
-  const {
-    isAuthenticated,
-    getAttemptsStatus,
-    forceRefreshAttempts,
-    getCachedAttemptsStatus,
-  } = useUser();
+  const { isAuthenticated, getAttemptsStatus } = useUser();
   const t = useT();
 
   const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
@@ -30,135 +25,38 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   });
   const [timeUntilReset, setTimeUntilReset] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const checkAttempts = useCallback(
-    async (forceRefresh = false) => {
-      if (!isAuthenticated) {
-        setIsLoading(false);
+  const checkAttempts = useCallback(async () => {
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
 
-        return;
-      }
+    try {
+      console.log("AttemptsDisplay: Fetching attempts status via API...");
+      const status = await getAttemptsStatus();
+      setAttemptsStatus(status);
+      console.log("AttemptsDisplay: Attempts status fetched successfully");
+    } catch (error) {
+      console.error("AttemptsDisplay: Error checking attempts via API:", error);
+      // Set default state on error
+      setAttemptsStatus({
+        canPlay: false,
+        attemptsRemaining: 0,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, getAttemptsStatus]);
 
-      try {
-        console.log(
-          "AttemptsDisplay: Fetching attempts status via API...",
-          forceRefresh ? "(force refresh)" : "(normal)",
-        );
-
-        let status: AttemptsStatus;
-
-        if (forceRefresh) {
-          // Force refresh bypasses cache
-          status = await forceRefreshAttempts();
-        } else {
-          // Try cache first, then server
-          const cachedStatus = getCachedAttemptsStatus();
-
-          if (cachedStatus) {
-            console.log("AttemptsDisplay: Using cached attempts status");
-            status = cachedStatus;
-          } else {
-            status = await getAttemptsStatus();
-          }
-        }
-
-        setAttemptsStatus(status);
-        console.log(
-          "AttemptsDisplay: Attempts status updated successfully:",
-          status,
-        );
-      } catch (error) {
-        console.error(
-          "AttemptsDisplay: Error checking attempts via API:",
-          error,
-        );
-        // Set default state on error
-        setAttemptsStatus({
-          canPlay: false,
-          attemptsRemaining: 0,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [
-      isAuthenticated,
-      getAttemptsStatus,
-      forceRefreshAttempts,
-      getCachedAttemptsStatus,
-    ],
-  );
-
-  // Initial load
   useEffect(() => {
     checkAttempts();
   }, [checkAttempts]);
-
-  // NEW: Listen for external updates (purchases, tasks completion)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      // Force refresh when tab becomes visible (user might have made purchase in another tab)
-      if (!document.hidden && isAuthenticated) {
-        console.log(
-          "AttemptsDisplay: Tab became visible, force refreshing attempts",
-        );
-        checkAttempts(true);
-      }
-    };
-
-    const handleFocus = () => {
-      // Force refresh when window gains focus
-      if (isAuthenticated) {
-        console.log(
-          "AttemptsDisplay: Window focused, force refreshing attempts",
-        );
-        checkAttempts(true);
-      }
-    };
-
-    // Listen for browser events
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [isAuthenticated, checkAttempts]);
-
-  // NEW: Custom event listener for manual updates
-  useEffect(() => {
-    const handleAttemptsUpdate = () => {
-      console.log("AttemptsDisplay: Received attempts update event");
-      checkAttempts(true);
-    };
-
-    // Listen for custom events
-    window.addEventListener("attemptsUpdated", handleAttemptsUpdate);
-
-    return () => {
-      window.removeEventListener("attemptsUpdated", handleAttemptsUpdate);
-    };
-  }, [checkAttempts]);
-
-  // NEW: Periodic refresh when attempts are empty (to catch server resets)
-  useEffect(() => {
-    if (attemptsStatus.attemptsRemaining === 0 && isAuthenticated) {
-      const interval = setInterval(() => {
-        console.log("AttemptsDisplay: Periodic refresh for empty attempts");
-        checkAttempts(true);
-      }, 30000); // Check every 30 seconds when no attempts
-
-      return () => clearInterval(interval);
-    }
-  }, [attemptsStatus.attemptsRemaining, isAuthenticated, checkAttempts]);
 
   // Timer update logic
   useEffect(() => {
     if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
       setTimeUntilReset("");
-
       return;
     }
 
@@ -168,9 +66,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
 
       if (diff <= 0) {
         setTimeUntilReset("");
-        // Force refresh when reset time has passed
-        console.log("AttemptsDisplay: Reset time reached, force refreshing");
-        checkAttempts(true);
+        checkAttempts();
       } else {
         const hours = Math.floor(diff / 3600000);
         const minutes = Math.floor((diff % 3600000) / 60000);

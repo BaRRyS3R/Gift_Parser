@@ -16,7 +16,6 @@ const hiddenPaths = [
   "/tournament/play",
   "/tournament",
   "/game/rotation",
-  "/nebula",
   "/blocked",
 ];
 

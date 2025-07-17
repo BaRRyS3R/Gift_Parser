@@ -3,11 +3,6 @@
 export const achievements = {
   title: "ACHIEVEMENTS",
   subtitle: "Track your progress and unlock rewards",
-  loading: "Loading",
-  error: {
-    title: "Error",
-    description: "Some shit happens(((",
-  },
   stats: {
     unlocked: "Unlocked",
     locked: "Locked",

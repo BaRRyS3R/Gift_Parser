@@ -1,8 +1,8 @@
-// src/lib/supabase_tournament_extension.ts - Updated tournament service with secure types
+// src/lib/supabase_tournament_extension.ts - Обновленные типы с полями спонсора
 
 import { supabase } from "./supabase";
 
-// Updated tournament interface with sponsor fields
+// Обновленные типы с поддержкой спонсорских полей
 export interface Tournament {
   id: string;
   name: string;
@@ -12,28 +12,33 @@ export interface Tournament {
   created_at: string;
   updated_at: string;
 
-  // Sponsor fields
+  // Новые поля для спонсора
   sponsor_name?: string;
   sponsor_channel_url?: string;
   sponsor_image_url?: string;
 }
 
-// Updated secure leaderboard entry interface - removed sensitive fields
 export interface TournamentLeaderboardEntry {
   id: string;
+  tournament_id: string;
+  user_id: string;
+  telegram_id: number;
   first_name: string;
   last_name?: string;
   username?: string;
+  is_premium: boolean;
   survival_time: number;
   survival_score: number;
+  last_game_score: number;
   max_level_reached: number;
   perfect_streak: number;
   correct_hits: number;
+  death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
   games_played: number;
+  created_at: string;
   rank: number;
 }
 
-// Internal tournament result interface (for server-side operations only)
 export interface TournamentResult {
   id?: string;
   tournament_id: string;
@@ -57,18 +62,25 @@ export interface TournamentStatus {
   hasStarted?: boolean;
 }
 
-// Updated secure save response interface
 export interface TournamentSaveResponse {
-  success: boolean;
-  message?: string;
+  result_id: string;
+  total_score: number;
+  game_score: number;
+  games_played: number;
+  previous_total: number;
 }
 
-// Tournament with status interface
+// Обновленный интерфейс TournamentWithStatus с полями спонсора
 export interface TournamentWithStatus extends Tournament {
   status: "upcoming" | "active" | "completed";
   participants_count?: number;
   time_until_start?: number;
   time_until_end?: number;
+
+  // Спонсорские поля уже наследуются от Tournament
+  // sponsor_name?: string;
+  // sponsor_channel_url?: string;
+  // sponsor_image_url?: string;
 }
 
 export interface TournamentListResponse {
@@ -77,6 +89,7 @@ export interface TournamentListResponse {
   completed: TournamentWithStatus[];
 }
 
+// Остальной код сервиса остается без изменений
 export const tournamentService = {
   async getActiveTournament(): Promise<Tournament | null> {
     try {
@@ -178,6 +191,7 @@ export const tournamentService = {
 
   async getAllTournamentsRaw(): Promise<Tournament[]> {
     try {
+      // Обновленный запрос для получения всех полей включая спонсорские
       const { data, error } = await supabase
         .from("tournaments")
         .select(
@@ -265,20 +279,7 @@ export const tournamentService = {
         throw error;
       }
 
-      // Filter out sensitive data from leaderboard entries
-      return (data || []).map((entry: any) => ({
-        id: entry.id,
-        first_name: entry.first_name,
-        last_name: entry.last_name,
-        username: entry.username,
-        survival_time: entry.survival_time,
-        survival_score: entry.survival_score,
-        max_level_reached: entry.max_level_reached,
-        perfect_streak: entry.perfect_streak,
-        correct_hits: entry.correct_hits,
-        games_played: entry.games_played,
-        rank: entry.rank,
-      }));
+      return data || [];
     } catch (error) {
       console.error(
         "Error getting accumulative tournament leaderboard:",
@@ -366,26 +367,22 @@ export const tournamentService = {
 
       if (error) {
         console.error("Error saving accumulative tournament result:", error);
-
-        return {
-          success: false,
-          message: "bad save",
-        };
+        throw error;
       }
 
-      console.log("Tournament result saved successfully");
+      console.log("Tournament result saved with point accumulation:", data);
 
-      return {
-        success: true,
-        message: "success",
-      };
+      const saveResponse: TournamentSaveResponse =
+        typeof data === "string" ? JSON.parse(data) : data;
+
+      console.log(
+        `Points accumulated: +${saveResponse.game_score} (Total: ${saveResponse.total_score})`,
+      );
+
+      return saveResponse;
     } catch (error) {
       console.error("Error saving accumulative tournament result:", error);
-
-      return {
-        success: false,
-        message: "bad save",
-      };
+      throw error;
     }
   },
 
@@ -406,6 +403,7 @@ export const tournamentService = {
 
   async getTournamentById(tournamentId: string): Promise<Tournament | null> {
     try {
+      // Обновленный запрос для получения турнира по ID включая спонсорские поля
       const { data, error } = await supabase
         .from("tournaments")
         .select(
@@ -439,7 +437,7 @@ export const tournamentService = {
   },
 };
 
-// Secure time formatting function with proper error handling
+// Функция форматирования времени выживания с обработкой некорректных значений
 export const formatTournamentSurvivalTime = (milliseconds: number): string => {
   if (milliseconds < 0) {
     console.warn("Negative survival time detected:", milliseconds);

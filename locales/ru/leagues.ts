@@ -47,10 +47,6 @@ export const leagues = {
   leaderboardSection: {
     title: "Лидерборд Лиги",
     topPlayers: "Топ Игроки",
-    noPlayers: "Нет игроков",
-    aloneInLeague: "Единственный в Лиге",
-    leagueLeader: "Лидер",
-    leagueRange: "Ранг",
     yourPosition: "Ваша Позиция: #{position}",
     notInLeague: "Не в этой лиге",
     gamesNeeded: "Игр необходимо",

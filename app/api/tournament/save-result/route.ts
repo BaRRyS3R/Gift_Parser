@@ -1,107 +1,68 @@
-// src/app/api/tournament/save-result/route.ts - Save tournament result with minimal response
-import { NextRequest, NextResponse } from "next/server";
+// src/app/api/tournament/save-result/route.ts - Protected tournament result saving
 
-import { supabaseServer } from "@/lib/supabase-server";
+import { NextResponse } from "next/server";
 
-export async function POST(request: NextRequest) {
+import { withAuthAndRateLimit } from "@/lib/authMiddleware";
+import { tournamentService } from "@/lib/supabase_tournament_extension";
+import { GameMode } from "@/types/game-modes";
+
+export const POST = withAuthAndRateLimit(async (request) => {
   try {
-    const userId = request.headers.get("x-user-id");
-    const telegramId = request.headers.get("x-telegram-id");
-
-    if (!userId || !telegramId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User authentication required",
-        },
-        { status: 401 },
-      );
-    }
-
+    const { user } = request;
     const { tournamentId, gameResult } = await request.json();
 
+    // Validate tournament result
     if (!tournamentId || !gameResult) {
       return NextResponse.json(
         {
           success: false,
-          error: "Tournament ID and game result are required",
+          error: "Missing tournament ID or game result",
         },
         { status: 400 },
       );
     }
 
-    // Validate game result structure
-    const {
-      survivalTime,
-      score,
-      maxLevelReached,
-      perfectStreak,
-      correctHits,
-      deathCause,
-    } = gameResult;
-
-    if (
-      typeof survivalTime !== "number" ||
-      typeof score !== "number" ||
-      typeof maxLevelReached !== "number" ||
-      typeof perfectStreak !== "number" ||
-      typeof correctHits !== "number" ||
-      !deathCause
-    ) {
+    // Validate survival game result for tournament
+    if (gameResult.mode !== GameMode.SURVIVAL) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid game result data",
+          error: "Only survival mode results allowed for tournaments",
         },
         { status: 400 },
       );
     }
 
-    // Save tournament result using RPC function
-    const { data, error } = await supabaseServer.rpc(
-      "save_tournament_result_accumulative",
+    // Save tournament result
+    const tournamentResult = await tournamentService.saveTournamentResult(
+      tournamentId,
+      user.userId,
+      user.telegramId,
       {
-        tournament_id_param: tournamentId,
-        user_id_param: userId,
-        telegram_id_param: parseInt(telegramId),
-        survival_time_param: survivalTime,
-        survival_score_param: score,
-        max_level_reached_param: maxLevelReached,
-        perfect_streak_param: perfectStreak,
-        correct_hits_param: correctHits,
-        death_cause_param: deathCause,
+        survivalTime: gameResult.survivalTime,
+        score: gameResult.score,
+        maxLevelReached: gameResult.maxLevelReached,
+        perfectStreak: gameResult.perfectStreak,
+        correctHits: gameResult.correctHits,
+        deathCause: gameResult.deathCause,
       },
     );
 
-    if (error) {
-      console.error("Error saving tournament result:", error);
-
-      return NextResponse.json({
-        success: false,
-        tournamentResult: {
-          success: false,
-          message: "bad save",
-        },
-      });
-    }
-
-    // Return minimal success response without sensitive data
     return NextResponse.json({
       success: true,
-      tournamentResult: {
-        success: true,
-        message: "success",
-      },
+      tournamentResult,
     });
   } catch (error) {
-    console.error("Save tournament result API error:", error);
+    console.error("Error saving tournament result:", error);
 
-    return NextResponse.json({
-      success: false,
-      tournamentResult: {
+    return NextResponse.json(
+      {
         success: false,
-        message: "bad save",
+        error: "Failed to save tournament result",
+        message:
+          error instanceof Error ? error.message : "Unknown error occurred",
       },
-    });
+      { status: 500 },
+    );
   }
-}
+});

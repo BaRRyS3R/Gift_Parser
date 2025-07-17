@@ -247,12 +247,13 @@ const AttemptsDisplay = ({
 
       <div className="mb-3">
         <div
-          className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
+          className={`w-full h-2 rounded-full overflow-hidden ${
+            isEmpty
               ? "bg-red-400/20"
               : isLow
                 ? "bg-orange-400/20"
                 : "bg-white/20"
-            }`}
+          }`}
         >
           <div
             className={`h-full transition-all duration-500 ${getBatteryColor().replace(
@@ -302,10 +303,11 @@ const ProgressIndicator = ({ mode }: { mode: GameMode }) => {
 
   return (
     <div
-      className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${isCompetitive
+      className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
+        isCompetitive
           ? "bg-green-500/10 border-green-400/30 text-green-300"
           : "bg-gray-500/10 border-gray-400/30 text-gray-300"
-        }`}
+      }`}
     >
       {isCompetitive ? <TrendingUp size={12} /> : <Coffee size={12} />}
       <span>{t(mode.progressInfoKey as any)}</span>
@@ -372,14 +374,15 @@ const CompactGameModeCard = ({
                 </span>
                 <div className="w-1 h-1 rounded-full bg-white/40" />
                 <span
-                  className={`${mode.difficulty === "💋😈"
+                  className={`${
+                    mode.difficulty === "💋😈"
                       ? "text-red-400"
                       : mode.difficulty === "👉👌"
                         ? "text-purple-400"
                         : mode.difficulty === "🌀"
                           ? "text-orange-400"
                           : mode.color.accent
-                    }`}
+                  }`}
                 >
                   {mode.difficulty}
                 </span>
@@ -421,14 +424,15 @@ const CompactGameModeCard = ({
                 {mode.featuresKeys.map((featureKey, index) => (
                   <div key={index} className="flex items-center space-x-2">
                     <div
-                      className={`w-1 h-1 rounded-full ${mode.id === "reaction"
+                      className={`w-1 h-1 rounded-full ${
+                        mode.id === "reaction"
                           ? "bg-white/60"
                           : mode.id === "survival"
                             ? "bg-red-400/60"
                             : mode.id === "physics"
                               ? "bg-purple-400/60"
                               : "bg-orange-400/60" // rotation
-                        }`}
+                      }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
                       {t(featureKey as any)}
@@ -446,9 +450,10 @@ const CompactGameModeCard = ({
             w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg relative z-20
             text-sm font-bold transition-all duration-300
             ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-            ${isDisabled || isAnyModeLoading
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
+            ${
+              isDisabled || isAnyModeLoading
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
             }
           `}
           disabled={isAnyModeLoading || isDisabled}
@@ -552,6 +557,7 @@ export default function GamePage() {
   useEffect(() => {
     if (!attemptsStatus?.resetTime || attemptsStatus.canPlay) {
       setTimeUntilReset("");
+
       return;
     }
 
@@ -561,17 +567,17 @@ export default function GamePage() {
 
       if (diff <= 0) {
         setTimeUntilReset("");
-        // ИСПРАВЛЕНИЕ: НЕ вызывать API в таймере!
-        // Вместо этого просто обновить UI, API вызовется при следующем действии пользователя
+        checkAttempts(); // Обновляем статус при истечении времени сброса
       } else {
         const minutes = Math.floor(diff / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
+
         setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [attemptsStatus?.resetTime, attemptsStatus?.canPlay]);
+  }, [attemptsStatus?.resetTime, attemptsStatus?.canPlay, checkAttempts]);
 
   // Обработчик запуска игры с безопасной проверкой
   const handleModeStart = useCallback(
@@ -634,7 +640,7 @@ export default function GamePage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -644,10 +650,11 @@ export default function GamePage() {
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${
+        loadingModeId
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
+      }`}
     >
       {/* Header */}
       <div className="text-center space-y-4 mb-8">

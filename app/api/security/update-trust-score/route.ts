@@ -1,4 +1,4 @@
-// src/app/api/security/update-trust-score/route.ts - Update trust score API endpoint
+// src/app/api/security/update-trust-score/route.ts - Trust score update endpoint
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -6,11 +6,10 @@ import { supabaseServer } from "@/lib/supabase-server";
 
 export async function POST(request: NextRequest) {
   try {
-    // Get user ID from middleware-added header
-    const userId = request.headers.get("x-user-id");
     const telegramId = request.headers.get("x-telegram-id");
+    const { scoreChange } = await request.json();
 
-    if (!userId || !telegramId) {
+    if (!telegramId) {
       return NextResponse.json(
         {
           success: false,
@@ -20,10 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse request body
-    const { scoreChange } = await request.json();
-
-    if (scoreChange === undefined || typeof scoreChange !== "number") {
+    if (typeof scoreChange !== "number") {
       return NextResponse.json(
         {
           success: false,
@@ -33,42 +29,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use RPC function to update trust score
-    const { data: newTrustScore, error } = await supabaseServer.rpc(
-      "update_trust_score",
-      {
-        user_telegram_id: parseInt(telegramId),
-        score_change: scoreChange,
-      },
-    );
+    const { data, error } = await supabaseServer.rpc("update_trust_score", {
+      user_telegram_id: parseInt(telegramId),
+      score_change: scoreChange,
+    });
 
     if (error) {
-      console.error("Error updating trust score:", error);
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to update trust score",
-          message: error.message,
-        },
-        { status: 500 },
-      );
+      console.error("Error updating trust score:", error.message);
+      throw error;
     }
-
-    console.log(
-      `Trust score updated for user ${telegramId}: ${scoreChange > 0 ? "+" : ""}${scoreChange}`,
-    );
 
     return NextResponse.json({
       success: true,
+      newTrustScore: data || 0,
     });
   } catch (error) {
-    console.error("Update trust score API error:", error);
+    console.error("Trust score update API error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error: "Internal server error",
+        error: "Failed to update trust score",
         message:
           error instanceof Error ? error.message : "Unknown error occurred",
       },

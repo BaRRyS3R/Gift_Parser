@@ -3,11 +3,6 @@
 export const achievements = {
   title: "ДОСТИЖЕНИЯ",
   subtitle: "Отслеживайте прогресс и открывайте награды",
-  loading: "Загрузка",
-  error: {
-    title: "Ошибка",
-    description: "Чот случилось(((",
-  },
   stats: {
     unlocked: "Получено",
     locked: "Не получено",

@@ -1,16 +1,14 @@
-// src/components/Profile/EnhancedProfileHeader.tsx - Updated to use authService API only
+// src/components/Profile/EnhancedProfileHeader.tsx - Profile header with level and league
 
 "use client";
 
 import type { User as UserType } from "@/lib/supabase";
-import type { LeagueProgressInfo } from "@/lib/authService";
 
 import React, { useState, useEffect } from "react";
 import { Trophy, Star, Medal, Award, Crown } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
-import { useUser } from "@/hooks/useUser";
-import { authService } from "@/lib/authService";
+import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
 
 interface EnhancedProfileHeaderProps {
   user: UserType;
@@ -20,7 +18,6 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
   user,
 }) => {
   const t = useT();
-  const { isAuthenticated } = useUser();
   const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(
     null,
   );
@@ -28,45 +25,22 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
 
   useEffect(() => {
     const loadProgressInfo = async () => {
-      if (!isAuthenticated) {
-        setIsLoading(false);
-
-        return;
-      }
-
       try {
-        console.log(
-          "EnhancedProfileHeader: Fetching league progress via authService API...",
+        const progress = await leagueService.getUserLeagueProgress(
+          user.id,
+          user.total_games,
         );
-
-        const progress = await authService.getLeagueProgress();
 
         setProgressInfo(progress);
-        console.log(
-          "EnhancedProfileHeader: League progress fetched successfully",
-        );
       } catch (error) {
-        console.error(
-          "EnhancedProfileHeader: Error loading league progress:",
-          error,
-        );
-
-        // Handle authentication errors gracefully
-        if (
-          error instanceof Error &&
-          error.message.includes("Authentication expired")
-        ) {
-          console.log(
-            "EnhancedProfileHeader: Authentication expired, will not show league info",
-          );
-        }
+        console.error("Error loading league progress:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProgressInfo();
-  }, [isAuthenticated]);
+  }, [user.id, user.total_games]);
 
   // Get league icon and colors
   const getLeagueIcon = (leagueName: string) => {
@@ -156,17 +130,7 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
               </span>
             </div>
           </>
-        ) : (
-          /* Fallback: Show basic level info from user data */
-          <div className="flex items-center space-x-1">
-            <Star className="text-white/80" size={16} />
-            <span className="text-white text-sm font-semibold">
-              {t("profile.levelDisplay", {
-                level: user.current_level || 1,
-              })}
-            </span>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -79,6 +79,7 @@ export interface LeagueLeaderboard {
   userPosition: number | null;
   userGamesToNextReward: number | null;
   topPlayers: Array<{
+    user_id: string;
     first_name: string;
     last_name?: string;
     username?: string;
@@ -93,6 +94,7 @@ export interface LeagueNeighbors {
   userPosition: number;
   userGames: number;
   playersAhead: Array<{
+    user_id: string;
     first_name: string;
     last_name?: string;
     username?: string;
@@ -101,6 +103,7 @@ export interface LeagueNeighbors {
     games_ahead: number;
   }>;
   playersBehind: Array<{
+    user_id: string;
     first_name: string;
     last_name?: string;
     username?: string;
@@ -276,6 +279,7 @@ export const leagueService = {
       const playersAhead = usersInLeague
         .slice(Math.max(0, userIndex - 2), userIndex)
         .map((player, index) => ({
+          user_id: player.id,
           first_name: player.first_name,
           last_name: player.last_name,
           username: player.username,
@@ -287,6 +291,7 @@ export const leagueService = {
       const playersBehind = usersInLeague
         .slice(userIndex + 1, userIndex + 3)
         .map((player, index) => ({
+          user_id: player.id,
           first_name: player.first_name,
           last_name: player.last_name,
           username: player.username,
@@ -673,12 +678,12 @@ export const leagueService = {
         .from("users")
         .select(
           `
-        id,
-        first_name,
-        last_name,
-        username,
-        total_games
-      `,
+                    id,
+                    first_name,
+                    last_name,
+                    username,
+                    total_games
+                `,
         )
         .gte("total_games", league.min_games)
         .lte("total_games", league.max_games || 999999)
@@ -735,17 +740,16 @@ export const leagueService = {
         }
       }
 
-      // ИСПРАВЛЕНИЕ: Убираем user_id из topPlayers для безопасности
       const topPlayers = (usersInLeague || [])
         .slice(0, 5)
         .map((user, index) => ({
-          // user_id: user.id, // УБРАНО: не передаем чувствительную информацию
+          user_id: user.id,
           first_name: user.first_name,
           last_name: user.last_name,
           username: user.username,
           games_count: user.total_games,
           position: index + 1,
-          got_reward: rewardedUserIds.has(user.id), // используем для проверки, но не передаем
+          got_reward: rewardedUserIds.has(user.id),
         }));
 
       let nextRewardAt: number | null = null;

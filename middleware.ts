@@ -1,4 +1,4 @@
-// middleware.ts - Enhanced middleware with comprehensive API protection including tasks and purchases
+// middleware.ts - Application middleware for API protection
 
 import type { NextRequest } from "next/server";
 
@@ -10,53 +10,15 @@ import { verifyToken } from "@/lib/jwt";
 const protectedApiPaths = [
   "/api/user/",
   "/api/game/",
-  "/api/tournament/", // All tournament endpoints are protected
+  "/api/tournament/",
   "/api/security/",
-  "/api/leagues/",
-  "/api/profile/",
-  "/api/tasks/",
-  "/api/leaderboard/", // All leaderboard endpoints are protected
-  "/api/purchases/", // All purchase endpoints are protected
+  "/api/leagues/",      // NEW: Added for league progress and league-related endpoints
+  "/api/profile/",      // NEW: Added for profile-related endpoints
 ];
 
 // Define paths that don't require authentication
-const publicApiPaths = [
-  "/api/auth/login",
-  "/api/auth/register",
-  "/api/health",
-  "/api/check-telegram-membership",
-];
+const publicApiPaths = ["/api/auth/login", "/api/health"];
 
-// Rate limiting configuration
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 60; // Increased limit for tasks and purchases operations
-const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
-
-/**
- * Basic rate limiting implementation
- */
-function checkRateLimit(identifier: string): boolean {
-  const now = Date.now();
-  const userLimit = rateLimitMap.get(identifier);
-
-  if (!userLimit || now - userLimit.lastReset > RATE_LIMIT_WINDOW) {
-    rateLimitMap.set(identifier, { count: 1, lastReset: now });
-
-    return true;
-  }
-
-  if (userLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return false;
-  }
-
-  userLimit.count++;
-
-  return true;
-}
-
-/**
- * Enhanced middleware with tasks and purchases protection
- */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -65,7 +27,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow public API paths without authentication
+  // Allow public API paths
   if (publicApiPaths.some((path) => pathname.startsWith(path))) {
     return NextResponse.next();
   }
@@ -80,14 +42,11 @@ export async function middleware(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.warn(`Protected API access attempt without auth: ${pathname}`);
-
       return NextResponse.json(
         {
           success: false,
           error: "Authentication required",
           message: "No valid authorization header provided",
-          requiredAuth: true,
         },
         { status: 401 },
       );
@@ -100,14 +59,11 @@ export async function middleware(request: NextRequest) {
       const validation = await verifyToken(token);
 
       if (!validation.isValid || !validation.payload) {
-        console.warn(`Invalid token attempt for: ${pathname}`);
-
         return NextResponse.json(
           {
             success: false,
             error: "Invalid token",
             message: validation.error || "Token validation failed",
-            requiredAuth: true,
           },
           { status: 401 },
         );
@@ -122,18 +78,6 @@ export async function middleware(request: NextRequest) {
         validation.payload.telegramId.toString(),
       );
 
-      // Add additional security headers for specific endpoints
-      if (pathname.startsWith("/api/tournament/")) {
-        requestHeaders.set("x-protected-resource", "tournament");
-        requestHeaders.set("x-request-timestamp", Date.now().toString());
-      } else if (pathname.startsWith("/api/purchases/")) {
-        requestHeaders.set("x-protected-resource", "purchases");
-        requestHeaders.set("x-request-timestamp", Date.now().toString());
-      } else if (pathname.startsWith("/api/tasks/")) {
-        requestHeaders.set("x-protected-resource", "tasks");
-        requestHeaders.set("x-request-timestamp", Date.now().toString());
-      }
-
       return NextResponse.next({
         request: {
           headers: requestHeaders,
@@ -147,15 +91,11 @@ export async function middleware(request: NextRequest) {
           success: false,
           error: "Authentication failed",
           message: "Token verification failed",
-          requiredAuth: true,
         },
         { status: 401 },
       );
     }
   }
-
-  // Log unprotected API access for monitoring
-  console.info(`Unprotected API access: ${pathname}`);
 
   return NextResponse.next();
 }

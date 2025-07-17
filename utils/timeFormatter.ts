@@ -157,34 +157,3 @@ export function formatRotationTime(timeMs: number): string {
 
   return `${totalSeconds.toFixed(3)}s`;
 }
-
-/**
- * Formats tournament survival time from milliseconds to human-readable format
- * Same as formatSurvivalTime but with error handling for negative/invalid values
- * @param timeMs - Time in milliseconds
- * @returns Formatted time string (e.g., "1:23.456" or "45.123s")
- */
-export function formatTournamentSurvivalTime(timeMs: number): string {
-  if (timeMs < 0) {
-    console.warn("Negative survival time detected:", timeMs);
-
-    return "0.000s";
-  }
-
-  if (isNaN(timeMs) || !isFinite(timeMs)) {
-    console.warn("Invalid survival time value:", timeMs);
-
-    return "0.000s";
-  }
-
-  const totalSeconds = Math.floor(timeMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  const ms = timeMs % 1000;
-
-  if (minutes > 0) {
-    return `${minutes}:${seconds.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
-  }
-
-  return `${seconds}.${ms.toString().padStart(3, "0")}s`;
-}

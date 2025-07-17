@@ -2,11 +2,6 @@
 
 export const profile = {
   title: "ПРОФИЛЬ",
-  error: "Ошибка",
-  you: "Вы",
-  games: "Игры",
-  notAuthenticated: "Вы не авторизованы",
-  pleaseLogin: "Пожалуйста, авторизуйтесь.",
   loadingProfile: "ЗАГРУЗКА ПРОФИЛЯ...",
   notFound: "ПРОФИЛЬ НЕ НАЙДЕН",
   overallStats: "Общая статистика",

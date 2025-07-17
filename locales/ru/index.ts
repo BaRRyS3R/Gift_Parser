@@ -6,6 +6,7 @@ import { auth } from "./auth";
 import { main } from "./main";
 import { game } from "./game";
 import { attempts } from "./attempts";
+import { tasks } from "./tasks";
 import { tournament } from "./tournament";
 import { profile } from "./profile";
 import { leaderboard } from "./leaderboard";
@@ -16,7 +17,6 @@ import { time } from "./time";
 import { about } from "./about";
 import { leagues } from "./leagues";
 import { achievements } from "./achievements";
-import { tasks } from "./tasks";
 
 export const ru = {
   // Common UI elements

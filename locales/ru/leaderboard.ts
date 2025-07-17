@@ -32,5 +32,4 @@ export const leaderboard = {
   rotationElite: "ЭЛИТА ВРАЩЕНИЯ", // NEW
   topPlayers: "ТОП ИГРОКИ",
   allPlayers: "ВСЕ ИГРОКИ",
-  authenticationRequired: "Необходима авторизация",
 } as const;
