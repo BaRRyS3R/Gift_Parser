@@ -1,4 +1,4 @@
-// src/components/Security/GyroscopeModal.tsx - Реализация на основе рабочего кода
+// src/components/Security/GyroscopeModal.tsx - Custom implementation with proper DeviceOrientationEvent handling
 
 "use client";
 
@@ -30,6 +30,84 @@ interface MotionSample {
     gamma: number;
 }
 
+interface DeviceOrientationData {
+    alpha: number | null;
+    beta: number | null;
+    gamma: number | null;
+    absolute: boolean;
+}
+
+// Custom hook for device orientation
+const useDeviceOrientation = () => {
+    const [orientation, setOrientation] = useState<DeviceOrientationData>({
+        alpha: null,
+        beta: null,
+        gamma: null,
+        absolute: false
+    });
+    const [isSupported, setIsSupported] = useState(false);
+    const [permissionState, setPermissionState] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown');
+
+    useEffect(() => {
+        // Check if DeviceOrientationEvent is supported
+        if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
+            setIsSupported(true);
+        }
+    }, []);
+
+    const requestPermission = useCallback(async (): Promise<boolean> => {
+        if (typeof window === 'undefined' || !('DeviceOrientationEvent' in window)) {
+            return false;
+        }
+
+        // Check if permission is needed (iOS 13+)
+        if ('requestPermission' in (DeviceOrientationEvent as any)) {
+            try {
+                const permission = await (DeviceOrientationEvent as any).requestPermission();
+                setPermissionState(permission === 'granted' ? 'granted' : 'denied');
+                return permission === 'granted';
+            } catch (error) {
+                console.error('Permission request failed:', error);
+                setPermissionState('denied');
+                return false;
+            }
+        } else {
+            // Permission not required on this device
+            setPermissionState('granted');
+            return true;
+        }
+    }, []);
+
+    const startListening = useCallback(() => {
+        if (!isSupported || permissionState !== 'granted') {
+            return () => {};
+        }
+
+        const handleOrientation = (event: DeviceOrientationEvent) => {
+            setOrientation({
+                alpha: event.alpha,
+                beta: event.beta,
+                gamma: event.gamma,
+                absolute: event.absolute || false
+            });
+        };
+
+        window.addEventListener('deviceorientation', handleOrientation);
+
+        return () => {
+            window.removeEventListener('deviceorientation', handleOrientation);
+        };
+    }, [isSupported, permissionState]);
+
+    return {
+        orientation,
+        isSupported,
+        permissionState,
+        requestPermission,
+        startListening
+    };
+};
+
 const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
     isOpen,
     onSuccess,
@@ -40,33 +118,40 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
     const [progress, setProgress] = useState(0);
     const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isSupported, setIsSupported] = useState(false);
     const [isStarted, setIsStarted] = useState(false);
     const [motionIntensity, setMotionIntensity] = useState(0);
     const [isCompleted, setIsCompleted] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [motionSamples, setMotionSamples] = useState<MotionSample[]>([]);
 
-    // Refs для данных движения (как в рабочем файле)
-    const lastTimeRef = useRef<number>(Date.now());
-    const lastAlphaRef = useRef<number>(0);
-    const lastBetaRef = useRef<number>(0);
-    const lastGammaRef = useRef<number>(0);
-    const totalMotionRef = useRef<number>(0);
+    // Use custom device orientation hook
+    const { 
+        orientation, 
+        isSupported, 
+        permissionState, 
+        requestPermission, 
+        startListening 
+    } = useDeviceOrientation();
+
+    // Refs for tracking previous values
+    const lastOrientationRef = useRef({ alpha: 0, beta: 0, gamma: 0 });
     const motionSamplesLocalRef = useRef<MotionSample[]>([]);
-    const isFirstReadingRef = useRef<boolean>(true);
+    const totalMotionRef = useRef<number>(0);
     const startTimeRef = useRef<number>(0);
+    const isFirstReadingRef = useRef<boolean>(true);
+    const lastUpdateRef = useRef<number>(0);
+    const cleanupRef = useRef<(() => void) | null>(null);
 
-    const VERIFICATION_TIMEOUT = 10000; // 10 секунд как в рабочем файле
-    const MOTION_THRESHOLD = 1; // ПОНИЖЕН для отладки (было 8)
-    const REQUIRED_MOTION = 50; // ПОНИЖЕН для отладки (было 300) 
-    const MIN_SAMPLES = 5; // ПОНИЖЕН для отладки (было 15)
+    const VERIFICATION_TIMEOUT = 10000;
+    const MOTION_THRESHOLD = 3;
+    const REQUIRED_MOTION = 150;
+    const MIN_SAMPLES = 10;
+    const UPDATE_THROTTLE = 100;
 
-    // Сброс состояния при открытии/закрытии модала
+    // Reset state when modal opens/closes
     useEffect(() => {
         if (isOpen) {
             resetState();
-            checkSupport();
         } else {
             cleanup();
         }
@@ -77,182 +162,167 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         setProgress(0);
         setIsVerifying(false);
         setError(null);
-        setIsSupported(false);
         setIsStarted(false);
         setMotionIntensity(0);
         setIsCompleted(false);
         setIsProcessing(false);
         setMotionSamples([]);
-
-        // Сброс refs
-        lastTimeRef.current = Date.now();
-        lastAlphaRef.current = 0;
-        lastBetaRef.current = 0;
-        lastGammaRef.current = 0;
-        totalMotionRef.current = 0;
+        
+        lastOrientationRef.current = { alpha: 0, beta: 0, gamma: 0 };
         motionSamplesLocalRef.current = [];
-        isFirstReadingRef.current = true;
+        totalMotionRef.current = 0;
         startTimeRef.current = 0;
+        isFirstReadingRef.current = true;
+        lastUpdateRef.current = 0;
     };
 
     const cleanup = () => {
-        if (typeof window !== 'undefined') {
-            window.removeEventListener('deviceorientation', handleOrientation);
+        if (cleanupRef.current) {
+            cleanupRef.current();
+            cleanupRef.current = null;
         }
     };
 
-    const checkSupport = async () => {
-        console.log("Checking gyroscope support...");
-
-        if (typeof window === 'undefined' || !window.DeviceOrientationEvent) {
-            console.log("DeviceOrientationEvent not available");
-            setError("Device orientation is not supported on this device");
-            return;
-        }
-
-        // Проверяем, нужно ли разрешение (iOS 13+)
-        if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
-            console.log("Requesting device orientation permission...");
-            try {
-                const permission = await (DeviceOrientationEvent as any).requestPermission();
-                console.log("Permission result:", permission);
-                if (permission !== 'granted') {
-                    setError("Permission to access device orientation was denied");
-                    return;
-                }
-            } catch (err) {
-                console.error("Permission request failed:", err);
-                setError("Failed to request device orientation permission");
-                return;
-            }
-        }
-
-        console.log("Gyroscope support confirmed");
-        setIsSupported(true);
-    };
-
-    // Обработчик ориентации устройства с расширенным логированием
-    const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
-        console.log("🔄 DeviceOrientation event received", {
-            isVerifying,
-            isCompleted,
-            isProcessing,
-            alpha: event.alpha,
-            beta: event.beta,
-            gamma: event.gamma
-        });
-
-        if (!isVerifying || isCompleted || isProcessing) {
-            console.log("❌ Event ignored due to state");
+    // Handle orientation data changes
+    useEffect(() => {
+        if (!isVerifying || isCompleted || isProcessing) return;
+        if (!orientation || orientation.alpha === null || orientation.beta === null || orientation.gamma === null) {
             return;
         }
 
         const now = Date.now();
-        const timeDiff = now - lastTimeRef.current;
+        
+        // Throttle updates
+        if (now - lastUpdateRef.current < UPDATE_THROTTLE) return;
+        lastUpdateRef.current = now;
 
-        console.log("⏰ Time check:", { timeDiff, threshold: 100 });
+        const { alpha, beta, gamma } = orientation;
+        const currentAlpha = alpha || 0;
+        const currentBeta = beta || 0;
+        const currentGamma = gamma || 0;
 
-        // Убираем ограничение частоты для отладки
-        // if (timeDiff < 100) return;
+        console.log("📐 Device orientation data:", {
+            alpha: currentAlpha.toFixed(2),
+            beta: currentBeta.toFixed(2),
+            gamma: currentGamma.toFixed(2),
+            absolute: orientation.absolute
+        });
 
-        const alpha = event.alpha || 0;
-        const beta = event.beta || 0;
-        const gamma = event.gamma || 0;
-
-        console.log("📐 Current orientation:", { alpha, beta, gamma });
-
-        // Первое чтение - устанавливаем базовые значения
+        // First reading - set baseline values
         if (isFirstReadingRef.current) {
-            lastAlphaRef.current = alpha;
-            lastBetaRef.current = beta;
-            lastGammaRef.current = gamma;
-            lastTimeRef.current = now;
+            lastOrientationRef.current = {
+                alpha: currentAlpha,
+                beta: currentBeta,
+                gamma: currentGamma
+            };
             isFirstReadingRef.current = false;
-            console.log("✅ First reading set:", { alpha, beta, gamma });
+            console.log("✅ First orientation reading set");
             return;
         }
 
-        // Вычисляем изменения
-        const deltaAlpha = Math.abs(alpha - lastAlphaRef.current);
-        const deltaBeta = Math.abs(beta - lastBetaRef.current);
-        const deltaGamma = Math.abs(gamma - lastGammaRef.current);
-        const motion = deltaAlpha + deltaBeta + deltaGamma;
+        // Calculate changes in orientation
+        const lastOrientation = lastOrientationRef.current;
+        const deltaAlpha = Math.abs(currentAlpha - lastOrientation.alpha);
+        const deltaBeta = Math.abs(currentBeta - lastOrientation.beta);
+        const deltaGamma = Math.abs(currentGamma - lastOrientation.gamma);
+        
+        // Handle circular nature of angles (0-360 degrees)
+        const normalizedDeltaAlpha = Math.min(deltaAlpha, 360 - deltaAlpha);
+        const motion = normalizedDeltaAlpha + deltaBeta + deltaGamma;
 
         console.log("📊 Motion calculation:", {
             deltaAlpha: deltaAlpha.toFixed(2),
             deltaBeta: deltaBeta.toFixed(2),
             deltaGamma: deltaGamma.toFixed(2),
+            normalizedDeltaAlpha: normalizedDeltaAlpha.toFixed(2),
             totalMotion: motion.toFixed(2),
             threshold: MOTION_THRESHOLD
         });
 
-        // Фиксируем любое движение больше 0 для отладки
+        // Record significant motion
         if (motion > MOTION_THRESHOLD) {
             const sample: MotionSample = {
                 timestamp: now,
                 motion,
-                alpha,
-                beta,
-                gamma
+                alpha: currentAlpha,
+                beta: currentBeta,
+                gamma: currentGamma
             };
-
+            
             motionSamplesLocalRef.current.push(sample);
-
-            // Ограничиваем количество образцов
-            if (motionSamplesLocalRef.current.length > 30) {
-                motionSamplesLocalRef.current = motionSamplesLocalRef.current.slice(-30);
+            
+            // Limit number of samples
+            if (motionSamplesLocalRef.current.length > 50) {
+                motionSamplesLocalRef.current = motionSamplesLocalRef.current.slice(-50);
             }
 
-            // Обновляем состояние для UI
+            // Update UI state
             setMotionSamples([...motionSamplesLocalRef.current]);
-
-            // Пересчитываем общее движение
+            
+            // Recalculate total motion
             totalMotionRef.current = motionSamplesLocalRef.current.reduce((sum, sample) => sum + sample.motion, 0);
+            setMotionIntensity(totalMotionRef.current);
 
-            console.log("🎯 Motion detected and recorded:", {
+            console.log("🎯 Motion detected:", {
                 motion: motion.toFixed(2),
                 samples: motionSamplesLocalRef.current.length,
                 totalMotion: totalMotionRef.current.toFixed(1),
                 requiredMotion: REQUIRED_MOTION,
                 minSamples: MIN_SAMPLES
             });
+
+            // Check completion conditions
+            if (totalMotionRef.current > REQUIRED_MOTION && motionSamplesLocalRef.current.length >= MIN_SAMPLES && !isCompleted) {
+                console.log("🏆 Motion verification requirements met!");
+                completeVerification(true);
+            }
         } else {
             console.log("📉 Motion below threshold:", motion.toFixed(2));
         }
 
-        // Обновляем интенсивность для UI
-        setMotionIntensity(totalMotionRef.current);
+        // Update last values
+        lastOrientationRef.current = {
+            alpha: currentAlpha,
+            beta: currentBeta,
+            gamma: currentGamma
+        };
+    }, [orientation, isVerifying, isCompleted, isProcessing]);
 
-        // Проверяем условия завершения
-        if (totalMotionRef.current > REQUIRED_MOTION && motionSamplesLocalRef.current.length >= MIN_SAMPLES && !isCompleted) {
-            console.log("🏆 Motion verification requirements met!");
-            completeVerification(true);
+    const startVerification = async () => {
+        if (isVerifying) return;
+
+        console.log("Starting gyroscope verification with custom hook");
+
+        if (!isSupported) {
+            setError("Device orientation is not supported on this device or browser");
+            return;
+        }
+        
+        // Request permission if necessary
+        const permissionGranted = await requestPermission();
+        if (!permissionGranted) {
+            setError("Permission to access device orientation was denied");
+            return;
         }
 
-        // Обновляем последние значения
-        lastTimeRef.current = now;
-        lastAlphaRef.current = alpha;
-        lastBetaRef.current = beta;
-        lastGammaRef.current = gamma;
-    }, [isVerifying, isCompleted, isProcessing]);
-
-    const startVerification = () => {
-        if (!isSupported || isVerifying) return;
-
-        console.log("Starting gyroscope verification");
         setIsVerifying(true);
         setIsStarted(true);
         setError(null);
         startTimeRef.current = Date.now();
 
-        // Сброс данных для новой попытки
+        // Reset data for new attempt
         isFirstReadingRef.current = true;
         totalMotionRef.current = 0;
         motionSamplesLocalRef.current = [];
+        setMotionSamples([]);
+        setMotionIntensity(0);
+        lastUpdateRef.current = 0;
 
-        // Добавляем слушатель событий
-        window.addEventListener('deviceorientation', handleOrientation);
-        console.log("Device orientation listener added");
+        // Start listening to orientation events
+        const cleanup = startListening();
+        cleanupRef.current = cleanup;
+
+        console.log("Device motion verification started");
     };
 
     const completeVerification = async (success: boolean) => {
@@ -261,27 +331,27 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         console.log(`Completing verification with result: ${success}`);
         setIsCompleted(true);
         setIsProcessing(true);
-
-        // Останавливаем слушатель
+        
+        // Stop listening to events
         cleanup();
 
         try {
             const verificationDuration = Date.now() - startTimeRef.current;
             const completedInTime = verificationDuration < VERIFICATION_TIMEOUT;
-
-            // Дополнительные проверки безопасности (как в рабочем файле)
+            
+            // Additional security checks
             if (success && verificationDuration < 3000) {
-                console.warn('Gyroscope verification too fast - potential manipulation');
+                console.warn('Verification completed too quickly - potential manipulation');
                 success = false;
             }
-
+            
             if (success && motionSamplesLocalRef.current.length < MIN_SAMPLES) {
                 console.warn('Insufficient motion samples - potential manipulation');
                 success = false;
             }
 
             const result = await validateSecureGyroscope(success, completedInTime, true);
-
+            
             if (result.success && success) {
                 console.log('Gyroscope verification successful');
                 onSuccess();
@@ -295,14 +365,14 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         }
     };
 
-    // Вычисление прогресса
+    // Calculate progress
     const calculateProgress = () => {
         const motionProgress = Math.min((totalMotionRef.current / REQUIRED_MOTION) * 100, 100);
         const samplesProgress = Math.min((motionSamplesLocalRef.current.length / MIN_SAMPLES) * 100, 100);
         return (motionProgress + samplesProgress) / 2;
     };
 
-    // Обновление прогресса
+    // Update progress
     useEffect(() => {
         if (isVerifying && !isCompleted) {
             const currentProgress = calculateProgress();
@@ -310,7 +380,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         }
     }, [motionSamples, isVerifying, isCompleted]);
 
-    // Таймер обратного отсчета
+    // Countdown timer
     useEffect(() => {
         if (!isVerifying || isCompleted) return;
 
@@ -329,7 +399,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         return () => clearInterval(timer);
     }, [isVerifying, isCompleted]);
 
-    // Cleanup при размонтировании
+    // Cleanup on unmount
     useEffect(() => {
         return cleanup;
     }, []);
@@ -337,6 +407,14 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
     const formatTime = (ms: number): string => {
         const seconds = Math.ceil(ms / 1000);
         return `${seconds}s`;
+    };
+
+    const getOrientationStatus = () => {
+        if (!isSupported) return "Not Supported";
+        if (permissionState === 'denied') return "Permission Denied";
+        if (permissionState === 'granted' && orientation.alpha === null) return "Waiting for Data";
+        if (permissionState === 'granted' && orientation.alpha !== null) return "Active";
+        return "Unknown";
     };
 
     if (!isOpen) return null;
@@ -394,6 +472,25 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                 You need to rotate and move your device to verify you are human
                             </p>
 
+                            {/* Device Support Info */}
+                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                                <div className="flex items-start space-x-2">
+                                    <Shield className="text-blue-400 flex-shrink-0 mt-0.5" size={16} />
+                                    <div>
+                                        <h4 className="text-blue-300 font-semibold mb-1 text-sm">Device Support</h4>
+                                        <p className="text-blue-200 text-xs">
+                                            Orientation API: {getOrientationStatus()}
+                                        </p>
+                                        <p className="text-blue-200 text-xs">
+                                            Implementation: Custom DeviceOrientationEvent Handler
+                                        </p>
+                                        <p className="text-blue-200 text-xs">
+                                            Permission: {permissionState}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
                                 <h4 className="text-purple-300 font-semibold mb-2 text-sm">Instructions:</h4>
                                 <div className="text-purple-200 text-sm space-y-1">
@@ -404,22 +501,13 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                 </div>
                             </div>
 
-                            {isSupported ? (
-                                <button
-                                    className="w-full px-6 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 text-lg font-semibold"
-                                    onClick={startVerification}
-                                >
-                                    <Compass size={20} />
-                                    <span>Start Verification</span>
-                                </button>
-                            ) : (
-                                <div className="text-center">
-                                    <div className="animate-pulse">
-                                        <Compass className="text-purple-400 mx-auto mb-2" size={32} />
-                                    </div>
-                                    <p className="text-gray-400 text-sm">Checking device support...</p>
-                                </div>
-                            )}
+                            <button
+                                className="w-full px-6 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 text-lg font-semibold"
+                                onClick={startVerification}
+                            >
+                                <Compass size={20} />
+                                <span>Start Verification</span>
+                            </button>
                         </div>
                     ) : (
                         // Verification state
@@ -447,14 +535,36 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                 </div>
                             </div>
 
+                            {/* Current Sensor Data */}
+                            {orientation && (
+                                <div className="bg-gray-800 rounded-lg p-3 text-xs space-y-1">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Alpha (Z):</span>
+                                        <span className="text-blue-400">{orientation.alpha?.toFixed(1) || 'N/A'}°</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Beta (X):</span>
+                                        <span className="text-green-400">{orientation.beta?.toFixed(1) || 'N/A'}°</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Gamma (Y):</span>
+                                        <span className="text-yellow-400">{orientation.gamma?.toFixed(1) || 'N/A'}°</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Absolute:</span>
+                                        <span className="text-cyan-400">{orientation.absolute ? 'Yes' : 'No'}</span>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Motion Visualization */}
                             <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 text-center">
                                 <div className="mb-3">
-                                    <Compass
-                                        className="text-purple-400 mx-auto transition-transform duration-300"
+                                    <Compass 
+                                        className="text-purple-400 mx-auto transition-transform duration-500" 
                                         size={48}
                                         style={{
-                                            transform: `rotate(${(motionIntensity / 10)}deg)`
+                                            transform: `rotate(${(orientation?.alpha || 0) / 4}deg)`
                                         }}
                                     />
                                 </div>
@@ -462,8 +572,8 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                     {isCompleted ? "Motion Verified!" : "Keep Moving Your Device"}
                                 </h3>
                                 <p className="text-gray-400 text-sm">
-                                    {isCompleted
-                                        ? "Verification completed successfully"
+                                    {isCompleted 
+                                        ? "Verification completed successfully" 
                                         : "Rotate and twist your device in different directions"
                                     }
                                 </p>
@@ -482,6 +592,10 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                 <div className="flex justify-between">
                                     <span className="text-gray-400">Total Motion:</span>
                                     <span className="text-green-400">{motionIntensity.toFixed(1)}°</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400">API Source:</span>
+                                    <span className="text-blue-400">Custom Hook</span>
                                 </div>
                             </div>
                         </div>
