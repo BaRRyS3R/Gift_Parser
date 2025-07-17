@@ -28,14 +28,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
         tg.disableClosingConfirmation();
 
         // NEW: Enhanced fullscreen settings (Bot API 7.7+)
-        if (tg.lockOrientation) {
+        /*if (tg.lockOrientation) {
           try {
             tg.lockOrientation();
             console.log("Orientation locked successfully");
           } catch (error) {
             console.warn("Orientation lock not supported:", error);
           }
-        }
+        }*/
 
         // NEW: Disable vertical swipes to prevent pull-to-refresh and swipe-to-close
         if (tg.disableVerticalSwipes) {
