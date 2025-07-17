@@ -1,31 +1,18 @@
 /** @type {import('next').NextConfig} */
-const WebpackObfuscator = require('webpack-obfuscator');
-const path = require('path');
-
 const nextConfig = {
+  output: "standalone", // важно для Cloudflare
   transpilePackages: ["@nextui-org/react"],
   images: {
     remotePatterns: [],
   },
-  webpack: (config, { isServer, webpack }) => {
+  experimental: {
+    serverActions: {}, // Cloudflare не поддерживает пока
+  },
+  webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@": path.resolve(__dirname),
+      "@": require("path").resolve(__dirname),
     };
-
-    if (!isServer && config.mode === "production") {
-      config.plugins.push(
-        new WebpackObfuscator(
-          {
-            rotateStringArray: true,
-            stringArray: true,
-            stringArrayEncoding: ['rc4'],
-            stringArrayThreshold: 0.75,
-          },
-          ['excluded_bundle_name.js']
-        )
-      );
-    }
 
     return config;
   },

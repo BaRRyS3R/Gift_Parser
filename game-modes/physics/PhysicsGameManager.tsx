@@ -1,683 +1,765 @@
-// src/game-modes/physics/PhysicsGameLogic.ts - Updated with info panel boundary positioning
+// src/game-modes/physics/PhysicsGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
 
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  Crosshair,
+  AlertTriangle,
+  Zap,
+  Clock,
+  Target,
+  RotateCcw,
+  TrendingDown,
+  TrendingUp,
+  Activity,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 import * as Matter from "matter-js";
 
 import {
-    PhysicsGameConfig,
-    PhysicsGameStats,
-    PhysicsGameResult,
-    PhysicsGameState,
-    PhysicsConfig,
-    ImpulseConfig,
-} from "@/types/game-modes/physics";
-import { PhysicsCircle, GameState, GameMode } from "@/types/game-modes/common";
+  initializePhysicsGameState,
+  updatePhysicsPositions,
+  updatePhysicsLevel,
+  activateRandomCircles,
+  handlePhysicsCircleClick,
+  deactivatePhysicsCircle,
+  createPhysicsGameResult,
+  cleanupPhysicsGame,
+  checkCirclesEscaped,
+  formatPhysicsTime,
+  applyImpulse,
+  getPhysicsLevelConfig,
+} from "./PhysicsGameLogic";
+import PhysicsGameCanvas from "./PhysicsGameCanvas";
 
-export interface PhysicsLevelConfig {
-    level: number;
-    maxSimultaneousCircles: number;
-    activationTimeMin: number;
-    activationTimeMax: number;
-    description: string;
+import { useUser } from "@/hooks/useUser";
+import { GameState } from "@/types/game-modes/common";
+import {
+  PhysicsGameState,
+  PhysicsGameResult,
+} from "@/types/game-modes/physics";
+import { useT } from "@/contexts/LocalizationContext";
+
+interface SaveStatus {
+  isLoading: boolean;
+  attempt: number;
+  maxAttempts: number;
+  error: string | null;
+  isSuccess: boolean;
+  showRetryDetails: boolean;
 }
 
-export const PHYSICS_LEVELS: PhysicsLevelConfig[] = [
-    {
-        level: 1,
-        maxSimultaneousCircles: 1,
-        activationTimeMin: 2000,
-        activationTimeMax: 3500,
-        description: "НАЧАЛЬНЫЙ",
-    },
-    {
-        level: 2,
-        maxSimultaneousCircles: 2,
-        activationTimeMin: 1800,
-        activationTimeMax: 3200,
-        description: "ЛЕГКИЙ",
-    },
-    {
-        level: 3,
-        maxSimultaneousCircles: 3,
-        activationTimeMin: 1600,
-        activationTimeMax: 3000,
-        description: "СРЕДНИЙ",
-    },
-    {
-        level: 4,
-        maxSimultaneousCircles: 4,
-        activationTimeMin: 1400,
-        activationTimeMax: 2800,
-        description: "СЛОЖНЫЙ",
-    },
-    {
-        level: 5,
-        maxSimultaneousCircles: 5,
-        activationTimeMin: 1200,
-        activationTimeMax: 2600,
-        description: "ЭКСТРЕМАЛЬНЫЙ",
-    },
-    {
-        level: 6,
-        maxSimultaneousCircles: 6,
-        activationTimeMin: 1000,
-        activationTimeMax: 2400,
-        description: "МАСТЕР",
-    },
-    {
-        level: 7,
-        maxSimultaneousCircles: 7,
-        activationTimeMin: 900,
-        activationTimeMax: 2200,
-        description: "ЭКСПЕРТ",
-    },
-    {
-        level: 8,
-        maxSimultaneousCircles: 8,
-        activationTimeMin: 800,
-        activationTimeMax: 2000,
-        description: "ЛЕГЕНДА",
-    },
-];
-
-export const getPhysicsLevelConfig = (gameTime: number): PhysicsLevelConfig => {
-    const levelIndex = Math.min(
-        Math.floor(gameTime / 5000),
-        PHYSICS_LEVELS.length - 1,
-    );
-
-    return PHYSICS_LEVELS[levelIndex];
+const initialSaveStatus: SaveStatus = {
+  isLoading: false,
+  attempt: 0,
+  maxAttempts: 3,
+  error: null,
+  isSuccess: false,
+  showRetryDetails: false,
 };
 
-export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
-    const screenWidth = typeof window !== "undefined" ? window.innerWidth : 350;
-    const screenHeight = typeof window !== "undefined" ? window.innerHeight : 500;
+export default function PhysicsGameManager() {
+  const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
+  const router = useRouter();
+  const t = useT();
 
-    // Calculate container dimensions to end at info panel top
-    const infoBarHeight = 140; // Height of bottom info panel
-    const containerWidth = screenWidth;
-    const containerHeight = screenHeight - infoBarHeight; // Stop at info panel top
+  const [gameState, setGameState] = useState<PhysicsGameState>(
+    initializePhysicsGameState(),
+  );
+  const [showCanvas, setShowCanvas] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
+  const [gameResult, setGameResult] = useState<PhysicsGameResult | null>(null);
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
+  const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
+  const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] =
+    useState(false);
+  const [isRestartLoading, setIsRestartLoading] = useState(false);
 
-    return {
-        id: "physics",
-        name: "PHYSICS MODE",
-        circleCount: 40,
-        circleRadius: Math.max(26, Math.min(36, containerWidth / 18)),
-        containerWidth,
-        containerHeight,
-        initialActivationTimeMin: 2000,
-        initialActivationTimeMax: 3500,
-        circleActiveTime: 3000,
-        impulseForce: 0.08,
-        maxMistakes: 5, // Maximum 5 mistakes
-        levelDuration: 360, // 3 minutes
+  const gameStateRef = useRef<PhysicsGameState>(gameState);
+  const engineUpdateRef = useRef<number>();
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  // Setup Telegram WebApp back button
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
+        router.push("/game");
+      });
+
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => {});
+      };
+    }
+  }, [router]);
+
+  // Consume attempt immediately when component mounts
+  useEffect(() => {
+    const consumeInitialAttempt = async () => {
+      if (!telegramUser?.id || hasConsumedInitialAttempt) return;
+
+      try {
+        setIsConsumingAttempt(true);
+        console.log("Consuming initial attempt for physics game");
+
+        const newStatus = await consumeAttemptForGame();
+
+        setAttemptsRemaining(newStatus.attemptsRemaining);
+        setHasConsumedInitialAttempt(true);
+
+        setTimeout(() => {
+          startGame();
+        }, 500);
+      } catch (error) {
+        console.error("Error consuming initial attempt:", error);
+        setHasConsumedInitialAttempt(true);
+        // При ошибке возвращаемся к выбору игр
+        router.push("/game");
+      } finally {
+        setIsConsumingAttempt(false);
+      }
     };
-};
 
-export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
-    containerWidth: 350, // Will be overridden by adaptive config
-    containerHeight: 500, // Will be overridden by adaptive config
-    wallThickness: 20, // Increased thickness for screen boundaries
-    gravity: { x: 0, y: 0.3 },
-    restitution: 0.8,
-    friction: 0.005,
-    frictionAir: 0.025,
-};
+    consumeInitialAttempt();
+  }, [
+    telegramUser?.id,
+    hasConsumedInitialAttempt,
+    consumeAttemptForGame,
+    router,
+  ]);
 
-export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.08,
-    radius: 150,
-    falloff: 0.3,
-};
+  const triggerHapticFeedback = useCallback((type: "success" | "error") => {
+    if (
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp?.HapticFeedback
+    ) {
+      const haptic = window.Telegram.WebApp.HapticFeedback;
 
-export const createPhysicsEngine = (): Matter.Engine => {
-    const engine = Matter.Engine.create();
+      haptic.notificationOccurred(type);
+    }
+  }, []);
 
-    engine.world.gravity.x = PHYSICS_ENGINE_CONFIG.gravity.x;
-    engine.world.gravity.y = PHYSICS_ENGINE_CONFIG.gravity.y;
-    engine.timing.timeScale = 1;
+  const handleSaveGameResult = useCallback(
+    async (result: PhysicsGameResult) => {
+      setSaveStatus((prev) => ({
+        ...prev,
+        isLoading: true,
+        attempt: 1,
+        error: null,
+        isSuccess: false,
+        showRetryDetails: false,
+      }));
 
-    return engine;
-};
+      let attemptCount = 1;
 
-export const createPhysicsCircles = (
-    count: number,
-    containerWidth: number,
-    containerHeight: number,
-    radius: number,
-    engine: Matter.Engine,
-): PhysicsCircle[] => {
-    const circles: PhysicsCircle[] = [];
-    const margin = radius + 15;
-    const maxAttempts = 100;
+      const attemptSave = async (): Promise<void> => {
+        setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
 
-    for (let i = 0; i < count; i++) {
-        let x: number, y: number;
-        let attempts = 0;
-        let validPosition = false;
+        if (attemptCount > 1) {
+          setSaveStatus((prev) => ({ ...prev, showRetryDetails: true }));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
 
-        do {
-            x = margin + Math.random() * (containerWidth - 2 * margin);
-            y = margin + Math.random() * (containerHeight - 2 * margin);
+        try {
+          await saveGameResult(result);
+          setSaveStatus((prev) => ({
+            ...prev,
+            isLoading: false,
+            isSuccess: true,
+            error: null,
+          }));
+        } catch (error) {
+          attemptCount++;
+          if (attemptCount <= 3) {
+            setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
+            await new Promise((resolve) => setTimeout(resolve, 1500));
 
-            validPosition = true;
+            return attemptSave();
+          } else {
+            throw error;
+          }
+        }
+      };
 
-            for (const existingCircle of circles) {
-                const distance = Math.sqrt(
-                    Math.pow(x - existingCircle.x, 2) + Math.pow(y - existingCircle.y, 2),
-                );
+      try {
+        await attemptSave();
+      } catch (error) {
+        setSaveStatus((prev) => ({
+          ...prev,
+          isLoading: false,
+          isSuccess: false,
+          error:
+            error instanceof Error ? error.message : t("errors.saveGameResult"),
+        }));
+      }
+    },
+    [saveGameResult, t],
+  );
 
-                if (distance < radius * 2.2) {
-                    validPosition = false;
-                    break;
-                }
-            }
+  // Physics engine update loop with level progression
+  const updatePhysicsEngine = useCallback(() => {
+    const currentState = gameStateRef.current;
 
-            attempts++;
-        } while (!validPosition && attempts < maxAttempts);
+    if (
+      !currentState.isActive ||
+      currentState.gameState !== GameState.PLAYING
+    ) {
+      if (engineUpdateRef.current) {
+        cancelAnimationFrame(engineUpdateRef.current);
+        engineUpdateRef.current = undefined;
+      }
 
-        const body = Matter.Bodies.circle(x, y, radius, {
-            restitution: PHYSICS_ENGINE_CONFIG.restitution,
-            friction: PHYSICS_ENGINE_CONFIG.friction,
-            frictionAir: PHYSICS_ENGINE_CONFIG.frictionAir,
-            density: 0.002,
-            label: `circle_${i}`,
-        });
-
-        Matter.World.add(engine.world, body);
-
-        const circle: PhysicsCircle = {
-            id: i,
-            x,
-            y,
-            radius,
-            isActive: false,
-            isAnimating: false,
-            isDecoy: false,
-            matterBodyId: body.id,
-            vx: 0,
-            vy: 0,
-        };
-
-        circles.push(circle);
+      return;
     }
 
-    return circles;
-};
+    // Update Matter.js engine
+    Matter.Engine.update(currentState.engine, 16.67);
 
-// Create invisible boundary walls at screen edges and info panel top
-export const createBoundaryWalls = (
-    containerWidth: number,
-    containerHeight: number,
-    thickness: number,
-    engine: Matter.Engine,
-) => {
-    const walls = {
-        top: Matter.Bodies.rectangle(
-            containerWidth / 2,
-            -thickness / 2,
-            containerWidth + thickness * 2,
-            thickness,
-            {
-                isStatic: true,
-                label: "wall_top",
-                render: { visible: false }, // Invisible wall
-            },
-        ),
-        bottom: Matter.Bodies.rectangle(
-            containerWidth / 2,
-            containerHeight + thickness / 2,
-            containerWidth + thickness * 2,
-            thickness,
-            {
-                isStatic: true,
-                label: "wall_bottom",
-                render: { visible: false }, // Wall at info panel top
-            },
-        ),
-        left: Matter.Bodies.rectangle(
-            -thickness / 2,
-            containerHeight / 2,
-            thickness,
-            containerHeight + thickness * 2,
-            {
-                isStatic: true,
-                label: "wall_left",
-                render: { visible: false },
-            },
-        ),
-        right: Matter.Bodies.rectangle(
-            containerWidth + thickness / 2,
-            containerHeight / 2,
-            thickness,
-            containerHeight + thickness * 2,
-            {
-                isStatic: true,
-                label: "wall_right",
-                render: { visible: false },
-            },
-        ),
-    };
+    // Update game state with physics and level progression
+    setGameState((prev) => {
+      const updatedState = updatePhysicsPositions(prev);
+      const levelUpdatedState = updatePhysicsLevel(updatedState);
 
-    Matter.World.add(engine.world, [
-        walls.top,
-        walls.bottom,
-        walls.left,
-        walls.right,
-    ]);
+      // Check win/loss conditions - mistakes first priority
+      const tooManyMistakes =
+        levelUpdatedState.stats.currentMistakes >=
+        levelUpdatedState.config.maxMistakes;
+      const escapedCircles = checkCirclesEscaped(levelUpdatedState);
+      const timeUp =
+        levelUpdatedState.stats.gameTime >=
+        levelUpdatedState.config.levelDuration * 1000;
 
-    return walls;
-};
+      if (tooManyMistakes || escapedCircles || timeUp) {
+        const deathCause = tooManyMistakes
+          ? "mistakes"
+          : escapedCircles
+            ? "escaped_circles"
+            : "timeout";
 
-export const initializePhysicsGameState = (): PhysicsGameState => {
-    const gameStartTime = Date.now();
-    const engine = createPhysicsEngine();
-    const config = createAdaptivePhysicsConfig();
-
-    const circles = createPhysicsCircles(
-        config.circleCount,
-        config.containerWidth,
-        config.containerHeight,
-        config.circleRadius,
-        engine,
-    );
-
-    const wallBodies = createBoundaryWalls(
-        config.containerWidth,
-        config.containerHeight,
-        PHYSICS_ENGINE_CONFIG.wallThickness,
-        engine,
-    );
-
-    return {
-        config,
-        gameState: GameState.NOT_STARTED,
-        stats: {
-            correctHits: 0,
-            wrongHits: 0,
-            missedCircles: 0,
-            decoyHits: 0,
-            gameTime: 0,
-            currentMistakes: 0,
-            totalScore: 0,
-            gameStartTime,
-            currentLevel: 1,
-        },
-        circles,
-        boundaries: {
-            top: true,
-            left: true,
-            right: true,
-            bottom: true,
-        },
-        activeCircleIds: [],
-        circleTimeouts: new Map(),
-        activationTimeout: null,
-        isActive: true,
-        gameStartTime,
-        engine,
-        world: engine.world,
-        wallBodies,
-    };
-};
-
-export const updatePhysicsPositions = (
-    state: PhysicsGameState,
-): PhysicsGameState => {
-    const updatedCircles = state.circles.map((circle) => {
-        const body = state.engine.world.bodies.find(
-            (b) => b.id === circle.matterBodyId,
-        );
-
-        if (body) {
-            return {
-                ...circle,
-                x: body.position.x,
-                y: body.position.y,
-                vx: body.velocity.x,
-                vy: body.velocity.y,
-            };
-        }
-
-        return circle;
-    });
-
-    return {
-        ...state,
-        circles: updatedCircles,
-    };
-};
-
-export const updatePhysicsLevel = (
-    state: PhysicsGameState,
-): PhysicsGameState => {
-    const currentTime = Date.now();
-    const gameTime = currentTime - (state.gameStartTime || currentTime);
-    const levelConfig = getPhysicsLevelConfig(gameTime);
-
-    return {
-        ...state,
-        stats: {
-            ...state.stats,
-            gameTime,
-            currentLevel: levelConfig.level,
-        },
-    };
-};
-
-export const activateRandomCircles = (
-    state: PhysicsGameState,
-    onCirclesActivated: (circleIds: number[], decoyIds: number[]) => void,
-    onCircleTimeout: (circleId: number, wasDecoy: boolean) => void,
-): PhysicsGameState => {
-    const gameTime = Date.now() - (state.gameStartTime || Date.now());
-    const levelConfig = getPhysicsLevelConfig(gameTime);
-
-    const availableSlots =
-        levelConfig.maxSimultaneousCircles - state.activeCircleIds.length;
-
-    if (availableSlots <= 0) return state;
-
-    // Filter circles within visible area only
-    const visibleCircles = state.circles.filter(
-        (circle) =>
-            !circle.isActive &&
-            !circle.isAnimating &&
-            circle.x >= 0 &&
-            circle.x <= state.config.containerWidth &&
-            circle.y >= 0 &&
-            circle.y <= state.config.containerHeight,
-    );
-
-    if (visibleCircles.length === 0) return state;
-
-    const circleCount = Math.min(availableSlots, visibleCircles.length);
-    const selectedCircles = [];
-
-    for (let i = 0; i < circleCount; i++) {
-        const randomIndex = Math.floor(Math.random() * visibleCircles.length);
-        const selectedCircle = visibleCircles.splice(randomIndex, 1)[0];
-
-        selectedCircles.push(selectedCircle);
-    }
-
-    // 25% chance for decoy circles
-    const decoyCount = Math.min(1, Math.floor(selectedCircles.length * 0.25));
-    const decoyIds = selectedCircles.slice(0, decoyCount).map((c) => c.id);
-    const selectedIds = selectedCircles.map((c) => c.id);
-
-    const newActiveCircleIds = [...state.activeCircleIds, ...selectedIds];
-    const newCircleTimeouts = new Map(state.circleTimeouts);
-
-    selectedCircles.forEach((circle) => {
-        const isDecoy = decoyIds.includes(circle.id);
-        const timeout = setTimeout(() => {
-            onCircleTimeout(circle.id, isDecoy);
-        }, state.config.circleActiveTime);
-
-        newCircleTimeouts.set(circle.id, timeout);
-    });
-
-    const updatedCircles = state.circles.map((circle) => {
-        if (selectedIds.includes(circle.id)) {
-            return {
-                ...circle,
-                isActive: true,
-                isDecoy: decoyIds.includes(circle.id),
-            };
-        }
-
-        return circle;
-    });
-
-    onCirclesActivated(selectedIds, decoyIds);
-
-    return {
-        ...state,
-        activeCircleIds: newActiveCircleIds,
-        circleTimeouts: newCircleTimeouts,
-        circles: updatedCircles,
-    };
-};
-
-export const applyImpulse = (
-    state: PhysicsGameState,
-    clickedCircleId: number,
-): PhysicsGameState => {
-    const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
-
-    if (!clickedCircle) return state;
-
-    const clickedBody = state.engine.world.bodies.find(
-        (b) => b.id === clickedCircle.matterBodyId,
-    );
-
-    if (!clickedBody) return state;
-
-    console.log(
-        `Applying impulse from circle ${clickedCircleId} at position:`,
-        clickedBody.position,
-    );
-
-    let affectedCircles = 0;
-
-    state.circles.forEach((circle) => {
-        if (circle.id === clickedCircleId) return;
-
-        const body = state.engine.world.bodies.find(
-            (b) => b.id === circle.matterBodyId,
-        );
-
-        if (!body) return;
-
-        const dx = body.position.x - clickedBody.position.x;
-        const dy = body.position.y - clickedBody.position.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance <= IMPULSE_CONFIG.radius && distance > 0) {
-            const normalizedX = dx / distance;
-            const normalizedY = dy / distance;
-
-            const distanceRatio = Math.max(0.1, 1 - distance / IMPULSE_CONFIG.radius);
-            const forceMagnitude =
-                IMPULSE_CONFIG.force * Math.pow(distanceRatio, 0.5) * 2;
-
-            Matter.Body.applyForce(body, body.position, {
-                x: normalizedX * forceMagnitude,
-                y: normalizedY * forceMagnitude,
-            });
-
-            affectedCircles++;
-        }
-    });
-
-    console.log(`Impulse affected ${affectedCircles} circles`);
-
-    return updatePhysicsPositions(state);
-};
-
-export const handlePhysicsCircleClick = (
-    state: PhysicsGameState,
-    clickedCircleId: number,
-    clickTime: number = Date.now(),
-): { newState: PhysicsGameState; result: "correct" | "wrong" | "decoy" } => {
-    const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
-
-    if (!clickedCircle) {
-        return { newState: state, result: "wrong" };
-    }
-
-    const updatedState = updatePhysicsPositions(state);
-
-    if (clickedCircle.isActive && !clickedCircle.isAnimating) {
-        if (clickedCircle.isDecoy) {
-            // Hit decoy circle - count as mistake and mark for immediate deactivation
-            const newCircles = updatedState.circles.map((c) =>
-                c.id === clickedCircleId ? { ...c, isAnimating: true } : c,
-            );
-
-            return {
-                newState: {
-                    ...updatedState,
-                    circles: newCircles,
-                    stats: {
-                        ...updatedState.stats,
-                        decoyHits: updatedState.stats.decoyHits + 1,
-                        currentMistakes: updatedState.stats.currentMistakes + 1,
-                    },
-                },
-                result: "decoy",
-            };
-        } else {
-            // Hit correct circle - apply impulse, add score, and mark for immediate deactivation
-            const stateWithImpulse = applyImpulse(updatedState, clickedCircleId);
-
-            const newStats = {
-                ...stateWithImpulse.stats,
-                correctHits: stateWithImpulse.stats.correctHits + 1,
-                totalScore: Math.round(stateWithImpulse.stats.totalScore + 100),
-                lastHitTime: clickTime,
-            };
-
-            const newCircles = stateWithImpulse.circles.map((c) =>
-                c.id === clickedCircleId ? { ...c, isAnimating: true } : c,
-            );
-
-            return {
-                newState: {
-                    ...stateWithImpulse,
-                    stats: newStats,
-                    circles: newCircles,
-                },
-                result: "correct",
-            };
-        }
-    } else {
-        // Hit inactive circle - count as mistake and mark for immediate deactivation if it was active
-        const newCircles = updatedState.circles.map((c) =>
-            c.id === clickedCircleId && c.isActive ? { ...c, isAnimating: true } : c,
-        );
+        endGame(deathCause);
 
         return {
-            newState: {
-                ...updatedState,
-                circles: newCircles,
-                stats: {
-                    ...updatedState.stats,
-                    wrongHits: updatedState.stats.wrongHits + 1,
-                    currentMistakes: updatedState.stats.currentMistakes + 1,
-                },
-            },
-            result: "wrong",
+          ...levelUpdatedState,
+          gameState: GameState.FINISHED,
+          isActive: false,
         };
-    }
-};
+      }
 
-export const deactivatePhysicsCircle = (
-    state: PhysicsGameState,
-    circleId: number,
-): PhysicsGameState => {
-    const newActiveCircleIds = state.activeCircleIds.filter(
-        (id) => id !== circleId,
-    );
-
-    const newCircleTimeouts = new Map(state.circleTimeouts);
-    const timeout = newCircleTimeouts.get(circleId);
-
-    if (timeout) {
-        clearTimeout(timeout);
-        newCircleTimeouts.delete(circleId);
-    }
-
-    const newCircles = state.circles.map((circle) =>
-        circle.id === circleId
-            ? { ...circle, isActive: false, isAnimating: false, isDecoy: false }
-            : circle,
-    );
-
-    return {
-        ...state,
-        activeCircleIds: newActiveCircleIds,
-        circleTimeouts: newCircleTimeouts,
-        circles: newCircles,
-    };
-};
-
-// Check if game should end based on escaped circles
-export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
-    const containerWidth = state.config.containerWidth;
-    const containerHeight = state.config.containerHeight;
-    const margin = 50; // Margin for escaped detection
-
-    let escapedCount = 0;
-
-    state.circles.forEach((circle) => {
-        // Check if circle is outside game boundaries
-        if (
-            circle.x < -margin ||
-            circle.x > containerWidth + margin ||
-            circle.y < -margin ||
-            circle.y > containerHeight + margin
-        ) {
-            escapedCount++;
-        }
+      return levelUpdatedState;
     });
 
-    // Game ends when 80% of circles have escaped
-    return escapedCount >= Math.floor(state.circles.length * 0.8);
-};
+    engineUpdateRef.current = requestAnimationFrame(updatePhysicsEngine);
+  }, []);
 
-export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {
-    const baseScore = stats.correctHits * 100;
-    const timeBonus = Math.max(0, Math.floor(stats.gameTime / 1000)) * 5;
-    const mistakePenalty = stats.currentMistakes * 50;
+  const endGame = useCallback(
+    (cause: "mistakes" | "escaped_circles" | "timeout") => {
+      console.log("Physics game ended:", cause);
 
-    return Math.max(0, Math.round(baseScore + timeBonus - mistakePenalty));
-};
+      setGameState((prev) => {
+        const finalState = updatePhysicsPositions(prev);
 
-export const createPhysicsGameResult = (
-    state: PhysicsGameState,
-    deathCause: PhysicsGameResult["deathCause"],
-): PhysicsGameResult => {
-    const finalState = updatePhysicsPositions(state);
-    const finalScore = calculatePhysicsScore(finalState.stats);
+        const result = createPhysicsGameResult(finalState, cause);
+
+        setGameResult(result);
+        handleSaveGameResult(result);
+        cleanupPhysicsGame(finalState);
+
+        return {
+          ...finalState,
+          gameState: GameState.FINISHED,
+          isActive: false,
+        };
+      });
+    },
+    [handleSaveGameResult],
+  );
+
+  const scheduleNextActivation = useCallback(() => {
+    const currentState = gameStateRef.current;
+
+    if (!currentState.isActive || currentState.gameState !== GameState.PLAYING)
+      return;
+
+    const gameTime = Date.now() - (currentState.gameStartTime || Date.now());
+    const levelConfig = getPhysicsLevelConfig(gameTime);
+
+    const delay =
+      levelConfig.activationTimeMin +
+      Math.random() *
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
+
+    const timeout = setTimeout(() => {
+      if (
+        gameStateRef.current.isActive &&
+        gameStateRef.current.gameState === GameState.PLAYING
+      ) {
+        setGameState((prev) => {
+          const updatedState = updatePhysicsLevel(prev);
+          const newState = activateRandomCircles(
+            updatedState,
+            (circleIds, decoyIds) => {
+              console.log(
+                `Activated circles: ${circleIds.join(", ")}, Decoys: ${decoyIds.join(", ")}`,
+              );
+            },
+            (circleId, wasDecoy) => {
+              console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
+
+              if (!wasDecoy) {
+                // Missed white circle - count as mistake
+                setGameState((current) => {
+                  const updatedStats = {
+                    ...current.stats,
+                    missedCircles: current.stats.missedCircles + 1,
+                    currentMistakes: current.stats.currentMistakes + 1,
+                  };
+
+                  const newState = {
+                    ...current,
+                    stats: updatedStats,
+                  };
+
+                  return deactivatePhysicsCircle(newState, circleId);
+                });
+              } else {
+                // Decoy timed out - just deactivate without penalty
+                setGameState((current) =>
+                  deactivatePhysicsCircle(current, circleId),
+                );
+              }
+
+              scheduleNextActivation();
+            },
+          );
+
+          return newState;
+        });
+        scheduleNextActivation();
+      }
+    }, delay);
+
+    setGameState((prev) => ({
+      ...prev,
+      activationTimeout: timeout,
+    }));
+  }, []);
+
+  const handleCircleClickEvent = useCallback(
+    (circleId: number) => {
+      if (gameStateRef.current.gameState !== GameState.PLAYING) return;
+
+      console.log("Physics circle clicked:", circleId);
+
+      const clickTime = Date.now();
+      const { newState, result } = handlePhysicsCircleClick(
+        gameStateRef.current,
+        circleId,
+        clickTime,
+      );
+
+      if (result === "correct") {
+        triggerHapticFeedback("success");
+
+        // Apply impulse effect immediately after correct click
+        const stateWithImpulse = applyImpulse(gameStateRef.current, circleId);
+
+        // Combine updated stats with impulse effects and immediately deactivate
+        const finalState = deactivatePhysicsCircle(
+          {
+            ...newState,
+            circles: stateWithImpulse.circles,
+          },
+          circleId,
+        );
+
+        setGameState(finalState);
+      } else if (result === "decoy" || result === "wrong") {
+        triggerHapticFeedback("error");
+
+        // Update state with mistake count and immediately deactivate
+        const finalState = deactivatePhysicsCircle(newState, circleId);
+
+        setGameState(finalState);
+      }
+    },
+    [triggerHapticFeedback],
+  );
+
+  const startGame = useCallback(() => {
+    console.log("Starting Physics Game...");
+
+    setGameState(initializePhysicsGameState());
+    setGameResult(null);
+    setSaveStatus(initialSaveStatus);
+
+    setTimeout(() => {
+      setShowCanvas(true);
+    }, 100);
+
+    setTimeout(() => {
+      setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
+
+      // Start physics engine update loop immediately
+      setTimeout(() => {
+        updatePhysicsEngine();
+      }, 100);
+
+      // Schedule first circle activation
+      setTimeout(() => {
+        scheduleNextActivation();
+      }, 1000);
+    }, 800);
+  }, [scheduleNextActivation, updatePhysicsEngine]);
+
+  // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
+  const restartGame = useCallback(async () => {
+    if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
+
+    setIsRestartLoading(true);
+
+    try {
+      // Cleanup current game before restarting
+      cleanupPhysicsGame(gameStateRef.current);
+      if (engineUpdateRef.current) {
+        cancelAnimationFrame(engineUpdateRef.current);
+        engineUpdateRef.current = undefined;
+      }
+
+      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
+      // Всегда потребляем попытку на сервере для обеспечения корректности данных
+      console.log(
+        "Consuming attempt on server for restart (security-critical operation)",
+      );
+
+      const newStatus = await consumeAttemptForGame();
+
+      setAttemptsRemaining(newStatus.attemptsRemaining);
+
+      setShowCanvas(false);
+      setTimeout(() => {
+        startGame();
+      }, 200);
+    } catch (error) {
+      console.error("Error consuming attempt for restart:", error);
+      // При ошибке возвращаемся к выбору игр
+      router.push("/game");
+    } finally {
+      setIsRestartLoading(false);
+    }
+  }, [
+    telegramUser?.id,
+    attemptsRemaining,
+    startGame,
+    isRestartLoading,
+    consumeAttemptForGame,
+    router,
+  ]);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      cleanupPhysicsGame(gameStateRef.current);
+      if (engineUpdateRef.current) {
+        cancelAnimationFrame(engineUpdateRef.current);
+      }
+    };
+  }, []);
+
+  const getDeathCauseIcon = (deathCause: string) => {
+    switch (deathCause) {
+      case "mistakes":
+        return <AlertTriangle className="text-red-400" size={20} />;
+      case "escaped_circles":
+        return <TrendingDown className="text-orange-400" size={20} />;
+      case "timeout":
+        return <Clock className="text-yellow-400" size={20} />;
+      default:
+        return <Crosshair className="text-red-400" size={20} />;
+    }
+  };
+
+  const getDeathCauseMessage = (deathCause: string) => {
+    const messages = {
+      mistakes: "Слишком много ошибок - лимит превышен",
+      escaped_circles: "Круги сбежали из игровой области",
+      timeout: "Время вышло",
+      default: "Физический эксперимент завершён",
+    };
+
+    return messages[deathCause as keyof typeof messages] || messages.default;
+  };
+
+  const getCurrentLevelInfo = () => {
+    const gameTime = gameState.stats.gameTime;
+    const levelConfig = getPhysicsLevelConfig(gameTime);
 
     return {
-        mode: GameMode.PHYSICS,
-        score: Math.round(finalScore),
-        duration: Math.floor(finalState.stats.gameTime / 1000),
-        gameTime: Math.round(finalState.stats.gameTime),
-        totalHits: finalState.stats.correctHits,
-        mistakesMade: finalState.stats.currentMistakes,
-        finalScore: Math.round(finalScore),
-        survivalTime: Math.round(finalState.stats.gameTime),
-        deathCause,
-        createdAt: new Date().toISOString(),
+      level: levelConfig.level,
+      description: levelConfig.description,
+      maxCircles: levelConfig.maxSimultaneousCircles,
+      activeCircles: gameState.activeCircleIds.length,
     };
-};
+  };
 
-export const cleanupPhysicsGame = (state: PhysicsGameState): void => {
-    state.circleTimeouts.forEach((timeout) => clearTimeout(timeout));
-    if (state.activationTimeout) {
-        clearTimeout(state.activationTimeout);
-    }
+  if (isConsumingAttempt) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-purple-400/20 border-t-purple-400 rounded-full animate-spin mx-auto" />
+          <p className="text-purple-300">
+            {t("game.general.initializingGame")}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-    if (state.engine) {
-        Matter.Engine.clear(state.engine);
-        if (state.render) {
-            Matter.Render.stop(state.render);
-        }
-    }
-};
+  if (gameState.gameState === GameState.FINISHED && gameResult) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-6">
+        <div className="w-full max-w-md space-y-8 animate-fade-in">
+          <div className="text-center space-y-4">
+            <div className="text-6xl mb-4">⚗️</div>
 
-export const formatPhysicsTime = (milliseconds: number): string => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    const ms = milliseconds % 1000;
+            <h1 className="text-4xl font-bold text-purple-400">
+              {t("game.modes.physics.results.title")}
+            </h1>
 
-    if (minutes > 0) {
-        return `${minutes}:${seconds.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
-    }
+            <div className="bg-purple-500/20 border border-purple-400/30 rounded-lg p-3">
+              <div className="flex items-center justify-center space-x-2">
+                {getDeathCauseIcon(gameResult.deathCause)}
+                <span className="text-sm text-purple-300">
+                  {getDeathCauseMessage(gameResult.deathCause)}
+                </span>
+              </div>
+            </div>
+          </div>
 
-    return `${seconds}.${ms.toString().padStart(3, "0")}s`;
-};
+          <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-6 space-y-6">
+            <div className="text-center space-y-2">
+              <div className="text-sm text-purple-400/60">
+                {t("game.modes.physics.results.gameTime")}
+              </div>
+              <div className="text-4xl font-bold text-purple-400">
+                {formatPhysicsTime(gameResult.gameTime)}
+              </div>
+              <div className="text-lg text-purple-300">
+                {t("game.modes.physics.results.finalScore")}:{" "}
+                {Math.round(gameResult.finalScore)}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center space-y-1">
+                <div className="text-xs text-purple-400/60">
+                  {t("game.modes.physics.results.totalHits")}
+                </div>
+                <div className="text-xl font-bold text-green-400">
+                  {gameResult.totalHits}
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="text-xs text-purple-400/60">
+                  ПОПЫТОК ОСТАЛОСЬ
+                </div>
+                <div className="text-xl font-bold text-green-400">
+                  {attemptsRemaining}
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="text-xs text-purple-400/60">
+                  {t("game.modes.physics.results.mistakesMade")}
+                </div>
+                <div className="text-xl font-bold text-red-400">
+                  {gameResult.mistakesMade}/5
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="text-xs text-purple-400/60">
+                  {t("common.score")}
+                </div>
+                <div className="text-xl font-bold text-purple-400">
+                  {Math.round(gameResult.finalScore)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Save Status Display */}
+          {(saveStatus.isLoading ||
+            saveStatus.error ||
+            saveStatus.isSuccess) && (
+            <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                    <span className="text-sm text-purple-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
+                            attempt: saveStatus.attempt,
+                            max: saveStatus.maxAttempts,
+                          })
+                        : t("save.recordingPhysics")}
+                    </span>
+                  </div>
+
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-purple-400/60" size={14} />
+                        <span className="text-xs text-purple-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-purple-400/20 rounded-full h-1">
+                        <div
+                          className="bg-purple-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.physicsRecordedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
+                          attempts: saveStatus.attempt,
+                        })
+                      : t("save.synchronized")}
+                  </div>
+                </div>
+              )}
+
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      Не удалось сохранить после {saveStatus.maxAttempts}{" "}
+                      попыток
+                    </span>
+                  </div>
+                  <div className="text-red-400/60 text-xs mb-3">
+                    Результат записан локально
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    Повторить сохранение
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <button
+              className="w-full px-6 py-4 bg-transparent border-2 border-purple-400/60 text-purple-300 rounded-xl text-lg hover:border-purple-400 hover:bg-purple-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={
+                saveStatus.isLoading ||
+                attemptsRemaining <= 0 ||
+                isRestartLoading
+              }
+              onClick={restartGame}
+            >
+              {isRestartLoading
+                ? "ЗАПУСК..."
+                : attemptsRemaining > 0
+                  ? t("game.modes.physics.results.playAgain")
+                  : t("game.general.noAttemptsLeft")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const levelInfo = getCurrentLevelInfo();
+
+  return (
+    <div className="min-h-screen bg-black text-white flex flex-col">
+      {/* Game area - fills screen minus info panel */}
+      <div
+        className="flex-1 flex items-start justify-center"
+        style={{ height: `calc(100vh - 140px)` }}
+      >
+        <PhysicsGameCanvas
+          gameState={gameState}
+          isGameActive={gameState.gameState === GameState.PLAYING}
+          showCanvas={showCanvas}
+          onCircleClick={handleCircleClickEvent}
+        />
+      </div>
+
+      {/* Fixed info panel - exactly 140px height */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-10 bg-black/95 backdrop-blur-sm border-t border-purple-400/30 safe-area-inset-bottom"
+        style={{ height: "140px" }}
+      >
+        <div className="px-6 py-4 h-full flex flex-col justify-center">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <Zap className="text-purple-400" size={18} />
+              <span className="text-lg font-bold text-purple-400">
+                {formatPhysicsTime(gameState.stats.gameTime)}
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Target className="text-white" size={18} />
+              <span className="text-lg font-bold text-white">
+                {Math.round(gameState.stats.totalScore)}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="text-purple-400" size={12} />
+                <span className="text-purple-400/80">
+                  Lv.{levelInfo.level} {levelInfo.description}
+                </span>
+              </div>
+              <span className="text-purple-400/60">
+                Активно: {levelInfo.activeCircles}/{levelInfo.maxCircles}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-2">
+                <Activity className="text-red-400" size={12} />
+                <span className="text-red-300">
+                  Ошибки: {gameState.stats.currentMistakes}/
+                  {gameState.config.maxMistakes}
+                </span>
+              </div>
+              <span className="text-red-300 uppercase tracking-wider text-xs">
+                5 ОШИБОК = КОНЕЦ
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
