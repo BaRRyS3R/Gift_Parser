@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated intro page with corrected registration flow
+// src/app/page.tsx - Fixed early blocking check during authentication
 
 "use client";
 
@@ -204,6 +204,43 @@ export default function IntroPage(): JSX.Element {
     return tg.initData || null;
   }, []);
 
+  // FIX: Early security check for existing users before any other operations
+  const checkUserBlockingStatus = useCallback(
+    async (telegramUser: TelegramUser): Promise<{
+      isBlocked: boolean;
+      blockReason?: string;
+      timeUntilUnblock?: number;
+    }> => {
+      try {
+        console.log("Checking if user is blocked before authentication...");
+
+        // Use the security service to check blocking status
+        const securityResult = await authService.checkUserBlockedStatus(telegramUser.id);
+
+        if (securityResult.isBlocked) {
+          console.log("User is blocked:", {
+            reason: securityResult.blockReason,
+            timeUntilUnblock: securityResult.timeUntilUnblock
+          });
+
+          return {
+            isBlocked: true,
+            blockReason: securityResult.blockReason,
+            timeUntilUnblock: securityResult.timeUntilUnblock,
+          };
+        }
+
+        console.log("User is not blocked, proceeding with authentication");
+        return { isBlocked: false };
+      } catch (error) {
+        console.error("Error checking user blocking status:", error);
+        // On error, assume not blocked to allow login attempt
+        return { isBlocked: false };
+      }
+    },
+    [],
+  );
+
   // UPDATED: Check login status first (for existing users)
   const checkUserLoginStatus = useCallback(
     async (
@@ -319,7 +356,7 @@ export default function IntroPage(): JSX.Element {
     [getTelegramInitData, updateUser, t],
   );
 
-  // UPDATED: Initialize auth with proper login/register flow
+  // UPDATED: Initialize auth with early blocking check
   const initializeAuth = useCallback(async () => {
     if (authInitializedRef.current) return;
 
@@ -360,15 +397,34 @@ export default function IntroPage(): JSX.Element {
       // Set telegram user in context
       setTelegramUser(telegramUser);
 
-      // UPDATED: Check login status first
-      console.log("Checking login status...");
+      // FIX: Check blocking status FIRST, before any authentication attempts
+      console.log("Performing early blocking check...");
+      const blockingStatus = await checkUserBlockingStatus(telegramUser);
+
+      if (blockingStatus.isBlocked) {
+        console.log("User is blocked during early check, redirecting to blocked page");
+        setAuthState((prev) => ({
+          ...prev,
+          isChecking: false,
+          isBlocked: true,
+          blockReason: blockingStatus.blockReason,
+          timeUntilUnblock: blockingStatus.timeUntilUnblock,
+        }));
+
+        // Redirect immediately to blocked page
+        router.push("/blocked");
+        return;
+      }
+
+      // UPDATED: Check login status after confirming user is not blocked
+      console.log("User not blocked, checking login status...");
       const loginResult = await checkUserLoginStatus(
         telegramUser,
         referralCode,
       );
 
       if (loginResult.isBlocked) {
-        console.log("User is blocked, redirecting to blocked page");
+        console.log("User became blocked during login check, redirecting to blocked page");
         setAuthState((prev) => ({
           ...prev,
           isChecking: false,
@@ -493,6 +549,7 @@ export default function IntroPage(): JSX.Element {
     contextUser,
     getTelegramUser,
     extractReferralCode,
+    checkUserBlockingStatus, // FIX: Add early blocking check
     checkUserLoginStatus,
     router,
     setTelegramUser,

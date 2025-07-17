@@ -1,4 +1,4 @@
-// src/hooks/useSecurity.ts - Strict version without fallback to direct Supabase calls
+// src/hooks/useSecurity.ts - Fixed auto-unlock after successful verification
 
 "use client";
 
@@ -6,9 +6,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { SecurityCheckResult } from "@/lib/supabase";
-import {
-  authService, // Only use authService, no direct userService imports
-} from "@/lib/authService";
+import { authService } from "@/lib/authService";
 import { useUser } from "@/hooks/useUser";
 
 export interface SecurityState {
@@ -47,6 +45,9 @@ interface SecurityHookReturn {
   // Utils
   isSecurityCheckNeeded: () => boolean;
   formatTrustScore: (score: number) => { color: string; label: string };
+
+  // FIX: Add security initialized state
+  isSecurityInitialized: () => boolean;
 }
 
 const SECURITY_CHECK_CACHE_DURATION = 30000; // 30 seconds cache
@@ -67,8 +68,20 @@ export function useSecurity(): SecurityHookReturn {
   const [showBiometric, setShowBiometric] = useState(false);
   const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
 
+  // FIX: Track security initialization
+  const [securityInitialized, setSecurityInitialized] = useState(false);
+
   const isCheckingRef = useRef(false);
   const lastSecurityCheckRef = useRef<number>(0);
+
+  // FIX: Update security initialization when state is ready
+  useEffect(() => {
+    if (isAuthenticated && !securityState.isLoading) {
+      setSecurityInitialized(true);
+    } else if (!isAuthenticated) {
+      setSecurityInitialized(false);
+    }
+  }, [isAuthenticated, securityState.isLoading]);
 
   // UPDATED: Strict security check - API only, no fallback to direct Supabase
   const checkSecurity = useCallback(async (): Promise<SecurityCheckResult> => {
@@ -165,6 +178,7 @@ export function useSecurity(): SecurityHookReturn {
         needsBiometric: false,
         trustScore: 50,
       });
+      setSecurityInitialized(false);
     }
   }, [isAuthenticated, checkSecurity]);
 
@@ -218,14 +232,21 @@ export function useSecurity(): SecurityHookReturn {
     );
   }, [securityState]);
 
+  // FIX: Check if security is initialized
+  const isSecurityInitialized = useCallback((): boolean => {
+    return securityInitialized;
+  }, [securityInitialized]);
+
   // UPDATED: Strict captcha handlers using API methods only
   const handleCaptchaSuccess = useCallback(() => {
     console.log("Captcha verification successful");
     setShowCaptcha(false);
     setCaptchaData(null);
 
-    // Refresh security status and user data
-    refreshSecurityStatus();
+    // FIX: Force security status refresh and re-initialization
+    refreshSecurityStatus().then(() => {
+      setSecurityInitialized(true);
+    });
     refreshUser();
   }, [refreshUser]);
 
@@ -243,8 +264,10 @@ export function useSecurity(): SecurityHookReturn {
     console.log("Biometric verification successful");
     setShowBiometric(false);
 
-    // Refresh security status and user data
-    refreshSecurityStatus();
+    // FIX: Force security status refresh and re-initialization
+    refreshSecurityStatus().then(() => {
+      setSecurityInitialized(true);
+    });
     refreshUser();
   }, [refreshUser]);
 
@@ -343,5 +366,6 @@ export function useSecurity(): SecurityHookReturn {
     // Utils
     isSecurityCheckNeeded,
     formatTrustScore,
+    isSecurityInitialized, // FIX: Export security initialization state
   };
 }

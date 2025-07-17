@@ -1,8 +1,9 @@
-// src/components/Navigation/BottomNav.tsx - Added security verification blocking
+// src/components/Navigation/BottomNav.tsx - Fixed security verification blocking
 
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   Gamepad2,
   Trophy,
@@ -18,10 +19,10 @@ export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const t = useT();
-  const { isSecurityCheckNeeded } = useSecurity();
+  const { isSecurityCheckNeeded, isSecurityInitialized } = useSecurity();
 
-  // Block navigation if security check is needed
-  const isBlocked = isSecurityCheckNeeded();
+  // SECURITY FIX: Block immediately if security check needed or not initialized
+  const isBlocked = isSecurityCheckNeeded() || !isSecurityInitialized();
 
   const navItems = [
     {
@@ -134,7 +135,9 @@ export default function BottomNav() {
       {isBlocked && (
         <div className="absolute inset-0 bg-red-500/5 border-t border-red-500/20">
           <div className="flex items-center justify-center h-full">
-            <p className="text-red-300 text-xs font-medium">Security verification required</p>
+            <p className="text-red-300 text-xs font-medium">
+              {!isSecurityInitialized ? "Initializing security..." : "Security verification required"}
+            </p>
           </div>
         </div>
       )}
