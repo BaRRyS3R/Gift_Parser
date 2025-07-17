@@ -444,7 +444,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                 <div>
                                     <h4 className="text-blue-300 font-semibold mb-1 text-sm">Gyroscope Verification</h4>
                                     <p className="text-blue-200 text-xs">
-                                        This verification uses your device's gyroscope sensor to detect rotation movements.
+                                        This verification uses your device&apos;s gyroscope sensor to detect rotation movements.
                                         Different from simple tilt detection, this requires actual rotation motion.
                                     </p>
                                 </div>
