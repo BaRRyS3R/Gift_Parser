@@ -77,7 +77,7 @@ export default function BlockedPage() {
       // If user is no longer blocked, redirect to main page
       if (!securityResult.isBlocked) {
         await refreshUser();
-        router.push("/main");
+        router.push("/");
 
         return;
       }
