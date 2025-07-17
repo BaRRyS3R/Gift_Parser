@@ -1,18 +1,18 @@
-// src/components/Security/GyroscopeModal.tsx - Исправленная реализация с правильным API
+// src/components/Security/GyroscopeModal.tsx - Gyroscope verification using browser Web API
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Compass,
     RotateCcw,
+    Settings,
     Clock,
     AlertTriangle,
     Shield,
     CheckCircle2,
     XCircle,
     Smartphone,
-    RotateCw,
 } from "lucide-react";
 
 import { validateSecureGyroscope } from "@/lib/authService";
@@ -24,13 +24,12 @@ interface GyroscopeModalProps {
     onClose?: () => void;
 }
 
-type GyroscopePhase = "initializing" | "instructions" | "verification" | "error" | "unsupported";
+type GyroscopePhase = "initializing" | "permission_required" | "instructions" | "verification" | "success" | "error" | "unsupported";
 
-interface MotionData {
-    x: number;
-    y: number;
-    z: number;
-    timestamp: number;
+interface GyroscopeData {
+    alpha: number | null; // Z-axis rotation
+    beta: number | null;  // X-axis rotation
+    gamma: number | null; // Y-axis rotation
 }
 
 const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
@@ -39,115 +38,68 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
     onFailure,
     onClose,
 }) => {
-    const title = "Gyroscope Verification Required";
-    const description = "Your trust score is extremely low. Please move your device to verify you are human.";
+    const title = "Gyroscope Authentication Required";
+    const description = "Your trust score is extremely low. Please complete gyroscope verification to continue.";
 
     const [currentPhase, setCurrentPhase] = useState<GyroscopePhase>("initializing");
     const [verificationTimeRemaining, setVerificationTimeRemaining] = useState(15000);
-    const [verificationProgress, setVerificationProgress] = useState(0);
     const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [attemptMade, setAttemptMade] = useState(false);
     const [verificationTimerActive, setVerificationTimerActive] = useState(false);
     const [isGyroscopeSupported, setIsGyroscopeSupported] = useState(true);
-    const [motionHistory, setMotionHistory] = useState<MotionData[]>([]);
-    const [lastMotionUpdate, setLastMotionUpdate] = useState(0);
-    const [sensorStarted, setSensorStarted] = useState(false);
+    const [detectedMovements, setDetectedMovements] = useState(0);
+    const [requiredMovements] = useState(3); // Require 3 distinct movements
 
-    const verificationTimeout = 15000;
-    const requiredMotionEvents = 15;
-    const motionThreshold = 0.5;
+    const verificationTimeout = 15000; // 15 seconds for verification
+    const movementThreshold = 15; // Degrees of rotation to count as movement
+    const movementCooldown = 1000; // 1 second between movements
 
+    // Refs for gyroscope data and movement detection
+    const gyroscopeDataRef = useRef<GyroscopeData>({ alpha: null, beta: null, gamma: null });
+    const lastMovementTimeRef = useRef<number>(0);
+    const initialDataRef = useRef<GyroscopeData>({ alpha: null, beta: null, gamma: null });
+    const eventListenerRef = useRef<((event: DeviceOrientationEvent) => void) | null>(null);
+
+    // Reset state when modal opens/closes
     useEffect(() => {
         if (!isOpen) {
-            resetState();
+            setCurrentPhase("initializing");
+            setVerificationTimeRemaining(15000);
+            setError(null);
+            setAttemptMade(false);
+            setVerificationTimerActive(false);
+            setIsVerifying(false);
+            setIsGyroscopeSupported(true);
+            setDetectedMovements(0);
+            gyroscopeDataRef.current = { alpha: null, beta: null, gamma: null };
+            lastMovementTimeRef.current = 0;
+            initialDataRef.current = { alpha: null, beta: null, gamma: null };
+
+            // Clean up event listeners
+            if (eventListenerRef.current) {
+                window.removeEventListener('deviceorientation', eventListenerRef.current);
+                eventListenerRef.current = null;
+            }
             return;
         }
 
-        initializeMotionDetection();
+        initializeGyroscope();
     }, [isOpen]);
 
-    useEffect(() => {
-        return () => {
-            cleanupMotionDetection();
-        };
-    }, []);
-
-    const resetState = () => {
-        setCurrentPhase("initializing");
-        setVerificationTimeRemaining(15000);
-        setVerificationProgress(0);
-        setIsVerifying(false);
-        setError(null);
-        setAttemptMade(false);
-        setVerificationTimerActive(false);
-        setIsGyroscopeSupported(true);
-        setMotionHistory([]);
-        setLastMotionUpdate(0);
-        setSensorStarted(false);
-        cleanupMotionDetection();
-    };
-
-    const cleanupMotionDetection = () => {
-        try {
-            const tg = window.Telegram?.WebApp;
-            if (tg) {
-                // Отключение событий
-                tg.offEvent?.('gyroscopeStarted', handleTelegramGyroscopeStarted);
-                tg.offEvent?.('gyroscopeFailed', handleTelegramGyroscopeFailed);
-                tg.offEvent?.('gyroscopeChanged', handleTelegramGyroscopeChanged);
-                tg.offEvent?.('gyroscopeStopped', handleTelegramGyroscopeStopped);
-
-                // ИСПРАВЛЕНО: Правильный способ остановки гироскопа
-                if (tg.Gyroscope?.isStarted) {
-                    tg.Gyroscope.stop();
-                }
-            }
-        } catch (error) {
-            console.warn("Error during cleanup:", error);
-        }
-    };
-
-    const initializeMotionDetection = async () => {
-        console.log("Initializing motion detection");
-
-        if (typeof window === "undefined") {
-            setError("Motion detection is not available in this environment");
-            setCurrentPhase("unsupported");
-            setIsGyroscopeSupported(false);
-            return;
-        }
-
-        const tg = window.Telegram?.WebApp;
-
-        // ИСПРАВЛЕНО: Обязательный вызов ready() перед использованием API
-        if (tg) {
-            tg.ready();
-        }
-
-        if (!tg?.Gyroscope) {
-            console.log("Gyroscope API not available - device/platform not supported");
-            setError("Gyroscope is not supported on this device or platform");
-            setCurrentPhase("unsupported");
-            setIsGyroscopeSupported(false);
-            return;
-        }
-
-        console.log("Telegram Gyroscope API available");
-        setCurrentPhase("instructions");
-    };
-
-    // Verification timer
+    // Verification phase timer
     useEffect(() => {
         if (!verificationTimerActive || currentPhase !== "verification") return;
 
         const timer = setInterval(() => {
             setVerificationTimeRemaining((prev) => {
                 const newTime = prev - 100;
+
                 if (newTime <= 0) {
                     handleVerificationTimeout();
                     return 0;
                 }
+
                 return newTime;
             });
         }, 100);
@@ -155,201 +107,240 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         return () => clearInterval(timer);
     }, [verificationTimerActive, currentPhase]);
 
-    const handleVerificationTimeout = useCallback(() => {
-        console.log("Motion verification timeout");
-        setVerificationTimerActive(false);
-        setIsVerifying(false);
-        cleanupMotionDetection();
+    // Initialize gyroscope functionality
+    const initializeGyroscope = async () => {
+        console.log("Initializing gyroscope verification");
+        setCurrentPhase("initializing");
 
-        if (!attemptMade) {
-            setError("Verification timeout. Please move your device more actively.");
-            setAttemptMade(true);
-            setCurrentPhase("error");
-            setTimeout(() => {
-                handleGyroscopeFailure();
-            }, 2000);
-        }
-    }, [attemptMade]);
-
-    // Telegram API handlers
-    const handleTelegramGyroscopeStarted = useCallback(() => {
-        console.log("Telegram Gyroscope started");
-        setSensorStarted(true);
-    }, []);
-
-    const handleTelegramGyroscopeFailed = useCallback((params: any) => {
-        console.log("Telegram Gyroscope failed:", params);
-        setError(`Gyroscope failed: ${params?.error || 'UNSUPPORTED'}`);
-        setCurrentPhase("error");
-        setTimeout(() => {
-            handleGyroscopeFailure();
-        }, 2000);
-    }, []);
-
-    const handleTelegramGyroscopeChanged = useCallback((data: { x: number; y: number; z: number }) => {
-        const now = Date.now();
-        const magnitude = Math.sqrt(data.x * data.x + data.y * data.y + data.z * data.z);
-
-        if (magnitude > motionThreshold) {
-            const motionData: MotionData = {
-                x: data.x,
-                y: data.y,
-                z: data.z,
-                timestamp: now,
-            };
-            processMotionData(motionData);
-        }
-    }, [motionThreshold]);
-
-    const handleTelegramGyroscopeStopped = useCallback(() => {
-        console.log("Telegram Gyroscope stopped");
-        setSensorStarted(false);
-    }, []);
-
-    const processMotionData = useCallback((motionData: MotionData) => {
-        setMotionHistory(prev => {
-            const newHistory = [...prev, motionData];
-            const recentHistory = newHistory.filter(item =>
-                motionData.timestamp - item.timestamp < 8000
-            );
-
-            const progress = calculateMotionProgress(recentHistory);
-            setVerificationProgress(progress);
-
-            console.log("Motion detected:", {
-                x: motionData.x.toFixed(3),
-                y: motionData.y.toFixed(3),
-                z: motionData.z.toFixed(3),
-                progress: progress.toFixed(1),
-                historyLength: recentHistory.length
-            });
-
-            if (progress >= 100 && isVerifying) {
-                console.log("Motion verification complete!");
-                handleVerificationSuccess();
-            }
-
-            return recentHistory;
-        });
-
-        setLastMotionUpdate(motionData.timestamp);
-    }, [isVerifying]);
-
-    const startVerification = useCallback(async () => {
-        if (isVerifying || attemptMade || !isGyroscopeSupported) {
+        if (typeof window === "undefined") {
+            console.log("Window not available");
+            setError("Gyroscope verification is not available in this environment");
+            setCurrentPhase("unsupported");
+            setIsGyroscopeSupported(false);
             return;
         }
 
-        console.log("Starting motion verification with Telegram API");
+        // Check if DeviceOrientationEvent is supported
+        if (!window.DeviceOrientationEvent) {
+            console.log("DeviceOrientationEvent not supported");
+            setError("Your device does not support gyroscope verification");
+            setCurrentPhase("unsupported");
+            setIsGyroscopeSupported(false);
+            return;
+        }
 
+        // Check if permission is required (iOS 13+)
+        const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
+
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            console.log("Permission required for gyroscope access");
+            setCurrentPhase("permission_required");
+        } else {
+            console.log("No permission required, proceeding to instructions");
+            setCurrentPhase("instructions");
+        }
+    };
+
+    // Request permission for gyroscope access (iOS)
+    const handleRequestPermission = async () => {
+        try {
+            const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
+
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                const permission = await DeviceOrientationEvent.requestPermission();
+
+                if (permission === 'granted') {
+                    console.log("Gyroscope permission granted");
+                    setCurrentPhase("instructions");
+                } else {
+                    console.log("Gyroscope permission denied");
+                    setError("Gyroscope permission was denied. Please enable it in your device settings.");
+                    setCurrentPhase("error");
+                }
+            }
+        } catch (error) {
+            console.error("Error requesting gyroscope permission:", error);
+            setError("Failed to request gyroscope permission");
+            setCurrentPhase("error");
+        }
+    };
+
+    // Start verification process
+    const handleStartVerification = () => {
+        if (isVerifying || attemptMade) return;
+
+        console.log("Starting gyroscope verification");
         setIsVerifying(true);
         setAttemptMade(true);
         setCurrentPhase("verification");
         setVerificationTimeRemaining(verificationTimeout);
         setVerificationTimerActive(true);
-        setMotionHistory([]);
-        setVerificationProgress(0);
+        setDetectedMovements(0);
         setError(null);
 
-        const tg = window.Telegram?.WebApp;
-        if (tg?.Gyroscope) {
-            // Регистрация событий
-            tg.onEvent('gyroscopeStarted', handleTelegramGyroscopeStarted);
-            tg.onEvent('gyroscopeFailed', handleTelegramGyroscopeFailed);
-            tg.onEvent('gyroscopeChanged', handleTelegramGyroscopeChanged);
-            tg.onEvent('gyroscopeStopped', handleTelegramGyroscopeStopped);
+        // Set up event listener for device orientation
+        const handleOrientationChange = (event: DeviceOrientationEvent) => {
+            const currentData: GyroscopeData = {
+                alpha: event.alpha, // Z-axis (compass heading)
+                beta: event.beta,   // X-axis (front-to-back tilt)
+                gamma: event.gamma  // Y-axis (left-to-right tilt)
+            };
 
-            try {
-                // ИСПРАВЛЕНО: Правильный способ запуска гироскопа
-                tg.Gyroscope.start({ refresh_rate: 100 });
-
-                // Таймаут для определения неудачного запуска
-                setTimeout(() => {
-                    if (!sensorStarted) {
-                        console.log("Telegram API failed to start gyroscope");
-                        setError("Failed to start gyroscope sensor");
-                        setCurrentPhase("error");
-                        setTimeout(() => {
-                            handleGyroscopeFailure();
-                        }, 2000);
-                    }
-                }, 2000);
-            } catch (error) {
-                console.error("Error starting Telegram Gyroscope:", error);
-                setError("Failed to initialize gyroscope");
-                setCurrentPhase("error");
-                setTimeout(() => {
-                    handleGyroscopeFailure();
-                }, 2000);
+            // Store initial values for comparison
+            if (initialDataRef.current.alpha === null && currentData.alpha !== null) {
+                initialDataRef.current = { ...currentData };
+                console.log("Initial gyroscope data captured:", initialDataRef.current);
+                return;
             }
-        }
-    }, [isVerifying, attemptMade, isGyroscopeSupported, sensorStarted]);
 
-    const calculateMotionProgress = (history: MotionData[]): number => {
-        if (history.length < 3) return 0;
+            // Detect significant movements
+            detectMovement(currentData);
 
-        const xValues = history.map(d => Math.abs(d.x));
-        const yValues = history.map(d => Math.abs(d.y));
-        const zValues = history.map(d => Math.abs(d.z));
+            // Update current data
+            gyroscopeDataRef.current = currentData;
+        };
 
-        const maxX = Math.max(...xValues);
-        const maxY = Math.max(...yValues);
-        const maxZ = Math.max(...zValues);
+        eventListenerRef.current = handleOrientationChange;
+        window.addEventListener('deviceorientation', handleOrientationChange);
 
-        const xScore = Math.min((maxX / 2.0) * 100, 100);
-        const yScore = Math.min((maxY / 2.0) * 100, 100);
-        const zScore = Math.min((maxZ / 2.0) * 100, 100);
-
-        const motionScore = (xScore + yScore + zScore) / 3;
-        const eventScore = Math.min((history.length / requiredMotionEvents) * 100, 100);
-
-        const timeSpan = history.length > 0 ?
-            history[history.length - 1].timestamp - history[0].timestamp : 0;
-        const timeScore = Math.min((timeSpan / 3000) * 100, 100);
-
-        const totalScore = (motionScore * 0.5) + (eventScore * 0.3) + (timeScore * 0.2);
-        return Math.min(totalScore, 100);
+        // Auto-fail if no gyroscope data is received within 3 seconds
+        setTimeout(() => {
+            if (gyroscopeDataRef.current.alpha === null &&
+                gyroscopeDataRef.current.beta === null &&
+                gyroscopeDataRef.current.gamma === null) {
+                console.log("No gyroscope data received - device likely doesn't support it");
+                handleVerificationFailure("No gyroscope data detected");
+            }
+        }, 3000);
     };
 
+    // Detect significant movements in gyroscope data
+    const detectMovement = (currentData: GyroscopeData) => {
+        const now = Date.now();
+
+        // Prevent rapid-fire movement detection
+        if (now - lastMovementTimeRef.current < movementCooldown) {
+            return;
+        }
+
+        const initial = initialDataRef.current;
+
+        if (initial.alpha === null || initial.beta === null || initial.gamma === null ||
+            currentData.alpha === null || currentData.beta === null || currentData.gamma === null) {
+            return;
+        }
+
+        // Calculate differences from initial position
+        const alphaDiff = Math.abs((currentData.alpha || 0) - (initial.alpha || 0));
+        const betaDiff = Math.abs((currentData.beta || 0) - (initial.beta || 0));
+        const gammaDiff = Math.abs((currentData.gamma || 0) - (initial.gamma || 0));
+
+        // Normalize alpha difference to handle 0-360 wraparound
+        const normalizedAlphaDiff = Math.min(alphaDiff, 360 - alphaDiff);
+
+        // Check if any axis has moved significantly
+        const significantMovement = normalizedAlphaDiff > movementThreshold ||
+            betaDiff > movementThreshold ||
+            gammaDiff > movementThreshold;
+
+        if (significantMovement) {
+            console.log("Movement detected:", {
+                alpha: normalizedAlphaDiff.toFixed(1),
+                beta: betaDiff.toFixed(1),
+                gamma: gammaDiff.toFixed(1)
+            });
+
+            lastMovementTimeRef.current = now;
+            setDetectedMovements(prev => {
+                const newCount = prev + 1;
+
+                // Check if verification is complete
+                if (newCount >= requiredMovements) {
+                    handleVerificationSuccess();
+                }
+
+                return newCount;
+            });
+        }
+    };
+
+    // Handle successful verification
     const handleVerificationSuccess = useCallback(async () => {
-        console.log("Motion verification successful");
+        console.log("Gyroscope verification successful");
         setVerificationTimerActive(false);
-        setIsVerifying(false);
-        cleanupMotionDetection();
+        setCurrentPhase("success");
+
+        // Clean up event listener
+        if (eventListenerRef.current) {
+            window.removeEventListener('deviceorientation', eventListenerRef.current);
+            eventListenerRef.current = null;
+        }
 
         try {
-            const result = await validateSecureGyroscope(true, true, isGyroscopeSupported);
+            const result = await validateSecureGyroscope(
+                true, // success
+                true, // completedInTime
+                isGyroscopeSupported
+            );
+
             if (result.success) {
-                onSuccess();
+                console.log("Gyroscope verification validated successfully");
+                setTimeout(() => onSuccess(), 1000);
             } else {
-                handleGyroscopeFailure();
+                console.log("Gyroscope verification validation failed");
+                handleVerificationFailure("Verification validation failed");
             }
         } catch (error) {
             console.error("Error validating gyroscope:", error);
-            handleGyroscopeFailure();
+            handleVerificationFailure("Verification validation error");
         }
     }, [isGyroscopeSupported, onSuccess]);
 
-    const handleGyroscopeFailure = useCallback(async () => {
-        console.log("Handling motion verification failure");
-        cleanupMotionDetection();
+    // Handle verification timeout
+    const handleVerificationTimeout = useCallback(() => {
+        console.log("Gyroscope verification timeout");
+        setVerificationTimerActive(false);
+        handleVerificationFailure("Verification timeout");
+    }, []);
+
+    // Handle verification failure
+    const handleVerificationFailure = useCallback(async (reason: string) => {
+        console.log("Gyroscope verification failed:", reason);
+        setError(reason);
+        setCurrentPhase("error");
+        setVerificationTimerActive(false);
+
+        // Clean up event listener
+        if (eventListenerRef.current) {
+            window.removeEventListener('deviceorientation', eventListenerRef.current);
+            eventListenerRef.current = null;
+        }
 
         try {
+            // Send failure to server
             await validateSecureGyroscope(false, false, isGyroscopeSupported);
         } catch (error) {
             console.error("Error sending gyroscope failure to API:", error);
         }
 
-        onFailure();
+        setTimeout(() => onFailure(), 1000);
     }, [isGyroscopeSupported, onFailure]);
 
+    // Handle unsupported device
     const handleUnsupportedDevice = useCallback(() => {
-        handleGyroscopeFailure();
-    }, [handleGyroscopeFailure]);
+        console.log("Handling unsupported device - triggering extended block");
+        handleVerificationFailure("Device does not support gyroscope verification");
+    }, [handleVerificationFailure]);
 
+    // Format time remaining
     const formatTime = (ms: number): string => {
         const seconds = Math.ceil(ms / 1000);
         return `${seconds}s`;
+    };
+
+    // Get progress percentage
+    const getProgressPercentage = (): number => {
+        return Math.min(100, (detectedMovements / requiredMovements) * 100);
     };
 
     if (!isOpen) return null;
@@ -360,13 +351,13 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                 {/* Header */}
                 <div className="text-center mb-6">
                     <div className="flex items-center justify-center mb-4">
-                        <div className="w-20 h-20 bg-purple-500/20 rounded-full flex items-center justify-center">
-                            {currentPhase === "unsupported" ? (
+                        <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center">
+                            {currentPhase === "unsupported" || currentPhase === "error" ? (
                                 <XCircle className="text-red-400" size={48} />
-                            ) : currentPhase === "verification" && verificationProgress >= 100 ? (
+                            ) : currentPhase === "success" ? (
                                 <CheckCircle2 className="text-green-400" size={48} />
                             ) : (
-                                <Compass className="text-purple-400" size={48} />
+                                <Compass className="text-blue-400" size={48} />
                             )}
                         </div>
                     </div>
@@ -374,13 +365,15 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                     <p className="text-gray-400 text-sm">{description}</p>
                 </div>
 
-                {/* Content based on phase */}
+                {/* Content */}
                 {currentPhase === "initializing" ? (
                     <div className="text-center py-8">
                         <div className="animate-pulse">
-                            <Compass className="text-purple-400 mx-auto mb-4" size={32} />
+                            <Compass className="text-blue-400 mx-auto mb-4" size={32} />
                         </div>
-                        <p className="text-gray-400">Initializing motion detection...</p>
+                        <p className="text-gray-400">
+                            Initializing gyroscope verification...
+                        </p>
                     </div>
                 ) : currentPhase === "unsupported" ? (
                     <div className="text-center space-y-4">
@@ -392,6 +385,21 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                             </div>
                         </div>
 
+                        <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                            <div className="flex items-start space-x-2">
+                                <AlertTriangle className="text-orange-400 flex-shrink-0 mt-0.5" size={16} />
+                                <div>
+                                    <h4 className="text-orange-300 font-semibold mb-1 text-sm">
+                                        Security Policy
+                                    </h4>
+                                    <p className="text-orange-200 text-xs">
+                                        Accounts with extremely low trust scores require gyroscope verification.
+                                        Since your device does not support this feature, your account will be temporarily blocked.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         <button
                             className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
                             onClick={handleUnsupportedDevice}
@@ -400,43 +408,85 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                             <span>I Understand</span>
                         </button>
                     </div>
-                ) : currentPhase === "instructions" ? (
+                ) : currentPhase === "permission_required" ? (
                     <div className="space-y-6">
                         <div className="text-center">
                             <div className="mb-4">
-                                <Smartphone className="text-purple-400 mx-auto" size={48} />
+                                <Shield className="text-yellow-400 mx-auto" size={48} />
                             </div>
-                            <h3 className="text-white font-semibold mb-2">Device Motion Required</h3>
+                            <h3 className="text-white font-semibold mb-2">
+                                Gyroscope Permission Required
+                            </h3>
                             <p className="text-gray-400 text-sm mb-4">
-                                You need to rotate your device to verify you are human
+                                You need to grant gyroscope access permission to continue
                             </p>
                         </div>
 
                         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                            <h4 className="text-blue-300 font-semibold mb-2 text-sm">
+                                Instructions:
+                            </h4>
+                            <div className="text-blue-200 text-sm space-y-1">
+                                <p>1. Tap "Grant Permission" below</p>
+                                <p>2. Allow motion and orientation access when prompted</p>
+                                <p>3. Follow the movement instructions to complete verification</p>
+                            </div>
+                        </div>
+
+                        <button
+                            className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                            onClick={handleRequestPermission}
+                        >
+                            <Shield size={20} />
+                            <span>Grant Permission</span>
+                        </button>
+                    </div>
+                ) : currentPhase === "instructions" ? (
+                    <div className="space-y-6">
+                        <div className="text-center">
+                            <div className="mb-4">
+                                <Smartphone className="text-blue-400 mx-auto" size={48} />
+                            </div>
+                            <h3 className="text-white font-semibold mb-2">
+                                Movement Instructions
+                            </h3>
+                            <p className="text-gray-400 text-sm mb-4">
+                                You will need to move your device to complete verification
+                            </p>
+                        </div>
+
+                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                            <h4 className="text-blue-300 font-semibold mb-2 text-sm">
+                                Required Movements:
+                            </h4>
+                            <div className="text-blue-200 text-sm space-y-1">
+                                <p>• Tilt your device left and right</p>
+                                <p>• Tilt your device forward and backward</p>
+                                <p>• Rotate your device clockwise or counterclockwise</p>
+                                <p className="text-blue-300 font-medium mt-2">
+                                    Complete {requiredMovements} distinct movements within 15 seconds
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
                             <div className="flex items-start space-x-2">
-                                <RotateCw className="text-blue-400 flex-shrink-0 mt-0.5" size={16} />
+                                <AlertTriangle className="text-yellow-400 flex-shrink-0 mt-0.5" size={16} />
                                 <div>
-                                    <h4 className="text-blue-300 font-semibold mb-1 text-sm">Detection Method</h4>
-                                    <p className="text-blue-200 text-xs">
-                                        Using Telegram WebApp Gyroscope API for motion detection
+                                    <h4 className="text-yellow-300 font-semibold mb-1 text-sm">
+                                        Important
+                                    </h4>
+                                    <p className="text-yellow-200 text-xs">
+                                        You have only one attempt to complete this verification.
+                                        Make sure your device can move freely before starting.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
-                            <h4 className="text-purple-300 font-semibold mb-2 text-sm">Instructions:</h4>
-                            <div className="text-purple-200 text-sm space-y-1">
-                                <p>1. Hold your device firmly</p>
-                                <p>2. Rotate and twist your device</p>
-                                <p>3. Try different directions</p>
-                                <p>4. Continue until progress reaches 100%</p>
-                            </div>
-                        </div>
-
                         <button
-                            className="w-full px-6 py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 text-lg font-semibold"
-                            onClick={startVerification}
+                            className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 text-lg font-semibold"
+                            onClick={handleStartVerification}
                         >
                             <Compass size={20} />
                             <span>Start Verification</span>
@@ -447,62 +497,60 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                         {/* Timer */}
                         <div className="flex items-center justify-center space-x-2 text-sm">
                             <Clock className="text-orange-400" size={16} />
-                            <span className={`font-bold ${verificationTimeRemaining < 5000 ? "text-red-400" : "text-orange-400"}`}>
+                            <span
+                                className={`font-bold ${verificationTimeRemaining < 5000 ? "text-red-400" : "text-orange-400"}`}
+                            >
                                 {formatTime(verificationTimeRemaining)}
                             </span>
                             <span className="text-gray-500">remaining</span>
                         </div>
 
-                        {/* Progress Bar */}
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-400">Verification Progress</span>
-                                <span className="text-purple-400 font-bold">{Math.round(verificationProgress)}%</span>
+                        {/* Movement Progress */}
+                        <div className="bg-gray-800 border border-gray-600 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-white font-semibold">Movements Detected</span>
+                                <span className="text-blue-400 font-bold">
+                                    {detectedMovements}/{requiredMovements}
+                                </span>
                             </div>
-                            <div className="w-full bg-gray-700 rounded-full h-3">
+                            <div className="w-full bg-gray-700 rounded-full h-3 mb-2">
                                 <div
-                                    className="h-3 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-300"
-                                    style={{ width: `${verificationProgress}%` }}
+                                    className="h-3 rounded-full bg-blue-500 transition-all duration-300"
+                                    style={{ width: `${getProgressPercentage()}%` }}
                                 />
                             </div>
-                        </div>
-
-                        {/* Movement Instructions */}
-                        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 text-center">
-                            <div className="mb-3">
-                                <Compass className="text-purple-400 mx-auto animate-spin" size={32} />
-                            </div>
-                            <h3 className="text-white font-semibold mb-1">Keep Moving Your Device</h3>
-                            <p className="text-gray-400 text-sm">
-                                Rotate and twist your device in different directions
+                            <p className="text-gray-400 text-xs text-center">
+                                Move your device in different directions
                             </p>
                         </div>
 
-                        {/* Status indicators */}
-                        <div className="bg-gray-800 rounded-lg p-3 text-xs space-y-1">
-                            <div className="flex justify-between">
-                                <span className="text-gray-400">API Type:</span>
-                                <span className="text-blue-400">Telegram Gyroscope</span>
+                        {/* Current Instruction */}
+                        <div className="text-center">
+                            <div className="mb-3">
+                                <RotateCcw
+                                    className="text-blue-400 mx-auto animate-spin"
+                                    size={32}
+                                    style={{ animationDuration: '2s' }}
+                                />
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-400">Sensor Status:</span>
-                                <span className={sensorStarted ? "text-green-400" : "text-yellow-400"}>
-                                    {sensorStarted ? "Active" : "Starting..."}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-400">Motion Events:</span>
-                                <span className="text-purple-400">{motionHistory.length}</span>
-                            </div>
-                            {motionHistory.length > 0 && (
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400">Last Motion:</span>
-                                    <span className="text-orange-400">
-                                        {Math.abs(motionHistory[motionHistory.length - 1]?.x || 0).toFixed(2)} rad/s
-                                    </span>
-                                </div>
-                            )}
+                            <p className="text-white font-medium">
+                                {detectedMovements === 0 ? "Start moving your device..." :
+                                    detectedMovements < requiredMovements ? "Keep moving..." :
+                                        "Verification complete!"}
+                            </p>
                         </div>
+                    </div>
+                ) : currentPhase === "success" ? (
+                    <div className="text-center space-y-4">
+                        <div className="flex items-center justify-center space-x-2 p-4 bg-green-500/20 border border-green-500/40 rounded-lg">
+                            <CheckCircle2 className="text-green-400 flex-shrink-0" size={20} />
+                            <p className="text-green-300 text-sm font-semibold">
+                                Gyroscope verification successful!
+                            </p>
+                        </div>
+                        <p className="text-gray-400 text-sm">
+                            Your trust score has been updated. Redirecting...
+                        </p>
                     </div>
                 ) : currentPhase === "error" ? (
                     <div className="text-center space-y-4">
@@ -510,13 +558,19 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                             <AlertTriangle className="text-red-400 flex-shrink-0" size={20} />
                             <p className="text-red-300 text-sm">{error}</p>
                         </div>
+                        <p className="text-gray-400 text-sm">
+                            Your account will be temporarily blocked due to verification failure.
+                        </p>
                     </div>
                 ) : null}
 
                 {/* Warning Message */}
                 <div className="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                     <p className="text-red-300 text-xs text-center">
-                        Motion verification required due to extremely low trust score. Your account will be blocked for 2 hours if verification fails.
+                        {currentPhase === "unsupported"
+                            ? "Your account will be temporarily blocked due to device incompatibility."
+                            : "Gyroscope verification required due to extremely low trust score. Your account will be blocked if verification fails."
+                        }
                     </p>
                 </div>
             </div>
