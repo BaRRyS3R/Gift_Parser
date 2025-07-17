@@ -68,11 +68,11 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     const containerHeight = screenHeight - infoBarHeight;
 
     // Уменьшаем количество кругов на слабых устройствах
-    let circleCount = 40;
+    let circleCount = 20;
     if (isLowPerf) {
-        circleCount = 25;
+        circleCount = 20;
     } else if (isMobile) {
-        circleCount = 30;
+        circleCount = 20;
     }
 
     // Адаптивный радиус кругов
