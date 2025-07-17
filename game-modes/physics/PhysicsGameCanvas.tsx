@@ -258,16 +258,22 @@ export default function PhysicsGameCanvas({
           ctx.strokeStyle = "#dc2626";
           ctx.lineWidth = 3;
 
+
           ctx.globalAlpha = 0.9;
+
           // White active circle
           ctx.fillStyle = "#ffffff";
           ctx.strokeStyle = "#e5e5e5";
           ctx.lineWidth = 3;
           ctx.globalAlpha = 1;
+
+          // Subtle glow effect
+          ctx.shadowColor = "#ffffff";
+          ctx.shadowBlur = 10;
         }
       } else {
         // Inactive circle
-        ctx.fillStyle = "#ffffff2a";
+        ctx.fillStyle = "#ffffff20";
         ctx.strokeStyle = "#ffffff40";
         ctx.lineWidth = 2;
         ctx.globalAlpha = 0.7;

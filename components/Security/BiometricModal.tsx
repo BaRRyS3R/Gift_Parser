@@ -1,4 +1,4 @@
-// src/components/Security/BiometricModal.tsx - Fixed TypeScript error
+// src/components/Security/BiometricModal.tsx - Fixed single window logic with automatic permission check
 
 "use client";
 
@@ -24,8 +24,8 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
   onSuccess,
   onFailure,
   onClose,
-  title = "Biometric Verification",
-  description = "Please authenticate using your device biometrics",
+  title = "Biometric Authentication Required",
+  description = "Your trust score is very low. Please authenticate using biometrics to continue.",
 }) => {
   const [biometricManager, setBiometricManager] = useState<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -37,14 +37,13 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
   const [authTimeRemaining, setAuthTimeRemaining] = useState(15000);
 
   // State flags
-  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attemptMade, setAttemptMade] = useState(false);
+  const [permissionRequested, setPermissionRequested] = useState(false);
 
   const permissionTimeout = 30000; // 30 seconds for permission
   const authTimeout = 15000; // 15 seconds for authentication
-  const maxAttempts = 1; // Single attempt only
 
   // Initialize biometric manager
   useEffect(() => {
@@ -57,7 +56,6 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
 
       if (!tg?.BiometricManager) {
         setError("Biometric authentication is not supported on this device");
-        // Block user immediately for unsupported devices
         setTimeout(() => {
           onFailure();
         }, 2000);
@@ -74,7 +72,6 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
 
         if (!manager.isBiometricAvailable) {
           setError("Biometric authentication is not available on this device");
-          // Block user immediately for unsupported devices
           setTimeout(() => {
             onFailure();
           }, 2000);
@@ -87,9 +84,10 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
           setCurrentPhase("auth");
           setAuthTimeRemaining(authTimeout);
         } else {
-          // Start permission phase
+          // Start permission phase with automatic request
           setCurrentPhase("permission");
           setPermissionTimeRemaining(permissionTimeout);
+          // Automatically request permission when modal opens
           requestBiometricPermission();
         }
       });
@@ -135,38 +133,39 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
   }, [currentPhase, isInitialized]);
 
   const requestBiometricPermission = async () => {
-    if (!biometricManager || isRequestingPermission) return;
+    if (!biometricManager || permissionRequested) return;
 
-    setIsRequestingPermission(true);
+    setPermissionRequested(true);
     setError(null);
 
     try {
       biometricManager.requestAccess(
         { reason: "Security verification required for continued access" },
         (granted: boolean) => {
-          setIsRequestingPermission(false);
-
           if (granted) {
-            // Permission granted, move to authentication phase
+            // Permission granted, move to authentication phase immediately
             setCurrentPhase("auth");
             setAuthTimeRemaining(authTimeout);
-          } else {
-            // Permission denied, continue waiting until timeout
-            setError("Biometric access denied. Please grant access to continue.");
           }
+          // If not granted, we continue waiting for the timer to expire
+          // The timer will handle the final check
         },
       );
     } catch (error) {
       console.error("Error requesting biometric permission:", error);
-      setError("Failed to request biometric permission");
-      setIsRequestingPermission(false);
+      // Continue waiting for timer, don't fail immediately
     }
   };
 
   const handlePermissionTimeout = () => {
-    if (!biometricManager?.isAccessGranted) {
+    // Check final permission status after timer expires
+    if (biometricManager?.isAccessGranted) {
+      // Permission was granted, move to authentication phase
+      setCurrentPhase("auth");
+      setAuthTimeRemaining(authTimeout);
+    } else {
       // Permission not granted within time limit, block user
-      setError("Permission timeout. Biometric access not granted.");
+      setError("Biometric access not granted within time limit.");
       setTimeout(() => {
         onFailure();
       }, 2000);
@@ -198,7 +197,6 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
             if (result.success) {
               onSuccess();
             } else {
-              // Single attempt failed, block user
               onFailure();
             }
           } catch (error) {
@@ -288,8 +286,8 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
               <p className="text-red-300 text-sm">{error}</p>
             </div>
 
-            {/* Settings Button */}
-            {biometricManager?.openSettings && (
+            {/* Settings Button - only show if it's a permission issue and settings are available */}
+            {biometricManager?.openSettings && error.includes("access") && (
               <button
                 className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
                 onClick={handleOpenSettings}
@@ -308,7 +306,7 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
           </div>
         ) : currentPhase === "permission" ? (
           <div className="space-y-6">
-            {/* Permission Phase */}
+            {/* Permission Phase - Single integrated window */}
             <div className="text-center">
               <div className="mb-4">
                 <Shield className="text-yellow-400 mx-auto" size={48} />
@@ -332,24 +330,26 @@ const BiometricModal: React.FC<BiometricModalProps> = ({
               </div>
             </div>
 
-            {/* Permission Request Button */}
-            <button
-              className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-              disabled={isRequestingPermission}
-              onClick={requestBiometricPermission}
-            >
-              {isRequestingPermission ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Requesting Permission...</span>
-                </>
-              ) : (
-                <>
-                  <Shield size={20} />
-                  <span>Grant Biometric Access</span>
-                </>
-              )}
-            </button>
+            {/* Instruction Text */}
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+              <p className="text-blue-300 text-sm text-center">
+                {permissionRequested
+                  ? "Please check your device for biometric permission request"
+                  : "Requesting biometric permission..."
+                }
+              </p>
+            </div>
+
+            {/* Manual Request Button - only show if automatic request failed */}
+            {permissionRequested && !biometricManager?.isAccessGranted && (
+              <button
+                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                onClick={requestBiometricPermission}
+              >
+                <Shield size={20} />
+                <span>Request Permission Again</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-6">
