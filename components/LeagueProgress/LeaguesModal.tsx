@@ -1,6 +1,8 @@
-// src/components/LeagueProgress/LeaguesModal.tsx - Completely fixed modal with proper layout
+// src/components/LeagueProgress/LeaguesModal.tsx - Updated to use authService API only
 
 "use client";
+
+import type { LeagueData, LeagueProgressInfo } from "@/lib/authService";
 
 import React, { useState, useEffect } from "react";
 import {
@@ -28,14 +30,7 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, {
-  type League,
-  type LeagueProgressInfo,
-  type UserLeagueReward,
-  type LeagueLeaderboard,
-  type LeagueNeighbors,
-  type LeagueReward,
-} from "@/lib/league_service";
+import { authService } from "@/lib/authService";
 
 interface LeaguesModalProps {
   isOpen: boolean;
@@ -43,76 +38,59 @@ interface LeaguesModalProps {
 }
 
 const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
-  const { user, telegramUser } = useUser();
+  const { isAuthenticated } = useUser();
   const t = useT();
 
+  const [leagueData, setLeagueData] = useState<LeagueData | null>(null);
   const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(
     null,
   );
-  const [allLeagues, setAllLeagues] = useState<League[]>([]);
-  const [userRewards, setUserRewards] = useState<UserLeagueReward[]>([]);
-  const [leaderboards, setLeaderboards] = useState<
-    Record<number, LeagueLeaderboard>
-  >({});
-  const [leagueNeighbors, setLeagueNeighbors] =
-    useState<LeagueNeighbors | null>(null);
-  const [allLeagueRewards, setAllLeagueRewards] = useState<
-    Record<number, LeagueReward[]>
-  >({});
   const [selectedTab, setSelectedTab] = useState("progress");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadLeagueData = async () => {
-      if (!user || !telegramUser || !isOpen) return;
+      if (!isAuthenticated || !isOpen) return;
 
       try {
         setIsLoading(true);
 
-        const [progress, leagues, rewards, neighbors, allRewards] =
-          await Promise.all([
-            leagueService.getUserLeagueProgress(user.id, user.total_games),
-            leagueService.getAllLeagues(),
-            leagueService.getUserRewards(user.id),
-            leagueService.getLeagueNeighbors(user.id, user.total_games),
-            leagueService.getAllLeagueRewards(),
-          ]);
+        console.log(
+          "LeaguesModal: Fetching league data via authService API...",
+        );
 
+        // Get league data and progress info in parallel
+        const [leagues, progress] = await Promise.all([
+          authService.getLeagueData(),
+          authService.getLeagueProgress(),
+        ]);
+
+        setLeagueData(leagues);
         setProgressInfo(progress);
-        setAllLeagues(leagues);
-        setUserRewards(rewards);
-        setLeagueNeighbors(neighbors);
-        setAllLeagueRewards(allRewards);
 
-        // Load leaderboards for all leagues
-        const leaderboardPromises = leagues.map(async (league) => {
-          const leaderboard = await leagueService.getLeagueLeaderboard(
-            league.id,
-            user.id,
-          );
-
-          return { leagueId: league.id, leaderboard };
+        console.log("LeaguesModal: League data fetched successfully:", {
+          leaguesCount: leagues.allLeagues.length,
+          userRewards: leagues.userRewards.length,
+          currentLeague: progress.currentLeague.name,
         });
-
-        const leaderboardResults = await Promise.all(leaderboardPromises);
-        const leaderboardsMap: Record<number, LeagueLeaderboard> = {};
-
-        leaderboardResults.forEach(({ leagueId, leaderboard }) => {
-          if (leaderboard) {
-            leaderboardsMap[leagueId] = leaderboard;
-          }
-        });
-
-        setLeaderboards(leaderboardsMap);
       } catch (error) {
-        console.error("Error loading league data:", error);
+        console.error("LeaguesModal: Error loading league data:", error);
+
+        // Handle authentication errors
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log("LeaguesModal: Authentication expired, closing modal");
+          onClose();
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadLeagueData();
-  }, [user, telegramUser, isOpen]);
+  }, [isAuthenticated, isOpen, onClose]);
 
   // Helper functions
   const getLeagueIcon = (leagueName: string) => {
@@ -206,14 +184,13 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
     const isMaxLeague = !progressInfo.nextLeague;
 
     // Calculate level progress
+    const GAMES_PER_LEVEL = 10;
+    const MAX_LEVEL = 100;
     const currentLevel = progressInfo.currentLevel;
-    const gamesInCurrentLevel =
-      progressInfo.totalGames % leagueService.GAMES_PER_LEVEL;
-    const gamesToNextLevel =
-      leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
-    const levelProgressPercent =
-      (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
-    const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
+    const gamesInCurrentLevel = progressInfo.totalGames % GAMES_PER_LEVEL;
+    const gamesToNextLevel = GAMES_PER_LEVEL - gamesInCurrentLevel;
+    const levelProgressPercent = (gamesInCurrentLevel / GAMES_PER_LEVEL) * 100;
+    const isMaxLevel = currentLevel >= MAX_LEVEL;
 
     return (
       <div className="space-y-6 p-4">
@@ -330,15 +307,17 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
 
   // Rewards Tab Component
   const RewardsTab = () => {
+    if (!leagueData) return null;
+
     return (
       <div className="space-y-6 p-4">
         {/* User's Rewards */}
-        {userRewards.length > 0 && (
+        {leagueData.userRewards.length > 0 && (
           <div className="space-y-3">
             <h4 className="text-lg font-bold text-white">
               {t("leagues.rewardsSection.yourRewards")}
             </h4>
-            {userRewards.map((reward) => (
+            {leagueData.userRewards.map((reward: any) => (
               <Card
                 key={reward.id}
                 className="bg-green-500/10 border border-green-400/30"
@@ -384,13 +363,13 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
           </h4>
 
           <Accordion className="px-0" variant="splitted">
-            {allLeagues
-              .filter((league) => league.name !== "bronze")
-              .map((league) => {
+            {leagueData.allLeagues
+              .filter((league: any) => league.name !== "bronze")
+              .map((league: any) => {
                 const colors = getLeagueColorClasses(league.name);
                 const Icon = getLeagueIcon(league.name);
-                const leaderboard = leaderboards[league.id];
-                const rewards = allLeagueRewards[league.id] || [];
+                const leaderboard = leagueData.leaderboards[league.id];
+                const rewards = leagueData.allLeagueRewards[league.id] || [];
 
                 return (
                   <AccordionItem
@@ -431,7 +410,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                   >
                     <div className="space-y-2 pt-2">
                       {rewards.length > 0 ? (
-                        rewards.map((reward) => (
+                        rewards.map((reward: any) => (
                           <div
                             key={reward.id}
                             className="flex items-center justify-between p-2 rounded bg-white/5 border border-white/10"
@@ -476,11 +455,14 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
     );
   };
 
-  // Leaderboard Tab Component
+  // В LeaderboardTab компоненте нужно изменить key с player.user_id на player.position
+
   const LeaderboardTab = () => {
+    if (!leagueData) return null;
+
     return (
       <div className="space-y-6 p-4">
-        {Object.values(leaderboards).map((leaderboard) => {
+        {Object.values(leagueData.leaderboards).map((leaderboard: any) => {
           const colors = getLeagueColorClasses(leaderboard.league.name);
           const Icon = getLeagueIcon(leaderboard.league.name);
 
@@ -529,10 +511,11 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     {t("leagues.leaderboardSection.topPlayers")}
                   </h5>
                   {leaderboard.topPlayers.length > 0 ? (
-                    leaderboard.topPlayers.map((player, index) => (
+                    leaderboard.topPlayers.map((player: any) => (
                       <div
-                        key={player.user_id}
-                        className={`flex items-center justify-between p-2 rounded ${player.user_id === user?.id ? "bg-white/10" : "bg-white/5"}`}
+                        // ИСПРАВЛЕНИЕ: Используем position вместо user_id для безопасности
+                        key={`${leaderboard.league.id}-${player.position}`}
+                        className="flex items-center justify-between p-2 rounded bg-white/5"
                       >
                         <div className="flex items-center space-x-3">
                           <div
@@ -565,7 +548,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     ))
                   ) : (
                     <div className="text-center py-4 text-white/60 text-sm">
-                      No players in this league yet
+                      {t("leagues.leaderboardSection.noPlayers")}
                     </div>
                   )}
                 </div>

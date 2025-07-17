@@ -32,4 +32,5 @@ export const leaderboard = {
   rotationElite: "ROTATION ELITE", // NEW
   topPlayers: "TOP PLAYERS",
   allPlayers: "ALL PLAYERS",
+  authenticationRequired: "Authentication Required",
 } as const;

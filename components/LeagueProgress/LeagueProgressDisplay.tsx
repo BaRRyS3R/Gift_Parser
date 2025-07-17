@@ -1,13 +1,15 @@
-// src/components/LeagueProgress/LeagueProgressDisplay.tsx - Enhanced with level progress
+// src/components/LeagueProgress/LeagueProgressDisplay.tsx - Updated to use authService API only
 
 "use client";
+
+import type { LeagueProgressInfo } from "@/lib/authService";
 
 import React, { useState, useEffect } from "react";
 import { Trophy, Star, ArrowUp, Target } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
+import { authService } from "@/lib/authService";
 
 interface LeagueProgressDisplayProps {
   className?: string;
@@ -18,7 +20,7 @@ const LeagueProgressDisplay: React.FC<LeagueProgressDisplayProps> = ({
   className = "",
   showLevelProgress = false,
 }) => {
-  const { user, telegramUser } = useUser();
+  const { isAuthenticated } = useUser();
   const t = useT();
 
   const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(
@@ -28,28 +30,45 @@ const LeagueProgressDisplay: React.FC<LeagueProgressDisplayProps> = ({
 
   useEffect(() => {
     const loadProgressInfo = async () => {
-      if (!user || !telegramUser) {
+      if (!isAuthenticated) {
         setIsLoading(false);
 
         return;
       }
 
       try {
-        const progress = await leagueService.getUserLeagueProgress(
-          user.id,
-          user.total_games,
+        console.log(
+          "LeagueProgressDisplay: Fetching league progress via authService API...",
         );
 
+        const progress = await authService.getLeagueProgress();
+
         setProgressInfo(progress);
+        console.log(
+          "LeagueProgressDisplay: League progress fetched successfully",
+        );
       } catch (error) {
-        console.error("Error loading league progress:", error);
+        console.error(
+          "LeagueProgressDisplay: Error loading league progress:",
+          error,
+        );
+
+        // Handle authentication errors gracefully
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "LeagueProgressDisplay: Authentication expired, component will not render",
+          );
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProgressInfo();
-  }, [user, telegramUser]);
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -71,7 +90,7 @@ const LeagueProgressDisplay: React.FC<LeagueProgressDisplayProps> = ({
     return null;
   }
 
-  // Определяем цвет лиги
+  // Determine league color
   const getLeagueColor = (leagueName: string) => {
     switch (leagueName) {
       case "bronze":
@@ -93,13 +112,13 @@ const LeagueProgressDisplay: React.FC<LeagueProgressDisplayProps> = ({
   const isMaxLeague = !progressInfo.nextLeague;
 
   // Calculate level progress
+  const GAMES_PER_LEVEL = 10;
+  const MAX_LEVEL = 100;
   const currentLevel = progressInfo.currentLevel;
-  const gamesInCurrentLevel =
-    progressInfo.totalGames % leagueService.GAMES_PER_LEVEL;
-  const gamesToNextLevel = leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
-  const levelProgressPercent =
-    (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
-  const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
+  const gamesInCurrentLevel = progressInfo.totalGames % GAMES_PER_LEVEL;
+  const gamesToNextLevel = GAMES_PER_LEVEL - gamesInCurrentLevel;
+  const levelProgressPercent = (gamesInCurrentLevel / GAMES_PER_LEVEL) * 100;
+  const isMaxLevel = currentLevel >= MAX_LEVEL;
 
   return (
     <div

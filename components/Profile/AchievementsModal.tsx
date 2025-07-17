@@ -1,11 +1,12 @@
-// src/components/Profile/AchievementsModal.tsx - Enhanced achievements modal with new system
+// src/components/Profile/AchievementsModal.tsx - Updated to use data from API
 
 "use client";
 
 import type { User } from "@/lib/supabase";
 import type { Achievement, AchievementCategory } from "@/types/achievements";
+import type { AchievementData } from "@/lib/authService";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   ModalContent,
@@ -16,6 +17,8 @@ import {
 import { Trophy, CheckCircle, X, Star } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
+import { useUser } from "@/hooks/useUser";
+import { authService } from "@/lib/authService";
 import { AchievementService } from "@/lib/achievementService";
 
 interface AchievementsModalProps {
@@ -180,31 +183,70 @@ export default function AchievementsModal({
   rankings,
 }: AchievementsModalProps) {
   const t = useT();
+  const { isAuthenticated } = useUser();
   const [selectedFilter, setSelectedFilter] = useState<
     "all" | "unlocked" | "locked"
   >("all");
+  const [achievementData, setAchievementData] =
+    useState<AchievementData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const achievementData = useMemo(() => {
-    const categories = AchievementService.calculateAchievements(user, rankings);
-    const stats = AchievementService.getAchievementStats(categories);
+  // Load achievements data when modal opens
+  useEffect(() => {
+    const loadAchievements = async () => {
+      if (!isAuthenticated || !isOpen) {
+        return;
+      }
 
-    return { categories, stats };
-  }, [user, rankings]);
+      try {
+        setIsLoading(true);
+        console.log(
+          "AchievementsModal: Fetching achievements via authService API...",
+        );
 
-  const filteredCategories = useMemo(() => {
+        const achievements = await authService.getAchievements();
+
+        setAchievementData(achievements);
+        console.log("AchievementsModal: Achievements fetched successfully");
+      } catch (error) {
+        console.error("AchievementsModal: Error loading achievements:", error);
+
+        // Handle authentication errors
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "AchievementsModal: Authentication expired, closing modal",
+          );
+          onClose();
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadAchievements();
+  }, [isAuthenticated, isOpen, onClose]);
+
+  // Filter achievements based on selected filter
+  const filteredCategories = React.useMemo(() => {
+    if (!achievementData) return [];
+
     if (selectedFilter === "all") return achievementData.categories;
 
     return achievementData.categories
       .map((category) => ({
         ...category,
-        achievements: category.achievements.filter((achievement) =>
-          selectedFilter === "unlocked"
-            ? achievement.isUnlocked
-            : !achievement.isUnlocked,
+        achievements: category.achievements.filter(
+          (achievement: Achievement) =>
+            selectedFilter === "unlocked"
+              ? achievement.isUnlocked
+              : !achievement.isUnlocked,
         ),
       }))
       .filter((category) => category.achievements.length > 0);
-  }, [achievementData.categories, selectedFilter]);
+  }, [achievementData, selectedFilter]);
 
   return (
     <Modal
@@ -246,84 +288,105 @@ export default function AchievementsModal({
         </ModalHeader>
 
         <ModalBody className="px-6 pb-6">
-          {/* Statistics Header */}
-          <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-white">
-                {achievementData.stats.unlocked}
-              </div>
-              <div className="text-white/60 text-sm">
-                {t("achievements.stats.unlocked")}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center space-y-4">
+                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                <p className="text-white/60">{t("achievements.loading")}</p>
               </div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-white">
-                {achievementData.stats.total}
+          ) : achievementData ? (
+            <>
+              {/* Statistics Header */}
+              <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">
+                    {achievementData.stats.unlocked}
+                  </div>
+                  <div className="text-white/60 text-sm">
+                    {t("achievements.stats.unlocked")}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-white">
+                    {achievementData.stats.total}
+                  </div>
+                  <div className="text-white/60 text-sm">
+                    {t("achievements.stats.total")}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-400">
+                    {achievementData.stats.percentage}%
+                  </div>
+                  <div className="text-white/60 text-sm">
+                    {t("achievements.stats.progress")}
+                  </div>
+                </div>
               </div>
-              <div className="text-white/60 text-sm">
-                {t("achievements.stats.total")}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-400">
-                {achievementData.stats.percentage}%
-              </div>
-              <div className="text-white/60 text-sm">
-                {t("achievements.stats.progress")}
-              </div>
-            </div>
-          </div>
 
-          {/* Filter Buttons */}
-          <div className="flex space-x-2 mb-6">
-            {[
-              { key: "all", label: t("achievements.stats.locked") },
-              { key: "unlocked", label: t("achievements.stats.unlocked") },
-              { key: "locked", label: t("achievements.stats.all") },
-            ].map((filter) => (
-              <Button
-                key={filter.key}
-                className={`
-                  ${
-                    selectedFilter === filter.key
-                      ? "bg-white/20 text-white border-white/30"
-                      : "bg-transparent text-white/60 border-white/10 hover:bg-white/10"
-                  }
-                `}
-                size="sm"
-                variant="bordered"
-                onPress={() => setSelectedFilter(filter.key as any)}
-              >
-                {filter.label}
-              </Button>
-            ))}
-          </div>
+              {/* Filter Buttons */}
+              <div className="flex space-x-2 mb-6">
+                {[
+                  { key: "all", label: t("achievements.stats.all") },
+                  { key: "unlocked", label: t("achievements.stats.unlocked") },
+                  { key: "locked", label: t("achievements.stats.locked") },
+                ].map((filter) => (
+                  <Button
+                    key={filter.key}
+                    className={`
+                      ${
+                        selectedFilter === filter.key
+                          ? "bg-white/20 text-white border-white/30"
+                          : "bg-transparent text-white/60 border-white/10 hover:bg-white/10"
+                      }
+                    `}
+                    size="sm"
+                    variant="bordered"
+                    onPress={() => setSelectedFilter(filter.key as any)}
+                  >
+                    {filter.label}
+                  </Button>
+                ))}
+              </div>
 
-          {/* Achievement Categories */}
-          {filteredCategories.length === 0 ? (
+              {/* Achievement Categories */}
+              {filteredCategories.length === 0 ? (
+                <div className="text-center py-12">
+                  <Star className="text-white/40 mx-auto mb-4" size={48} />
+                  <h3 className="text-white/60 text-lg mb-2">
+                    {t("achievements.empty.title")}
+                  </h3>
+                  <p className="text-white/40 text-sm">
+                    {t("achievements.empty.description")}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {filteredCategories.map((category) => (
+                    <CategorySection
+                      key={category.type}
+                      category={category}
+                      t={t}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Bottom spacing for scroll */}
+              <div className="h-4" />
+            </>
+          ) : (
             <div className="text-center py-12">
               <Star className="text-white/40 mx-auto mb-4" size={48} />
               <h3 className="text-white/60 text-lg mb-2">
-                {t("achievements.empty.title")}
+                {t("achievements.error.title")}
               </h3>
               <p className="text-white/40 text-sm">
-                {t("achievements.empty.description")}
+                {t("achievements.error.description")}
               </p>
             </div>
-          ) : (
-            <div className="space-y-8">
-              {filteredCategories.map((category) => (
-                <CategorySection
-                  key={category.type}
-                  category={category}
-                  t={t}
-                />
-              ))}
-            </div>
           )}
-
-          {/* Bottom spacing for scroll */}
-          <div className="h-4" />
         </ModalBody>
       </ModalContent>
     </Modal>

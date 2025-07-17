@@ -1,4 +1,4 @@
-// src/game-modes/tournament/TournamentGameManager.tsx - Обновленная версия с системой накопления очков
+// src/game-modes/tournament/TournamentGameManager.tsx - Обновленная версия с защищенными API вызовами
 
 "use client";
 
@@ -12,8 +12,7 @@ import {
   Target,
   RotateCcw,
   Trophy,
-  Plus,
-  Star,
+  CheckCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -31,7 +30,6 @@ import {
 } from "./TournamentGameLogic";
 
 import { useUser } from "@/hooks/useUser";
-import { userService } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
   SurvivalGameState,
@@ -69,7 +67,14 @@ interface TournamentGameManagerProps {
 export default function TournamentGameManager({
   tournament,
 }: TournamentGameManagerProps) {
-  const { telegramUser, user, saveTournamentResult } = useUser();
+  const {
+    telegramUser,
+    user,
+    saveTournamentResult,
+    consumeAttemptForGame,
+    getCachedAttemptsStatus,
+    isAuthenticated,
+  } = useUser();
   const router = useRouter();
   const t = useT();
 
@@ -91,6 +96,16 @@ export default function TournamentGameManager({
     gameStateRef.current = gameState;
   }, [gameState]);
 
+  // Check authentication and redirect if needed
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated in tournament game, redirecting");
+      router.push("/");
+
+      return;
+    }
+  }, [isAuthenticated, router]);
+
   // Настройка кнопки "Назад" в Telegram WebApp
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -108,25 +123,52 @@ export default function TournamentGameManager({
     }
   }, [router]);
 
-  // Потребление попытки при инициализации компонента
+  // Initialize attempts status from cache
+  useEffect(() => {
+    const cachedStatus = getCachedAttemptsStatus();
+
+    if (cachedStatus) {
+      setAttemptsRemaining(cachedStatus.attemptsRemaining);
+    }
+  }, [getCachedAttemptsStatus]);
+
+  // UPDATED: Потребление попытки при инициализации компонента через защищенные API
   useEffect(() => {
     const consumeInitialAttempt = async () => {
-      if (!telegramUser?.id || hasConsumedInitialAttempt) return;
+      if (!isAuthenticated || hasConsumedInitialAttempt) {
+        return;
+      }
 
       try {
         setIsConsumingAttempt(true);
-        const newStatus = await userService.consumeAttemptWithServerValidation(
-          telegramUser.id,
-        );
+        console.log("Consuming initial attempt via secure API...");
+
+        // UPDATED: Используем защищенный метод из useUser хука
+        const newStatus = await consumeAttemptForGame();
 
         setAttemptsRemaining(newStatus.attemptsRemaining);
         setHasConsumedInitialAttempt(true);
+
+        console.log("Initial attempt consumed successfully via secure API");
 
         setTimeout(() => {
           startGame();
         }, 500);
       } catch (error) {
-        console.error("Error consuming initial attempt:", error);
+        console.error("Error consuming initial attempt via secure API:", error);
+
+        // Handle authentication errors
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "Token expired during attempt consumption, user will be redirected",
+          );
+
+          return; // The useUser hook will handle sign out and redirect
+        }
+
         setHasConsumedInitialAttempt(true);
         setTimeout(() => {
           startGame();
@@ -137,7 +179,7 @@ export default function TournamentGameManager({
     };
 
     consumeInitialAttempt();
-  }, [telegramUser?.id, hasConsumedInitialAttempt]);
+  }, [isAuthenticated, hasConsumedInitialAttempt, consumeAttemptForGame]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -173,6 +215,10 @@ export default function TournamentGameManager({
         }
 
         try {
+          console.log(
+            `Saving tournament result via secure API (attempt ${attemptCount})`,
+          );
+
           const saveResponse = await saveTournamentResult(
             tournament.id,
             result,
@@ -187,10 +233,23 @@ export default function TournamentGameManager({
           }));
 
           console.log(
-            "Tournament result saved with accumulation:",
+            "Tournament result saved successfully via secure API:",
             saveResponse,
           );
         } catch (error) {
+          console.error(
+            `Tournament save attempt ${attemptCount} failed:`,
+            error,
+          );
+
+          // Handle authentication errors
+          if (
+            error instanceof Error &&
+            error.message.includes("Authentication expired")
+          ) {
+            throw error; // Don't retry on auth errors
+          }
+
           attemptCount++;
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
@@ -206,6 +265,11 @@ export default function TournamentGameManager({
       try {
         await attemptSave();
       } catch (error) {
+        console.error(
+          "Failed to save tournament result after all attempts:",
+          error,
+        );
+
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
@@ -382,28 +446,52 @@ export default function TournamentGameManager({
     }, 800);
   }, [scheduleNextActivation]);
 
+  // UPDATED: Перезапуск игры через защищенные API
   const restartGame = useCallback(async () => {
-    if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
+    if (!isAuthenticated || attemptsRemaining <= 0 || isRestartLoading) {
+      return;
+    }
 
     try {
       setIsRestartLoading(true);
+      console.log("Restarting game via secure API...");
 
-      const newStatus = await userService.consumeAttemptWithServerValidation(
-        telegramUser.id,
-      );
+      // UPDATED: Используем защищенный метод из useUser хука
+      const newStatus = await consumeAttemptForGame();
 
       setAttemptsRemaining(newStatus.attemptsRemaining);
       setShowCircles(false);
+
+      console.log("Game restart attempt consumed successfully via secure API");
 
       setTimeout(() => {
         startGame();
       }, 200);
     } catch (error) {
-      console.error("Error consuming attempt for restart:", error);
+      console.error(
+        "Error consuming attempt for restart via secure API:",
+        error,
+      );
+
+      // Handle authentication errors
+      if (
+        error instanceof Error &&
+        error.message.includes("Authentication expired")
+      ) {
+        console.log("Token expired during restart, user will be redirected");
+
+        return; // The useUser hook will handle sign out and redirect
+      }
     } finally {
       setIsRestartLoading(false);
     }
-  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading]);
+  }, [
+    isAuthenticated,
+    attemptsRemaining,
+    startGame,
+    isRestartLoading,
+    consumeAttemptForGame,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -439,6 +527,11 @@ export default function TournamentGameManager({
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
 
+  // Early return if not authenticated
+  if (!isAuthenticated) {
+    return null; // Will redirect in useEffect
+  }
+
   if (isConsumingAttempt) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -470,27 +563,14 @@ export default function TournamentGameManager({
             </div>
           </div>
 
-          {/* Информация о накоплении очков */}
-          {saveStatus.saveResponse && (
-            <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-4">
+          {/* UPDATED: Упрощенное отображение статуса сохранения без детальных очков */}
+          {saveStatus.isSuccess && saveStatus.saveResponse?.success && (
+            <div className="bg-green-500/10 border border-green-400/30 rounded-xl p-4">
               <div className="text-center space-y-2">
                 <div className="flex items-center justify-center space-x-2">
-                  <Plus className="text-yellow-400" size={16} />
-                  <span className="text-sm text-yellow-300 uppercase tracking-wider">
-                    {t("tournament.pointsEarned")}
-                  </span>
-                </div>
-                <div className="text-3xl font-bold text-yellow-400">
-                  +{saveStatus.saveResponse.game_score} pts
-                </div>
-                <div className="text-sm text-yellow-300/80">
-                  {t("tournament.addedToTotal")}
-                </div>
-                <div className="flex items-center justify-center space-x-2 text-sm text-yellow-300/60">
-                  <Star className="text-yellow-400" size={14} />
-                  <span>
-                    {t("tournament.totalPoints")}:{" "}
-                    {saveStatus.saveResponse.total_score} pts
+                  <CheckCircle className="text-green-400" size={20} />
+                  <span className="text-sm text-green-300 uppercase tracking-wider">
+                    {t("tournament.resultSaved")}
                   </span>
                 </div>
               </div>
@@ -643,7 +723,8 @@ export default function TournamentGameManager({
               disabled={
                 saveStatus.isLoading ||
                 attemptsRemaining <= 0 ||
-                isRestartLoading
+                isRestartLoading ||
+                !isAuthenticated
               }
               onClick={restartGame}
             >

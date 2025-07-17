@@ -1,6 +1,8 @@
-// src/components/LeagueProgress/CompactLeagueDisplay.tsx - Updated to use API calls only
+// src/components/LeagueProgress/CompactLeagueDisplay.tsx - Updated to use authService API only
 
 "use client";
+
+import type { LeagueProgressInfo } from "@/lib/authService";
 
 import React, { useState, useEffect } from "react";
 import { Trophy, Star, Medal, Award, Crown } from "lucide-react";
@@ -8,28 +10,6 @@ import { Trophy, Star, Medal, Award, Crown } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import { authService } from "@/lib/authService";
-
-interface LeagueProgressInfo {
-  currentLevel: number;
-  totalGames: number;
-  currentLeague: {
-    id: number;
-    name: string;
-    display_name_en: string;
-    color: string;
-    icon: string;
-  };
-  nextLeague?: {
-    id: number;
-    name: string;
-    display_name_en: string;
-    color: string;
-    icon: string;
-  };
-  gamesToNextLeague: number;
-  progressPercent: number;
-  isMaxLeague: boolean;
-}
 
 interface CompactLeagueDisplayProps {
   className?: string;
@@ -40,7 +20,7 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
   className = "",
   onClick,
 }) => {
-  const { user, isAuthenticated } = useUser();
+  const { isAuthenticated } = useUser();
   const t = useT();
 
   const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(
@@ -50,25 +30,44 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
 
   useEffect(() => {
     const loadProgressInfo = async () => {
-      if (!user || !isAuthenticated) {
+      if (!isAuthenticated) {
         setIsLoading(false);
+
         return;
       }
 
       try {
-        console.log("CompactLeagueDisplay: Fetching league progress via API...");
+        console.log(
+          "CompactLeagueDisplay: Fetching league progress via authService API...",
+        );
         const progress = await authService.getLeagueProgress();
+
         setProgressInfo(progress);
-        console.log("CompactLeagueDisplay: League progress fetched successfully");
+        console.log(
+          "CompactLeagueDisplay: League progress fetched successfully",
+        );
       } catch (error) {
-        console.error("CompactLeagueDisplay: Error loading league progress via API:", error);
+        console.error(
+          "CompactLeagueDisplay: Error loading league progress:",
+          error,
+        );
+
+        // Handle authentication errors gracefully
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "CompactLeagueDisplay: Authentication expired, component will not render",
+          );
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProgressInfo();
-  }, [user, isAuthenticated]);
+  }, [isAuthenticated]);
 
   // Don't render if not authenticated
   if (!isAuthenticated) {

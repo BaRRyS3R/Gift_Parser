@@ -1,4 +1,4 @@
-// src/app/tournament/play/page.tsx - Tournament game play page
+// src/app/tournament/play/page.tsx - Tournament game play page with secure API integration
 
 "use client";
 
@@ -8,12 +8,14 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Trophy } from "lucide-react";
 
-import { tournamentService } from "@/lib/supabase_tournament_extension";
+import { authService } from "@/lib/authService";
 import TournamentGameManager from "@/game-modes/tournament/TournamentGameManager";
 import { useT } from "@/contexts/LocalizationContext";
+import { useUser } from "@/hooks/useUser";
 
 export default function TournamentPlayPage() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: userLoading } = useUser();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +40,23 @@ export default function TournamentPlayPage() {
 
   useEffect(() => {
     const loadTournament = async () => {
+      // Only proceed if user is authenticated
+      if (!isAuthenticated || userLoading) {
+        if (!userLoading && !isAuthenticated) {
+          setError("Authentication required");
+          setTimeout(() => {
+            router.push("/");
+          }, 2000);
+        }
+
+        return;
+      }
+
       try {
         setIsLoading(true);
-        const activeTournament = await tournamentService.getActiveTournament();
+
+        // Use secure API call through authService
+        const activeTournament = await authService.getActiveTournament();
 
         if (!activeTournament) {
           setError("No active tournament found");
@@ -55,6 +71,19 @@ export default function TournamentPlayPage() {
       } catch (err) {
         console.error("Error loading tournament:", err);
         setError("Failed to load tournament");
+
+        // Handle authentication errors
+        if (
+          err instanceof Error &&
+          err.message.includes("Authentication expired")
+        ) {
+          setTimeout(() => {
+            router.push("/");
+          }, 1000);
+
+          return;
+        }
+
         setTimeout(() => {
           router.push("/tournament");
         }, 2000);
@@ -64,9 +93,9 @@ export default function TournamentPlayPage() {
     };
 
     loadTournament();
-  }, [router]);
+  }, [router, isAuthenticated, userLoading]);
 
-  if (isLoading) {
+  if (isLoading || userLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">

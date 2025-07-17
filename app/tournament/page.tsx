@@ -1,12 +1,12 @@
-// src/app/tournament/page.tsx - Обновленная страница турниров с полным отображением победителей и локализацией
+// src/app/tournament/page.tsx - Updated tournament page with secure user identification
 
 "use client";
 
 import type {
   TournamentWithStatus,
   TournamentListResponse,
-} from "@/lib/supabase_tournament_extension";
-import type { TournamentLeaderboardEntry } from "@/types/tournaments";
+  TournamentLeaderboardEntry,
+} from "@/types/tournaments";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -40,11 +40,12 @@ import {
   Calendar,
 } from "lucide-react";
 
+import { authService } from "@/lib/authService";
+import { formatTournamentSurvivalTime } from "@/utils/timeFormatter";
 import {
-  tournamentService,
-  formatTournamentSurvivalTime,
-} from "@/lib/supabase_tournament_extension";
-import { formatTimeRemaining } from "@/types/tournaments";
+  formatTimeRemaining,
+  getUserPositionInTournament,
+} from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
 
@@ -324,14 +325,9 @@ const UserPositionComponent: React.FC<UserPositionComponentProps> = ({
   leaderboard,
   tournament,
 }) => {
-  const { user } = useUser();
   const t = useT();
 
-  if (!user) return null;
-
-  const userEntry = leaderboard.find(
-    (entry) => entry.telegram_id === user.telegram_id,
-  );
+  const userEntry = getUserPositionInTournament(leaderboard);
 
   if (!userEntry) {
     return (
@@ -459,7 +455,6 @@ interface TopParticipantsProps {
 
 const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
   const t = useT();
-  const { user } = useUser();
 
   const getRankIcon = (position: number) => {
     switch (position) {
@@ -474,10 +469,6 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
           <span className="text-white/50 text-sm font-medium">#{position}</span>
         );
     }
-  };
-
-  const isCurrentUser = (telegramId: number) => {
-    return user?.telegram_id === telegramId;
   };
 
   const topParticipants = leaderboard.slice(0, 5);
@@ -500,7 +491,7 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
             className={`
                             flex items-center space-x-4 p-3 rounded-lg transition-all duration-300
                             ${
-                              isCurrentUser(participant.telegram_id)
+                              participant.is_current_user
                                 ? "bg-white/15 border border-white/40"
                                 : "bg-white/10 hover:bg-white/15"
                             }
@@ -513,14 +504,11 @@ const TopParticipants: React.FC<TopParticipantsProps> = ({ leaderboard }) => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <span
-                  className={`font-medium text-sm ${isCurrentUser(participant.telegram_id) ? "text-white" : "text-white/90"}`}
+                  className={`font-medium text-sm ${participant.is_current_user ? "text-white" : "text-white/90"}`}
                 >
                   {participant.first_name} {participant.last_name || ""}
                 </span>
-                {participant.is_premium && (
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                )}
-                {isCurrentUser(participant.telegram_id) && (
+                {participant.is_current_user && (
                   <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded">
                     {t("tournament.you")}
                   </span>
@@ -577,7 +565,6 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
   tournament,
 }) => {
   const t = useT();
-  const { user } = useUser();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
   const totalPages = Math.ceil(participants.length / itemsPerPage);
@@ -602,9 +589,6 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
         );
     }
   };
-
-  const isCurrentUser = (telegramId: number) =>
-    user?.telegram_id === telegramId;
 
   return (
     <Modal
@@ -648,7 +632,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                 className={`
                                     flex items-center space-x-4 p-3 rounded-lg border transition-all duration-300
                                     ${
-                                      isCurrentUser(participant.telegram_id)
+                                      participant.is_current_user
                                         ? "bg-white/15 border-white/40 ring-1 ring-white/30"
                                         : isWinner
                                           ? "bg-yellow-500/10 border-yellow-400/30"
@@ -664,7 +648,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                   <div className="flex items-center space-x-2">
                     <span
                       className={`font-medium text-sm ${
-                        isCurrentUser(participant.telegram_id)
+                        participant.is_current_user
                           ? "text-white"
                           : isWinner
                             ? "text-yellow-400"
@@ -673,10 +657,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                     >
                       {participant.first_name} {participant.last_name || ""}
                     </span>
-                    {participant.is_premium && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                    )}
-                    {isCurrentUser(participant.telegram_id) && (
+                    {participant.is_current_user && (
                       <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded">
                         {t("tournament.you")}
                       </span>
@@ -1383,8 +1364,8 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
     if (loadedWinners[tournamentId]) return;
 
     try {
-      // ИСПРАВЛЕНО: Загружаем всех победителей согласно количеству призов
-      const winners = await tournamentService.getTournamentWinners(
+      // UPDATED: Используем authService вместо tournamentService
+      const winners = await authService.getTournamentWinners(
         tournamentId,
         prizeCount,
       );
@@ -1412,7 +1393,7 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
   };
 
   useEffect(() => {
-    // ИСПРАВЛЕНО: Загружаем полное количество победителей для первых 2 турниров
+    // UPDATED: Используем authService вместо tournamentService
     tournaments.slice(0, 2).forEach((tournament) => {
       loadWinners(tournament.id, tournament.prizes.length);
     });
@@ -1704,7 +1685,6 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                           </div>
 
                           <div className="space-y-3">
-                            {/* ОБНОВЛЕНО: Отображаем всех победителей с их призами */}
                             {winners.map((winner, index) => {
                               const getRankIcon = (position: number) => {
                                 switch (position) {
@@ -1738,7 +1718,14 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                               return (
                                 <div
                                   key={winner.id}
-                                  className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/8 transition-all duration-300"
+                                  className={`
+                                                    flex items-center justify-between p-3 rounded-lg border transition-all duration-300
+                                                    ${
+                                                      winner.is_current_user
+                                                        ? "bg-white/15 border-white/40"
+                                                        : "bg-white/5 border-white/10 hover:bg-white/8"
+                                                    }
+                                                `}
                                 >
                                   <div className="flex items-center space-x-4">
                                     <div className="flex items-center justify-center w-8">
@@ -1748,6 +1735,11 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                                       <div className="text-sm font-bold text-white/80">
                                         {winner.first_name}{" "}
                                         {winner.last_name || ""}
+                                        {winner.is_current_user && (
+                                          <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded ml-2">
+                                            {t("tournament.you")}
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="flex items-center space-x-2 text-xs text-white/50">
                                         <div className="flex items-center space-x-1">
@@ -1774,7 +1766,6 @@ const CompletedTournaments: React.FC<CompletedTournamentsProps> = ({
                                           </span>
                                         </div>
                                       </div>
-                                      {/* ДОБАВЛЕНО: Отображение приза */}
                                       <div className="mt-1">
                                         <span className="text-xs text-yellow-400 font-medium">
                                           {tournament.prizes[index]}
@@ -1834,13 +1825,17 @@ export default function TournamentsPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const tournamentsData = await tournamentService.getAllTournaments();
+
+        // UPDATED: Используем authService вместо tournamentService
+        const tournamentsData = await authService.getAllTournaments();
 
         setTournaments(tournamentsData);
 
         if (tournamentsData.active.length > 0) {
           const activeTournament = tournamentsData.active[0];
-          const leaderboard = await tournamentService.getTournamentLeaderboard(
+
+          // UPDATED: Используем authService вместо tournamentService
+          const leaderboard = await authService.getTournamentLeaderboard(
             activeTournament.id,
             100,
           );

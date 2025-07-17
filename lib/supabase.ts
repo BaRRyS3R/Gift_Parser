@@ -35,6 +35,7 @@ const ATTEMPTS_CONFIG = {
 const BLOCK_DURATIONS = {
   CAPTCHA_FAILED: 2, // minutes
   BIOMETRIC_FAILED: 5, // minutes
+  BIOMETRIC_NOT_SUPPORTED: 10, // minutes
   SUSPICIOUS_ACTIVITY: 10, // minutes
 } as const;
 
@@ -137,7 +138,11 @@ export interface UserBlock {
   id: string;
   user_id: string;
   telegram_id: number;
-  block_reason: "captcha_failed" | "biometric_failed" | "suspicious_activity";
+  block_reason:
+  | "captcha_failed"
+  | "biometric_failed"
+  | "biometric_not_supported"
+  | "suspicious_activity";
   blocked_at: string;
   unblocked_at?: string;
   block_duration_minutes: number;
@@ -150,6 +155,7 @@ export interface SecurityCheckResult {
   isBlocked: boolean;
   needsCaptcha: boolean;
   needsBiometric: boolean;
+  needsGyroscope: boolean;
   trustScore: number;
   timeUntilUnblock?: number;
   blockReason?: string;
@@ -645,6 +651,7 @@ export const userService = {
         isBlocked,
         needsCaptcha: !isBlocked && trustScore < 40,
         needsBiometric: !isBlocked && trustScore < 20,
+        needsGyroscope: !isBlocked && trustScore < 10,
         trustScore,
         timeUntilUnblock:
           timeUntilUnblock && timeUntilUnblock > 0
@@ -666,7 +673,11 @@ export const userService = {
    */
   async blockUser(
     telegramId: number,
-    reason: "captcha_failed" | "biometric_failed" | "suspicious_activity",
+    reason:
+      | "captcha_failed"
+      | "biometric_failed"
+      | "biometric_not_supported"
+      | "suspicious_activity",
   ): Promise<boolean> {
     try {
       let duration: number;
@@ -677,6 +688,9 @@ export const userService = {
           break;
         case "biometric_failed":
           duration = BLOCK_DURATIONS.BIOMETRIC_FAILED;
+          break;
+        case "biometric_not_supported":
+          duration = BLOCK_DURATIONS.BIOMETRIC_NOT_SUPPORTED;
           break;
         case "suspicious_activity":
           duration = BLOCK_DURATIONS.SUSPICIOUS_ACTIVITY;
@@ -813,6 +827,250 @@ export const userService = {
       );
       throw error;
     }
+  },
+
+  /**
+ * Secure server time retrieval using protected API endpoint
+ */
+  async getSecureServerTime(): Promise<Date> {
+    try {
+      const response = await fetch('/api/security/server-time', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server time API failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.timestamp) {
+        secureLog("Server time retrieved via secure API:", data.timestamp);
+        return new Date(data.timestamp);
+      } else {
+        throw new Error("Invalid server time response format");
+      }
+    } catch (error) {
+      secureLog("Error retrieving server time via secure API, using fallback:", error instanceof Error ? error.message : "Unknown error");
+      return new Date(); // Fallback to client time
+    }
+  },
+
+  /**
+ * Secure unblock check using protected API endpoint
+ */
+  async performSecureUnblockCheck(telegramId: number): Promise<boolean> {
+    try {
+      const response = await fetch('/api/security/unblock-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Unblock check API failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        secureLog("Unblock check completed via secure API for user:", telegramId);
+        return true;
+      } else {
+        throw new Error(data.message || "Unblock check failed");
+      }
+    } catch (error) {
+      secureLog("Error performing unblock check via secure API:", error instanceof Error ? error.message : "Unknown error");
+      return false;
+    }
+  },
+
+  /**
+   * Secure user blocks information retrieval using protected API endpoint
+   */
+  async getSecureUserBlocks(telegramId: number, activeOnly: boolean = true): Promise<{
+    blocks: any[];
+    activeBlockReason: string | null;
+  }> {
+    try {
+      const queryParams = new URLSearchParams({
+        active: activeOnly.toString(),
+        limit: '10'
+      });
+
+      const response = await fetch(`/api/security/user-blocks?${queryParams}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`User blocks API failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        secureLog("User blocks retrieved via secure API for user:", telegramId);
+        return {
+          blocks: data.blocks || [],
+          activeBlockReason: data.activeBlockReason || null
+        };
+      } else {
+        throw new Error(data.message || "Failed to retrieve user blocks");
+      }
+    } catch (error) {
+      secureLog("Error retrieving user blocks via secure API:", error instanceof Error ? error.message : "Unknown error");
+      return {
+        blocks: [],
+        activeBlockReason: null
+      };
+    }
+  },
+
+  async checkUserBlockStatusSecure(telegramId: number): Promise<SecurityCheckResult> {
+    try {
+      // Execute unblock check using secure API
+      await this.performSecureUnblockCheck(telegramId);
+
+      // Retrieve user data through existing secure methods
+      const user = await this.findByTelegramId(telegramId);
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Obtain server time using secure API
+      const serverTime = await this.getSecureServerTime();
+      const isBlocked = user.blocked_until
+        ? new Date(user.blocked_until) > serverTime
+        : false;
+
+      let timeUntilUnblock: number | undefined;
+      let blockReason: string | undefined;
+
+      if (isBlocked && user.blocked_until) {
+        timeUntilUnblock = new Date(user.blocked_until).getTime() - serverTime.getTime();
+
+        // Retrieve block reason using secure API
+        const blocksInfo = await this.getSecureUserBlocks(telegramId, true);
+        blockReason = blocksInfo.activeBlockReason || undefined;
+      }
+
+      const trustScore = user.trust_score || 50;
+
+      return {
+        isBlocked,
+        needsCaptcha: !isBlocked && trustScore < 40,
+        needsBiometric: !isBlocked && trustScore < 20,
+        needsGyroscope: !isBlocked && trustScore < 10,
+        trustScore,
+        timeUntilUnblock: timeUntilUnblock && timeUntilUnblock > 0 ? timeUntilUnblock : undefined,
+        blockReason,
+      };
+    } catch (error) {
+      secureLog("Error in secure block status check:", error instanceof Error ? error.message : "Unknown error");
+      throw error;
+    }
+  },
+
+  async checkAndUpdateAttemptsWithSecureValidation(telegramId: number): Promise<AttemptsStatus> {
+    const user = await this.findByTelegramId(telegramId);
+
+    if (!user) throw new Error("User not found");
+
+    // Use secure server time instead of direct RPC call
+    const serverTime = await this.getSecureServerTime();
+    const resetTime = user.attempts_reset_at ? new Date(user.attempts_reset_at) : null;
+
+    if (resetTime && serverTime >= resetTime) {
+      await this.resetAttempts(telegramId);
+
+      return {
+        canPlay: true,
+        attemptsRemaining: Math.max(5, user.attempts_remaining),
+        resetTime: undefined,
+        timeUntilReset: undefined,
+      };
+    }
+
+    // Validate timing consistency with secure server time
+    if (user.last_attempt_at) {
+      const lastAttemptTime = new Date(user.last_attempt_at);
+      const timeSinceLastAttempt = serverTime.getTime() - lastAttemptTime.getTime();
+
+      if (timeSinceLastAttempt < 0) {
+        secureLog("Potential time manipulation detected for user:", telegramId);
+      }
+    }
+
+    let timeUntilReset: number | undefined;
+
+    if (resetTime && user.attempts_remaining === 0) {
+      timeUntilReset = Math.max(0, resetTime.getTime() - serverTime.getTime());
+    }
+
+    return {
+      canPlay: user.attempts_remaining > 0,
+      attemptsRemaining: user.attempts_remaining,
+      resetTime: resetTime || undefined,
+      timeUntilReset,
+    };
+  },
+
+  /**
+   * Enhanced attempt consumption with secure server time validation
+   */
+  async consumeAttemptWithSecureValidation(telegramId: number): Promise<AttemptsStatus> {
+    const user = await this.findByTelegramId(telegramId);
+
+    if (!user) throw new Error("User not found");
+    if (user.attempts_remaining <= 0) {
+      throw new Error("No attempts remaining");
+    }
+
+    // Use secure server time for consistency
+    const serverTime = await this.getSecureServerTime();
+    const newAttemptsRemaining = Math.max(0, user.attempts_remaining - 1);
+
+    const updates: any = {
+      attempts_remaining: newAttemptsRemaining,
+      last_attempt_at: serverTime.toISOString(),
+    };
+
+    if (newAttemptsRemaining === 0) {
+      const resetTime = new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS);
+      updates.attempts_reset_at = resetTime.toISOString();
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update(updates)
+      .eq("telegram_id", telegramId);
+
+    if (error) {
+      secureLog("Error consuming attempt:", error.message);
+      throw error;
+    }
+
+    const timeUntilReset = newAttemptsRemaining === 0 ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS : undefined;
+
+    return {
+      canPlay: newAttemptsRemaining > 0,
+      attemptsRemaining: newAttemptsRemaining,
+      resetTime: newAttemptsRemaining === 0
+        ? new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS)
+        : undefined,
+      timeUntilReset,
+    };
   },
 
   /**
@@ -960,8 +1218,8 @@ export const userService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
-              (totalReactionGames + 1)
+              reactionResult.reactionTime) /
+            (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
