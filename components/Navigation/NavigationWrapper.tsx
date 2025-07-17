@@ -1,4 +1,4 @@
-// src/components/Navigation/NavigationWrapper.tsx - Added security check blocking
+// src/components/Navigation/NavigationWrapper.tsx - Fixed to properly handle page refresh
 
 "use client";
 
@@ -16,6 +16,7 @@ const hiddenPaths = [
   "/tournament/play",
   "/tournament",
   "/game/rotation",
+  "/nebula",
   "/blocked",
 ];
 
@@ -41,6 +42,7 @@ export default function NavigationWrapper() {
       }
 
       prevPathRef.current = pathname;
+
       return;
     }
 
@@ -48,24 +50,24 @@ export default function NavigationWrapper() {
     const prevShouldShow = !hiddenPaths.includes(prevPathRef.current || "");
 
     if (shouldShowNav && !prevShouldShow) {
-      // Show navigation
+      // Появление
       setRendered(true);
       requestAnimationFrame(() => {
         setAnimationClass("animate-fade-in-up");
         setVisible(true);
       });
     } else if (!shouldShowNav && prevShouldShow) {
-      // Hide navigation
+      // Исчезновение
       setAnimationClass("animate-fade-out-down");
       setVisible(false);
 
-      // Wait for animation to complete
+      // Подождать, пока анимация завершится
       setTimeout(() => {
         setRendered(false);
       }, 400);
     }
 
-    // Update route reference
+    // Обновление маршрута
     prevPathRef.current = pathname;
   }, [pathname, shouldShowNav, isInitialized]);
 
@@ -74,7 +76,7 @@ export default function NavigationWrapper() {
   return (
     <div
       className={`
-        fixed bottom-0 left-0 right-0 z-45
+        fixed bottom-0 left-0 right-0 z-50 
         transition-transform duration-500
         ${animationClass}
       `}

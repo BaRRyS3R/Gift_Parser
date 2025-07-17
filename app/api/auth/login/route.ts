@@ -5,13 +5,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer, type TelegramUserData } from "@/lib/supabase-server";
 import { generateToken, validateTelegramInitData } from "@/lib/jwt";
 
-const ATTEMPTS_CONFIG = {
-  BASE_ATTEMPTS: 10,
-  RESET_ATTEMPTS: 10,
-  RESET_INTERVAL_MS: 2 * 60 * 60 * 1000,
-  REFERRAL_BONUS: 5,
-} as const;
-
 // Internal function to call security check API
 async function checkUserSecurityStatus(
   telegramId: number,
@@ -142,7 +135,6 @@ export async function POST(request: NextRequest) {
 
       // Return safe user data
       const safeUser = {
-        id: user.id,
         telegram_id: user.telegram_id,
         first_name: user.first_name,
         last_name: user.last_name,

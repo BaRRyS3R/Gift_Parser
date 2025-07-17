@@ -1,4 +1,4 @@
-// src/components/Navigation/BottomNav.tsx - Updated navigation without security blocking
+// src/components/Navigation/BottomNav.tsx - Updated navigation without dot indicator and with full-width decorative line
 
 "use client";
 
@@ -50,6 +50,7 @@ export default function BottomNav() {
     if (path === "/main") {
       return pathname === "/" || pathname === "/main";
     }
+
     return pathname === path;
   };
 
@@ -74,29 +75,34 @@ export default function BottomNav() {
                 className={`
                   relative flex items-center justify-center
                   w-12 h-12 rounded-full transition-all duration-300 ease-out
-                  ${active
-                    ? "text-white scale-110"
-                    : "text-white/60 hover:text-white/80 hover:scale-105"
+                  ${
+                    active
+                      ? "text-white scale-110"
+                      : "text-white/60 hover:text-white/80 hover:scale-105"
                   }
                 `}
                 onClick={() => handleNavigation(item.path)}
               >
-                {/* Background highlight for active state */}
+                {/* Фоновая подсветка для активного состояния */}
                 {active && (
                   <div className="absolute inset-0 bg-white/20 rounded-full transition-all duration-300" />
                 )}
 
-                {/* Background highlight on hover */}
+                {/* Фоновая подсветка при наведении */}
                 <div className="absolute inset-0 bg-white/10 rounded-full opacity-0 hover:opacity-100 transition-all duration-300" />
 
-                {/* Icon */}
+                {/* Иконка */}
                 <div className="relative z-10">
                   <Icon
-                    className="transition-all duration-300"
+                    className={`
+                      transition-all duration-300
+                      ${active ? "stroke-2" : "stroke-1.5"}
+                    `}
                     size={active ? 24 : 22}
-                    strokeWidth={active ? 2 : 1.5}
                   />
                 </div>
+
+                {/* Active indicator dot removed */}
               </button>
             );
           })}

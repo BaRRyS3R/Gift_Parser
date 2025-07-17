@@ -1,10 +1,10 @@
-// src/app/nebula/page.tsx - Dedicated security verification page
+// src/app/nebula/page.tsx - Dedicated security verification page with proper flow
 
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, AlertTriangle, Clock, CheckCircle2, Fingerprint } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle2, Fingerprint, Brain, Lock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useSecurity } from "@/hooks/useSecurity";
@@ -26,12 +26,16 @@ export default function NebulaSecurityPage() {
         handleBiometricFailure,
         checkSecurity,
         formatTrustScore,
+        startCaptchaVerification,
+        startBiometricVerification,
     } = useSecurity();
     const t = useT();
 
     const [isInitializing, setIsInitializing] = useState(true);
-    const [verificationStep, setVerificationStep] = useState<'loading' | 'captcha' | 'biometric' | 'completed' | 'blocked'>('loading');
+    const [verificationType, setVerificationType] = useState<'captcha' | 'biometric' | null>(null);
+    const [verificationStarted, setVerificationStarted] = useState(false);
     const [completionProgress, setCompletionProgress] = useState(0);
+    const [isCompleting, setIsCompleting] = useState(false);
 
     // Check authentication and redirect if needed
     useEffect(() => {
@@ -42,7 +46,7 @@ export default function NebulaSecurityPage() {
         }
     }, [isAuthenticated, router]);
 
-    // Initialize security check
+    // Initialize security check and determine verification requirements
     useEffect(() => {
         if (!isAuthenticated) return;
 
@@ -51,7 +55,7 @@ export default function NebulaSecurityPage() {
                 console.log("Nebula Security: Initializing security verification...");
                 setIsInitializing(true);
 
-                // Perform security check
+                // Perform security check to get current status
                 const result = await checkSecurity();
 
                 if (result.isBlocked) {
@@ -60,29 +64,20 @@ export default function NebulaSecurityPage() {
                     return;
                 }
 
-                // Determine verification step based on security requirements
+                // If no verification is needed, redirect to main
+                if (!result.needsCaptcha && !result.needsBiometric) {
+                    console.log("Nebula Security: No verification required, redirecting to main");
+                    router.push("/main");
+                    return;
+                }
+
+                // Determine verification type based on trust score
                 if (result.needsBiometric) {
                     console.log("Nebula Security: Biometric verification required");
-                    setVerificationStep('biometric');
+                    setVerificationType('biometric');
                 } else if (result.needsCaptcha) {
                     console.log("Nebula Security: Captcha verification required");
-                    setVerificationStep('captcha');
-                } else {
-                    console.log("Nebula Security: No verification required, proceeding to main");
-                    setVerificationStep('completed');
-
-                    // Simulate completion progress
-                    let progress = 0;
-                    const interval = setInterval(() => {
-                        progress += 20;
-                        setCompletionProgress(progress);
-                        if (progress >= 100) {
-                            clearInterval(interval);
-                            setTimeout(() => {
-                                router.push("/main");
-                            }, 500);
-                        }
-                    }, 100);
+                    setVerificationType('captcha');
                 }
 
                 setIsInitializing(false);
@@ -102,7 +97,8 @@ export default function NebulaSecurityPage() {
     // Handle successful verifications
     const handleSuccessfulVerification = useCallback(() => {
         console.log("Nebula Security: Verification successful, completing process");
-        setVerificationStep('completed');
+        setIsCompleting(true);
+        setVerificationStarted(false);
 
         // Animate completion progress
         let progress = 0;
@@ -122,6 +118,7 @@ export default function NebulaSecurityPage() {
     // Handle failed verifications
     const handleFailedVerification = useCallback(() => {
         console.log("Nebula Security: Verification failed, redirecting to blocked page");
+        setVerificationStarted(false);
         router.push("/blocked");
     }, [router]);
 
@@ -147,29 +144,52 @@ export default function NebulaSecurityPage() {
         handleFailedVerification();
     }, [handleBiometricFailure, handleFailedVerification]);
 
+    // Handle verification button clicks
+    const handleStartCaptcha = useCallback(async () => {
+        console.log("Nebula Security: Starting captcha verification");
+        setVerificationStarted(true);
+
+        // Use the new manual trigger method from useSecurity hook
+        await startCaptchaVerification();
+    }, [startCaptchaVerification]);
+
+    const handleStartBiometric = useCallback(() => {
+        console.log("Nebula Security: Starting biometric verification");
+        setVerificationStarted(true);
+
+        // Use the new manual trigger method from useSecurity hook  
+        startBiometricVerification();
+    }, [startBiometricVerification]);
+
     // Get verification type display information
     const getVerificationInfo = () => {
-        switch (verificationStep) {
+        if (isCompleting) {
+            return {
+                title: "Verification Complete",
+                description: "Security verification successful. Redirecting to application...",
+                icon: <CheckCircle2 className="text-green-400" size={48} />,
+                color: "border-green-400/40 bg-green-500/10"
+            };
+        }
+
+        switch (verificationType) {
             case 'captcha':
                 return {
-                    title: "Security Verification Required",
-                    description: "Your account requires additional verification to ensure security.",
-                    icon: <Shield className="text-yellow-400" size={48} />,
-                    color: "border-yellow-400/40 bg-yellow-500/10"
+                    title: "Captcha Verification Required",
+                    description: "Your trust score requires captcha verification to ensure you are human.",
+                    icon: <Brain className="text-yellow-400" size={48} />,
+                    color: "border-yellow-400/40 bg-yellow-500/10",
+                    buttonText: "Start Captcha",
+                    buttonAction: handleStartCaptcha
                 };
             case 'biometric':
                 return {
                     title: "Biometric Authentication Required",
-                    description: "Your trust score requires biometric verification for secure access.",
+                    description: "Your trust score is very low and requires biometric verification for secure access.",
                     icon: <Fingerprint className="text-blue-400" size={48} />,
-                    color: "border-blue-400/40 bg-blue-500/10"
-                };
-            case 'completed':
-                return {
-                    title: "Verification Complete",
-                    description: "Security verification successful. Redirecting to application...",
-                    icon: <CheckCircle2 className="text-green-400" size={48} />,
-                    color: "border-green-400/40 bg-green-500/10"
+                    color: "border-blue-400/40 bg-blue-500/10",
+                    buttonText: "Start Biometric",
+                    buttonAction: handleStartBiometric
                 };
             default:
                 return {
@@ -230,9 +250,9 @@ export default function NebulaSecurityPage() {
 
                     {/* Trust Score Display */}
                     {!isInitializing && (
-                        <div className="bg-black/20 rounded-lg p-4 space-y-2">
+                        <div className="bg-black/20 rounded-lg p-4 space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-gray-400 text-sm">Trust Score</span>
+                                <span className="text-gray-400 text-sm">Current Trust Score</span>
                                 <span className={`font-bold ${trustScoreInfo.color}`}>
                                     {securityState.trustScore}/100
                                 </span>
@@ -244,13 +264,53 @@ export default function NebulaSecurityPage() {
                                 />
                             </div>
                             <p className="text-gray-500 text-xs text-center">
-                                {trustScoreInfo.label} Security Level
+                                {trustScoreInfo.label} Security Level - Verification Required
                             </p>
                         </div>
                     )}
 
+                    {/* Why am I here? */}
+                    {!isInitializing && !isCompleting && (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                            <div className="flex items-start space-x-3">
+                                <Lock className="text-red-400 flex-shrink-0 mt-0.5" size={16} />
+                                <div className="space-y-1">
+                                    <h4 className="text-red-400 font-semibold text-sm">
+                                        Why am I here?
+                                    </h4>
+                                    <p className="text-red-200/80 text-xs">
+                                        Your trust score ({securityState.trustScore}/100) is below the security threshold.
+                                        {verificationType === 'biometric'
+                                            ? " Biometric verification is required for accounts with very low trust scores."
+                                            : " Captcha verification is required to ensure account security."
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Verification Button */}
+                    {!isInitializing && !isCompleting && verificationInfo.buttonAction && (
+                        <button
+                            className={`w-full px-6 py-4 rounded-lg font-semibold transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3 text-lg ${verificationType === 'biometric'
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                                }`}
+                            disabled={verificationStarted}
+                            onClick={verificationInfo.buttonAction}
+                        >
+                            {verificationType === 'biometric' ? (
+                                <Fingerprint size={24} />
+                            ) : (
+                                <Brain size={24} />
+                            )}
+                            <span>{verificationInfo.buttonText}</span>
+                        </button>
+                    )}
+
                     {/* Completion Progress */}
-                    {verificationStep === 'completed' && (
+                    {isCompleting && (
                         <div className="space-y-3">
                             <div className="w-full bg-gray-700 rounded-full h-2">
                                 <div
@@ -275,7 +335,7 @@ export default function NebulaSecurityPage() {
                 </div>
 
                 {/* User Information */}
-                {user && (
+                {user && !isInitializing && (
                     <div className="text-center">
                         <p className="text-gray-500 text-sm">
                             Verifying access for{" "}
@@ -298,6 +358,8 @@ export default function NebulaSecurityPage() {
                             <p className="text-gray-400 text-xs">
                                 This verification process helps protect your account and ensures secure access to the application.
                                 Verification requirements are based on your current trust score and recent activity patterns.
+                                {verificationType === 'captcha' && " You have one attempt to complete the captcha within 15 seconds."}
+                                {verificationType === 'biometric' && " You have one attempt to complete biometric authentication within 15 seconds."}
                             </p>
                         </div>
                     </div>
@@ -306,13 +368,13 @@ export default function NebulaSecurityPage() {
 
             {/* Security Verification Modals */}
             <CaptchaModal
-                isOpen={showCaptcha && verificationStep === 'captcha'}
+                isOpen={showCaptcha && verificationStarted && verificationType === 'captcha'}
                 onSuccess={handleCaptchaSuccessWrapper}
                 onFailure={handleCaptchaFailureWrapper}
             />
 
             <BiometricModal
-                isOpen={showBiometric && verificationStep === 'biometric'}
+                isOpen={showBiometric && verificationStarted && verificationType === 'biometric'}
                 onSuccess={handleBiometricSuccessWrapper}
                 onFailure={handleBiometricFailureWrapper}
             />

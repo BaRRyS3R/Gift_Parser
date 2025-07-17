@@ -1,9 +1,10 @@
-// src/hooks/useSecurity.ts - Fixed state synchronization after successful verification
+// src/hooks/useSecurity.ts - Fixed state synchronization and removed auto-trigger on Nebula page
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import { SecurityCheckResult } from "@/lib/supabase";
 import { authService } from "@/lib/authService";
@@ -42,6 +43,10 @@ interface SecurityHookReturn {
   dismissSecurityCheck: () => void;
   refreshSecurityStatus: () => Promise<void>;
 
+  // Manual trigger methods for Nebula page
+  startCaptchaVerification: () => Promise<void>;
+  startBiometricVerification: () => void;
+
   // Utils
   isSecurityCheckNeeded: () => boolean;
   formatTrustScore: (score: number) => { color: string; label: string };
@@ -60,6 +65,7 @@ const emitSecurityStateChange = () => {
 
 export function useSecurity(): SecurityHookReturn {
   const router = useRouter();
+  const pathname = usePathname();
   const { isAuthenticated, refreshUser, signOut } = useUser();
 
   const [securityState, setSecurityState] = useState<SecurityState>({
@@ -74,13 +80,16 @@ export function useSecurity(): SecurityHookReturn {
   const [showBiometric, setShowBiometric] = useState(false);
   const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
 
-  // FIX: Track security initialization with better logic
+  // Track security initialization with better logic
   const [securityInitialized, setSecurityInitialized] = useState(false);
 
   const isCheckingRef = useRef(false);
   const lastSecurityCheckRef = useRef<number>(0);
 
-  // FIX: Enhanced security initialization logic
+  // Check if we're on the Nebula page
+  const isOnNebulaPage = pathname === '/nebula';
+
+  // Enhanced security initialization logic
   useEffect(() => {
     if (!isAuthenticated) {
       setSecurityInitialized(false);
@@ -109,7 +118,7 @@ export function useSecurity(): SecurityHookReturn {
     securityState.trustScore
   ]);
 
-  // UPDATED: Strict security check - API only, no fallback to direct Supabase
+  // Strict security check - API only, no fallback to direct Supabase
   const checkSecurity = useCallback(async (): Promise<SecurityCheckResult> => {
     if (!isAuthenticated || isCheckingRef.current) {
       throw new Error(
@@ -208,47 +217,31 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, [isAuthenticated, checkSecurity]);
 
-  // Handle security check triggers
-  const triggerSecurityCheck = useCallback(async () => {
-    if (!isAuthenticated) {
-      console.log("User not authenticated, skipping security check trigger");
-
-      return;
-    }
-
+  // Manual trigger for captcha verification (for Nebula page)
+  const startCaptchaVerification = useCallback(async () => {
     try {
-      const result = await checkSecurity();
-
-      // Show appropriate modal based on security needs
-      if (result.needsBiometric && !result.isBlocked) {
-        setShowBiometric(true);
-      } else if (result.needsCaptcha && !result.isBlocked) {
-        // Generate captcha using API method
-        try {
-          console.log("Generating captcha via API...");
-          const captcha = await authService.generateCaptcha();
-
-          setCaptchaData(captcha);
-          setShowCaptcha(true);
-          console.log("Captcha generated successfully via API");
-        } catch (error) {
-          console.error("Failed to generate captcha via API:", error);
-
-          if (
-            error instanceof Error &&
-            error.message.includes("Authentication expired")
-          ) {
-            console.log(
-              "Token expired during captcha generation, signing out user",
-            );
-            signOut();
-          }
-        }
-      }
+      console.log("Starting captcha verification manually...");
+      const captcha = await authService.generateCaptcha();
+      setCaptchaData(captcha);
+      setShowCaptcha(true);
+      console.log("Captcha generated successfully for manual verification");
     } catch (error) {
-      console.error("Error triggering security check:", error);
+      console.error("Failed to generate captcha for manual verification:", error);
+      if (
+        error instanceof Error &&
+        error.message.includes("Authentication expired")
+      ) {
+        console.log("Token expired during captcha generation, signing out user");
+        signOut();
+      }
     }
-  }, [checkSecurity, isAuthenticated, signOut]);
+  }, [signOut]);
+
+  // Manual trigger for biometric verification (for Nebula page)
+  const startBiometricVerification = useCallback(() => {
+    console.log("Starting biometric verification manually...");
+    setShowBiometric(true);
+  }, []);
 
   // Check if security check is needed
   const isSecurityCheckNeeded = useCallback((): boolean => {
@@ -258,12 +251,12 @@ export function useSecurity(): SecurityHookReturn {
     );
   }, [securityState]);
 
-  // FIX: Check if security is initialized
+  // Check if security is initialized
   const isSecurityInitialized = useCallback((): boolean => {
     return securityInitialized;
   }, [securityInitialized]);
 
-  // FIX: Enhanced success handlers with forced state updates
+  // Enhanced success handlers with forced state updates
   const handleCaptchaSuccess = useCallback(async () => {
     console.log("Captcha verification successful - updating security state");
     setShowCaptcha(false);
@@ -294,7 +287,7 @@ export function useSecurity(): SecurityHookReturn {
       console.error("Error during post-captcha refresh:", error);
       // Even if refresh fails, keep the optimistic update
     }
-  }, [refreshUser])
+  }, [refreshUser]);
 
   const handleCaptchaFailure = useCallback(() => {
     console.log("Captcha verification failed - user will be blocked");
@@ -305,7 +298,7 @@ export function useSecurity(): SecurityHookReturn {
     router.push("/blocked");
   }, [router]);
 
-  // FIX: Enhanced biometric success handler
+  // Enhanced biometric success handler
   const handleBiometricSuccess = useCallback(async () => {
     console.log("Biometric verification successful - updating security state");
     setShowBiometric(false);
@@ -357,7 +350,6 @@ export function useSecurity(): SecurityHookReturn {
   const refreshSecurityStatus = useCallback(async () => {
     if (!isAuthenticated) {
       console.log("User not authenticated, skipping security status refresh");
-
       return;
     }
 
@@ -385,18 +377,25 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, []);
 
-  // Auto-trigger security checks when needed
+  // UPDATED: Do NOT auto-trigger security checks on Nebula page
+  // The Nebula page handles verification manually with buttons
   useEffect(() => {
     if (
       isAuthenticated &&
       isSecurityCheckNeeded() &&
       !showCaptcha &&
       !showBiometric &&
-      securityInitialized === false
+      securityInitialized === false &&
+      !isOnNebulaPage // NEW: Don't auto-trigger on Nebula page
     ) {
       // Small delay to ensure UI is ready
       const timer = setTimeout(() => {
-        triggerSecurityCheck();
+        // Only trigger if still not on Nebula page
+        if (!pathname.includes('/nebula')) {
+          console.log("Auto-triggering security check (not on Nebula page)");
+          // Handle security check triggering logic here if needed for other pages
+          // For now, we'll just log it since main page no longer has security logic
+        }
       }, 1000);
 
       return () => clearTimeout(timer);
@@ -406,8 +405,9 @@ export function useSecurity(): SecurityHookReturn {
     isSecurityCheckNeeded,
     showCaptcha,
     showBiometric,
-    triggerSecurityCheck,
     securityInitialized,
+    isOnNebulaPage,
+    pathname,
   ]);
 
   // Cleanup on unmount
@@ -471,6 +471,10 @@ export function useSecurity(): SecurityHookReturn {
     handleBiometricFailure,
     dismissSecurityCheck,
     refreshSecurityStatus,
+
+    // Manual triggers for Nebula page
+    startCaptchaVerification,
+    startBiometricVerification,
 
     // Utils
     isSecurityCheckNeeded,

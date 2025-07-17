@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated main page without interface blocking, with fallback security check
+// src/app/main/page.tsx - Updated main page without any security logic
 
 "use client";
 
@@ -12,11 +12,9 @@ import {
   Info,
   Trophy,
   Clock,
-  AlertTriangle,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { useSecurity } from "@/hooks/useSecurity";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { authService } from "@/lib/authService";
@@ -36,12 +34,6 @@ export default function MainPage() {
     setTelegramUser,
     isAuthenticated,
   } = useUser();
-
-  const {
-    securityState,
-    checkSecurity,
-    formatTrustScore,
-  } = useSecurity();
 
   const { settings } = useSettings();
   const t = useT();
@@ -79,12 +71,6 @@ export default function MainPage() {
   const [tournamentLoading, setTournamentLoading] = useState(false);
 
   /* -------------------------------------------------
-   * Security state - REMOVED BLOCKING LOGIC
-   * -------------------------------------------------*/
-  const [securityWarningVisible, setSecurityWarningVisible] = useState(false);
-  const [fallbackSecurityCheckDone, setFallbackSecurityCheckDone] = useState(false);
-
-  /* -------------------------------------------------
    * Dynamic offset for Telegram system UI
    * -------------------------------------------------*/
   const DEFAULT_TG_HEADER = 60;
@@ -109,73 +95,6 @@ export default function MainPage() {
     }
   }, [isAuthenticated, userLoading, router]);
 
-  // Check if user is blocked and redirect
-  useEffect(() => {
-    if (securityState.isBlocked) {
-      console.log("User is blocked, redirecting to blocked page");
-      router.push("/blocked");
-    }
-  }, [securityState.isBlocked, router]);
-
-  // FALLBACK SECURITY CHECK - only redirects, doesn't block interface
-  useEffect(() => {
-    if (!isAuthenticated || fallbackSecurityCheckDone) return;
-
-    const performFallbackSecurityCheck = async () => {
-      try {
-        console.log("Main page: Performing fallback security check...");
-        const result = await checkSecurity();
-
-        // Only redirect if critical security issues are found
-        if (result.isBlocked) {
-          console.log("Main page: User is blocked, redirecting to blocked page");
-          router.push("/blocked");
-          return;
-        }
-
-        // Redirect to Nebula if user has low trust score (critical threshold)
-        if (result.trustScore < 20 && (result.needsCaptcha || result.needsBiometric)) {
-          console.log("Main page: Critical security verification needed, redirecting to Nebula");
-          router.push("/nebula");
-          return;
-        }
-
-        // Show warning for moderate security issues but don't block interface
-        if (result.trustScore < 40) {
-          setSecurityWarningVisible(true);
-        }
-
-        setFallbackSecurityCheckDone(true);
-        console.log("Main page: Fallback security check completed");
-      } catch (error) {
-        console.error("Main page: Error during fallback security check:", error);
-        setFallbackSecurityCheckDone(true);
-      }
-    };
-
-    // Delay security check to ensure smooth page load
-    const timer = setTimeout(performFallbackSecurityCheck, 2000);
-    return () => clearTimeout(timer);
-  }, [isAuthenticated, fallbackSecurityCheckDone, checkSecurity, router]);
-
-  // Show security warning for moderate issues (non-blocking)
-  useEffect(() => {
-    if (
-      securityState.trustScore < 40 &&
-      securityState.trustScore >= 20 &&
-      !securityState.isBlocked &&
-      !securityState.isLoading
-    ) {
-      setSecurityWarningVisible(true);
-    } else if (securityState.trustScore >= 40) {
-      setSecurityWarningVisible(false);
-    }
-  }, [
-    securityState.trustScore,
-    securityState.isBlocked,
-    securityState.isLoading,
-  ]);
-
   // Mark page as visited
   useEffect(() => {
     if (isFirstVisit && typeof window !== "undefined") {
@@ -191,7 +110,7 @@ export default function MainPage() {
     }
   }, [isFirstVisit, user?.first_name, t]);
 
-  // Initialize telegramUser safely without direct Supabase calls
+  // Initialize telegramUser safely
   useEffect(() => {
     if (
       !telegramUser &&
@@ -355,7 +274,7 @@ export default function MainPage() {
   }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
 
   /* -------------------------------------------------
-   * Handlers - NO SECURITY BLOCKING
+   * Handlers
    * -------------------------------------------------*/
   const handleStartGame = () => {
     setIsTransitioning(true);
@@ -399,9 +318,6 @@ export default function MainPage() {
     setIsLeagueProgressOpen(false);
   };
 
-  // Get trust score display info
-  const trustScoreInfo = formatTrustScore(securityState.trustScore);
-
   /* -------------------------------------------------
    * Early return if not authenticated to prevent any data loading
    * -------------------------------------------------*/
@@ -442,26 +358,7 @@ export default function MainPage() {
         </div>
       )}
 
-      {/* Security Warning Banner - NON-BLOCKING */}
-      {securityWarningVisible && (
-        <div
-          className="fixed top-0 left-0 right-0 z-40 p-4"
-          style={{ top: headerOffset - 20 }}
-        >
-          <div className="max-w-md mx-auto bg-yellow-500/20 border border-yellow-400/40 rounded-lg p-3 backdrop-blur-sm">
-            <div className="flex items-center space-x-2 text-yellow-300">
-              <AlertTriangle size={16} />
-              <span className="text-sm font-semibold">Security Notice</span>
-            </div>
-            <p className="text-yellow-200/80 text-xs mt-1">
-              Your trust score is low ({securityState.trustScore}/100).
-              Consider improving your security practices.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Top Navigation Icons - ALWAYS FUNCTIONAL */}
+      {/* Top Navigation Icons */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -503,7 +400,7 @@ export default function MainPage() {
             </button>
           </div>
 
-          {/* Tournament Button - ALWAYS FUNCTIONAL */}
+          {/* Tournament Button */}
           {showTournamentButton && activeTournament && (
             <button
               aria-label="Active Tournament"
@@ -549,7 +446,7 @@ export default function MainPage() {
           </h1>
         </div>
 
-        {/* Action Button - ALWAYS FUNCTIONAL */}
+        {/* Action Button */}
         <div
           className={`${isFirstVisit
             ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
@@ -617,7 +514,7 @@ export default function MainPage() {
         onClose={handleCloseLeagueProgress}
       />
 
-      {/* Attempts Display - ALWAYS FUNCTIONAL */}
+      {/* Attempts Display */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -631,10 +528,10 @@ export default function MainPage() {
         <AttemptsDisplay />
       </div>
 
-      {/* League Display - ALWAYS FUNCTIONAL */}
+      {/* League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
+          className={`fixed left-0 right-0 z-41 flex justify-center pointer-events-auto ${isFirstVisit
             ? `transition-all duration-1000 transform ${showLeagueDisplay
               ? "opacity-100 translate-y-0"
               : "opacity-0 translate-y-4"
