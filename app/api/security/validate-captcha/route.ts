@@ -1,4 +1,4 @@
-// src/app/api/security/validate-captcha/route.ts - Updated captcha validation with new trust score logic
+// src/app/api/security/validate-captcha/route.ts - ИСПРАВЛЕНО: использует стандартное обновление
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -35,18 +35,33 @@ export async function POST(request: NextRequest) {
 
     const isCorrect = userInput.toLowerCase() === correctAnswer.toLowerCase();
 
+    console.log("Captcha validation:", {
+      userInput,
+      correctAnswer,
+      isCorrect,
+      completedInTime,
+      telegramId
+    });
+
     if (isCorrect && completedInTime) {
-      // Captcha passed - set trust score to 40
-      const { error: trustError } = await supabaseServer.rpc(
-        "update_trust_score_absolute",
-        {
-          user_telegram_id: parseInt(telegramId),
-          new_score: 40,
-        },
-      );
+      // ИСПРАВЛЕНО: используем прямое обновление вместо RPC
+      const { error: trustError } = await supabaseServer
+        .from("users")
+        .update({
+          trust_score: 40,
+          updated_at: new Date().toISOString()
+        })
+        .eq("telegram_id", parseInt(telegramId));
 
       if (trustError) {
         console.error("Error updating trust score:", trustError);
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Failed to update trust score",
+          },
+          { status: 500 },
+        );
       }
 
       console.log(`Captcha passed for user ${telegramId} - trust score set to 40`);
@@ -56,27 +71,37 @@ export async function POST(request: NextRequest) {
         newTrustScore: 40,
       });
     } else {
-      // Captcha failed - set trust score to 19 and block for 2 minutes
-      const { error: trustError } = await supabaseServer.rpc(
-        "update_trust_score_absolute",
-        {
-          user_telegram_id: parseInt(telegramId),
-          new_score: 19,
-        },
-      );
+      // ИСПРАВЛЕНО: используем прямое обновление и блокировку
+      const blockUntil = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes from now
+
+      const { error: trustError } = await supabaseServer
+        .from("users")
+        .update({
+          trust_score: 19,
+          blocked_until: blockUntil.toISOString(),
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq("telegram_id", parseInt(telegramId));
 
       if (trustError) {
-        console.error("Error updating trust score:", trustError);
+        console.error("Error updating user after captcha failure:", trustError);
       }
 
-      const { error: blockError } = await supabaseServer.rpc("block_user", {
-        user_telegram_id: parseInt(telegramId),
-        reason: "captcha_failed",
-        duration_minutes: 2,
-      });
+      // Также создадим запись в user_blocks
+      const { error: blockError } = await supabaseServer
+        .from("user_blocks")
+        .insert({
+          user_id: userId,
+          telegram_id: parseInt(telegramId),
+          block_reason: "captcha_failed",
+          blocked_at: new Date().toISOString(),
+          block_duration_minutes: 2,
+          is_active: true,
+        });
 
       if (blockError) {
-        console.error("Error blocking user:", blockError);
+        console.error("Error creating block record:", blockError);
       }
 
       console.log(

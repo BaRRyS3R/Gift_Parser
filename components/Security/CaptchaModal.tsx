@@ -1,4 +1,4 @@
-// src/components/Security/CaptchaModal.tsx - Updated captcha modal with 1 attempt only
+// src/components/Security/CaptchaModal.tsx - ИСПРАВЛЕНО: убрана дублирующая генерация капчи
 
 "use client";
 
@@ -18,6 +18,12 @@ interface CaptchaModalProps {
   onClose?: () => void;
   title?: string;
   description?: string;
+  // НОВОЕ: получаем готовые данные капчи
+  captchaData?: {
+    challenge: string;
+    correctAnswer: string;
+    expiresAt: number;
+  } | null;
 }
 
 const CaptchaModal: React.FC<CaptchaModalProps> = ({
@@ -27,6 +33,7 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
   onClose,
   title,
   description,
+  captchaData: externalCaptchaData, // ИСПРАВЛЕНО: используем внешние данные
 }) => {
   const t = useT();
   const [captchaData, setCaptchaData] = useState<{
@@ -45,12 +52,37 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const captchaTimeout = 30000; // 30 seconds
 
-  // Generate captcha when modal opens
+  // ИСПРАВЛЕНО: используем внешние данные капчи вместо генерации новых
   useEffect(() => {
-    if (isOpen && !captchaData && !hasAttempted) {
-      generateCaptcha();
+    if (isOpen && externalCaptchaData && !hasAttempted) {
+      console.log("Using external captcha data:", externalCaptchaData);
+      setCaptchaData(externalCaptchaData);
+      setTimeRemaining(Math.max(0, externalCaptchaData.expiresAt - Date.now()));
+      setError(null);
+      setUserInput("");
     }
-  }, [isOpen]);
+  }, [isOpen, externalCaptchaData, hasAttempted]);
+
+  // ИСПРАВЛЕНО: генерируем капчу только при ручном обновлении
+  const generateCaptcha = async () => {
+    if (hasAttempted) return; // Не разрешаем генерацию после попытки
+
+    setIsLoading(true);
+    setError(null);
+    setUserInput("");
+
+    try {
+      console.log("Manually generating new captcha...");
+      const data = await generateSecureCaptcha();
+      setCaptchaData(data);
+      setTimeRemaining(captchaTimeout);
+    } catch (error) {
+      console.error("Error generating captcha:", error);
+      setError(t("security.systemError"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Timer countdown
   useEffect(() => {
@@ -68,29 +100,12 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
     return () => clearInterval(timer);
   }, [captchaData]);
 
-  // Focus input when captcha is generated
+  // Focus input when captcha is ready
   useEffect(() => {
-    if (captchaData && inputRef.current) {
+    if (captchaData && inputRef.current && !hasAttempted) {
       inputRef.current.focus();
     }
-  }, [captchaData]);
-
-  const generateCaptcha = async () => {
-    setIsLoading(true);
-    setError(null);
-    setUserInput("");
-
-    try {
-      const data = await generateSecureCaptcha();
-      setCaptchaData(data);
-      setTimeRemaining(captchaTimeout);
-    } catch (error) {
-      console.error("Error generating captcha:", error);
-      setError(t("security.systemError"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [captchaData, hasAttempted]);
 
   const handleSubmit = async () => {
     if (!captchaData || !userInput.trim() || isValidating || hasAttempted) return;
@@ -102,6 +117,12 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
     const completedInTime = Date.now() < captchaData.expiresAt;
 
     try {
+      console.log("Submitting captcha:", {
+        userInput: userInput.trim(),
+        correctAnswer: captchaData.correctAnswer,
+        completedInTime
+      });
+
       const result = await validateSecureCaptcha(
         userInput.trim(),
         captchaData.correctAnswer,
@@ -111,7 +132,6 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
       if (result.success) {
         onSuccess();
       } else {
-        // Only 1 attempt allowed - immediate failure
         onFailure();
       }
     } catch (error) {
@@ -139,6 +159,19 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
     const seconds = Math.ceil(ms / 1000);
     return `${seconds}s`;
   };
+
+  // ИСПРАВЛЕНО: сброс состояния при закрытии
+  useEffect(() => {
+    if (!isOpen) {
+      setCaptchaData(null);
+      setUserInput("");
+      setError(null);
+      setHasAttempted(false);
+      setIsLoading(false);
+      setIsValidating(false);
+      setTimeRemaining(0);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

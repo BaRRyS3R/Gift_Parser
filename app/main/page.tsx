@@ -135,27 +135,32 @@ export default function MainPage() {
     }
   }, [securityState.isBlocked, router]);
 
-  // NEW: Perform silent security check on page load
+  // NEW: Perform silent security check on page load with debounce
   useEffect(() => {
     if (isAuthenticated && !silentCheckCompleted && !securityState.isLoading) {
       console.log("Performing silent security check...");
       setIsUILocked(true);
 
-      performSilentCheck()
-        .then(() => {
-          console.log("Silent security check completed");
-          setSilentCheckCompleted(true);
-        })
-        .catch((error) => {
-          console.error("Silent security check failed:", error);
-          setSilentCheckCompleted(true);
-        })
-        .finally(() => {
-          // Delay unlocking UI to ensure smooth transition
-          setTimeout(() => {
-            setIsUILocked(false);
-          }, 500);
-        });
+      // ИСПРАВЛЕНО: добавляем небольшую задержку для предотвращения race conditions
+      const timer = setTimeout(() => {
+        performSilentCheck()
+          .then(() => {
+            console.log("Silent security check completed");
+            setSilentCheckCompleted(true);
+          })
+          .catch((error) => {
+            console.error("Silent security check failed:", error);
+            setSilentCheckCompleted(true);
+          })
+          .finally(() => {
+            // Delay unlocking UI to ensure smooth transition
+            setTimeout(() => {
+              setIsUILocked(false);
+            }, 500);
+          });
+      }, 500); // НОВОЕ: 500ms задержка
+
+      return () => clearTimeout(timer);
     }
   }, [isAuthenticated, performSilentCheck, silentCheckCompleted, securityState.isLoading]);
 
@@ -429,10 +434,10 @@ export default function MainPage() {
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : pageLoaded
-            ? "opacity-100 transition-opacity duration-1000 ease-out"
-            : "opacity-0"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : pageLoaded
+          ? "opacity-100 transition-opacity duration-1000 ease-out"
+          : "opacity-0"
         }`}
     >
       {/* Background Video */}
@@ -500,11 +505,11 @@ export default function MainPage() {
       {/* Top Navigation Icons */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           } ${shouldLockUI ? "pointer-events-none opacity-50" : ""}`}
         style={{ top: headerOffset }}
       >
@@ -591,8 +596,8 @@ export default function MainPage() {
         {/* Action Button */}
         <div
           className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+            : "opacity-100 translate-y-0"
             }`}
         >
           <div className="relative group">
@@ -600,10 +605,10 @@ export default function MainPage() {
 
             <button
               className={`relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 text-white rounded-xl text-xl font-bold transition-all duration-500 hover:scale-105 active:scale-95 disabled:cursor-not-allowed group-hover:bg-white/5 ${shouldLockUI
-                  ? "border-gray-500/60 text-gray-400 opacity-50"
-                  : isSecurityCheckNeeded()
-                    ? "border-yellow-500/60 text-yellow-300 opacity-75"
-                    : "border-white/60 hover:border-white"
+                ? "border-gray-500/60 text-gray-400 opacity-50"
+                : isSecurityCheckNeeded()
+                  ? "border-yellow-500/60 text-yellow-300 opacity-75"
+                  : "border-white/60 hover:border-white"
                 } ${isTransitioning ? "opacity-50" : ""}`}
               disabled={shouldLockUI || isTransitioning}
               title={
@@ -649,11 +654,11 @@ export default function MainPage() {
         {/* User Greeting */}
         <div
           className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showGreeting
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-8"
-              }`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
             }`}
         >
           {userLoading ? (
@@ -686,6 +691,7 @@ export default function MainPage() {
         title={t("security.captchaTitle")}
         onFailure={handleCaptchaFailure}
         onSuccess={handleCaptchaSuccess}
+        captchaData={captchaData} // ИСПРАВЛЕНО: передаем готовые данные капчи
       />
 
       <BiometricModal
@@ -715,11 +721,11 @@ export default function MainPage() {
       {/* Attempts Display */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           } ${shouldLockUI ? "pointer-events-none opacity-50" : ""}`}
         style={{ paddingBottom: "140px" }}
       >

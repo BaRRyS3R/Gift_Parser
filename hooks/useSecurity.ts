@@ -1,4 +1,4 @@
-// src/hooks/useSecurity.ts - Updated with new security thresholds and gyroscope
+// src/hooks/useSecurity.ts - ИСПРАВЛЕНО: предотвращение множественных вызовов
 
 "use client";
 
@@ -77,10 +77,13 @@ export function useSecurity(): SecurityHookReturn {
   const isCheckingRef = useRef(false);
   const lastSecurityCheckRef = useRef<number>(0);
   const silentCheckInProgressRef = useRef(false);
+  // НОВОЕ: защита от множественного запуска триггера
+  const triggerInProgressRef = useRef(false);
 
-  // Updated security check with new thresholds
+  // ИСПРАВЛЕНО: проверка безопасности с защитой от повторных вызовов
   const checkSecurity = useCallback(async (): Promise<SecurityCheckResult> => {
     if (!isAuthenticated || isCheckingRef.current) {
+      console.log("Security check skipped: not authenticated or already checking");
       throw new Error(
         "Cannot check security: user not authenticated or check in progress",
       );
@@ -105,7 +108,7 @@ export function useSecurity(): SecurityHookReturn {
     setSecurityState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      console.log("Checking security status via API...");
+      console.log("Performing security check via API...");
       const result = await authService.checkUserSecurityStatus();
 
       // Update state with new thresholds
@@ -162,9 +165,10 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, [isAuthenticated, router, securityState, signOut]);
 
-  // Silent security check for main page
+  // ИСПРАВЛЕНО: silent check с защитой от повторных вызовов
   const performSilentCheck = useCallback(async (): Promise<void> => {
     if (!isAuthenticated || silentCheckInProgressRef.current) {
+      console.log("Silent check skipped: not authenticated or already in progress");
       return;
     }
 
@@ -183,49 +187,35 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, [isAuthenticated, checkSecurity]);
 
-  // Auto check security on mount and authentication changes
-  useEffect(() => {
-    if (isAuthenticated && !isCheckingRef.current) {
-      checkSecurity().catch((error) => {
-        console.error("Initial security check failed:", error);
-      });
-    } else if (!isAuthenticated) {
-      setSecurityState({
-        isLoading: false,
-        isBlocked: false,
-        needsCaptcha: false,
-        needsBiometric: false,
-        needsGyroscope: false,
-        trustScore: 50,
-      });
-    }
-  }, [isAuthenticated, checkSecurity]);
-
-  // Handle security check triggers with priority order: Gyroscope > Biometric > Captcha
+  // ИСПРАВЛЕНО: триггер проверки безопасности с защитой от повторных вызовов
   const triggerSecurityCheck = useCallback(async () => {
-    if (!isAuthenticated) {
-      console.log("User not authenticated, skipping security check trigger");
+    if (!isAuthenticated || triggerInProgressRef.current) {
+      console.log("Security trigger skipped: not authenticated or already in progress");
       return;
     }
+
+    triggerInProgressRef.current = true;
 
     try {
       const result = await checkSecurity();
 
       // Show appropriate modal based on priority
       if (result.needsGyroscope && !result.isBlocked) {
+        console.log("Showing gyroscope modal");
         setShowGyroscope(true);
       } else if (result.needsBiometric && !result.isBlocked) {
+        console.log("Showing biometric modal");
         setShowBiometric(true);
       } else if (result.needsCaptcha && !result.isBlocked) {
-        // Generate captcha using API method
+        // ИСПРАВЛЕНО: генерируем капчу только один раз здесь
         try {
-          console.log("Generating captcha via API...");
+          console.log("Generating captcha for security check...");
           const captcha = await authService.generateCaptcha();
           setCaptchaData(captcha);
           setShowCaptcha(true);
-          console.log("Captcha generated successfully via API");
+          console.log("Captcha generated and modal shown");
         } catch (error) {
-          console.error("Failed to generate captcha via API:", error);
+          console.error("Failed to generate captcha:", error);
           if (
             error instanceof Error &&
             error.message.includes("Authentication expired")
@@ -237,6 +227,8 @@ export function useSecurity(): SecurityHookReturn {
       }
     } catch (error) {
       console.error("Error triggering security check:", error);
+    } finally {
+      triggerInProgressRef.current = false;
     }
   }, [checkSecurity, isAuthenticated, signOut]);
 
@@ -250,11 +242,11 @@ export function useSecurity(): SecurityHookReturn {
     );
   }, [securityState]);
 
-  // Captcha handlers with updated trust scores
+  // ИСПРАВЛЕНО: обработчики успеха/неудачи с очисткой состояния
   const handleCaptchaSuccess = useCallback(() => {
     console.log("Captcha verification successful");
     setShowCaptcha(false);
-    setCaptchaData(null);
+    setCaptchaData(null); // ВАЖНО: очищаем данные
 
     // Update trust score to 40
     setSecurityState(prev => ({
@@ -263,6 +255,10 @@ export function useSecurity(): SecurityHookReturn {
       needsCaptcha: false,
     }));
 
+    // Invalidate cache to force fresh check
+    lastSecurityCheckRef.current = 0;
+    triggerInProgressRef.current = false;
+
     refreshSecurityStatus();
     refreshUser();
   }, [refreshUser]);
@@ -270,9 +266,9 @@ export function useSecurity(): SecurityHookReturn {
   const handleCaptchaFailure = useCallback(() => {
     console.log("Captcha verification failed - user will be blocked");
     setShowCaptcha(false);
-    setCaptchaData(null);
+    setCaptchaData(null); // ВАЖНО: очищаем данные
+    triggerInProgressRef.current = false;
 
-    // Trust score will be set to 19 by the API
     setSecurityState(prev => ({
       ...prev,
       trustScore: 19,
@@ -282,12 +278,11 @@ export function useSecurity(): SecurityHookReturn {
     router.push("/blocked");
   }, [router]);
 
-  // Biometric handlers with updated trust scores
   const handleBiometricSuccess = useCallback(() => {
     console.log("Biometric verification successful");
     setShowBiometric(false);
+    triggerInProgressRef.current = false;
 
-    // Update trust score to 39
     setSecurityState(prev => ({
       ...prev,
       trustScore: 39,
@@ -295,6 +290,7 @@ export function useSecurity(): SecurityHookReturn {
       needsCaptcha: false,
     }));
 
+    lastSecurityCheckRef.current = 0;
     refreshSecurityStatus();
     refreshUser();
   }, [refreshUser]);
@@ -302,8 +298,8 @@ export function useSecurity(): SecurityHookReturn {
   const handleBiometricFailure = useCallback(() => {
     console.log("Biometric verification failed - user will be blocked");
     setShowBiometric(false);
+    triggerInProgressRef.current = false;
 
-    // Trust score will be set to 9 by the API
     setSecurityState(prev => ({
       ...prev,
       trustScore: 9,
@@ -313,18 +309,18 @@ export function useSecurity(): SecurityHookReturn {
     router.push("/blocked");
   }, [router]);
 
-  // Gyroscope handlers
   const handleGyroscopeSuccess = useCallback(() => {
     console.log("Gyroscope verification successful");
     setShowGyroscope(false);
+    triggerInProgressRef.current = false;
 
-    // Update trust score to 19
     setSecurityState(prev => ({
       ...prev,
       trustScore: 19,
       needsGyroscope: false,
     }));
 
+    lastSecurityCheckRef.current = 0;
     refreshSecurityStatus();
     refreshUser();
   }, [refreshUser]);
@@ -332,8 +328,8 @@ export function useSecurity(): SecurityHookReturn {
   const handleGyroscopeFailure = useCallback(() => {
     console.log("Gyroscope verification failed - user will be permanently blocked");
     setShowGyroscope(false);
+    triggerInProgressRef.current = false;
 
-    // User will be blocked for 1 year
     setSecurityState(prev => ({
       ...prev,
       isBlocked: true,
@@ -348,6 +344,7 @@ export function useSecurity(): SecurityHookReturn {
     setShowBiometric(false);
     setShowGyroscope(false);
     setCaptchaData(null);
+    triggerInProgressRef.current = false;
   }, []);
 
   // Refresh security status
@@ -359,6 +356,7 @@ export function useSecurity(): SecurityHookReturn {
 
     // Clear cache to force fresh check
     lastSecurityCheckRef.current = 0;
+    triggerInProgressRef.current = false;
 
     try {
       await checkSecurity();
@@ -380,7 +378,25 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, []);
 
-  // Auto-trigger security checks when needed with priority
+  // Auto check security on mount and authentication changes
+  useEffect(() => {
+    if (isAuthenticated && !isCheckingRef.current) {
+      checkSecurity().catch((error) => {
+        console.error("Initial security check failed:", error);
+      });
+    } else if (!isAuthenticated) {
+      setSecurityState({
+        isLoading: false,
+        isBlocked: false,
+        needsCaptcha: false,
+        needsBiometric: false,
+        needsGyroscope: false,
+        trustScore: 50,
+      });
+    }
+  }, [isAuthenticated, checkSecurity]);
+
+  // ИСПРАВЛЕНО: автотриггер с защитой от повторных вызовов
   useEffect(() => {
     if (
       isAuthenticated &&
@@ -388,7 +404,8 @@ export function useSecurity(): SecurityHookReturn {
       !showCaptcha &&
       !showBiometric &&
       !showGyroscope &&
-      !isSilentCheck
+      !isSilentCheck &&
+      !triggerInProgressRef.current
     ) {
       // Small delay to ensure UI is ready
       const timer = setTimeout(() => {
@@ -412,6 +429,7 @@ export function useSecurity(): SecurityHookReturn {
     return () => {
       isCheckingRef.current = false;
       silentCheckInProgressRef.current = false;
+      triggerInProgressRef.current = false;
     };
   }, []);
 

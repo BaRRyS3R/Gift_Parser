@@ -1,4 +1,4 @@
-// src/app/api/security/check-status/route.ts - Updated security check with new thresholds
+// src/app/api/security/check-status/route.ts - ИСПРАВЛЕНО: прямые запросы вместо RPC
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -20,19 +20,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // First check and unblock if time has passed
-    const { error: unblockError } = await supabaseServer.rpc(
-      "check_and_unblock_user",
-      {
-        user_telegram_id: parseInt(telegramId),
-      },
-    );
+    // Get current server time
+    const serverTime = new Date();
 
-    if (unblockError) {
-      console.error("Error checking unblock status:", unblockError);
-    }
-
-    // Get current user data
+    // ИСПРАВЛЕНО: сначала проверяем и разблокируем пользователя если время прошло
     const { data: user, error: userError } = await supabaseServer
       .from("users")
       .select("trust_score, blocked_until, is_active")
@@ -41,7 +32,6 @@ export async function GET(request: NextRequest) {
 
     if (userError || !user) {
       console.error("Database error fetching user:", userError);
-
       return NextResponse.json(
         {
           success: false,
@@ -52,8 +42,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get current server time
-    const serverTime = new Date();
+    // Автоматическое разблокирование если время прошло
+    if (user.blocked_until && new Date(user.blocked_until) <= serverTime) {
+      console.log(`Auto-unblocking user ${telegramId} - block time expired`);
+
+      // Разблокируем пользователя
+      const { error: unblockError } = await supabaseServer
+        .from("users")
+        .update({
+          blocked_until: null,
+          is_active: true,
+          updated_at: serverTime.toISOString(),
+        })
+        .eq("id", userId);
+
+      if (unblockError) {
+        console.error("Error auto-unblocking user:", unblockError);
+      }
+
+      // Деактивируем активные блоки
+      const { error: deactivateError } = await supabaseServer
+        .from("user_blocks")
+        .update({
+          is_active: false,
+          unblocked_at: serverTime.toISOString(),
+          updated_at: serverTime.toISOString(),
+        })
+        .eq("telegram_id", parseInt(telegramId))
+        .eq("is_active", true);
+
+      if (deactivateError) {
+        console.error("Error deactivating blocks:", deactivateError);
+      }
+
+      // Обновляем локальные данные пользователя
+      user.blocked_until = null;
+      user.is_active = true;
+    }
+
+    // Проверяем статус блокировки
     const isBlocked = user.blocked_until
       ? new Date(user.blocked_until) > serverTime
       : false;
@@ -65,7 +92,7 @@ export async function GET(request: NextRequest) {
       timeUntilUnblock =
         new Date(user.blocked_until).getTime() - serverTime.getTime();
 
-      // Get the most recent active block reason
+      // Получаем причину блокировки
       const { data: blockData } = await supabaseServer
         .from("user_blocks")
         .select("block_reason")
