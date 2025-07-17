@@ -1,4 +1,4 @@
-// src/app/blocked/page.tsx - Updated with new block reason handling
+// src/app/blocked/page.tsx - Updated to use secure API endpoints instead of direct RPC calls
 
 "use client";
 
@@ -6,7 +6,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, Clock, AlertTriangle, RefreshCw, Home } from "lucide-react";
 
-import { userService } from "@/lib/supabase";
+import { authService } from "@/lib/authService";
 import { useUser } from "@/hooks/useUser";
 
 interface BlockInfo {
@@ -18,28 +18,107 @@ interface BlockInfo {
 
 export default function BlockedPage() {
   const router = useRouter();
-  const { telegramUser, refreshUser } = useUser();
+  const { telegramUser, refreshUser, isAuthenticated } = useUser();
   const [blockInfo, setBlockInfo] = useState<BlockInfo | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
 
-  // Check block status on page load
+  // Check if user is authenticated, if not redirect to login
   useEffect(() => {
-    checkBlockStatus();
-  }, []);
+    if (!isAuthenticated && !telegramUser?.id) {
+      console.log("User not authenticated on blocked page, redirecting to login");
+      router.push("/");
+      return;
+    }
+  }, [isAuthenticated, telegramUser, router]);
+
+  // Check block status using secure API endpoints
+  const checkBlockStatus = async () => {
+    if (!isAuthenticated) {
+      console.log("User not authenticated, cannot check block status");
+      router.push("/");
+      return;
+    }
+
+    setIsCheckingStatus(true);
+
+    try {
+      console.log("Checking block status via secure API...");
+
+      // Use authService to get security status instead of direct RPC calls
+      const securityResult = await authService.checkUserSecurityStatus();
+
+      const blockInfo: BlockInfo = {
+        isBlocked: securityResult.isBlocked,
+        timeUntilUnblock: securityResult.timeUntilUnblock,
+        blockReason: securityResult.blockReason,
+        trustScore: securityResult.trustScore,
+      };
+
+      setBlockInfo(blockInfo);
+      setLastUpdateTime(Date.now());
+
+      // If user is no longer blocked, redirect to main page
+      if (!securityResult.isBlocked) {
+        console.log("User is no longer blocked, refreshing user data and redirecting");
+        await refreshUser();
+        router.push("/main");
+        return;
+      }
+
+      // Set initial countdown if still blocked
+      if (securityResult.timeUntilUnblock) {
+        setTimeRemaining(formatTimeRemaining(securityResult.timeUntilUnblock));
+      }
+
+      console.log("Block status checked successfully via secure API:", {
+        isBlocked: securityResult.isBlocked,
+        trustScore: securityResult.trustScore,
+        hasTimeRemaining: !!securityResult.timeUntilUnblock,
+      });
+
+    } catch (error) {
+      console.error("Error checking block status via secure API:", error);
+
+      // Handle authentication errors
+      if (error instanceof Error && error.message.includes("Authentication expired")) {
+        console.log("Authentication expired, redirecting to login");
+        router.push("/");
+        return;
+      }
+
+      // For other errors, show generic error state
+      setBlockInfo({
+        isBlocked: true,
+        trustScore: 0,
+        blockReason: "unknown",
+        timeUntilUnblock: undefined,
+      });
+    } finally {
+      setIsLoading(false);
+      setIsCheckingStatus(false);
+    }
+  };
+
+  // Initial block status check on page load
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkBlockStatus();
+    }
+  }, [isAuthenticated]);
 
   // Update countdown timer
   useEffect(() => {
     if (!blockInfo?.timeUntilUnblock) return;
 
     const interval = setInterval(() => {
-      const remaining = Math.max(
-        0,
-        blockInfo.timeUntilUnblock! - (Date.now() - lastUpdateTime),
-      );
+      const elapsed = Date.now() - lastUpdateTime;
+      const remaining = Math.max(0, blockInfo.timeUntilUnblock! - elapsed);
 
       if (remaining <= 0) {
+        console.log("Block time expired, checking status");
         checkBlockStatus();
       } else {
         setTimeRemaining(formatTimeRemaining(remaining));
@@ -47,53 +126,9 @@ export default function BlockedPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [blockInfo]);
+  }, [blockInfo?.timeUntilUnblock, lastUpdateTime]);
 
-  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
-
-  const checkBlockStatus = async () => {
-    if (!telegramUser?.id) {
-      router.push("/");
-
-      return;
-    }
-
-    setIsCheckingStatus(true);
-
-    try {
-      const securityResult = await userService.checkUserBlockStatus(
-        telegramUser.id,
-      );
-
-      setBlockInfo({
-        isBlocked: securityResult.isBlocked,
-        timeUntilUnblock: securityResult.timeUntilUnblock,
-        blockReason: securityResult.blockReason,
-        trustScore: securityResult.trustScore,
-      });
-
-      setLastUpdateTime(Date.now());
-
-      // If user is no longer blocked, redirect to main page
-      if (!securityResult.isBlocked) {
-        await refreshUser();
-        router.push("/");
-
-        return;
-      }
-
-      // Set initial countdown
-      if (securityResult.timeUntilUnblock) {
-        setTimeRemaining(formatTimeRemaining(securityResult.timeUntilUnblock));
-      }
-    } catch (error) {
-      console.error("Error checking block status:", error);
-    } finally {
-      setIsLoading(false);
-      setIsCheckingStatus(false);
-    }
-  };
-
+  // Format time remaining for display
   const formatTimeRemaining = (ms: number): string => {
     const totalSeconds = Math.ceil(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -106,6 +141,7 @@ export default function BlockedPage() {
     }
   };
 
+  // Get human-readable block reason
   const getBlockReasonText = (reason?: string): string => {
     switch (reason) {
       case "captcha_failed":
@@ -121,6 +157,7 @@ export default function BlockedPage() {
     }
   };
 
+  // Get detailed block reason description
   const getBlockReasonDescription = (reason?: string): string => {
     switch (reason) {
       case "captcha_failed":
@@ -136,6 +173,7 @@ export default function BlockedPage() {
     }
   };
 
+  // Get expected block duration text
   const getBlockDurationText = (reason?: string): string => {
     switch (reason) {
       case "captcha_failed":
@@ -151,42 +189,45 @@ export default function BlockedPage() {
     }
   };
 
+  // Get trust score display color
   const getTrustScoreColor = (score: number): string => {
     if (score >= 60) return "text-green-400";
     if (score >= 40) return "text-yellow-400";
     if (score >= 20) return "text-orange-400";
-
     return "text-red-400";
   };
 
+  // Get trust score display label
   const getTrustScoreLabel = (score: number): string => {
     if (score >= 60) return "Good";
     if (score >= 40) return "Fair";
     if (score >= 20) return "Low";
-
     return "Very Low";
   };
 
+  // Show loading state while checking authentication or block status
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw
-            className="text-white mx-auto animate-spin mb-4"
-            size={32}
-          />
+          <RefreshCw className="text-white mx-auto animate-spin mb-4" size={32} />
           <p className="text-white/80">Checking account status...</p>
         </div>
       </div>
     );
   }
 
+  // Redirect if not authenticated (safety check)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Main Block Card */}
+        {/* Main Block Information Card */}
         <div className="bg-gray-900 border border-red-500/40 rounded-xl p-6 shadow-2xl">
-          {/* Header */}
+          {/* Header Section */}
           <div className="text-center mb-6">
             <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Shield className="text-red-400" size={40} />
@@ -199,15 +240,12 @@ export default function BlockedPage() {
             </p>
           </div>
 
-          {/* Block Information */}
+          {/* Block Information Section */}
           <div className="space-y-4 mb-6">
-            {/* Reason */}
+            {/* Block Reason */}
             <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-2">
-                <AlertTriangle
-                  className="text-red-400 flex-shrink-0"
-                  size={16}
-                />
+                <AlertTriangle className="text-red-400 flex-shrink-0" size={16} />
                 <span className="text-red-300 font-semibold text-sm">
                   {getBlockReasonText(blockInfo?.blockReason)}
                 </span>
@@ -233,44 +271,41 @@ export default function BlockedPage() {
               </div>
             )}
 
-            {/* Trust Score */}
-            <div className="bg-gray-800 border border-gray-600 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-300 text-sm">Trust Score</span>
-                <span
-                  className={`font-bold ${getTrustScoreColor(blockInfo?.trustScore || 0)}`}
-                >
-                  {blockInfo?.trustScore || 0}/100
-                </span>
+            {/* Trust Score Display */}
+            {blockInfo && (
+              <div className="bg-gray-800 border border-gray-600 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-gray-300 text-sm">Trust Score</span>
+                  <span className={`font-bold ${getTrustScoreColor(blockInfo.trustScore)}`}>
+                    {blockInfo.trustScore}/100
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${blockInfo.trustScore >= 60
+                        ? "bg-green-400"
+                        : blockInfo.trustScore >= 40
+                          ? "bg-yellow-400"
+                          : blockInfo.trustScore >= 20
+                            ? "bg-orange-400"
+                            : "bg-red-400"
+                      }`}
+                    style={{
+                      width: `${Math.max(5, blockInfo.trustScore)}%`,
+                    }}
+                  />
+                </div>
+                <p className={`text-xs ${getTrustScoreColor(blockInfo.trustScore)}`}>
+                  {getTrustScoreLabel(blockInfo.trustScore)} -{" "}
+                  {blockInfo.trustScore < 40
+                    ? "Additional security checks may be required"
+                    : "Continue following the rules to maintain good standing"}
+                </p>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                <div
-                  className={`h-2 rounded-full transition-all duration-500 ${
-                    (blockInfo?.trustScore || 0) >= 60
-                      ? "bg-green-400"
-                      : (blockInfo?.trustScore || 0) >= 40
-                        ? "bg-yellow-400"
-                        : (blockInfo?.trustScore || 0) >= 20
-                          ? "bg-orange-400"
-                          : "bg-red-400"
-                  }`}
-                  style={{
-                    width: `${Math.max(5, blockInfo?.trustScore || 0)}%`,
-                  }}
-                />
-              </div>
-              <p
-                className={`text-xs ${getTrustScoreColor(blockInfo?.trustScore || 0)}`}
-              >
-                {getTrustScoreLabel(blockInfo?.trustScore || 0)} -{" "}
-                {blockInfo?.trustScore || 0 < 40
-                  ? "Additional security checks may be required"
-                  : "Continue following the rules to maintain good standing"}
-              </p>
-            </div>
+            )}
           </div>
 
-          {/* Actions */}
+          {/* Action Buttons */}
           <div className="space-y-3">
             <button
               className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
@@ -309,8 +344,7 @@ export default function BlockedPage() {
             <div className="flex items-start space-x-2">
               <div className="w-1 h-1 bg-gray-500 rounded-full mt-2 flex-shrink-0" />
               <p>
-                Your account will be automatically unblocked when the time
-                expires
+                Your account will be automatically unblocked when the time expires
               </p>
             </div>
             <div className="flex items-start space-x-2">
@@ -332,11 +366,12 @@ export default function BlockedPage() {
           </div>
         </div>
 
-        {/* User Info (Development) */}
+        {/* Development Debug Information */}
         {process.env.NODE_ENV === "development" && telegramUser && (
           <div className="mt-4 bg-gray-900/30 border border-gray-700 rounded-lg p-3">
             <p className="text-gray-500 text-xs">
               Debug: User {telegramUser.first_name} (ID: {telegramUser.id})
+              {blockInfo && ` - Trust Score: ${blockInfo.trustScore}`}
             </p>
           </div>
         )}

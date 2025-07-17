@@ -136,7 +136,7 @@ export default function NebulaSecurityPage() {
                         verificationStateRef.current = 'captcha';
                     } else {
                         console.log("Nebula Security: High trust score in fallback, redirecting to main");
-                        router.push("/main");
+                        router.push("/");
                         return;
                     }
                 } else {
@@ -170,7 +170,7 @@ export default function NebulaSecurityPage() {
                 clearInterval(progressInterval);
                 setTimeout(() => {
                     console.log("Nebula Security: Completion sequence finished, redirecting to main");
-                    router.push("/main");
+                    router.push("/");
                 }, 1000);
             }
         }, 150);
