@@ -1,4 +1,4 @@
-// src/components/Navigation/NavigationWrapper.tsx - Fixed to properly handle page refresh
+// src/components/Navigation/NavigationWrapper.tsx - Added security check blocking
 
 "use client";
 
@@ -41,7 +41,6 @@ export default function NavigationWrapper() {
       }
 
       prevPathRef.current = pathname;
-
       return;
     }
 
@@ -49,24 +48,24 @@ export default function NavigationWrapper() {
     const prevShouldShow = !hiddenPaths.includes(prevPathRef.current || "");
 
     if (shouldShowNav && !prevShouldShow) {
-      // Появление
+      // Show navigation
       setRendered(true);
       requestAnimationFrame(() => {
         setAnimationClass("animate-fade-in-up");
         setVisible(true);
       });
     } else if (!shouldShowNav && prevShouldShow) {
-      // Исчезновение
+      // Hide navigation
       setAnimationClass("animate-fade-out-down");
       setVisible(false);
 
-      // Подождать, пока анимация завершится
+      // Wait for animation to complete
       setTimeout(() => {
         setRendered(false);
       }, 400);
     }
 
-    // Обновление маршрута
+    // Update route reference
     prevPathRef.current = pathname;
   }, [pathname, shouldShowNav, isInitialized]);
 
@@ -75,7 +74,7 @@ export default function NavigationWrapper() {
   return (
     <div
       className={`
-        fixed bottom-0 left-0 right-0 z-50 
+        fixed bottom-0 left-0 right-0 z-45
         transition-transform duration-500
         ${animationClass}
       `}
