@@ -1,4 +1,4 @@
-// src/app/api/security/check-status/route.ts - Fixed trust score handling
+// src/app/api/security/check-status/route.ts - Complete fix for trust score handling and caching issues
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -6,7 +6,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 
 export async function GET(request: NextRequest) {
   try {
-    // Get user ID from middleware-added header
+    // Extract authentication information from middleware
     const userId = request.headers.get("x-user-id");
     const telegramId = request.headers.get("x-telegram-id");
 
@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Execute unblock check using internal API call for consistency
+    console.log(`Security check-status: Processing request for user ${telegramId}`);
+
+    // Perform unblock check first using internal API call
     try {
       const unblockResponse = await fetch(`${request.nextUrl.origin}/api/security/unblock-check`, {
         method: "POST",
@@ -34,39 +36,52 @@ export async function GET(request: NextRequest) {
 
       if (!unblockResponse.ok) {
         console.error("Unblock check failed:", unblockResponse.status);
+      } else {
+        console.log(`Security check-status: Unblock check completed for user ${telegramId}`);
       }
     } catch (error) {
       console.error("Error performing unblock check:", error);
     }
 
-    // FIXED: Retrieve current user security data with explicit trust_score selection
+    // Retrieve current user security data with explicit trust_score selection
     const { data: user, error: userError } = await supabaseServer
       .from("users")
       .select("trust_score, blocked_until, is_active")
       .eq("id", userId)
       .single();
 
-    if (userError || !user) {
-      console.error("Database error fetching user:", userError);
+    if (userError) {
+      console.error("Database error fetching user security data:", userError);
       return NextResponse.json(
         {
           success: false,
-          error: "User not found",
-          message: userError?.message,
+          error: "User security data not found",
+          message: userError.message,
         },
         { status: 404 },
       );
     }
 
-    // FIXED: Ensure trust_score is always a valid number
-    let trustScore = 50; // Default value
+    if (!user) {
+      console.error("User not found in database:", userId);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User not found",
+        },
+        { status: 404 },
+      );
+    }
+
+    // Ensure trust_score is always a valid number - no defaults
+    let trustScore = 0;
     if (typeof user.trust_score === 'number' && !isNaN(user.trust_score)) {
       trustScore = user.trust_score;
     } else {
-      console.warn(`Invalid trust_score for user ${telegramId}:`, user.trust_score, "using default:", trustScore);
+      console.warn(`Invalid trust_score for user ${telegramId}: ${user.trust_score}, using 0`);
     }
 
-    // Obtain server time using secure API endpoint
+    // Obtain accurate server time
     let serverTime = new Date();
     try {
       const timeResponse = await fetch(`${request.nextUrl.origin}/api/security/server-time`, {
@@ -88,6 +103,7 @@ export async function GET(request: NextRequest) {
       console.error("Error fetching server time:", error);
     }
 
+    // Determine block status based on server time
     const isBlocked = user.blocked_until
       ? new Date(user.blocked_until) > serverTime
       : false;
@@ -95,11 +111,11 @@ export async function GET(request: NextRequest) {
     let timeUntilUnblock: number | undefined;
     let blockReason: string | undefined;
 
+    // Calculate time until unblock and fetch block reason if blocked
     if (isBlocked && user.blocked_until) {
-      timeUntilUnblock =
-        new Date(user.blocked_until).getTime() - serverTime.getTime();
+      timeUntilUnblock = new Date(user.blocked_until).getTime() - serverTime.getTime();
 
-      // Retrieve block reason using secure API endpoint
+      // Retrieve active block reason
       try {
         const blocksResponse = await fetch(`${request.nextUrl.origin}/api/security/user-blocks?active=true&limit=1`, {
           method: "GET",
@@ -121,38 +137,40 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // FIXED: Calculate verification requirements based on trust score
+    // Calculate verification requirements based on trust score
     const needsCaptcha = !isBlocked && trustScore < 40;
     const needsBiometric = !isBlocked && trustScore < 20;
 
-    // FIXED: Enhanced logging for debugging
-    console.log(`Security check for user ${telegramId}: trustScore=${trustScore}, needsCaptcha=${needsCaptcha}, needsBiometric=${needsBiometric}, isBlocked=${isBlocked}`);
-
+    // Construct comprehensive security result
     const securityResult = {
       isBlocked,
       needsCaptcha,
       needsBiometric,
-      trustScore, // FIXED: Ensure trust score is always included
-      timeUntilUnblock:
-        timeUntilUnblock && timeUntilUnblock > 0
-          ? timeUntilUnblock
-          : undefined,
+      trustScore,
+      timeUntilUnblock: timeUntilUnblock && timeUntilUnblock > 0 ? timeUntilUnblock : undefined,
       blockReason,
     };
+
+    console.log(`Security check-status: Complete result for user ${telegramId}:`, {
+      trustScore: securityResult.trustScore,
+      needsCaptcha: securityResult.needsCaptcha,
+      needsBiometric: securityResult.needsBiometric,
+      isBlocked: securityResult.isBlocked,
+      hasBlockReason: !!securityResult.blockReason
+    });
 
     return NextResponse.json({
       success: true,
       securityResult,
     });
   } catch (error) {
-    console.error("Security check status API error:", error);
+    console.error("Security check-status API error:", error);
 
     return NextResponse.json(
       {
         success: false,
         error: "Internal server error",
-        message:
-          error instanceof Error ? error.message : "Unknown error occurred",
+        message: error instanceof Error ? error.message : "Unknown error occurred",
       },
       { status: 500 },
     );
