@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameLogic.ts - ИСПРАВЛЕННАЯ версия с оптимизированной физикой
+// src/game-modes/physics/PhysicsGameLogic.ts - Updated with info panel boundary positioning
 
 import * as Matter from "matter-js";
 
@@ -100,41 +100,38 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     return {
         id: "physics",
         name: "PHYSICS MODE",
-        circleCount: 30,
+        circleCount: 40,
         circleRadius: Math.max(26, Math.min(36, containerWidth / 18)),
         containerWidth,
         containerHeight,
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
-        impulseForce: 0.1, // ИСПРАВЛЕНО: увеличил силу импульса
-        maxMistakes: 5,
-        levelDuration: 360,
+        impulseForce: 0.08,
+        maxMistakes: 5, // Maximum 5 mistakes
+        levelDuration: 360, // 3 minutes
     };
 };
 
-// ИСПРАВЛЕНО: Оптимизированная конфигурация физики
 export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
     containerWidth: 350, // Will be overridden by adaptive config
     containerHeight: 500, // Will be overridden by adaptive config
-    wallThickness: 20,
-    gravity: { x: 0, y: 1.0 }, // ИСПРАВЛЕНО: увеличил гравитацию с 0.5 до 1.2
-    restitution: 0.7, // ИСПРАВЛЕНО: немного уменьшил упругость для более реалистичного поведения
-    friction: 0.002, // ИСПРАВЛЕНО: уменьшил трение
-    frictionAir: 0.012, // ИСПРАВЛЕНО: существенно уменьшил воздушное трение с 0.015 до 0.005
+    wallThickness: 20, // Increased thickness for screen boundaries
+    gravity: { x: 0, y: 0.3 },
+    restitution: 0.8,
+    friction: 0.005,
+    frictionAir: 0.025,
 };
 
-// ИСПРАВЛЕНО: Увеличенная сила импульса
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.05, // ИСПРАВЛЕНО: увеличил силу импульса с 0.08 до 0.15
-    radius: 140,
-    falloff: 0.5,
+    force: 0.08,
+    radius: 150,
+    falloff: 0.3,
 };
 
 export const createPhysicsEngine = (): Matter.Engine => {
     const engine = Matter.Engine.create();
 
-    // ИСПРАВЛЕНО: Применяем обновленные настройки гравитации
     engine.world.gravity.x = PHYSICS_ENGINE_CONFIG.gravity.x;
     engine.world.gravity.y = PHYSICS_ENGINE_CONFIG.gravity.y;
     engine.timing.timeScale = 1;
@@ -178,12 +175,11 @@ export const createPhysicsCircles = (
             attempts++;
         } while (!validPosition && attempts < maxAttempts);
 
-        // ИСПРАВЛЕНО: Оптимизированные параметры кругов
         const body = Matter.Bodies.circle(x, y, radius, {
             restitution: PHYSICS_ENGINE_CONFIG.restitution,
             friction: PHYSICS_ENGINE_CONFIG.friction,
             frictionAir: PHYSICS_ENGINE_CONFIG.frictionAir,
-            density: 0.004, // ИСПРАВЛЕНО: увеличил плотность с 0.002 до 0.008
+            density: 0.002,
             label: `circle_${i}`,
         });
 
@@ -443,7 +439,6 @@ export const activateRandomCircles = (
     };
 };
 
-// ИСПРАВЛЕНО: Более мощная функция применения импульса
 export const applyImpulse = (
     state: PhysicsGameState,
     clickedCircleId: number,
@@ -482,10 +477,9 @@ export const applyImpulse = (
             const normalizedX = dx / distance;
             const normalizedY = dy / distance;
 
-            // ИСПРАВЛЕНО: Более мощная формула для вычисления силы
             const distanceRatio = Math.max(0.1, 1 - distance / IMPULSE_CONFIG.radius);
             const forceMagnitude =
-                IMPULSE_CONFIG.force * Math.pow(distanceRatio, 0.3) * 3; // Увеличил множитель с 2 до 3
+                IMPULSE_CONFIG.force * Math.pow(distanceRatio, 0.5) * 2;
 
             Matter.Body.applyForce(body, body.position, {
                 x: normalizedX * forceMagnitude,
