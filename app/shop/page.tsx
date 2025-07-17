@@ -38,7 +38,8 @@ interface SuccessNotification {
 
 export default function ShopPage() {
   const router = useRouter();
-  const { user, refreshUser, isAuthenticated, forceRefreshAttempts } = useUser();
+  const { user, refreshUser, isAuthenticated, forceRefreshAttempts } =
+    useUser();
   const t = useT();
   const [isExploding, setIsExploding] = useState(false);
 
@@ -62,6 +63,7 @@ export default function ShopPage() {
     if (!isAuthenticated) {
       console.log("Authentication required - redirecting to main page");
       router.push("/");
+
       return;
     }
   }, [isAuthenticated, router]);
@@ -89,7 +91,7 @@ export default function ShopPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -114,9 +116,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-        attempts: attemptsText,
-        plural: plural,
-      });
+          attempts: attemptsText,
+          plural: plural,
+        });
 
     setSuccessNotification({
       show: true,
@@ -133,7 +135,11 @@ export default function ShopPage() {
   };
 
   const handlePurchase = async (productType: ProductType) => {
-    if (purchaseState.isLoading || purchaseState.isProcessing || !isAuthenticated) {
+    if (
+      purchaseState.isLoading ||
+      purchaseState.isProcessing ||
+      !isAuthenticated
+    ) {
       return;
     }
 
@@ -151,7 +157,9 @@ export default function ShopPage() {
       const invoiceResult = await authService.completePurchaseFlow(productType);
 
       if (!invoiceResult.success || !invoiceResult.invoiceUrl) {
-        throw new Error(invoiceResult.error || "Failed to create payment invoice");
+        throw new Error(
+          invoiceResult.error || "Failed to create payment invoice",
+        );
       }
 
       console.log("Invoice created - opening Telegram payment interface");
@@ -169,13 +177,18 @@ export default function ShopPage() {
       if (paymentResult) {
         console.log("Payment successful - processing purchase");
 
-        const processResult = await authService.handlePaymentResult(productType, true);
+        const processResult = await authService.handlePaymentResult(
+          productType,
+          true,
+        );
 
         if (processResult.success) {
           console.log("Purchase processing completed successfully");
 
           // CRITICAL FIX: Comprehensive attempts counter update
-          console.log("Shop: Starting comprehensive attempts counter update...");
+          console.log(
+            "Shop: Starting comprehensive attempts counter update...",
+          );
 
           // Step 1: Refresh user data
           await refreshUser();
@@ -187,12 +200,12 @@ export default function ShopPage() {
 
           // Step 3: Dispatch custom event for AttemptsDisplay
           if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent('attemptsUpdated'));
+            window.dispatchEvent(new CustomEvent("attemptsUpdated"));
             console.log("Shop: Attempts update event dispatched");
           }
 
           // Step 4: Small delay to ensure all updates propagate
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 500));
 
           console.log("Shop: Attempts counter update complete");
 
@@ -222,13 +235,15 @@ export default function ShopPage() {
 
       if (error instanceof Error && error.message.includes("Authentication")) {
         console.log("Authentication error during purchase");
+
         return;
       }
 
       setPurchaseState({
         isLoading: false,
         isProcessing: false,
-        error: error instanceof Error ? error.message : t("errors.unknownError"),
+        error:
+          error instanceof Error ? error.message : t("errors.unknownError"),
         loadingProduct: null,
       });
     }
@@ -362,7 +377,9 @@ export default function ShopPage() {
             <CardBody className="p-4">
               <div className="flex items-center space-x-3">
                 <AlertCircle className="text-red-400 flex-shrink-0" size={20} />
-                <span className="text-red-100 text-sm">{purchaseState.error}</span>
+                <span className="text-red-100 text-sm">
+                  {purchaseState.error}
+                </span>
               </div>
             </CardBody>
           </Card>
@@ -452,7 +469,7 @@ function ProductCard({
         bg-gradient-to-r from-white/10 to-white/5 border border-white/20
         hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
         transition-all duration-200
-        ${loading ? 'opacity-80' : ''}
+        ${loading ? "opacity-80" : ""}
       `}
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -508,7 +525,7 @@ function ProductCard({
                 size="sm"
                 startContent={
                   loading ? (
-                    <Loader2 size={16} className="animate-spin" />
+                    <Loader2 className="animate-spin" size={16} />
                   ) : (
                     <ShoppingCart size={16} />
                   )

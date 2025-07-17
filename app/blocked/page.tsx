@@ -54,6 +54,7 @@ export default function BlockedPage() {
   const checkBlockStatus = async () => {
     if (!telegramUser?.id) {
       router.push("/");
+
       return;
     }
 
@@ -77,6 +78,7 @@ export default function BlockedPage() {
       if (!securityResult.isBlocked) {
         await refreshUser();
         router.push("/main");
+
         return;
       }
 
@@ -153,6 +155,7 @@ export default function BlockedPage() {
     if (score >= 60) return "text-green-400";
     if (score >= 40) return "text-yellow-400";
     if (score >= 20) return "text-orange-400";
+
     return "text-red-400";
   };
 
@@ -160,6 +163,7 @@ export default function BlockedPage() {
     if (score >= 60) return "Good";
     if (score >= 40) return "Fair";
     if (score >= 20) return "Low";
+
     return "Very Low";
   };
 
@@ -241,14 +245,15 @@ export default function BlockedPage() {
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
                 <div
-                  className={`h-2 rounded-full transition-all duration-500 ${(blockInfo?.trustScore || 0) >= 60
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    (blockInfo?.trustScore || 0) >= 60
                       ? "bg-green-400"
                       : (blockInfo?.trustScore || 0) >= 40
                         ? "bg-yellow-400"
                         : (blockInfo?.trustScore || 0) >= 20
                           ? "bg-orange-400"
                           : "bg-red-400"
-                    }`}
+                  }`}
                   style={{
                     width: `${Math.max(5, blockInfo?.trustScore || 0)}%`,
                   }}
@@ -319,7 +324,9 @@ export default function BlockedPage() {
             {blockInfo?.blockReason === "biometric_not_supported" && (
               <div className="flex items-start space-x-2">
                 <div className="w-1 h-1 bg-gray-500 rounded-full mt-2 flex-shrink-0" />
-                <p>Consider using a device with biometric authentication support</p>
+                <p>
+                  Consider using a device with biometric authentication support
+                </p>
               </div>
             )}
           </div>

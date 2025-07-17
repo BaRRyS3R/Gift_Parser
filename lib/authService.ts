@@ -7,10 +7,14 @@ import type {
   TournamentStatus,
   TournamentListResponse,
 } from "@/types/tournaments";
+import type { ProductType, CreateInvoiceResponse } from "@/types/purchases";
 import type {
-  ProductType,
-  CreateInvoiceResponse,
-} from "@/types/purchases";
+  TaskWithCompletion,
+  TaskCompletionResponse,
+  TaskVerificationResponse,
+  TaskListResponse,
+  TaskType,
+} from "@/types/tasks";
 
 import {
   GameSaveResult,
@@ -25,14 +29,6 @@ import {
   RotationGameResult,
 } from "@/types/game-modes";
 import { TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
-
-import type {
-  TaskWithCompletion,
-  TaskCompletionResponse,
-  TaskVerificationResponse,
-  TaskListResponse,
-  TaskType
-} from "@/types/tasks";
 
 // Enhanced profile types
 export interface ProfileData {
@@ -446,8 +442,8 @@ class AuthService {
   }
 
   /**
- * Get all tasks for the authenticated user
- */
+   * Get all tasks for the authenticated user
+   */
   async getTasks(): Promise<TaskListResponse> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -482,19 +478,26 @@ class AuthService {
   /**
    * Complete a task
    */
-  async completeTask(taskId: number, verificationData?: any): Promise<TaskCompletionResponse> {
+  async completeTask(
+    taskId: number,
+    verificationData?: any,
+  ): Promise<TaskCompletionResponse> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
     try {
-      const response = await this.makeAuthenticatedRequest<TaskCompletionResponse>("/tasks/complete", {
-        method: "POST",
-        body: JSON.stringify({
-          taskId,
-          verificationData,
-        }),
-      });
+      const response =
+        await this.makeAuthenticatedRequest<TaskCompletionResponse>(
+          "/tasks/complete",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              taskId,
+              verificationData,
+            }),
+          },
+        );
 
       // Refresh user data if task was completed successfully
       if (response.success) {
@@ -515,21 +518,25 @@ class AuthService {
   async verifyTask(
     taskId: number,
     verificationType: TaskType,
-    verificationData?: any
+    verificationData?: any,
   ): Promise<TaskVerificationResponse> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
     try {
-      const response = await this.makeAuthenticatedRequest<TaskVerificationResponse>("/tasks/verify", {
-        method: "POST",
-        body: JSON.stringify({
-          taskId,
-          verificationType,
-          verificationData,
-        }),
-      });
+      const response =
+        await this.makeAuthenticatedRequest<TaskVerificationResponse>(
+          "/tasks/verify",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              taskId,
+              verificationType,
+              verificationData,
+            }),
+          },
+        );
 
       return response;
     } catch (error) {
@@ -603,7 +610,9 @@ class AuthService {
   // PURCHASES API METHODS
   // ============================================================================
 
-  async createPurchaseInvoice(productType: ProductType): Promise<CreateInvoiceResponse> {
+  async createPurchaseInvoice(
+    productType: ProductType,
+  ): Promise<CreateInvoiceResponse> {
     if (!this.isAuthenticated()) {
       throw new Error("User authentication required");
     }
@@ -618,7 +627,7 @@ class AuthService {
           method: "POST",
           body: JSON.stringify({
             productType,
-            initData
+            initData,
           }),
         },
       );
@@ -627,7 +636,7 @@ class AuthService {
       throw new Error(
         error instanceof Error
           ? `Invoice creation failed: ${error.message}`
-          : "Failed to create purchase invoice"
+          : "Failed to create purchase invoice",
       );
     }
   }
@@ -661,7 +670,7 @@ class AuthService {
       throw new Error(
         error instanceof Error
           ? `Status check failed: ${error.message}`
-          : "Failed to check purchase status"
+          : "Failed to check purchase status",
       );
     }
   }
@@ -675,13 +684,14 @@ class AuthService {
     }
 
     try {
-      const response = await this.makeAuthenticatedRequest<PurchaseProcessResult>(
-        "/purchases/process",
-        {
-          method: "POST",
-          body: JSON.stringify({ productType, paymentResult }),
-        },
-      );
+      const response =
+        await this.makeAuthenticatedRequest<PurchaseProcessResult>(
+          "/purchases/process",
+          {
+            method: "POST",
+            body: JSON.stringify({ productType, paymentResult }),
+          },
+        );
 
       // Refresh user data after successful purchase processing
       if (response.success) {
@@ -695,7 +705,7 @@ class AuthService {
       throw new Error(
         error instanceof Error
           ? `Purchase processing failed: ${error.message}`
-          : "Failed to process purchase"
+          : "Failed to process purchase",
       );
     }
   }
@@ -719,7 +729,9 @@ class AuthService {
       const invoiceResult = await this.createPurchaseInvoice(productType);
 
       if (!invoiceResult.success || !invoiceResult.invoice_url) {
-        throw new Error(invoiceResult.error || "Failed to create payment invoice");
+        throw new Error(
+          invoiceResult.error || "Failed to create payment invoice",
+        );
       }
 
       console.log("Invoice created successfully - ready for payment");
@@ -728,7 +740,6 @@ class AuthService {
         success: true,
         invoiceUrl: invoiceResult.invoice_url,
       };
-
     } catch (error) {
       console.error("Purchase flow error:", error);
 
@@ -744,14 +755,16 @@ class AuthService {
    */
   async handlePaymentResult(
     productType: ProductType,
-    paymentSuccess: boolean
+    paymentSuccess: boolean,
   ): Promise<PurchaseProcessResult> {
     if (!this.isAuthenticated()) {
       throw new Error("User authentication required");
     }
 
     try {
-      console.log(`Processing payment result: ${paymentSuccess ? 'success' : 'failed'} for ${productType}`);
+      console.log(
+        `Processing payment result: ${paymentSuccess ? "success" : "failed"} for ${productType}`,
+      );
 
       if (!paymentSuccess) {
         return {
@@ -765,7 +778,7 @@ class AuthService {
 
       if (result.success) {
         // Allow time for webhook processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
 
         // Check status to ensure updates are reflected
         await this.checkPurchaseStatus();
@@ -774,13 +787,13 @@ class AuthService {
       }
 
       return result;
-
     } catch (error) {
       console.error("Error handling payment result:", error);
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Payment processing failed",
+        error:
+          error instanceof Error ? error.message : "Payment processing failed",
       };
     }
   }
@@ -800,7 +813,7 @@ class AuthService {
     const initData = window.Telegram.WebApp.initData;
 
     // Validate initData format
-    if (!initData.includes('user=') || !initData.includes('auth_date=')) {
+    if (!initData.includes("user=") || !initData.includes("auth_date=")) {
       throw new Error("Invalid Telegram WebApp initData format");
     }
 
@@ -927,11 +940,14 @@ class AuthService {
     try {
       const response = await this.makeAuthenticatedRequest<{
         winners: TournamentLeaderboardEntry[];
-      }>(`/tournament/winners?tournamentId=${tournamentId}&limit=${prizeCount}`);
+      }>(
+        `/tournament/winners?tournamentId=${tournamentId}&limit=${prizeCount}`,
+      );
 
       return response.winners;
     } catch (error) {
       console.error("Error getting tournament winners:", error);
+
       return [];
     }
   }
@@ -1099,15 +1115,21 @@ class AuthService {
   // LEADERBOARD METHODS
   // ============================================================================
 
-  async getReactionLeaderboard(limit: number = 50): Promise<import("@/types/safe-leaderboard").SafeReactionLeaderboardEntry[]> {
+  async getReactionLeaderboard(
+    limit: number = 50,
+  ): Promise<
+    import("@/types/safe-leaderboard").SafeReactionLeaderboardEntry[]
+  > {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
     try {
-      const response = await this.makeAuthenticatedRequest<import("@/types/safe-leaderboard").LeaderboardResponse<import("@/types/safe-leaderboard").SafeReactionLeaderboardEntry>>(
-        `/leaderboard/reaction?limit=${limit}`
-      );
+      const response = await this.makeAuthenticatedRequest<
+        import("@/types/safe-leaderboard").LeaderboardResponse<
+          import("@/types/safe-leaderboard").SafeReactionLeaderboardEntry
+        >
+      >(`/leaderboard/reaction?limit=${limit}`);
 
       return response.leaderboard;
     } catch (error) {
@@ -1116,15 +1138,21 @@ class AuthService {
     }
   }
 
-  async getSurvivalLeaderboard(limit: number = 50): Promise<import("@/types/safe-leaderboard").SafeSurvivalLeaderboardEntry[]> {
+  async getSurvivalLeaderboard(
+    limit: number = 50,
+  ): Promise<
+    import("@/types/safe-leaderboard").SafeSurvivalLeaderboardEntry[]
+  > {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
     try {
-      const response = await this.makeAuthenticatedRequest<import("@/types/safe-leaderboard").LeaderboardResponse<import("@/types/safe-leaderboard").SafeSurvivalLeaderboardEntry>>(
-        `/leaderboard/survival?limit=${limit}`
-      );
+      const response = await this.makeAuthenticatedRequest<
+        import("@/types/safe-leaderboard").LeaderboardResponse<
+          import("@/types/safe-leaderboard").SafeSurvivalLeaderboardEntry
+        >
+      >(`/leaderboard/survival?limit=${limit}`);
 
       return response.leaderboard;
     } catch (error) {
@@ -1133,15 +1161,19 @@ class AuthService {
     }
   }
 
-  async getPhysicsLeaderboard(limit: number = 50): Promise<import("@/types/safe-leaderboard").SafePhysicsLeaderboardEntry[]> {
+  async getPhysicsLeaderboard(
+    limit: number = 50,
+  ): Promise<import("@/types/safe-leaderboard").SafePhysicsLeaderboardEntry[]> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
     try {
-      const response = await this.makeAuthenticatedRequest<import("@/types/safe-leaderboard").LeaderboardResponse<import("@/types/safe-leaderboard").SafePhysicsLeaderboardEntry>>(
-        `/leaderboard/physics?limit=${limit}`
-      );
+      const response = await this.makeAuthenticatedRequest<
+        import("@/types/safe-leaderboard").LeaderboardResponse<
+          import("@/types/safe-leaderboard").SafePhysicsLeaderboardEntry
+        >
+      >(`/leaderboard/physics?limit=${limit}`);
 
       return response.leaderboard;
     } catch (error) {
@@ -1150,15 +1182,21 @@ class AuthService {
     }
   }
 
-  async getRotationLeaderboard(limit: number = 50): Promise<import("@/types/safe-leaderboard").SafeRotationLeaderboardEntry[]> {
+  async getRotationLeaderboard(
+    limit: number = 50,
+  ): Promise<
+    import("@/types/safe-leaderboard").SafeRotationLeaderboardEntry[]
+  > {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
     }
 
     try {
-      const response = await this.makeAuthenticatedRequest<import("@/types/safe-leaderboard").LeaderboardResponse<import("@/types/safe-leaderboard").SafeRotationLeaderboardEntry>>(
-        `/leaderboard/rotation?limit=${limit}`
-      );
+      const response = await this.makeAuthenticatedRequest<
+        import("@/types/safe-leaderboard").LeaderboardResponse<
+          import("@/types/safe-leaderboard").SafeRotationLeaderboardEntry
+        >
+      >(`/leaderboard/rotation?limit=${limit}`);
 
       return response.leaderboard;
     } catch (error) {
@@ -1213,7 +1251,7 @@ export async function getSecureTasks(): Promise<TaskListResponse> {
  */
 export async function completeSecureTask(
   taskId: number,
-  verificationData?: any
+  verificationData?: any,
 ): Promise<TaskCompletionResponse> {
   return authService.completeTask(taskId, verificationData);
 }
@@ -1224,7 +1262,7 @@ export async function completeSecureTask(
 export async function verifySecureTask(
   taskId: number,
   verificationType: TaskType,
-  verificationData?: any
+  verificationData?: any,
 ): Promise<TaskVerificationResponse> {
   return authService.verifyTask(taskId, verificationType, verificationData);
 }
@@ -1339,7 +1377,9 @@ export async function getAllSecureProfileData(): Promise<{
 }
 
 // Purchases helper functions
-export async function createSecurePurchaseInvoice(productType: ProductType): Promise<CreateInvoiceResponse> {
+export async function createSecurePurchaseInvoice(
+  productType: ProductType,
+): Promise<CreateInvoiceResponse> {
   return authService.createPurchaseInvoice(productType);
 }
 

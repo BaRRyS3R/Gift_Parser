@@ -21,7 +21,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body
-    const { success, completedInTime, biometricSupported = true } = await request.json();
+    const {
+      success,
+      completedInTime,
+      biometricSupported = true,
+    } = await request.json();
 
     if (success === undefined || completedInTime === undefined) {
       return NextResponse.json(

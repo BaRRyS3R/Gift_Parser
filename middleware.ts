@@ -20,7 +20,12 @@ const protectedApiPaths = [
 ];
 
 // Define paths that don't require authentication
-const publicApiPaths = ["/api/auth/login", "/api/auth/register", "/api/health", "/api/check-telegram-membership"];
+const publicApiPaths = [
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/health",
+  "/api/check-telegram-membership",
+];
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute

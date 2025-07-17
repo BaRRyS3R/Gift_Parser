@@ -95,7 +95,8 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!captchaData || !userInput.trim() || isValidating || attemptMade) return;
+    if (!captchaData || !userInput.trim() || isValidating || attemptMade)
+      return;
 
     setIsValidating(true);
     setError(null);
@@ -140,6 +141,7 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
 
   const formatTime = (ms: number): string => {
     const seconds = Math.ceil(ms / 1000);
+
     return `${seconds}s`;
   };
 
@@ -236,7 +238,10 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
               <button
                 className="flex-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 disabled={
-                  !userInput.trim() || isValidating || timeRemaining === 0 || attemptMade
+                  !userInput.trim() ||
+                  isValidating ||
+                  timeRemaining === 0 ||
+                  attemptMade
                 }
                 onClick={handleSubmit}
               >

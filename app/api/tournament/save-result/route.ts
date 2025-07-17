@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         success: false,
         tournamentResult: {
           success: false,
-          message: "bad save"
+          message: "bad save",
         },
       });
     }
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       success: true,
       tournamentResult: {
         success: true,
-        message: "success"
+        message: "success",
       },
     });
   } catch (error) {
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       success: false,
       tournamentResult: {
         success: false,
-        message: "bad save"
+        message: "bad save",
       },
     });
   }

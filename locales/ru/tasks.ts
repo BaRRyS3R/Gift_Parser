@@ -9,7 +9,7 @@ export const tasks = {
   noTasksDescription: "Загляните позже за новыми заданиями",
   failedToLoad: "Не удалось загрузить задания",
   authenticationRequired: "Для просмотра заданий требуется аутентификация",
-  
+
   // Task actions
   complete: "Выполнить",
   completed: "Выполнено",
@@ -22,7 +22,7 @@ export const tasks = {
   joinChannel: "Присоединиться к каналу",
   followAccount: "Подписаться на аккаунт",
   shareStory: "Поделиться историей",
-  
+
   // Task types
   types: {
     telegramChannel: "Telegram канал",
@@ -38,7 +38,7 @@ export const tasks = {
     telegramStory: "Telegram история",
     telegramStoryDesc: "Поделиться в Telegram историях",
   },
-  
+
   // Task status
   status: {
     available: "Доступно",
@@ -48,7 +48,7 @@ export const tasks = {
     verified: "Проверено",
     failed: "Неудачно",
   },
-  
+
   // Rewards
   rewards: {
     attempts: "попыток",
@@ -58,7 +58,7 @@ export const tasks = {
     reward: "Награда",
     totalEarned: "Всего заработано",
   },
-  
+
   // Statistics
   stats: {
     totalTasks: "Всего заданий",
@@ -66,7 +66,7 @@ export const tasks = {
     completionRate: "Процент выполнения",
     totalAttemptsEarned: "Всего попыток заработано",
   },
-  
+
   // Messages
   messages: {
     taskCompleted: "Задание выполнено успешно!",
@@ -78,7 +78,8 @@ export const tasks = {
     verificationSuccess: "Проверка прошла успешно",
     verificationSuccessDesc: "Задание было успешно проверено",
     verificationFailed: "Проверка не удалась",
-    verificationFailedDesc: "Выполните необходимое действие и попробуйте еще раз",
+    verificationFailedDesc:
+      "Выполните необходимое действие и попробуйте еще раз",
     alreadyCompleted: "Задание уже выполнено",
     alreadyCompletedDesc: "Вы уже выполнили это задание",
     taskNotFound: "Задание не найдено",
@@ -86,7 +87,7 @@ export const tasks = {
     confirmCompletion: "Вы уверены, что хотите выполнить это задание?",
     confirmCompletionDesc: "Вы получите {attempts} {plural}",
   },
-  
+
   // Notifications
   notifications: {
     taskSuccess: "Задание выполнено!",
@@ -96,20 +97,28 @@ export const tasks = {
     taskError: "Ошибка задания",
     taskErrorMessage: "Не удалось выполнить задание. Попробуйте еще раз.",
     verificationError: "Ошибка проверки",
-    verificationErrorMessage: "Не удалось проверить задание. Попробуйте еще раз.",
+    verificationErrorMessage:
+      "Не удалось проверить задание. Попробуйте еще раз.",
   },
-  
+
   // Instructions
   instructions: {
-    telegramChannel: "Присоединитесь к Telegram каналу по ссылке ниже, затем нажмите Выполнить для проверки подписки",
-    telegramChat: "Присоединитесь к Telegram чату по ссылке ниже, затем нажмите Выполнить для проверки участия",
-    twitterFollow: "Подпишитесь на Twitter аккаунт по ссылке ниже, затем нажмите Выполнить для проверки подписки",
-    twitterRepost: "Сделайте репост в Twitter по ссылке ниже, затем нажмите Выполнить для проверки репоста",
-    visitWebsite: "Посетите веб-сайт по ссылке ниже, затем нажмите Выполнить для получения награды",
-    telegramStory: "Поделитесь контентом в ваших Telegram историях по ссылке ниже, затем нажмите Выполнить для проверки поста",
-    general: "Выполните требуемое действие по ссылке ниже, затем нажмите Выполнить для получения награды",
+    telegramChannel:
+      "Присоединитесь к Telegram каналу по ссылке ниже, затем нажмите Выполнить для проверки подписки",
+    telegramChat:
+      "Присоединитесь к Telegram чату по ссылке ниже, затем нажмите Выполнить для проверки участия",
+    twitterFollow:
+      "Подпишитесь на Twitter аккаунт по ссылке ниже, затем нажмите Выполнить для проверки подписки",
+    twitterRepost:
+      "Сделайте репост в Twitter по ссылке ниже, затем нажмите Выполнить для проверки репоста",
+    visitWebsite:
+      "Посетите веб-сайт по ссылке ниже, затем нажмите Выполнить для получения награды",
+    telegramStory:
+      "Поделитесь контентом в ваших Telegram историях по ссылке ниже, затем нажмите Выполнить для проверки поста",
+    general:
+      "Выполните требуемое действие по ссылке ниже, затем нажмите Выполнить для получения награды",
   },
-  
+
   // Error messages
   errors: {
     taskNotFound: "Задание не найдено",
@@ -124,7 +133,7 @@ export const tasks = {
     invalidRequest: "Неверный запрос",
     serverError: "Произошла ошибка сервера",
   },
-  
+
   // Buttons
   buttons: {
     complete: "Выполнить",
@@ -140,7 +149,7 @@ export const tasks = {
     confirm: "Подтвердить",
     cancel: "Отменить",
   },
-  
+
   // Badges
   badges: {
     new: "Новое",

@@ -138,7 +138,11 @@ export interface UserBlock {
   id: string;
   user_id: string;
   telegram_id: number;
-  block_reason: "captcha_failed" | "biometric_failed" | "biometric_not_supported" | "suspicious_activity";
+  block_reason:
+    | "captcha_failed"
+    | "biometric_failed"
+    | "biometric_not_supported"
+    | "suspicious_activity";
   blocked_at: string;
   unblocked_at?: string;
   block_duration_minutes: number;
@@ -667,7 +671,11 @@ export const userService = {
    */
   async blockUser(
     telegramId: number,
-    reason: "captcha_failed" | "biometric_failed" | "biometric_not_supported" | "suspicious_activity",
+    reason:
+      | "captcha_failed"
+      | "biometric_failed"
+      | "biometric_not_supported"
+      | "suspicious_activity",
   ): Promise<boolean> {
     try {
       let duration: number;
@@ -964,8 +972,8 @@ export const userService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-              reactionResult.reactionTime) /
-            (totalReactionGames + 1)
+                reactionResult.reactionTime) /
+              (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);

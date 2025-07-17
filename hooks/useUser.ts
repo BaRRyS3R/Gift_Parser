@@ -306,6 +306,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const refreshUser = useCallback(async (): Promise<void> => {
     if (!isAuthenticated) {
       console.log("User not authenticated, skipping refresh");
+
       return;
     }
 
@@ -412,7 +413,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // NEW: Trigger attempts update for external components
   const triggerAttemptsUpdate = useCallback(() => {
-    setAttemptsUpdateTrigger(prev => prev + 1);
+    setAttemptsUpdateTrigger((prev) => prev + 1);
     console.log("Attempts update triggered");
   }, []);
 
@@ -485,49 +486,56 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [attemptsCache, invalidateAttemptsCache, isAuthenticated, signOut]);
 
   // NEW: Force refresh attempts from server (bypass cache)
-  const forceRefreshAttempts = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!isAuthenticated) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      console.log("Force refreshing attempts status from server...");
-
-      // Invalidate cache first
-      invalidateAttemptsCache();
-
-      // Fetch fresh data
-      const status = await authService.getAttemptsStatus();
-
-      // Update cache with fresh data
-      const now = Date.now();
-      setAttemptsCache({
-        status,
-        lastUpdate: now,
-        isValid: true,
-        source: "server",
-      });
-
-      // Trigger update for components
-      triggerAttemptsUpdate();
-
-      console.log("Attempts status force refreshed successfully");
-
-      return status;
-    } catch (error) {
-      console.error("Error force refreshing attempts status:", error);
-
-      if (
-        error instanceof Error &&
-        error.message.includes("Authentication expired")
-      ) {
-        console.log("Token expired during force refresh, signing out user");
-        signOut();
+  const forceRefreshAttempts =
+    useCallback(async (): Promise<AttemptsStatus> => {
+      if (!isAuthenticated) {
+        throw new Error("User not authenticated");
       }
 
-      throw error;
-    }
-  }, [isAuthenticated, invalidateAttemptsCache, triggerAttemptsUpdate, signOut]);
+      try {
+        console.log("Force refreshing attempts status from server...");
+
+        // Invalidate cache first
+        invalidateAttemptsCache();
+
+        // Fetch fresh data
+        const status = await authService.getAttemptsStatus();
+
+        // Update cache with fresh data
+        const now = Date.now();
+
+        setAttemptsCache({
+          status,
+          lastUpdate: now,
+          isValid: true,
+          source: "server",
+        });
+
+        // Trigger update for components
+        triggerAttemptsUpdate();
+
+        console.log("Attempts status force refreshed successfully");
+
+        return status;
+      } catch (error) {
+        console.error("Error force refreshing attempts status:", error);
+
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log("Token expired during force refresh, signing out user");
+          signOut();
+        }
+
+        throw error;
+      }
+    }, [
+      isAuthenticated,
+      invalidateAttemptsCache,
+      triggerAttemptsUpdate,
+      signOut,
+    ]);
 
   // Secure consumeAttemptForGame method using API only
   const consumeAttemptForGame =
@@ -574,7 +582,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
         throw error;
       }
-    }, [invalidateAttemptsCache, isAuthenticated, signOut, triggerAttemptsUpdate]);
+    }, [
+      invalidateAttemptsCache,
+      isAuthenticated,
+      signOut,
+      triggerAttemptsUpdate,
+    ]);
 
   // Achievement notification methods
   const showAchievement = useCallback(
@@ -628,7 +641,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
             });
           },
           (gameResult.levelChanged ? 3000 : 0) +
-          (gameResult.leagueChanged ? 3000 : 0),
+            (gameResult.leagueChanged ? 3000 : 0),
         );
       }
     },

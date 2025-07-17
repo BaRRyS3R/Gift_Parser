@@ -235,9 +235,7 @@ export default function PhysicsGameManager() {
         levelUpdatedState.config.levelDuration * 1000;
 
       if (tooManyMistakes || timeUp) {
-        const deathCause = tooManyMistakes
-          ? "mistakes"
-            : "timeout";
+        const deathCause = tooManyMistakes ? "mistakes" : "timeout";
 
         endGame(deathCause);
 

@@ -369,7 +369,7 @@ export const tournamentService = {
 
         return {
           success: false,
-          message: "bad save"
+          message: "bad save",
         };
       }
 
@@ -377,14 +377,14 @@ export const tournamentService = {
 
       return {
         success: true,
-        message: "success"
+        message: "success",
       };
     } catch (error) {
       console.error("Error saving accumulative tournament result:", error);
 
       return {
         success: false,
-        message: "bad save"
+        message: "bad save",
       };
     }
   },
