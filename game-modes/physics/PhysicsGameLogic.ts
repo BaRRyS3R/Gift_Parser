@@ -107,7 +107,7 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
-        impulseForce: 0.15, // ИСПРАВЛЕНО: увеличил силу импульса
+        impulseForce: 0.1, // ИСПРАВЛЕНО: увеличил силу импульса
         maxMistakes: 5,
         levelDuration: 360,
     };
@@ -126,9 +126,9 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
 
 // ИСПРАВЛЕНО: Увеличенная сила импульса
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.05, // ИСПРАВЛЕНО: увеличил силу импульса с 0.08 до 0.15
+    force: 0.1, // ИСПРАВЛЕНО: увеличил силу импульса с 0.08 до 0.15
     radius: 140,
-    falloff: 0.5,
+    falloff: 0.4,
 };
 
 export const createPhysicsEngine = (): Matter.Engine => {
