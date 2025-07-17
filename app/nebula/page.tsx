@@ -11,6 +11,7 @@ import { useSecurity } from "@/hooks/useSecurity";
 import { useT } from "@/contexts/LocalizationContext";
 import CaptchaModal from "@/components/Security/CaptchaModal";
 import BiometricModal from "@/components/Security/BiometricModal";
+import GyroscopeModal from "@/components/Security/GyroscopeModal";
 
 export default function NebulaSecurityPage() {
     const router = useRouter();
@@ -19,27 +20,31 @@ export default function NebulaSecurityPage() {
         securityState,
         showCaptcha,
         showBiometric,
+        showGyroscope,
         captchaData,
         handleCaptchaSuccess,
         handleCaptchaFailure,
         handleBiometricSuccess,
         handleBiometricFailure,
+        handleGyroscopeFailure,
+        handleGyroscopeSuccess,
         checkSecurity,
         formatTrustScore,
         startCaptchaVerification,
         startBiometricVerification,
+        startGyroscopeVerification,
     } = useSecurity();
     const t = useT();
 
     const [isInitializing, setIsInitializing] = useState(true);
-    const [verificationType, setVerificationType] = useState<'captcha' | 'biometric' | null>(null);
+    const [verificationType, setVerificationType] = useState<'captcha' | 'biometric' | 'gyroscope' | null>(null);
     const [verificationStarted, setVerificationStarted] = useState(false);
     const [completionProgress, setCompletionProgress] = useState(0);
     const [isCompleting, setIsCompleting] = useState(false);
 
     // Single initialization flag to prevent multiple calls
     const initializationCompletedRef = React.useRef(false);
-    const verificationStateRef = React.useRef<'captcha' | 'biometric' | null>(null);
+    const verificationStateRef = React.useRef<'captcha' | 'biometric' | 'gyroscope' | null>(null);
 
     // Check authentication and redirect if needed
     useEffect(() => {
@@ -69,6 +74,7 @@ export default function NebulaSecurityPage() {
                     trustScore: result.trustScore,
                     needsCaptcha: result.needsCaptcha,
                     needsBiometric: result.needsBiometric,
+                    needsGyroscope: result.needsGyroscope,
                     isBlocked: result.isBlocked
                 });
 
@@ -81,12 +87,14 @@ export default function NebulaSecurityPage() {
 
                 // Determine verification requirements based on actual trust score
                 const actualTrustScore = result.trustScore;
-                const requiresBiometric = actualTrustScore < 20;
-                const requiresCaptcha = actualTrustScore < 40 && !requiresBiometric;
+                const requiresGyroscope = actualTrustScore < 10;
+                const requiresBiometric = actualTrustScore < 20 && !requiresGyroscope;
+                const requiresCaptcha = actualTrustScore < 40 && !requiresBiometric && !requiresGyroscope;
                 const requiresAnyVerification = requiresBiometric || requiresCaptcha;
 
                 console.log("Nebula Security: Verification requirements determined:", {
                     actualTrustScore,
+                    requiresGyroscope,
                     requiresBiometric,
                     requiresCaptcha,
                     requiresAnyVerification
@@ -108,6 +116,10 @@ export default function NebulaSecurityPage() {
                     console.log("Nebula Security: Captcha verification required (trust score: " + actualTrustScore + ")");
                     setVerificationType('captcha');
                     verificationStateRef.current = 'captcha';
+                } else if (requiresGyroscope) {
+                    console.log("Nebula Security: Gyroscope verification required (trust score: " + actualTrustScore + ")");
+                    setVerificationType('gyroscope');
+                    verificationStateRef.current = 'gyroscope';
                 }
 
                 setIsInitializing(false);
@@ -128,7 +140,10 @@ export default function NebulaSecurityPage() {
                 console.log("Nebula Security: Using fallback verification logic with trust score:", fallbackTrustScore);
 
                 if (fallbackTrustScore > 0) {
-                    if (fallbackTrustScore < 20) {
+                    if (fallbackTrustScore < 10) {
+                        setVerificationType('gyroscope');
+                        verificationStateRef.current = 'gyroscope';
+                    } else if (fallbackTrustScore < 20) {
                         setVerificationType('biometric');
                         verificationStateRef.current = 'biometric';
                     } else if (fallbackTrustScore < 40) {
@@ -184,6 +199,12 @@ export default function NebulaSecurityPage() {
     }, [router]);
 
     // Enhanced success handlers with completion flow
+    const handleGyroscopeSuccessWrapper = useCallback(() => {
+        console.log("Nebyla Security: Gyroscope verification successful");
+        handleGyroscopeSuccess();
+        handleVerificationSuccess();
+    }, [handleGyroscopeSuccess, handleVerificationSuccess]);
+
     const handleCaptchaSuccessWrapper = useCallback(() => {
         console.log("Nebula Security: Captcha verification successful");
         handleCaptchaSuccess();
@@ -208,6 +229,12 @@ export default function NebulaSecurityPage() {
         handleBiometricFailure();
         handleVerificationFailure();
     }, [handleBiometricFailure, handleVerificationFailure]);
+
+    const handleGyroscopeFailureWrapper = useCallback(() => {
+        console.log("Nebula Security: Gyroscope verification failed");
+        handleGyroscopeFailure();
+        handleVerificationFailure();
+    }, [handleGyroscopeFailure, handleVerificationFailure]);
 
     // Captcha initiation with single-call protection
     const handleStartCaptcha = useCallback(async () => {
@@ -247,6 +274,24 @@ export default function NebulaSecurityPage() {
         }
     }, [startBiometricVerification, verificationStarted]);
 
+    const handleStartGyroscope = useCallback(() => {
+        if (verificationStarted) {
+            console.log("Nebula Security: Gyroscope verification already in progress, ignoring request");
+            return;
+        }
+
+        console.log("Nebula Security: Initiating gyroscope verification process");
+        setVerificationStarted(true);
+
+        try {
+            startGyroscopeVerification();
+            console.log("Nebula Security: Gyroscope verification started successfully");
+        } catch (error) {
+            console.error("Nebula Security: Failed to start gyroscope verification:", error);
+            setVerificationStarted(false);
+        }
+    }, [startGyroscopeVerification, verificationStarted]);
+
     // Get verification display information
     const getVerificationDisplayInfo = () => {
         if (isCompleting) {
@@ -277,6 +322,16 @@ export default function NebulaSecurityPage() {
                     color: "border-blue-400/40 bg-blue-500/10",
                     buttonText: "Start Biometric",
                     buttonAction: handleStartBiometric,
+                    buttonDisabled: verificationStarted
+                };
+            case 'gyroscope':
+                return {
+                    title: "Gyroscope Authentication Required",
+                    description: "Your trust score is very low and requires gyroscope verification for secure access.",
+                    icon: <Fingerprint className="text-blue-400" size={48} />,
+                    color: "border-blue-400/40 bg-blue-500/10",
+                    buttonText: "Start Gyroscope",
+                    buttonAction: handleStartGyroscope,
                     buttonDisabled: verificationStarted
                 };
             default:
@@ -385,8 +440,8 @@ export default function NebulaSecurityPage() {
                     {!isInitializing && !isCompleting && verificationDisplayInfo.buttonAction && (
                         <button
                             className={`w-full px-6 py-4 rounded-lg font-semibold transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center space-x-3 text-lg ${verificationType === 'biometric'
-                                    ? 'bg-blue-600 hover:bg-blue-700 text-white disabled:hover:bg-blue-600'
-                                    : 'bg-yellow-600 hover:bg-yellow-700 text-white disabled:hover:bg-yellow-600'
+                                ? 'bg-blue-600 hover:bg-blue-700 text-white disabled:hover:bg-blue-600'
+                                : 'bg-yellow-600 hover:bg-yellow-700 text-white disabled:hover:bg-yellow-600'
                                 }`}
                             disabled={verificationDisplayInfo.buttonDisabled}
                             onClick={verificationDisplayInfo.buttonAction}
@@ -459,6 +514,7 @@ export default function NebulaSecurityPage() {
                                 Verification requirements are based on your current trust score and recent activity patterns.
                                 {verificationType === 'captcha' && " You have one attempt to complete the captcha within 15 seconds."}
                                 {verificationType === 'biometric' && " You have one attempt to complete biometric authentication within 15 seconds."}
+                                {verificationType === 'gyroscope' && " You have one attempt to complete gyroscope authentication within 15 seconds."}
                             </p>
                         </div>
                     </div>
@@ -476,6 +532,12 @@ export default function NebulaSecurityPage() {
                 isOpen={showBiometric && verificationStarted && verificationType === 'biometric'}
                 onSuccess={handleBiometricSuccessWrapper}
                 onFailure={handleBiometricFailureWrapper}
+            />
+
+            <GyroscopeModal
+                isOpen={showGyroscope && verificationStarted && verificationType === 'gyroscope'}
+                onSuccess={handleGyroscopeSuccessWrapper}
+                onFailure={handleGyroscopeFailureWrapper}
             />
         </div>
     );
