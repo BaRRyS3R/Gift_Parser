@@ -26,56 +26,56 @@ export const PHYSICS_LEVELS: PhysicsLevelConfig[] = [
         maxSimultaneousCircles: 1,
         activationTimeMin: 2000,
         activationTimeMax: 3500,
-        description: "НАЧАЛЬНЫЙ",
+        description: "Start",
     },
     {
         level: 2,
         maxSimultaneousCircles: 2,
         activationTimeMin: 1800,
         activationTimeMax: 3200,
-        description: "ЛЕГКИЙ",
+        description: "Easy",
     },
     {
         level: 3,
         maxSimultaneousCircles: 3,
         activationTimeMin: 1600,
         activationTimeMax: 3000,
-        description: "СРЕДНИЙ",
+        description: "Medium",
     },
     {
         level: 4,
         maxSimultaneousCircles: 4,
         activationTimeMin: 1400,
         activationTimeMax: 2800,
-        description: "СЛОЖНЫЙ",
+        description: "Hard",
     },
     {
         level: 5,
         maxSimultaneousCircles: 5,
         activationTimeMin: 1200,
         activationTimeMax: 2600,
-        description: "ЭКСТРЕМАЛЬНЫЙ",
+        description: "Extreme",
     },
     {
         level: 6,
         maxSimultaneousCircles: 6,
         activationTimeMin: 1000,
         activationTimeMax: 2400,
-        description: "МАСТЕР",
+        description: "Master",
     },
     {
         level: 7,
         maxSimultaneousCircles: 7,
         activationTimeMin: 900,
         activationTimeMax: 2200,
-        description: "ЭКСПЕРТ",
+        description: "Expert",
     },
     {
         level: 8,
         maxSimultaneousCircles: 8,
         activationTimeMin: 800,
         activationTimeMax: 2000,
-        description: "ЛЕГЕНДА",
+        description: "Legend",
     },
 ];
 
@@ -107,7 +107,7 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
-        impulseForce: 0.1, // ИСПРАВЛЕНО: увеличил силу импульса
+        impulseForce: 0.15, // ИСПРАВЛЕНО: увеличил силу импульса
         maxMistakes: 5,
         levelDuration: 360,
     };
@@ -606,30 +606,6 @@ export const deactivatePhysicsCircle = (
         circleTimeouts: newCircleTimeouts,
         circles: newCircles,
     };
-};
-
-// Check if game should end based on escaped circles
-export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
-    const containerWidth = state.config.containerWidth;
-    const containerHeight = state.config.containerHeight;
-    const margin = 50; // Margin for escaped detection
-
-    let escapedCount = 0;
-
-    state.circles.forEach((circle) => {
-        // Check if circle is outside game boundaries
-        if (
-            circle.x < -margin ||
-            circle.x > containerWidth + margin ||
-            circle.y < -margin ||
-            circle.y > containerHeight + margin
-        ) {
-            escapedCount++;
-        }
-    });
-
-    // Game ends when 80% of circles have escaped
-    return escapedCount >= Math.floor(state.circles.length * 0.8);
 };
 
 export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {
