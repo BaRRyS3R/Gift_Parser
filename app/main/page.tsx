@@ -1,16 +1,23 @@
-// src/app/main/page.tsx - Исправленная версия с улучшенной обработкой клика лиги
+// src/app/main/page.tsx - Updated main page without any security logic
 
 "use client";
 
+import type { Tournament } from "@/types/tournaments";
+
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Settings as SettingsIcon, Info, Trophy, Clock } from "lucide-react";
+import {
+  Play,
+  Settings as SettingsIcon,
+  Info,
+  Trophy,
+  Clock,
+} from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
-import { tournamentService } from "@/lib/supabase_tournament_extension";
-import type { Tournament } from "@/types/tournaments";
+import { authService } from "@/lib/authService";
 import { formatTimeRemaining } from "@/types/tournaments";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
@@ -20,7 +27,14 @@ import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal
 
 export default function MainPage() {
   const router = useRouter();
-  const { user, isLoading: userLoading, telegramUser, setTelegramUser } = useUser();
+  const {
+    user,
+    isLoading: userLoading,
+    telegramUser,
+    setTelegramUser,
+    isAuthenticated,
+  } = useUser();
+
   const { settings } = useSettings();
   const t = useT();
 
@@ -54,6 +68,7 @@ export default function MainPage() {
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
   const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
   const [showTournamentButton, setShowTournamentButton] = useState(false);
+  const [tournamentLoading, setTournamentLoading] = useState(false);
 
   /* -------------------------------------------------
    * Dynamic offset for Telegram system UI
@@ -71,6 +86,15 @@ export default function MainPage() {
     }
   }, []);
 
+  // Check authentication status and redirect if needed
+  useEffect(() => {
+    if (!isAuthenticated && !userLoading) {
+      console.log("User not authenticated, redirecting to login");
+      router.push("/");
+      return;
+    }
+  }, [isAuthenticated, userLoading, router]);
+
   // Mark page as visited
   useEffect(() => {
     if (isFirstVisit && typeof window !== "undefined") {
@@ -86,9 +110,13 @@ export default function MainPage() {
     }
   }, [isFirstVisit, user?.first_name, t]);
 
-  // Initialize telegramUser if not set
+  // Initialize telegramUser safely
   useEffect(() => {
-    if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
+    if (
+      !telegramUser &&
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp
+    ) {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
 
@@ -111,19 +139,31 @@ export default function MainPage() {
    * -------------------------------------------------*/
   useEffect(() => {
     const loadTournamentStatus = async () => {
+      if (!isAuthenticated) {
+        console.log("User not authenticated, skipping tournament data load");
+        return;
+      }
+
+      setTournamentLoading(true);
+
       try {
-        const tournamentStatus = await tournamentService.getTournamentStatus();
+        console.log("Loading tournament status via secure API...");
+        const tournamentStatus = await authService.getTournamentStatus();
 
         if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
           setActiveTournament(tournamentStatus.activeTournament);
           setShowTournamentButton(true);
 
           if (tournamentStatus.timeRemaining) {
-            setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
+            setTournamentTimeRemaining(
+              formatTimeRemaining(tournamentStatus.timeRemaining),
+            );
 
             const interval = setInterval(() => {
               const now = new Date();
-              const endDate = new Date(tournamentStatus.activeTournament!.end_date);
+              const endDate = new Date(
+                tournamentStatus.activeTournament!.end_date,
+              );
               const diff = endDate.getTime() - now.getTime();
 
               if (diff <= 0) {
@@ -142,15 +182,31 @@ export default function MainPage() {
           setActiveTournament(null);
           setShowTournamentButton(false);
         }
+
+        console.log("Tournament status loaded successfully via secure API");
       } catch (error) {
-        console.error("Error loading tournament status:", error);
+        console.error("Error loading tournament status via secure API:", error);
+
+        if (
+          error instanceof Error &&
+          error.message.includes("Authentication expired")
+        ) {
+          console.log(
+            "Token expired during tournament load, user will be signed out",
+          );
+        }
+
         setActiveTournament(null);
         setShowTournamentButton(false);
+      } finally {
+        setTournamentLoading(false);
       }
     };
 
-    loadTournamentStatus();
-  }, []);
+    if (isAuthenticated) {
+      loadTournamentStatus();
+    }
+  }, [isAuthenticated]);
 
   /* -------------------------------------------------
    * Background video logic
@@ -161,7 +217,6 @@ export default function MainPage() {
 
   useEffect(() => {
     const video = videoRef.current;
-
     if (!video || !settings.showBackgroundVideo) return;
 
     const handleLoadedMetadata = () => {
@@ -251,23 +306,24 @@ export default function MainPage() {
     setIsAboutOpen(false);
   };
 
-  // ИСПРАВЛЕНИЕ: Улучшенная обработка клика лиги с отладкой
   const handleOpenLeagueProgress = () => {
-    console.log("League progress click detected"); // Отладочная информация
-    console.log("Current user:", user); // Проверяем наличие пользователя
-    console.log("User loading:", userLoading); // Проверяем состояние загрузки
+    console.log("League progress click detected");
+    console.log("Current user:", user);
+    console.log("User loading:", userLoading);
     setIsLeagueProgressOpen(true);
   };
 
   const handleCloseLeagueProgress = () => {
-    console.log("Closing league progress modal"); // Отладочная информация
+    console.log("Closing league progress modal");
     setIsLeagueProgressOpen(false);
   };
 
-  // ДОПОЛНИТЕЛЬНО: Debug информация о состоянии
-  useEffect(() => {
-    console.log("League modal state:", isLeagueProgressOpen);
-  }, [isLeagueProgressOpen]);
+  /* -------------------------------------------------
+   * Early return if not authenticated to prevent any data loading
+   * -------------------------------------------------*/
+  if (!isAuthenticated && !userLoading) {
+    return null; // Will redirect in useEffect
+  }
 
   /* -------------------------------------------------
    * Render
@@ -317,8 +373,7 @@ export default function MainPage() {
           <div className="flex items-center gap-3">
             <button
               aria-label={t("common.settings")}
-              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning}
+              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95"
               onClick={handleOpenSettings}
             >
               <div className="flex items-center justify-center">
@@ -332,8 +387,7 @@ export default function MainPage() {
 
             <button
               aria-label="About"
-              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning}
+              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95"
               onClick={handleOpenAbout}
             >
               <div className="flex items-center justify-center">
@@ -350,8 +404,7 @@ export default function MainPage() {
           {showTournamentButton && activeTournament && (
             <button
               aria-label="Active Tournament"
-              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning}
+              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95"
               onClick={handleOpenTournament}
             >
               <div className="flex items-center space-x-2">
@@ -372,6 +425,14 @@ export default function MainPage() {
               <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
               <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
             </button>
+          )}
+
+          {/* Tournament Loading Indicator */}
+          {tournamentLoading && (
+            <div className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full">
+              <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+              <span className="text-white/60 text-xs">Loading...</span>
+            </div>
           )}
         </div>
       </div>
@@ -396,8 +457,7 @@ export default function MainPage() {
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
 
             <button
-              className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:bg-white/5"
-              disabled={isTransitioning}
+              className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 group-hover:bg-white/5"
               onClick={handleStartGame}
             >
               <div className="flex items-center justify-center space-x-4">
@@ -446,13 +506,9 @@ export default function MainPage() {
         </div>
       </div>
 
-      {/* Settings Modal */}
+      {/* Modals */}
       <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
-
-      {/* About Modal */}
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
-
-      {/* League Progress Modal */}
       <LeagueProgressModal
         isOpen={isLeagueProgressOpen}
         onClose={handleCloseLeagueProgress}
@@ -472,10 +528,10 @@ export default function MainPage() {
         <AttemptsDisplay />
       </div>
 
-      {/* Level and League Display */}
+      {/* League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
+          className={`fixed left-0 right-0 z-41 flex justify-center pointer-events-auto ${isFirstVisit
             ? `transition-all duration-1000 transform ${showLeagueDisplay
               ? "opacity-100 translate-y-0"
               : "opacity-0 translate-y-4"
@@ -484,13 +540,13 @@ export default function MainPage() {
             }`}
           style={{
             bottom: "96px",
-            zIndex: 50
+            zIndex: 35,
           }}
         >
           <div className="pointer-events-auto">
             <CompactLeagueDisplay
-              onClick={handleOpenLeagueProgress}
               className="cursor-pointer"
+              onClick={handleOpenLeagueProgress}
             />
           </div>
         </div>

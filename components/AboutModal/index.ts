@@ -1,2 +1,2 @@
 // src/components/AboutModal/index.ts
-export { default } from './AboutModal';
+export { default } from "./AboutModal";

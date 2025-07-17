@@ -4,10 +4,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+
 import BottomNav from "./BottomNav";
 
 const hiddenPaths = [
-  "/", "/game/reaction", "/game/survival", "/game/physics", "/game", "/tournament/play", "/tournament", "/game/rotation"
+  "/",
+  "/game/reaction",
+  "/game/survival",
+  "/game/physics",
+  "/game",
+  "/tournament/play",
+  "/tournament",
+  "/game/rotation",
+  "/nebula",
+  "/blocked",
 ];
 
 export default function NavigationWrapper() {
@@ -32,6 +42,7 @@ export default function NavigationWrapper() {
       }
 
       prevPathRef.current = pathname;
+
       return;
     }
 
