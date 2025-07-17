@@ -90,7 +90,7 @@ export default function NebulaSecurityPage() {
                 const requiresGyroscope = actualTrustScore < 10;
                 const requiresBiometric = actualTrustScore < 20 && !requiresGyroscope;
                 const requiresCaptcha = actualTrustScore < 40 && !requiresBiometric && !requiresGyroscope;
-                const requiresAnyVerification = requiresBiometric || requiresCaptcha;
+                const requiresAnyVerification = requiresBiometric || requiresCaptcha || requiresGyroscope;
 
                 console.log("Nebula Security: Verification requirements determined:", {
                     actualTrustScore,
