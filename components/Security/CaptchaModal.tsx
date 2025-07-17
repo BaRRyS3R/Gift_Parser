@@ -1,4 +1,4 @@
-// src/components/Security/CaptchaModal.tsx - ИСПРАВЛЕНО: убрана дублирующая генерация капчи
+// src/components/Security/CaptchaModal.tsx - Captcha security verification modal
 
 "use client";
 
@@ -9,7 +9,6 @@ import {
   generateSecureCaptcha,
   validateSecureCaptcha,
 } from "@/lib/authService";
-import { useT } from "@/contexts/LocalizationContext";
 
 interface CaptchaModalProps {
   isOpen: boolean;
@@ -18,12 +17,6 @@ interface CaptchaModalProps {
   onClose?: () => void;
   title?: string;
   description?: string;
-  // НОВОЕ: получаем готовые данные капчи
-  captchaData?: {
-    challenge: string;
-    correctAnswer: string;
-    expiresAt: number;
-  } | null;
 }
 
 const CaptchaModal: React.FC<CaptchaModalProps> = ({
@@ -31,11 +24,9 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
   onSuccess,
   onFailure,
   onClose,
-  title,
-  description,
-  captchaData: externalCaptchaData, // ИСПРАВЛЕНО: используем внешние данные
+  title = "Security Verification",
+  description = "Please complete the captcha to continue",
 }) => {
-  const t = useT();
   const [captchaData, setCaptchaData] = useState<{
     challenge: string;
     correctAnswer: string;
@@ -47,42 +38,18 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasAttempted, setHasAttempted] = useState(false);
+  const [attempts, setAttempts] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const captchaTimeout = 30000; // 30 seconds
+  const maxAttempts = 3;
+  const captchaTimeout = 10000; // 10 seconds
 
-  // ИСПРАВЛЕНО: используем внешние данные капчи вместо генерации новых
+  // Generate captcha when modal opens
   useEffect(() => {
-    if (isOpen && externalCaptchaData && !hasAttempted) {
-      console.log("Using external captcha data:", externalCaptchaData);
-      setCaptchaData(externalCaptchaData);
-      setTimeRemaining(Math.max(0, externalCaptchaData.expiresAt - Date.now()));
-      setError(null);
-      setUserInput("");
+    if (isOpen && !captchaData) {
+      generateCaptcha();
     }
-  }, [isOpen, externalCaptchaData, hasAttempted]);
-
-  // ИСПРАВЛЕНО: генерируем капчу только при ручном обновлении
-  const generateCaptcha = async () => {
-    if (hasAttempted) return; // Не разрешаем генерацию после попытки
-
-    setIsLoading(true);
-    setError(null);
-    setUserInput("");
-
-    try {
-      console.log("Manually generating new captcha...");
-      const data = await generateSecureCaptcha();
-      setCaptchaData(data);
-      setTimeRemaining(captchaTimeout);
-    } catch (error) {
-      console.error("Error generating captcha:", error);
-      setError(t("security.systemError"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [isOpen]);
 
   // Timer countdown
   useEffect(() => {
@@ -90,6 +57,7 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
 
     const timer = setInterval(() => {
       const remaining = Math.max(0, captchaData.expiresAt - Date.now());
+
       setTimeRemaining(remaining);
 
       if (remaining === 0) {
@@ -100,29 +68,40 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
     return () => clearInterval(timer);
   }, [captchaData]);
 
-  // Focus input when captcha is ready
+  // Focus input when captcha is generated
   useEffect(() => {
-    if (captchaData && inputRef.current && !hasAttempted) {
+    if (captchaData && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [captchaData, hasAttempted]);
+  }, [captchaData]);
+
+  const generateCaptcha = async () => {
+    setIsLoading(true);
+    setError(null);
+    setUserInput("");
+
+    try {
+      const data = await generateSecureCaptcha();
+
+      setCaptchaData(data);
+      setTimeRemaining(captchaTimeout);
+    } catch (error) {
+      console.error("Error generating captcha:", error);
+      setError("Failed to generate captcha. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
-    if (!captchaData || !userInput.trim() || isValidating || hasAttempted) return;
+    if (!captchaData || !userInput.trim() || isValidating) return;
 
     setIsValidating(true);
     setError(null);
-    setHasAttempted(true);
 
     const completedInTime = Date.now() < captchaData.expiresAt;
 
     try {
-      console.log("Submitting captcha:", {
-        userInput: userInput.trim(),
-        correctAnswer: captchaData.correctAnswer,
-        completedInTime
-      });
-
       const result = await validateSecureCaptcha(
         userInput.trim(),
         captchaData.correctAnswer,
@@ -132,46 +111,50 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
       if (result.success) {
         onSuccess();
       } else {
-        onFailure();
+        const newAttempts = attempts + 1;
+
+        setAttempts(newAttempts);
+
+        if (newAttempts >= maxAttempts) {
+          onFailure();
+        } else {
+          setError(
+            `Incorrect captcha. ${maxAttempts - newAttempts} attempts remaining.`,
+          );
+          await generateCaptcha();
+        }
       }
     } catch (error) {
       console.error("Error validating captcha:", error);
-      onFailure();
+      setError("Validation failed. Please try again.");
+      await generateCaptcha();
     } finally {
       setIsValidating(false);
     }
   };
 
   const handleTimeout = () => {
-    if (!hasAttempted) {
-      setHasAttempted(true);
+    setError("Time expired. Please try again.");
+    setAttempts((prev) => prev + 1);
+
+    if (attempts + 1 >= maxAttempts) {
       onFailure();
+    } else {
+      generateCaptcha();
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isValidating && !hasAttempted) {
+    if (e.key === "Enter" && !isValidating) {
       handleSubmit();
     }
   };
 
   const formatTime = (ms: number): string => {
     const seconds = Math.ceil(ms / 1000);
+
     return `${seconds}s`;
   };
-
-  // ИСПРАВЛЕНО: сброс состояния при закрытии
-  useEffect(() => {
-    if (!isOpen) {
-      setCaptchaData(null);
-      setUserInput("");
-      setError(null);
-      setHasAttempted(false);
-      setIsLoading(false);
-      setIsValidating(false);
-      setTimeRemaining(0);
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -185,12 +168,8 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
               <Shield className="text-yellow-400" size={32} />
             </div>
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">
-            {title || t("security.captchaTitle")}
-          </h2>
-          <p className="text-gray-400 text-sm">
-            {description || t("security.captchaDescription")}
-          </p>
+          <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
+          <p className="text-gray-400 text-sm">{description}</p>
         </div>
 
         {/* Captcha Display */}
@@ -200,27 +179,27 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
               className="text-blue-400 mx-auto animate-spin"
               size={32}
             />
-            <p className="text-gray-400 mt-2">{t("security.captchaGenerating")}</p>
+            <p className="text-gray-400 mt-2">Generating captcha...</p>
           </div>
-        ) : captchaData && !hasAttempted ? (
+        ) : captchaData ? (
           <div className="space-y-4">
             {/* Captcha Code Display */}
             <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
               <div className="text-2xl font-mono font-bold text-white tracking-widest mb-2">
                 {captchaData.challenge}
               </div>
-              <p className="text-gray-400 text-xs">{t("security.captchaInstructions")}</p>
+              <p className="text-gray-400 text-xs">Enter the code above</p>
             </div>
 
             {/* Timer */}
             <div className="flex items-center justify-center space-x-2 text-sm">
               <Clock className="text-orange-400" size={16} />
               <span
-                className={`font-bold ${timeRemaining < 10000 ? "text-red-400" : "text-orange-400"}`}
+                className={`font-bold ${timeRemaining < 3000 ? "text-red-400" : "text-orange-400"}`}
               >
                 {formatTime(timeRemaining)}
               </span>
-              <span className="text-gray-500">{t("security.captchaTimeRemaining")}</span>
+              <span className="text-gray-500">remaining</span>
             </div>
 
             {/* Input */}
@@ -229,8 +208,8 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
                 ref={inputRef}
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white text-center font-mono text-lg tracking-widest focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 disabled={isValidating || timeRemaining === 0}
-                maxLength={10}
-                placeholder={t("security.captchaPlaceholder")}
+                maxLength={5}
+                placeholder="Enter captcha code"
                 type="text"
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value.toUpperCase())}
@@ -249,10 +228,10 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
               </div>
             )}
 
-            {/* Single Attempt Warning */}
+            {/* Attempts Counter */}
             <div className="text-center">
-              <p className="text-yellow-400 text-sm font-semibold">
-                ⚠️ Only 1 attempt allowed
+              <p className="text-gray-500 text-xs">
+                Attempt {attempts + 1} of {maxAttempts}
               </p>
             </div>
 
@@ -260,57 +239,42 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
             <div className="flex space-x-3 pt-2">
               <button
                 className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                disabled={isLoading || isValidating || hasAttempted}
+                disabled={isLoading || isValidating}
                 onClick={generateCaptcha}
               >
                 <RefreshCw size={16} />
-                <span>{t("security.captchaRefresh")}</span>
+                <span>Refresh</span>
               </button>
 
               <button
                 className="flex-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 disabled={
-                  !userInput.trim() || isValidating || timeRemaining === 0 || hasAttempted
+                  !userInput.trim() || isValidating || timeRemaining === 0
                 }
                 onClick={handleSubmit}
               >
                 {isValidating ? (
                   <>
                     <RefreshCw className="animate-spin" size={16} />
-                    <span>{t("security.verifying")}</span>
+                    <span>Verifying...</span>
                   </>
                 ) : (
                   <>
                     <Shield size={16} />
-                    <span>{t("security.captchaVerify")}</span>
+                    <span>Verify</span>
                   </>
                 )}
               </button>
             </div>
           </div>
-        ) : hasAttempted ? (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="text-red-400" size={32} />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-2">
-              {t("security.verificationFailed")}
-            </h3>
-            <p className="text-gray-400 text-sm mb-4">
-              Processing security action...
-            </p>
-            <div className="animate-pulse">
-              <div className="w-8 h-8 bg-red-500 rounded-full mx-auto opacity-50"></div>
-            </div>
-          </div>
         ) : (
           <div className="text-center py-4">
-            <p className="text-red-400">{t("security.systemError")}</p>
+            <p className="text-red-400">Failed to load captcha</p>
             <button
               className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
               onClick={generateCaptcha}
             >
-              {t("security.tryAgain")}
+              Try Again
             </button>
           </div>
         )}
@@ -318,7 +282,8 @@ const CaptchaModal: React.FC<CaptchaModalProps> = ({
         {/* Warning Message */}
         <div className="mt-6 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
           <p className="text-yellow-300 text-xs text-center">
-            {t("security.captchaWarning")}
+            Security verification required. Your account will be temporarily
+            blocked if verification fails.
           </p>
         </div>
       </div>

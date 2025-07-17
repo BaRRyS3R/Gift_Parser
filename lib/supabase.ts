@@ -150,7 +150,6 @@ export interface SecurityCheckResult {
   isBlocked: boolean;
   needsCaptcha: boolean;
   needsBiometric: boolean;
-  needsGyroscope: boolean;
   trustScore: number;
   timeUntilUnblock?: number;
   blockReason?: string;
@@ -646,7 +645,6 @@ export const userService = {
         isBlocked,
         needsCaptcha: !isBlocked && trustScore < 40,
         needsBiometric: !isBlocked && trustScore < 20,
-        needsGyroscope: !isBlocked && trustScore < 10,
         trustScore,
         timeUntilUnblock:
           timeUntilUnblock && timeUntilUnblock > 0

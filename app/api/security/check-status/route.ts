@@ -1,4 +1,4 @@
-// src/app/api/security/check-status/route.ts - ИСПРАВЛЕНО: прямые запросы вместо RPC
+// src/app/api/security/check-status/route.ts - Security check status API endpoint
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -20,10 +20,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get current server time
-    const serverTime = new Date();
+    // First check and unblock if time has passed
+    const { error: unblockError } = await supabaseServer.rpc(
+      "check_and_unblock_user",
+      {
+        user_telegram_id: parseInt(telegramId),
+      },
+    );
 
-    // ИСПРАВЛЕНО: сначала проверяем и разблокируем пользователя если время прошло
+    if (unblockError) {
+      console.error("Error checking unblock status:", unblockError);
+    }
+
+    // Get current user data
     const { data: user, error: userError } = await supabaseServer
       .from("users")
       .select("trust_score, blocked_until, is_active")
@@ -32,6 +41,7 @@ export async function GET(request: NextRequest) {
 
     if (userError || !user) {
       console.error("Database error fetching user:", userError);
+
       return NextResponse.json(
         {
           success: false,
@@ -42,45 +52,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Автоматическое разблокирование если время прошло
-    if (user.blocked_until && new Date(user.blocked_until) <= serverTime) {
-      console.log(`Auto-unblocking user ${telegramId} - block time expired`);
-
-      // Разблокируем пользователя
-      const { error: unblockError } = await supabaseServer
-        .from("users")
-        .update({
-          blocked_until: null,
-          is_active: true,
-          updated_at: serverTime.toISOString(),
-        })
-        .eq("id", userId);
-
-      if (unblockError) {
-        console.error("Error auto-unblocking user:", unblockError);
-      }
-
-      // Деактивируем активные блоки
-      const { error: deactivateError } = await supabaseServer
-        .from("user_blocks")
-        .update({
-          is_active: false,
-          unblocked_at: serverTime.toISOString(),
-          updated_at: serverTime.toISOString(),
-        })
-        .eq("telegram_id", parseInt(telegramId))
-        .eq("is_active", true);
-
-      if (deactivateError) {
-        console.error("Error deactivating blocks:", deactivateError);
-      }
-
-      // Обновляем локальные данные пользователя
-      user.blocked_until = null;
-      user.is_active = true;
-    }
-
-    // Проверяем статус блокировки
+    // Get current server time
+    const serverTime = new Date();
     const isBlocked = user.blocked_until
       ? new Date(user.blocked_until) > serverTime
       : false;
@@ -92,7 +65,7 @@ export async function GET(request: NextRequest) {
       timeUntilUnblock =
         new Date(user.blocked_until).getTime() - serverTime.getTime();
 
-      // Получаем причину блокировки
+      // Get the most recent active block reason
       const { data: blockData } = await supabaseServer
         .from("user_blocks")
         .select("block_reason")
@@ -109,21 +82,12 @@ export async function GET(request: NextRequest) {
 
     const trustScore = user.trust_score || 50;
 
-    // NEW: Updated security thresholds
-    const needsCaptcha = !isBlocked && trustScore < 50;
-    const needsBiometric = !isBlocked && trustScore < 20;
-    const needsGyroscope = !isBlocked && trustScore < 10;
-
-    console.log(`Security check for user ${telegramId}: trust_score=${trustScore}, blocked=${isBlocked}, needs_captcha=${needsCaptcha}, needs_biometric=${needsBiometric}, needs_gyroscope=${needsGyroscope}`);
-
     return NextResponse.json({
       success: true,
       securityResult: {
         isBlocked,
-        needsCaptcha,
-        needsBiometric,
-        needsGyroscope,
-        trustScore,
+        needsCaptcha: !isBlocked && trustScore < 40,
+        needsBiometric: !isBlocked && trustScore < 20,
         timeUntilUnblock:
           timeUntilUnblock && timeUntilUnblock > 0
             ? timeUntilUnblock

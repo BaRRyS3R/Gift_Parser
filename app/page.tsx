@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated intro page with block check before main redirect
+// src/app/page.tsx - Updated intro page with corrected registration flow
 
 "use client";
 
@@ -29,7 +29,6 @@ interface AuthState {
   isBlocked?: boolean;
   blockReason?: string;
   timeUntilUnblock?: number;
-  isCheckingBlock?: boolean;
 }
 
 export default function IntroPage(): JSX.Element {
@@ -49,7 +48,7 @@ export default function IntroPage(): JSX.Element {
   const authInitializedRef = useRef<boolean>(false);
   const registrationInProgressRef = useRef<boolean>(false);
   const videoAuthenticationRef = useRef<boolean>(false);
-  const blockCheckRef = useRef<boolean>(false);
+  const securityCheckRef = useRef<boolean>(false);
 
   // Authorization state
   const [authState, setAuthState] = useState<AuthState>({
@@ -58,7 +57,6 @@ export default function IntroPage(): JSX.Element {
     telegramUser: null,
     error: null,
     needsRegistration: false,
-    isCheckingBlock: false,
   });
 
   // Enhanced loading state management
@@ -83,55 +81,18 @@ export default function IntroPage(): JSX.Element {
     authStateRef.current = authState;
   }, [authState]);
 
-  // Check if already authenticated and redirect (with block check)
+  // Check if already authenticated and redirect
   useEffect(() => {
     if (isAuthenticated && contextUser && !authInitializedRef.current) {
-      console.log("User already authenticated, checking block status before redirect");
-      performBlockCheckAndRedirect();
-      return;
-    }
-  }, [isAuthenticated, contextUser, router]);
-
-  // NEW: Block check function before redirecting to main
-  const performBlockCheckAndRedirect = useCallback(async () => {
-    if (blockCheckRef.current) return;
-
-    blockCheckRef.current = true;
-    setAuthState(prev => ({ ...prev, isCheckingBlock: true }));
-
-    try {
-      const telegramUser = getTelegramUser();
-      if (!telegramUser) {
-        console.log("No telegram user found, redirecting to main");
-        router.push("/main");
-        return;
-      }
-
-      console.log("Checking user block status before redirect...");
-      const securityResult = await authService.checkUserBlockedStatus(telegramUser.id);
-
-      if (securityResult.isBlocked) {
-        console.log("User is blocked, redirecting to blocked page");
-        router.push("/blocked");
-      } else {
-        console.log("User not blocked, redirecting to main");
-        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
-        setTimeout(() => {
-          router.push("/main");
-        }, 500);
-      }
-    } catch (error) {
-      console.error("Error checking block status:", error);
-      // On error, still redirect to main (fail open)
-      console.log("Block check failed, redirecting to main anyway");
+      console.log("User already authenticated, redirecting to main");
+      setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
       setTimeout(() => {
         router.push("/main");
       }, 500);
-    } finally {
-      setAuthState(prev => ({ ...prev, isCheckingBlock: false }));
-      blockCheckRef.current = false;
+
+      return;
     }
-  }, [router]);
+  }, [isAuthenticated, contextUser, router]);
 
   // Extract referral code from Telegram start parameter
   const extractReferralCode = useCallback((): string | undefined => {
@@ -143,6 +104,7 @@ export default function IntroPage(): JSX.Element {
 
       if (startParam && startParam.length === 8) {
         console.log("Referral code extracted from start param:", startParam);
+
         return startParam;
       }
     }
@@ -153,6 +115,7 @@ export default function IntroPage(): JSX.Element {
 
       if (refCode) {
         console.log("Referral code extracted from URL (dev):", refCode);
+
         return refCode;
       }
     }
@@ -237,10 +200,11 @@ export default function IntroPage(): JSX.Element {
     }
 
     const tg = window.Telegram.WebApp;
+
     return tg.initData || null;
   }, []);
 
-  // Check login status first (for existing users)
+  // UPDATED: Check login status first (for existing users)
   const checkUserLoginStatus = useCallback(
     async (
       telegramUser: TelegramUser,
@@ -253,12 +217,13 @@ export default function IntroPage(): JSX.Element {
       }
 
       console.log("Checking user login status via API...");
+
       return await authService.checkLoginStatus(initData, referralCode);
     },
     [getTelegramInitData, t],
   );
 
-  // Register new user
+  // UPDATED: Register new user
   const registerNewUser = useCallback(
     async (
       telegramUser: TelegramUser,
@@ -332,7 +297,9 @@ export default function IntroPage(): JSX.Element {
           };
 
           updateUser(user);
+
           console.log("User registration successful");
+
           return result;
         } else {
           throw new Error(result.error || "Registration failed");
@@ -352,7 +319,7 @@ export default function IntroPage(): JSX.Element {
     [getTelegramInitData, updateUser, t],
   );
 
-  // Initialize auth with proper login/register flow
+  // UPDATED: Initialize auth with proper login/register flow
   const initializeAuth = useCallback(async () => {
     if (authInitializedRef.current) return;
 
@@ -363,8 +330,12 @@ export default function IntroPage(): JSX.Element {
 
       // Skip if already authenticated
       if (isAuthenticated && contextUser) {
-        console.log("User already authenticated, checking block status");
-        await performBlockCheckAndRedirect();
+        console.log("User already authenticated, redirecting to main");
+        setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+        setTimeout(() => {
+          router.push("/main");
+        }, 500);
+
         return;
       }
 
@@ -382,13 +353,14 @@ export default function IntroPage(): JSX.Element {
           error: t("auth.telegramDataUnavailable"),
         }));
         setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+
         return;
       }
 
       // Set telegram user in context
       setTelegramUser(telegramUser);
 
-      // Check login status first
+      // UPDATED: Check login status first
       console.log("Checking login status...");
       const loginResult = await checkUserLoginStatus(
         telegramUser,
@@ -405,6 +377,7 @@ export default function IntroPage(): JSX.Element {
           timeUntilUnblock: loginResult.timeUntilUnblock,
         }));
         router.push("/blocked");
+
         return;
       }
 
@@ -476,8 +449,10 @@ export default function IntroPage(): JSX.Element {
 
         setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
 
-        // NEW: Check block status before redirecting
-        await performBlockCheckAndRedirect();
+        setTimeout(() => {
+          router.push("/main");
+        }, 500);
+
         return;
       }
 
@@ -493,6 +468,7 @@ export default function IntroPage(): JSX.Element {
           needsRegistration: true,
         }));
         setStableLoadingState((prev) => ({ ...prev, isAuthReady: true }));
+
         return;
       }
 
@@ -522,7 +498,6 @@ export default function IntroPage(): JSX.Element {
     setTelegramUser,
     updateUser,
     t,
-    performBlockCheckAndRedirect,
   ]);
 
   // Initialize Service Worker and font
@@ -574,6 +549,7 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
+
           setLoadProgress(progress);
         }
       }
@@ -583,7 +559,7 @@ export default function IntroPage(): JSX.Element {
       setIsLoading(false);
     };
 
-    // Video end handling with block check
+    // UPDATED: Video end handling with corrected authentication flow
     const handleEnded = async () => {
       console.log("Video completed");
 
@@ -603,6 +579,7 @@ export default function IntroPage(): JSX.Element {
       if (currentAuthState.isBlocked) {
         console.log("User is blocked, redirecting to blocked page");
         router.push("/blocked");
+
         return;
       }
 
@@ -620,9 +597,12 @@ export default function IntroPage(): JSX.Element {
           );
 
           if (registrationResult.success) {
-            console.log("Registration successful, checking block status before redirect");
-            // NEW: Check block status after registration
-            await performBlockCheckAndRedirect();
+            console.log(
+              "Registration successful, redirecting to main in 1 second",
+            );
+            setTimeout(() => {
+              router.push("/main");
+            }, 1000);
           }
         } catch (error) {
           console.error("Registration error after video:", error);
@@ -631,8 +611,8 @@ export default function IntroPage(): JSX.Element {
           }, 2000);
         }
       } else if (isAuthenticated) {
-        console.log("User already authenticated, checking block status");
-        await performBlockCheckAndRedirect();
+        console.log("User already authenticated, redirecting to main");
+        router.push("/main");
       } else {
         console.log("Unexpected state after video, forcing redirect");
         setTimeout(() => {
@@ -661,7 +641,7 @@ export default function IntroPage(): JSX.Element {
       video.removeEventListener("ended", handleEnded);
       video.removeEventListener("error", handleError);
     };
-  }, [router, registerNewUser, isAuthenticated, performBlockCheckAndRedirect]);
+  }, [router, registerNewUser, isAuthenticated]);
 
   // Initialize authorization
   useEffect(() => {
@@ -690,7 +670,7 @@ export default function IntroPage(): JSX.Element {
     }
   };
 
-  // Quick registration without video
+  // UPDATED: Quick registration without video
   const handleQuickInit = async () => {
     if (
       !authState.telegramUser ||
@@ -709,8 +689,10 @@ export default function IntroPage(): JSX.Element {
       );
 
       if (registrationResult.success) {
-        console.log("Quick registration successful, checking block status");
-        await performBlockCheckAndRedirect();
+        console.log("Quick registration successful");
+        setTimeout(() => {
+          router.push("/main");
+        }, 1000);
       }
     } catch (error) {
       console.error("Quick registration error:", error);
@@ -749,8 +731,6 @@ export default function IntroPage(): JSX.Element {
         return "Failed Captcha Verification";
       case "biometric_failed":
         return "Failed Biometric Authentication";
-      case "gyroscope_failed":
-        return "Failed Motion Verification";
       case "suspicious_activity":
         return "Suspicious Activity Detected";
       default:
@@ -762,7 +742,6 @@ export default function IntroPage(): JSX.Element {
   const isInitialLoading =
     stableLoadingState.isInitializing ||
     (authState.isChecking && !isPlaying) ||
-    authState.isCheckingBlock ||
     (contextLoading && !isPlaying) ||
     (isLoading &&
       !videoError &&
@@ -781,11 +760,9 @@ export default function IntroPage(): JSX.Element {
             />
           </div>
           <p className="text-white mt-4 text-sm">
-            {authState.isCheckingBlock
-              ? "Checking security status..."
-              : authState.isChecking
-                ? t("auth.checkingUser")
-                : `${t("common.loading")} ${Math.round(loadProgress)}%`}
+            {authState.isChecking
+              ? t("auth.checkingUser")
+              : `${t("common.loading")} ${Math.round(loadProgress)}%`}
           </p>
         </div>
       )}
@@ -833,7 +810,7 @@ export default function IntroPage(): JSX.Element {
               authInitializedRef.current = false;
               registrationInProgressRef.current = false;
               videoAuthenticationRef.current = false;
-              blockCheckRef.current = false; // ИСПРАВЛЕНО: заменил securityCheckRef на blockCheckRef
+              securityCheckRef.current = false;
               setAuthState((prev) => ({
                 ...prev,
                 error: null,

@@ -1,4 +1,4 @@
-// src/lib/authService.ts - Enhanced with complete profile API integration, tasks/purchases support and gyroscope validation
+// src/lib/authService.ts - Enhanced with complete profile API integration and tasks/purchases support
 
 import type {
   Tournament,
@@ -15,6 +15,7 @@ import type {
 import {
   GameSaveResult,
   AttemptsStatus,
+  SecurityCheckResult,
   userService,
 } from "@/lib/supabase";
 import {
@@ -184,17 +185,6 @@ export interface PurchaseProcessResult {
   };
   message?: string;
   error?: string;
-}
-
-// Updated SecurityCheckResult interface with gyroscope support
-export interface SecurityCheckResult {
-  isBlocked: boolean;
-  needsCaptcha: boolean;
-  needsBiometric: boolean;
-  needsGyroscope: boolean;
-  trustScore: number;
-  timeUntilUnblock?: number;
-  blockReason?: string;
 }
 
 type GameResult =
@@ -455,13 +445,9 @@ class AuthService {
     this.removeTokenFromStorage();
   }
 
-  // ============================================================================
-  // TASKS API METHODS
-  // ============================================================================
-
   /**
-   * Get all tasks for the authenticated user
-   */
+ * Get all tasks for the authenticated user
+ */
   async getTasks(): Promise<TaskListResponse> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -845,6 +831,16 @@ class AuthService {
     ).then((data) => data.user);
   }
 
+  async checkUserSecurityStatus(): Promise<SecurityCheckResult> {
+    if (!this.isAuthenticated()) {
+      throw new Error("User not authenticated");
+    }
+
+    return this.makeAuthenticatedRequest<{
+      securityResult: SecurityCheckResult;
+    }>("/security/check-status").then((data) => data.securityResult);
+  }
+
   async getLeagueProgress(): Promise<LeagueProgressInfo> {
     if (!this.isAuthenticated()) {
       throw new Error("User not authenticated");
@@ -1022,18 +1018,8 @@ class AuthService {
   }
 
   // ============================================================================
-  // UPDATED SECURITY METHODS WITH NEW THRESHOLDS AND GYROSCOPE SUPPORT
+  // SECURITY METHODS
   // ============================================================================
-
-  async checkUserSecurityStatus(): Promise<SecurityCheckResult> {
-    if (!this.isAuthenticated()) {
-      throw new Error("User not authenticated");
-    }
-
-    return this.makeAuthenticatedRequest<{
-      securityResult: SecurityCheckResult;
-    }>("/security/check-status").then((data) => data.securityResult);
-  }
 
   async generateCaptcha(): Promise<{
     challenge: string;
@@ -1081,62 +1067,12 @@ class AuthService {
     });
   }
 
-  // ============================================================================
-  // NEW GYROSCOPE VALIDATION METHODS
-  // ============================================================================
-
-  /**
-   * Validate gyroscope motion data
-   */
-  async validateGyroscope(
-    success: boolean,
-    completedInTime: boolean,
-    verificationData?: any,
-  ): Promise<{ success: boolean; newTrustScore: number; blocked?: boolean }> {
-    return this.makeAuthenticatedRequest<{
-      success: boolean;
-      newTrustScore: number;
-      blocked?: boolean;
-      message?: string;
-    }>("/security/validate-gyroscope", {
-      method: "POST",
-      body: JSON.stringify({
-        success,
-        completedInTime,
-        verificationData,
-      }),
-    });
-  }
-
-  /**
-   * Check if device supports gyroscope
-   */
-  async checkGyroscopeSupport(): Promise<boolean> {
-    if (typeof window === "undefined") return false;
-
-    const tg = window.Telegram?.WebApp;
-    return !!(tg?.Gyroscope && tg?.DeviceOrientation);
-  }
-
   async updateTrustScore(scoreChange: number): Promise<number> {
     return this.makeAuthenticatedRequest<{ newTrustScore: number }>(
       "/security/update-trust-score",
       {
         method: "POST",
         body: JSON.stringify({ scoreChange }),
-      },
-    ).then((data) => data.newTrustScore);
-  }
-
-  /**
-   * Set absolute trust score value
-   */
-  async setTrustScore(newScore: number): Promise<number> {
-    return this.makeAuthenticatedRequest<{ newTrustScore: number }>(
-      "/security/set-trust-score",
-      {
-        method: "POST",
-        body: JSON.stringify({ newScore }),
       },
     ).then((data) => data.newTrustScore);
   }
@@ -1149,10 +1085,12 @@ class AuthService {
         return await this.checkUserSecurityStatus();
       } else {
         console.warn("User not authenticated, using direct service call");
+
         return await userService.checkUserBlockStatus(telegramId);
       }
     } catch (error) {
       console.warn("Auth API failed, using direct service call");
+
       return await userService.checkUserBlockStatus(telegramId);
     }
   }
@@ -1261,9 +1199,7 @@ class AuthService {
 // Singleton instance
 export const authService = new AuthService();
 
-// ============================================================================
-// HELPER FUNCTIONS FOR BACKWARD COMPATIBILITY
-// ============================================================================
+// Также добавить эти helper functions в конец файла:
 
 /**
  * Get secure tasks list
@@ -1293,7 +1229,7 @@ export async function verifySecureTask(
   return authService.verifyTask(taskId, verificationType, verificationData);
 }
 
-// Helper functions for authentication
+// Helper functions for backward compatibility
 export async function authenticateUser(
   initData: string,
   referralCode?: string,
@@ -1355,28 +1291,6 @@ export async function validateSecureBiometric(
   completedInTime: boolean,
 ): Promise<{ success: boolean; newTrustScore: number }> {
   return authService.validateBiometric(success, completedInTime);
-}
-
-// ============================================================================
-// NEW HELPER FUNCTIONS FOR GYROSCOPE
-// ============================================================================
-
-/**
- * Validate gyroscope security check
- */
-export async function validateSecureGyroscope(
-  success: boolean,
-  completedInTime: boolean,
-  verificationData?: any,
-): Promise<{ success: boolean; newTrustScore: number; blocked?: boolean }> {
-  return authService.validateGyroscope(success, completedInTime, verificationData);
-}
-
-/**
- * Check if gyroscope is supported
- */
-export async function checkGyroscopeSupport(): Promise<boolean> {
-  return authService.checkGyroscopeSupport();
 }
 
 export async function updateSecureTrustScore(
