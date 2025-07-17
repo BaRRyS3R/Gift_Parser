@@ -118,15 +118,15 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
     containerWidth: 350, // Will be overridden by adaptive config
     containerHeight: 500, // Will be overridden by adaptive config
     wallThickness: 20,
-    gravity: { x: 0, y: 1.2 }, // ИСПРАВЛЕНО: увеличил гравитацию с 0.5 до 1.2
+    gravity: { x: 0, y: 1.0 }, // ИСПРАВЛЕНО: увеличил гравитацию с 0.5 до 1.2
     restitution: 0.7, // ИСПРАВЛЕНО: немного уменьшил упругость для более реалистичного поведения
-    friction: 0.001, // ИСПРАВЛЕНО: уменьшил трение
-    frictionAir: 0.001, // ИСПРАВЛЕНО: существенно уменьшил воздушное трение с 0.015 до 0.005
+    friction: 0.002, // ИСПРАВЛЕНО: уменьшил трение
+    frictionAir: 0.01, // ИСПРАВЛЕНО: существенно уменьшил воздушное трение с 0.015 до 0.005
 };
 
 // ИСПРАВЛЕНО: Увеличенная сила импульса
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.15, // ИСПРАВЛЕНО: увеличил силу импульса с 0.08 до 0.15
+    force: 0.08, // ИСПРАВЛЕНО: увеличил силу импульса с 0.08 до 0.15
     radius: 150,
     falloff: 0.4,
 };
@@ -137,7 +137,7 @@ export const createPhysicsEngine = (): Matter.Engine => {
     // ИСПРАВЛЕНО: Применяем обновленные настройки гравитации
     engine.world.gravity.x = PHYSICS_ENGINE_CONFIG.gravity.x;
     engine.world.gravity.y = PHYSICS_ENGINE_CONFIG.gravity.y;
-    engine.timing.timeScale = 1.2;
+    engine.timing.timeScale = 1;
 
     return engine;
 };
@@ -185,12 +185,6 @@ export const createPhysicsCircles = (
             frictionAir: PHYSICS_ENGINE_CONFIG.frictionAir,
             density: 0.002, // ИСПРАВЛЕНО: увеличил плотность с 0.002 до 0.008
             label: `circle_${i}`,
-            // ИСПРАВЛЕНО: Добавил оптимизации для производительности
-            /*render: {
-                fillStyle: '#ffffff',
-                strokeStyle: '#e5e5e5',
-                lineWidth: 2
-            }*/
         });
 
         Matter.World.add(engine.world, body);
