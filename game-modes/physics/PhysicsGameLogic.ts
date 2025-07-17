@@ -124,7 +124,7 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
-  force: 0.08,
+  force: 0.18,
   radius: 150,
   falloff: 0.4,
 };
