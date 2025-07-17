@@ -1,4 +1,4 @@
-// src/components/Security/GyroscopeModal.tsx - Упрощенная реализация только с браузерным API
+// src/components/Security/GyroscopeModal.tsx - Реализация на основе рабочего кода
 
 "use client";
 
@@ -22,13 +22,21 @@ interface GyroscopeModalProps {
     onClose?: () => void;
 }
 
+interface MotionSample {
+    timestamp: number;
+    motion: number;
+    alpha: number;
+    beta: number;
+    gamma: number;
+}
+
 const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
     isOpen,
     onSuccess,
     onFailure,
     onClose,
 }) => {
-    const [timeRemaining, setTimeRemaining] = useState(15000);
+    const [timeRemaining, setTimeRemaining] = useState(10000);
     const [progress, setProgress] = useState(0);
     const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -37,17 +45,22 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
     const [motionIntensity, setMotionIntensity] = useState(0);
     const [isCompleted, setIsCompleted] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [motionSamples, setMotionSamples] = useState<MotionSample[]>([]);
 
-    // Refs для хранения данных между рендерами
-    const lastOrientationRef = useRef({ alpha: 0, beta: 0, gamma: 0 });
-    const motionDataRef = useRef<number[]>([]);
+    // Refs для данных движения (как в рабочем файле)
+    const lastTimeRef = useRef<number>(Date.now());
+    const lastAlphaRef = useRef<number>(0);
+    const lastBetaRef = useRef<number>(0);
+    const lastGammaRef = useRef<number>(0);
+    const totalMotionRef = useRef<number>(0);
+    const motionSamplesLocalRef = useRef<MotionSample[]>([]);
+    const isFirstReadingRef = useRef<boolean>(true);
     const startTimeRef = useRef<number>(0);
-    const isFirstReadingRef = useRef(true);
 
-    const VERIFICATION_TIMEOUT = 15000;
-    const MOTION_THRESHOLD = 5;
-    const REQUIRED_MOTION_TOTAL = 200;
-    const MIN_SAMPLES = 10;
+    const VERIFICATION_TIMEOUT = 10000; // 10 секунд как в рабочем файле
+    const MOTION_THRESHOLD = 1; // ПОНИЖЕН для отладки (было 8)
+    const REQUIRED_MOTION = 50; // ПОНИЖЕН для отладки (было 300) 
+    const MIN_SAMPLES = 5; // ПОНИЖЕН для отладки (было 15)
 
     // Сброс состояния при открытии/закрытии модала
     useEffect(() => {
@@ -69,10 +82,17 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         setMotionIntensity(0);
         setIsCompleted(false);
         setIsProcessing(false);
-        lastOrientationRef.current = { alpha: 0, beta: 0, gamma: 0 };
-        motionDataRef.current = [];
-        startTimeRef.current = 0;
+        setMotionSamples([]);
+
+        // Сброс refs
+        lastTimeRef.current = Date.now();
+        lastAlphaRef.current = 0;
+        lastBetaRef.current = 0;
+        lastGammaRef.current = 0;
+        totalMotionRef.current = 0;
+        motionSamplesLocalRef.current = [];
         isFirstReadingRef.current = true;
+        startTimeRef.current = 0;
     };
 
     const cleanup = () => {
@@ -82,84 +102,138 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
     };
 
     const checkSupport = async () => {
+        console.log("Checking gyroscope support...");
+
         if (typeof window === 'undefined' || !window.DeviceOrientationEvent) {
+            console.log("DeviceOrientationEvent not available");
             setError("Device orientation is not supported on this device");
             return;
         }
 
         // Проверяем, нужно ли разрешение (iOS 13+)
         if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+            console.log("Requesting device orientation permission...");
             try {
                 const permission = await (DeviceOrientationEvent as any).requestPermission();
+                console.log("Permission result:", permission);
                 if (permission !== 'granted') {
                     setError("Permission to access device orientation was denied");
                     return;
                 }
             } catch (err) {
+                console.error("Permission request failed:", err);
                 setError("Failed to request device orientation permission");
                 return;
             }
         }
 
+        console.log("Gyroscope support confirmed");
         setIsSupported(true);
     };
 
+    // Обработчик ориентации устройства с расширенным логированием
     const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
-        if (!isVerifying || isCompleted || isProcessing) return;
+        console.log("🔄 DeviceOrientation event received", {
+            isVerifying,
+            isCompleted,
+            isProcessing,
+            alpha: event.alpha,
+            beta: event.beta,
+            gamma: event.gamma
+        });
+
+        if (!isVerifying || isCompleted || isProcessing) {
+            console.log("❌ Event ignored due to state");
+            return;
+        }
+
+        const now = Date.now();
+        const timeDiff = now - lastTimeRef.current;
+
+        console.log("⏰ Time check:", { timeDiff, threshold: 100 });
+
+        // Убираем ограничение частоты для отладки
+        // if (timeDiff < 100) return;
 
         const alpha = event.alpha || 0;
         const beta = event.beta || 0;
         const gamma = event.gamma || 0;
 
-        // Пропускаем первое чтение для установки базовых значений
+        console.log("📐 Current orientation:", { alpha, beta, gamma });
+
+        // Первое чтение - устанавливаем базовые значения
         if (isFirstReadingRef.current) {
-            lastOrientationRef.current = { alpha, beta, gamma };
+            lastAlphaRef.current = alpha;
+            lastBetaRef.current = beta;
+            lastGammaRef.current = gamma;
+            lastTimeRef.current = now;
             isFirstReadingRef.current = false;
+            console.log("✅ First reading set:", { alpha, beta, gamma });
             return;
         }
 
-        // Вычисляем изменения в ориентации
-        const lastOrientation = lastOrientationRef.current;
-        const deltaAlpha = Math.abs(alpha - lastOrientation.alpha);
-        const deltaBeta = Math.abs(beta - lastOrientation.beta);
-        const deltaGamma = Math.abs(gamma - lastOrientation.gamma);
+        // Вычисляем изменения
+        const deltaAlpha = Math.abs(alpha - lastAlphaRef.current);
+        const deltaBeta = Math.abs(beta - lastBetaRef.current);
+        const deltaGamma = Math.abs(gamma - lastGammaRef.current);
+        const motion = deltaAlpha + deltaBeta + deltaGamma;
 
-        // Общее движение
-        const totalMotion = deltaAlpha + deltaBeta + deltaGamma;
+        console.log("📊 Motion calculation:", {
+            deltaAlpha: deltaAlpha.toFixed(2),
+            deltaBeta: deltaBeta.toFixed(2),
+            deltaGamma: deltaGamma.toFixed(2),
+            totalMotion: motion.toFixed(2),
+            threshold: MOTION_THRESHOLD
+        });
 
-        // Фиксируем значимое движение
-        if (totalMotion > MOTION_THRESHOLD) {
-            motionDataRef.current.push(totalMotion);
+        // Фиксируем любое движение больше 0 для отладки
+        if (motion > MOTION_THRESHOLD) {
+            const sample: MotionSample = {
+                timestamp: now,
+                motion,
+                alpha,
+                beta,
+                gamma
+            };
 
-            // Ограничиваем массив последними 50 значениями
-            if (motionDataRef.current.length > 50) {
-                motionDataRef.current = motionDataRef.current.slice(-50);
+            motionSamplesLocalRef.current.push(sample);
+
+            // Ограничиваем количество образцов
+            if (motionSamplesLocalRef.current.length > 30) {
+                motionSamplesLocalRef.current = motionSamplesLocalRef.current.slice(-30);
             }
 
-            // Обновляем интенсивность (среднее значение последних 10 измерений)
-            const recentMotions = motionDataRef.current.slice(-10);
-            const avgIntensity = recentMotions.reduce((sum, val) => sum + val, 0) / recentMotions.length;
-            setMotionIntensity(avgIntensity);
+            // Обновляем состояние для UI
+            setMotionSamples([...motionSamplesLocalRef.current]);
 
-            console.log(`Motion detected: ${totalMotion.toFixed(1)}°, samples: ${motionDataRef.current.length}`);
+            // Пересчитываем общее движение
+            totalMotionRef.current = motionSamplesLocalRef.current.reduce((sum, sample) => sum + sample.motion, 0);
+
+            console.log("🎯 Motion detected and recorded:", {
+                motion: motion.toFixed(2),
+                samples: motionSamplesLocalRef.current.length,
+                totalMotion: totalMotionRef.current.toFixed(1),
+                requiredMotion: REQUIRED_MOTION,
+                minSamples: MIN_SAMPLES
+            });
+        } else {
+            console.log("📉 Motion below threshold:", motion.toFixed(2));
+        }
+
+        // Обновляем интенсивность для UI
+        setMotionIntensity(totalMotionRef.current);
+
+        // Проверяем условия завершения
+        if (totalMotionRef.current > REQUIRED_MOTION && motionSamplesLocalRef.current.length >= MIN_SAMPLES && !isCompleted) {
+            console.log("🏆 Motion verification requirements met!");
+            completeVerification(true);
         }
 
         // Обновляем последние значения
-        lastOrientationRef.current = { alpha, beta, gamma };
-
-        // Вычисляем прогресс
-        const totalAccumulatedMotion = motionDataRef.current.reduce((sum, val) => sum + val, 0);
-        const sampleProgress = Math.min((motionDataRef.current.length / MIN_SAMPLES) * 100, 100);
-        const motionProgress = Math.min((totalAccumulatedMotion / REQUIRED_MOTION_TOTAL) * 100, 100);
-
-        // Общий прогресс как среднее арифметическое
-        const currentProgress = (sampleProgress + motionProgress) / 2;
-        setProgress(currentProgress);
-
-        // Проверяем завершение
-        if (currentProgress >= 100 && motionDataRef.current.length >= MIN_SAMPLES) {
-            completeVerification(true);
-        }
+        lastTimeRef.current = now;
+        lastAlphaRef.current = alpha;
+        lastBetaRef.current = beta;
+        lastGammaRef.current = gamma;
     }, [isVerifying, isCompleted, isProcessing]);
 
     const startVerification = () => {
@@ -171,8 +245,14 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         setError(null);
         startTimeRef.current = Date.now();
 
+        // Сброс данных для новой попытки
+        isFirstReadingRef.current = true;
+        totalMotionRef.current = 0;
+        motionSamplesLocalRef.current = [];
+
         // Добавляем слушатель событий
         window.addEventListener('deviceorientation', handleOrientation);
+        console.log("Device orientation listener added");
     };
 
     const completeVerification = async (success: boolean) => {
@@ -186,12 +266,27 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         cleanup();
 
         try {
-            const completedInTime = (Date.now() - startTimeRef.current) < VERIFICATION_TIMEOUT;
+            const verificationDuration = Date.now() - startTimeRef.current;
+            const completedInTime = verificationDuration < VERIFICATION_TIMEOUT;
+
+            // Дополнительные проверки безопасности (как в рабочем файле)
+            if (success && verificationDuration < 3000) {
+                console.warn('Gyroscope verification too fast - potential manipulation');
+                success = false;
+            }
+
+            if (success && motionSamplesLocalRef.current.length < MIN_SAMPLES) {
+                console.warn('Insufficient motion samples - potential manipulation');
+                success = false;
+            }
+
             const result = await validateSecureGyroscope(success, completedInTime, true);
 
             if (result.success && success) {
+                console.log('Gyroscope verification successful');
                 onSuccess();
             } else {
+                console.log('Gyroscope verification failed');
                 onFailure();
             }
         } catch (error) {
@@ -199,6 +294,21 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
             onFailure();
         }
     };
+
+    // Вычисление прогресса
+    const calculateProgress = () => {
+        const motionProgress = Math.min((totalMotionRef.current / REQUIRED_MOTION) * 100, 100);
+        const samplesProgress = Math.min((motionSamplesLocalRef.current.length / MIN_SAMPLES) * 100, 100);
+        return (motionProgress + samplesProgress) / 2;
+    };
+
+    // Обновление прогресса
+    useEffect(() => {
+        if (isVerifying && !isCompleted) {
+            const currentProgress = calculateProgress();
+            setProgress(currentProgress);
+        }
+    }, [motionSamples, isVerifying, isCompleted]);
 
     // Таймер обратного отсчета
     useEffect(() => {
@@ -208,6 +318,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
             setTimeRemaining(prev => {
                 const newTime = prev - 100;
                 if (newTime <= 0) {
+                    console.log("Verification timeout");
                     completeVerification(false);
                     return 0;
                 }
@@ -316,7 +427,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                             {/* Timer */}
                             <div className="flex items-center justify-center space-x-2 text-sm">
                                 <Clock className="text-orange-400" size={16} />
-                                <span className={`font-bold ${timeRemaining < 5000 ? "text-red-400" : "text-orange-400"}`}>
+                                <span className={`font-bold ${timeRemaining < 3000 ? "text-red-400" : "text-orange-400"}`}>
                                     {formatTime(timeRemaining)}
                                 </span>
                                 <span className="text-gray-500">remaining</span>
@@ -343,7 +454,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                         className="text-purple-400 mx-auto transition-transform duration-300"
                                         size={48}
                                         style={{
-                                            transform: `rotate(${motionIntensity * 10}deg)`
+                                            transform: `rotate(${(motionIntensity / 10)}deg)`
                                         }}
                                     />
                                 </div>
@@ -362,17 +473,15 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                             <div className="bg-gray-800 rounded-lg p-3 text-xs space-y-1">
                                 <div className="flex justify-between">
                                     <span className="text-gray-400">Motion Samples:</span>
-                                    <span className="text-purple-400">{motionDataRef.current.length}</span>
+                                    <span className="text-purple-400">{motionSamples.length}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-gray-400">Intensity:</span>
-                                    <span className="text-orange-400">{motionIntensity.toFixed(1)}°</span>
+                                    <span className="text-orange-400">{(motionIntensity / 10).toFixed(1)}°</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-gray-400">Total Motion:</span>
-                                    <span className="text-green-400">
-                                        {motionDataRef.current.reduce((sum, val) => sum + val, 0).toFixed(1)}°
-                                    </span>
+                                    <span className="text-green-400">{motionIntensity.toFixed(1)}°</span>
                                 </div>
                             </div>
                         </div>
