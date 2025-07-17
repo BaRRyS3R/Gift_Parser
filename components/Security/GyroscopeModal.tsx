@@ -1,4 +1,4 @@
-// src/components/Security/GyroscopeModal.tsx - Gyroscope verification modal component
+// src/components/Security/GyroscopeModal.tsx - Исправленная версия с правильной обработкой гироскопа
 
 "use client";
 
@@ -52,10 +52,12 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
     const [deviceOrientation, setDeviceOrientation] = useState<any>(null);
     const [motionHistory, setMotionHistory] = useState<MotionData[]>([]);
     const [lastMotionUpdate, setLastMotionUpdate] = useState(0);
+    const [initialValues, setInitialValues] = useState<{ alpha: number; beta: number; gamma: number } | null>(null);
 
     const verificationTimeout = 15000; // 15 seconds
     const requiredMotionEvents = 30; // Minimum motion events needed
-    const motionUpdateInterval = 100; // Update every 100ms
+    const motionUpdateInterval = 200; // Update every 200ms for better performance
+    const motionThreshold = 5; // Minimum change in degrees to count as motion
 
     // Initialize gyroscope verification
     useEffect(() => {
@@ -79,6 +81,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         setDeviceOrientation(null);
         setMotionHistory([]);
         setLastMotionUpdate(0);
+        setInitialValues(null);
     };
 
     const initializeGyroscope = async () => {
@@ -132,6 +135,12 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         setVerificationTimerActive(false);
         setIsVerifying(false);
 
+        if (deviceOrientation?.isStarted) {
+            deviceOrientation.stop(() => {
+                console.log("DeviceOrientation stopped after timeout");
+            });
+        }
+
         if (!attemptMade) {
             setError("Verification timeout. Please move your device more actively.");
             setAttemptMade(true);
@@ -140,7 +149,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                 handleGyroscopeFailure();
             }, 2000);
         }
-    }, [attemptMade]);
+    }, [attemptMade, deviceOrientation]);
 
     const startVerification = useCallback(() => {
         if (!deviceOrientation || isVerifying || attemptMade || !isGyroscopeSupported) {
@@ -156,74 +165,130 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         setMotionHistory([]);
         setVerificationProgress(0);
         setError(null);
+        setInitialValues(null);
 
-        // Start listening to device orientation
+        // Start listening to device orientation with proper error handling
         deviceOrientation.start(
             { refresh_rate: motionUpdateInterval, need_absolute: false },
             () => {
                 console.log("DeviceOrientation started successfully");
-                startMotionTracking();
+
+                // Wait a bit for initial values to stabilize
+                setTimeout(() => {
+                    if (deviceOrientation.isStarted) {
+                        // Store initial values for comparison
+                        const initial = {
+                            alpha: deviceOrientation.alpha || 0,
+                            beta: deviceOrientation.beta || 0,
+                            gamma: deviceOrientation.gamma || 0,
+                        };
+                        setInitialValues(initial);
+                        console.log("Initial orientation values:", initial);
+                        startMotionTracking();
+                    } else {
+                        console.error("DeviceOrientation failed to start");
+                        setError("Failed to start gyroscope sensor");
+                        setCurrentPhase("error");
+                        setTimeout(() => {
+                            handleGyroscopeFailure();
+                        }, 2000);
+                    }
+                }, 500);
             }
         );
     }, [deviceOrientation, isVerifying, attemptMade, isGyroscopeSupported, verificationTimeout]);
 
     const startMotionTracking = useCallback(() => {
-        const trackingInterval = setInterval(() => {
-            if (!deviceOrientation || !isVerifying) {
-                clearInterval(trackingInterval);
+        let trackingInterval: NodeJS.Timeout;
+
+        const trackMotion = () => {
+            if (!deviceOrientation || !isVerifying || !deviceOrientation.isStarted) {
+                if (trackingInterval) {
+                    clearInterval(trackingInterval);
+                }
                 return;
             }
 
             const now = Date.now();
-            const motionData: MotionData = {
+            const currentValues = {
                 alpha: deviceOrientation.alpha || 0,
                 beta: deviceOrientation.beta || 0,
                 gamma: deviceOrientation.gamma || 0,
-                timestamp: now,
             };
 
-            setMotionHistory(prev => {
-                const newHistory = [...prev, motionData];
+            // Check if values are actually changing
+            if (initialValues) {
+                const alphaChange = Math.abs(currentValues.alpha - initialValues.alpha);
+                const betaChange = Math.abs(currentValues.beta - initialValues.beta);
+                const gammaChange = Math.abs(currentValues.gamma - initialValues.gamma);
 
-                // Keep only recent motion data (last 5 seconds)
-                const recentHistory = newHistory.filter(data => now - data.timestamp < 5000);
+                // Only record significant motion
+                if (alphaChange > motionThreshold || betaChange > motionThreshold || gammaChange > motionThreshold) {
+                    const motionData: MotionData = {
+                        alpha: currentValues.alpha,
+                        beta: currentValues.beta,
+                        gamma: currentValues.gamma,
+                        timestamp: now,
+                    };
 
-                // Calculate progress based on motion diversity
-                const progress = calculateMotionProgress(recentHistory);
-                setVerificationProgress(progress);
+                    setMotionHistory(prev => {
+                        const newHistory = [...prev, motionData];
 
-                // Check if verification is complete
-                if (progress >= 100 && isVerifying) {
-                    handleVerificationSuccess();
+                        // Keep only recent motion data (last 5 seconds)
+                        const recentHistory = newHistory.filter(data => now - data.timestamp < 5000);
+
+                        // Calculate progress based on motion diversity
+                        const progress = calculateMotionProgress(recentHistory);
+                        setVerificationProgress(progress);
+
+                        console.log("Motion detected:", {
+                            alpha: currentValues.alpha.toFixed(2),
+                            beta: currentValues.beta.toFixed(2),
+                            gamma: currentValues.gamma.toFixed(2),
+                            progress: progress.toFixed(1),
+                            historyLength: recentHistory.length
+                        });
+
+                        // Check if verification is complete
+                        if (progress >= 100 && isVerifying) {
+                            console.log("Gyroscope verification complete!");
+                            handleVerificationSuccess();
+                        }
+
+                        return recentHistory;
+                    });
+
+                    setLastMotionUpdate(now);
                 }
+            }
+        };
 
-                return recentHistory;
-            });
-
-            setLastMotionUpdate(now);
-        }, motionUpdateInterval);
+        trackingInterval = setInterval(trackMotion, motionUpdateInterval);
 
         // Stop tracking after timeout
         setTimeout(() => {
-            clearInterval(trackingInterval);
-            if (deviceOrientation) {
-                deviceOrientation.stop();
+            if (trackingInterval) {
+                clearInterval(trackingInterval);
             }
         }, verificationTimeout);
-    }, [deviceOrientation, isVerifying, verificationTimeout]);
+    }, [deviceOrientation, isVerifying, verificationTimeout, initialValues]);
 
     const calculateMotionProgress = (history: MotionData[]): number => {
-        if (history.length < 10) return 0;
+        if (history.length < 5) return 0;
 
         // Calculate motion diversity across different axes
-        const alphaVariance = calculateVariance(history.map(d => d.alpha));
-        const betaVariance = calculateVariance(history.map(d => d.beta));
-        const gammaVariance = calculateVariance(history.map(d => d.gamma));
+        const alphaValues = history.map(d => d.alpha);
+        const betaValues = history.map(d => d.beta);
+        const gammaValues = history.map(d => d.gamma);
 
-        // Normalize variances to 0-100 scale
-        const alphaScore = Math.min(alphaVariance / 100, 100);
-        const betaScore = Math.min(betaVariance / 100, 100);
-        const gammaScore = Math.min(gammaVariance / 100, 100);
+        const alphaRange = Math.max(...alphaValues) - Math.min(...alphaValues);
+        const betaRange = Math.max(...betaValues) - Math.min(...betaValues);
+        const gammaRange = Math.max(...gammaValues) - Math.min(...gammaValues);
+
+        // Normalize ranges to 0-100 scale (typical device rotation is 0-360 degrees)
+        const alphaScore = Math.min((alphaRange / 30) * 100, 100); // 30 degrees = 100%
+        const betaScore = Math.min((betaRange / 30) * 100, 100);
+        const gammaScore = Math.min((gammaRange / 30) * 100, 100);
 
         // Calculate overall motion score
         const motionScore = (alphaScore + betaScore + gammaScore) / 3;
@@ -231,23 +296,27 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         // Require minimum motion events
         const eventScore = Math.min((history.length / requiredMotionEvents) * 100, 100);
 
-        // Combine scores
-        return Math.min((motionScore + eventScore) / 2, 100);
-    };
+        // Time progression bonus (encourage sustained motion)
+        const timeSpan = history.length > 0 ? history[history.length - 1].timestamp - history[0].timestamp : 0;
+        const timeScore = Math.min((timeSpan / 3000) * 100, 100); // 3 seconds = 100%
 
-    const calculateVariance = (values: number[]): number => {
-        if (values.length < 2) return 0;
+        // Combine scores with weights
+        const totalScore = (motionScore * 0.5) + (eventScore * 0.3) + (timeScore * 0.2);
 
-        const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-        const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
-
-        return Math.sqrt(variance);
+        return Math.min(totalScore, 100);
     };
 
     const handleVerificationSuccess = useCallback(async () => {
         console.log("Gyroscope verification successful");
         setVerificationTimerActive(false);
         setIsVerifying(false);
+
+        // Stop device orientation tracking
+        if (deviceOrientation?.isStarted) {
+            deviceOrientation.stop(() => {
+                console.log("DeviceOrientation stopped after successful verification");
+            });
+        }
 
         try {
             const result = await validateSecureGyroscope(true, true, isGyroscopeSupported);
@@ -263,10 +332,17 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
             console.error("Error validating gyroscope:", error);
             handleGyroscopeFailure();
         }
-    }, [isGyroscopeSupported, onSuccess]);
+    }, [isGyroscopeSupported, onSuccess, deviceOrientation]);
 
     const handleGyroscopeFailure = useCallback(async () => {
         console.log("Handling gyroscope failure, supported:", isGyroscopeSupported);
+
+        // Stop device orientation tracking
+        if (deviceOrientation?.isStarted) {
+            deviceOrientation.stop(() => {
+                console.log("DeviceOrientation stopped after failure");
+            });
+        }
 
         try {
             await validateSecureGyroscope(false, false, isGyroscopeSupported);
@@ -275,7 +351,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
         }
 
         onFailure();
-    }, [isGyroscopeSupported, onFailure]);
+    }, [isGyroscopeSupported, onFailure, deviceOrientation]);
 
     const handleUnsupportedDevice = useCallback(() => {
         console.log("Handling unsupported device for gyroscope");
@@ -437,6 +513,18 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                                 "Verification complete!"}
                             </p>
                         </div>
+
+                        {/* Debug Info - only in development */}
+                        {process.env.NODE_ENV === "development" && deviceOrientation && (
+                            <div className="bg-gray-800 rounded-lg p-3 text-xs">
+                                <p className="text-gray-400">Debug Info:</p>
+                                <p className="text-green-400">Started: {deviceOrientation.isStarted ? "Yes" : "No"}</p>
+                                <p className="text-blue-400">Alpha: {deviceOrientation.alpha?.toFixed(2) || "0"}</p>
+                                <p className="text-blue-400">Beta: {deviceOrientation.beta?.toFixed(2) || "0"}</p>
+                                <p className="text-blue-400">Gamma: {deviceOrientation.gamma?.toFixed(2) || "0"}</p>
+                                <p className="text-yellow-400">Motion Events: {motionHistory.length}</p>
+                            </div>
+                        )}
                     </div>
                 ) : currentPhase === "error" ? (
                     <div className="text-center space-y-4">
