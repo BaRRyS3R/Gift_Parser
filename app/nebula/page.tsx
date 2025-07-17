@@ -1,4 +1,4 @@
-// src/app/nebula/page.tsx - Fixed automatic redirection and race conditions
+// src/app/nebula/page.tsx - Fixed duplicate calls and trust score display
 
 "use client";
 
@@ -37,7 +37,7 @@ export default function NebulaSecurityPage() {
     const [completionProgress, setCompletionProgress] = useState(0);
     const [isCompleting, setIsCompleting] = useState(false);
 
-    // FIXED: Prevent automatic redirection with ref
+    // FIXED: Single initialization flag to prevent duplicate calls
     const initializationDoneRef = React.useRef(false);
     const verificationInProgressRef = React.useRef(false);
 
@@ -50,7 +50,7 @@ export default function NebulaSecurityPage() {
         }
     }, [isAuthenticated, router]);
 
-    // FIXED: Initialize security check with proper state management
+    // FIXED: Single initialization with security state dependency
     useEffect(() => {
         if (!isAuthenticated || initializationDoneRef.current) return;
 
@@ -59,43 +59,40 @@ export default function NebulaSecurityPage() {
                 console.log("Nebula Security: Initializing security verification...");
                 setIsInitializing(true);
 
-                // Wait a bit to ensure authentication is fully settled
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-                // FIXED: Perform security check with retry logic
+                // FIXED: Single security check call
                 let result;
-                let retryCount = 0;
-                const maxRetries = 3;
+                try {
+                    result = await checkSecurity();
+                } catch (error) {
+                    console.error("Nebula Security: Security check failed:", error);
 
-                while (retryCount < maxRetries) {
-                    try {
-                        result = await checkSecurity();
-                        break; // Success, exit retry loop
-                    } catch (error) {
-                        retryCount++;
-                        console.log(`Nebula Security: Retry ${retryCount}/${maxRetries} for security check`);
-
-                        if (retryCount >= maxRetries) {
-                            throw error;
-                        }
-
-                        // Wait before retry
-                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                    // If authentication error, redirect to login
+                    if (error instanceof Error && error.message.includes("not authenticated")) {
+                        console.log("Nebula Security: Authentication error, redirecting to login");
+                        router.push("/");
+                        return;
                     }
+
+                    // For other errors, use current security state as fallback
+                    console.log("Nebula Security: Using current security state as fallback");
+                    result = {
+                        isBlocked: securityState.isBlocked,
+                        needsCaptcha: securityState.needsCaptcha,
+                        needsBiometric: securityState.needsBiometric,
+                        trustScore: securityState.trustScore,
+                        timeUntilUnblock: securityState.timeUntilUnblock,
+                        blockReason: securityState.blockReason,
+                    };
                 }
 
-                if (!result) {
-                    throw new Error("Failed to get security result after retries");
-                }
-
-                // FIXED: Only redirect if user is actually blocked
+                // Handle results
                 if (result.isBlocked) {
                     console.log("Nebula Security: User is blocked, redirecting to blocked page");
                     router.push("/blocked");
                     return;
                 }
 
-                // FIXED: Only redirect to main if NO verification is needed
+                // Only redirect to main if NO verification is needed
                 if (!result.needsCaptcha && !result.needsBiometric) {
                     console.log("Nebula Security: No verification required, redirecting to main");
                     router.push("/main");
@@ -104,10 +101,10 @@ export default function NebulaSecurityPage() {
 
                 // Determine verification type based on trust score and requirements
                 if (result.needsBiometric) {
-                    console.log("Nebula Security: Biometric verification required");
+                    console.log("Nebula Security: Biometric verification required (trust score:", result.trustScore, ")");
                     setVerificationType('biometric');
                 } else if (result.needsCaptcha) {
-                    console.log("Nebula Security: Captcha verification required");
+                    console.log("Nebula Security: Captcha verification required (trust score:", result.trustScore, ")");
                     setVerificationType('captcha');
                 }
 
@@ -117,41 +114,32 @@ export default function NebulaSecurityPage() {
             } catch (error) {
                 console.error("Nebula Security: Error during initialization:", error);
                 setIsInitializing(false);
+                initializationDoneRef.current = true;
 
-                // FIXED: Don't auto-redirect on error, show error state instead
-                // Only redirect if it's an authentication error
-                if (error instanceof Error && error.message.includes("not authenticated")) {
-                    console.log("Nebula Security: Authentication error, redirecting to login");
-                    router.push("/");
+                // Use security state to determine verification type as fallback
+                const trustScore = securityState.trustScore || 50;
+
+                if (trustScore < 20) {
+                    setVerificationType('biometric');
+                } else if (trustScore < 40) {
+                    setVerificationType('captcha');
                 } else {
-                    // For other errors, just mark as done and let user try manual verification
-                    console.log("Nebula Security: Setting fallback verification type based on trust score");
-                    const trustScore = securityState.trustScore || 50;
-
-                    if (trustScore < 20) {
-                        setVerificationType('biometric');
-                    } else if (trustScore < 40) {
-                        setVerificationType('captcha');
-                    } else {
-                        // High trust score but somehow ended up here, redirect to main
-                        router.push("/main");
-                        return;
-                    }
-
-                    initializationDoneRef.current = true;
+                    // High trust score but somehow ended up here, redirect to main
+                    router.push("/main");
+                    return;
                 }
             }
         };
 
-        // FIXED: Add delay to prevent race conditions
-        const timeoutId = setTimeout(initializeSecurityCheck, 500);
+        // FIXED: Single initialization call with small delay
+        const timeoutId = setTimeout(initializeSecurityCheck, 100);
 
         return () => clearTimeout(timeoutId);
-    }, [isAuthenticated, checkSecurity, router, securityState.trustScore]);
+    }, [isAuthenticated, checkSecurity, router, securityState]);
 
     // Handle successful verifications
     const handleSuccessfulVerification = useCallback(() => {
-        if (verificationInProgressRef.current) return; // Prevent double execution
+        if (verificationInProgressRef.current) return;
 
         verificationInProgressRef.current = true;
         console.log("Nebula Security: Verification successful, completing process");
@@ -175,7 +163,7 @@ export default function NebulaSecurityPage() {
 
     // Handle failed verifications
     const handleFailedVerification = useCallback(() => {
-        if (verificationInProgressRef.current) return; // Prevent double execution
+        if (verificationInProgressRef.current) return;
 
         verificationInProgressRef.current = true;
         console.log("Nebula Security: Verification failed, redirecting to blocked page");
@@ -205,15 +193,17 @@ export default function NebulaSecurityPage() {
         handleFailedVerification();
     }, [handleBiometricFailure, handleFailedVerification]);
 
-    // Handle verification button clicks
+    // FIXED: Single captcha generation with proper state management
     const handleStartCaptcha = useCallback(async () => {
-        if (verificationStarted || verificationInProgressRef.current) return;
+        if (verificationStarted || verificationInProgressRef.current) {
+            console.log("Nebula Security: Verification already in progress, skipping");
+            return;
+        }
 
         console.log("Nebula Security: Starting captcha verification");
         setVerificationStarted(true);
 
         try {
-            // Use the new manual trigger method from useSecurity hook
             await startCaptchaVerification();
         } catch (error) {
             console.error("Nebula Security: Failed to start captcha verification:", error);
@@ -222,13 +212,15 @@ export default function NebulaSecurityPage() {
     }, [startCaptchaVerification, verificationStarted]);
 
     const handleStartBiometric = useCallback(() => {
-        if (verificationStarted || verificationInProgressRef.current) return;
+        if (verificationStarted || verificationInProgressRef.current) {
+            console.log("Nebula Security: Verification already in progress, skipping");
+            return;
+        }
 
         console.log("Nebula Security: Starting biometric verification");
         setVerificationStarted(true);
 
         try {
-            // Use the new manual trigger method from useSecurity hook  
             startBiometricVerification();
         } catch (error) {
             console.error("Nebula Security: Failed to start biometric verification:", error);
@@ -279,7 +271,10 @@ export default function NebulaSecurityPage() {
     };
 
     const verificationInfo = getVerificationInfo();
-    const trustScoreInfo = formatTrustScore(securityState.trustScore);
+
+    // FIXED: Get trust score from security state with fallback
+    const currentTrustScore = securityState.trustScore || 50;
+    const trustScoreInfo = formatTrustScore(currentTrustScore);
 
     // Early return if not authenticated
     if (!isAuthenticated) {
@@ -325,19 +320,19 @@ export default function NebulaSecurityPage() {
                         </p>
                     </div>
 
-                    {/* Trust Score Display */}
+                    {/* FIXED: Trust Score Display with proper value handling */}
                     {!isInitializing && (
                         <div className="bg-black/20 rounded-lg p-4 space-y-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-gray-400 text-sm">Current Trust Score</span>
                                 <span className={`font-bold ${trustScoreInfo.color}`}>
-                                    {securityState.trustScore}/100
+                                    {currentTrustScore}/100
                                 </span>
                             </div>
                             <div className="w-full bg-gray-700 rounded-full h-2">
                                 <div
                                     className="h-2 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 transition-all duration-1000"
-                                    style={{ width: `${securityState.trustScore}%` }}
+                                    style={{ width: `${Math.max(1, currentTrustScore)}%` }}
                                 />
                             </div>
                             <p className="text-gray-500 text-xs text-center">
@@ -356,7 +351,7 @@ export default function NebulaSecurityPage() {
                                         Why am I here?
                                     </h4>
                                     <p className="text-red-200/80 text-xs">
-                                        Your trust score ({securityState.trustScore}/100) is below the security threshold.
+                                        Your trust score ({currentTrustScore}/100) is below the security threshold.
                                         {verificationType === 'biometric'
                                             ? " Biometric verification is required for accounts with very low trust scores."
                                             : " Captcha verification is required to ensure account security."
@@ -371,8 +366,8 @@ export default function NebulaSecurityPage() {
                     {!isInitializing && !isCompleting && verificationInfo.buttonAction && (
                         <button
                             className={`w-full px-6 py-4 rounded-lg font-semibold transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3 text-lg ${verificationType === 'biometric'
-                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                    : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white disabled:hover:bg-blue-600'
+                                    : 'bg-yellow-600 hover:bg-yellow-700 text-white disabled:hover:bg-yellow-600'
                                 }`}
                             disabled={verificationInfo.buttonDisabled}
                             onClick={verificationInfo.buttonAction}
@@ -423,6 +418,12 @@ export default function NebulaSecurityPage() {
                                 {user.last_name && ` ${user.last_name}`}
                             </span>
                         </p>
+                        {/* FIXED: Display trust score in user info for debugging */}
+                        {process.env.NODE_ENV === "development" && (
+                            <p className="text-gray-600 text-xs mt-1">
+                                Debug: Trust Score = {currentTrustScore}
+                            </p>
+                        )}
                     </div>
                 )}
 

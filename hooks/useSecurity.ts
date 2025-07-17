@@ -1,4 +1,4 @@
-// src/hooks/useSecurity.ts - Fixed race conditions and authentication state synchronization
+// src/hooks/useSecurity.ts - Fixed duplicate calls and trust score display
 
 "use client";
 
@@ -69,40 +69,43 @@ export function useSecurity(): SecurityHookReturn {
   const { isAuthenticated, refreshUser, signOut } = useUser();
 
   const [securityState, setSecurityState] = useState<SecurityState>({
-    isLoading: false, // FIXED: Start as not loading to prevent immediate check
+    isLoading: false,
     isBlocked: false,
     needsCaptcha: false,
     needsBiometric: false,
-    trustScore: 50,
+    trustScore: 50, // Default value instead of 0 to prevent empty display
   });
 
   const [showCaptcha, setShowCaptcha] = useState(false);
   const [showBiometric, setShowBiometric] = useState(false);
   const [captchaData, setCaptchaData] = useState<CaptchaData | null>(null);
 
-  // Track security initialization with better logic
+  // Track security initialization
   const [securityInitialized, setSecurityInitialized] = useState(false);
 
-  // FIXED: Better race condition prevention
+  // FIXED: Single source of truth for checking state
   const isCheckingRef = useRef(false);
   const lastSecurityCheckRef = useRef<number>(0);
-  const checkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initializationRef = useRef(false);
+
+  // Track captcha generation to prevent duplicates
+  const captchaGenerationRef = useRef(false);
 
   // Check if we're on the Nebula page
   const isOnNebulaPage = pathname === '/nebula';
 
-  // FIXED: Debounced initialization to prevent multiple calls
-  const initializationRef = useRef(false);
-
-  // Enhanced security initialization logic
+  // FIXED: Enhanced security initialization logic with proper trust score handling
   useEffect(() => {
     if (!isAuthenticated) {
       setSecurityInitialized(false);
-      setSecurityState(prev => ({ ...prev, isLoading: false }));
+      setSecurityState(prev => ({
+        ...prev,
+        isLoading: false,
+        trustScore: 50 // Reset to default
+      }));
       return;
     }
 
-    // Initialize security as ready if conditions are met
     if (!securityState.isLoading) {
       const isVerificationNeeded = securityState.needsCaptcha || securityState.needsBiometric;
       const hasGoodTrustScore = securityState.trustScore >= 40;
@@ -122,18 +125,24 @@ export function useSecurity(): SecurityHookReturn {
     securityState.trustScore
   ]);
 
-  // FIXED: Improved security check with better race condition handling
+  // FIXED: Improved security check with single execution guarantee
   const checkSecurity = useCallback(async (): Promise<SecurityCheckResult> => {
-    // CRITICAL: Check authentication state first
     if (!isAuthenticated) {
       console.log("Cannot check security: user not authenticated");
       throw new Error("User not authenticated");
     }
 
-    // CRITICAL: Prevent concurrent checks
     if (isCheckingRef.current) {
-      console.log("Security check already in progress, skipping");
-      throw new Error("Security check already in progress");
+      console.log("Security check already in progress, returning cached result");
+      // Return current state as result instead of throwing error
+      return {
+        isBlocked: securityState.isBlocked,
+        needsCaptcha: securityState.needsCaptcha,
+        needsBiometric: securityState.needsBiometric,
+        trustScore: securityState.trustScore,
+        timeUntilUnblock: securityState.timeUntilUnblock,
+        blockReason: securityState.blockReason,
+      };
     }
 
     const now = Date.now();
@@ -164,13 +173,18 @@ export function useSecurity(): SecurityHookReturn {
 
       const result = await authService.checkUserSecurityStatus();
 
+      // FIXED: Ensure trust score is always a valid number
+      const trustScore = typeof result.trustScore === 'number' && !isNaN(result.trustScore)
+        ? result.trustScore
+        : 50;
+
       // Update state with results
       setSecurityState({
         isLoading: false,
         isBlocked: result.isBlocked,
         needsCaptcha: result.needsCaptcha,
         needsBiometric: result.needsBiometric,
-        trustScore: result.trustScore,
+        trustScore: trustScore,
         timeUntilUnblock: result.timeUntilUnblock,
         blockReason: result.blockReason,
         lastChecked: now,
@@ -184,8 +198,8 @@ export function useSecurity(): SecurityHookReturn {
         router.push("/blocked");
       }
 
-      console.log("Security status checked successfully via API");
-      return result;
+      console.log("Security status checked successfully via API", { trustScore });
+      return { ...result, trustScore };
     } catch (error) {
       console.error("Error checking security status via API:", error);
 
@@ -208,36 +222,23 @@ export function useSecurity(): SecurityHookReturn {
     }
   }, [isAuthenticated, router, securityState, signOut]);
 
-  // FIXED: Controlled initialization with debounce
+  // FIXED: Controlled initialization - only once per session
   useEffect(() => {
-    if (!isAuthenticated || initializationRef.current) {
+    if (!isAuthenticated || initializationRef.current || isOnNebulaPage) {
       return;
     }
 
-    // Clear any existing timeout
-    if (checkTimeoutRef.current) {
-      clearTimeout(checkTimeoutRef.current);
-    }
+    initializationRef.current = true;
 
-    // FIXED: Only perform initial security check if not on Nebula page or if user state is unclear
-    if (!isOnNebulaPage) {
-      initializationRef.current = true;
-
-      checkTimeoutRef.current = setTimeout(() => {
-        if (isAuthenticated && !isCheckingRef.current) {
-          checkSecurity().catch((error) => {
-            console.error("Initial security check failed:", error);
-            // Don't reset initialization flag on error to prevent infinite retries
-          });
-        }
-      }, 500); // Debounce initial check
-    }
-
-    return () => {
-      if (checkTimeoutRef.current) {
-        clearTimeout(checkTimeoutRef.current);
+    const timeoutId = setTimeout(() => {
+      if (isAuthenticated && !isCheckingRef.current) {
+        checkSecurity().catch((error) => {
+          console.error("Initial security check failed:", error);
+        });
       }
-    };
+    }, 1000); // Single delayed check
+
+    return () => clearTimeout(timeoutId);
   }, [isAuthenticated, isOnNebulaPage, checkSecurity]);
 
   // Reset state for non-authenticated users
@@ -253,11 +254,19 @@ export function useSecurity(): SecurityHookReturn {
       setSecurityInitialized(false);
       initializationRef.current = false;
       isCheckingRef.current = false;
+      captchaGenerationRef.current = false;
     }
   }, [isAuthenticated]);
 
-  // Manual trigger for captcha verification (for Nebula page)
+  // FIXED: Single captcha generation with duplicate prevention
   const startCaptchaVerification = useCallback(async () => {
+    if (captchaGenerationRef.current) {
+      console.log("Captcha generation already in progress, skipping");
+      return;
+    }
+
+    captchaGenerationRef.current = true;
+
     try {
       console.log("Starting captcha verification manually...");
       const captcha = await authService.generateCaptcha();
@@ -274,6 +283,11 @@ export function useSecurity(): SecurityHookReturn {
         signOut();
       }
       throw error;
+    } finally {
+      // Reset flag after a delay to allow for modal display
+      setTimeout(() => {
+        captchaGenerationRef.current = false;
+      }, 1000);
     }
   }, [signOut]);
 
@@ -301,6 +315,7 @@ export function useSecurity(): SecurityHookReturn {
     console.log("Captcha verification successful - updating security state");
     setShowCaptcha(false);
     setCaptchaData(null);
+    captchaGenerationRef.current = false;
 
     // Force immediate state update before API calls
     setSecurityState(prev => ({
@@ -316,7 +331,8 @@ export function useSecurity(): SecurityHookReturn {
     emitSecurityStateChange();
 
     try {
-      // Refresh security status and user data in parallel
+      // Clear cache and refresh
+      lastSecurityCheckRef.current = 0;
       await Promise.all([
         refreshSecurityStatus(),
         refreshUser()
@@ -325,7 +341,6 @@ export function useSecurity(): SecurityHookReturn {
       console.log("Post-captcha refresh completed successfully");
     } catch (error) {
       console.error("Error during post-captcha refresh:", error);
-      // Even if refresh fails, keep the optimistic update
     }
   }, [refreshUser]);
 
@@ -333,6 +348,7 @@ export function useSecurity(): SecurityHookReturn {
     console.log("Captcha verification failed - user will be blocked");
     setShowCaptcha(false);
     setCaptchaData(null);
+    captchaGenerationRef.current = false;
 
     // Redirect to blocked page
     router.push("/blocked");
@@ -358,7 +374,8 @@ export function useSecurity(): SecurityHookReturn {
     emitSecurityStateChange();
 
     try {
-      // Refresh security status and user data in parallel
+      // Clear cache and refresh
+      lastSecurityCheckRef.current = 0;
       await Promise.all([
         refreshSecurityStatus(),
         refreshUser()
@@ -367,7 +384,6 @@ export function useSecurity(): SecurityHookReturn {
       console.log("Post-biometric refresh completed successfully");
     } catch (error) {
       console.error("Error during post-biometric refresh:", error);
-      // Even if refresh fails, keep the optimistic update
     }
   }, [refreshUser]);
 
@@ -379,11 +395,12 @@ export function useSecurity(): SecurityHookReturn {
     router.push("/blocked");
   }, [router]);
 
-  // Dismiss security checks (for testing/admin)
+  // Dismiss security checks
   const dismissSecurityCheck = useCallback(() => {
     setShowCaptcha(false);
     setShowBiometric(false);
     setCaptchaData(null);
+    captchaGenerationRef.current = false;
   }, []);
 
   // Refresh security status
@@ -406,11 +423,14 @@ export function useSecurity(): SecurityHookReturn {
 
   // Format trust score for display
   const formatTrustScore = useCallback((score: number) => {
-    if (score >= 60) {
+    // FIXED: Handle invalid trust scores
+    const validScore = typeof score === 'number' && !isNaN(score) ? score : 50;
+
+    if (validScore >= 60) {
       return { color: "text-green-400", label: "Good" };
-    } else if (score >= 40) {
+    } else if (validScore >= 40) {
       return { color: "text-yellow-400", label: "Fair" };
-    } else if (score >= 20) {
+    } else if (validScore >= 20) {
       return { color: "text-orange-400", label: "Low" };
     } else {
       return { color: "text-red-400", label: "Very Low" };
@@ -422,9 +442,7 @@ export function useSecurity(): SecurityHookReturn {
     return () => {
       isCheckingRef.current = false;
       initializationRef.current = false;
-      if (checkTimeoutRef.current) {
-        clearTimeout(checkTimeoutRef.current);
-      }
+      captchaGenerationRef.current = false;
     };
   }, []);
 
@@ -438,9 +456,9 @@ export function useSecurity(): SecurityHookReturn {
       }
 
       // Force immediate security state refresh
-      lastSecurityCheckRef.current = 0; // Clear cache to force fresh check
+      lastSecurityCheckRef.current = 0;
 
-      // Update local state optimistically while waiting for API response
+      // Update local state optimistically
       setSecurityState(prev => {
         if (prev.trustScore >= 40) {
           return {
