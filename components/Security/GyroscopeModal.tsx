@@ -427,7 +427,7 @@ const GyroscopeModal: React.FC<GyroscopeModalProps> = ({
                                 Instructions:
                             </h4>
                             <div className="text-blue-200 text-sm space-y-1">
-                                <p>1. Tap "Grant Permission" below</p>
+                                <p>1. Tap Grant Permission below</p>
                                 <p>2. Allow motion and orientation access when prompted</p>
                                 <p>3. Follow the movement instructions to complete verification</p>
                             </div>
