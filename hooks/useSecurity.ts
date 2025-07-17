@@ -75,6 +75,7 @@ export interface SecurityState {
   isBlocked: boolean;
   needsCaptcha: boolean;
   needsBiometric: boolean;
+  needsGyroscope: boolean; // NEW: Add gyroscope requirement
   trustScore: number;
   timeUntilUnblock?: number;
   blockReason?: string;
@@ -131,6 +132,7 @@ export function useSecurity(): SecurityHookReturn {
     isBlocked: false,
     needsCaptcha: false,
     needsBiometric: false,
+    needsGyroscope: false,
     trustScore: 0, // No default value - must be set from API
   });
 
@@ -164,6 +166,7 @@ export function useSecurity(): SecurityHookReturn {
         isBlocked: result.isBlocked,
         needsCaptcha: result.needsCaptcha,
         needsBiometric: result.needsBiometric,
+        needsGyroscope: result.needsGyroscope,
         trustScore: result.trustScore,
         timeUntilUnblock: result.timeUntilUnblock,
         blockReason: result.blockReason,
@@ -181,7 +184,8 @@ export function useSecurity(): SecurityHookReturn {
       console.log("Security status updated successfully", {
         trustScore: result.trustScore,
         needsCaptcha: result.needsCaptcha,
-        needsBiometric: result.needsBiometric
+        needsBiometric: result.needsBiometric,
+        needsGyroscope: result.needsGyroscope,
       });
 
       return result;
@@ -227,6 +231,7 @@ export function useSecurity(): SecurityHookReturn {
         isBlocked: false,
         needsCaptcha: false,
         needsBiometric: false,
+        needsGyroscope: false,
         trustScore: 0,
       });
       setSecurityInitialized(false);
@@ -245,7 +250,7 @@ export function useSecurity(): SecurityHookReturn {
 
     // Only consider initialized if we have a valid trust score from API
     if (!securityState.isLoading && securityState.trustScore > 0) {
-      const isVerificationNeeded = securityState.needsCaptcha || securityState.needsBiometric;
+      const isVerificationNeeded = securityState.needsCaptcha || securityState.needsBiometric || securityState.needsGyroscope;
       const hasGoodTrustScore = securityState.trustScore >= 40;
 
       if (!securityState.isBlocked && (!isVerificationNeeded || hasGoodTrustScore)) {
@@ -488,16 +493,20 @@ export function useSecurity(): SecurityHookReturn {
     securityState,
     showCaptcha,
     showBiometric,
+    showGyroscope, // NEW: Add gyroscope modal state
     captchaData,
     checkSecurity,
     handleCaptchaSuccess,
     handleCaptchaFailure,
     handleBiometricSuccess,
     handleBiometricFailure,
+    handleGyroscopeSuccess, // NEW: Add gyroscope handlers
+    handleGyroscopeFailure, // NEW: Add gyroscope handlers
     dismissSecurityCheck,
     refreshSecurityStatus,
     startCaptchaVerification,
     startBiometricVerification,
+    startGyroscopeVerification, // NEW: Add gyroscope verification
     isSecurityCheckNeeded,
     formatTrustScore,
     isSecurityInitialized,
