@@ -47,14 +47,14 @@ export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
     return {
         id: "physics",
         name: "PHYSICS MODE",
-        circleCount: 20,
-        circleRadius: Math.max(26, Math.min(36, containerWidth / 18)),
+        circleCount: 35,
+        circleRadius: Math.max(22, Math.min(32, containerWidth / 20)),
         containerWidth,
         containerHeight,
         initialActivationTimeMin: 2000,
         initialActivationTimeMax: 3500,
         circleActiveTime: 3000,
-        impulseForce: 0.08,
+        impulseForce: 0.05,
         maxMistakes: 5, // Maximum 5 mistakes
         levelDuration: 360, // 3 minutes
     };
@@ -64,22 +64,22 @@ export const PHYSICS_ENGINE_CONFIG: PhysicsConfig = {
     containerWidth: 350, // Will be overridden by adaptive config
     containerHeight: 500, // Will be overridden by adaptive config
     wallThickness: 20, // Increased thickness for screen boundaries
-    gravity: { x: 0, y: 0.5 },
+    gravity: { x: 0, y: 0.4 },
     restitution: 0.8,
-    friction: 0.005,
-    frictionAir: 0.015,
+    friction: 0.01,
+    frictionAir: 0.035,
 };
 
 export const IMPULSE_CONFIG: ImpulseConfig = {
-    force: 0.08,
-    radius: 150,
-    falloff: 0.3,
+    force: 0.05,
+    radius: 120,
+    falloff: 0.4,
 };
 
 export const createPhysicsEngine = (): Matter.Engine => {
     const engine = Matter.Engine.create();
-    engine.gravity.x = PHYSICS_ENGINE_CONFIG.gravity.x;
-    engine.gravity.y = PHYSICS_ENGINE_CONFIG.gravity.y;
+    engine.world.gravity.x = PHYSICS_ENGINE_CONFIG.gravity.x;
+    engine.world.gravity.y = PHYSICS_ENGINE_CONFIG.gravity.y;
     engine.timing.timeScale = 1;
 
     return engine;
@@ -125,7 +125,7 @@ export const createPhysicsCircles = (
             restitution: PHYSICS_ENGINE_CONFIG.restitution,
             friction: PHYSICS_ENGINE_CONFIG.friction,
             frictionAir: PHYSICS_ENGINE_CONFIG.frictionAir,
-            density: 0.02,
+            density: 0.002,
             label: `circle_${i}`,
         });
 
