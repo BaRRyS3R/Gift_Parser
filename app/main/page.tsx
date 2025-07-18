@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Play, Settings as SettingsIcon, Info, Trophy, Clock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { useAttempts } from "@/hooks/modules/useAttempts";
+import { useAttempts } from "@/hooks/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { tournamentService } from "@/lib/supabase_tournament_extension";

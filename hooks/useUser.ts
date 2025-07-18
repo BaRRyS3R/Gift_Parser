@@ -1,10 +1,9 @@
-// src/hooks/useUser.ts - Updated centralized user hook without leaderboard caching
+// src/hooks/useUser.ts - Updated centralized user hook with modular architecture
 
 "use client";
 
 import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
 import { useAuth } from "./modules/useAuth";
-import { useLeaderboard } from "./modules/useLeaderboard";
 import type { User, TelegramUser, AttemptsStatus } from "@/lib/supabase";
 import type {
   AuthState,
@@ -85,9 +84,6 @@ interface UserContextType {
   showAchievement: (achievement: AchievementNotificationData) => void;
   hideAchievement: () => void;
 
-  // Leaderboard module (replaces individual leaderboard methods)
-  leaderboard: ReturnType<typeof useLeaderboard>;
-
   // Utility methods
   makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>;
 }
@@ -109,9 +105,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     makeAuthenticatedRequest,
     clearError,
   } = useAuth();
-
-  // Use leaderboard module (centralized leaderboard management without caching)
-  const leaderboardModule = useLeaderboard(makeAuthenticatedRequest);
 
   // Local state for user data and UI
   const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
@@ -225,12 +218,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setTelegramUserState(null);
     setError(null);
     setAttemptsCache({ status: null, lastUpdate: 0, isValid: false });
-    
-    // Reset leaderboard data on logout
-    leaderboardModule.resetLeaderboard();
-    
     console.log("User logged out");
-  }, [authLogout, leaderboardModule]);
+  }, [authLogout]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -298,16 +287,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       }
 
       const result = await response.json();
-      
-      // Refresh leaderboard data when game is saved (no caching means fresh data)
-      leaderboardModule.fetchLeaderboards();
-      
       return result;
     } catch (error) {
       console.error("Error saving game result:", error);
       throw error;
     }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest, leaderboardModule]);
+  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
 
   // Temporary tournament save method (will be moved to tournament module)
   const saveTournamentResult = useCallback(async (
@@ -329,16 +314,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       }
 
       const result = await response.json();
-      
-      // Refresh leaderboard data when tournament result is saved
-      leaderboardModule.fetchLeaderboards();
-      
       return result;
     } catch (error) {
       console.error("Error saving tournament result:", error);
       throw error;
     }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest, leaderboardModule]);
+  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
 
   // Temporary attempts methods (will be moved to attempts module)
   const getAttemptsStatus = useCallback(async (): Promise<AttemptsStatus> => {
@@ -453,9 +434,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     currentAchievement,
     showAchievement,
     hideAchievement,
-
-    // Leaderboard module (without caching - fresh data on each request)
-    leaderboard: leaderboardModule,
 
     // Utility methods
     makeAuthenticatedRequest,
