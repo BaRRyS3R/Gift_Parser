@@ -1,51 +1,91 @@
-// src/hooks/useUser.tsx - Обновленный хук с интеграцией системы лиг
+// src/hooks/useUser.ts - Updated centralized user hook with modular architecture
 
 "use client";
 
 import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
+import { useAuth } from "./modules/useAuth";
+import type { User, TelegramUser, AttemptsStatus } from "@/lib/supabase";
+import type {
+  AuthState,
+  RegistrationResult,
+  LoginResult,
+  AuthTokens
+} from "./modules/useAuth";
 
-import { userService, type User, type TelegramUser, type AttemptsStatus, type GameSaveResult } from "@/lib/supabase";
-import { tournamentService, type TournamentSaveResponse } from "@/lib/supabase_tournament_extension";
+// Import game result types
 import { ReactionGameResult } from "@/types/game-modes/reaction";
 import { SurvivalGameResult } from "@/types/game-modes/survival";
 import { PhysicsGameResult } from "@/types/game-modes/physics";
 import { RotationGameResult } from "@/types/game-modes/rotation";
 import type { TournamentGameResult } from "@/types/tournaments";
 
-// NEW: Import achievement notification types
+// Import achievement notification types
 import type { AchievementNotificationData } from "@/components/LeagueProgress/AchievementNotification";
 
-// Updated to include rotation mode and league achievements
+// Game result union type
 type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult | TournamentGameResult;
 
-interface AttemptsCache {
-  status: AttemptsStatus | null;
-  lastUpdate: number;
-  isValid: boolean;
-  source: 'server' | 'optimistic' | 'initial';
+// Game save result interface (will be moved to separate module later)
+export interface GameSaveResult {
+  success: boolean;
+  leagueChanged?: boolean;
+  newLeague?: any; // Will be properly typed when league module is created
+  levelChanged?: boolean;
+  newLevel?: number;
+  reward?: any; // Will be properly typed when league module is created
+  missedRewards?: any[]; // Will be properly typed when league module is created
+  error?: string;
 }
 
+// Tournament save response interface (will be moved to separate module later)
+export interface TournamentSaveResponse {
+  result_id: string;
+  total_score: number;
+  game_score: number;
+  games_played: number;
+  previous_total: number;
+}
+
+// Main user context interface
 interface UserContextType {
+  // User data
   user: User | null;
   telegramUser: TelegramUser | null;
+
+  // Authentication state
+  authState: AuthState;
+
+  // Loading states
   isLoading: boolean;
   error: string | null;
+
+  // Authentication methods
+  register: (initData: string, referralCode?: string) => Promise<RegistrationResult>;
+  login: (initData: string) => Promise<LoginResult>;
+  logout: () => void;
   refreshUser: () => Promise<void>;
-  saveGameResult: (gameResult: GameResult) => Promise<GameSaveResult>; // Updated return type
-  saveTournamentResult: (tournamentId: string, gameResult: SurvivalGameResult) => Promise<TournamentSaveResponse>;
+
+  // User management
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 
-  // Методы для работы с попытками
+  // Game methods (will be moved to separate modules later)
+  saveGameResult: (gameResult: GameResult) => Promise<GameSaveResult>;
+  saveTournamentResult: (tournamentId: string, gameResult: SurvivalGameResult) => Promise<TournamentSaveResponse>;
+
+  // Attempts management (will be moved to separate module later)
   getAttemptsStatus: () => Promise<AttemptsStatus>;
   consumeAttemptForGame: () => Promise<AttemptsStatus>;
   invalidateAttemptsCache: () => void;
   getCachedAttemptsStatus: () => AttemptsStatus | null;
 
-  // NEW: Achievement notifications
+  // Achievement notifications
   currentAchievement: AchievementNotificationData | null;
   showAchievement: (achievement: AchievementNotificationData) => void;
   hideAchievement: () => void;
+
+  // Utility methods
+  makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -54,70 +94,45 @@ interface UserProviderProps {
   children: React.ReactNode;
 }
 
-const CACHE_DURATION = 60000; // 60 секунд для оптимального пользовательского опыта
-const OPTIMISTIC_UPDATE_TIMEOUT = 5000; // 5 секунд для отката оптимистических обновлений
-
-// Вспомогательная функция для повторных попыток операций
-const retryOperation = async <T>(
-  operation: () => Promise<T>,
-  maxAttempts: number = 3,
-  delay: number = 1000,
-): Promise<T> => {
-  let lastError: Error = new Error("Unknown error occurred");
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      console.log(`Attempt ${attempt}/${maxAttempts} to save game result`);
-      const result = await operation();
-
-      if (attempt > 1) {
-        console.log(`Successfully saved game result on attempt ${attempt}`);
-      }
-
-      return result;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`Attempt ${attempt} failed:`, lastError.message);
-
-      if (attempt < maxAttempts) {
-        console.log(`Waiting ${delay}ms before retry...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        delay *= 1.5;
-      }
-    }
-  }
-
-  console.error(`All ${maxAttempts} attempts to save game result failed`);
-  throw new Error(
-    `Failed to save game result after ${maxAttempts} attempts. Last error: ${lastError.message}`,
-  );
-};
-
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Use authentication module
+  const {
+    authState,
+    register: authRegister,
+    login: authLogin,
+    logout: authLogout,
+    checkAuthStatus,
+    makeAuthenticatedRequest,
+    clearError,
+  } = useAuth();
+
+  // Local state for user data and UI
   const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // NEW: Achievement notifications state
+  // Achievement notifications state
   const [currentAchievement, setCurrentAchievement] = useState<AchievementNotificationData | null>(null);
 
-  // Кэш для попыток с безопасными настройками
-  const [attemptsCache, setAttemptsCache] = useState<AttemptsCache>({
+  // Attempts cache (temporary - will be moved to separate module)
+  const [attemptsCache, setAttemptsCache] = useState<{
+    status: AttemptsStatus | null;
+    lastUpdate: number;
+    isValid: boolean;
+  }>({
     status: null,
     lastUpdate: 0,
     isValid: false,
-    source: 'initial'
   });
 
-  // Автоматическая инициализация Telegram пользователя при первом рендере
+  // Auto-detect Telegram user on mount
   useEffect(() => {
     if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
 
       if (user && user.id) {
-        const telegramUserData = {
+        const telegramUserData: TelegramUser = {
           id: user.id,
           first_name: user.first_name,
           last_name: user.last_name,
@@ -130,56 +145,248 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [telegramUser]);
 
-  // Метод для установки Telegram пользователя в контекст
-  const setTelegramUserData = useCallback((tgUserData: TelegramUser) => {
-    setTelegramUserState(tgUserData);
-    setIsLoading(false);
-  }, []);
+  // Check authentication status on mount
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const isAuthenticated = await checkAuthStatus();
+        if (!isAuthenticated) {
+          console.log("No valid authentication found");
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Метод для прямого обновления пользователя в контексте
-  const updateUser = useCallback((userData: User) => {
-    setUser(userData);
+    initializeAuth();
+  }, [checkAuthStatus]);
+
+  // Update local error state when auth error changes
+  useEffect(() => {
+    setError(authState.error);
+  }, [authState.error]);
+
+  // Enhanced register function with referral support
+  const register = useCallback(async (
+    initData: string,
+    referralCode?: string
+  ): Promise<RegistrationResult> => {
+    try {
+      setError(null);
+      const result = await authRegister(initData, referralCode);
+
+      if (result.success && result.user) {
+        console.log("Registration successful:", result.user.first_name);
+        if (result.referralBonus) {
+          console.log("Referral bonus received:", result.referralBonus);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Registration error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Registration failed";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }, [authRegister]);
+
+  // Enhanced login function
+  const login = useCallback(async (initData: string): Promise<LoginResult> => {
+    try {
+      setError(null);
+      const result = await authLogin(initData);
+
+      if (result.success && result.user) {
+        console.log("Login successful:", result.user.first_name);
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Login error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Login failed";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }, [authLogin]);
+
+  // Enhanced logout function
+  const logout = useCallback(() => {
+    authLogout();
+    setTelegramUserState(null);
     setError(null);
-    setIsLoading(false);
-  }, []);
+    setAttemptsCache({ status: null, lastUpdate: 0, isValid: false });
+    console.log("User logged out");
+  }, [authLogout]);
 
+  // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
-    if (!telegramUser) {
+    if (!authState.isAuthenticated || !authState.user) {
       return;
     }
 
     try {
       setIsLoading(true);
-      setError(null);
-
-      const dbUser = await userService.findByTelegramId(telegramUser.id);
-
-      if (dbUser) {
-        setUser(dbUser);
-      } else {
-        setUser(null);
-      }
-    } catch (err) {
-      console.error("useUser - Error updating user data:", err);
-      setError(err instanceof Error ? err.message : "Неизвестная ошибка");
+      // In the future, this will call a dedicated user refresh API
+      // For now, we rely on the authentication system
+      console.log("User data refreshed");
+    } catch (error) {
+      console.error("Error refreshing user:", error);
+      setError(error instanceof Error ? error.message : "Failed to refresh user data");
     } finally {
       setIsLoading(false);
     }
-  }, [telegramUser]);
+  }, [authState.isAuthenticated, authState.user]);
 
-  // Инвалидация кэша попыток
-  const invalidateAttemptsCache = useCallback(() => {
-    setAttemptsCache({
-      status: null,
-      lastUpdate: 0,
-      isValid: false,
-      source: 'initial'
-    });
+  // Direct user update (for external updates)
+  const updateUser = useCallback((userData: User) => {
+    console.log("User data updated externally");
+    // This will be enhanced when we create a dedicated user data module
   }, []);
 
-  // Получение кэшированного статуса попыток для интерфейса
+  // Set Telegram user data
+  const setTelegramUser = useCallback((userData: TelegramUser) => {
+    setTelegramUserState(userData);
+  }, []);
+
+  // Achievement notification methods
+  const showAchievement = useCallback((achievement: AchievementNotificationData) => {
+    setCurrentAchievement(achievement);
+  }, []);
+
+  const hideAchievement = useCallback(() => {
+    setCurrentAchievement(null);
+  }, []);
+
+  // Clear error state
+  const clearErrorState = useCallback(() => {
+    setError(null);
+    clearError();
+  }, [clearError]);
+
+  // ========================================
+  // TEMPORARY METHODS (to be moved to modules)
+  // ========================================
+
+  // Temporary game save method (will be moved to game module)
+  const saveGameResult = useCallback(async (gameResult: GameResult): Promise<GameSaveResult> => {
+    if (!authState.isAuthenticated) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest('/api/game/save', {
+        method: 'POST',
+        body: JSON.stringify({ gameResult }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save game result');
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error("Error saving game result:", error);
+      throw error;
+    }
+  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
+
+  // Temporary tournament save method (will be moved to tournament module)
+  const saveTournamentResult = useCallback(async (
+    tournamentId: string,
+    gameResult: SurvivalGameResult
+  ): Promise<TournamentSaveResponse> => {
+    if (!authState.isAuthenticated) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest('/api/tournament/save', {
+        method: 'POST',
+        body: JSON.stringify({ tournamentId, gameResult }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save tournament result');
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error("Error saving tournament result:", error);
+      throw error;
+    }
+  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
+
+  // Temporary attempts methods (will be moved to attempts module)
+  const getAttemptsStatus = useCallback(async (): Promise<AttemptsStatus> => {
+    if (!authState.isAuthenticated) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest('/api/user/attempts/status');
+
+      if (!response.ok) {
+        throw new Error('Failed to get attempts status');
+      }
+
+      const status = await response.json();
+
+      // Update cache
+      setAttemptsCache({
+        status,
+        lastUpdate: Date.now(),
+        isValid: true,
+      });
+
+      return status;
+    } catch (error) {
+      console.error("Error getting attempts status:", error);
+      throw error;
+    }
+  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
+
+  const consumeAttemptForGame = useCallback(async (): Promise<AttemptsStatus> => {
+    if (!authState.isAuthenticated) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest('/api/user/attempts/consume', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to consume attempt');
+      }
+
+      const status = await response.json();
+
+      // Update cache
+      setAttemptsCache({
+        status,
+        lastUpdate: Date.now(),
+        isValid: true,
+      });
+
+      return status;
+    } catch (error) {
+      console.error("Error consuming attempt:", error);
+      throw error;
+    }
+  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
+
+  const invalidateAttemptsCache = useCallback(() => {
+    setAttemptsCache({ status: null, lastUpdate: 0, isValid: false });
+  }, []);
+
   const getCachedAttemptsStatus = useCallback((): AttemptsStatus | null => {
     const now = Date.now();
+    const CACHE_DURATION = 60000; // 1 minute
 
     if (attemptsCache.isValid &&
       attemptsCache.status &&
@@ -190,265 +397,46 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return null;
   }, [attemptsCache]);
 
-  // Получение актуального статуса попыток с кэшированием
-  const getAttemptsStatus = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!telegramUser) {
-      throw new Error("Пользователь Telegram не найден");
-    }
-
-    const now = Date.now();
-
-    // Проверка валидности кэша
-    if (attemptsCache.isValid &&
-      attemptsCache.status &&
-      attemptsCache.source === 'server' &&
-      (now - attemptsCache.lastUpdate) < CACHE_DURATION) {
-      console.log("Returning cached attempts status");
-      return attemptsCache.status;
-    }
-
-    try {
-      console.log("Fetching fresh attempts status from server");
-      const status = await userService.checkAndUpdateAttemptsWithServerValidation(
-        telegramUser.id
-      );
-
-      // Обновление кэша только серверными данными
-      setAttemptsCache({
-        status,
-        lastUpdate: now,
-        isValid: true,
-        source: 'server'
-      });
-
-      return status;
-    } catch (error) {
-      console.error("Error fetching attempts status:", error);
-
-      // При ошибке инвалидация кэша
-      invalidateAttemptsCache();
-      throw error;
-    }
-  }, [telegramUser, attemptsCache, invalidateAttemptsCache]);
-
-  // Безопасное потребление попытки для игры
-  const consumeAttemptForGame = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!telegramUser) {
-      throw new Error("Пользователь Telegram не найден");
-    }
-
-    console.log("Consuming attempt on server (security-critical operation)");
-
-    try {
-      const newStatus = await userService.consumeAttemptWithServerValidation(
-        telegramUser.id
-      );
-
-      const now = Date.now();
-
-      // Обновление кэша после успешного серверного запроса
-      setAttemptsCache({
-        status: newStatus,
-        lastUpdate: now,
-        isValid: true,
-        source: 'server'
-      });
-
-      console.log("Attempt consumed successfully, cache updated with server data");
-      return newStatus;
-
-    } catch (error) {
-      console.error("Error consuming attempt:", error);
-
-      // При ошибке инвалидация кэша и требование повторной проверки
-      invalidateAttemptsCache();
-      throw error;
-    }
-  }, [telegramUser, invalidateAttemptsCache]);
-
-  // NEW: Achievement notification methods
-  const showAchievement = useCallback((achievement: AchievementNotificationData) => {
-    setCurrentAchievement(achievement);
-  }, []);
-
-  const hideAchievement = useCallback(() => {
-    setCurrentAchievement(null);
-  }, []);
-
-  // NEW: Helper function to process league achievements
-  const processLeagueAchievements = useCallback((gameResult: GameSaveResult) => {
-    if (!gameResult.success) return;
-
-    // Show level up notification
-    if (gameResult.levelChanged && gameResult.newLevel) {
-      showAchievement({
-        type: 'level_up',
-        level: gameResult.newLevel
-      });
-    }
-
-    // Show league promotion notification (higher priority)
-    if (gameResult.leagueChanged && gameResult.newLeague) {
-      // Calculate position if reward was given
-      const position = gameResult.reward?.reward?.position;
-      
-      setTimeout(() => {
-        showAchievement({
-          type: 'league_promotion',
-          league: gameResult.newLeague,
-          position
-        });
-      }, gameResult.levelChanged ? 3000 : 0); // Delay if level also changed
-    }
-
-    // Show reward notification (highest priority)
-    if (gameResult.reward?.success && gameResult.reward.reward) {
-      setTimeout(() => {
-        showAchievement({
-          type: 'reward_received',
-          league: gameResult.newLeague,
-          reward: gameResult.reward?.reward
-        });
-      }, (gameResult.levelChanged ? 3000 : 0) + (gameResult.leagueChanged ? 3000 : 0));
-    }
-  }, [showAchievement]);
-
-  // Автоматическая загрузка пользователя из базы данных при установке telegramUser
-  useEffect(() => {
-    if (telegramUser && !user && !isLoading) {
-      refreshUser().catch(err => {
-        console.error("useUser - Failed to auto-load user:", err);
-      });
-    }
-  }, [telegramUser, user, isLoading, refreshUser]);
-
-  // Инвалидация кэша при смене пользователя
-  useEffect(() => {
-    if (telegramUser) {
-      invalidateAttemptsCache();
-    }
-  }, [telegramUser, invalidateAttemptsCache]);
-
-  // UPDATED: Enhanced saveGameResult with league processing
-  const saveGameResult = useCallback(
-    async (gameResult: GameResult): Promise<GameSaveResult> => {
-      if (!telegramUser) {
-        throw new Error("Пользователь Telegram не найден");
-      }
-
-      // Проверка турнирного результата
-      if ('tournamentId' in gameResult) {
-        const tournamentResult = await saveTournamentResult(gameResult.tournamentId, gameResult);
-        console.log("Tournament result saved with accumulation:", tournamentResult);
-        return { success: true }; // Return basic success for tournament games
-      }
-
-      console.log("Saving regular game result:", {
-        mode: gameResult.mode,
-        score: gameResult.score,
-        duration: gameResult.duration,
-      });
-
-      const saveOperation = async (): Promise<GameSaveResult> => {
-        const result = await userService.saveGameResult(telegramUser.id, gameResult);
-        await refreshUser();
-        invalidateAttemptsCache();
-        return result;
-      };
-
-      try {
-        const result = await retryOperation(saveOperation, 3, 1000);
-        console.log("Game result saved successfully (with potential retries):", result);
-
-        // NEW: Process league achievements
-        processLeagueAchievements(result);
-
-        return result;
-      } catch (err) {
-        console.error(
-          "Failed to save game result after all retry attempts:",
-          err,
-        );
-
-        const errorMessage =
-          err instanceof Error
-            ? `Не удалось сохранить результат игры после 3 попыток: ${err.message}`
-            : "Не удалось сохранить результат игры после 3 попыток. Попробуйте позже.";
-
-        throw new Error(errorMessage);
-      }
-    },
-    [telegramUser, refreshUser, invalidateAttemptsCache, processLeagueAchievements],
-  );
-
-  const saveTournamentResult = useCallback(
-    async (tournamentId: string, gameResult: SurvivalGameResult): Promise<TournamentSaveResponse> => {
-      if (!telegramUser || !user) {
-        throw new Error("Пользователь не найден");
-      }
-
-      console.log("Saving tournament result with accumulation:", {
-        tournamentId,
-        mode: gameResult.mode,
-        score: gameResult.score,
-        survivalTime: gameResult.survivalTime,
-      });
-
-      const saveOperation = async (): Promise<TournamentSaveResponse> => {
-        return await tournamentService.saveTournamentResult(
-          tournamentId,
-          user.id,
-          telegramUser.id,
-          {
-            survivalTime: gameResult.survivalTime,
-            score: gameResult.score,
-            maxLevelReached: gameResult.maxLevelReached,
-            perfectStreak: gameResult.perfectStreak,
-            correctHits: gameResult.correctHits,
-            deathCause: gameResult.deathCause,
-          }
-        );
-      };
-
-      try {
-        const result = await retryOperation(saveOperation, 3, 1000);
-        console.log("Tournament result with point accumulation saved successfully:", result);
-        return result;
-      } catch (err) {
-        console.error(
-          "Failed to save tournament result after all retry attempts:",
-          err,
-        );
-
-        const errorMessage =
-          err instanceof Error
-            ? `Не удалось сохранить результат турнира после 3 попыток: ${err.message}`
-            : "Не удалось сохранить результат турнира после 3 попыток. Попробуйте позже.";
-
-        throw new Error(errorMessage);
-      }
-    },
-    [telegramUser, user],
-  );
-
+  // Context value
   const contextValue: UserContextType = {
-    user,
+    // User data
+    user: authState.user,
     telegramUser,
-    isLoading,
+
+    // Authentication state
+    authState,
+
+    // Loading states
+    isLoading: isLoading || authState.isLoading,
     error,
+
+    // Authentication methods
+    register,
+    login,
+    logout,
     refreshUser,
+
+    // User management
+    updateUser,
+    setTelegramUser,
+
+    // Game methods (temporary)
     saveGameResult,
     saveTournamentResult,
-    updateUser,
-    setTelegramUser: setTelegramUserData,
+
+    // Attempts management (temporary)
     getAttemptsStatus,
     consumeAttemptForGame,
     invalidateAttemptsCache,
     getCachedAttemptsStatus,
-    // NEW: Achievement notifications
+
+    // Achievement notifications
     currentAchievement,
     showAchievement,
     hideAchievement,
+
+    // Utility methods
+    makeAuthenticatedRequest,
   };
 
   return React.createElement(
@@ -462,7 +450,7 @@ export function useUser(): UserContextType {
   const context = useContext(UserContext);
 
   if (context === undefined) {
-    throw new Error("useUser должен использоваться внутри UserProvider");
+    throw new Error("useUser must be used within a UserProvider");
   }
 
   return context;

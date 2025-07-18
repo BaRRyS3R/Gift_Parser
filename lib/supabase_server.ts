@@ -183,6 +183,36 @@ export const serverUserService = {
         return code;
     },
 
+    async validateReferralCodeAndGetReferrer(referralCode: string): Promise<{
+        isValid: boolean;
+        bonus: number;
+        referrerName?: string;
+        referrerUsername?: string;
+    }> {
+        try {
+            const referrer = await this.findByReferralCode(referralCode);
+
+            if (referrer) {
+                let referrerName = referrer.first_name;
+                if (referrer.last_name) {
+                    referrerName += ` ${referrer.last_name}`;
+                }
+
+                return {
+                    isValid: true,
+                    bonus: referrer.referral_bonus,
+                    referrerName,
+                    referrerUsername: referrer.username,
+                };
+            }
+
+            return { isValid: false, bonus: 0 };
+        } catch (error) {
+            console.error('Error validating referral code and getting referrer info:', error);
+            return { isValid: false, bonus: 0 };
+        }
+    },
+
     async updateUser(telegramId: number, updates: Partial<ServerUser>): Promise<ServerUser> {
         const { data, error } = await supabaseServer
             .from('users')
