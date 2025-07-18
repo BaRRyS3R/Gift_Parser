@@ -29,14 +29,14 @@ export interface ValidationResult {
   error?: string;
 }
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_API;
+const TELEGRAM_BOT_API = process.env.TELEGRAM_BOT_API;
 
-if (!TELEGRAM_BOT_TOKEN) {
-  throw new Error('TELEGRAM_BOT_TOKEN environment variable is required');
+if (!TELEGRAM_BOT_API) {
+  throw new Error('TELEGRAM_BOT_API environment variable is required');
 }
 
 // Ensure we have a valid token for crypto operations
-const BOT_TOKEN: string = TELEGRAM_BOT_TOKEN;
+const BOT_TOKEN: string = TELEGRAM_BOT_API;
 
 /**
  * Validates Telegram WebApp initData using official algorithm
