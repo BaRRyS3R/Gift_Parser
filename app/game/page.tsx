@@ -338,43 +338,18 @@ function GamePageContent() {
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
 
-  const handleModeStart = useCallback(async (mode: GameMode) => {
-    if (!canPlay || loadingModeId) return;
+  const handleModeStart = useCallback((mode: GameMode) => {
+    if (loadingModeId) return;
 
     setLoadingModeId(mode.id);
 
-    try {
-      console.log(`Starting ${mode.id} game - final server validation`);
+    console.log(`Starting ${mode.id} game`);
 
-      // Perform final server validation before game start
-      const response = await makeAuthenticatedRequest('/api/user/attempts/status');
-
-      if (!response.ok) {
-        throw new Error('Failed to validate attempts');
-      }
-
-      const data = await response.json();
-
-      if (!data.success || !data.canPlay) {
-        console.warn('Final validation failed - cannot start game');
-        setLoadingModeId(null);
-        // Refresh attempts status to get current state
-        await fetchAttemptsStatus(true);
-        return;
-      }
-
-      // Navigate to game
-      setTimeout(() => {
-        router.push(mode.route);
-      }, 600);
-
-    } catch (error) {
-      console.error('Error during final validation:', error);
-      setLoadingModeId(null);
-      // Refresh attempts status in case of error
-      await fetchAttemptsStatus(true);
-    }
-  }, [canPlay, loadingModeId, makeAuthenticatedRequest, router, fetchAttemptsStatus]);
+    // Navigate to game after brief loading animation
+    setTimeout(() => {
+      router.push(mode.route);
+    }, 600);
+  }, [loadingModeId, router]);
 
   const handleToggleExpand = useCallback((modeId: string) => {
     if (loadingModeId) return;
