@@ -1,11 +1,10 @@
-// src/app/game/page.tsx - Protected game page with authentication guard
+// src/app/game/page.tsx - Унифицированная страница игр с централизованной системой попыток
 
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Zap,
   Crosshair,
   Play,
   Shield,
@@ -13,15 +12,16 @@ import {
   Atom,
   ChevronDown,
   ChevronUp,
-  Battery,
   Gamepad2,
   RotateCw,
+  Zap,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
-import { type AttemptsStatus } from "@/lib/supabase";
 import AuthGuard from "@/components/Auth/AuthGuard";
+import AttemptsDisplay from "@/components/AttemptsDisplay";
 import TournamentCard from "@/components/TournamentCard/TournamentCard";
 
 interface GameMode {
@@ -158,127 +158,6 @@ const GAME_MODES: GameMode[] = [
     ],
   },
 ];
-
-const AttemptsDisplay = ({
-  attemptsStatus,
-  timeUntilReset,
-  onShopClick,
-  isLoading,
-}: {
-  attemptsStatus: AttemptsStatus | null;
-  timeUntilReset: string;
-  onShopClick: () => void;
-  isLoading: boolean;
-}) => {
-  const t = useT();
-
-  if (isLoading || !attemptsStatus) {
-    return (
-      <div className="bg-white/10 border border-white/30 backdrop-blur-sm rounded-xl p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-2">
-            <Battery className="text-white/60" size={16} />
-            <span className="text-sm font-bold text-white/60">
-              {t("attempts.current")}
-            </span>
-          </div>
-          <div className="w-8 h-4 bg-white/20 rounded animate-pulse" />
-        </div>
-        <div className="w-full h-2 bg-white/20 rounded animate-pulse mb-3" />
-        <div className="text-center">
-          <div className="w-24 h-4 bg-white/20 rounded animate-pulse mx-auto" />
-        </div>
-      </div>
-    );
-  }
-
-  const attemptsRemaining = attemptsStatus.attemptsRemaining;
-  const isEmpty = attemptsRemaining === 0;
-  const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
-
-  const getBatteryLevel = () => {
-    if (attemptsRemaining <= 0) return 0;
-    if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
-    return 100;
-  };
-
-  const getBatteryColor = () => {
-    if (isEmpty) return "text-red-400";
-    if (isLow) return "text-orange-400";
-    return "text-green-400";
-  };
-
-  const getBatteryBgColor = () => {
-    if (isEmpty) return "bg-red-500/20 border-red-400/40";
-    if (isLow) return "bg-orange-500/20 border-orange-400/40";
-    return "bg-white/10 border-white/30";
-  };
-
-  return (
-    <div
-      className={`backdrop-blur-sm border rounded-xl p-4 transition-all duration-300 ${getBatteryBgColor()}`}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center space-x-2">
-          <Battery className={getBatteryColor()} size={16} />
-          <span className={`text-sm font-bold ${getBatteryColor()}`}>
-            {t("attempts.current")}
-          </span>
-        </div>
-        <span className={`text-lg font-bold ${getBatteryColor()}`}>
-          {attemptsRemaining} ⚡
-        </span>
-      </div>
-
-      <div className="mb-3">
-        <div
-          className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
-            ? "bg-red-400/20"
-            : isLow
-              ? "bg-orange-400/20"
-              : "bg-white/20"
-            }`}
-        >
-          <div
-            className={`h-full transition-all duration-500 ${getBatteryColor().replace(
-              "text-",
-              "bg-"
-            )}`}
-            style={{ width: `${getBatteryLevel()}%` }}
-          />
-        </div>
-      </div>
-
-      {isEmpty && (
-        <div className="space-y-3">
-          <div className="text-center space-y-2">
-            <p className="text-red-400/80 text-xs">
-              {t("game.general.waitForReset")}
-            </p>
-            {timeUntilReset && (
-              <div className="space-y-1">
-                <div className="text-xs text-white/60 uppercase tracking-wider">
-                  {t("attempts.resetTime")}
-                </div>
-                <div className="text-lg font-bold text-green-400">
-                  {timeUntilReset}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={onShopClick}
-            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-400/40 text-yellow-300 rounded-lg hover:from-yellow-500/30 hover:to-orange-500/30 hover:border-yellow-400/60 transition-all duration-300 hover:scale-105 active:scale-95"
-          >
-            <ShoppingCart size={16} />
-            <span className="font-bold text-sm">{t("nav.shop")}</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const CompactGameModeCard = ({
   mode,
@@ -446,87 +325,21 @@ const CompactGameModeCard = ({
 function GamePageContent() {
   const router = useRouter();
   const { user, makeAuthenticatedRequest } = useUser();
+  const {
+    attemptsStatus,
+    isLoading: attemptsLoading,
+    error: attemptsError,
+    canPlay,
+    fetchAttemptsStatus,
+    clearError
+  } = useAttempts();
   const t = useT();
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
-  const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus | null>(null);
-  const [timeUntilReset, setTimeUntilReset] = useState<string>("");
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [attemptsError, setAttemptsError] = useState<string | null>(null);
-
-  // Load attempts status on page load
-  const loadAttemptsStatus = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      setAttemptsError(null);
-      console.log("Loading attempts status for game page...");
-
-      const response = await makeAuthenticatedRequest('/api/user/attempts/status');
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to get attempts status');
-      }
-
-      const status: AttemptsStatus = {
-        canPlay: data.canPlay,
-        attemptsRemaining: data.attemptsRemaining,
-        resetTime: data.resetTime ? new Date(data.resetTime) : undefined,
-        timeUntilReset: data.timeUntilReset,
-      };
-
-      setAttemptsStatus(status);
-      console.log("Attempts status loaded:", status);
-
-    } catch (error) {
-      console.error("Error loading attempts status:", error);
-      setAttemptsError(error instanceof Error ? error.message : "Failed to load attempts");
-    } finally {
-      setIsInitialLoading(false);
-    }
-  }, [user, makeAuthenticatedRequest]);
-
-  // Initialize attempts status
-  useEffect(() => {
-    if (user) {
-      loadAttemptsStatus();
-    }
-  }, [user, loadAttemptsStatus]);
-
-  // Timer for countdown
-  useEffect(() => {
-    if (!attemptsStatus?.resetTime || attemptsStatus.canPlay) {
-      setTimeUntilReset("");
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const now = new Date();
-      const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        setTimeUntilReset("");
-        loadAttemptsStatus(); // Refresh attempts when reset time reached
-      } else {
-        const minutes = Math.floor(diff / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [attemptsStatus?.resetTime, attemptsStatus?.canPlay, loadAttemptsStatus]);
 
   const handleModeStart = useCallback(async (mode: GameMode) => {
-    if (!attemptsStatus?.canPlay || loadingModeId) return;
+    if (!canPlay || loadingModeId) return;
 
     setLoadingModeId(mode.id);
 
@@ -545,7 +358,8 @@ function GamePageContent() {
       if (!data.success || !data.canPlay) {
         console.warn('Final validation failed - cannot start game');
         setLoadingModeId(null);
-        loadAttemptsStatus(); // Refresh status
+        // Refresh attempts status to get current state
+        await fetchAttemptsStatus(true);
         return;
       }
 
@@ -557,8 +371,10 @@ function GamePageContent() {
     } catch (error) {
       console.error('Error during final validation:', error);
       setLoadingModeId(null);
+      // Refresh attempts status in case of error
+      await fetchAttemptsStatus(true);
     }
-  }, [attemptsStatus?.canPlay, loadingModeId, makeAuthenticatedRequest, router, loadAttemptsStatus]);
+  }, [canPlay, loadingModeId, makeAuthenticatedRequest, router, fetchAttemptsStatus]);
 
   const handleToggleExpand = useCallback((modeId: string) => {
     if (loadingModeId) return;
@@ -573,6 +389,11 @@ function GamePageContent() {
   const handleOpenShop = useCallback(() => {
     router.push("/shop");
   }, [router]);
+
+  const handleRetryAttempts = useCallback(async () => {
+    clearError();
+    await fetchAttemptsStatus(true);
+  }, [clearError, fetchAttemptsStatus]);
 
   // Telegram WebApp back button
   useEffect(() => {
@@ -590,8 +411,6 @@ function GamePageContent() {
     }
   }, [router]);
 
-  const canPlay = attemptsStatus?.canPlay ?? false;
-
   return (
     <div
       className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
@@ -608,20 +427,17 @@ function GamePageContent() {
         </p>
       </div>
 
+      {/* Централизованный компонент отображения попыток */}
       <div className="mb-8 animate-fade-in">
-        <AttemptsDisplay
-          attemptsStatus={attemptsStatus}
-          timeUntilReset={timeUntilReset}
-          onShopClick={handleOpenShop}
-          isLoading={isInitialLoading}
-        />
+        <AttemptsDisplay />
       </div>
 
+      {/* Обработка ошибок попыток с возможностью повтора */}
       {attemptsError && (
         <div className="mb-6 p-4 bg-red-500/20 border border-red-400/40 rounded-xl">
           <p className="text-red-400 text-sm text-center">{attemptsError}</p>
           <button
-            onClick={loadAttemptsStatus}
+            onClick={handleRetryAttempts}
             className="mt-2 w-full py-2 text-xs text-red-300 hover:text-red-200 transition-colors"
           >
             {t("common.retry")}
