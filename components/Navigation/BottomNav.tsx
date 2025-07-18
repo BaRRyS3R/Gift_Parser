@@ -3,13 +3,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Gamepad2,
-  Trophy,
-  User,
-  ShoppingCart,
-  CheckSquare,
-} from "lucide-react";
+import { Gamepad2, Trophy, User, ShoppingCart, CheckSquare } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -75,10 +69,9 @@ export default function BottomNav() {
                 className={`
                   relative flex items-center justify-center
                   w-12 h-12 rounded-full transition-all duration-300 ease-out
-                  ${
-                    active
-                      ? "text-white scale-110"
-                      : "text-white/60 hover:text-white/80 hover:scale-105"
+                  ${active
+                    ? "text-white scale-110"
+                    : "text-white/60 hover:text-white/80 hover:scale-105"
                   }
                 `}
                 onClick={() => handleNavigation(item.path)}

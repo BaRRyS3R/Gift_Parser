@@ -14,7 +14,7 @@ interface GameGridProps {
   // Props for activation pulse notifications
   onActivatedCircles?: number[]; // Array of circle IDs that were just activated
   lastActivationTimestamp?: number; // Timestamp to trigger re-render when activations occur
-  gameMode?: "reaction" | "survival" | "physics"; // NEW: Game mode for styling differences
+  gameMode?: 'reaction' | 'survival' | 'physics'; // NEW: Game mode for styling differences
 }
 
 interface ActivePulse {
@@ -50,7 +50,7 @@ export default function GameGrid({
   showCircles,
   onActivatedCircles = [],
   lastActivationTimestamp = 0,
-  gameMode = "reaction",
+  gameMode = 'reaction',
 }: GameGridProps) {
   const { cols, rows } = getGridDimensions(circles.length);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
@@ -67,9 +67,8 @@ export default function GameGrid({
   useEffect(() => {
     if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
       // Create new pulses for activated circles
-      const newPulses: ActivePulse[] = onActivatedCircles.map((circleId) => {
-        const circle = circles.find((c) => c.id === circleId);
-
+      const newPulses: ActivePulse[] = onActivatedCircles.map(circleId => {
+        const circle = circles.find(c => c.id === circleId);
         return {
           circleId,
           isRed: circle?.isDecoy || false,
@@ -77,12 +76,12 @@ export default function GameGrid({
         };
       });
 
-      setActivePulses((prev) => [...prev, ...newPulses]);
+      setActivePulses(prev => [...prev, ...newPulses]);
 
       // Remove pulses after animation completes (400ms + small buffer)
       setTimeout(() => {
-        setActivePulses((prev) =>
-          prev.filter((pulse) => pulse.timestamp !== lastActivationTimestamp),
+        setActivePulses(prev =>
+          prev.filter(pulse => pulse.timestamp !== lastActivationTimestamp)
         );
       }, 450);
     }
@@ -287,20 +286,15 @@ export default function GameGrid({
 
   // NEW: Fast activation pulse effect (single burst on activation)
   const renderActivationPulse = (circle: Circle) => {
-    const activePulse = activePulses.find(
-      (pulse) => pulse.circleId === circle.id,
-    );
-
+    const activePulse = activePulses.find(pulse => pulse.circleId === circle.id);
     if (!activePulse) return null;
 
-    const pulseClass = activePulse.isRed
-      ? "activation-pulse-red"
-      : "activation-pulse";
-    const pulseColor = activePulse.isRed ? "border-red-400" : "border-white";
+    const pulseClass = activePulse.isRed ? 'activation-pulse-red' : 'activation-pulse';
+    const pulseColor = activePulse.isRed ? 'border-red-400' : 'border-white';
 
     // Different z-index for different game modes
     // In survival mode, pulse goes behind circles; in reaction mode, it goes above
-    const zIndex = gameMode === "survival" ? -1 : 10;
+    const zIndex = gameMode === 'survival' ? -1 : 10;
 
     return (
       <div
@@ -346,9 +340,9 @@ export default function GameGrid({
           return (
             <button
               key={circle.id}
+              data-circle-id={circle.id}
               aria-label={`Game circle ${circle.id + 1}${circle.isActive ? (circle.isDecoy ? " - trap target" : " - active target") : ""}`}
               className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
-              data-circle-id={circle.id}
               disabled={getInteractionProps(circle).disabled}
               style={{
                 ...circleStyleConfig.style,

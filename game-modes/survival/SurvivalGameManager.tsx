@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Версия без системы попыток для тестирования
+// src/game-modes/survival/SurvivalGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
 
 "use client";
 
@@ -55,7 +55,7 @@ const initialSaveStatus: SaveStatus = {
 const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
 
 export default function SurvivalGameManager() {
-  const { saveGameResult, telegramUser } = useUser();
+  const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
   const router = useRouter();
   const t = useT();
 
@@ -65,7 +65,9 @@ export default function SurvivalGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
-  const [isGameInitialized, setIsGameInitialized] = useState(false);
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
+  const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
+  const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
   const [isRestartLoading, setIsRestartLoading] = useState(false);
 
   // State for activation pulse effects
@@ -73,7 +75,6 @@ export default function SurvivalGameManager() {
   const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
 
   const gameStateRef = useRef<SurvivalGameState>(gameState);
-  const levelIntervalRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -96,17 +97,35 @@ export default function SurvivalGameManager() {
     }
   }, [router]);
 
-  // Простая инициализация без потребления попыток
+  // Consume attempt immediately when component mounts (initial entry only)
   useEffect(() => {
-    if (!telegramUser?.id || isGameInitialized) return;
+    const consumeInitialAttempt = async () => {
+      if (!telegramUser?.id || hasConsumedInitialAttempt) return;
 
-    console.log("Initializing survival game without attempts check");
-    setIsGameInitialized(true);
+      try {
+        setIsConsumingAttempt(true);
+        console.log("Consuming initial attempt for survival game");
 
-    setTimeout(() => {
-      startGame();
-    }, 500);
-  }, [telegramUser?.id, isGameInitialized]);
+        const newStatus = await consumeAttemptForGame();
+        setAttemptsRemaining(newStatus.attemptsRemaining);
+        setHasConsumedInitialAttempt(true);
+
+        // Auto-start the game after consuming attempt
+        setTimeout(() => {
+          startGame();
+        }, 500);
+      } catch (error) {
+        console.error("Error consuming initial attempt:", error);
+        setHasConsumedInitialAttempt(true);
+        // При ошибке возвращаемся к выбору игр
+        router.push("/game");
+      } finally {
+        setIsConsumingAttempt(false);
+      }
+    };
+
+    consumeInitialAttempt();
+  }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -178,12 +197,6 @@ export default function SurvivalGameManager() {
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
       console.log("Survival game ended:", cause);
 
-      // Очищаем интервал обновления уровня
-      if (levelIntervalRef.current) {
-        clearInterval(levelIntervalRef.current);
-        levelIntervalRef.current = undefined;
-      }
-
       setGameState((prev) => {
         const finalState = updateSurvivalLevel(prev, Date.now());
 
@@ -209,7 +222,6 @@ export default function SurvivalGameManager() {
         };
 
         const result = createSurvivalGameResult(finalGameState);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -313,13 +325,7 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
-    console.log("Starting Survival Game without attempts validation...");
-
-    // Очищаем предыдущий интервал если он существует
-    if (levelIntervalRef.current) {
-      clearInterval(levelIntervalRef.current);
-      levelIntervalRef.current = undefined;
-    }
+    console.log("Starting Survival Game...");
 
     setGameState(initializeSurvivalGameState());
     setGameResult(null);
@@ -334,14 +340,10 @@ export default function SurvivalGameManager() {
     setTimeout(() => {
       setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
-      // Создаем новый интервал для обновления уровня
-      levelIntervalRef.current = setInterval(() => {
+      const levelInterval = setInterval(() => {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
-            if (levelIntervalRef.current) {
-              clearInterval(levelIntervalRef.current);
-              levelIntervalRef.current = undefined;
-            }
+            clearInterval(levelInterval);
             return current;
           }
 
@@ -352,37 +354,44 @@ export default function SurvivalGameManager() {
       setTimeout(() => {
         scheduleNextActivation();
       }, 1000);
+
+      setGameState((prev) => ({
+        ...prev,
+        levelUpdateInterval: levelInterval,
+      }));
     }, 800);
   }, [scheduleNextActivation]);
 
-  // Простой рестарт без потребления попыток
-  const restartGame = useCallback(() => {
-    if (!telegramUser?.id || isRestartLoading) return;
+  // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
+  const restartGame = useCallback(async () => {
+    if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
 
-    console.log("Restarting survival game without attempts check...");
     setIsRestartLoading(true);
 
-    // Очищаем интервал перед рестартом
-    if (levelIntervalRef.current) {
-      clearInterval(levelIntervalRef.current);
-      levelIntervalRef.current = undefined;
-    }
+    try {
+      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
+      // Всегда потребляем попытку на сервере для обеспечения корректности данных
+      console.log("Consuming attempt on server for restart (security-critical operation)");
 
-    setShowCircles(false);
+      const newStatus = await consumeAttemptForGame();
+      setAttemptsRemaining(newStatus.attemptsRemaining);
 
-    setTimeout(() => {
-      startGame();
+      setShowCircles(false);
+      setTimeout(() => {
+        startGame();
+      }, 200);
+
+    } catch (error) {
+      console.error("Error consuming attempt for restart:", error);
+      // При ошибке возвращаемся к выбору игр
+      router.push("/game");
+    } finally {
       setIsRestartLoading(false);
-    }, 200);
-  }, [telegramUser?.id, startGame, isRestartLoading]);
+    }
+  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
 
-  // Cleanup при размонтировании
   useEffect(() => {
     return () => {
-      if (levelIntervalRef.current) {
-        clearInterval(levelIntervalRef.current);
-        levelIntervalRef.current = undefined;
-      }
       cleanupSurvivalGame(gameStateRef.current);
     };
   }, []);
@@ -402,18 +411,28 @@ export default function SurvivalGameManager() {
 
   const getDeathCauseMessage = (deathCause: string) => {
     const causeKeyMapping = {
-      miss: "game.modes.survival.deathCauses.miss",
-      wrong_click: "game.modes.survival.deathCauses.wrongClick",
-      decoy_hit: "game.modes.survival.deathCauses.decoyHit",
-      timeout: "game.modes.survival.deathCauses.default",
+      "miss": "game.modes.survival.deathCauses.miss",
+      "wrong_click": "game.modes.survival.deathCauses.wrongClick",
+      "decoy_hit": "game.modes.survival.deathCauses.decoyHit",
+      "timeout": "game.modes.survival.deathCauses.default"
     };
 
-    const key =
-      causeKeyMapping[deathCause as keyof typeof causeKeyMapping] ||
+    const key = causeKeyMapping[deathCause as keyof typeof causeKeyMapping] ||
       causeKeyMapping.timeout;
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
+
+  if (isConsumingAttempt) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-red-400/20 border-t-red-400 rounded-full animate-spin mx-auto" />
+          <p className="text-red-300">{t("game.general.initializingGame")}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
     return (
@@ -460,6 +479,14 @@ export default function SurvivalGameManager() {
               </div>
               <div className="text-center space-y-1">
                 <div className="text-xs text-red-400/60">
+                  {t("game.modes.survival.results.attemptsLeft")}
+                </div>
+                <div className="text-xl font-bold text-green-400">
+                  {attemptsRemaining}
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="text-xs text-red-400/60">
                   {t("game.modes.survival.results.perfectStreak")}
                 </div>
                 <div className="text-xl font-bold text-green-400">
@@ -474,14 +501,6 @@ export default function SurvivalGameManager() {
                   {gameResult.correctHits}
                 </div>
               </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.levelProgress")}
-                </div>
-                <div className="text-xl font-bold text-orange-400">
-                  {gameResult.maxLevelReached}/15
-                </div>
-              </div>
             </div>
 
             <div className="border-t border-red-400/30 pt-4">
@@ -490,104 +509,106 @@ export default function SurvivalGameManager() {
                   {t("game.modes.survival.results.levelProgress")}
                 </div>
                 <div className="text-xs text-red-400/60">
-                  {gameResult.maxLevelReached}/15 {t("game.modes.survival.results.levelsCompleted")}
-                </div>
-                <div className="text-xs text-white/60 bg-blue-500/20 px-3 py-2 rounded-lg">
-                  🧪 Тестовый режим - без ограничений попыток
+                  {gameResult.maxLevelReached}/15{" "}
+                  {t("game.modes.survival.results.levelsCompleted")}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Save Status Display */}
-          {(saveStatus.isLoading ||
-            saveStatus.error ||
-            saveStatus.isSuccess) && (
-              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                      <span className="text-sm text-red-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
-                            attempt: saveStatus.attempt,
-                            max: saveStatus.maxAttempts,
-                          })
-                          : t("save.recording")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-red-400/60" size={14} />
-                          <span className="text-xs text-red-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-red-400/20 rounded-full h-1">
-                          <div
-                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.recordedSuccessfully")}
-                      </span>
-                    </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
-                          attempts: saveStatus.attempt,
+          {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                    <span className="text-sm text-red-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
+                          attempt: saveStatus.attempt,
+                          max: saveStatus.maxAttempts,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                        : t("save.recording")}
+                    </span>
                   </div>
-                )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        {t("shop.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-red-400/60" size={14} />
+                        <span className="text-xs text-red-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-red-400/20 rounded-full h-1">
+                        <div
+                          className="bg-red-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("shop.recordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() => handleSaveGameResult(gameResult)}
-                    >
-                      {t("shop.retrySave")}
-                    </button>
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.recordedSuccessfully")}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
+                        attempts: saveStatus.attempt,
+                      })
+                      : t("save.synchronized")}
+                  </div>
+                </div>
+              )}
+
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      {t("shop.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
+                  </div>
+                  <div className="text-red-400/60 text-xs mb-3">
+                    {t("shop.recordedLocally")}
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    {t("shop.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-4">
             <button
               className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={saveStatus.isLoading || isRestartLoading}
+              disabled={
+                saveStatus.isLoading ||
+                attemptsRemaining <= 0 ||
+                isRestartLoading
+              }
               onClick={restartGame}
             >
               {isRestartLoading
                 ? t("game.modes.survival.results.starting")
-                : t("game.modes.survival.results.surviveAgain")}
+                : attemptsRemaining > 0
+                  ? t("game.modes.survival.results.surviveAgain")
+                  : t("game.general.noAttemptsLeft")}
             </button>
           </div>
         </div>
@@ -600,12 +621,12 @@ export default function SurvivalGameManager() {
       <div className="flex-1 flex items-center justify-center">
         <GameGrid
           circles={gameState.circles}
-          gameMode="survival"
           isGameActive={gameState.gameState === GameState.PLAYING}
-          lastActivationTimestamp={lastActivationTimestamp}
           showCircles={showCircles}
-          onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
+          onActivatedCircles={activatedCircles}
+          lastActivationTimestamp={lastActivationTimestamp}
+          gameMode="survival"
         />
       </div>
 
@@ -637,12 +658,6 @@ export default function SurvivalGameManager() {
                 <span className="text-red-300 uppercase tracking-wider">
                   {t("game.modes.survival.instructions.oneMistakeDeath")}
                 </span>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <div className="text-xs text-blue-400 bg-blue-500/20 px-3 py-1 rounded-lg inline-block">
-                🧪 Тестовый режим без системы попыток
               </div>
             </div>
           </div>

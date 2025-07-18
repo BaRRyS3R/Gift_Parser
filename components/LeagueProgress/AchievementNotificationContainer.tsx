@@ -3,21 +3,19 @@
 "use client";
 
 import React from "react";
-
+import { useUser } from "@/hooks/useUser";
 import AchievementNotification from "./AchievementNotification";
 
-import { useUser } from "@/hooks/useUser";
-
 const AchievementNotificationContainer: React.FC = () => {
-  const { currentAchievement, hideAchievement } = useUser();
+    const { currentAchievement, hideAchievement } = useUser();
 
-  return (
-    <AchievementNotification
-      autoCloseDelay={5000}
-      notification={currentAchievement}
-      onClose={hideAchievement}
-    />
-  );
+    return (
+        <AchievementNotification
+            notification={currentAchievement}
+            onClose={hideAchievement}
+            autoCloseDelay={5000}
+        />
+    );
 };
 
 export default AchievementNotificationContainer;

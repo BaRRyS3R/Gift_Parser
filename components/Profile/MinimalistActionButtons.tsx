@@ -4,49 +4,48 @@
 
 import React from "react";
 import { Button } from "@nextui-org/react";
-
 import { useT } from "@/contexts/LocalizationContext";
 
 interface MinimalistActionButtonsProps {
-  onOpenReferrals: () => void;
-  onOpenAchievements: () => void;
-  onOpenLeagues: () => void;
+    onOpenReferrals: () => void;
+    onOpenAchievements: () => void;
+    onOpenLeagues: () => void;
 }
 
 const MinimalistActionButtons: React.FC<MinimalistActionButtonsProps> = ({
-  onOpenReferrals,
-  onOpenAchievements,
-  onOpenLeagues,
+    onOpenReferrals,
+    onOpenAchievements,
+    onOpenLeagues
 }) => {
-  const t = useT();
+    const t = useT();
 
-  return (
-    <div className="flex gap-3 px-4">
-      <Button
-        className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
-        variant="bordered"
-        onPress={onOpenReferrals}
-      >
-        {t("profile.referralButton")}
-      </Button>
+    return (
+        <div className="flex gap-3 px-4">
+            <Button
+                className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
+                variant="bordered"
+                onPress={onOpenReferrals}
+            >
+                {t("profile.referralButton")}
+            </Button>
 
-      <Button
-        className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
-        variant="bordered"
-        onPress={onOpenAchievements}
-      >
-        {t("profile.achievementButton")}
-      </Button>
+            <Button
+                className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
+                variant="bordered"
+                onPress={onOpenAchievements}
+            >
+                {t("profile.achievementButton")}
+            </Button>
 
-      <Button
-        className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
-        variant="bordered"
-        onPress={onOpenLeagues}
-      >
-        {t("profile.leagueButton")}
-      </Button>
-    </div>
-  );
+            <Button
+                className="w-full bg-transparent border border-white/30 text-white hover:bg-white/10 justify-center"
+                variant="bordered"
+                onPress={onOpenLeagues}
+            >
+                {t("profile.leagueButton")}
+            </Button>
+        </div>
+    );
 };
 
 export default MinimalistActionButtons;
