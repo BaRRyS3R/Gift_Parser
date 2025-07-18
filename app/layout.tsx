@@ -1,14 +1,11 @@
-// src/app/layout.tsx
+// src/app/layout.tsx - Обновленный layout с SSR-безопасной навигацией
 
 import type { Metadata } from "next";
-
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
-
 import { Providers } from "./providers";
-
-import NavigationWrapper from "@/components/Navigation/NavigationWrapper";
+import SSRSafeNavigation from "@/components/Navigation/SSRSafeNavigation";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -46,12 +43,10 @@ export default function RootLayout({
           rel="preload"
           type="font/otf"
         />
-        {/* Telegram Web App script */}
         <Script
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
-        {/* PWA and safe area support */}
         <meta content="yes" name="mobile-web-app-capable" />
         <meta content="yes" name="apple-mobile-web-app-capable" />
         <meta
@@ -60,7 +55,6 @@ export default function RootLayout({
         />
         <meta content="telephone=no" name="format-detection" />
         <meta content="no" name="msapplication-tap-highlight" />
-        {/* Prevent zoom on form inputs */}
         <meta
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
           name="viewport"
@@ -69,7 +63,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           {children}
-          <NavigationWrapper />
+          <SSRSafeNavigation />
         </Providers>
       </body>
     </html>
