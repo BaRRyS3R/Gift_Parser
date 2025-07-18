@@ -1,7 +1,14 @@
-// src/lib/supabase_server.ts - Updated server-side client with attempts service integration
+// src/lib/supabase_server.ts - Updated server-side client with game and tournament services
 
 import { createClient } from '@supabase/supabase-js';
+
+// Import specialized server services
 import { serverAttemptsService, type AttemptsStatus } from './server/attemptsService';
+import { serverLeaderboardService } from './server/leaderboardService';
+import { serverProfileService } from './server/profileService';
+import { serverLeaguesService } from './server/leaguesService';
+import { serverGameService } from './server/gameService';
+import { serverTournamentService } from './server/tournamentService';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -18,7 +25,7 @@ export const supabaseServer = createClient(supabaseUrl, supabaseServiceKey, {
     },
 });
 
-// Types for server operations
+// Types for server operations (maintain backward compatibility)
 export interface ServerUser {
     id: string;
     telegram_id: number;
@@ -79,7 +86,7 @@ export interface ServerTelegramUser {
     is_premium?: boolean;
 }
 
-// Server-side user service
+// Legacy server-side user service (maintain backward compatibility for existing code)
 export const serverUserService = {
     async findByTelegramId(telegramId: number): Promise<ServerUser | null> {
         const { data, error } = await supabaseServer
@@ -230,11 +237,11 @@ export const serverUserService = {
         return data;
     },
 
+    // Delegate attempts management to specialized service
     async getServerTime(): Promise<Date> {
         return serverAttemptsService.getServerTime();
     },
 
-    // UPDATED: Delegate attempts management to specialized service
     async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
         return serverAttemptsService.checkAndUpdateAttempts(telegramId);
     },
@@ -259,4 +266,14 @@ export const serverUserService = {
     async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
         return this.consumeAttemptWithServerValidation(telegramId);
     },
+};
+
+// Export specialized services for direct access
+export {
+    serverAttemptsService,
+    serverLeaderboardService,
+    serverProfileService,
+    serverLeaguesService,
+    serverGameService,
+    serverTournamentService
 };

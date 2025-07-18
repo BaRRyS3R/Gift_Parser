@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Updated leaderboard page with AuthGuard and new API
+// src/app/leaderboard/page.tsx - Updated leaderboard page without caching
 
 "use client";
 
@@ -18,7 +18,6 @@ import {
   Atom,
   RotateCw,
   RefreshCw,
-  Info,
   Eye,
 } from "lucide-react";
 
@@ -39,49 +38,24 @@ import type {
 type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
 function LeaderboardPageContent() {
-  const { user, makeAuthenticatedRequest } = useUser();
+  const { makeAuthenticatedRequest } = useUser();
   const {
     leaderboardData,
     isLoading,
     error,
     fetchLeaderboards,
-    clearCache,
     clearError,
     isUserInTopLeaderboard,
     getUserPosition,
-    formatTimeUntilUpdate,
-    hasValidCache,
-    cacheInfo,
   } = useLeaderboard(makeAuthenticatedRequest);
 
   const t = useT();
   const [activeTab, setActiveTab] = useState<LeaderboardType>("reaction");
-  const [showCacheInfo, setShowCacheInfo] = useState(false);
 
   // Load leaderboards on mount
   useEffect(() => {
-    if (!leaderboardData && !isLoading) {
-      fetchLeaderboards();
-    }
-  }, [leaderboardData, isLoading, fetchLeaderboards]);
-
-  // Auto-refresh when cache expires (optional)
-  useEffect(() => {
-    if (!cacheInfo) return;
-
-    const nextUpdate = new Date(cacheInfo.nextUpdate).getTime();
-    const now = Date.now();
-    const timeUntilUpdate = Math.max(0, nextUpdate - now);
-
-    if (timeUntilUpdate > 0) {
-      const timer = setTimeout(() => {
-        console.log('Cache expired, auto-refreshing leaderboards');
-        fetchLeaderboards(true);
-      }, timeUntilUpdate);
-
-      return () => clearTimeout(timer);
-    }
-  }, [cacheInfo, fetchLeaderboards]);
+    fetchLeaderboards();
+  }, [fetchLeaderboards]);
 
   const getRankIcon = (position: number) => {
     switch (position) {
@@ -432,15 +406,10 @@ function LeaderboardPageContent() {
 
   const handleRefresh = async () => {
     clearError();
-    await fetchLeaderboards(true);
+    await fetchLeaderboards();
   };
 
-  const handleClearCache = async () => {
-    await clearCache();
-    await fetchLeaderboards(true);
-  };
-
-  if (isLoading && !leaderboardData) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -451,7 +420,7 @@ function LeaderboardPageContent() {
     );
   }
 
-  if (error && !leaderboardData) {
+  if (error) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -470,7 +439,7 @@ function LeaderboardPageContent() {
 
   const getCurrentLeaderboard = () => {
     if (!leaderboardData) return [];
-
+    
     switch (activeTab) {
       case "reaction":
         return leaderboardData.reaction;
@@ -527,16 +496,8 @@ function LeaderboardPageContent() {
           {t("leaderboard.title")}
         </h1>
 
-        {/* Cache Info and Controls */}
-        <div className="flex items-center justify-center space-x-2">
-          <button
-            onClick={() => setShowCacheInfo(!showCacheInfo)}
-            className="flex items-center space-x-1 text-xs text-white/60 hover:text-white/80 transition-colors"
-          >
-            <Info size={12} />
-            <span>Cache info</span>
-          </button>
-
+        {/* Refresh Control */}
+        <div className="flex items-center justify-center">
           <button
             onClick={handleRefresh}
             disabled={isLoading}
@@ -546,28 +507,6 @@ function LeaderboardPageContent() {
             <span>Refresh</span>
           </button>
         </div>
-
-        {/* Cache Information */}
-        {showCacheInfo && cacheInfo && (
-          <div className="bg-white/10 border border-white/20 rounded-lg p-3 text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-white/70">Last updated:</span>
-              <span className="text-white">{new Date(cacheInfo.lastUpdated).toLocaleTimeString()}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/70">Next update in:</span>
-              <span className="text-white">{formatTimeUntilUpdate() || "Soon"}</span>
-            </div>
-            <div className="flex items-center justify-center pt-2">
-              <button
-                onClick={handleClearCache}
-                className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
-              >
-                Clear cache & refresh now
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Current Leaderboard Stats */}

@@ -1,4 +1,4 @@
-// src/hooks/useAttempts.ts - Обновленный хук с экспортированным типом для централизованного управления
+// src/hooks/modules/useAttempts.ts - Обновленный хук с экспортированным типом для централизованного управления
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useUser } from '../useUser';

@@ -1,11 +1,16 @@
-// src/hooks/useUser.ts - Updated centralized user hook without leaderboard methods
+// src/hooks/useUser.ts - Updated centralized user hook with all modules
 
 "use client";
 
 import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
 import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
-import type { User, TelegramUser, AttemptsStatus } from "@/lib/supabase";
+import { useProfile } from "./modules/useProfile";
+import { useLeagues } from "./modules/useLeagues";
+import { useAttempts } from "./modules/useAttempts";
+import { useGame } from "./modules/useGame";
+import { useTournament } from "./modules/useTournament";
+import type { TelegramUser } from "@/lib/supabase";
 import type {
   AuthState,
   RegistrationResult,
@@ -13,44 +18,13 @@ import type {
   AuthTokens
 } from "./modules/useAuth";
 
-// Import game result types
-import { ReactionGameResult } from "@/types/game-modes/reaction";
-import { SurvivalGameResult } from "@/types/game-modes/survival";
-import { PhysicsGameResult } from "@/types/game-modes/physics";
-import { RotationGameResult } from "@/types/game-modes/rotation";
-import type { TournamentGameResult } from "@/types/tournaments";
-
 // Import achievement notification types
 import type { AchievementNotificationData } from "@/components/LeagueProgress/AchievementNotification";
 
-// Game result union type
-type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult | TournamentGameResult;
-
-// Game save result interface (will be moved to separate module later)
-export interface GameSaveResult {
-  success: boolean;
-  leagueChanged?: boolean;
-  newLeague?: any; // Will be properly typed when league module is created
-  levelChanged?: boolean;
-  newLevel?: number;
-  reward?: any; // Will be properly typed when league module is created
-  missedRewards?: any[]; // Will be properly typed when league module is created
-  error?: string;
-}
-
-// Tournament save response interface (will be moved to separate module later)
-export interface TournamentSaveResponse {
-  result_id: string;
-  total_score: number;
-  game_score: number;
-  games_played: number;
-  previous_total: number;
-}
-
 // Main user context interface
 interface UserContextType {
-  // User data
-  user: User | null;
+  // User data - now from profile module
+  user: any | null; // Profile data
   telegramUser: TelegramUser | null;
 
   // Authentication state
@@ -67,26 +41,21 @@ interface UserContextType {
   refreshUser: () => Promise<void>;
 
   // User management
-  updateUser: (userData: User) => void;
+  updateUser: (userData: any) => void;
   setTelegramUser: (userData: TelegramUser) => void;
-
-  // Game methods (will be moved to separate modules later)
-  saveGameResult: (gameResult: GameResult) => Promise<GameSaveResult>;
-  saveTournamentResult: (tournamentId: string, gameResult: SurvivalGameResult) => Promise<TournamentSaveResponse>;
-
-  // Attempts management (will be moved to separate module later)
-  getAttemptsStatus: () => Promise<AttemptsStatus>;
-  consumeAttemptForGame: () => Promise<AttemptsStatus>;
-  invalidateAttemptsCache: () => void;
-  getCachedAttemptsStatus: () => AttemptsStatus | null;
 
   // Achievement notifications
   currentAchievement: AchievementNotificationData | null;
   showAchievement: (achievement: AchievementNotificationData) => void;
   hideAchievement: () => void;
 
-  // Leaderboard module (NEW: replaces individual leaderboard methods)
+  // Modular services
+  profile: ReturnType<typeof useProfile>;
+  leagues: ReturnType<typeof useLeagues>;
   leaderboard: ReturnType<typeof useLeaderboard>;
+  attempts: ReturnType<typeof useAttempts>;
+  game: ReturnType<typeof useGame>;
+  tournament: ReturnType<typeof useTournament>;
 
   // Utility methods
   makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>;
@@ -110,8 +79,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     clearError,
   } = useAuth();
 
-  // Use leaderboard module (NEW: centralized leaderboard management)
+  // Use modular services
+  const profileModule = useProfile(makeAuthenticatedRequest);
+  const leaguesModule = useLeagues(makeAuthenticatedRequest);
   const leaderboardModule = useLeaderboard(makeAuthenticatedRequest);
+  const attemptsModule = useAttempts();
+  const gameModule = useGame(makeAuthenticatedRequest);
+  const tournamentModule = useTournament(makeAuthenticatedRequest);
 
   // Local state for user data and UI
   const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
@@ -120,17 +94,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // Achievement notifications state
   const [currentAchievement, setCurrentAchievement] = useState<AchievementNotificationData | null>(null);
-
-  // Attempts cache (temporary - will be moved to separate module)
-  const [attemptsCache, setAttemptsCache] = useState<{
-    status: AttemptsStatus | null;
-    lastUpdate: number;
-    isValid: boolean;
-  }>({
-    status: null,
-    lastUpdate: 0,
-    isValid: false,
-  });
 
   // Auto-detect Telegram user on mount
   useEffect(() => {
@@ -170,6 +133,22 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     initializeAuth();
   }, [checkAuthStatus]);
 
+  // Auto-load profile data when authenticated
+  useEffect(() => {
+    if (authState.isAuthenticated && !profileModule.hasProfileData()) {
+      console.log("Loading profile data for authenticated user");
+      profileModule.fetchProfile();
+    }
+  }, [authState.isAuthenticated, profileModule]);
+
+  // Auto-load compact league data when authenticated
+  useEffect(() => {
+    if (authState.isAuthenticated && !leaguesModule.hasValidCompactCache) {
+      console.log("Loading compact league data for authenticated user");
+      leaguesModule.fetchCompactLeagues();
+    }
+  }, [authState.isAuthenticated, leaguesModule]);
+
   // Update local error state when auth error changes
   useEffect(() => {
     setError(authState.error);
@@ -189,6 +168,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         if (result.referralBonus) {
           console.log("Referral bonus received:", result.referralBonus);
         }
+
+        // Invalidate caches to refresh data
+        profileModule.invalidateCache();
+        leaguesModule.invalidateAllCaches();
+        attemptsModule.invalidateCache();
+        gameModule.resetGameState();
+        tournamentModule.resetTournamentState();
       }
 
       return result;
@@ -198,7 +184,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, [authRegister]);
+  }, [authRegister, profileModule, leaguesModule, attemptsModule, gameModule, tournamentModule]);
 
   // Enhanced login function
   const login = useCallback(async (initData: string): Promise<LoginResult> => {
@@ -208,6 +194,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       if (result.success && result.user) {
         console.log("Login successful:", result.user.first_name);
+
+        // Invalidate caches to refresh data
+        profileModule.invalidateCache();
+        leaguesModule.invalidateAllCaches();
+        attemptsModule.invalidateCache();
+        gameModule.resetGameState();
+        tournamentModule.resetTournamentState();
       }
 
       return result;
@@ -217,20 +210,24 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, [authLogin]);
+  }, [authLogin, profileModule, leaguesModule, attemptsModule, gameModule, tournamentModule]);
 
   // Enhanced logout function
   const logout = useCallback(() => {
     authLogout();
     setTelegramUserState(null);
     setError(null);
-    setAttemptsCache({ status: null, lastUpdate: 0, isValid: false });
 
-    // Clear leaderboard cache on logout
-    leaderboardModule.clearCache();
+    // Reset all module data on logout
+    profileModule.resetProfile();
+    leaguesModule.resetLeagues();
+    leaderboardModule.resetLeaderboard();
+    attemptsModule.invalidateCache();
+    gameModule.resetGameState();
+    tournamentModule.resetTournamentState();
 
     console.log("User logged out");
-  }, [authLogout, leaderboardModule]);
+  }, [authLogout, profileModule, leaguesModule, leaderboardModule, attemptsModule, gameModule, tournamentModule]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -240,8 +237,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     try {
       setIsLoading(true);
-      // In the future, this will call a dedicated user refresh API
-      // For now, we rely on the authentication system
+      // Refresh all module data
+      await Promise.all([
+        profileModule.fetchProfile(),
+        leaguesModule.fetchCompactLeagues(true),
+        attemptsModule.fetchAttemptsStatus(true),
+      ]);
+
       console.log("User data refreshed");
     } catch (error) {
       console.error("Error refreshing user:", error);
@@ -249,13 +251,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [authState.isAuthenticated, authState.user]);
+  }, [authState.isAuthenticated, authState.user, profileModule, leaguesModule, attemptsModule]);
 
-  // Direct user update (for external updates)
-  const updateUser = useCallback((userData: User) => {
+  // Direct user update (for external updates) - now uses profile module
+  const updateUser = useCallback((userData: any) => {
     console.log("User data updated externally");
-    // This will be enhanced when we create a dedicated user data module
-  }, []);
+    // Invalidate profile cache to refresh on next access
+    profileModule.invalidateCache();
+  }, [profileModule]);
 
   // Set Telegram user data
   const setTelegramUser = useCallback((userData: TelegramUser) => {
@@ -277,156 +280,17 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     clearError();
   }, [clearError]);
 
-  // ========================================
-  // TEMPORARY METHODS (to be moved to modules)
-  // ========================================
-
-  // Temporary game save method (will be moved to game module)
-  const saveGameResult = useCallback(async (gameResult: GameResult): Promise<GameSaveResult> => {
-    if (!authState.isAuthenticated) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest('/api/game/save', {
-        method: 'POST',
-        body: JSON.stringify({ gameResult }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save game result');
-      }
-
-      const result = await response.json();
-
-      // Invalidate leaderboard cache when game is saved
-      leaderboardModule.clearCache();
-
-      return result;
-    } catch (error) {
-      console.error("Error saving game result:", error);
-      throw error;
-    }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest, leaderboardModule]);
-
-  // Temporary tournament save method (will be moved to tournament module)
-  const saveTournamentResult = useCallback(async (
-    tournamentId: string,
-    gameResult: SurvivalGameResult
-  ): Promise<TournamentSaveResponse> => {
-    if (!authState.isAuthenticated) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest('/api/tournament/save', {
-        method: 'POST',
-        body: JSON.stringify({ tournamentId, gameResult }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save tournament result');
-      }
-
-      const result = await response.json();
-
-      // Invalidate leaderboard cache when tournament result is saved
-      leaderboardModule.clearCache();
-
-      return result;
-    } catch (error) {
-      console.error("Error saving tournament result:", error);
-      throw error;
-    }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest, leaderboardModule]);
-
-  // Temporary attempts methods (will be moved to attempts module)
-  const getAttemptsStatus = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!authState.isAuthenticated) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest('/api/user/attempts/status');
-
-      if (!response.ok) {
-        throw new Error('Failed to get attempts status');
-      }
-
-      const status = await response.json();
-
-      // Update cache
-      setAttemptsCache({
-        status,
-        lastUpdate: Date.now(),
-        isValid: true,
-      });
-
-      return status;
-    } catch (error) {
-      console.error("Error getting attempts status:", error);
-      throw error;
-    }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
-
-  const consumeAttemptForGame = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!authState.isAuthenticated) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest('/api/user/attempts/consume', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to consume attempt');
-      }
-
-      const status = await response.json();
-
-      // Update cache
-      setAttemptsCache({
-        status,
-        lastUpdate: Date.now(),
-        isValid: true,
-      });
-
-      return status;
-    } catch (error) {
-      console.error("Error consuming attempt:", error);
-      throw error;
-    }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
-
-  const invalidateAttemptsCache = useCallback(() => {
-    setAttemptsCache({ status: null, lastUpdate: 0, isValid: false });
-  }, []);
-
-  const getCachedAttemptsStatus = useCallback((): AttemptsStatus | null => {
-    const now = Date.now();
-    const CACHE_DURATION = 60000; // 1 minute
-
-    if (attemptsCache.isValid &&
-      attemptsCache.status &&
-      (now - attemptsCache.lastUpdate) < CACHE_DURATION) {
-      return attemptsCache.status;
-    }
-
-    return null;
-  }, [attemptsCache]);
-
   // Context value
   const contextValue: UserContextType = {
-    // User data
-    user: authState.user,
+    // User data - now from profile module
+    user: profileModule.profile,
     telegramUser,
 
     // Authentication state
     authState,
 
     // Loading states
-    isLoading: isLoading || authState.isLoading,
+    isLoading: isLoading || authState.isLoading || profileModule.isLoading,
     error,
 
     // Authentication methods
@@ -439,23 +303,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     updateUser,
     setTelegramUser,
 
-    // Game methods (temporary)
-    saveGameResult,
-    saveTournamentResult,
-
-    // Attempts management (temporary)
-    getAttemptsStatus,
-    consumeAttemptForGame,
-    invalidateAttemptsCache,
-    getCachedAttemptsStatus,
-
     // Achievement notifications
     currentAchievement,
     showAchievement,
     hideAchievement,
 
-    // NEW: Leaderboard module (replaces individual leaderboard methods)
+    // Modular services
+    profile: profileModule,
+    leagues: leaguesModule,
     leaderboard: leaderboardModule,
+    attempts: attemptsModule,
+    game: gameModule,
+    tournament: tournamentModule,
 
     // Utility methods
     makeAuthenticatedRequest,

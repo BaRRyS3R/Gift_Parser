@@ -1,4 +1,4 @@
-// src/app/api/leaderboard/all/route.ts - Get all leaderboards endpoint
+// src/app/api/leaderboard/all/route.ts - Get all leaderboards endpoint (without caching)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { serverLeaderboardService } from '@/lib/server/leaderboardService';
@@ -47,9 +47,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<Leaderboar
         const limitParam = url.searchParams.get('limit');
         const limit = limitParam ? Math.min(Math.max(parseInt(limitParam), 1), 100) : 100;
 
-        console.log(`Fetching leaderboards for user ${telegramIdNumber} with limit ${limit}`);
+        console.log(`Fetching fresh leaderboards for user ${telegramIdNumber} with limit ${limit}`);
 
-        // Fetch all leaderboards
+        // Fetch all leaderboards (fresh data every time)
         const leaderboardData = await serverLeaderboardService.getAllLeaderboards(
             userId,
             telegramIdNumber,
@@ -61,8 +61,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<Leaderboar
             survival: leaderboardData.survival.length,
             physics: leaderboardData.physics.length,
             rotation: leaderboardData.rotation.length,
-            hasRankings: !!leaderboardData.userRankings,
-            cacheInfo: leaderboardData.cacheInfo
+            hasRankings: !!leaderboardData.userRankings
         });
 
         return NextResponse.json({
@@ -107,48 +106,6 @@ export async function GET(request: NextRequest): Promise<NextResponse<Leaderboar
 }
 
 /**
- * POST /api/leaderboard/all
- * Clear leaderboard cache (admin function)
- */
-export async function POST(request: NextRequest): Promise<NextResponse<{ success: boolean; message: string }>> {
-    try {
-        // Extract user info from middleware headers
-        const telegramId = request.headers.get('X-Telegram-ID');
-        const userId = request.headers.get('X-User-ID');
-
-        if (!telegramId || !userId) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: 'User authentication required'
-                },
-                { status: 401 }
-            );
-        }
-
-        console.log(`Cache clear requested by user ${userId}`);
-
-        // Clear the cache
-        serverLeaderboardService.clearCache();
-
-        return NextResponse.json({
-            success: true,
-            message: 'Leaderboard cache cleared successfully'
-        });
-
-    } catch (error) {
-        console.error('Error clearing cache:', error);
-        return NextResponse.json(
-            {
-                success: false,
-                message: 'Failed to clear cache'
-            },
-            { status: 500 }
-        );
-    }
-}
-
-/**
  * OPTIONS /api/leaderboard/all
  * Handle CORS preflight requests
  */
@@ -157,7 +114,7 @@ export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
         status: 200,
         headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Max-Age': '86400',
         },

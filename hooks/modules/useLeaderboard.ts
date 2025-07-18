@@ -1,4 +1,4 @@
-// src/hooks/modules/useLeaderboard.ts - Centralized leaderboard management
+// src/hooks/modules/useLeaderboard.ts - Centralized leaderboard management (without caching)
 
 import { useState, useCallback, useRef } from 'react';
 
@@ -65,48 +65,30 @@ export interface LeaderboardData {
     physics: SafePhysicsLeaderboard[];
     rotation: SafeRotationLeaderboard[];
     userRankings: UserRankings;
-    cacheInfo: {
-        lastUpdated: string;
-        nextUpdate: string;
-    };
 }
 
 export interface LeaderboardState {
     data: LeaderboardData | null;
     isLoading: boolean;
     error: string | null;
-    lastFetch: number;
 }
 
-// Cache duration in milliseconds (5 minutes for client cache)
-const CLIENT_CACHE_DURATION = 5 * 60 * 1000;
-
 /**
- * Centralized leaderboard management hook
+ * Centralized leaderboard management hook (without caching)
  */
 export function useLeaderboard(makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>) {
     const [state, setState] = useState<LeaderboardState>({
         data: null,
         isLoading: false,
         error: null,
-        lastFetch: 0,
     });
 
     const fetchingRef = useRef<boolean>(false);
 
     /**
-     * Fetch all leaderboards from API
+     * Fetch all leaderboards from API (fresh data every time)
      */
-    const fetchLeaderboards = useCallback(async (forceRefresh = false): Promise<LeaderboardData | null> => {
-        // Check client-side cache
-        const now = Date.now();
-        const isCacheValid = state.data && !forceRefresh && (now - state.lastFetch) < CLIENT_CACHE_DURATION;
-
-        if (isCacheValid && !forceRefresh) {
-            console.log('Using cached leaderboard data');
-            return state.data;
-        }
-
+    const fetchLeaderboards = useCallback(async (): Promise<LeaderboardData | null> => {
         // Prevent duplicate requests
         if (fetchingRef.current) {
             console.log('Leaderboard fetch already in progress');
@@ -117,7 +99,7 @@ export function useLeaderboard(makeAuthenticatedRequest: (endpoint: string, opti
         setState(prev => ({ ...prev, isLoading: true, error: null }));
 
         try {
-            console.log('Fetching leaderboards from API...');
+            console.log('Fetching fresh leaderboards from API...');
 
             const response = await makeAuthenticatedRequest('/api/leaderboard/all?limit=100');
 
@@ -138,15 +120,13 @@ export function useLeaderboard(makeAuthenticatedRequest: (endpoint: string, opti
                 data: leaderboardData,
                 isLoading: false,
                 error: null,
-                lastFetch: now,
             });
 
-            console.log('Successfully fetched leaderboards:', {
+            console.log('Successfully fetched fresh leaderboards:', {
                 reaction: leaderboardData.reaction.length,
                 survival: leaderboardData.survival.length,
                 physics: leaderboardData.physics.length,
                 rotation: leaderboardData.rotation.length,
-                cacheInfo: leaderboardData.cacheInfo
             });
 
             return leaderboardData;
@@ -165,54 +145,7 @@ export function useLeaderboard(makeAuthenticatedRequest: (endpoint: string, opti
         } finally {
             fetchingRef.current = false;
         }
-    }, [state.data, state.lastFetch, makeAuthenticatedRequest]);
-
-    /**
-     * Clear leaderboard cache (both client and server)
-     */
-    const clearCache = useCallback(async (): Promise<boolean> => {
-        try {
-            console.log('Clearing leaderboard cache...');
-
-            // Clear server cache
-            const response = await makeAuthenticatedRequest('/api/leaderboard/all', {
-                method: 'POST',
-            });
-
-            if (!response.ok) {
-                console.error('Failed to clear server cache');
-                return false;
-            }
-
-            // Clear client cache
-            setState(prev => ({
-                ...prev,
-                data: null,
-                lastFetch: 0,
-            }));
-
-            console.log('Cache cleared successfully');
-            return true;
-
-        } catch (error) {
-            console.error('Error clearing cache:', error);
-            return false;
-        }
-    }, [makeAuthenticatedRequest]);
-
-    /**
-     * Get cached leaderboard data if valid
-     */
-    const getCachedData = useCallback((): LeaderboardData | null => {
-        const now = Date.now();
-        const isCacheValid = state.data && (now - state.lastFetch) < CLIENT_CACHE_DURATION;
-
-        if (isCacheValid) {
-            return state.data;
-        }
-
-        return null;
-    }, [state.data, state.lastFetch]);
+    }, [makeAuthenticatedRequest, state.data]);
 
     /**
      * Clear error state
@@ -241,34 +174,15 @@ export function useLeaderboard(makeAuthenticatedRequest: (endpoint: string, opti
     }, [state.data]);
 
     /**
-     * Get time until next cache update
+     * Reset leaderboard state
      */
-    const getTimeUntilNextUpdate = useCallback((): number | null => {
-        if (!state.data || !state.data.cacheInfo) return null;
-
-        const nextUpdate = new Date(state.data.cacheInfo.nextUpdate).getTime();
-        const now = Date.now();
-        const timeRemaining = Math.max(0, nextUpdate - now);
-
-        return timeRemaining;
-    }, [state.data]);
-
-    /**
-     * Format time remaining until next update
-     */
-    const formatTimeUntilUpdate = useCallback((): string | null => {
-        const timeRemaining = getTimeUntilNextUpdate();
-        if (timeRemaining === null) return null;
-
-        const minutes = Math.floor(timeRemaining / (1000 * 60));
-        const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
-
-        if (minutes > 0) {
-            return `${minutes}m ${seconds}s`;
-        } else {
-            return `${seconds}s`;
-        }
-    }, [getTimeUntilNextUpdate]);
+    const resetLeaderboard = useCallback(() => {
+        setState({
+            data: null,
+            isLoading: false,
+            error: null,
+        });
+    }, []);
 
     return {
         // State
@@ -278,19 +192,11 @@ export function useLeaderboard(makeAuthenticatedRequest: (endpoint: string, opti
 
         // Actions
         fetchLeaderboards,
-        clearCache,
-        getCachedData,
         clearError,
+        resetLeaderboard,
 
         // Utility functions
         isUserInTopLeaderboard,
         getUserPosition,
-        getTimeUntilNextUpdate,
-        formatTimeUntilUpdate,
-
-        // Cache info
-        hasValidCache: state.data && (Date.now() - state.lastFetch) < CLIENT_CACHE_DURATION,
-        lastFetch: state.lastFetch,
-        cacheInfo: state.data?.cacheInfo,
     };
 }

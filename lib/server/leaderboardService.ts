@@ -1,10 +1,6 @@
-// src/lib/server/leaderboardService.ts - Dedicated leaderboard service module
+// src/lib/server/leaderboardService.ts - Dedicated leaderboard service module (without caching)
 
 import { supabaseServer } from '@/lib/supabase_server';
-
-// Cache configuration
-const LEADERBOARD_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
-const leaderboardCache = new Map<string, { data: any; timestamp: number }>();
 
 // Leaderboard interfaces (without sensitive data)
 export interface SafeReactionLeaderboard {
@@ -69,35 +65,6 @@ export interface AllLeaderboardsResponse {
     physics: SafePhysicsLeaderboard[];
     rotation: SafeRotationLeaderboard[];
     userRankings: UserRankings;
-    cacheInfo: {
-        lastUpdated: string;
-        nextUpdate: string;
-    };
-}
-
-// Helper function to check cache validity
-function isCacheValid(cacheKey: string): boolean {
-    const cached = leaderboardCache.get(cacheKey);
-    if (!cached) return false;
-    
-    const now = Date.now();
-    return (now - cached.timestamp) < LEADERBOARD_CACHE_DURATION;
-}
-
-// Helper function to get cache
-function getFromCache<T>(cacheKey: string): T | null {
-    const cached = leaderboardCache.get(cacheKey);
-    if (!cached || !isCacheValid(cacheKey)) return null;
-    
-    return cached.data as T;
-}
-
-// Helper function to set cache
-function setCache(cacheKey: string, data: any): void {
-    leaderboardCache.set(cacheKey, {
-        data,
-        timestamp: Date.now()
-    });
 }
 
 // Server-side leaderboard service
@@ -106,19 +73,6 @@ export const serverLeaderboardService = {
      * Get reaction mode leaderboard with safe data
      */
     async getReactionLeaderboard(currentUserId: string, limit: number = 100): Promise<SafeReactionLeaderboard[]> {
-        const cacheKey = `reaction_leaderboard_${limit}`;
-        
-        // Try to get from cache first
-        const cached = getFromCache<SafeReactionLeaderboard[]>(cacheKey);
-        if (cached) {
-            console.log('Returning cached reaction leaderboard');
-            // Mark current user in cached data
-            return cached.map(entry => ({
-                ...entry,
-                isCurrentUser: entry.isCurrentUser || false // Will be updated below
-            }));
-        }
-
         const { data, error } = await supabaseServer
             .from("users")
             .select(`
@@ -141,7 +95,7 @@ export const serverLeaderboardService = {
             throw new Error("Failed to fetch reaction leaderboard");
         }
 
-        const leaderboard = (data || []).map((user: any, index: number) => ({
+        return (data || []).map((user: any, index: number) => ({
             position: index + 1,
             first_name: user.first_name,
             last_name: user.last_name,
@@ -151,28 +105,12 @@ export const serverLeaderboardService = {
             best_reaction_score: user.reaction_best_score,
             isCurrentUser: user.id === currentUserId,
         }));
-
-        // Cache the result
-        setCache(cacheKey, leaderboard);
-        
-        return leaderboard;
     },
 
     /**
      * Get survival mode leaderboard with safe data
      */
     async getSurvivalLeaderboard(currentUserId: string, limit: number = 100): Promise<SafeSurvivalLeaderboard[]> {
-        const cacheKey = `survival_leaderboard_${limit}`;
-        
-        const cached = getFromCache<SafeSurvivalLeaderboard[]>(cacheKey);
-        if (cached) {
-            console.log('Returning cached survival leaderboard');
-            return cached.map(entry => ({
-                ...entry,
-                isCurrentUser: entry.isCurrentUser || false
-            }));
-        }
-
         const { data, error } = await supabaseServer
             .from("users")
             .select(`
@@ -195,7 +133,7 @@ export const serverLeaderboardService = {
             throw new Error("Failed to fetch survival leaderboard");
         }
 
-        const leaderboard = (data || []).map((user: any, index: number) => ({
+        return (data || []).map((user: any, index: number) => ({
             position: index + 1,
             first_name: user.first_name,
             last_name: user.last_name,
@@ -206,26 +144,12 @@ export const serverLeaderboardService = {
             survival_games: user.survival_games,
             isCurrentUser: user.id === currentUserId,
         }));
-
-        setCache(cacheKey, leaderboard);
-        return leaderboard;
     },
 
     /**
      * Get physics mode leaderboard with safe data
      */
     async getPhysicsLeaderboard(currentUserId: string, limit: number = 100): Promise<SafePhysicsLeaderboard[]> {
-        const cacheKey = `physics_leaderboard_${limit}`;
-        
-        const cached = getFromCache<SafePhysicsLeaderboard[]>(cacheKey);
-        if (cached) {
-            console.log('Returning cached physics leaderboard');
-            return cached.map(entry => ({
-                ...entry,
-                isCurrentUser: entry.isCurrentUser || false
-            }));
-        }
-
         const { data, error } = await supabaseServer
             .from("users")
             .select(`
@@ -249,7 +173,7 @@ export const serverLeaderboardService = {
             throw new Error("Failed to fetch physics leaderboard");
         }
 
-        const leaderboard = (data || []).map((user: any, index: number) => ({
+        return (data || []).map((user: any, index: number) => ({
             position: index + 1,
             first_name: user.first_name,
             last_name: user.last_name,
@@ -261,26 +185,12 @@ export const serverLeaderboardService = {
             physics_games: user.physics_games,
             isCurrentUser: user.id === currentUserId,
         }));
-
-        setCache(cacheKey, leaderboard);
-        return leaderboard;
     },
 
     /**
      * Get rotation mode leaderboard with safe data
      */
     async getRotationLeaderboard(currentUserId: string, limit: number = 100): Promise<SafeRotationLeaderboard[]> {
-        const cacheKey = `rotation_leaderboard_${limit}`;
-        
-        const cached = getFromCache<SafeRotationLeaderboard[]>(cacheKey);
-        if (cached) {
-            console.log('Returning cached rotation leaderboard');
-            return cached.map(entry => ({
-                ...entry,
-                isCurrentUser: entry.isCurrentUser || false
-            }));
-        }
-
         const { data, error } = await supabaseServer
             .from("users")
             .select(`
@@ -304,7 +214,7 @@ export const serverLeaderboardService = {
             throw new Error("Failed to fetch rotation leaderboard");
         }
 
-        const leaderboard = (data || []).map((user: any, index: number) => ({
+        return (data || []).map((user: any, index: number) => ({
             position: index + 1,
             first_name: user.first_name,
             last_name: user.last_name,
@@ -316,23 +226,12 @@ export const serverLeaderboardService = {
             rotation_games: user.rotation_games,
             isCurrentUser: user.id === currentUserId,
         }));
-
-        setCache(cacheKey, leaderboard);
-        return leaderboard;
     },
 
     /**
      * Get user rankings across all leaderboards
      */
     async getUserRankings(telegramId: number): Promise<UserRankings> {
-        const cacheKey = `user_rankings_${telegramId}`;
-        
-        const cached = getFromCache<UserRankings>(cacheKey);
-        if (cached) {
-            console.log('Returning cached user rankings');
-            return cached;
-        }
-
         // Get user data
         const { data: user, error: userError } = await supabaseServer
             .from('users')
@@ -399,13 +298,6 @@ export const serverLeaderboardService = {
             }
         }
 
-        // Cache rankings for shorter time (5 minutes)
-        const rankingsCacheKey = `user_rankings_${telegramId}`;
-        leaderboardCache.set(rankingsCacheKey, {
-            data: rankings,
-            timestamp: Date.now()
-        });
-
         return rankings;
     },
 
@@ -413,8 +305,8 @@ export const serverLeaderboardService = {
      * Get all leaderboards in a single request
      */
     async getAllLeaderboards(
-        currentUserId: string, 
-        telegramId: number, 
+        currentUserId: string,
+        telegramId: number,
         limit: number = 100
     ): Promise<AllLeaderboardsResponse> {
         try {
@@ -428,29 +320,12 @@ export const serverLeaderboardService = {
                 this.getUserRankings(telegramId),
             ]);
 
-            // Mark current user in all leaderboards
-            const markCurrentUser = <T extends { isCurrentUser?: boolean, position: number }>(
-                leaderboard: T[]
-            ): T[] => {
-                return leaderboard.map(entry => ({
-                    ...entry,
-                    isCurrentUser: entry.isCurrentUser || false
-                }));
-            };
-
-            const now = new Date();
-            const nextUpdate = new Date(now.getTime() + LEADERBOARD_CACHE_DURATION);
-
             return {
-                reaction: markCurrentUser(reaction),
-                survival: markCurrentUser(survival),
-                physics: markCurrentUser(physics),
-                rotation: markCurrentUser(rotation),
+                reaction,
+                survival,
+                physics,
+                rotation,
                 userRankings,
-                cacheInfo: {
-                    lastUpdated: now.toISOString(),
-                    nextUpdate: nextUpdate.toISOString(),
-                }
             };
 
         } catch (error) {
@@ -458,22 +333,4 @@ export const serverLeaderboardService = {
             throw new Error('Failed to fetch leaderboards');
         }
     },
-
-    /**
-     * Clear leaderboard cache (useful for manual refresh)
-     */
-    clearCache(): void {
-        leaderboardCache.clear();
-        console.log('Leaderboard cache cleared');
-    },
-
-    /**
-     * Get cache status
-     */
-    getCacheStatus(): { size: number; keys: string[] } {
-        return {
-            size: leaderboardCache.size,
-            keys: Array.from(leaderboardCache.keys())
-        };
-    }
 };
