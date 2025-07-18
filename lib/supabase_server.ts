@@ -1,7 +1,8 @@
-// src/lib/supabase_server.ts - Updated server-side client with attempts service integration
+// src/lib/supabase_server.ts - Updated server-side client with game service integration
 
 import { createClient } from '@supabase/supabase-js';
 import { serverAttemptsService, type AttemptsStatus } from './server/attemptsService';
+import { serverGameService, type GameSaveResult, type TournamentSaveResponse } from './server/gameService';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -604,7 +605,7 @@ export const serverUserService = {
         return serverAttemptsService.getServerTime();
     },
 
-    // UPDATED: Delegate attempts management to specialized service
+    // Delegate attempts management to specialized service
     async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
         return serverAttemptsService.checkAndUpdateAttempts(telegramId);
     },
@@ -628,5 +629,14 @@ export const serverUserService = {
 
     async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
         return this.consumeAttemptWithServerValidation(telegramId);
+    },
+
+    // Delegate game operations to game service
+    async saveGameResult(telegramId: number, gameResult: any): Promise<GameSaveResult> {
+        return serverGameService.saveGameResult(telegramId, gameResult);
+    },
+
+    async saveTournamentResult(tournamentId: string, telegramId: number, gameResult: any): Promise<TournamentSaveResponse> {
+        return serverGameService.saveTournamentResult(tournamentId, telegramId, gameResult);
     },
 };

@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
+// src/game-modes/survival/SurvivalGameManager.tsx - Refactored version without attempts logic
 
 "use client";
 
@@ -10,6 +10,7 @@ import {
   Clock,
   Target,
   RotateCcw,
+  ArrowLeft,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -55,7 +56,7 @@ const initialSaveStatus: SaveStatus = {
 const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
 
 export default function SurvivalGameManager() {
-  const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
+  const { makeAuthenticatedRequest } = useUser();
   const router = useRouter();
   const t = useT();
 
@@ -65,10 +66,6 @@ export default function SurvivalGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
-  const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
-  const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
-  const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
-  const [isRestartLoading, setIsRestartLoading] = useState(false);
 
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -97,35 +94,14 @@ export default function SurvivalGameManager() {
     }
   }, [router]);
 
-  // Consume attempt immediately when component mounts (initial entry only)
+  // Auto-start game on component mount
   useEffect(() => {
-    const consumeInitialAttempt = async () => {
-      if (!telegramUser?.id || hasConsumedInitialAttempt) return;
+    const timer = setTimeout(() => {
+      startGame();
+    }, 500);
 
-      try {
-        setIsConsumingAttempt(true);
-        console.log("Consuming initial attempt for survival game");
-
-        const newStatus = await consumeAttemptForGame();
-        setAttemptsRemaining(newStatus.attemptsRemaining);
-        setHasConsumedInitialAttempt(true);
-
-        // Auto-start the game after consuming attempt
-        setTimeout(() => {
-          startGame();
-        }, 500);
-      } catch (error) {
-        console.error("Error consuming initial attempt:", error);
-        setHasConsumedInitialAttempt(true);
-        // При ошибке возвращаемся к выбору игр
-        router.push("/game");
-      } finally {
-        setIsConsumingAttempt(false);
-      }
-    };
-
-    consumeInitialAttempt();
-  }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
+    return () => clearTimeout(timer);
+  }, []);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -159,7 +135,21 @@ export default function SurvivalGameManager() {
         }
 
         try {
-          await saveGameResult(result);
+          const response = await makeAuthenticatedRequest('/api/game/save', {
+            method: 'POST',
+            body: JSON.stringify({ gameResult: result }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to save game result');
+          }
+
+          const responseData = await response.json();
+          
+          if (!responseData.success) {
+            throw new Error(responseData.error || 'Failed to save game result');
+          }
+
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
@@ -190,7 +180,7 @@ export default function SurvivalGameManager() {
         }));
       }
     },
-    [saveGameResult, t],
+    [makeAuthenticatedRequest, t],
   );
 
   const endGame = useCallback(
@@ -362,33 +352,9 @@ export default function SurvivalGameManager() {
     }, 800);
   }, [scheduleNextActivation]);
 
-  // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
-  const restartGame = useCallback(async () => {
-    if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
-
-    setIsRestartLoading(true);
-
-    try {
-      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
-      // Всегда потребляем попытку на сервере для обеспечения корректности данных
-      console.log("Consuming attempt on server for restart (security-critical operation)");
-
-      const newStatus = await consumeAttemptForGame();
-      setAttemptsRemaining(newStatus.attemptsRemaining);
-
-      setShowCircles(false);
-      setTimeout(() => {
-        startGame();
-      }, 200);
-
-    } catch (error) {
-      console.error("Error consuming attempt for restart:", error);
-      // При ошибке возвращаемся к выбору игр
-      router.push("/game");
-    } finally {
-      setIsRestartLoading(false);
-    }
-  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
+  const handleBackToGames = useCallback(() => {
+    router.push("/game");
+  }, [router]);
 
   useEffect(() => {
     return () => {
@@ -422,17 +388,6 @@ export default function SurvivalGameManager() {
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
-
-  if (isConsumingAttempt) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-red-400/20 border-t-red-400 rounded-full animate-spin mx-auto" />
-          <p className="text-red-300">{t("game.general.initializingGame")}</p>
-        </div>
-      </div>
-    );
-  }
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
     return (
@@ -479,14 +434,6 @@ export default function SurvivalGameManager() {
               </div>
               <div className="text-center space-y-1">
                 <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.attemptsLeft")}
-                </div>
-                <div className="text-xl font-bold text-green-400">
-                  {attemptsRemaining}
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-red-400/60">
                   {t("game.modes.survival.results.perfectStreak")}
                 </div>
                 <div className="text-xl font-bold text-green-400">
@@ -501,16 +448,20 @@ export default function SurvivalGameManager() {
                   {gameResult.correctHits}
                 </div>
               </div>
+              <div className="text-center space-y-1">
+                <div className="text-xs text-red-400/60">
+                  {t("game.modes.survival.results.levelsCompleted")}
+                </div>
+                <div className="text-xl font-bold text-green-400">
+                  {gameResult.maxLevelReached}/15
+                </div>
+              </div>
             </div>
 
             <div className="border-t border-red-400/30 pt-4">
               <div className="text-center space-y-2">
                 <div className="text-xs text-red-400/60 uppercase">
                   {t("game.modes.survival.results.levelProgress")}
-                </div>
-                <div className="text-xs text-red-400/60">
-                  {gameResult.maxLevelReached}/15{" "}
-                  {t("game.modes.survival.results.levelsCompleted")}
                 </div>
               </div>
             </div>
@@ -596,19 +547,11 @@ export default function SurvivalGameManager() {
 
           <div className="space-y-4">
             <button
-              className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={
-                saveStatus.isLoading ||
-                attemptsRemaining <= 0 ||
-                isRestartLoading
-              }
-              onClick={restartGame}
+              className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
+              onClick={handleBackToGames}
             >
-              {isRestartLoading
-                ? t("game.modes.survival.results.starting")
-                : attemptsRemaining > 0
-                  ? t("game.modes.survival.results.surviveAgain")
-                  : t("game.general.noAttemptsLeft")}
+              <ArrowLeft size={20} />
+              <span>BACK НАЗАД</span>
             </button>
           </div>
         </div>

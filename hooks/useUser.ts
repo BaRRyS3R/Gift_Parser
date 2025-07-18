@@ -1,4 +1,4 @@
-// src/hooks/useUser.ts - Updated centralized user hook without leaderboard caching
+// src/hooks/useUser.ts - Updated centralized user hook without game logic
 
 "use client";
 
@@ -13,39 +13,8 @@ import type {
   AuthTokens
 } from "./modules/useAuth";
 
-// Import game result types
-import { ReactionGameResult } from "@/types/game-modes/reaction";
-import { SurvivalGameResult } from "@/types/game-modes/survival";
-import { PhysicsGameResult } from "@/types/game-modes/physics";
-import { RotationGameResult } from "@/types/game-modes/rotation";
-import type { TournamentGameResult } from "@/types/tournaments";
-
 // Import achievement notification types
 import type { AchievementNotificationData } from "@/components/LeagueProgress/AchievementNotification";
-
-// Game result union type
-type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult | TournamentGameResult;
-
-// Game save result interface (will be moved to separate module later)
-export interface GameSaveResult {
-  success: boolean;
-  leagueChanged?: boolean;
-  newLeague?: any; // Will be properly typed when league module is created
-  levelChanged?: boolean;
-  newLevel?: number;
-  reward?: any; // Will be properly typed when league module is created
-  missedRewards?: any[]; // Will be properly typed when league module is created
-  error?: string;
-}
-
-// Tournament save response interface (will be moved to separate module later)
-export interface TournamentSaveResponse {
-  result_id: string;
-  total_score: number;
-  game_score: number;
-  games_played: number;
-  previous_total: number;
-}
 
 // Main user context interface
 interface UserContextType {
@@ -69,10 +38,6 @@ interface UserContextType {
   // User management
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
-
-  // Game methods (will be moved to separate modules later)
-  saveGameResult: (gameResult: GameResult) => Promise<GameSaveResult>;
-  saveTournamentResult: (tournamentId: string, gameResult: SurvivalGameResult) => Promise<TournamentSaveResponse>;
 
   // Attempts management (will be moved to separate module later)
   getAttemptsStatus: () => Promise<AttemptsStatus>;
@@ -281,65 +246,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   // TEMPORARY METHODS (to be moved to modules)
   // ========================================
 
-  // Temporary game save method (will be moved to game module)
-  const saveGameResult = useCallback(async (gameResult: GameResult): Promise<GameSaveResult> => {
-    if (!authState.isAuthenticated) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest('/api/game/save', {
-        method: 'POST',
-        body: JSON.stringify({ gameResult }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save game result');
-      }
-
-      const result = await response.json();
-
-      // Refresh leaderboard data when game is saved (no caching means fresh data)
-      leaderboardModule.fetchLeaderboards();
-
-      return result;
-    } catch (error) {
-      console.error("Error saving game result:", error);
-      throw error;
-    }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest, leaderboardModule]);
-
-  // Temporary tournament save method (will be moved to tournament module)
-  const saveTournamentResult = useCallback(async (
-    tournamentId: string,
-    gameResult: SurvivalGameResult
-  ): Promise<TournamentSaveResponse> => {
-    if (!authState.isAuthenticated) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest('/api/tournament/save', {
-        method: 'POST',
-        body: JSON.stringify({ tournamentId, gameResult }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save tournament result');
-      }
-
-      const result = await response.json();
-
-      // Refresh leaderboard data when tournament result is saved
-      leaderboardModule.fetchLeaderboards();
-
-      return result;
-    } catch (error) {
-      console.error("Error saving tournament result:", error);
-      throw error;
-    }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest, leaderboardModule]);
-
   // Temporary attempts methods (will be moved to attempts module)
   const getAttemptsStatus = useCallback(async (): Promise<AttemptsStatus> => {
     if (!authState.isAuthenticated) {
@@ -438,10 +344,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     // User management
     updateUser,
     setTelegramUser,
-
-    // Game methods (temporary)
-    saveGameResult,
-    saveTournamentResult,
 
     // Attempts management (temporary)
     getAttemptsStatus,

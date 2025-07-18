@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { useAttempts } from "@/hooks/useAttempts";
+import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 import AttemptsDisplay from "@/components/AttemptsDisplay";

@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Simplified without JS position updates
+// src/game-modes/rotation/RotationGameManager.tsx - Refactored version without attempts logic
 
 "use client";
 
@@ -10,6 +10,7 @@ import {
     Clock,
     Target,
     RotateCw,
+    ArrowLeft,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -55,7 +56,7 @@ const initialSaveStatus: SaveStatus = {
 const LEVEL_UPDATE_INTERVAL = 100; // Update level/time every 100ms
 
 export default function RotationGameManager() {
-    const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
+    const { makeAuthenticatedRequest } = useUser();
     const router = useRouter();
     const t = useT();
 
@@ -65,10 +66,6 @@ export default function RotationGameManager() {
     const [showCircles, setShowCircles] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
     const [gameResult, setGameResult] = useState<RotationGameResult | null>(null);
-    const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
-    const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
-    const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
-    const [isRestartLoading, setIsRestartLoading] = useState(false);
 
     // State for activation pulse effects
     const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -97,34 +94,14 @@ export default function RotationGameManager() {
         }
     }, [router]);
 
-    // Consume attempt immediately when component mounts
+    // Auto-start game on component mount
     useEffect(() => {
-        const consumeInitialAttempt = async () => {
-            if (!telegramUser?.id || hasConsumedInitialAttempt) return;
+        const timer = setTimeout(() => {
+            startGame();
+        }, 500);
 
-            try {
-                setIsConsumingAttempt(true);
-                console.log("Consuming initial attempt for rotation game");
-
-                const newStatus = await consumeAttemptForGame();
-                setAttemptsRemaining(newStatus.attemptsRemaining);
-                setHasConsumedInitialAttempt(true);
-
-                // Auto-start the game after consuming attempt
-                setTimeout(() => {
-                    startGame();
-                }, 500);
-            } catch (error) {
-                console.error("Error consuming initial attempt:", error);
-                setHasConsumedInitialAttempt(true);
-                router.push("/game");
-            } finally {
-                setIsConsumingAttempt(false);
-            }
-        };
-
-        consumeInitialAttempt();
-    }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
+        return () => clearTimeout(timer);
+    }, []);
 
     const triggerHapticFeedback = useCallback((type: "success" | "error") => {
         if (
@@ -158,7 +135,21 @@ export default function RotationGameManager() {
                 }
 
                 try {
-                    await saveGameResult(result);
+                    const response = await makeAuthenticatedRequest('/api/game/save', {
+                        method: 'POST',
+                        body: JSON.stringify({ gameResult: result }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to save game result');
+                    }
+
+                    const responseData = await response.json();
+                    
+                    if (!responseData.success) {
+                        throw new Error(responseData.error || 'Failed to save game result');
+                    }
+
                     setSaveStatus((prev) => ({
                         ...prev,
                         isLoading: false,
@@ -189,7 +180,7 @@ export default function RotationGameManager() {
                 }));
             }
         },
-        [saveGameResult, t],
+        [makeAuthenticatedRequest, t],
     );
 
     const endGame = useCallback(
@@ -363,29 +354,9 @@ export default function RotationGameManager() {
         }, 800);
     }, [scheduleNextActivation]);
 
-    const restartGame = useCallback(async () => {
-        if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
-
-        setIsRestartLoading(true);
-
-        try {
-            console.log("Consuming attempt on server for restart");
-
-            const newStatus = await consumeAttemptForGame();
-            setAttemptsRemaining(newStatus.attemptsRemaining);
-
-            setShowCircles(false);
-            setTimeout(() => {
-                startGame();
-            }, 200);
-
-        } catch (error) {
-            console.error("Error consuming attempt for restart:", error);
-            router.push("/game");
-        } finally {
-            setIsRestartLoading(false);
-        }
-    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
+    const handleBackToGames = useCallback(() => {
+        router.push("/game");
+    }, [router]);
 
     useEffect(() => {
         return () => {
@@ -419,17 +390,6 @@ export default function RotationGameManager() {
 
         return t(key as any) || t("game.modes.rotation.deathCauses.default");
     };
-
-    if (isConsumingAttempt) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <div className="w-8 h-8 border-2 border-orange-400/20 border-t-orange-400 rounded-full animate-spin mx-auto" />
-                    <p className="text-orange-300">{t("game.general.initializingGame")}</p>
-                </div>
-            </div>
-        );
-    }
 
     if (gameState.gameState === GameState.FINISHED && gameResult) {
         return (
@@ -476,14 +436,6 @@ export default function RotationGameManager() {
                             </div>
                             <div className="text-center space-y-1">
                                 <div className="text-xs text-orange-400/60">
-                                    {t("game.modes.rotation.results.attemptsLeft")}
-                                </div>
-                                <div className="text-xl font-bold text-green-400">
-                                    {attemptsRemaining}
-                                </div>
-                            </div>
-                            <div className="text-center space-y-1">
-                                <div className="text-xs text-orange-400/60">
                                     {t("game.modes.rotation.results.perfectStreak")}
                                 </div>
                                 <div className="text-xl font-bold text-green-400">
@@ -496,6 +448,14 @@ export default function RotationGameManager() {
                                 </div>
                                 <div className="text-xl font-bold text-green-400">
                                     {gameResult.correctHits}
+                                </div>
+                            </div>
+                            <div className="text-center space-y-1">
+                                <div className="text-xs text-orange-400/60">
+                                    {t("game.modes.rotation.results.levelsCompleted")}
+                                </div>
+                                <div className="text-xl font-bold text-green-400">
+                                    {gameResult.maxLevelReached}/10
                                 </div>
                             </div>
                         </div>
@@ -576,19 +536,11 @@ export default function RotationGameManager() {
 
                     <div className="space-y-4">
                         <button
-                            className="w-full px-6 py-4 bg-transparent border-2 border-orange-400/60 text-orange-300 rounded-xl text-lg hover:border-orange-400 hover:bg-orange-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={
-                                saveStatus.isLoading ||
-                                attemptsRemaining <= 0 ||
-                                isRestartLoading
-                            }
-                            onClick={restartGame}
+                            className="w-full px-6 py-4 bg-transparent border-2 border-orange-400/60 text-orange-300 rounded-xl text-lg hover:border-orange-400 hover:bg-orange-500/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
+                            onClick={handleBackToGames}
                         >
-                            {isRestartLoading
-                                ? t("game.modes.rotation.results.starting")
-                                : attemptsRemaining > 0
-                                    ? t("game.modes.rotation.results.spinAgain")
-                                    : t("game.general.noAttemptsLeft")}
+                            <ArrowLeft size={20} />
+                            <span>BACK НАЗАД</span>
                         </button>
                     </div>
                 </div>

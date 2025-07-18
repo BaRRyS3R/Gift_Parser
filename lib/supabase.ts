@@ -1,12 +1,6 @@
-// src/lib/supabase.ts - Обновленный сервис пользователей с исключением режима реакции из подсчета общих игр
+// src/lib/supabase.ts - Refactored client service with game logic moved to server API
 
 import { createClient } from "@supabase/supabase-js";
-import { GameMode } from "@/types/game-modes/common";
-import { ReactionGameResult } from "@/types/game-modes/reaction";
-import { SurvivalGameResult } from "@/types/game-modes/survival";
-import { PhysicsGameResult } from "@/types/game-modes/physics";
-import { RotationGameResult } from "@/types/game-modes/rotation";
-import leagueService, { type LeagueRewardResult, type League } from "./league_service";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -85,18 +79,6 @@ export interface User {
 
   last_played_at?: string;
   is_active: boolean;
-}
-
-// Updated interface with missedRewards field
-export interface GameSaveResult {
-  success: boolean;
-  leagueChanged?: boolean;
-  newLeague?: League;
-  levelChanged?: boolean;
-  newLevel?: number;
-  reward?: LeagueRewardResult;
-  missedRewards?: LeagueRewardResult[]; // NEW: Added to support retroactive reward checking
-  error?: string;
 }
 
 export interface TelegramUser {
@@ -253,6 +235,8 @@ export const userService = {
     }
 
     try {
+      // Initialize user league using direct import to avoid circular dependency
+      const { default: leagueService } = await import('./league_service');
       await leagueService.initializeUserLeague(data.id, 0);
     } catch (leagueError) {
       console.error("Error initializing user league:", leagueError);
@@ -442,136 +426,7 @@ export const userService = {
     return this.consumeAttemptWithServerValidation(telegramId);
   },
 
-  // UPDATED: Enhanced updateGameStats with reaction mode exclusion from total_games
-  async updateGameStats(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<GameSaveResult> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user) throw new Error("User not found");
-
-    const previousTotalGames = user.total_games;
-    
-    // CRITICAL CHANGE: Exclude reaction mode from total_games counting
-    const isCompetitiveMode = gameResult.mode !== GameMode.REACTION;
-    const newTotalGames = isCompetitiveMode ? previousTotalGames + 1 : previousTotalGames;
-    
-    const previousLevel = user.current_level;
-    const newLevel = leagueService.calculateLevel(newTotalGames);
-
-    const updates: any = {
-      total_games: newTotalGames, // Only incremented for competitive modes
-      total_score: user.total_score + gameResult.score,
-      best_score: Math.max(user.best_score, gameResult.score),
-      current_level: newLevel,
-      last_played_at: new Date().toISOString(),
-    };
-
-    // Mode-specific stats updates
-    if (gameResult.mode === GameMode.REACTION) {
-      const reactionResult = gameResult as ReactionGameResult;
-      updates.reaction_games = user.reaction_games + 1;
-      updates.reaction_best_score = Math.max(user.reaction_best_score || 0, reactionResult.score);
-
-      if (!reactionResult.missed && reactionResult.reactionTime > 0) {
-        updates.reaction_best_time = user.reaction_best_time > 0
-          ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
-          : reactionResult.reactionTime;
-
-        const totalReactionGames = user.reaction_games;
-        const currentAverage = user.reaction_average_time || 0;
-        const newAverage = totalReactionGames > 0
-          ? (currentAverage * totalReactionGames + reactionResult.reactionTime) / (totalReactionGames + 1)
-          : reactionResult.reactionTime;
-
-        updates.reaction_average_time = Math.round(newAverage);
-      }
-    } else if (gameResult.mode === GameMode.SURVIVAL) {
-      const survivalResult = gameResult as SurvivalGameResult;
-      updates.survival_games = user.survival_games + 1;
-      updates.survival_best_score = Math.max(user.survival_best_score || 0, survivalResult.score);
-      updates.survival_best_time = Math.max(user.survival_best_time || 0, survivalResult.survivalTime);
-      updates.survival_max_level = Math.max(user.survival_max_level || 0, survivalResult.maxLevelReached);
-      updates.survival_best_streak = Math.max(user.survival_best_streak || 0, survivalResult.perfectStreak);
-    } else if (gameResult.mode === GameMode.PHYSICS) {
-      const physicsResult = gameResult as PhysicsGameResult;
-      updates.physics_games = user.physics_games + 1;
-      updates.physics_best_score = Math.max(user.physics_best_score || 0, physicsResult.score);
-      updates.physics_best_time = Math.max(user.physics_best_time || 0, Math.round(physicsResult.gameTime));
-      updates.physics_total_hits = (user.physics_total_hits || 0) + physicsResult.totalHits;
-      updates.physics_best_hits = Math.max(user.physics_best_hits || 0, physicsResult.totalHits);
-
-      if (user.physics_least_mistakes === undefined || user.physics_least_mistakes === null) {
-        updates.physics_least_mistakes = physicsResult.mistakesMade;
-      } else {
-        updates.physics_least_mistakes = Math.min(user.physics_least_mistakes, physicsResult.mistakesMade);
-      }
-    } else if (gameResult.mode === GameMode.ROTATION) {
-      const rotationResult = gameResult as RotationGameResult;
-      updates.rotation_games = user.rotation_games + 1;
-      updates.rotation_best_score = Math.max(user.rotation_best_score || 0, rotationResult.score);
-      updates.rotation_best_time = Math.max(user.rotation_best_time || 0, rotationResult.survivalTime);
-      updates.rotation_max_level = Math.max(user.rotation_max_level || 0, rotationResult.maxLevelReached);
-      updates.rotation_best_streak = Math.max(user.rotation_best_streak || 0, rotationResult.perfectStreak);
-      updates.rotation_total_hits = (user.rotation_total_hits || 0) + rotationResult.correctHits;
-    }
-
-    // Update user stats
-    const { error } = await supabase
-      .from("users")
-      .update(updates)
-      .eq("telegram_id", telegramId);
-
-    if (error) {
-      console.error("Error updating user stats:", error);
-      throw error;
-    }
-
-    // IMPORTANT: League checking only for competitive modes
-    try {
-      if (isCompetitiveMode) {
-        const leagueResult = await leagueService.checkAndUpdateLeague(user.id, newTotalGames);
-        
-        return {
-          success: true,
-          leagueChanged: leagueResult.leagueChanged,
-          newLeague: leagueResult.newLeague,
-          levelChanged: newLevel !== previousLevel,
-          newLevel: newLevel !== previousLevel ? newLevel : undefined,
-          reward: leagueResult.reward,
-          missedRewards: leagueResult.missedRewards
-        };
-      } else {
-        // For reaction mode, return result without league checking
-        return {
-          success: true,
-          leagueChanged: false,
-          levelChanged: false
-        };
-      }
-    } catch (leagueError) {
-      console.error("Error checking league after game:", leagueError);
-      return {
-        success: true,
-        leagueChanged: false,
-        levelChanged: newLevel !== previousLevel,
-        newLevel: newLevel !== previousLevel ? newLevel : undefined,
-        error: "League check failed"
-      };
-    }
-  },
-
-  async saveGameResult(telegramId: number, gameResult: ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult): Promise<GameSaveResult> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user) throw new Error("User not found");
-
-    console.log("Updating user statistics with game result:", {
-      mode: gameResult.mode,
-      score: gameResult.score,
-      duration: gameResult.duration
-    });
-
-    return await this.updateGameStats(telegramId, gameResult);
-  },
-
-  // Existing leaderboard methods (unchanged)
+  // Existing leaderboard methods (unchanged - delegated to API)
   async getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
     const { data, error } = await supabase
       .from("users")

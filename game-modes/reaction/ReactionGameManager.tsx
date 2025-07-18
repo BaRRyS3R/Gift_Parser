@@ -1,9 +1,9 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
+// src/game-modes/reaction/ReactionGameManager.tsx - Refactored version without attempts logic
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Zap, RotateCcw, Target, Clock } from "lucide-react";
+import { Zap, RotateCcw, Target, Clock, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -48,7 +48,7 @@ const initialSaveStatus: SaveStatus = {
 };
 
 export default function ReactionGameManager() {
-  const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
+  const { makeAuthenticatedRequest } = useUser();
   const router = useRouter();
   const t = useT();
 
@@ -58,10 +58,6 @@ export default function ReactionGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
-  const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
-  const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
-  const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
-  const [isRestartLoading, setIsRestartLoading] = useState(false);
 
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -90,35 +86,14 @@ export default function ReactionGameManager() {
     }
   }, [router]);
 
-  // Consume attempt immediately when component mounts (initial entry only)
+  // Auto-start game on component mount
   useEffect(() => {
-    const consumeInitialAttempt = async () => {
-      if (!telegramUser?.id || hasConsumedInitialAttempt) return;
+    const timer = setTimeout(() => {
+      startGame();
+    }, 500);
 
-      try {
-        setIsConsumingAttempt(true);
-        console.log("Consuming initial attempt for reaction game");
-
-        const newStatus = await consumeAttemptForGame();
-        setAttemptsRemaining(newStatus.attemptsRemaining);
-        setHasConsumedInitialAttempt(true);
-
-        // Auto-start the game after consuming attempt
-        setTimeout(() => {
-          startGame();
-        }, 500);
-      } catch (error) {
-        console.error("Error consuming initial attempt:", error);
-        setHasConsumedInitialAttempt(true);
-        // При ошибке возвращаемся к выбору игр
-        router.push("/game");
-      } finally {
-        setIsConsumingAttempt(false);
-      }
-    };
-
-    consumeInitialAttempt();
-  }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
+    return () => clearTimeout(timer);
+  }, []);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -164,7 +139,21 @@ export default function ReactionGameManager() {
         }
 
         try {
-          await saveGameResult(result);
+          const response = await makeAuthenticatedRequest('/api/game/save', {
+            method: 'POST',
+            body: JSON.stringify({ gameResult: result }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to save game result');
+          }
+
+          const responseData = await response.json();
+
+          if (!responseData.success) {
+            throw new Error(responseData.error || 'Failed to save game result');
+          }
+
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
@@ -195,7 +184,7 @@ export default function ReactionGameManager() {
         }));
       }
     },
-    [saveGameResult, t],
+    [makeAuthenticatedRequest, t],
   );
 
   const handleGameTimeout = useCallback(() => {
@@ -333,33 +322,9 @@ export default function ReactionGameManager() {
     }, 500);
   }, [handleCircleActivated, handleGameTimeout]);
 
-  // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
-  const restartGame = useCallback(async () => {
-    if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
-
-    setIsRestartLoading(true);
-
-    try {
-      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
-      // Всегда потребляем попытку на сервере для обеспечения корректности данных
-      console.log("Consuming attempt on server for restart (security-critical operation)");
-
-      const newStatus = await consumeAttemptForGame();
-      setAttemptsRemaining(newStatus.attemptsRemaining);
-
-      setShowCircles(false);
-      setTimeout(() => {
-        startGame();
-      }, 200);
-
-    } catch (error) {
-      console.error("Error consuming attempt for restart:", error);
-      // При ошибке возвращаемся к выбору игр
-      router.push("/game");
-    } finally {
-      setIsRestartLoading(false);
-    }
-  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
+  const handleBackToGames = useCallback(() => {
+    router.push("/game");
+  }, [router]);
 
   useEffect(() => {
     return () => {
@@ -402,19 +367,6 @@ export default function ReactionGameManager() {
       return t("game.modes.reaction.instructions.preparing");
     }
   };
-
-  if (isConsumingAttempt) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">
-            {t("game.general.initializingGame")}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
     const rating = gameResult.rating;
@@ -468,11 +420,11 @@ export default function ReactionGameManager() {
               </div>
               <div className="text-center p-3 bg-white/20 rounded-lg border border-white/30">
                 <Zap className="text-green-400 mx-auto mb-1" size={16} />
-                <div className="text-xl font-bold text-green-400">
-                  {attemptsRemaining}
+                <div className={`text-xl font-bold ${ratingColor}`}>
+                  {rating}
                 </div>
                 <div className="text-xs text-white/60">
-                  {t("attempts.remaining")}
+                  {t("game.modes.reaction.results.rating")}
                 </div>
               </div>
             </div>
@@ -582,19 +534,11 @@ export default function ReactionGameManager() {
 
           <div className="space-y-4">
             <button
-              className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={
-                saveStatus.isLoading ||
-                attemptsRemaining <= 0 ||
-                isRestartLoading
-              }
-              onClick={restartGame}
+              className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
+              onClick={handleBackToGames}
             >
-              {isRestartLoading
-                ? t("game.modes.survival.results.starting")
-                : attemptsRemaining > 0
-                  ? t("game.modes.reaction.results.testAgain")
-                  : t("game.modes.reaction.results.noAttemptsLeft")}
+              <ArrowLeft size={20} />
+              <span>BACK НАЗАД</span>
             </button>
           </div>
         </div>

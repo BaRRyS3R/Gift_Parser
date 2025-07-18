@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
+// src/game-modes/physics/PhysicsGameManager.tsx - Refactored version without attempts logic
 
 "use client";
 
@@ -13,6 +13,7 @@ import {
     TrendingDown,
     TrendingUp,
     Activity,
+    ArrowLeft,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as Matter from "matter-js";
@@ -33,6 +34,7 @@ import {
 } from "./PhysicsGameLogic";
 
 import { useUser } from "@/hooks/useUser";
+import { useGame } from "@/hooks/modules/useGame";
 import { GameState } from "@/types/game-modes/common";
 import {
     PhysicsGameState,
@@ -60,7 +62,8 @@ const initialSaveStatus: SaveStatus = {
 };
 
 export default function PhysicsGameManager() {
-    const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
+    const { makeAuthenticatedRequest } = useUser();
+    const { saveGameResult } = useGame(makeAuthenticatedRequest);
     const router = useRouter();
     const t = useT();
 
@@ -70,10 +73,6 @@ export default function PhysicsGameManager() {
     const [showCanvas, setShowCanvas] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
     const [gameResult, setGameResult] = useState<PhysicsGameResult | null>(null);
-    const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
-    const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
-    const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
-    const [isRestartLoading, setIsRestartLoading] = useState(false);
 
     const gameStateRef = useRef<PhysicsGameState>(gameState);
     const engineUpdateRef = useRef<number>();
@@ -99,34 +98,14 @@ export default function PhysicsGameManager() {
         }
     }, [router]);
 
-    // Consume attempt immediately when component mounts
+    // Auto-start game on component mount
     useEffect(() => {
-        const consumeInitialAttempt = async () => {
-            if (!telegramUser?.id || hasConsumedInitialAttempt) return;
+        const timer = setTimeout(() => {
+            startGame();
+        }, 500);
 
-            try {
-                setIsConsumingAttempt(true);
-                console.log("Consuming initial attempt for physics game");
-
-                const newStatus = await consumeAttemptForGame();
-                setAttemptsRemaining(newStatus.attemptsRemaining);
-                setHasConsumedInitialAttempt(true);
-
-                setTimeout(() => {
-                    startGame();
-                }, 500);
-            } catch (error) {
-                console.error("Error consuming initial attempt:", error);
-                setHasConsumedInitialAttempt(true);
-                // При ошибке возвращаемся к выбору игр
-                router.push("/game");
-            } finally {
-                setIsConsumingAttempt(false);
-            }
-        };
-
-        consumeInitialAttempt();
-    }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
+        return () => clearTimeout(timer);
+    }, []);
 
     const triggerHapticFeedback = useCallback((type: "success" | "error") => {
         if (
@@ -388,40 +367,9 @@ export default function PhysicsGameManager() {
         }, 800);
     }, [scheduleNextActivation, updatePhysicsEngine]);
 
-    // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
-    const restartGame = useCallback(async () => {
-        if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
-
-        setIsRestartLoading(true);
-
-        try {
-            // Cleanup current game before restarting
-            cleanupPhysicsGame(gameStateRef.current);
-            if (engineUpdateRef.current) {
-                cancelAnimationFrame(engineUpdateRef.current);
-                engineUpdateRef.current = undefined;
-            }
-
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
-            // Всегда потребляем попытку на сервере для обеспечения корректности данных
-            console.log("Consuming attempt on server for restart (security-critical operation)");
-
-            const newStatus = await consumeAttemptForGame();
-            setAttemptsRemaining(newStatus.attemptsRemaining);
-
-            setShowCanvas(false);
-            setTimeout(() => {
-                startGame();
-            }, 200);
-
-        } catch (error) {
-            console.error("Error consuming attempt for restart:", error);
-            // При ошибке возвращаемся к выбору игр
-            router.push("/game");
-        } finally {
-            setIsRestartLoading(false);
-        }
-    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
+    const handleBackToGames = useCallback(() => {
+        router.push("/game");
+    }, [router]);
 
     // Cleanup on component unmount
     useEffect(() => {
@@ -468,17 +416,6 @@ export default function PhysicsGameManager() {
         };
     };
 
-    if (isConsumingAttempt) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <div className="w-8 h-8 border-2 border-purple-400/20 border-t-purple-400 rounded-full animate-spin mx-auto" />
-                    <p className="text-purple-300">{t("game.general.initializingGame")}</p>
-                </div>
-            </div>
-        );
-    }
-
     if (gameState.gameState === GameState.FINISHED && gameResult) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center p-6">
@@ -524,14 +461,6 @@ export default function PhysicsGameManager() {
                             </div>
                             <div className="text-center space-y-1">
                                 <div className="text-xs text-purple-400/60">
-                                    ПОПЫТОК ОСТАЛОСЬ
-                                </div>
-                                <div className="text-xl font-bold text-green-400">
-                                    {attemptsRemaining}
-                                </div>
-                            </div>
-                            <div className="text-center space-y-1">
-                                <div className="text-xs text-purple-400/60">
                                     {t("game.modes.physics.results.mistakesMade")}
                                 </div>
                                 <div className="text-xl font-bold text-red-400">
@@ -544,6 +473,14 @@ export default function PhysicsGameManager() {
                                 </div>
                                 <div className="text-xl font-bold text-purple-400">
                                     {Math.round(gameResult.finalScore)}
+                                </div>
+                            </div>
+                            <div className="text-center space-y-1">
+                                <div className="text-xs text-purple-400/60">
+                                    Время выживания
+                                </div>
+                                <div className="text-xl font-bold text-purple-400">
+                                    {formatPhysicsTime(gameResult.survivalTime)}
                                 </div>
                             </div>
                         </div>
@@ -629,19 +566,11 @@ export default function PhysicsGameManager() {
 
                     <div className="space-y-4">
                         <button
-                            className="w-full px-6 py-4 bg-transparent border-2 border-purple-400/60 text-purple-300 rounded-xl text-lg hover:border-purple-400 hover:bg-purple-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={
-                                saveStatus.isLoading ||
-                                attemptsRemaining <= 0 ||
-                                isRestartLoading
-                            }
-                            onClick={restartGame}
+                            className="w-full px-6 py-4 bg-transparent border-2 border-purple-400/60 text-purple-300 rounded-xl text-lg hover:border-purple-400 hover:bg-purple-500/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
+                            onClick={handleBackToGames}
                         >
-                            {isRestartLoading
-                                ? "ЗАПУСК..."
-                                : attemptsRemaining > 0
-                                    ? t("game.modes.physics.results.playAgain")
-                                    : t("game.general.noAttemptsLeft")}
+                            <ArrowLeft size={20} />
+                            <span>BACK НАЗАД</span>
                         </button>
                     </div>
                 </div>
