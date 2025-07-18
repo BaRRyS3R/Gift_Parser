@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Обновленная главная страница с централизованным управлением попыток
+// src/app/main/page.tsx - Обновленная главная страница с API для турниров
 
 "use client";
 
@@ -10,7 +10,6 @@ import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
-import { tournamentService } from "@/lib/supabase_tournament_extension";
 import type { Tournament } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
 import AuthGuard from "@/components/Auth/AuthGuard";
@@ -22,7 +21,13 @@ import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal
 
 function MainPageContent() {
   const router = useRouter();
-  const { user, isLoading: userLoading, telegramUser, setTelegramUser } = useUser();
+  const {
+    user,
+    isLoading: userLoading,
+    telegramUser,
+    setTelegramUser,
+    makeAuthenticatedRequest
+  } = useUser();
   const {
     attemptsStatus,
     isLoading: attemptsLoading,
@@ -65,6 +70,7 @@ function MainPageContent() {
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
   const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
   const [showTournamentButton, setShowTournamentButton] = useState(false);
+  const [tournamentLoading, setTournamentLoading] = useState(false);
 
   /* -------------------------------------------------
    * Dynamic offset for Telegram system UI
@@ -118,50 +124,73 @@ function MainPageContent() {
   }, [telegramUser, setTelegramUser]);
 
   /* -------------------------------------------------
-   * Tournament data loading
+   * Tournament data loading via API
    * -------------------------------------------------*/
   useEffect(() => {
-    const loadTournamentStatus = async () => {
+    const loadActiveTournament = async () => {
+      if (!user || userLoading) return;
+
       try {
-        const tournamentStatus = await tournamentService.getTournamentStatus();
+        setTournamentLoading(true);
+        console.log('Loading active tournament via API...');
 
-        if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
-          setActiveTournament(tournamentStatus.activeTournament);
+        const response = await makeAuthenticatedRequest('/api/tournament/active');
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to fetch active tournament');
+        }
+
+        const { tournament, timeRemaining, timeUntilEnd } = result.data;
+
+        if (tournament && timeUntilEnd && timeUntilEnd > 0) {
+          console.log(`Active tournament found: ${tournament.name}`);
+          setActiveTournament(tournament);
           setShowTournamentButton(true);
+          setTournamentTimeRemaining(timeRemaining);
 
-          if (tournamentStatus.timeRemaining) {
-            setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
+          // Start countdown timer
+          const interval = setInterval(() => {
+            const now = new Date();
+            const endDate = new Date(tournament.end_date);
+            const diff = endDate.getTime() - now.getTime();
 
-            const interval = setInterval(() => {
-              const now = new Date();
-              const endDate = new Date(tournamentStatus.activeTournament!.end_date);
-              const diff = endDate.getTime() - now.getTime();
+            if (diff <= 0) {
+              console.log('Tournament has ended, hiding button');
+              setActiveTournament(null);
+              setShowTournamentButton(false);
+              setTournamentTimeRemaining("");
+              clearInterval(interval);
+            } else {
+              setTournamentTimeRemaining(formatTimeRemaining(diff));
+            }
+          }, 1000);
 
-              if (diff <= 0) {
-                setActiveTournament(null);
-                setShowTournamentButton(false);
-                setTournamentTimeRemaining("");
-                clearInterval(interval);
-              } else {
-                setTournamentTimeRemaining(formatTimeRemaining(diff));
-              }
-            }, 1000);
-
-            return () => clearInterval(interval);
-          }
+          // Cleanup interval on unmount
+          return () => clearInterval(interval);
         } else {
+          console.log('No active tournament found');
           setActiveTournament(null);
           setShowTournamentButton(false);
+          setTournamentTimeRemaining("");
         }
       } catch (error) {
-        console.error("Error loading tournament status:", error);
+        console.error("Error loading active tournament:", error);
         setActiveTournament(null);
         setShowTournamentButton(false);
+        setTournamentTimeRemaining("");
+      } finally {
+        setTournamentLoading(false);
       }
     };
 
-    loadTournamentStatus();
-  }, []);
+    loadActiveTournament();
+  }, [user, userLoading, makeAuthenticatedRequest]);
 
   /* -------------------------------------------------
    * Background video logic
@@ -361,7 +390,7 @@ function MainPageContent() {
           </div>
 
           {/* Tournament Button */}
-          {showTournamentButton && activeTournament && (
+          {showTournamentButton && activeTournament && !tournamentLoading && (
             <button
               aria-label="Active Tournament"
               className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -386,6 +415,14 @@ function MainPageContent() {
               <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
               <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
             </button>
+          )}
+
+          {/* Tournament Loading State */}
+          {tournamentLoading && (
+            <div className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm border-2 border-white/20 rounded-full">
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="text-xs text-white/60">Loading...</span>
+            </div>
           )}
         </div>
       </div>

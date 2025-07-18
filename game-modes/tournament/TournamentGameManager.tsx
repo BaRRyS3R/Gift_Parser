@@ -1,4 +1,4 @@
-// src/game-modes/tournament/TournamentGameManager.tsx - Обновленная версия с системой накопления очков
+// src/game-modes/tournament/TournamentGameManager.tsx - Обновленная версия без потребления попыток и с API
 
 "use client";
 
@@ -14,6 +14,7 @@ import {
     Plus,
     Star,
     TrendingUp,
+    ArrowLeft,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -31,7 +32,6 @@ import {
 } from "./TournamentGameLogic";
 
 import { useUser } from "@/hooks/useUser";
-import { userService } from "@/lib/supabase";
 import { GameState } from "@/types/game-modes/common";
 import {
     SurvivalGameState,
@@ -68,7 +68,7 @@ interface TournamentGameManagerProps {
 }
 
 export default function TournamentGameManager({ tournament }: TournamentGameManagerProps) {
-    const { telegramUser, user, saveTournamentResult } = useUser();
+    const { makeAuthenticatedRequest } = useUser();
     const router = useRouter();
     const t = useT();
 
@@ -78,10 +78,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
     const [showCircles, setShowCircles] = useState(false);
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
     const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
-    const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
-    const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
-    const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
-    const [isRestartLoading, setIsRestartLoading] = useState(false);
 
     const gameStateRef = useRef<SurvivalGameState>(gameState);
 
@@ -106,36 +102,14 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         }
     }, [router]);
 
-    // Потребление попытки при инициализации компонента
+    // Автоматический запуск игры при монтировании компонента
     useEffect(() => {
-        const consumeInitialAttempt = async () => {
-            if (!telegramUser?.id || hasConsumedInitialAttempt) return;
+        const timer = setTimeout(() => {
+            startGame();
+        }, 500);
 
-            try {
-                setIsConsumingAttempt(true);
-                const newStatus = await userService.consumeAttemptWithServerValidation(
-                    telegramUser.id,
-                );
-
-                setAttemptsRemaining(newStatus.attemptsRemaining);
-                setHasConsumedInitialAttempt(true);
-
-                setTimeout(() => {
-                    startGame();
-                }, 500);
-            } catch (error) {
-                console.error("Error consuming initial attempt:", error);
-                setHasConsumedInitialAttempt(true);
-                setTimeout(() => {
-                    startGame();
-                }, 500);
-            } finally {
-                setIsConsumingAttempt(false);
-            }
-        };
-
-        consumeInitialAttempt();
-    }, [telegramUser?.id, hasConsumedInitialAttempt]);
+        return () => clearTimeout(timer);
+    }, []);
 
     const triggerHapticFeedback = useCallback((type: "success" | "error") => {
         if (
@@ -170,7 +144,26 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 }
 
                 try {
-                    const saveResponse = await saveTournamentResult(tournament.id, result);
+                    const response = await makeAuthenticatedRequest('/api/tournament/save', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            tournamentId: tournament.id,
+                            gameResult: result
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || `Server error: ${response.status}`);
+                    }
+
+                    const responseData = await response.json();
+
+                    if (!responseData.success) {
+                        throw new Error(responseData.error || 'Failed to save tournament result');
+                    }
+
+                    const saveResponse: TournamentSaveResponse = responseData.data;
 
                     setSaveStatus((prev) => ({
                         ...prev,
@@ -206,7 +199,7 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                 }));
             }
         },
-        [tournament.id, saveTournamentResult],
+        [tournament.id, makeAuthenticatedRequest],
     );
 
     const endGame = useCallback(
@@ -368,28 +361,9 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
         }, 800);
     }, [scheduleNextActivation]);
 
-    const restartGame = useCallback(async () => {
-        if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
-
-        try {
-            setIsRestartLoading(true);
-
-            const newStatus = await userService.consumeAttemptWithServerValidation(
-                telegramUser.id,
-            );
-
-            setAttemptsRemaining(newStatus.attemptsRemaining);
-            setShowCircles(false);
-
-            setTimeout(() => {
-                startGame();
-            }, 200);
-        } catch (error) {
-            console.error("Error consuming attempt for restart:", error);
-        } finally {
-            setIsRestartLoading(false);
-        }
-    }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading]);
+    const returnToTournament = useCallback(() => {
+        router.push("/tournament");
+    }, [router]);
 
     useEffect(() => {
         return () => {
@@ -423,18 +397,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
 
         return t(key as any) || t("game.modes.survival.deathCauses.default");
     };
-
-    if (isConsumingAttempt) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
-                    <p className="text-white">{t("game.general.initializingGame")}</p>
-                    <p className="text-white/60 text-sm">Tournament Mode</p>
-                </div>
-            </div>
-        );
-    }
 
     if (gameState.gameState === GameState.FINISHED && gameResult) {
         return (
@@ -506,14 +468,6 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                             </div>
                             <div className="space-y-1">
                                 <div className="text-xs text-white/60 uppercase tracking-wider">
-                                    {t("attempts.remaining")}
-                                </div>
-                                <div className="text-xl font-bold text-green-400">
-                                    {attemptsRemaining}
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="text-xs text-white/60 uppercase tracking-wider">
                                     {t("tournament.perfectStreak")}
                                 </div>
                                 <div className="text-xl font-bold text-blue-400">
@@ -526,6 +480,14 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
                                 </div>
                                 <div className="text-xl font-bold text-blue-400">
                                     {gameResult.correctHits}
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-xs text-white/60 uppercase tracking-wider">
+                                    {t("tournament.levelsCompleted")}
+                                </div>
+                                <div className="text-xl font-bold text-orange-400">
+                                    {gameResult.maxLevelReached}/12
                                 </div>
                             </div>
                         </div>
@@ -612,15 +574,11 @@ export default function TournamentGameManager({ tournament }: TournamentGameMana
 
                     <div className="space-y-3">
                         <button
-                            className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={saveStatus.isLoading || attemptsRemaining <= 0 || isRestartLoading}
-                            onClick={restartGame}
+                            className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
+                            onClick={returnToTournament}
                         >
-                            {isRestartLoading
-                                ? t("game.modes.survival.results.starting")
-                                : attemptsRemaining > 0
-                                    ? t("tournament.playTournamentAgain")
-                                    : t("game.general.noAttemptsLeft")}
+                            <ArrowLeft size={20} />
+                            <span>BACK</span>
                         </button>
                     </div>
                 </div>

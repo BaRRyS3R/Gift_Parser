@@ -1,4 +1,4 @@
-// src/hooks/useUser.ts - Updated centralized user hook with all modules
+// src/hooks/useUser.ts - Updated centralized user hook with proper tournament integration
 
 "use client";
 
