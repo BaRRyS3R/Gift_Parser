@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Protected main page with authentication guard
+// src/app/main/page.tsx - Обновленная главная страница с централизованным управлением попыток
 
 "use client";
 
@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Play, Settings as SettingsIcon, Info, Trophy, Clock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { tournamentService } from "@/lib/supabase_tournament_extension";
@@ -22,6 +23,15 @@ import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal
 function MainPageContent() {
   const router = useRouter();
   const { user, isLoading: userLoading, telegramUser, setTelegramUser } = useUser();
+  const {
+    attemptsStatus,
+    isLoading: attemptsLoading,
+    error: attemptsError,
+    canPlay,
+    attemptsRemaining,
+    fetchAttemptsStatus,
+    clearError
+  } = useAttempts();
   const { settings } = useSettings();
   const t = useT();
 
@@ -264,6 +274,11 @@ function MainPageContent() {
     setIsLeagueProgressOpen(false);
   };
 
+  const handleAttemptsRetry = () => {
+    clearError();
+    fetchAttemptsStatus(true);
+  };
+
   useEffect(() => {
     console.log("League modal state:", isLeagueProgressOpen);
   }, [isLeagueProgressOpen]);
@@ -457,7 +472,7 @@ function MainPageContent() {
         onClose={handleCloseLeagueProgress}
       />
 
-      {/* Attempts Display */}
+      {/* Централизованное отображение попыток */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -468,7 +483,15 @@ function MainPageContent() {
           }`}
         style={{ paddingBottom: "140px" }}
       >
-        <AttemptsDisplay />
+        <AttemptsDisplay
+          attemptsStatus={attemptsStatus}
+          isLoading={attemptsLoading}
+          error={attemptsError}
+          canPlay={canPlay}
+          attemptsRemaining={attemptsRemaining}
+          onRetry={handleAttemptsRetry}
+          showShopButton={false}
+        />
       </div>
 
       {/* Level and League Display */}

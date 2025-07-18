@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Унифицированная страница игр с централизованной системой попыток
+// src/app/game/page.tsx - Унифицированная страница игр с устранением дублирования запросов
 
 "use client";
 
@@ -8,7 +8,6 @@ import {
   Crosshair,
   Play,
   Shield,
-  ShoppingCart,
   Atom,
   ChevronDown,
   ChevronUp,
@@ -330,6 +329,7 @@ function GamePageContent() {
     isLoading: attemptsLoading,
     error: attemptsError,
     canPlay,
+    attemptsRemaining,
     fetchAttemptsStatus,
     clearError
   } = useAttempts();
@@ -386,13 +386,9 @@ function GamePageContent() {
     );
   }, [loadingModeId]);
 
-  const handleOpenShop = useCallback(() => {
-    router.push("/shop");
-  }, [router]);
-
-  const handleRetryAttempts = useCallback(async () => {
+  const handleAttemptsRetry = useCallback(() => {
     clearError();
-    await fetchAttemptsStatus(true);
+    fetchAttemptsStatus(true);
   }, [clearError, fetchAttemptsStatus]);
 
   // Telegram WebApp back button
@@ -427,23 +423,18 @@ function GamePageContent() {
         </p>
       </div>
 
-      {/* Централизованный компонент отображения попыток */}
+      {/* Централизованное отображение попыток с расширенными возможностями */}
       <div className="mb-8 animate-fade-in">
-        <AttemptsDisplay />
+        <AttemptsDisplay
+          attemptsStatus={attemptsStatus}
+          isLoading={attemptsLoading}
+          error={attemptsError}
+          canPlay={canPlay}
+          attemptsRemaining={attemptsRemaining}
+          onRetry={handleAttemptsRetry}
+          showShopButton={true}
+        />
       </div>
-
-      {/* Обработка ошибок попыток с возможностью повтора */}
-      {attemptsError && (
-        <div className="mb-6 p-4 bg-red-500/20 border border-red-400/40 rounded-xl">
-          <p className="text-red-400 text-sm text-center">{attemptsError}</p>
-          <button
-            onClick={handleRetryAttempts}
-            className="mt-2 w-full py-2 text-xs text-red-300 hover:text-red-200 transition-colors"
-          >
-            {t("common.retry")}
-          </button>
-        </div>
-      )}
 
       <div className="mb-8">
         <TournamentCard />
