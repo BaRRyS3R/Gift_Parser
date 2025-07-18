@@ -5,5 +5,5 @@
 import PhysicsGameManager from "@/game-modes/physics/PhysicsGameManager";
 
 export default function PhysicsGamePage() {
-    return <PhysicsGameManager />;
+  return <PhysicsGameManager />;
 }

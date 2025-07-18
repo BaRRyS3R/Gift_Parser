@@ -1,41 +1,46 @@
 // src/locales/en/about.ts - Cynical English translation
 export const about = {
-    title: "CIRCUSLE",
+  title: "CIRCUSLE",
 
-    overview: {
-        title: "So, signed up for pain?",
-        description: "Circusle — a genius way to prove your time is worth less than keyboard dust. Three modes where clicking circles eloquently confirms your inadequacy."
+  overview: {
+    title: "So, signed up for pain?",
+    description:
+      "Circusle — a genius way to prove your time is worth less than keyboard dust. Three modes where clicking circles eloquently confirms your inadequacy.",
+  },
+
+  modes: {
+    title: "Modes",
+    reaction: {
+      name: "Reaction",
+      description:
+        "Reflex test for those sure they're not total vegetables. Surprise: you're a pickled cucumber from the basement.",
     },
-
-    modes: {
-        title: "Modes",
-        reaction: {
-            name: "Reaction",
-            description: "Reflex test for those sure they're not total vegetables. Surprise: you're a pickled cucumber from the basement."
-        },
-        survival: {
-            name: "Survival",
-            description: "15 levels where one mistake sends you to digital oblivion. Like Dark Souls, just without graphics."
-        },
-        physics: {
-            name: "Physics",
-            description: "Newton got an apple on his head. You get pigeon shit."
-        }
+    survival: {
+      name: "Survival",
+      description:
+        "15 levels where one mistake sends you to digital oblivion. Like Dark Souls, just without graphics.",
     },
-
-    monetization: {
-        title: "How We Profit Off You",
-        description: "10 attempts every 2 hours - just enough to understand that you are hopeless. Wait 2 hours or pay - your choice between patience and humiliation.",
-        details: "Want more suffering? Invite friends — a great way to score free attempts. Or buy tries for Telegram Stars: we're already eyeing a new ride."
+    physics: {
+      name: "Physics",
+      description: "Newton got an apple on his head. You get pigeon shit.",
     },
+  },
 
-    tips: {
-        title: "Bad Advice",
-        tip1: "Reaction mode: hurry up and you'll make everyone laugh.",
-        tip2: "Survival: click where needed. Where not needed — don't click.",
-        tip3: "Red circle — same as white, only red.",
-        tip4: "Ran out of tries? Well, drink some tea while you wait. Better yet — give us cash."
-    },
+  monetization: {
+    title: "How We Profit Off You",
+    description:
+      "10 attempts every 2 hours - just enough to understand that you are hopeless. Wait 2 hours or pay - your choice between patience and humiliation.",
+    details:
+      "Want more suffering? Invite friends — a great way to score free attempts. Or buy tries for Telegram Stars: we're already eyeing a new ride.",
+  },
 
-    footer: "Version 0.0.0.0.0.1 • Made with hatred for your expectations."
+  tips: {
+    title: "Bad Advice",
+    tip1: "Reaction mode: hurry up and you'll make everyone laugh.",
+    tip2: "Survival: click where needed. Where not needed — don't click.",
+    tip3: "Red circle — same as white, only red.",
+    tip4: "Ran out of tries? Well, drink some tea while you wait. Better yet — give us cash.",
+  },
+
+  footer: "Version 0.0.0.0.0.1 • Made with hatred for your expectations.",
 } as const;

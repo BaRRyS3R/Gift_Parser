@@ -2,6 +2,9 @@
 
 "use client";
 
+import type { TelegramUser } from "@/lib/supabase";
+import type { RegistrationResult, LoginResult } from "@/hooks/modules/useAuth";
+
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
@@ -12,11 +15,9 @@ import { useT } from "@/contexts/LocalizationContext";
 import {
   extractReferralCode,
   parseTelegramInitData,
-  getTelegramInitData
+  getTelegramInitData,
 } from "@/lib/telegram-auth";
 import DebugLanguage from "@/components/DebugLanguage";
-import type { TelegramUser } from "@/lib/supabase";
-import type { RegistrationResult, LoginResult } from "@/hooks/modules/useAuth";
 
 interface PageState {
   isInitializing: boolean;
@@ -50,7 +51,7 @@ export default function IntroPage(): JSX.Element {
     setTelegramUser,
     register,
     login,
-    isLoading: userLoading
+    isLoading: userLoading,
   } = useUser();
 
   // Initialization flags
@@ -73,6 +74,7 @@ export default function IntroPage(): JSX.Element {
   });
 
   const authStateRef = useRef(authState);
+
   useEffect(() => {
     authStateRef.current = authState;
   }, [authState]);
@@ -80,11 +82,15 @@ export default function IntroPage(): JSX.Element {
   /**
    * Extract Telegram user data from WebApp API
    */
-  const getTelegramUserData = useCallback((): { user: TelegramUser | null; initData: string } => {
+  const getTelegramUserData = useCallback((): {
+    user: TelegramUser | null;
+    initData: string;
+  } => {
     const initData = getTelegramInitData();
 
     if (!initData) {
       console.log("No Telegram initData available");
+
       return { user: null, initData: "" };
     }
 
@@ -92,118 +98,137 @@ export default function IntroPage(): JSX.Element {
 
     if (!parseResult.success || !parseResult.user) {
       console.log("Failed to parse Telegram data:", parseResult.error);
+
       return { user: null, initData };
     }
 
     console.log("Successfully parsed Telegram user data:", parseResult.user);
+
     return { user: parseResult.user, initData };
   }, []);
 
   /**
    * Validate referral code
    */
-  const validateReferralCode = useCallback(async (code: string): Promise<{
-    isValid: boolean;
-    code: string;
-    bonus: number;
-    referrerName?: string;
-    referrerUsername?: string;
-  }> => {
-    try {
-      return {
-        isValid: true,
-        code,
-        bonus: 5, // Default bonus - will be validated by server
-      };
-    } catch (error) {
-      console.error("Error validating referral code:", error);
-      return { isValid: false, code, bonus: 0 };
-    }
-  }, []);
+  const validateReferralCode = useCallback(
+    async (
+      code: string,
+    ): Promise<{
+      isValid: boolean;
+      code: string;
+      bonus: number;
+      referrerName?: string;
+      referrerUsername?: string;
+    }> => {
+      try {
+        return {
+          isValid: true,
+          code,
+          bonus: 5, // Default bonus - will be validated by server
+        };
+      } catch (error) {
+        console.error("Error validating referral code:", error);
+
+        return { isValid: false, code, bonus: 0 };
+      }
+    },
+    [],
+  );
 
   /**
    * FIXED: Attempt user authentication with proper 404 handling
    */
-  const attemptAuthentication = useCallback(async (
-    initData: string
-  ): Promise<LoginResult> => {
-    try {
-      console.log("Attempting user authentication...");
-      const result = await login(initData);
+  const attemptAuthentication = useCallback(
+    async (initData: string): Promise<LoginResult> => {
+      try {
+        console.log("Attempting user authentication...");
+        const result = await login(initData);
 
-      // CRITICAL FIX: Handle USER_NOT_FOUND as expected behavior, not an error
-      if (!result.success && result.error === 'USER_NOT_FOUND') {
-        console.log("User not found - this is expected for new users, not an error");
-        return result; // Return the result without treating it as an error
+        // CRITICAL FIX: Handle USER_NOT_FOUND as expected behavior, not an error
+        if (!result.success && result.error === "USER_NOT_FOUND") {
+          console.log(
+            "User not found - this is expected for new users, not an error",
+          );
+
+          return result; // Return the result without treating it as an error
+        }
+
+        if (result.success && result.user) {
+          console.log("Authentication successful:", result.user.first_name);
+
+          // Redirect to main page after successful login
+          setTimeout(() => {
+            router.push("/main");
+          }, 1000);
+        }
+
+        return result;
+      } catch (error) {
+        console.error("Authentication error:", error);
+
+        return {
+          success: false,
+          error:
+            error instanceof Error ? error.message : "Authentication failed",
+        };
       }
-
-      if (result.success && result.user) {
-        console.log("Authentication successful:", result.user.first_name);
-
-        // Redirect to main page after successful login
-        setTimeout(() => {
-          router.push("/main");
-        }, 1000);
-      }
-
-      return result;
-    } catch (error) {
-      console.error("Authentication error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Authentication failed"
-      };
-    }
-  }, [login, router]);
+    },
+    [login, router],
+  );
 
   /**
    * Register new user with referral support
    */
-  const registerNewUser = useCallback(async (
-    initData: string,
-    referralCode?: string
-  ): Promise<RegistrationResult> => {
-    if (operationInProgressRef.current) {
-      console.log("Registration already in progress, skipping...");
-      return { success: false, error: "Registration already in progress" };
-    }
+  const registerNewUser = useCallback(
+    async (
+      initData: string,
+      referralCode?: string,
+    ): Promise<RegistrationResult> => {
+      if (operationInProgressRef.current) {
+        console.log("Registration already in progress, skipping...");
 
-    operationInProgressRef.current = true;
-
-    try {
-      console.log("Registering new user...");
-      const result = await register(initData, referralCode);
-
-      if (result.success && result.user) {
-        console.log("Registration successful:", result.user.first_name);
-
-        if (result.referralBonus) {
-          console.log("Referral bonus received:", result.referralBonus);
-        }
-
-        setPageState(prev => ({
-          ...prev,
-          isInitializing: false,
-          needsAuthentication: false,
-        }));
-
-        // Redirect to main page after successful registration
-        setTimeout(() => {
-          router.push("/main");
-        }, 1000);
+        return { success: false, error: "Registration already in progress" };
       }
 
-      return result;
-    } catch (error) {
-      console.error("Registration error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Registration failed"
-      };
-    } finally {
-      operationInProgressRef.current = false;
-    }
-  }, [register, router]);
+      operationInProgressRef.current = true;
+
+      try {
+        console.log("Registering new user...");
+        const result = await register(initData, referralCode);
+
+        if (result.success && result.user) {
+          console.log("Registration successful:", result.user.first_name);
+
+          if (result.referralBonus) {
+            console.log("Referral bonus received:", result.referralBonus);
+          }
+
+          setPageState((prev) => ({
+            ...prev,
+            isInitializing: false,
+            needsAuthentication: false,
+          }));
+
+          // Redirect to main page after successful registration
+          setTimeout(() => {
+            router.push("/main");
+          }, 1000);
+        }
+
+        return result;
+      } catch (error) {
+        console.error("Registration error:", error);
+
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Registration failed",
+        };
+      } finally {
+        operationInProgressRef.current = false;
+      }
+    },
+    [register, router],
+  );
 
   /**
    * FIXED: Initialize authentication flow with proper new user handling
@@ -211,6 +236,7 @@ export default function IntroPage(): JSX.Element {
   const initializeAuthentication = useCallback(async () => {
     if (authInitializedRef.current) {
       console.log("Auth already initialized, skipping...");
+
       return;
     }
 
@@ -226,11 +252,12 @@ export default function IntroPage(): JSX.Element {
 
       if (!telegramUserData || !initData) {
         console.error("Telegram data unavailable");
-        setPageState(prev => ({
+        setPageState((prev) => ({
           ...prev,
           isInitializing: false,
           videoError: t("auth.telegramDataUnavailable"),
         }));
+
         return;
       }
 
@@ -238,15 +265,18 @@ export default function IntroPage(): JSX.Element {
 
       // Extract and validate referral code
       const referralCode = extractReferralCode(initData);
-      let referralInfo: {
-        code: string;
-        bonus: number;
-        referrerName?: string;
-        referrerUsername?: string;
-      } | undefined;
+      let referralInfo:
+        | {
+            code: string;
+            bonus: number;
+            referrerName?: string;
+            referrerUsername?: string;
+          }
+        | undefined;
 
       if (referralCode) {
         const validation = await validateReferralCode(referralCode);
+
         if (validation.isValid) {
           referralInfo = {
             code: referralCode,
@@ -258,7 +288,7 @@ export default function IntroPage(): JSX.Element {
         }
       }
 
-      setPageState(prev => ({
+      setPageState((prev) => ({
         ...prev,
         referralInfo,
       }));
@@ -268,36 +298,38 @@ export default function IntroPage(): JSX.Element {
       const authResult = await attemptAuthentication(initData);
 
       // Check if user not found (expected for new users)
-      if (!authResult.success && authResult.error === 'USER_NOT_FOUND') {
+      if (!authResult.success && authResult.error === "USER_NOT_FOUND") {
         console.log("User not found - showing registration UI for new user");
-        setPageState(prev => ({
+        setPageState((prev) => ({
           ...prev,
           isInitializing: false,
           needsAuthentication: true,
         }));
+
         return;
       }
 
       // Handle other authentication errors
-      if (!authResult.success && authResult.error !== 'USER_NOT_FOUND') {
+      if (!authResult.success && authResult.error !== "USER_NOT_FOUND") {
         console.error("Authentication failed with error:", authResult.error);
-        setPageState(prev => ({
+        setPageState((prev) => ({
           ...prev,
           isInitializing: false,
           videoError: `Authentication error: ${authResult.error}`,
         }));
+
         return;
       }
 
       // If we reach here, authentication was successful (handled in attemptAuthentication)
-
     } catch (error) {
       console.error("Authentication initialization error:", error);
-      setPageState(prev => ({
+      setPageState((prev) => ({
         ...prev,
         isInitializing: false,
-        videoError: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")
-          }`,
+        videoError: `${t("auth.databaseConnectionError")}: ${
+          error instanceof Error ? error.message : t("auth.unknownError")
+        }`,
       }));
     }
   }, [
@@ -305,7 +337,7 @@ export default function IntroPage(): JSX.Element {
     setTelegramUser,
     validateReferralCode,
     attemptAuthentication,
-    t
+    t,
   ]);
 
   /**
@@ -323,19 +355,23 @@ export default function IntroPage(): JSX.Element {
       isRegistering: currentAuthState.isRegistering,
     });
 
-    if (!currentAuthState.isAuthenticated &&
+    if (
+      !currentAuthState.isAuthenticated &&
       !currentAuthState.isRegistering &&
-      initData) {
-
+      initData
+    ) {
       console.log("Starting registration after video completion");
 
       const registrationResult = await registerNewUser(
         initData,
-        pageState.referralInfo?.code
+        pageState.referralInfo?.code,
       );
 
       if (!registrationResult.success) {
-        console.error("Registration failed after video:", registrationResult.error);
+        console.error(
+          "Registration failed after video:",
+          registrationResult.error,
+        );
         setTimeout(() => {
           router.push("/main");
         }, 2000);
@@ -355,18 +391,23 @@ export default function IntroPage(): JSX.Element {
   const handleQuickRegistration = useCallback(async () => {
     const initData = getTelegramInitData();
 
-    if (!initData || authState.isRegistering || operationInProgressRef.current) {
+    if (
+      !initData ||
+      authState.isRegistering ||
+      operationInProgressRef.current
+    ) {
       console.log("Cannot start quick registration:", {
         hasInitData: !!initData,
         isRegistering: authState.isRegistering,
-        operationInProgress: operationInProgressRef.current
+        operationInProgress: operationInProgressRef.current,
       });
+
       return;
     }
 
     const registrationResult = await registerNewUser(
       initData,
-      pageState.referralInfo?.code
+      pageState.referralInfo?.code,
     );
 
     if (!registrationResult.success) {
@@ -379,18 +420,23 @@ export default function IntroPage(): JSX.Element {
    */
   const handleStartVideo = useCallback(async () => {
     const video = videoRef.current;
+
     if (!video) return;
 
     try {
       video.currentTime = 0;
       await video.play();
-      setVideoState(prev => ({ ...prev, isPlaying: true }));
-      setPageState(prev => ({ ...prev, isVideoMode: true, videoError: null }));
+      setVideoState((prev) => ({ ...prev, isPlaying: true }));
+      setPageState((prev) => ({
+        ...prev,
+        isVideoMode: true,
+        videoError: null,
+      }));
     } catch (err) {
       console.error("Video play error:", err);
-      setPageState(prev => ({
+      setPageState((prev) => ({
         ...prev,
-        videoError: "Failed to play video. Please try again."
+        videoError: "Failed to play video. Please try again.",
       }));
     }
   }, []);
@@ -401,27 +447,33 @@ export default function IntroPage(): JSX.Element {
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => console.log("ServiceWorker registered"))
-        .catch((err) => console.error("ServiceWorker registration failed:", err));
+        .catch((err) =>
+          console.error("ServiceWorker registration failed:", err),
+        );
     }
 
     if ("fonts" in document) {
       document.fonts
         .load('1rem "BPDots Diamond"')
-        .then(() => setVideoState(prev => ({ ...prev, fontLoaded: true })))
-        .catch(() => setVideoState(prev => ({ ...prev, fontLoaded: true })));
+        .then(() => setVideoState((prev) => ({ ...prev, fontLoaded: true })))
+        .catch(() => setVideoState((prev) => ({ ...prev, fontLoaded: true })));
     } else {
-      setTimeout(() => setVideoState(prev => ({ ...prev, fontLoaded: true })), 1000);
+      setTimeout(
+        () => setVideoState((prev) => ({ ...prev, fontLoaded: true })),
+        1000,
+      );
     }
   }, []);
 
   // Initialize video setup
   useEffect(() => {
     const video = videoRef.current;
+
     if (!video) return;
 
     const handleLoadedMetadata = () => {
       video.volume = 1;
-      setVideoState(prev => ({ ...prev, isReady: true }));
+      setVideoState((prev) => ({ ...prev, isReady: true }));
     };
 
     const handleProgress = () => {
@@ -431,13 +483,14 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
-          setVideoState(prev => ({ ...prev, loadProgress: progress }));
+
+          setVideoState((prev) => ({ ...prev, loadProgress: progress }));
         }
       }
     };
 
     const handleCanPlayThrough = () => {
-      setVideoState(prev => ({ ...prev, isLoading: false }));
+      setVideoState((prev) => ({ ...prev, isLoading: false }));
     };
 
     const handleEnded = () => {
@@ -447,9 +500,9 @@ export default function IntroPage(): JSX.Element {
 
     const handleError = (e: Event) => {
       console.error("Video error:", e);
-      setPageState(prev => ({
+      setPageState((prev) => ({
         ...prev,
-        videoError: "Failed to load video. Please try again."
+        videoError: "Failed to load video. Please try again.",
       }));
     };
 
@@ -487,11 +540,13 @@ export default function IntroPage(): JSX.Element {
     if (pageState.referralInfo?.referrerName) {
       return pageState.referralInfo.referrerName;
     }
+
     return "s0meone";
   };
 
   // Determine loading state
-  const isInitialLoading = pageState.isInitializing ||
+  const isInitialLoading =
+    pageState.isInitializing ||
     userLoading ||
     (videoState.isLoading && !pageState.videoError) ||
     !videoState.fontLoaded;
@@ -525,7 +580,7 @@ export default function IntroPage(): JSX.Element {
             onClick={() => {
               authInitializedRef.current = false;
               operationInProgressRef.current = false;
-              setPageState(prev => ({
+              setPageState((prev) => ({
                 ...prev,
                 isInitializing: true,
                 videoError: null,
@@ -712,8 +767,9 @@ export default function IntroPage(): JSX.Element {
 
       {/* Video Container */}
       <div
-        className={`video-container ${videoState.isPlaying ? "opacity-100" : "opacity-0"
-          } transition-opacity duration-500`}
+        className={`video-container ${
+          videoState.isPlaying ? "opacity-100" : "opacity-0"
+        } transition-opacity duration-500`}
       >
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video

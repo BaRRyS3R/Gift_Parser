@@ -3,323 +3,336 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+
 import { RotationCircle } from "@/types/game-modes/rotation";
 
 interface RotatingCircleGridProps {
-    circles: RotationCircle[];
-    onCircleClick: (circleId: number) => void;
-    isGameActive: boolean;
-    showCircles: boolean;
-    rotationSpeed: number;
-    radius: number;
-    onActivatedCircles?: number[];
-    lastActivationTimestamp?: number;
+  circles: RotationCircle[];
+  onCircleClick: (circleId: number) => void;
+  isGameActive: boolean;
+  showCircles: boolean;
+  rotationSpeed: number;
+  radius: number;
+  onActivatedCircles?: number[];
+  lastActivationTimestamp?: number;
 }
 
 export default function RotatingCircleGrid({
-    circles,
-    onCircleClick,
-    isGameActive,
-    showCircles,
-    rotationSpeed,
+  circles,
+  onCircleClick,
+  isGameActive,
+  showCircles,
+  rotationSpeed,
 }: RotatingCircleGridProps) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const rotatingContainerRef = useRef<HTMLDivElement>(null);
-    const touchStartTimeRef = useRef<Map<number, number>>(new Map());
-    const processedTouchesRef = useRef<Set<number>>(new Set());
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rotatingContainerRef = useRef<HTMLDivElement>(null);
+  const touchStartTimeRef = useRef<Map<number, number>>(new Map());
+  const processedTouchesRef = useRef<Set<number>>(new Set());
 
-    // Animation state management
-    const currentRotationRef = useRef<number>(0);
-    const lastUpdateTimeRef = useRef<number>(Date.now());
-    const animationFrameRef = useRef<number | null>(null);
-    const currentSpeedRef = useRef<number>(rotationSpeed);
-    const targetSpeedRef = useRef<number>(rotationSpeed);
+  // Animation state management
+  const currentRotationRef = useRef<number>(0);
+  const lastUpdateTimeRef = useRef<number>(Date.now());
+  const animationFrameRef = useRef<number | null>(null);
+  const currentSpeedRef = useRef<number>(rotationSpeed);
+  const targetSpeedRef = useRef<number>(rotationSpeed);
 
-    // State for dynamic sizing - now optimized without pulse effects
-    const [circleSize, setCircleSize] = useState(40);
-    const [containerSize, setContainerSize] = useState(350);
-    const [effectiveRadius, setEffectiveRadius] = useState(120);
+  // State for dynamic sizing - now optimized without pulse effects
+  const [circleSize, setCircleSize] = useState(40);
+  const [containerSize, setContainerSize] = useState(350);
+  const [effectiveRadius, setEffectiveRadius] = useState(120);
 
-    // Calculate adaptive sizes without accounting for pulse effects
-    useEffect(() => {
-        const calculateAdaptiveSizes = () => {
-            const screenWidth = window.innerWidth;
-            const screenHeight = window.innerHeight;
+  // Calculate adaptive sizes without accounting for pulse effects
+  useEffect(() => {
+    const calculateAdaptiveSizes = () => {
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
 
-            // Reserve space for bottom panel
-            const bottomPanelHeight = 140;
-            // Reserve space for top safe area and margins
-            const topReservedSpace = 60;
-            // Minimal horizontal margins
-            const horizontalMargins = 20;
+      // Reserve space for bottom panel
+      const bottomPanelHeight = 140;
+      // Reserve space for top safe area and margins
+      const topReservedSpace = 60;
+      // Minimal horizontal margins
+      const horizontalMargins = 20;
 
-            const availableWidth = screenWidth - horizontalMargins;
-            const availableHeight = screenHeight - bottomPanelHeight - topReservedSpace;
+      const availableWidth = screenWidth - horizontalMargins;
+      const availableHeight =
+        screenHeight - bottomPanelHeight - topReservedSpace;
 
-            // Use the minimum of available dimensions to ensure square container
-            const maxContainerSize = Math.min(availableWidth, availableHeight);
+      // Use the minimum of available dimensions to ensure square container
+      const maxContainerSize = Math.min(availableWidth, availableHeight);
 
-            // Set bounds for usability - can use more space now without pulse overflow concerns
-            const calculatedContainerSize = Math.max(280, Math.min(maxContainerSize, 500));
+      // Set bounds for usability - can use more space now without pulse overflow concerns
+      const calculatedContainerSize = Math.max(
+        280,
+        Math.min(maxContainerSize, 500),
+      );
 
-            // Scale circle size proportionally to container
-            const calculatedCircleSize = Math.max(32, Math.min(calculatedContainerSize / 9, 50));
+      // Scale circle size proportionally to container
+      const calculatedCircleSize = Math.max(
+        32,
+        Math.min(calculatedContainerSize / 9, 50),
+      );
 
-            // Can use larger radius now without pulse overflow concerns
-            const calculatedEffectiveRadius = calculatedContainerSize * 0.40;
+      // Can use larger radius now without pulse overflow concerns
+      const calculatedEffectiveRadius = calculatedContainerSize * 0.4;
 
-            setContainerSize(calculatedContainerSize);
-            setCircleSize(calculatedCircleSize);
-            setEffectiveRadius(calculatedEffectiveRadius);
+      setContainerSize(calculatedContainerSize);
+      setCircleSize(calculatedCircleSize);
+      setEffectiveRadius(calculatedEffectiveRadius);
 
-            console.log('Simplified container sizing:', {
-                screenDimensions: `${screenWidth}x${screenHeight}`,
-                availableSpace: `${availableWidth}x${availableHeight}`,
-                containerSize: calculatedContainerSize,
-                circleSize: calculatedCircleSize,
-                effectiveRadius: calculatedEffectiveRadius
-            });
-        };
+      console.log("Simplified container sizing:", {
+        screenDimensions: `${screenWidth}x${screenHeight}`,
+        availableSpace: `${availableWidth}x${availableHeight}`,
+        containerSize: calculatedContainerSize,
+        circleSize: calculatedCircleSize,
+        effectiveRadius: calculatedEffectiveRadius,
+      });
+    };
 
-        calculateAdaptiveSizes();
-        window.addEventListener("resize", calculateAdaptiveSizes);
-        window.addEventListener("orientationchange", () => {
-            setTimeout(calculateAdaptiveSizes, 100);
-        });
+    calculateAdaptiveSizes();
+    window.addEventListener("resize", calculateAdaptiveSizes);
+    window.addEventListener("orientationchange", () => {
+      setTimeout(calculateAdaptiveSizes, 100);
+    });
 
-        return () => {
-            window.removeEventListener("resize", calculateAdaptiveSizes);
-            window.removeEventListener("orientationchange", calculateAdaptiveSizes);
-        };
-    }, []);
+    return () => {
+      window.removeEventListener("resize", calculateAdaptiveSizes);
+      window.removeEventListener("orientationchange", calculateAdaptiveSizes);
+    };
+  }, []);
 
-    // Smooth rotation animation
-    const updateRotation = useCallback(() => {
-        if (!isGameActive || !rotatingContainerRef.current) {
-            return;
-        }
+  // Smooth rotation animation
+  const updateRotation = useCallback(() => {
+    if (!isGameActive || !rotatingContainerRef.current) {
+      return;
+    }
 
-        const now = Date.now();
-        const deltaTime = now - lastUpdateTimeRef.current;
-        lastUpdateTimeRef.current = now;
+    const now = Date.now();
+    const deltaTime = now - lastUpdateTimeRef.current;
 
-        // Smooth speed interpolation for level transitions
-        const speedDifference = targetSpeedRef.current - currentSpeedRef.current;
-        const interpolationFactor = Math.min(deltaTime * 0.002, 1);
-        currentSpeedRef.current += speedDifference * interpolationFactor;
+    lastUpdateTimeRef.current = now;
 
-        // Convert rotation speed from radians-per-frame to radians-per-millisecond
-        const speedInRadPerMs = currentSpeedRef.current / 16.67;
+    // Smooth speed interpolation for level transitions
+    const speedDifference = targetSpeedRef.current - currentSpeedRef.current;
+    const interpolationFactor = Math.min(deltaTime * 0.002, 1);
 
-        // Update rotation based on current speed and delta time
-        const rotationIncrement = speedInRadPerMs * deltaTime;
-        currentRotationRef.current += rotationIncrement;
+    currentSpeedRef.current += speedDifference * interpolationFactor;
 
-        // Apply rotation to container
-        rotatingContainerRef.current.style.transform =
-            `rotate(${currentRotationRef.current}rad)`;
+    // Convert rotation speed from radians-per-frame to radians-per-millisecond
+    const speedInRadPerMs = currentSpeedRef.current / 16.67;
 
-        // Continue animation
-        animationFrameRef.current = requestAnimationFrame(updateRotation);
-    }, [isGameActive]);
+    // Update rotation based on current speed and delta time
+    const rotationIncrement = speedInRadPerMs * deltaTime;
 
-    // Handle speed changes
-    useEffect(() => {
-        targetSpeedRef.current = rotationSpeed;
-    }, [rotationSpeed]);
+    currentRotationRef.current += rotationIncrement;
 
-    // Start/stop animation
-    useEffect(() => {
-        if (isGameActive) {
-            lastUpdateTimeRef.current = Date.now();
-            animationFrameRef.current = requestAnimationFrame(updateRotation);
-        } else {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-                animationFrameRef.current = null;
-            }
-        }
+    // Apply rotation to container
+    rotatingContainerRef.current.style.transform = `rotate(${currentRotationRef.current}rad)`;
 
-        return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-                animationFrameRef.current = null;
-            }
-        };
-    }, [isGameActive, updateRotation]);
+    // Continue animation
+    animationFrameRef.current = requestAnimationFrame(updateRotation);
+  }, [isGameActive]);
 
-    // Calculate static position for each circle
-    const getCircleStaticPosition = useCallback((circle: RotationCircle) => {
-        const x = Math.cos(circle.angle) * effectiveRadius;
-        const y = Math.sin(circle.angle) * effectiveRadius;
+  // Handle speed changes
+  useEffect(() => {
+    targetSpeedRef.current = rotationSpeed;
+  }, [rotationSpeed]);
 
-        return { x, y };
-    }, [effectiveRadius]);
+  // Start/stop animation
+  useEffect(() => {
+    if (isGameActive) {
+      lastUpdateTimeRef.current = Date.now();
+      animationFrameRef.current = requestAnimationFrame(updateRotation);
+    } else {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    }
 
-    // Circle styles without shadows but with borders
-    const getCircleStyles = (circle: RotationCircle) => {
-        const isDeactivating = circle.isAnimating;
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [isGameActive, updateRotation]);
 
-        // Instant transitions for immediate feedback
-        const transitionClass = isDeactivating
-            ? "transition-all duration-75 ease-out"
-            : "transition-all duration-100 ease-in-out";
+  // Calculate static position for each circle
+  const getCircleStaticPosition = useCallback(
+    (circle: RotationCircle) => {
+      const x = Math.cos(circle.angle) * effectiveRadius;
+      const y = Math.sin(circle.angle) * effectiveRadius;
 
-        const baseClasses = `absolute rounded-full border-3 ${transitionClass}`;
+      return { x, y };
+    },
+    [effectiveRadius],
+  );
 
-        const visibilityClasses = showCircles
-            ? "opacity-100 scale-100"
-            : "opacity-0 scale-0";
+  // Circle styles without shadows but with borders
+  const getCircleStyles = (circle: RotationCircle) => {
+    const isDeactivating = circle.isAnimating;
 
-        const animationClasses = circle.isAnimating
-            ? "opacity-0 scale-50"
-            : "";
+    // Instant transitions for immediate feedback
+    const transitionClass = isDeactivating
+      ? "transition-all duration-75 ease-out"
+      : "transition-all duration-100 ease-in-out";
 
-        if (circle.isActive && !circle.isAnimating) {
-            if (circle.isDecoy) {
-                return {
-                    className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
+    const baseClasses = `absolute rounded-full border-3 ${transitionClass}`;
+
+    const visibilityClasses = showCircles
+      ? "opacity-100 scale-100"
+      : "opacity-0 scale-0";
+
+    const animationClasses = circle.isAnimating ? "opacity-0 scale-50" : "";
+
+    if (circle.isActive && !circle.isAnimating) {
+      if (circle.isDecoy) {
+        return {
+          className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
                       bg-red-500 border-red-400 scale-110
                       hover:scale-115 active:scale-95 cursor-pointer`,
-                };
-            } else {
-                return {
-                    className: `${baseClasses} ${visibilityClasses} ${animationClasses}
+        };
+      } else {
+        return {
+          className: `${baseClasses} ${visibilityClasses} ${animationClasses}
                       bg-white border-white scale-110
                       hover:scale-115 active:scale-95 cursor-pointer`,
-                };
-            }
-        } else {
-            return {
-                className: `${baseClasses} ${visibilityClasses} ${animationClasses}
+        };
+      }
+    } else {
+      return {
+        className: `${baseClasses} ${visibilityClasses} ${animationClasses}
                     bg-transparent border-white/30 hover:border-white/50 hover:scale-105
                     active:scale-95 cursor-pointer`,
-            };
-        }
-    };
+      };
+    }
+  };
 
-    // Touch event handlers with immediate response
-    const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
-        if (!isGameActive) return;
+  // Touch event handlers with immediate response
+  const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
+    if (!isGameActive) return;
 
-        event.preventDefault();
-        event.stopPropagation();
+    event.preventDefault();
+    event.stopPropagation();
 
-        const currentTime = Date.now();
-        touchStartTimeRef.current.set(circleId, currentTime);
+    const currentTime = Date.now();
 
-        if (!processedTouchesRef.current.has(circleId)) {
-            processedTouchesRef.current.add(circleId);
-            onCircleClick(circleId);
+    touchStartTimeRef.current.set(circleId, currentTime);
 
-            setTimeout(() => {
-                processedTouchesRef.current.delete(circleId);
-            }, 10);
-        }
-    };
+    if (!processedTouchesRef.current.has(circleId)) {
+      processedTouchesRef.current.add(circleId);
+      onCircleClick(circleId);
 
-    const handleTouchEnd = (circleId: number, event: React.TouchEvent) => {
-        event.preventDefault();
-        event.stopPropagation();
-        touchStartTimeRef.current.delete(circleId);
-    };
+      setTimeout(() => {
+        processedTouchesRef.current.delete(circleId);
+      }, 10);
+    }
+  };
 
-    const handleClick = (circleId: number, event: React.MouseEvent) => {
-        if (!isGameActive) return;
+  const handleTouchEnd = (circleId: number, event: React.TouchEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    touchStartTimeRef.current.delete(circleId);
+  };
 
-        const touchTime = touchStartTimeRef.current.get(circleId);
-        const currentTime = Date.now();
+  const handleClick = (circleId: number, event: React.MouseEvent) => {
+    if (!isGameActive) return;
 
-        if (touchTime && currentTime - touchTime < 200) {
-            return;
-        }
+    const touchTime = touchStartTimeRef.current.get(circleId);
+    const currentTime = Date.now();
 
-        event.preventDefault();
-        event.stopPropagation();
-        onCircleClick(circleId);
-    };
+    if (touchTime && currentTime - touchTime < 200) {
+      return;
+    }
 
-    return (
-        <div className="flex items-center justify-center min-h-[400px] p-2">
-            <div
-                ref={containerRef}
-                className="relative stable-container"
+    event.preventDefault();
+    event.stopPropagation();
+    onCircleClick(circleId);
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-[400px] p-2">
+      <div
+        ref={containerRef}
+        className="relative stable-container"
+        style={{
+          width: `${containerSize}px`,
+          height: `${containerSize}px`,
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTouchCallout: "none",
+        }}
+      >
+        {/* Rotating container */}
+        <div
+          ref={rotatingContainerRef}
+          className="absolute high-performance-rotation"
+          style={{
+            left: "0",
+            top: "0",
+            width: `${containerSize}px`,
+            height: `${containerSize}px`,
+            transformOrigin: "50% 50%",
+            backfaceVisibility: "hidden",
+            perspective: "1000px",
+            willChange: "transform",
+          }}
+        >
+          {/* Circles with instant state changes */}
+          {circles.map((circle) => {
+            const circleStyleConfig = getCircleStyles(circle);
+            const staticPosition = getCircleStaticPosition(circle);
+
+            return (
+              <button
+                key={circle.id}
+                aria-label={`Rotating circle ${circle.id + 1}${
+                  circle.isActive
+                    ? circle.isDecoy
+                      ? " - trap target"
+                      : " - active target"
+                    : ""
+                }`}
+                className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none touch-optimized`}
+                data-circle-id={circle.id}
+                disabled={!isGameActive}
                 style={{
-                    width: `${containerSize}px`,
-                    height: `${containerSize}px`,
-                    userSelect: "none",
-                    WebkitUserSelect: "none",
-                    WebkitTouchCallout: "none",
+                  width: `${circleSize}px`,
+                  height: `${circleSize}px`,
+                  minWidth: `${circleSize}px`,
+                  minHeight: `${circleSize}px`,
+                  left: "50%",
+                  top: "50%",
+                  transform: `translate(calc(-50% + ${staticPosition.x}px), calc(-50% + ${staticPosition.y}px))`,
+                  transitionDelay: showCircles ? `${circle.id * 25}ms` : "0ms",
+                  touchAction: "manipulation",
+                  willChange: "transform",
+                  backfaceVisibility: "hidden",
                 }}
-            >
-
-                {/* Rotating container */}
-                <div
-                    ref={rotatingContainerRef}
-                    className="absolute high-performance-rotation"
-                    style={{
-                        left: '0',
-                        top: '0',
-                        width: `${containerSize}px`,
-                        height: `${containerSize}px`,
-                        transformOrigin: '50% 50%',
-                        backfaceVisibility: 'hidden',
-                        perspective: '1000px',
-                        willChange: 'transform',
-                    }}
-                >
-                    {/* Circles with instant state changes */}
-                    {circles.map((circle) => {
-                        const circleStyleConfig = getCircleStyles(circle);
-                        const staticPosition = getCircleStaticPosition(circle);
-
-                        return (
-                            <button
-                                key={circle.id}
-                                data-circle-id={circle.id}
-                                aria-label={`Rotating circle ${circle.id + 1}${circle.isActive
-                                    ? (circle.isDecoy ? " - trap target" : " - active target")
-                                    : ""
-                                    }`}
-                                className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none touch-optimized`}
-                                disabled={!isGameActive}
-                                style={{
-                                    width: `${circleSize}px`,
-                                    height: `${circleSize}px`,
-                                    minWidth: `${circleSize}px`,
-                                    minHeight: `${circleSize}px`,
-                                    left: '50%',
-                                    top: '50%',
-                                    transform: `translate(calc(-50% + ${staticPosition.x}px), calc(-50% + ${staticPosition.y}px))`,
-                                    transitionDelay: showCircles ? `${circle.id * 25}ms` : "0ms",
-                                    touchAction: "manipulation",
-                                    willChange: 'transform',
-                                    backfaceVisibility: 'hidden',
-                                }}
-                                type="button"
-                                onClick={(event) => handleClick(circle.id, event)}
-                                onContextMenu={(event) => event.preventDefault()}
-                                onTouchEnd={(event) => handleTouchEnd(circle.id, event)}
-                                onTouchStart={(event) => handleTouchStart(circle.id, event)}
-                            >
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {/* Rotation direction indicator */}
-                <div className="absolute bottom-3 right-3">
-                    <div
-                        className="w-8 h-8 border-2 border-white/25 rounded-full relative"
-                        style={{
-                            transform: `rotate(${currentRotationRef.current}rad)`,
-                            transition: 'none',
-                        }}
-                    >
-                        <div className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-white/50 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
-                    </div>
-                </div>
-            </div>
+                type="button"
+                onClick={(event) => handleClick(circle.id, event)}
+                onContextMenu={(event) => event.preventDefault()}
+                onTouchEnd={(event) => handleTouchEnd(circle.id, event)}
+                onTouchStart={(event) => handleTouchStart(circle.id, event)}
+              />
+            );
+          })}
         </div>
-    );
+
+        {/* Rotation direction indicator */}
+        <div className="absolute bottom-3 right-3">
+          <div
+            className="w-8 h-8 border-2 border-white/25 rounded-full relative"
+            style={{
+              transform: `rotate(${currentRotationRef.current}rad)`,
+              transition: "none",
+            }}
+          >
+            <div className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-white/50 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

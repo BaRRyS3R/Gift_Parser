@@ -1,7 +1,7 @@
 // src/lib/supabase.ts - Client-side Supabase service (game logic removed)
 
 import { createClient } from "@supabase/supabase-js";
-import { GameMode } from "@/types/game-modes/common";
+
 import leagueService from "./league_service";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -182,13 +182,20 @@ export const userService = {
   async getServerTime(): Promise<Date> {
     try {
       const { data, error } = await supabase.rpc("get_current_timestamp");
+
       if (error) {
         console.warn("Failed to get server time, using client time:", error);
+
         return new Date();
       }
+
       return new Date(data);
     } catch (error) {
-      console.warn("Error getting server time, falling back to client time:", error);
+      console.warn(
+        "Error getting server time, falling back to client time:",
+        error,
+      );
+
       return new Date();
     }
   },
@@ -231,10 +238,13 @@ export const userService = {
     while (!isUnique) {
       code = "";
       for (let i = 0; i < 8; i++) {
-        code += characters.charAt(Math.floor(Math.random() * characters.length));
+        code += characters.charAt(
+          Math.floor(Math.random() * characters.length),
+        );
       }
 
       const existingUser = await this.findByReferralCode(code);
+
       if (!existingUser) {
         isUnique = true;
       }
@@ -243,7 +253,10 @@ export const userService = {
     return code;
   },
 
-  async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
+  async create(
+    telegramUser: TelegramUser,
+    referralCode?: string,
+  ): Promise<User> {
     const referralCodeToUse = await this.generateUniqueReferralCode();
     let additionalAttempts = 10;
     let referredBy = null;
@@ -251,6 +264,7 @@ export const userService = {
     // Handle referral
     if (referralCode) {
       const referrer = await this.findByReferralCode(referralCode);
+
       if (referrer) {
         referredBy = referralCode;
         additionalAttempts += referrer.referral_bonus;

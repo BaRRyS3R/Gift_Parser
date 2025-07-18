@@ -2,7 +2,10 @@
 
 "use client";
 
+import type { UserRankings } from "@/lib/server/profileService";
+
 import React, { useState, useEffect } from "react";
+
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -16,7 +19,6 @@ import AchievementsModal from "@/components/Profile/AchievementsModal";
 import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
 
 // Import server types
-import type { UserRankings } from "@/lib/server/profileService";
 
 // Interface for referral modal compatibility
 interface ReferralInfo {
@@ -29,12 +31,12 @@ interface ReferralInfo {
 }
 
 export default function ProfilePage() {
-  const { 
-    user, 
-    telegramUser, 
+  const {
+    user,
+    telegramUser,
     isLoading: userLoading,
     profile,
-    leagues
+    leagues,
   } = useUser();
   const t = useT();
 
@@ -59,14 +61,16 @@ export default function ProfilePage() {
   }, [user, telegramUser, leagues]);
 
   // Create referral info object from profile data
-  const referralInfo: ReferralInfo | null = profile.referrals ? {
-    referralCode: profile.referrals.referral_code,
-    referralLink: `https://t.me/CircusleBot/play?startapp=${profile.referrals.referral_code}`,
-    referralCount: profile.referrals.referral_count,
-    referralBonus: profile.referrals.referral_bonus,
-    referredBy: profile.referrals.referred_by,
-    referredByName: profile.referrals.referred_by_name,
-  } : null;
+  const referralInfo: ReferralInfo | null = profile.referrals
+    ? {
+        referralCode: profile.referrals.referral_code,
+        referralLink: `https://t.me/CircusleBot/play?startapp=${profile.referrals.referral_code}`,
+        referralCount: profile.referrals.referral_count,
+        referralBonus: profile.referrals.referral_bonus,
+        referredBy: profile.referrals.referred_by,
+        referredByName: profile.referrals.referred_by_name,
+      }
+    : null;
 
   // Get rankings data with proper type
   const rankings: UserRankings = profile.rankings || {
@@ -90,7 +94,8 @@ export default function ProfilePage() {
   };
 
   // Show loading while any required data is loading
-  const isLoadingAnyData = userLoading || profile.isLoading || leagues.compactLoading;
+  const isLoadingAnyData =
+    userLoading || profile.isLoading || leagues.compactLoading;
   const hasRequiredData = profile.hasProfileData() && user && telegramUser;
 
   if (isLoadingAnyData && !hasRequiredData) {
@@ -113,9 +118,9 @@ export default function ProfilePage() {
             <span className="text-white/60 text-2xl">⚠</span>
           </div>
           <p className="text-white">{t("common.error")}</p>
-          <button 
-            onClick={() => profile.fetchProfile()}
+          <button
             className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded hover:bg-white/20 transition-colors"
+            onClick={() => profile.fetchProfile()}
           >
             {t("common.retry")}
           </button>
@@ -155,9 +160,9 @@ export default function ProfilePage() {
 
         {/* Action Buttons */}
         <MinimalistActionButtons
-          onOpenReferrals={handleOpenReferrals}
           onOpenAchievements={handleOpenAchievements}
           onOpenLeagues={handleOpenLeagues}
+          onOpenReferrals={handleOpenReferrals}
         />
 
         {/* Divider */}
@@ -174,16 +179,16 @@ export default function ProfilePage() {
       {referralInfo && (
         <ReferralModal
           isOpen={isReferralModalOpen}
-          onClose={() => setIsReferralModalOpen(false)}
           referralInfo={referralInfo}
+          onClose={() => setIsReferralModalOpen(false)}
         />
       )}
 
       <AchievementsModal
         isOpen={isAchievementsModalOpen}
-        onClose={() => setIsAchievementsModalOpen(false)}
-        user={profile.profile!}
         rankings={rankings}
+        user={profile.profile!}
+        onClose={() => setIsAchievementsModalOpen(false)}
       />
 
       {/* Leagues modal uses centralized leagues module */}

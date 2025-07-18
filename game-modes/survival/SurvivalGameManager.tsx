@@ -69,7 +69,8 @@ export default function SurvivalGameManager() {
 
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
-  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
+  const [lastActivationTimestamp, setLastActivationTimestamp] =
+    useState<number>(0);
 
   const gameStateRef = useRef<SurvivalGameState>(gameState);
 
@@ -89,7 +90,7 @@ export default function SurvivalGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -109,6 +110,7 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
+
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -135,19 +137,19 @@ export default function SurvivalGameManager() {
         }
 
         try {
-          const response = await makeAuthenticatedRequest('/api/game/save', {
-            method: 'POST',
+          const response = await makeAuthenticatedRequest("/api/game/save", {
+            method: "POST",
             body: JSON.stringify({ gameResult: result }),
           });
 
           if (!response.ok) {
-            throw new Error('Failed to save game result');
+            throw new Error("Failed to save game result");
           }
 
           const data = await response.json();
 
           if (!data.success) {
-            throw new Error(data.error || 'Failed to save game result');
+            throw new Error(data.error || "Failed to save game result");
           }
 
           setSaveStatus((prev) => ({
@@ -161,6 +163,7 @@ export default function SurvivalGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
+
             return attemptSave();
           } else {
             throw error;
@@ -212,6 +215,7 @@ export default function SurvivalGameManager() {
         };
 
         const result = createSurvivalGameResult(finalGameState);
+
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -231,7 +235,7 @@ export default function SurvivalGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -248,6 +252,7 @@ export default function SurvivalGameManager() {
               );
 
               const timestamp = Date.now();
+
               setActivatedCircles(circleIds);
               setLastActivationTimestamp(timestamp);
 
@@ -334,6 +339,7 @@ export default function SurvivalGameManager() {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
+
             return current;
           }
 
@@ -377,13 +383,14 @@ export default function SurvivalGameManager() {
 
   const getDeathCauseMessage = (deathCause: string) => {
     const causeKeyMapping = {
-      "miss": "game.modes.survival.deathCauses.miss",
-      "wrong_click": "game.modes.survival.deathCauses.wrongClick",
-      "decoy_hit": "game.modes.survival.deathCauses.decoyHit",
-      "timeout": "game.modes.survival.deathCauses.default"
+      miss: "game.modes.survival.deathCauses.miss",
+      wrong_click: "game.modes.survival.deathCauses.wrongClick",
+      decoy_hit: "game.modes.survival.deathCauses.decoyHit",
+      timeout: "game.modes.survival.deathCauses.default",
     };
 
-    const key = causeKeyMapping[deathCause as keyof typeof causeKeyMapping] ||
+    const key =
+      causeKeyMapping[deathCause as keyof typeof causeKeyMapping] ||
       causeKeyMapping.timeout;
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
@@ -460,7 +467,9 @@ export default function SurvivalGameManager() {
           </div>
 
           {/* Save Status Display */}
-          {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
+          {(saveStatus.isLoading ||
+            saveStatus.error ||
+            saveStatus.isSuccess) && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               {saveStatus.isLoading && (
                 <div className="space-y-3">
@@ -469,9 +478,9 @@ export default function SurvivalGameManager() {
                     <span className="text-sm text-red-300/80">
                       {saveStatus.showRetryDetails
                         ? t("save.retrying", {
-                          attempt: saveStatus.attempt,
-                          max: saveStatus.maxAttempts,
-                        })
+                            attempt: saveStatus.attempt,
+                            max: saveStatus.maxAttempts,
+                          })
                         : t("save.recording")}
                     </span>
                   </div>
@@ -507,8 +516,8 @@ export default function SurvivalGameManager() {
                   <div className="text-green-400/60 text-xs">
                     {saveStatus.attempt > 1
                       ? t("save.savedAfterRetries", {
-                        attempts: saveStatus.attempt,
-                      })
+                          attempts: saveStatus.attempt,
+                        })
                       : t("save.synchronized")}
                   </div>
                 </div>
@@ -556,12 +565,12 @@ export default function SurvivalGameManager() {
       <div className="flex-1 flex items-center justify-center">
         <GameGrid
           circles={gameState.circles}
-          isGameActive={gameState.gameState === GameState.PLAYING}
-          showCircles={showCircles}
-          onCircleClick={handleCircleClickEvent}
-          onActivatedCircles={activatedCircles}
-          lastActivationTimestamp={lastActivationTimestamp}
           gameMode="survival"
+          isGameActive={gameState.gameState === GameState.PLAYING}
+          lastActivationTimestamp={lastActivationTimestamp}
+          showCircles={showCircles}
+          onActivatedCircles={activatedCircles}
+          onCircleClick={handleCircleClickEvent}
         />
       </div>
 

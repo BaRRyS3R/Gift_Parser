@@ -2,7 +2,22 @@
 
 "use client";
 
-import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
+import type { TelegramUser } from "@/lib/supabase";
+import type {
+  AuthState,
+  RegistrationResult,
+  LoginResult,
+} from "./modules/useAuth";
+import type { AchievementNotificationData } from "@/components/LeagueProgress/AchievementNotification";
+
+import React, {
+  useState,
+  useCallback,
+  useContext,
+  createContext,
+  useEffect,
+} from "react";
+
 import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
 import { useProfile } from "./modules/useProfile";
@@ -10,16 +25,8 @@ import { useLeagues } from "./modules/useLeagues";
 import { useAttempts } from "./modules/useAttempts";
 import { useGame } from "./modules/useGame";
 import { useTournament } from "./modules/useTournament";
-import type { TelegramUser } from "@/lib/supabase";
-import type {
-  AuthState,
-  RegistrationResult,
-  LoginResult,
-  AuthTokens
-} from "./modules/useAuth";
 
 // Import achievement notification types
-import type { AchievementNotificationData } from "@/components/LeagueProgress/AchievementNotification";
 
 // Main user context interface
 interface UserContextType {
@@ -35,7 +42,10 @@ interface UserContextType {
   error: string | null;
 
   // Authentication methods
-  register: (initData: string, referralCode?: string) => Promise<RegistrationResult>;
+  register: (
+    initData: string,
+    referralCode?: string,
+  ) => Promise<RegistrationResult>;
   login: (initData: string) => Promise<LoginResult>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -58,7 +68,10 @@ interface UserContextType {
   tournament: ReturnType<typeof useTournament>;
 
   // Utility methods
-  makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>;
+  makeAuthenticatedRequest: (
+    endpoint: string,
+    options?: RequestInit,
+  ) => Promise<Response>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -88,16 +101,23 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   const tournamentModule = useTournament(makeAuthenticatedRequest);
 
   // Local state for user data and UI
-  const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
+  const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   // Achievement notifications state
-  const [currentAchievement, setCurrentAchievement] = useState<AchievementNotificationData | null>(null);
+  const [currentAchievement, setCurrentAchievement] =
+    useState<AchievementNotificationData | null>(null);
 
   // Auto-detect Telegram user on mount
   useEffect(() => {
-    if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
+    if (
+      !telegramUser &&
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp
+    ) {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
 
@@ -110,6 +130,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           language_code: user.language_code,
           is_premium: user.is_premium,
         };
+
         setTelegramUserState(telegramUserData);
       }
     }
@@ -120,6 +141,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const initializeAuth = async () => {
       try {
         const isAuthenticated = await checkAuthStatus();
+
         if (!isAuthenticated) {
           console.log("No valid authentication found");
         }
@@ -155,62 +177,88 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, [authState.error]);
 
   // Enhanced register function with referral support
-  const register = useCallback(async (
-    initData: string,
-    referralCode?: string
-  ): Promise<RegistrationResult> => {
-    try {
-      setError(null);
-      const result = await authRegister(initData, referralCode);
+  const register = useCallback(
+    async (
+      initData: string,
+      referralCode?: string,
+    ): Promise<RegistrationResult> => {
+      try {
+        setError(null);
+        const result = await authRegister(initData, referralCode);
 
-      if (result.success && result.user) {
-        console.log("Registration successful:", result.user.first_name);
-        if (result.referralBonus) {
-          console.log("Referral bonus received:", result.referralBonus);
+        if (result.success && result.user) {
+          console.log("Registration successful:", result.user.first_name);
+          if (result.referralBonus) {
+            console.log("Referral bonus received:", result.referralBonus);
+          }
+
+          // Invalidate caches to refresh data
+          profileModule.invalidateCache();
+          leaguesModule.invalidateAllCaches();
+          attemptsModule.invalidateCache();
+          gameModule.resetGameState();
+          tournamentModule.resetTournamentState();
         }
 
-        // Invalidate caches to refresh data
-        profileModule.invalidateCache();
-        leaguesModule.invalidateAllCaches();
-        attemptsModule.invalidateCache();
-        gameModule.resetGameState();
-        tournamentModule.resetTournamentState();
-      }
+        return result;
+      } catch (error) {
+        console.error("Registration error:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Registration failed";
 
-      return result;
-    } catch (error) {
-      console.error("Registration error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Registration failed";
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  }, [authRegister, profileModule, leaguesModule, attemptsModule, gameModule, tournamentModule]);
+        setError(errorMessage);
+
+        return { success: false, error: errorMessage };
+      }
+    },
+    [
+      authRegister,
+      profileModule,
+      leaguesModule,
+      attemptsModule,
+      gameModule,
+      tournamentModule,
+    ],
+  );
 
   // Enhanced login function
-  const login = useCallback(async (initData: string): Promise<LoginResult> => {
-    try {
-      setError(null);
-      const result = await authLogin(initData);
+  const login = useCallback(
+    async (initData: string): Promise<LoginResult> => {
+      try {
+        setError(null);
+        const result = await authLogin(initData);
 
-      if (result.success && result.user) {
-        console.log("Login successful:", result.user.first_name);
+        if (result.success && result.user) {
+          console.log("Login successful:", result.user.first_name);
 
-        // Invalidate caches to refresh data
-        profileModule.invalidateCache();
-        leaguesModule.invalidateAllCaches();
-        attemptsModule.invalidateCache();
-        gameModule.resetGameState();
-        tournamentModule.resetTournamentState();
+          // Invalidate caches to refresh data
+          profileModule.invalidateCache();
+          leaguesModule.invalidateAllCaches();
+          attemptsModule.invalidateCache();
+          gameModule.resetGameState();
+          tournamentModule.resetTournamentState();
+        }
+
+        return result;
+      } catch (error) {
+        console.error("Login error:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Login failed";
+
+        setError(errorMessage);
+
+        return { success: false, error: errorMessage };
       }
-
-      return result;
-    } catch (error) {
-      console.error("Login error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Login failed";
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  }, [authLogin, profileModule, leaguesModule, attemptsModule, gameModule, tournamentModule]);
+    },
+    [
+      authLogin,
+      profileModule,
+      leaguesModule,
+      attemptsModule,
+      gameModule,
+      tournamentModule,
+    ],
+  );
 
   // Enhanced logout function
   const logout = useCallback(() => {
@@ -227,7 +275,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     tournamentModule.resetTournamentState();
 
     console.log("User logged out");
-  }, [authLogout, profileModule, leaguesModule, leaderboardModule, attemptsModule, gameModule, tournamentModule]);
+  }, [
+    authLogout,
+    profileModule,
+    leaguesModule,
+    leaderboardModule,
+    attemptsModule,
+    gameModule,
+    tournamentModule,
+  ]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -247,18 +303,29 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       console.log("User data refreshed");
     } catch (error) {
       console.error("Error refreshing user:", error);
-      setError(error instanceof Error ? error.message : "Failed to refresh user data");
+      setError(
+        error instanceof Error ? error.message : "Failed to refresh user data",
+      );
     } finally {
       setIsLoading(false);
     }
-  }, [authState.isAuthenticated, authState.user, profileModule, leaguesModule, attemptsModule]);
+  }, [
+    authState.isAuthenticated,
+    authState.user,
+    profileModule,
+    leaguesModule,
+    attemptsModule,
+  ]);
 
   // Direct user update (for external updates) - now uses profile module
-  const updateUser = useCallback((userData: any) => {
-    console.log("User data updated externally");
-    // Invalidate profile cache to refresh on next access
-    profileModule.invalidateCache();
-  }, [profileModule]);
+  const updateUser = useCallback(
+    (userData: any) => {
+      console.log("User data updated externally");
+      // Invalidate profile cache to refresh on next access
+      profileModule.invalidateCache();
+    },
+    [profileModule],
+  );
 
   // Set Telegram user data
   const setTelegramUser = useCallback((userData: TelegramUser) => {
@@ -266,9 +333,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   }, []);
 
   // Achievement notification methods
-  const showAchievement = useCallback((achievement: AchievementNotificationData) => {
-    setCurrentAchievement(achievement);
-  }, []);
+  const showAchievement = useCallback(
+    (achievement: AchievementNotificationData) => {
+      setCurrentAchievement(achievement);
+    },
+    [],
+  );
 
   const hideAchievement = useCallback(() => {
     setCurrentAchievement(null);
