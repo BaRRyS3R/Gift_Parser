@@ -1,72 +1,72 @@
 // src/locales/ru/tasks.ts - Tasks and challenges system
 export const tasks = {
-  title: "ЗАДАНИЯ",
-  subtitle: "Выполняйте задания для получения дополнительных попыток",
-  loading: "Загрузка",
-  start: "НАЧАТЬ",
-  checking: "ПРОВЕРКА...",
-  claim: "ПОЛУЧИТЬ",
-  completed: "ВЫПОЛНЕНО",
-  subscribe: "ПОДПИСАТЬСЯ",
-  visit: "ПОСЕТИТЬ",
-  follow: "ПОДПИСАТЬСЯ",
-  repost: "РЕПОСТ",
-  share: "ПОДЕЛИТЬСЯ",
-  waitSeconds: "Ждите {seconds}с",
-  waitMinutes: "Ждите {minutes}м",
-  verifying: "Проверяем...",
-  reward: "Попыток:",
-  sections: {
-    story: "Специальное задание",
-    active: "Активные задания",
-    completed: "Выполненные задания",
-  },
-  types: {
-    telegram_channel: "Подписка",
-    telegram_chat: "Вступить",
-    twitter_follow: "Подписка",
-    twitter_repost: "Репост",
-    website_visit: "Посетить",
-    story_share: "Сторис",
-  },
-  errors: {
-    notSubscribed: "Вы не подписаны на этот канал/чат",
-    taskNotFound: "Задание не найдено",
-    alreadyCompleted: "Задание уже выполнено",
-    cooldownActive: "Задание недоступно",
-    verificationFailed: "Проверка не удалась, попробуйте еще раз",
-    rewardClaimFailed: "Не удалось получить награду",
-    userNotFound: "Пользователь не найден",
-    unknownError: "Произошла неизвестная ошибка",
-  },
-  success: {
-    taskStarted: "Задание начато успешно",
-    taskCompleted: "Задание выполнено успешно",
-    rewardClaimed: "Награда получена! +{count} попыток добавлено",
-    subscriptionVerified: "Подписка успешно подтверждена",
-  },
-  descriptions: {
-    telegram_channel: "Подпишитесь на канал",
-    telegram_chat: "Присоединитесь к чату",
-    twitter_follow: "Подпишитесь в Twitter",
-    twitter_repost: "Сделайте репост твита",
-    website_visit: "Посетите веб-сайт",
-    story_share: "Поделитесь в своих сторис Telegram",
-  },
-  storyTask: {
-    title: "Поделиться в сторис",
-    description: "Делитесь игрой в сторис Telegram каждые 2 часа",
-    cooldownText: "Доступно снова через {time}",
-    notSupported: "Публикация в сторис не поддерживается в этой версии",
-  },
-  empty: {
-    noActiveTasks: "Нет доступных заданий",
-    noCompletedTasks: "Пока нет выполненных заданий",
-    startCompleting: "Начните выполнять задания для получения попыток!",
-  },
-  info: {
-    telegramVerification: "Подписка будет проверена автоматически",
-    trustVerification: "Выполнение задания проверяется на основе доверия",
-    completionDelay: "Пожалуйста, подождите {seconds} секунд для проверки",
-  },
+    title: "ЗАДАНИЯ",
+    subtitle: "Выполняйте задания для получения дополнительных попыток",
+    loading: "Загрузка",
+    start: "НАЧАТЬ",
+    checking: "ПРОВЕРКА...",
+    claim: "ПОЛУЧИТЬ",
+    completed: "ВЫПОЛНЕНО",
+    subscribe: "ПОДПИСАТЬСЯ",
+    visit: "ПОСЕТИТЬ",
+    follow: "ПОДПИСАТЬСЯ",
+    repost: "РЕПОСТ",
+    share: "ПОДЕЛИТЬСЯ",
+    waitSeconds: "Ждите {seconds}с",
+    waitMinutes: "Ждите {minutes}м",
+    verifying: "Проверяем...",
+    reward: "Попыток:",
+    sections: {
+        story: "Специальное задание",
+        active: "Активные задания",
+        completed: "Выполненные задания"
+    },
+    types: {
+        telegram_channel: "Подписка",
+        telegram_chat: "Вступить",
+        twitter_follow: "Подписка",
+        twitter_repost: "Репост",
+        website_visit: "Посетить",
+        story_share: "Сторис"
+    },
+    errors: {
+        notSubscribed: "Вы не подписаны на этот канал/чат",
+        taskNotFound: "Задание не найдено",
+        alreadyCompleted: "Задание уже выполнено",
+        cooldownActive: "Задание недоступно",
+        verificationFailed: "Проверка не удалась, попробуйте еще раз",
+        rewardClaimFailed: "Не удалось получить награду",
+        userNotFound: "Пользователь не найден",
+        unknownError: "Произошла неизвестная ошибка"
+    },
+    success: {
+        taskStarted: "Задание начато успешно",
+        taskCompleted: "Задание выполнено успешно",
+        rewardClaimed: "Награда получена! +{count} попыток добавлено",
+        subscriptionVerified: "Подписка успешно подтверждена"
+    },
+    descriptions: {
+        telegram_channel: "Подпишитесь на канал",
+        telegram_chat: "Присоединитесь к чату",
+        twitter_follow: "Подпишитесь в Twitter",
+        twitter_repost: "Сделайте репост твита",
+        website_visit: "Посетите веб-сайт",
+        story_share: "Поделитесь в своих сторис Telegram"
+    },
+    storyTask: {
+        title: "Поделиться в сторис",
+        description: "Делитесь игрой в сторис Telegram каждые 2 часа",
+        cooldownText: "Доступно снова через {time}",
+        notSupported: "Публикация в сторис не поддерживается в этой версии"
+    },
+    empty: {
+        noActiveTasks: "Нет доступных заданий",
+        noCompletedTasks: "Пока нет выполненных заданий",
+        startCompleting: "Начните выполнять задания для получения попыток!"
+    },
+    info: {
+        telegramVerification: "Подписка будет проверена автоматически",
+        trustVerification: "Выполнение задания проверяется на основе доверия",
+        completionDelay: "Пожалуйста, подождите {seconds} секунд для проверки"
+    }
 } as const;

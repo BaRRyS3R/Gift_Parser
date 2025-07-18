@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Updated without attempts logic
+// src/game-modes/survival/SurvivalGameManager.tsx - ИСПРАВЛЕННАЯ версия с корректным потреблением попыток
 
 "use client";
 
@@ -10,7 +10,6 @@ import {
   Clock,
   Target,
   RotateCcw,
-  ArrowLeft,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -56,7 +55,7 @@ const initialSaveStatus: SaveStatus = {
 const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
 
 export default function SurvivalGameManager() {
-  const { makeAuthenticatedRequest } = useUser();
+  const { saveGameResult, telegramUser, consumeAttemptForGame } = useUser();
   const router = useRouter();
   const t = useT();
 
@@ -66,11 +65,14 @@ export default function SurvivalGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number>(0);
+  const [isConsumingAttempt, setIsConsumingAttempt] = useState(false);
+  const [hasConsumedInitialAttempt, setHasConsumedInitialAttempt] = useState(false);
+  const [isRestartLoading, setIsRestartLoading] = useState(false);
 
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
-  const [lastActivationTimestamp, setLastActivationTimestamp] =
-    useState<number>(0);
+  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
 
   const gameStateRef = useRef<SurvivalGameState>(gameState);
 
@@ -90,19 +92,40 @@ export default function SurvivalGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
 
-  // Auto-start the game when component mounts
+  // Consume attempt immediately when component mounts (initial entry only)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      startGame();
-    }, 500);
+    const consumeInitialAttempt = async () => {
+      if (!telegramUser?.id || hasConsumedInitialAttempt) return;
 
-    return () => clearTimeout(timer);
-  }, []);
+      try {
+        setIsConsumingAttempt(true);
+        console.log("Consuming initial attempt for survival game");
+
+        const newStatus = await consumeAttemptForGame();
+        setAttemptsRemaining(newStatus.attemptsRemaining);
+        setHasConsumedInitialAttempt(true);
+
+        // Auto-start the game after consuming attempt
+        setTimeout(() => {
+          startGame();
+        }, 500);
+      } catch (error) {
+        console.error("Error consuming initial attempt:", error);
+        setHasConsumedInitialAttempt(true);
+        // При ошибке возвращаемся к выбору игр
+        router.push("/game");
+      } finally {
+        setIsConsumingAttempt(false);
+      }
+    };
+
+    consumeInitialAttempt();
+  }, [telegramUser?.id, hasConsumedInitialAttempt, consumeAttemptForGame, router]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -110,7 +133,6 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -137,21 +159,7 @@ export default function SurvivalGameManager() {
         }
 
         try {
-          const response = await makeAuthenticatedRequest("/api/game/save", {
-            method: "POST",
-            body: JSON.stringify({ gameResult: result }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to save game result");
-          }
-
-          const data = await response.json();
-
-          if (!data.success) {
-            throw new Error(data.error || "Failed to save game result");
-          }
-
+          await saveGameResult(result);
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
@@ -163,7 +171,6 @@ export default function SurvivalGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -183,7 +190,7 @@ export default function SurvivalGameManager() {
         }));
       }
     },
-    [makeAuthenticatedRequest, t],
+    [saveGameResult, t],
   );
 
   const endGame = useCallback(
@@ -215,7 +222,6 @@ export default function SurvivalGameManager() {
         };
 
         const result = createSurvivalGameResult(finalGameState);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -235,7 +241,7 @@ export default function SurvivalGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -252,7 +258,6 @@ export default function SurvivalGameManager() {
               );
 
               const timestamp = Date.now();
-
               setActivatedCircles(circleIds);
               setLastActivationTimestamp(timestamp);
 
@@ -339,7 +344,6 @@ export default function SurvivalGameManager() {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
-
             return current;
           }
 
@@ -358,9 +362,33 @@ export default function SurvivalGameManager() {
     }, 800);
   }, [scheduleNextActivation]);
 
-  const returnToGameSelection = useCallback(() => {
-    router.push("/game");
-  }, [router]);
+  // ИСПРАВЛЕНО: Всегда делаем серверный запрос при рестарте
+  const restartGame = useCallback(async () => {
+    if (!telegramUser?.id || attemptsRemaining <= 0 || isRestartLoading) return;
+
+    setIsRestartLoading(true);
+
+    try {
+      // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Убрана локальная оптимизация
+      // Всегда потребляем попытку на сервере для обеспечения корректности данных
+      console.log("Consuming attempt on server for restart (security-critical operation)");
+
+      const newStatus = await consumeAttemptForGame();
+      setAttemptsRemaining(newStatus.attemptsRemaining);
+
+      setShowCircles(false);
+      setTimeout(() => {
+        startGame();
+      }, 200);
+
+    } catch (error) {
+      console.error("Error consuming attempt for restart:", error);
+      // При ошибке возвращаемся к выбору игр
+      router.push("/game");
+    } finally {
+      setIsRestartLoading(false);
+    }
+  }, [telegramUser?.id, attemptsRemaining, startGame, isRestartLoading, consumeAttemptForGame, router]);
 
   useEffect(() => {
     return () => {
@@ -383,18 +411,28 @@ export default function SurvivalGameManager() {
 
   const getDeathCauseMessage = (deathCause: string) => {
     const causeKeyMapping = {
-      miss: "game.modes.survival.deathCauses.miss",
-      wrong_click: "game.modes.survival.deathCauses.wrongClick",
-      decoy_hit: "game.modes.survival.deathCauses.decoyHit",
-      timeout: "game.modes.survival.deathCauses.default",
+      "miss": "game.modes.survival.deathCauses.miss",
+      "wrong_click": "game.modes.survival.deathCauses.wrongClick",
+      "decoy_hit": "game.modes.survival.deathCauses.decoyHit",
+      "timeout": "game.modes.survival.deathCauses.default"
     };
 
-    const key =
-      causeKeyMapping[deathCause as keyof typeof causeKeyMapping] ||
+    const key = causeKeyMapping[deathCause as keyof typeof causeKeyMapping] ||
       causeKeyMapping.timeout;
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
+
+  if (isConsumingAttempt) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-red-400/20 border-t-red-400 rounded-full animate-spin mx-auto" />
+          <p className="text-red-300">{t("game.general.initializingGame")}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
     return (
@@ -441,6 +479,14 @@ export default function SurvivalGameManager() {
               </div>
               <div className="text-center space-y-1">
                 <div className="text-xs text-red-400/60">
+                  {t("game.modes.survival.results.attemptsLeft")}
+                </div>
+                <div className="text-xl font-bold text-green-400">
+                  {attemptsRemaining}
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <div className="text-xs text-red-400/60">
                   {t("game.modes.survival.results.perfectStreak")}
                 </div>
                 <div className="text-xl font-bold text-green-400">
@@ -455,21 +501,23 @@ export default function SurvivalGameManager() {
                   {gameResult.correctHits}
                 </div>
               </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.levelsCompleted")}
+            </div>
+
+            <div className="border-t border-red-400/30 pt-4">
+              <div className="text-center space-y-2">
+                <div className="text-xs text-red-400/60 uppercase">
+                  {t("game.modes.survival.results.levelProgress")}
                 </div>
-                <div className="text-xl font-bold text-orange-400">
-                  {gameResult.maxLevelReached}/15
+                <div className="text-xs text-red-400/60">
+                  {gameResult.maxLevelReached}/15{" "}
+                  {t("game.modes.survival.results.levelsCompleted")}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Save Status Display */}
-          {(saveStatus.isLoading ||
-            saveStatus.error ||
-            saveStatus.isSuccess) && (
+          {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               {saveStatus.isLoading && (
                 <div className="space-y-3">
@@ -478,9 +526,9 @@ export default function SurvivalGameManager() {
                     <span className="text-sm text-red-300/80">
                       {saveStatus.showRetryDetails
                         ? t("save.retrying", {
-                            attempt: saveStatus.attempt,
-                            max: saveStatus.maxAttempts,
-                          })
+                          attempt: saveStatus.attempt,
+                          max: saveStatus.maxAttempts,
+                        })
                         : t("save.recording")}
                     </span>
                   </div>
@@ -516,8 +564,8 @@ export default function SurvivalGameManager() {
                   <div className="text-green-400/60 text-xs">
                     {saveStatus.attempt > 1
                       ? t("save.savedAfterRetries", {
-                          attempts: saveStatus.attempt,
-                        })
+                        attempts: saveStatus.attempt,
+                      })
                       : t("save.synchronized")}
                   </div>
                 </div>
@@ -548,11 +596,19 @@ export default function SurvivalGameManager() {
 
           <div className="space-y-4">
             <button
-              className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
-              onClick={returnToGameSelection}
+              className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={
+                saveStatus.isLoading ||
+                attemptsRemaining <= 0 ||
+                isRestartLoading
+              }
+              onClick={restartGame}
             >
-              <ArrowLeft size={20} />
-              <span>GAMES</span>
+              {isRestartLoading
+                ? t("game.modes.survival.results.starting")
+                : attemptsRemaining > 0
+                  ? t("game.modes.survival.results.surviveAgain")
+                  : t("game.general.noAttemptsLeft")}
             </button>
           </div>
         </div>
@@ -565,12 +621,12 @@ export default function SurvivalGameManager() {
       <div className="flex-1 flex items-center justify-center">
         <GameGrid
           circles={gameState.circles}
-          gameMode="survival"
           isGameActive={gameState.gameState === GameState.PLAYING}
-          lastActivationTimestamp={lastActivationTimestamp}
           showCircles={showCircles}
-          onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
+          onActivatedCircles={activatedCircles}
+          lastActivationTimestamp={lastActivationTimestamp}
+          gameMode="survival"
         />
       </div>
 

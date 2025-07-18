@@ -1,331 +1,28 @@
-// ===== src/app/game/page.tsx =====
-// ИСПРАВЛЕНО: Правильное использование attempts через useUser
+// src/app/main/page.tsx - Обновленная главная страница с централизованным управлением попыток
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Crosshair,
-  Play,
-  Shield,
-  Atom,
-  ChevronDown,
-  ChevronUp,
-  Gamepad2,
-  RotateCw,
-  Zap,
-} from "lucide-react";
+import { Play, Settings as SettingsIcon, Info, Trophy, Clock } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
+import { useSettings } from "@/contexts/SettingsContext";
+import { tournamentService } from "@/lib/supabase_tournament_extension";
+import type { Tournament } from "@/types/tournaments";
+import { formatTimeRemaining } from "@/types/tournaments";
 import AuthGuard from "@/components/Auth/AuthGuard";
+import Settings from "@/components/Settings/Settings";
+import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
-import TournamentCard from "@/components/TournamentCard/TournamentCard";
+import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
+import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal";
 
-interface GameMode {
-  id: string;
-  nameKey: string;
-  descriptionKey: string;
-  icon: React.ComponentType<any>;
-  route: string;
-  difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
-  durationKey: string;
-  color: {
-    primary: string;
-    secondary: string;
-    accent: string;
-    background: string;
-    border: string;
-    hover: string;
-  };
-  featuresKeys: string[];
-  basicRules: string[];
-}
-
-const GAME_MODES: GameMode[] = [
-  {
-    id: "reaction",
-    nameKey: "game.modes.reaction.name",
-    descriptionKey: "game.modes.reaction.description",
-    icon: Zap,
-    route: "/game/reaction",
-    difficulty: "🤡",
-    durationKey: "game.modes.reaction.duration",
-    color: {
-      primary: "text-white",
-      secondary: "text-white/90",
-      accent: "text-white/80",
-      background: "bg-white/5",
-      border: "border-white/20",
-      hover: "hover:bg-white/10 hover:border-white/30",
-    },
-    featuresKeys: [
-      "game.modes.reaction.features.0",
-      "game.modes.reaction.features.1",
-      "game.modes.reaction.features.2",
-      "game.modes.reaction.features.3",
-    ],
-    basicRules: [
-      "game.modes.reaction.rules.0",
-      "game.modes.reaction.rules.1",
-      "game.modes.reaction.rules.2",
-    ],
-  },
-  {
-    id: "survival",
-    nameKey: "game.modes.survival.name",
-    descriptionKey: "game.modes.survival.description",
-    icon: Crosshair,
-    route: "/game/survival",
-    difficulty: "💋😈",
-    durationKey: "game.modes.survival.duration",
-    color: {
-      primary: "text-red-400",
-      secondary: "text-red-300",
-      accent: "text-red-200",
-      background: "bg-red-500/5",
-      border: "border-red-400/20",
-      hover: "hover:bg-red-500/10 hover:border-red-400/30",
-    },
-    featuresKeys: [
-      "game.modes.survival.features.0",
-      "game.modes.survival.features.1",
-      "game.modes.survival.features.2",
-      "game.modes.survival.features.3",
-    ],
-    basicRules: [
-      "game.modes.survival.rules.0",
-      "game.modes.survival.rules.1",
-      "game.modes.survival.rules.2",
-    ],
-  },
-  {
-    id: "physics",
-    nameKey: "game.modes.physics.name",
-    descriptionKey: "game.modes.physics.description",
-    icon: Atom,
-    route: "/game/physics",
-    difficulty: "👉👌",
-    durationKey: "game.modes.physics.duration",
-    color: {
-      primary: "text-purple-400",
-      secondary: "text-purple-300",
-      accent: "text-purple-200",
-      background: "bg-purple-500/5",
-      border: "border-purple-400/20",
-      hover: "hover:bg-purple-500/10 hover:border-purple-400/30",
-    },
-    featuresKeys: [
-      "game.modes.physics.features.0",
-      "game.modes.physics.features.1",
-      "game.modes.physics.features.2",
-      "game.modes.physics.features.3",
-    ],
-    basicRules: [
-      "game.modes.physics.rules.0",
-      "game.modes.physics.rules.1",
-      "game.modes.physics.rules.2",
-    ],
-  },
-  {
-    id: "rotation",
-    nameKey: "game.modes.rotation.name",
-    descriptionKey: "game.modes.rotation.description",
-    icon: RotateCw,
-    route: "/game/rotation",
-    difficulty: "🌀",
-    durationKey: "game.modes.rotation.duration",
-    color: {
-      primary: "text-orange-400",
-      secondary: "text-orange-300",
-      accent: "text-orange-200",
-      background: "bg-orange-500/5",
-      border: "border-orange-400/20",
-      hover: "hover:bg-orange-500/10 hover:border-orange-400/30",
-    },
-    featuresKeys: [
-      "game.modes.rotation.features.0",
-      "game.modes.rotation.features.1",
-      "game.modes.rotation.features.2",
-      "game.modes.rotation.features.3",
-    ],
-    basicRules: [
-      "game.modes.rotation.rules.0",
-      "game.modes.rotation.rules.1",
-      "game.modes.rotation.rules.2",
-    ],
-  },
-];
-
-const CompactGameModeCard = ({
-  mode,
-  isExpanded,
-  onToggleExpand,
-  onStart,
-  isDisabled,
-  isCurrentModeLoading,
-  isAnyModeLoading,
-}: {
-  mode: GameMode;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onStart: () => void;
-  isDisabled: boolean;
-  isCurrentModeLoading: boolean;
-  isAnyModeLoading: boolean;
-}) => {
-  const t = useT();
-  const Icon = mode.icon;
-
-  return (
-    <div
-      className={`
-        relative backdrop-blur-sm border rounded-xl transition-all duration-300 overflow-hidden
-        ${mode.color.background} ${mode.color.border}
-        ${isDisabled || isAnyModeLoading ? "opacity-50" : mode.color.hover}
-        ${isExpanded ? "ring-1 ring-white/20" : ""}
-      `}
-    >
-      <div className="absolute right-0 top-1/2 transform translate-x-1/3 -translate-y-1/2 pointer-events-none">
-        <Gamepad2
-          className="text-white/5"
-          size={120}
-          style={{
-            transform: "rotate(15deg)",
-          }}
-        />
-      </div>
-
-      <div className="p-4 relative z-10">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-3">
-            <div
-              className={`w-10 h-10 rounded-lg flex items-center justify-center ${mode.color.background} border ${mode.color.border}`}
-            >
-              <Icon className={mode.color.primary} size={20} />
-            </div>
-            <div>
-              <h3 className={`text-lg font-bold ${mode.color.primary}`}>
-                {t(mode.nameKey as any)}
-              </h3>
-              <div className="flex items-center space-x-2 text-xs">
-                <span className={mode.color.accent}>
-                  {t(mode.durationKey as any)}
-                </span>
-                <div className="w-1 h-1 rounded-full bg-white/40" />
-                <span
-                  className={`${
-                    mode.difficulty === "💋😈"
-                      ? "text-red-400"
-                      : mode.difficulty === "👉👌"
-                        ? "text-purple-400"
-                        : mode.difficulty === "🌀"
-                          ? "text-orange-400"
-                          : mode.color.accent
-                  }`}
-                >
-                  {mode.difficulty}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            className={`p-2 rounded-lg transition-all duration-300 ${mode.color.background} hover:bg-white/10 relative z-20 disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={isAnyModeLoading}
-            onClick={onToggleExpand}
-          >
-            {isExpanded ? (
-              <ChevronUp className={mode.color.accent} size={16} />
-            ) : (
-              <ChevronDown className={mode.color.accent} size={16} />
-            )}
-          </button>
-        </div>
-
-        <p className={`text-sm ${mode.color.secondary} mb-4 leading-relaxed`}>
-          {t(mode.descriptionKey as any)}
-        </p>
-
-        {isExpanded && !isAnyModeLoading && (
-          <div className="space-y-4 mb-4 animate-fade-in">
-            <div>
-              <h4 className={`text-sm font-bold ${mode.color.primary} mb-2`}>
-                Features:
-              </h4>
-              <div className="space-y-1">
-                {mode.featuresKeys.map((featureKey, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <div
-                      className={`w-1 h-1 rounded-full ${
-                        mode.id === "reaction"
-                          ? "bg-white/60"
-                          : mode.id === "survival"
-                            ? "bg-red-400/60"
-                            : mode.id === "physics"
-                              ? "bg-purple-400/60"
-                              : "bg-orange-400/60"
-                      }`}
-                    />
-                    <span className={`text-xs ${mode.color.secondary}`}>
-                      {t(featureKey as any)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <button
-          className={`
-            w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg relative z-20
-            text-sm font-bold transition-all duration-300
-            ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-            ${
-              isDisabled || isAnyModeLoading
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
-            }
-          `}
-          disabled={isAnyModeLoading || isDisabled}
-          onClick={onStart}
-        >
-          {isCurrentModeLoading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              <span>{t("common.loading")}</span>
-            </>
-          ) : (
-            <>
-              <Play size={16} />
-              <span>
-                {isDisabled ? t("game.general.noAttempts") : t("common.play")}
-              </span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {isDisabled && !isAnyModeLoading && (
-        <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
-          <div className="text-center space-y-2">
-            <Shield className="text-white/60 mx-auto" size={24} />
-            <p className="text-white/80 text-sm font-bold">
-              {t("game.general.noAttemptsLeft")}
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-function GamePageContent() {
+function MainPageContent() {
   const router = useRouter();
-  // ИСПРАВЛЕНО: Используем attempts через useUser
-  const { user, attempts } = useUser();
+  const { user, isLoading: userLoading, telegramUser, setTelegramUser } = useUser();
   const {
     attemptsStatus,
     isLoading: attemptsLoading,
@@ -333,124 +30,501 @@ function GamePageContent() {
     canPlay,
     attemptsRemaining,
     fetchAttemptsStatus,
-    clearError,
-  } = attempts;
+    clearError
+  } = useAttempts();
+  const { settings } = useSettings();
   const t = useT();
 
-  const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
-  const [expandedModes, setExpandedModes] = useState<string[]>([]);
+  /* -------------------------------------------------
+   * Animation control - First visit detection
+   * -------------------------------------------------*/
+  const checkFirstVisit = () => {
+    if (typeof window === "undefined") return false;
+    return !sessionStorage.getItem("mainPageVisited");
+  };
 
-  const handleModeStart = useCallback(
-    (mode: GameMode) => {
-      if (loadingModeId) return;
+  const isFirstVisit = checkFirstVisit();
 
-      setLoadingModeId(mode.id);
+  /* -------------------------------------------------
+   * UI state
+   * -------------------------------------------------*/
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [pageLoaded, setPageLoaded] = useState(false);
+  const [showButton, setShowButton] = useState(!isFirstVisit);
+  const [showGreeting, setShowGreeting] = useState(!isFirstVisit);
+  const [greetingText, setGreetingText] = useState("");
+  const [showTopButtons, setShowTopButtons] = useState(!isFirstVisit);
+  const [showLeagueDisplay, setShowLeagueDisplay] = useState(!isFirstVisit);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isLeagueProgressOpen, setIsLeagueProgressOpen] = useState(false);
 
-      console.log(`Starting ${mode.id} game`);
+  /* -------------------------------------------------
+   * Tournament state
+   * -------------------------------------------------*/
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
+  const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
+  const [showTournamentButton, setShowTournamentButton] = useState(false);
 
-      // Navigate to game after brief loading animation
-      setTimeout(() => {
-        router.push(mode.route);
-      }, 600);
-    },
-    [loadingModeId, router],
+  /* -------------------------------------------------
+   * Dynamic offset for Telegram system UI
+   * -------------------------------------------------*/
+  const DEFAULT_TG_HEADER = 60;
+  const EXTRA_OFFSET = 40;
+  const [headerOffset, setHeaderOffset] = useState<number>(
+    DEFAULT_TG_HEADER + EXTRA_OFFSET,
   );
 
-  const handleToggleExpand = useCallback(
-    (modeId: string) => {
-      if (loadingModeId) return;
+  useEffect(() => {
+    const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
+    if (typeof tgHeader === "number" && tgHeader > 0) {
+      setHeaderOffset(tgHeader + EXTRA_OFFSET);
+    }
+  }, []);
 
-      setExpandedModes((prev) =>
-        prev.includes(modeId)
-          ? prev.filter((id) => id !== modeId)
-          : [...prev, modeId],
-      );
-    },
-    [loadingModeId],
-  );
+  // Mark page as visited
+  useEffect(() => {
+    if (isFirstVisit && typeof window !== "undefined") {
+      sessionStorage.setItem("mainPageVisited", "true");
+    }
+  }, [isFirstVisit]);
 
-  const handleAttemptsRetry = useCallback(() => {
+  // Initialize greeting for non-first visits
+  useEffect(() => {
+    if (!isFirstVisit && user?.first_name) {
+      const fullGreeting = t("main.greeting", { name: user.first_name });
+      setGreetingText(fullGreeting);
+    }
+  }, [isFirstVisit, user?.first_name, t]);
+
+  // Initialize telegramUser if not set
+  useEffect(() => {
+    if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      const user = tg.initDataUnsafe?.user;
+
+      if (user && user.id) {
+        const telegramUserData = {
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          username: user.username,
+          language_code: user.language_code,
+          is_premium: user.is_premium,
+        };
+        setTelegramUser(telegramUserData);
+      }
+    }
+  }, [telegramUser, setTelegramUser]);
+
+  /* -------------------------------------------------
+   * Tournament data loading
+   * -------------------------------------------------*/
+  useEffect(() => {
+    const loadTournamentStatus = async () => {
+      try {
+        const tournamentStatus = await tournamentService.getTournamentStatus();
+
+        if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
+          setActiveTournament(tournamentStatus.activeTournament);
+          setShowTournamentButton(true);
+
+          if (tournamentStatus.timeRemaining) {
+            setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
+
+            const interval = setInterval(() => {
+              const now = new Date();
+              const endDate = new Date(tournamentStatus.activeTournament!.end_date);
+              const diff = endDate.getTime() - now.getTime();
+
+              if (diff <= 0) {
+                setActiveTournament(null);
+                setShowTournamentButton(false);
+                setTournamentTimeRemaining("");
+                clearInterval(interval);
+              } else {
+                setTournamentTimeRemaining(formatTimeRemaining(diff));
+              }
+            }, 1000);
+
+            return () => clearInterval(interval);
+          }
+        } else {
+          setActiveTournament(null);
+          setShowTournamentButton(false);
+        }
+      } catch (error) {
+        console.error("Error loading tournament status:", error);
+        setActiveTournament(null);
+        setShowTournamentButton(false);
+      }
+    };
+
+    loadTournamentStatus();
+  }, []);
+
+  /* -------------------------------------------------
+   * Background video logic
+   * -------------------------------------------------*/
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const username = user?.first_name || "unknown";
+  const fullGreeting = t("main.greeting", { name: username });
+
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (!video || !settings.showBackgroundVideo) return;
+
+    const handleLoadedMetadata = () => {
+      video.play().catch(console.error);
+    };
+
+    const handleCanPlay = () => {
+      video.play().catch(console.error);
+    };
+
+    video.addEventListener("loadedmetadata", handleLoadedMetadata);
+    video.addEventListener("canplay", handleCanPlay);
+    video.load();
+
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      video.removeEventListener("canplay", handleCanPlay);
+    };
+  }, [settings.showBackgroundVideo]);
+
+  /* -------------------------------------------------
+   * Mount / animation logic
+   * -------------------------------------------------*/
+  useEffect(() => {
+    const pageLoadTimer = setTimeout(() => {
+      setPageLoaded(true);
+      if (isFirstVisit) {
+        setTimeout(() => setShowButton(true), 150);
+        setTimeout(() => setShowGreeting(true), 300);
+        setTimeout(() => setShowTopButtons(true), 450);
+        setTimeout(() => setShowLeagueDisplay(true), 600);
+      }
+    }, 300);
+
+    return () => clearTimeout(pageLoadTimer);
+  }, [isFirstVisit]);
+
+  // Greeting typing animation for first visit only
+  useEffect(() => {
+    if (!showGreeting || userLoading || !isFirstVisit) {
+      return;
+    }
+
+    let currentChar = 0;
+    const typingInterval = setInterval(() => {
+      if (currentChar <= fullGreeting.length) {
+        setGreetingText(fullGreeting.slice(0, currentChar));
+        currentChar++;
+      } else {
+        clearInterval(typingInterval);
+      }
+    }, 60);
+
+    return () => clearInterval(typingInterval);
+  }, [showGreeting, fullGreeting, userLoading, isFirstVisit]);
+
+  /* -------------------------------------------------
+   * Handlers
+   * -------------------------------------------------*/
+  const handleStartGame = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      router.push("/game");
+    }, 600);
+  };
+
+  const handleOpenTournament = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      router.push("/tournament");
+    }, 600);
+  };
+
+  const handleOpenSettings = () => {
+    setIsSettingsOpen(true);
+  };
+
+  const handleCloseSettings = () => {
+    setIsSettingsOpen(false);
+  };
+
+  const handleOpenAbout = () => {
+    setIsAboutOpen(true);
+  };
+
+  const handleCloseAbout = () => {
+    setIsAboutOpen(false);
+  };
+
+  const handleOpenLeagueProgress = () => {
+    console.log("League progress click detected");
+    console.log("Current user:", user);
+    console.log("User loading:", userLoading);
+    setIsLeagueProgressOpen(true);
+  };
+
+  const handleCloseLeagueProgress = () => {
+    console.log("Closing league progress modal");
+    setIsLeagueProgressOpen(false);
+  };
+
+  const handleAttemptsRetry = () => {
     clearError();
     fetchAttemptsStatus(true);
-  }, [clearError, fetchAttemptsStatus]);
+  };
 
-  // Telegram WebApp back button
   useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
+    console.log("League modal state:", isLeagueProgressOpen);
+  }, [isLeagueProgressOpen]);
 
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
-        router.push("/main");
-      });
-
-      return () => {
-        tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
-      };
-    }
-  }, [router]);
-
+  /* -------------------------------------------------
+   * Render
+   * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${
-        loadingModeId
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : "opacity-100 transition-opacity duration-1000 ease-out"
-      }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : pageLoaded
+          ? "opacity-100 transition-opacity duration-1000 ease-out"
+          : "opacity-0"
+        }`}
     >
-      <div className="text-center space-y-4 mb-8">
-        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-          {t("game.modes.title")}
-        </h1>
-        <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-          {t("game.modes.subtitle")}
-        </p>
+      {/* Background Video */}
+      {settings.showBackgroundVideo && (
+        <div
+          className="fixed top-0 left-0 w-full h-full z-0"
+          style={{
+            filter: "brightness(0.15) contrast(1.2) grayscale(1)",
+          }}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source src="/videos/mainbg.mp4" type="video/mp4" />
+          </video>
+        </div>
+      )}
+
+      {/* Top Navigation Icons */}
+      <div
+        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
+          }`}
+        style={{ top: headerOffset }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              aria-label={t("common.settings")}
+              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              onClick={handleOpenSettings}
+            >
+              <div className="flex items-center justify-center">
+                <SettingsIcon
+                  className="text-white group-hover:rotate-90 transition-transform duration-300"
+                  size={20}
+                />
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+            </button>
+
+            <button
+              aria-label="About"
+              className="group relative w-12 h-12 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-full hover:border-white hover:bg-white/20 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              onClick={handleOpenAbout}
+            >
+              <div className="flex items-center justify-center">
+                <Info
+                  className="text-white group-hover:rotate-90 transition-transform duration-300"
+                  size={20}
+                />
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+            </button>
+          </div>
+
+          {/* Tournament Button */}
+          {showTournamentButton && activeTournament && (
+            <button
+              aria-label="Active Tournament"
+              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isTransitioning}
+              onClick={handleOpenTournament}
+            >
+              <div className="flex items-center space-x-2">
+                <Trophy
+                  className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
+                  size={16}
+                />
+                <div className="text-xs">
+                  <div className="font-bold text-yellow-300">TOURNAMENT</div>
+                  {tournamentTimeRemaining && (
+                    <div className="text-yellow-400/80 flex items-center space-x-1">
+                      <Clock size={10} />
+                      <span>{tournamentTimeRemaining}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+              <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Централизованное отображение попыток с расширенными возможностями */}
-      <div className="mb-8 animate-fade-in">
+      {/* Main Content */}
+      <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
+        {/* Title Section */}
+        <div className="relative">
+          <h1 className="text-6xl sm:text-7xl md:text-8xl font-bold font-bpdots tracking-widest text-white">
+            circusle
+          </h1>
+        </div>
+
+        {/* Action Button */}
+        <div
+          className={`${isFirstVisit
+            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+            : "opacity-100 translate-y-0"
+            }`}
+        >
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
+
+            <button
+              className="relative w-full max-w-sm mx-auto block px-12 py-6 bg-transparent border-2 border-white/60 text-white rounded-xl text-xl font-bold hover:border-white transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:bg-white/5"
+              disabled={isTransitioning}
+              onClick={handleStartGame}
+            >
+              <div className="flex items-center justify-center space-x-4">
+                <Play
+                  className="text-white group-hover:translate-x-1 transition-transform duration-300"
+                  size={24}
+                />
+                <span className="tracking-wider">
+                  {isTransitioning ? t("main.loading") : t("main.startGame")}
+                </span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* User Greeting */}
+        <div
+          className={`${isFirstVisit
+            ? `transition-all duration-1000 transform ${showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
+            }`}
+        >
+          {userLoading ? (
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" />
+              <div
+                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
+                style={{ animationDelay: "0.2s" }}
+              />
+              <div
+                className="w-1 h-1 bg-white/60 rounded-full animate-pulse"
+                style={{ animationDelay: "0.4s" }}
+              />
+            </div>
+          ) : (
+            <p className="text-xl text-white/80 tracking-wider">
+              {greetingText}
+              {isFirstVisit && greetingText.length < fullGreeting.length && (
+                <span className="animate-pulse">|</span>
+              )}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Settings Modal */}
+      <Settings isOpen={isSettingsOpen} onClose={handleCloseSettings} />
+
+      {/* About Modal */}
+      <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
+
+      {/* League Progress Modal */}
+      <LeagueProgressModal
+        isOpen={isLeagueProgressOpen}
+        onClose={handleCloseLeagueProgress}
+      />
+
+      {/* Централизованное отображение попыток */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
+          }`}
+        style={{ paddingBottom: "140px" }}
+      >
         <AttemptsDisplay
-          attemptsRemaining={attemptsRemaining}
           attemptsStatus={attemptsStatus}
-          canPlay={canPlay}
-          error={attemptsError}
           isLoading={attemptsLoading}
-          showShopButton={true}
+          error={attemptsError}
+          canPlay={canPlay}
+          attemptsRemaining={attemptsRemaining}
           onRetry={handleAttemptsRetry}
+          showShopButton={false}
         />
       </div>
 
-      <div className="mb-8">
-        <TournamentCard />
-      </div>
-
-      <div className="space-y-4 mb-8">
-        {GAME_MODES.map((mode) => (
-          <CompactGameModeCard
-            key={mode.id}
-            isAnyModeLoading={loadingModeId !== null}
-            isCurrentModeLoading={loadingModeId === mode.id}
-            isDisabled={!canPlay}
-            isExpanded={expandedModes.includes(mode.id)}
-            mode={mode}
-            onStart={() => handleModeStart(mode)}
-            onToggleExpand={() => handleToggleExpand(mode.id)}
-          />
-        ))}
-      </div>
-
-      <div className="text-center space-y-2 animate-fade-in pb-8">
-        <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
-      </div>
+      {/* Level and League Display */}
+      {user && !userLoading && (
+        <div
+          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showLeagueDisplay
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-4"
+            }`
+            : "opacity-100 translate-y-0"
+            }`}
+          style={{
+            bottom: "96px",
+            zIndex: 50
+          }}
+        >
+          <div className="pointer-events-auto">
+            <CompactLeagueDisplay
+              onClick={handleOpenLeagueProgress}
+              className="cursor-pointer"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-export default function GamePage() {
+export default function MainPage() {
   return (
     <AuthGuard requireCompleteAuth={true} showError={true}>
-      <GamePageContent />
+      <MainPageContent />
     </AuthGuard>
   );
 }

@@ -24,7 +24,6 @@ const getTelegramInitData = (): string => {
   // Для разработки и тестирования
   if (process.env.NODE_ENV === "development") {
     console.warn("Using mock initData for development");
-
     return "mock_init_data_for_development";
   }
 
@@ -91,7 +90,6 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
     if (!window.Telegram?.WebApp) {
       console.warn("Telegram WebApp not available, opening in new tab");
       window.open(invoiceUrl, "_blank");
-
       return true;
     }
 
@@ -129,12 +127,10 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
       // Fallback: открываем ссылку в новом окне
       console.log("openInvoice API not available, using fallback");
       window.open(invoiceUrl, "_blank");
-
       return true;
     }
   } catch (error) {
     console.error("Error opening invoice:", error);
-
     return false;
   }
 };
@@ -144,7 +140,7 @@ const checkPurchaseStatus = async (): Promise<void> => {
   console.log("Checking purchase status...");
 
   // Дополнительная задержка для обработки мгновенного сброса
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   // Здесь можно добавить дополнительную логику проверки статуса
   // или просто обновить данные пользователя
@@ -187,9 +183,8 @@ export const validateProductType = (
     "attempts_1",
     "attempts_5",
     "attempts_10",
-    "attempts_100",
+    "attempts_100"
   ];
-
   return validTypes.includes(productType as ProductType);
 };
 

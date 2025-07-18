@@ -1,85 +1,110 @@
-// src/app/profile/page.tsx - Final fixed profile page using complete server architecture
+// src/app/profile/page.tsx - Fixed profile page with preloaded league data
 
 "use client";
 
-import type { UserRankings } from "@/lib/server/profileService";
-
 import React, { useState, useEffect } from "react";
-
 import { useUser } from "@/hooks/useUser";
+import { userService, type ReferralInfo } from "@/lib/supabase";
+import leagueService from "@/lib/league_service"; // Added league service import
 import { useT } from "@/contexts/LocalizationContext";
 
-// Import updated components
+// Import components
 import EnhancedProfileHeader from "@/components/Profile/EnhancedProfileHeader";
 import MinimalistActionButtons from "@/components/Profile/MinimalistActionButtons";
 import MinimalistDivider from "@/components/Profile/MinimalistDivider";
 import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
-import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
+import LeaguesModal from "@/components/LeagueProgress/LeaguesModal"; // Changed to use proper tabbed modal
 
-// Import server types
-
-// Interface for referral modal compatibility
-interface ReferralInfo {
-  referralCode: string;
-  referralLink: string;
-  referralCount: number;
-  referralBonus: number;
-  referredBy?: string;
-  referredByName?: string;
+interface UserRankings {
+  overall: number | null;
+  reaction: number | null;
+  survival: number | null;
+  physics?: number | null;
+  rotation?: number | null;
 }
 
 export default function ProfilePage() {
-  const {
-    user,
-    telegramUser,
-    isLoading: userLoading,
-    profile,
-    leagues,
-  } = useUser();
+  const { user, telegramUser, isLoading: userLoading } = useUser();
   const t = useT();
 
-  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
-  const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
-  const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
-
-  // Preload all required data when component mounts
-  useEffect(() => {
-    if (user && telegramUser && !profile.hasProfileData()) {
-      console.log("Preloading profile data for authenticated user...");
-      profile.fetchProfile();
-    }
-  }, [user, telegramUser, profile]);
-
-  // Preload league data
-  useEffect(() => {
-    if (user && telegramUser && !leagues.hasCompactData()) {
-      console.log("Preloading compact league data...");
-      leagues.fetchCompactLeagues();
-    }
-  }, [user, telegramUser, leagues]);
-
-  // Create referral info object from profile data
-  const referralInfo: ReferralInfo | null = profile.referrals
-    ? {
-        referralCode: profile.referrals.referral_code,
-        referralLink: `https://t.me/CircusleBot/play?startapp=${profile.referrals.referral_code}`,
-        referralCount: profile.referrals.referral_count,
-        referralBonus: profile.referrals.referral_bonus,
-        referredBy: profile.referrals.referred_by,
-        referredByName: profile.referrals.referred_by_name,
-      }
-    : null;
-
-  // Get rankings data with proper type
-  const rankings: UserRankings = profile.rankings || {
+  const [rankings, setRankings] = useState<UserRankings>({
     overall: null,
     reaction: null,
     survival: null,
     physics: null,
     rotation: null,
-  };
+  });
+  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
+  const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
+  const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
+
+  useEffect(() => {
+    const loadProfileData = async () => {
+      if (!telegramUser?.id || !user?.id) return;
+
+      try {
+        setIsLoadingData(true);
+
+        // Load all data in parallel including league data for better performance
+        const [
+          overallRank,
+          reactionRank,
+          survivalRank,
+          physicsRank,
+          rotationRank,
+          refInfo,
+          // Preload league data to avoid lags in modal
+          allLeagues,
+          userLeagueProgress,
+          userRewards,
+          allLeagueRewards
+        ] = await Promise.all([
+          userService.getUserRanking(telegramUser.id),
+          userService.getUserReactionRanking(telegramUser.id),
+          userService.getUserSurvivalRanking(telegramUser.id),
+          userService.getUserPhysicsRanking(telegramUser.id),
+          userService.getUserRotationRanking(telegramUser.id),
+          userService.getReferralInfo(telegramUser.id),
+          // Preload league data
+          leagueService.getAllLeagues(),
+          leagueService.getUserLeagueProgress(user.id, user.total_games),
+          leagueService.getUserRewards(user.id),
+          leagueService.getAllLeagueRewards()
+        ]);
+
+        setRankings({
+          overall: overallRank,
+          reaction: reactionRank,
+          survival: survivalRank,
+          physics: physicsRank,
+          rotation: rotationRank,
+        });
+        setReferralInfo(refInfo);
+
+        // Store preloaded league data in component state or context for immediate modal access
+        // This prevents loading delays when modal opens
+        console.log("League data preloaded:", {
+          leagues: allLeagues?.length,
+          userProgress: userLeagueProgress?.currentLeague?.name,
+          userRewards: userRewards?.length,
+          allRewards: Object.keys(allLeagueRewards || {}).length
+        });
+
+      } catch (error) {
+        console.error("Error loading profile data:", error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    if (telegramUser && user && !userLoading) {
+      loadProfileData();
+    }
+  }, [telegramUser, user, userLoading]);
 
   const handleOpenReferrals = () => {
     setIsReferralModalOpen(true);
@@ -93,12 +118,7 @@ export default function ProfilePage() {
     setIsLeaguesModalOpen(true);
   };
 
-  // Show loading while any required data is loading
-  const isLoadingAnyData =
-    userLoading || profile.isLoading || leagues.compactLoading;
-  const hasRequiredData = profile.hasProfileData() && user && telegramUser;
-
-  if (isLoadingAnyData && !hasRequiredData) {
+  if (userLoading || isLoadingData) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -109,28 +129,7 @@ export default function ProfilePage() {
     );
   }
 
-  // Show error if profile loading failed
-  if (profile.error && !profile.hasProfileData()) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 bg-white/10 rounded-lg flex items-center justify-center mx-auto">
-            <span className="text-white/60 text-2xl">⚠</span>
-          </div>
-          <p className="text-white">{t("common.error")}</p>
-          <button
-            className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded hover:bg-white/20 transition-colors"
-            onClick={() => profile.fetchProfile()}
-          >
-            {t("common.retry")}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show not found if no user data
-  if (!hasRequiredData) {
+  if (!user || !telegramUser) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -155,43 +154,43 @@ export default function ProfilePage() {
       <MinimalistDivider />
 
       <div className="max-w-md mx-auto">
-        {/* Enhanced Profile Header with Level and League - uses server data */}
-        <EnhancedProfileHeader user={profile.profile!} />
+        {/* Enhanced Profile Header with Level and League */}
+        <EnhancedProfileHeader user={user} />
 
         {/* Action Buttons */}
         <MinimalistActionButtons
+          onOpenReferrals={handleOpenReferrals}
           onOpenAchievements={handleOpenAchievements}
           onOpenLeagues={handleOpenLeagues}
-          onOpenReferrals={handleOpenReferrals}
         />
 
         {/* Divider */}
         <MinimalistDivider />
 
-        {/* Game Statistics with Level Progress - uses server data */}
-        <MinimalistGameStats user={profile.profile!} />
+        {/* Game Statistics with Level Progress */}
+        <MinimalistGameStats user={user} />
 
         {/* Bottom spacing for safe area */}
         <div className="h-20" />
       </div>
 
-      {/* Modals - all using server architecture data */}
+      {/* Modals */}
       {referralInfo && (
         <ReferralModal
           isOpen={isReferralModalOpen}
-          referralInfo={referralInfo}
           onClose={() => setIsReferralModalOpen(false)}
+          referralInfo={referralInfo}
         />
       )}
 
       <AchievementsModal
         isOpen={isAchievementsModalOpen}
-        rankings={rankings}
-        user={profile.profile!}
         onClose={() => setIsAchievementsModalOpen(false)}
+        user={user}
+        rankings={rankings}
       />
 
-      {/* Leagues modal uses centralized leagues module */}
+      {/* Fixed: Use proper tabbed leagues modal with preloaded data */}
       <LeaguesModal
         isOpen={isLeaguesModalOpen}
         onClose={() => setIsLeaguesModalOpen(false)}

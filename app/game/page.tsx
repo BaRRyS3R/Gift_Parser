@@ -1,5 +1,4 @@
-// ===== src/app/game/page.tsx =====
-// ИСПРАВЛЕНО: Правильное использование attempts через useUser
+// src/app/game/page.tsx - Унифицированная страница игр с устранением дублирования запросов
 
 "use client";
 
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
@@ -192,7 +192,7 @@ const CompactGameModeCard = ({
           className="text-white/5"
           size={120}
           style={{
-            transform: "rotate(15deg)",
+            transform: 'rotate(15deg)'
           }}
         />
       </div>
@@ -216,12 +216,12 @@ const CompactGameModeCard = ({
                 <div className="w-1 h-1 rounded-full bg-white/40" />
                 <span
                   className={`${mode.difficulty === "💋😈"
-                      ? "text-red-400"
-                      : mode.difficulty === "👉👌"
-                        ? "text-purple-400"
-                        : mode.difficulty === "🌀"
-                          ? "text-orange-400"
-                          : mode.color.accent
+                    ? "text-red-400"
+                    : mode.difficulty === "👉👌"
+                      ? "text-purple-400"
+                      : mode.difficulty === "🌀"
+                        ? "text-orange-400"
+                        : mode.color.accent
                     }`}
                 >
                   {mode.difficulty}
@@ -231,9 +231,9 @@ const CompactGameModeCard = ({
           </div>
 
           <button
-            className={`p-2 rounded-lg transition-all duration-300 ${mode.color.background} hover:bg-white/10 relative z-20 disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={isAnyModeLoading}
             onClick={onToggleExpand}
+            disabled={isAnyModeLoading}
+            className={`p-2 rounded-lg transition-all duration-300 ${mode.color.background} hover:bg-white/10 relative z-20 disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isExpanded ? (
               <ChevronUp className={mode.color.accent} size={16} />
@@ -258,12 +258,12 @@ const CompactGameModeCard = ({
                   <div key={index} className="flex items-center space-x-2">
                     <div
                       className={`w-1 h-1 rounded-full ${mode.id === "reaction"
-                          ? "bg-white/60"
-                          : mode.id === "survival"
-                            ? "bg-red-400/60"
-                            : mode.id === "physics"
-                              ? "bg-purple-400/60"
-                              : "bg-orange-400/60"
+                        ? "bg-white/60"
+                        : mode.id === "survival"
+                          ? "bg-red-400/60"
+                          : mode.id === "physics"
+                            ? "bg-purple-400/60"
+                            : "bg-orange-400/60"
                         }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
@@ -277,6 +277,8 @@ const CompactGameModeCard = ({
         )}
 
         <button
+          onClick={onStart}
+          disabled={isAnyModeLoading || isDisabled}
           className={`
             w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg relative z-20
             text-sm font-bold transition-all duration-300
@@ -286,8 +288,6 @@ const CompactGameModeCard = ({
               : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
             }
           `}
-          disabled={isAnyModeLoading || isDisabled}
-          onClick={onStart}
         >
           {isCurrentModeLoading ? (
             <>
@@ -298,7 +298,9 @@ const CompactGameModeCard = ({
             <>
               <Play size={16} />
               <span>
-                {isDisabled ? t("game.general.noAttempts") : t("common.play")}
+                {isDisabled
+                  ? t("game.general.noAttempts")
+                  : t("common.play")}
               </span>
             </>
           )}
@@ -321,8 +323,7 @@ const CompactGameModeCard = ({
 
 function GamePageContent() {
   const router = useRouter();
-  // ИСПРАВЛЕНО: Используем attempts через useUser
-  const { user, attempts } = useUser();
+  const { user, makeAuthenticatedRequest } = useUser();
   const {
     attemptsStatus,
     isLoading: attemptsLoading,
@@ -330,41 +331,35 @@ function GamePageContent() {
     canPlay,
     attemptsRemaining,
     fetchAttemptsStatus,
-    clearError,
-  } = attempts;
+    clearError
+  } = useAttempts();
   const t = useT();
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
 
-  const handleModeStart = useCallback(
-    (mode: GameMode) => {
-      if (loadingModeId) return;
+  const handleModeStart = useCallback((mode: GameMode) => {
+    if (loadingModeId) return;
 
-      setLoadingModeId(mode.id);
+    setLoadingModeId(mode.id);
 
-      console.log(`Starting ${mode.id} game`);
+    console.log(`Starting ${mode.id} game`);
 
-      // Navigate to game after brief loading animation
-      setTimeout(() => {
-        router.push(mode.route);
-      }, 600);
-    },
-    [loadingModeId, router],
-  );
+    // Navigate to game after brief loading animation
+    setTimeout(() => {
+      router.push(mode.route);
+    }, 600);
+  }, [loadingModeId, router]);
 
-  const handleToggleExpand = useCallback(
-    (modeId: string) => {
-      if (loadingModeId) return;
+  const handleToggleExpand = useCallback((modeId: string) => {
+    if (loadingModeId) return;
 
-      setExpandedModes((prev) =>
-        prev.includes(modeId)
-          ? prev.filter((id) => id !== modeId)
-          : [...prev, modeId],
-      );
-    },
-    [loadingModeId],
-  );
+    setExpandedModes((prev) =>
+      prev.includes(modeId)
+        ? prev.filter((id) => id !== modeId)
+        : [...prev, modeId]
+    );
+  }, [loadingModeId]);
 
   const handleAttemptsRetry = useCallback(() => {
     clearError();
@@ -375,7 +370,6 @@ function GamePageContent() {
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
-
       tg.BackButton.show();
       tg.BackButton.onClick(() => {
         router.push("/main");
@@ -391,8 +385,8 @@ function GamePageContent() {
   return (
     <div
       className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : "opacity-100 transition-opacity duration-1000 ease-out"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
     >
       <div className="text-center space-y-4 mb-8">
@@ -407,13 +401,13 @@ function GamePageContent() {
       {/* Централизованное отображение попыток с расширенными возможностями */}
       <div className="mb-8 animate-fade-in">
         <AttemptsDisplay
-          attemptsRemaining={attemptsRemaining}
           attemptsStatus={attemptsStatus}
-          canPlay={canPlay}
-          error={attemptsError}
           isLoading={attemptsLoading}
-          showShopButton={true}
+          error={attemptsError}
+          canPlay={canPlay}
+          attemptsRemaining={attemptsRemaining}
           onRetry={handleAttemptsRetry}
+          showShopButton={true}
         />
       </div>
 
@@ -425,13 +419,13 @@ function GamePageContent() {
         {GAME_MODES.map((mode) => (
           <CompactGameModeCard
             key={mode.id}
-            isAnyModeLoading={loadingModeId !== null}
-            isCurrentModeLoading={loadingModeId === mode.id}
-            isDisabled={!canPlay}
-            isExpanded={expandedModes.includes(mode.id)}
             mode={mode}
-            onStart={() => handleModeStart(mode)}
+            isExpanded={expandedModes.includes(mode.id)}
             onToggleExpand={() => handleToggleExpand(mode.id)}
+            onStart={() => handleModeStart(mode)}
+            isDisabled={!canPlay}
+            isCurrentModeLoading={loadingModeId === mode.id}
+            isAnyModeLoading={loadingModeId !== null}
           />
         ))}
       </div>
