@@ -1,4 +1,4 @@
-// src/lib/telegram-auth.ts - Telegram WebApp data validation
+// src/lib/telegram-auth.ts - Telegram WebApp data validation with client/server separation
 
 import crypto from 'crypto';
 import type { TelegramUser } from './supabase';
@@ -29,21 +29,41 @@ export interface ValidationResult {
   error?: string;
 }
 
-const TELEGRAM_BOT_API = process.env.TELEGRAM_BOT_API;
-
-if (!TELEGRAM_BOT_API) {
-  throw new Error('TELEGRAM_BOT_API environment variable is required');
+// Parse result for client-side use
+export interface ParseResult {
+  success: boolean;
+  user?: TelegramUser;
+  initData?: TelegramInitData;
+  error?: string;
 }
 
-// Ensure we have a valid token for crypto operations
-const BOT_TOKEN: string = TELEGRAM_BOT_API;
+// Server-side only: Get bot token
+const getTelegramBotToken = (): string => {
+  if (typeof window !== 'undefined') {
+    throw new Error('Bot token access is only allowed on server side');
+  }
+  
+  const botToken = process.env.TELEGRAM_BOT_API;
+  if (!botToken) {
+    throw new Error('TELEGRAM_BOT_API environment variable is required for server-side validation');
+  }
+  
+  return botToken;
+};
 
 /**
- * Validates Telegram WebApp initData using official algorithm.
+ * SERVER-SIDE ONLY: Validates Telegram WebApp initData using official algorithm
  * Based on: https://core.telegram.org/bots/webapps#validating-data-received-via-the-web-app
  */
 export function validateTelegramWebAppData(initData: string): ValidationResult {
+  // Ensure this function is only called on server side
+  if (typeof window !== 'undefined') {
+    throw new Error('Telegram validation must be performed on server side');
+  }
+
   try {
+    const botToken = getTelegramBotToken();
+    
     // Parse the initData string
     const urlParams = new URLSearchParams(initData);
     const hash = urlParams.get('hash');
@@ -67,7 +87,7 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
     // Create secret key using bot token
     const secretKeyBuffer = crypto
       .createHmac('sha256', 'WebAppData')
-      .update(BOT_TOKEN)
+      .update(botToken)
       .digest();
 
     // Convert Buffer to Uint8Array for compatibility
@@ -160,9 +180,130 @@ export function validateTelegramWebAppData(initData: string): ValidationResult {
 }
 
 /**
- * Validates Telegram WebApp data with additional security checks
+ * CLIENT-SIDE: Parse Telegram WebApp initData without cryptographic validation
+ * This function safely runs in the browser and only parses the data structure
+ */
+export function parseTelegramInitData(initData: string): ParseResult {
+  try {
+    // Handle development mock data
+    if (process.env.NODE_ENV === 'development' && initData === 'mock_init_data_for_development') {
+      return {
+        success: true,
+        user: {
+          id: 430743609,
+          first_name: 'Test User',
+          last_name: 'Developer',
+          username: 'testuser',
+          language_code: 'en',
+          is_premium: false,
+        },
+        initData: {
+          auth_date: Math.floor(Date.now() / 1000),
+          hash: 'mock_hash'
+        }
+      };
+    }
+
+    // Parse the initData string
+    const urlParams = new URLSearchParams(initData);
+    const hash = urlParams.get('hash');
+    
+    if (!hash) {
+      return {
+        success: false,
+        error: 'Missing hash parameter'
+      };
+    }
+
+    // Parse auth_date
+    const authDate = parseInt(urlParams.get('auth_date') || '0');
+    
+    if (!authDate) {
+      return {
+        success: false,
+        error: 'Missing or invalid auth_date'
+      };
+    }
+
+    // Parse user data
+    const userParam = urlParams.get('user');
+    if (!userParam) {
+      return {
+        success: false,
+        error: 'Missing user data'
+      };
+    }
+
+    let user: TelegramUser;
+    try {
+      user = JSON.parse(userParam);
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Invalid user data format'
+      };
+    }
+
+    // Validate required user fields
+    if (!user.id || !user.first_name) {
+      return {
+        success: false,
+        error: 'Missing required user fields'
+      };
+    }
+
+    // Basic time validation (not older than 48 hours for client-side)
+    const currentTime = Math.floor(Date.now() / 1000);
+    const maxAge = 48 * 60 * 60; // 48 hours (more lenient for client-side)
+
+    if (currentTime - authDate > maxAge) {
+      return {
+        success: false,
+        error: 'Auth data appears to be too old'
+      };
+    }
+
+    // Construct parsed initData
+    const parsedInitData: TelegramInitData = {
+      auth_date: authDate,
+      hash,
+      user
+    };
+
+    // Add optional fields
+    if (urlParams.get('query_id')) {
+      parsedInitData.query_id = urlParams.get('query_id')!;
+    }
+    if (urlParams.get('start_param')) {
+      parsedInitData.start_param = urlParams.get('start_param')!;
+    }
+    if (urlParams.get('can_send_after')) {
+      parsedInitData.can_send_after = parseInt(urlParams.get('can_send_after')!);
+    }
+
+    return {
+      success: true,
+      user,
+      initData: parsedInitData
+    };
+
+  } catch (error) {
+    console.error('Error parsing Telegram data:', error);
+    return {
+      success: false,
+      error: 'Failed to parse Telegram data'
+    };
+  }
+}
+
+/**
+ * Validates Telegram WebApp data with additional security checks (SERVER-SIDE ONLY)
  */
 export function validateTelegramWebAppDataStrict(initData: string): ValidationResult {
+  if (typeof window !== 'undefined') {
+    throw new Error('Strict validation must be performed on server side');
+  }
+
   const basicValidation = validateTelegramWebAppData(initData);
   
   if (!basicValidation.isValid) {
@@ -202,7 +343,7 @@ export function validateTelegramWebAppDataStrict(initData: string): ValidationRe
 }
 
 /**
- * Extract referral code from Telegram start parameter
+ * Extract referral code from Telegram start parameter (SAFE FOR CLIENT-SIDE)
  */
 export function extractReferralCode(initData: string): string | null {
   try {
@@ -222,9 +363,13 @@ export function extractReferralCode(initData: string): string | null {
 }
 
 /**
- * Creates a hash of initData for additional security tracking
+ * Creates a hash of initData for additional security tracking (SERVER-SIDE ONLY)
  */
 export function createInitDataHash(initData: string): string {
+  if (typeof window !== 'undefined') {
+    throw new Error('Hash creation must be performed on server side');
+  }
+
   return crypto
     .createHash('sha256')
     .update(initData)
@@ -232,44 +377,56 @@ export function createInitDataHash(initData: string): string {
 }
 
 /**
- * Validates initData for development environment
- * WARNING: Only use in development, not production!
+ * Main validation function that chooses appropriate method based on environment
  */
-export function validateTelegramWebAppDataDev(initData: string): ValidationResult {
-  if (process.env.NODE_ENV !== 'development') {
-    throw new Error('Development validation can only be used in development environment');
+export function validateTelegramData(initData: string): ValidationResult {
+  // This function should only be called on server side
+  if (typeof window !== 'undefined') {
+    throw new Error('validateTelegramData must be called on server side. Use parseTelegramInitData for client side.');
   }
 
-  // For development, accept mock data
-  if (initData === 'mock_init_data_for_development') {
-    return {
-      isValid: true,
-      user: {
-        id: 430743609,
-        first_name: 'Test User',
-        last_name: 'Developer',
-        username: 'testuser',
-        language_code: 'en',
-        is_premium: false,
-      },
-      initData: {
-        auth_date: Math.floor(Date.now() / 1000),
-        hash: 'mock_hash'
-      }
-    };
+  if (process.env.NODE_ENV === 'development') {
+    // Allow mock data in development
+    if (initData === 'mock_init_data_for_development') {
+      return {
+        isValid: true,
+        user: {
+          id: 430743609,
+          first_name: 'Test User',
+          last_name: 'Developer',
+          username: 'testuser',
+          language_code: 'en',
+          is_premium: false,
+        },
+        initData: {
+          auth_date: Math.floor(Date.now() / 1000),
+          hash: 'mock_hash'
+        }
+      };
+    }
   }
-
-  // Try normal validation first
+  
   return validateTelegramWebAppDataStrict(initData);
 }
 
 /**
- * Main validation function that chooses appropriate method based on environment
+ * CLIENT-SIDE: Get initData from Telegram WebApp (SAFE FOR BROWSER)
  */
-export function validateTelegramData(initData: string): ValidationResult {
-  if (process.env.NODE_ENV === 'development') {
-    return validateTelegramWebAppDataDev(initData);
+export function getTelegramInitData(): string {
+  if (typeof window === 'undefined') {
+    return '';
   }
-  
-  return validateTelegramWebAppDataStrict(initData);
+
+  // Production: use real Telegram data
+  if (window.Telegram?.WebApp?.initData) {
+    return window.Telegram.WebApp.initData;
+  }
+
+  // Development fallback
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('Using mock initData for development');
+    return 'mock_init_data_for_development';
+  }
+
+  return '';
 }

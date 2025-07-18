@@ -1,4 +1,4 @@
-// src/app/page.tsx - Updated with JWT authentication integration
+// src/app/page.tsx - Updated with client/server separated telegram auth
 
 "use client";
 
@@ -9,7 +9,11 @@ import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import { extractReferralCode } from "@/lib/telegram-auth";
+import { 
+  extractReferralCode, 
+  parseTelegramInitData, 
+  getTelegramInitData 
+} from "@/lib/telegram-auth";
 import DebugLanguage from "@/components/DebugLanguage";
 import type { TelegramUser } from "@/lib/supabase";
 import type { RegistrationResult, LoginResult } from "@/hooks/modules/useAuth";
@@ -41,13 +45,13 @@ export default function IntroPage(): JSX.Element {
   const t = useT();
 
   // User management hooks
-  const {
-    authState,
-    telegramUser,
+  const { 
+    authState, 
+    telegramUser, 
     setTelegramUser,
-    register,
+    register, 
     login,
-    isLoading: userLoading
+    isLoading: userLoading 
   } = useUser();
 
   // Initialization flags
@@ -78,89 +82,39 @@ export default function IntroPage(): JSX.Element {
   }, [authState]);
 
   /**
-   * Extract Telegram user data from WebApp API
+   * Extract Telegram user data from WebApp API using client-safe parsing
    */
-  const getTelegramUser = useCallback((): TelegramUser | null => {
-    if (typeof window === "undefined") {
-      return null;
+  const getTelegramUserData = useCallback((): { user: TelegramUser | null; initData: string } => {
+    // Get initData using the safe client-side function
+    const initData = getTelegramInitData();
+    
+    if (!initData) {
+      console.log("No Telegram initData available");
+      return { user: null, initData: "" };
     }
 
-    if (!window.Telegram?.WebApp) {
-      console.log("Telegram WebApp API unavailable");
-
-      // Development fallback
-      if (process.env.NODE_ENV === "development") {
-        console.log("Using development test user");
-        return {
-          id: 430743609,
-          first_name: "Test User",
-          last_name: "Developer",
-          username: "testuser",
-          language_code: "en",
-          is_premium: false,
-        };
-      }
-      return null;
+    // Parse initData safely on client side
+    const parseResult = parseTelegramInitData(initData);
+    
+    if (!parseResult.success || !parseResult.user) {
+      console.log("Failed to parse Telegram data:", parseResult.error);
+      return { user: null, initData };
     }
 
-    const tg = window.Telegram.WebApp;
-    const user = tg.initDataUnsafe?.user;
-
-    console.log("Telegram user data:", user);
-
-    if (!user || !user.id) {
-      console.log("No valid Telegram user found");
-
-      // Development fallback
-      if (process.env.NODE_ENV === "development") {
-        return {
-          id: 430743609,
-          first_name: "Test User",
-          last_name: "Developer",
-          username: "testuser",
-          language_code: "en",
-          is_premium: false,
-        };
-      }
-      return null;
-    }
-
-    return {
-      id: user.id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      username: user.username,
-      language_code: user.language_code,
-      is_premium: user.is_premium,
-    };
-  }, []);
-
-  /**
-   * Get Telegram WebApp initData for authentication
-   */
-  const getTelegramInitData = useCallback((): string => {
-    if (typeof window === "undefined") {
-      return "";
-    }
-
-    // Production: use real Telegram data
-    if (window.Telegram?.WebApp?.initData) {
-      return window.Telegram.WebApp.initData;
-    }
-
-    // Development fallback
-    if (process.env.NODE_ENV === "development") {
-      console.warn("Using mock initData for development");
-      return "mock_init_data_for_development";
-    }
-
-    return "";
+    console.log("Successfully parsed Telegram user data:", parseResult.user);
+    return { user: parseResult.user, initData };
   }, []);
 
   /**
    * Validate referral code and extract referrer information
    */
-  const validateReferralCode = useCallback(async (code: string) => {
+  const validateReferralCode = useCallback(async (code: string): Promise<{
+    isValid: boolean;
+    code: string;
+    bonus: number;
+    referrerName?: string;
+    referrerUsername?: string;
+  }> => {
     try {
       // The validation will be handled by the registration API
       // For now, we just store the code for later use
@@ -184,22 +138,22 @@ export default function IntroPage(): JSX.Element {
     try {
       console.log("Attempting user authentication...");
       const result = await login(initData);
-
+      
       if (result.success && result.user) {
         console.log("Authentication successful:", result.user.first_name);
-
+        
         // Redirect to main page after successful login
         setTimeout(() => {
           router.push("/main");
         }, 1000);
       }
-
+      
       return result;
     } catch (error) {
       console.error("Authentication error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Authentication failed"
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Authentication failed" 
       };
     }
   }, [login, router]);
@@ -220,33 +174,33 @@ export default function IntroPage(): JSX.Element {
     try {
       console.log("Registering new user...");
       const result = await register(initData, referralCode);
-
+      
       if (result.success && result.user) {
         console.log("Registration successful:", result.user.first_name);
-
+        
         if (result.referralBonus) {
           console.log("Referral bonus received:", result.referralBonus);
         }
-
+        
         // Update page state to show registration success
         setPageState(prev => ({
           ...prev,
           isInitializing: false,
           needsAuthentication: false,
         }));
-
+        
         // Redirect to main page after successful registration
         setTimeout(() => {
           router.push("/main");
         }, 1000);
       }
-
+      
       return result;
     } catch (error) {
       console.error("Registration error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Registration failed"
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Registration failed" 
       };
     } finally {
       operationInProgressRef.current = false;
@@ -263,11 +217,11 @@ export default function IntroPage(): JSX.Element {
     try {
       console.log("Initializing authentication...");
 
-      // Get Telegram user data
-      const telegramUserData = getTelegramUser();
-      const initData = getTelegramInitData();
+      // Get Telegram user data and initData
+      const { user: telegramUserData, initData } = getTelegramUserData();
 
       console.log("Telegram user data:", telegramUserData);
+      console.log("InitData available:", !!initData);
 
       if (!telegramUserData || !initData) {
         console.error("Telegram data unavailable");
@@ -297,6 +251,8 @@ export default function IntroPage(): JSX.Element {
           referralInfo = {
             code: referralCode,
             bonus: validation.bonus,
+            referrerName: validation.referrerName,
+            referrerUsername: validation.referrerUsername,
           };
           console.log(`Valid referral code found: ${referralCode}`);
         }
@@ -327,16 +283,16 @@ export default function IntroPage(): JSX.Element {
       setPageState(prev => ({
         ...prev,
         isInitializing: false,
-        videoError: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")
-          }`,
+        videoError: `${t("auth.databaseConnectionError")}: ${
+          error instanceof Error ? error.message : t("auth.unknownError")
+        }`,
       }));
     }
   }, [
-    getTelegramUser,
-    getTelegramInitData,
-    setTelegramUser,
-    validateReferralCode,
-    attemptAuthentication,
+    getTelegramUserData, 
+    setTelegramUser, 
+    validateReferralCode, 
+    attemptAuthentication, 
     t
   ]);
 
@@ -356,17 +312,17 @@ export default function IntroPage(): JSX.Element {
     });
 
     // If user is not authenticated and we have data, register them
-    if (!currentAuthState.isAuthenticated &&
-      !currentAuthState.isRegistering &&
-      initData) {
-
+    if (!currentAuthState.isAuthenticated && 
+        !currentAuthState.isRegistering && 
+        initData) {
+      
       console.log("Starting registration after video completion");
-
+      
       const registrationResult = await registerNewUser(
-        initData,
+        initData, 
         pageState.referralInfo?.code
       );
-
+      
       if (!registrationResult.success) {
         console.error("Registration failed after video:", registrationResult.error);
         // Fallback: redirect to main anyway and let main page handle auth
@@ -381,7 +337,7 @@ export default function IntroPage(): JSX.Element {
       console.log("Unexpected state, redirecting to main");
       router.push("/main");
     }
-  }, [getTelegramInitData, registerNewUser, pageState.referralInfo?.code, router]);
+  }, [registerNewUser, pageState.referralInfo?.code, router]);
 
   /**
    * Handle quick registration without video
@@ -394,14 +350,14 @@ export default function IntroPage(): JSX.Element {
     }
 
     const registrationResult = await registerNewUser(
-      initData,
+      initData, 
       pageState.referralInfo?.code
     );
 
     if (!registrationResult.success) {
       console.error("Quick registration failed:", registrationResult.error);
     }
-  }, [getTelegramInitData, authState.isRegistering, registerNewUser, pageState.referralInfo?.code]);
+  }, [authState.isRegistering, registerNewUser, pageState.referralInfo?.code]);
 
   /**
    * Start video playback
@@ -417,9 +373,9 @@ export default function IntroPage(): JSX.Element {
       setPageState(prev => ({ ...prev, isVideoMode: true, videoError: null }));
     } catch (err) {
       console.error("Video play error:", err);
-      setPageState(prev => ({
-        ...prev,
-        videoError: "Failed to play video. Please try again."
+      setPageState(prev => ({ 
+        ...prev, 
+        videoError: "Failed to play video. Please try again." 
       }));
     }
   }, []);
@@ -476,9 +432,9 @@ export default function IntroPage(): JSX.Element {
 
     const handleError = (e: Event) => {
       console.error("Video error:", e);
-      setPageState(prev => ({
-        ...prev,
-        videoError: "Failed to load video. Please try again."
+      setPageState(prev => ({ 
+        ...prev, 
+        videoError: "Failed to load video. Please try again." 
       }));
     };
 
@@ -520,10 +476,10 @@ export default function IntroPage(): JSX.Element {
   };
 
   // Determine loading state
-  const isInitialLoading = pageState.isInitializing ||
-    userLoading ||
-    (videoState.isLoading && !pageState.videoError) ||
-    !videoState.fontLoaded;
+  const isInitialLoading = pageState.isInitializing || 
+                          userLoading || 
+                          (videoState.isLoading && !pageState.videoError) || 
+                          !videoState.fontLoaded;
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -742,8 +698,9 @@ export default function IntroPage(): JSX.Element {
 
       {/* Video Container */}
       <div
-        className={`video-container ${videoState.isPlaying ? "opacity-100" : "opacity-0"
-          } transition-opacity duration-500`}
+        className={`video-container ${
+          videoState.isPlaying ? "opacity-100" : "opacity-0"
+        } transition-opacity duration-500`}
       >
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
