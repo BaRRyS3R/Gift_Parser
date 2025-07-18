@@ -1,9 +1,9 @@
-// src/hooks/modules/useAuth.ts - Authentication module for user management
+// src/hooks/modules/useAuth.ts - Fixed 404 handling for new users
 
 import { useState, useCallback, useRef } from 'react';
 import type { User, TelegramUser } from '@/lib/supabase';
 
-// Authentication state interface
+// [Previous interfaces remain the same...]
 export interface AuthState {
     isAuthenticated: boolean;
     user: User | null;
@@ -12,13 +12,11 @@ export interface AuthState {
     error: string | null;
 }
 
-// Authentication tokens
 export interface AuthTokens {
     accessToken: string;
     refreshToken: string;
 }
 
-// Registration response with referral bonus
 export interface RegistrationResult {
     success: boolean;
     user?: User;
@@ -31,7 +29,6 @@ export interface RegistrationResult {
     error?: string;
 }
 
-// Login response
 export interface LoginResult {
     success: boolean;
     user?: User;
@@ -39,24 +36,18 @@ export interface LoginResult {
     error?: string;
 }
 
-// Storage keys for tokens
 const TOKEN_STORAGE_KEYS = {
     ACCESS_TOKEN: 'auth_access_token',
     REFRESH_TOKEN: 'auth_refresh_token',
 } as const;
 
-// API endpoints
 const API_ENDPOINTS = {
     LOGIN: '/api/auth/login',
     REGISTER: '/api/auth/register',
     REFRESH: '/api/auth/refresh',
 } as const;
 
-/**
- * Authentication module hook
- */
 export function useAuth() {
-    // State management
     const [authState, setAuthState] = useState<AuthState>({
         isAuthenticated: false,
         user: null,
@@ -65,12 +56,8 @@ export function useAuth() {
         error: null,
     });
 
-    // Flag to prevent multiple simultaneous operations
     const operationInProgressRef = useRef<boolean>(false);
 
-    /**
-     * Store authentication tokens securely
-     */
     const storeTokens = useCallback((tokens: AuthTokens) => {
         try {
             if (typeof window !== 'undefined') {
@@ -82,9 +69,6 @@ export function useAuth() {
         }
     }, []);
 
-    /**
-     * Retrieve stored authentication tokens
-     */
     const getStoredTokens = useCallback((): AuthTokens | null => {
         try {
             if (typeof window !== 'undefined') {
@@ -101,9 +85,6 @@ export function useAuth() {
         return null;
     }, []);
 
-    /**
-     * Clear stored authentication tokens
-     */
     const clearTokens = useCallback(() => {
         try {
             if (typeof window !== 'undefined') {
@@ -141,11 +122,9 @@ export function useAuth() {
 
         // Handle token expiration
         if (response.status === 401) {
-            // Try to refresh token
             try {
                 const refreshResult = await refreshAuthToken();
                 if (refreshResult.success && refreshResult.tokens) {
-                    // Retry with new token
                     const retryHeaders = {
                         ...headers,
                         'Authorization': `Bearer ${refreshResult.tokens.accessToken}`,
@@ -158,7 +137,6 @@ export function useAuth() {
                 }
             } catch (refreshError) {
                 console.error('Token refresh failed:', refreshError);
-                // Clear invalid tokens and redirect to auth
                 clearTokens();
                 setAuthState(prev => ({
                     ...prev,
@@ -173,6 +151,118 @@ export function useAuth() {
     }, [getStoredTokens, clearTokens]);
 
     /**
+     * FIXED: Login with proper 404 handling for new users
+     */
+    const login = useCallback(async (initData: string): Promise<LoginResult> => {
+        if (operationInProgressRef.current) {
+            console.log('Login already in progress, skipping...');
+            return { success: false, error: 'Login already in progress' };
+        }
+
+        operationInProgressRef.current = true;
+
+        setAuthState(prev => ({
+            ...prev,
+            isLoading: true,
+            error: null,
+        }));
+
+        try {
+            console.log('Attempting login...');
+
+            const response = await fetch(API_ENDPOINTS.LOGIN, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    initData,
+                }),
+            });
+
+            console.log('Login response status:', response.status);
+
+            // CRITICAL FIX: Handle 404 (user not found) as expected behavior for new users
+            if (response.status === 404) {
+                console.log('User not found - this is expected for new users');
+
+                setAuthState(prev => ({
+                    ...prev,
+                    isLoading: false,
+                    error: null, // Clear any previous errors
+                }));
+
+                return {
+                    success: false,
+                    error: 'USER_NOT_FOUND' // Use a specific error code
+                };
+            }
+
+            // Handle other HTTP errors
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Login failed with status:', response.status, errorText);
+
+                const errorMessage = `Login failed: ${response.status} ${response.statusText}`;
+
+                setAuthState(prev => ({
+                    ...prev,
+                    isLoading: false,
+                    error: errorMessage,
+                }));
+
+                return { success: false, error: errorMessage };
+            }
+
+            // Parse successful response
+            const result = await response.json();
+
+            if (result.success && result.user && result.tokens) {
+                storeTokens(result.tokens);
+
+                setAuthState(prev => ({
+                    ...prev,
+                    isAuthenticated: true,
+                    user: result.user,
+                    isLoading: false,
+                    error: null,
+                }));
+
+                console.log('Login successful:', result.user.first_name);
+
+                return {
+                    success: true,
+                    user: result.user,
+                    tokens: result.tokens,
+                };
+            } else {
+                const errorMessage = result.error || 'Login failed';
+
+                setAuthState(prev => ({
+                    ...prev,
+                    isLoading: false,
+                    error: errorMessage,
+                }));
+
+                return { success: false, error: errorMessage };
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Login failed';
+
+            setAuthState(prev => ({
+                ...prev,
+                isLoading: false,
+                error: errorMessage,
+            }));
+
+            return { success: false, error: errorMessage };
+        } finally {
+            operationInProgressRef.current = false;
+        }
+    }, [storeTokens]);
+
+    /**
      * Register new user
      */
     const register = useCallback(async (
@@ -180,6 +270,7 @@ export function useAuth() {
         referralCode?: string
     ): Promise<RegistrationResult> => {
         if (operationInProgressRef.current) {
+            console.log('Registration already in progress, skipping...');
             return { success: false, error: 'Registration already in progress' };
         }
 
@@ -193,6 +284,8 @@ export function useAuth() {
         }));
 
         try {
+            console.log('Attempting registration...');
+
             const response = await fetch(API_ENDPOINTS.REGISTER, {
                 method: 'POST',
                 headers: {
@@ -204,13 +297,19 @@ export function useAuth() {
                 }),
             });
 
+            console.log('Registration response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Registration failed with status:', response.status, errorText);
+                throw new Error(`Registration failed: ${response.status} ${response.statusText}`);
+            }
+
             const result = await response.json();
 
             if (result.success && result.user && result.tokens) {
-                // Store tokens
                 storeTokens(result.tokens);
 
-                // Update auth state
                 setAuthState(prev => ({
                     ...prev,
                     isAuthenticated: true,
@@ -258,82 +357,6 @@ export function useAuth() {
     }, [storeTokens]);
 
     /**
-     * Login existing user
-     */
-    const login = useCallback(async (initData: string): Promise<LoginResult> => {
-        if (operationInProgressRef.current) {
-            return { success: false, error: 'Login already in progress' };
-        }
-
-        operationInProgressRef.current = true;
-
-        setAuthState(prev => ({
-            ...prev,
-            isLoading: true,
-            error: null,
-        }));
-
-        try {
-            const response = await fetch(API_ENDPOINTS.LOGIN, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    initData,
-                }),
-            });
-
-            const result = await response.json();
-
-            if (result.success && result.user && result.tokens) {
-                // Store tokens
-                storeTokens(result.tokens);
-
-                // Update auth state
-                setAuthState(prev => ({
-                    ...prev,
-                    isAuthenticated: true,
-                    user: result.user,
-                    isLoading: false,
-                    error: null,
-                }));
-
-                console.log('Login successful:', result.user.first_name);
-
-                return {
-                    success: true,
-                    user: result.user,
-                    tokens: result.tokens,
-                };
-            } else {
-                const errorMessage = result.error || 'Login failed';
-
-                setAuthState(prev => ({
-                    ...prev,
-                    isLoading: false,
-                    error: errorMessage,
-                }));
-
-                return { success: false, error: errorMessage };
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Login failed';
-
-            setAuthState(prev => ({
-                ...prev,
-                isLoading: false,
-                error: errorMessage,
-            }));
-
-            return { success: false, error: errorMessage };
-        } finally {
-            operationInProgressRef.current = false;
-        }
-    }, [storeTokens]);
-
-    /**
      * Refresh authentication token
      */
     const refreshAuthToken = useCallback(async (): Promise<LoginResult> => {
@@ -351,6 +374,10 @@ export function useAuth() {
                     'Authorization': `Bearer ${tokens.refreshToken}`,
                 },
             });
+
+            if (!response.ok) {
+                throw new Error(`Token refresh failed: ${response.status}`);
+            }
 
             const result = await response.json();
 
@@ -394,9 +421,6 @@ export function useAuth() {
         }
     }, [getStoredTokens, storeTokens, clearTokens]);
 
-    /**
-     * Logout user
-     */
     const logout = useCallback(() => {
         clearTokens();
         setAuthState({
@@ -411,27 +435,38 @@ export function useAuth() {
     }, [clearTokens]);
 
     /**
-     * Check if user is authenticated with stored tokens
+     * FIXED: Check auth status with better error handling
      */
     const checkAuthStatus = useCallback(async (): Promise<boolean> => {
         const tokens = getStoredTokens();
 
         if (!tokens) {
+            console.log('No stored tokens found');
+            setAuthState(prev => ({
+                ...prev,
+                isAuthenticated: false,
+                user: null,
+            }));
             return false;
         }
 
         try {
+            console.log('Checking auth status with stored tokens...');
             const refreshResult = await refreshAuthToken();
-            return refreshResult.success;
+
+            if (refreshResult.success) {
+                console.log('Auth status check successful');
+                return true;
+            } else {
+                console.log('Auth status check failed:', refreshResult.error);
+                return false;
+            }
         } catch (error) {
             console.error('Auth status check failed:', error);
             return false;
         }
     }, [getStoredTokens, refreshAuthToken]);
 
-    /**
-     * Clear authentication error
-     */
     const clearError = useCallback(() => {
         setAuthState(prev => ({
             ...prev,
@@ -440,18 +475,13 @@ export function useAuth() {
     }, []);
 
     return {
-        // State
         authState,
-
-        // Actions
         register,
         login,
         logout,
         refreshAuthToken,
         checkAuthStatus,
         clearError,
-
-        // Utilities
         makeAuthenticatedRequest,
         getStoredTokens,
     };
