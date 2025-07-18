@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Refactored client service with game logic moved to server API
+// src/lib/supabase.ts - Updated client service without direct league_service dependency
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -88,6 +88,38 @@ export interface TelegramUser {
   username?: string;
   language_code?: string;
   is_premium?: boolean;
+}
+
+/**
+ * Initialize user league via API endpoint
+ */
+async function initializeUserLeagueViaAPI(accessToken: string): Promise<void> {
+  try {
+    const response = await fetch('/api/user/initialize-league', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('League initialization failed:', errorData);
+      // Non-blocking error - user creation should still succeed
+      return;
+    }
+
+    const result = await response.json();
+    if (result.success) {
+      console.log('League initialized successfully via API');
+    } else {
+      console.error('League initialization failed:', result.error);
+    }
+  } catch (error) {
+    console.error('Error initializing league via API:', error);
+    // Non-blocking error - user creation should still succeed
+  }
 }
 
 export const userService = {
@@ -185,7 +217,7 @@ export const userService = {
     return code;
   },
 
-  async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
+  async create(telegramUser: TelegramUser, referralCode?: string, accessToken?: string): Promise<User> {
     const referralCodeToUse = await this.generateUniqueReferralCode();
     let additionalAttempts = 10;
     let referredBy = null;
@@ -234,12 +266,14 @@ export const userService = {
       throw error;
     }
 
-    try {
-      // Initialize user league using direct import to avoid circular dependency
-      const { default: leagueService } = await import('./league_service');
-      await leagueService.initializeUserLeague(data.id, 0);
-    } catch (leagueError) {
-      console.error("Error initializing user league:", leagueError);
+    // Initialize user league via API endpoint (non-blocking)
+    if (accessToken) {
+      // Use the access token provided during registration process
+      initializeUserLeagueViaAPI(accessToken).catch(error => {
+        console.error("League initialization failed (non-blocking):", error);
+      });
+    } else {
+      console.warn("No access token provided for league initialization");
     }
 
     return data;

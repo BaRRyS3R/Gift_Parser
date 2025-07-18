@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/AchievementNotification.tsx - Компонент popup уведомлений о достижениях
+// src/components/LeagueProgress/AchievementNotification.tsx - Updated with consolidated type imports
 
 "use client";
 
@@ -16,7 +16,7 @@ import {
     Sparkles
 } from "lucide-react";
 import { useT } from "@/contexts/LocalizationContext";
-import type { League, LeagueRewardResult } from "@/lib/league_service";
+import type { League, LeagueRewardResult } from "@/types/league-definitions";
 
 export interface AchievementNotificationData {
     type: 'level_up' | 'league_promotion' | 'reward_received';
@@ -41,7 +41,7 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
     const [isVisible, setIsVisible] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
 
-    // Auto close timer
+    // Automated closure management with configurable delay
     useEffect(() => {
         if (!notification) return;
 
@@ -67,7 +67,7 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
         return null;
     }
 
-    // Get league icon and colors
+    // League visual identity configuration
     const getLeagueIcon = (leagueName?: string) => {
         switch (leagueName) {
             case 'bronze': return Trophy;
@@ -126,7 +126,7 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
         }
     };
 
-    // Render based on notification type
+    // Dynamic notification content generation based on achievement type
     const renderNotificationContent = () => {
         switch (notification.type) {
             case 'level_up':
@@ -186,7 +186,7 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
                             )}
                         </div>
 
-                        {/* Celebration Effects */}
+                        {/* Enhanced celebration effects for league promotions */}
                         <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden rounded-xl">
                             <div className="absolute top-2 left-2 animate-bounce delay-75">
                                 <Sparkles className="text-yellow-400" size={16} />
@@ -251,7 +251,7 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
                             </div>
                         </div>
 
-                        {/* Celebration Effects */}
+                        {/* Reward-specific celebration effects */}
                         <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden rounded-xl">
                             <div className="absolute top-2 right-2 animate-bounce">
                                 <Gift className="text-yellow-400" size={16} />
@@ -279,7 +279,7 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
     `}>
             <Card className="bg-black/90 backdrop-blur-lg border border-white/30 shadow-2xl max-w-sm mx-auto">
                 <CardBody className="p-6 relative">
-                    {/* Close Button */}
+                    {/* Interactive close button with hover effects */}
                     <button
                         onClick={handleClose}
                         className="absolute top-2 right-2 p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors duration-200"
@@ -287,7 +287,7 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
                         <X className="text-white/60 hover:text-white" size={16} />
                     </button>
 
-                    {/* Notification Content */}
+                    {/* Dynamic notification content */}
                     {renderNotificationContent()}
                 </CardBody>
             </Card>
@@ -295,7 +295,7 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
     );
 };
 
-// Hook for managing achievement notifications
+// Specialized hook for centralized achievement notification management
 export const useAchievementNotifications = () => {
     const [notification, setNotification] = useState<AchievementNotificationData | null>(null);
 
