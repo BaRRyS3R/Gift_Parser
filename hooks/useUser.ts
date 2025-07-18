@@ -1,4 +1,5 @@
-// src/hooks/useUser.ts - Updated centralized user hook with proper tournament integration
+// ===== src/hooks/useUser.ts =====
+// ИСПРАВЛЕНО: Убираем циклические зависимости
 
 "use client";
 
@@ -16,6 +17,7 @@ import React, {
   useContext,
   createContext,
   useEffect,
+  useMemo,
 } from "react";
 
 import { useAuth } from "./modules/useAuth";
@@ -26,22 +28,13 @@ import { useAttempts } from "./modules/useAttempts";
 import { useGame } from "./modules/useGame";
 import { useTournament } from "./modules/useTournament";
 
-// Import achievement notification types
-
-// Main user context interface
 interface UserContextType {
-  // User data - now from profile module
-  user: any | null; // Profile data
+  user: any | null;
   telegramUser: TelegramUser | null;
-
-  // Authentication state
   authState: AuthState;
-
-  // Loading states
   isLoading: boolean;
   error: string | null;
 
-  // Authentication methods
   register: (
     initData: string,
     referralCode?: string,
@@ -50,16 +43,13 @@ interface UserContextType {
   logout: () => void;
   refreshUser: () => Promise<void>;
 
-  // User management
   updateUser: (userData: any) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 
-  // Achievement notifications
   currentAchievement: AchievementNotificationData | null;
   showAchievement: (achievement: AchievementNotificationData) => void;
   hideAchievement: () => void;
 
-  // Modular services
   profile: ReturnType<typeof useProfile>;
   leagues: ReturnType<typeof useLeagues>;
   leaderboard: ReturnType<typeof useLeaderboard>;
@@ -67,7 +57,6 @@ interface UserContextType {
   game: ReturnType<typeof useGame>;
   tournament: ReturnType<typeof useTournament>;
 
-  // Utility methods
   makeAuthenticatedRequest: (
     endpoint: string,
     options?: RequestInit,
@@ -81,7 +70,7 @@ interface UserProviderProps {
 }
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
-  // Use authentication module
+  // ИСПРАВЛЕНО: Используем auth модуль первым
   const {
     authState,
     register: authRegister,
@@ -92,24 +81,18 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     clearError,
   } = useAuth();
 
-  // Use modular services
+  // ИСПРАВЛЕНО: Передаем зависимости как параметры, избегая циклических импортов
   const profileModule = useProfile(makeAuthenticatedRequest);
   const leaguesModule = useLeagues(makeAuthenticatedRequest);
   const leaderboardModule = useLeaderboard(makeAuthenticatedRequest);
-  const attemptsModule = useAttempts();
+  const attemptsModule = useAttempts(makeAuthenticatedRequest, authState.isAuthenticated);
   const gameModule = useGame(makeAuthenticatedRequest);
   const tournamentModule = useTournament(makeAuthenticatedRequest);
 
-  // Local state for user data and UI
-  const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(
-    null,
-  );
+  const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Achievement notifications state
-  const [currentAchievement, setCurrentAchievement] =
-    useState<AchievementNotificationData | null>(null);
+  const [currentAchievement, setCurrentAchievement] = useState<AchievementNotificationData | null>(null);
 
   // Auto-detect Telegram user on mount
   useEffect(() => {
@@ -141,7 +124,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     const initializeAuth = async () => {
       try {
         const isAuthenticated = await checkAuthStatus();
-
         if (!isAuthenticated) {
           console.log("No valid authentication found");
         }
@@ -207,7 +189,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           error instanceof Error ? error.message : "Registration failed";
 
         setError(errorMessage);
-
         return { success: false, error: errorMessage };
       }
     },
@@ -246,7 +227,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           error instanceof Error ? error.message : "Login failed";
 
         setError(errorMessage);
-
         return { success: false, error: errorMessage };
       }
     },
@@ -344,51 +324,51 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setCurrentAchievement(null);
   }, []);
 
-  // Clear error state
-  const clearErrorState = useCallback(() => {
-    setError(null);
-    clearError();
-  }, [clearError]);
-
-  // Context value
-  const contextValue: UserContextType = {
-    // User data - now from profile module
+  // ИСПРАВЛЕНО: Memoized context value для предотвращения ненужных ре-рендеров
+  const contextValue = useMemo<UserContextType>(() => ({
     user: profileModule.profile,
     telegramUser,
-
-    // Authentication state
     authState,
-
-    // Loading states
     isLoading: isLoading || authState.isLoading || profileModule.isLoading,
     error,
-
-    // Authentication methods
     register,
     login,
     logout,
     refreshUser,
-
-    // User management
     updateUser,
     setTelegramUser,
-
-    // Achievement notifications
     currentAchievement,
     showAchievement,
     hideAchievement,
-
-    // Modular services
     profile: profileModule,
     leagues: leaguesModule,
     leaderboard: leaderboardModule,
     attempts: attemptsModule,
     game: gameModule,
     tournament: tournamentModule,
-
-    // Utility methods
     makeAuthenticatedRequest,
-  };
+  }), [
+    profileModule,
+    telegramUser,
+    authState,
+    isLoading,
+    error,
+    register,
+    login,
+    logout,
+    refreshUser,
+    updateUser,
+    setTelegramUser,
+    currentAchievement,
+    showAchievement,
+    hideAchievement,
+    leaguesModule,
+    leaderboardModule,
+    attemptsModule,
+    gameModule,
+    tournamentModule,
+    makeAuthenticatedRequest,
+  ]);
 
   return React.createElement(
     UserContext.Provider,
@@ -401,6 +381,9 @@ export function useUser(): UserContextType {
   const context = useContext(UserContext);
 
   if (context === undefined) {
+    // ИСПРАВЛЕНО: Более детальная ошибка для отладки
+    console.error("useUser hook called outside of UserProvider. Component tree:");
+    console.error("Current location:", new Error().stack);
     throw new Error("useUser must be used within a UserProvider");
   }
 

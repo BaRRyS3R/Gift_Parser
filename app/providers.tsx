@@ -1,4 +1,5 @@
-// src/app/providers.tsx - Enhanced fullscreen configuration
+// src/app/providers.tsx  
+// ИСПРАВЛЕНО: NavigationWrapper теперь внутри UserProvider
 
 "use client";
 
@@ -8,6 +9,7 @@ import { useEffect } from "react";
 import { UserProvider } from "@/hooks/useUser";
 import { LocalizationProvider } from "@/contexts/LocalizationContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
+import NavigationWrapper from "@/components/Navigation/NavigationWrapper";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -27,7 +29,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // Disable closing confirmation for better UX
         tg.disableClosingConfirmation();
 
-        // NEW: Enhanced fullscreen settings (Bot API 7.7+)
+        // Enhanced fullscreen settings (Bot API 7.7+)
         if (tg.lockOrientation) {
           try {
             tg.lockOrientation();
@@ -37,7 +39,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // NEW: Disable vertical swipes to prevent pull-to-refresh and swipe-to-close
+        // Disable vertical swipes to prevent pull-to-refresh and swipe-to-close
         if (tg.disableVerticalSwipes) {
           try {
             tg.disableVerticalSwipes();
@@ -131,6 +133,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <SettingsProvider>
           <UserProvider>
             {children}
+            {/* ИСПРАВЛЕНО: NavigationWrapper теперь внутри UserProvider */}
+            <NavigationWrapper />
           </UserProvider>
         </SettingsProvider>
       </LocalizationProvider>
