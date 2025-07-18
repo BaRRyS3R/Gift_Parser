@@ -127,11 +127,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <NextUIProvider>
-      <SettingsProvider>
-        <UserProvider>
-          <LocalizationProvider>{children}</LocalizationProvider>
-        </UserProvider>
-      </SettingsProvider>
+      <LocalizationProvider>
+        <SettingsProvider>
+          <UserProvider>
+            {children}
+          </UserProvider>
+        </SettingsProvider>
+      </LocalizationProvider>
     </NextUIProvider>
   );
 }
