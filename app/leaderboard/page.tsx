@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Updated leaderboard page without caching
+// src/app/leaderboard/page.tsx - Обновленная страница лидерборда с исправлениями
 
 "use client";
 
@@ -17,7 +17,6 @@ import {
   Crosshair,
   Atom,
   RotateCw,
-  RefreshCw,
   Eye,
 } from "lucide-react";
 
@@ -495,18 +494,6 @@ function LeaderboardPageContent() {
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
           {t("leaderboard.title")}
         </h1>
-
-        {/* Refresh Control */}
-        <div className="flex items-center justify-center">
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="flex items-center space-x-1 text-xs text-white/60 hover:text-white/80 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`${isLoading ? "animate-spin" : ""}`} size={12} />
-            <span>Refresh</span>
-          </button>
-        </div>
       </div>
 
       {/* Current Leaderboard Stats */}
@@ -554,7 +541,7 @@ function LeaderboardPageContent() {
               <button
                 key={tab}
                 className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-bold transition-all duration-300
+                  flex-1 px-3 py-2 rounded-lg text-sm font-bold
                   ${getTabColors(tab, activeTab === tab)}
                 `}
                 onClick={() => setActiveTab(tab)}

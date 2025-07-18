@@ -1,10 +1,11 @@
-// src/hooks/useUser.ts - Updated centralized user hook without game logic
+// src/hooks/useUser.ts - Updated with league module integration
 
 "use client";
 
 import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
 import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
+import { useLeague } from "./modules/useLeague"; // NEW: League module
 import type { User, TelegramUser, AttemptsStatus } from "@/lib/supabase";
 import type {
   AuthState,
@@ -53,6 +54,9 @@ interface UserContextType {
   // Leaderboard module (replaces individual leaderboard methods)
   leaderboard: ReturnType<typeof useLeaderboard>;
 
+  // NEW: League module (replaces direct league_service usage)
+  league: ReturnType<typeof useLeague>;
+
   // Utility methods
   makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>;
 }
@@ -77,6 +81,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // Use leaderboard module (centralized leaderboard management without caching)
   const leaderboardModule = useLeaderboard(makeAuthenticatedRequest);
+
+  // NEW: Use league module (centralized league management)
+  const leagueModule = useLeague(makeAuthenticatedRequest);
 
   // Local state for user data and UI
   const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
@@ -191,11 +198,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setError(null);
     setAttemptsCache({ status: null, lastUpdate: 0, isValid: false });
 
-    // Reset leaderboard data on logout
+    // Reset leaderboard and league data on logout
     leaderboardModule.resetLeaderboard();
+    leagueModule.resetLeagueData(); // NEW: Reset league data
 
     console.log("User logged out");
-  }, [authLogout, leaderboardModule]);
+  }, [authLogout, leaderboardModule, leagueModule]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -358,6 +366,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     // Leaderboard module (without caching - fresh data on each request)
     leaderboard: leaderboardModule,
+
+    // NEW: League module (centralized league management)
+    league: leagueModule,
 
     // Utility methods
     makeAuthenticatedRequest,

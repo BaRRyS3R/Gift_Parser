@@ -1,8 +1,10 @@
-// src/lib/supabase_server.ts - Updated server-side client with game service integration
+// src/lib/supabase_server.ts - Updated with league service integration while preserving all existing functionality
 
 import { createClient } from '@supabase/supabase-js';
 import { serverAttemptsService, type AttemptsStatus } from './server/attemptsService';
 import { serverGameService, type GameSaveResult, type TournamentSaveResponse } from './server/gameService';
+import { serverLeaderboardService } from './server/leaderboardService'; // Keep existing leaderboard service
+import { serverLeagueService } from './server/leagueService'; // NEW: Add league service
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -19,7 +21,7 @@ export const supabaseServer = createClient(supabaseUrl, supabaseServiceKey, {
     },
 });
 
-// Types for server operations
+// Types for server operations (RESTORED from original)
 export interface ServerUser {
     id: string;
     telegram_id: number;
@@ -80,7 +82,7 @@ export interface ServerTelegramUser {
     is_premium?: boolean;
 }
 
-// Leaderboard interfaces (without sensitive data)
+// Leaderboard interfaces (without sensitive data) - RESTORED from original
 export interface SafeLeaderboardEntry {
     position: number;
     first_name: string;
@@ -163,294 +165,13 @@ export interface AllLeaderboardsResponse {
     };
 }
 
-// Server-side leaderboard service
-export const serverLeaderboardService = {
-    /**
-     * Get reaction mode leaderboard with safe data
-     */
-    async getReactionLeaderboard(currentUserId: string, limit: number = 100): Promise<SafeReactionLeaderboard[]> {
-        const { data, error } = await supabaseServer
-            .from("users")
-            .select(`
-                id,
-                telegram_id,
-                first_name,
-                last_name,
-                username,
-                is_premium,
-                reaction_best_time,
-                reaction_games,
-                reaction_best_score,
-                last_played_at
-            `)
-            .gt("reaction_games", 0)
-            .gt("reaction_best_time", 0)
-            .order("reaction_best_time", { ascending: true })
-            .order("reaction_best_score", { ascending: false })
-            .limit(limit);
+// Re-export the existing serverLeaderboardService (IMPORTANT: Keep this functionality!)
+export { serverLeaderboardService };
 
-        if (error) {
-            console.error("Error fetching reaction leaderboard:", error);
-            throw new Error("Failed to fetch reaction leaderboard");
-        }
+// NEW: Export the league service
+export { serverLeagueService };
 
-        return (data || []).map((user: any, index: number) => ({
-            position: index + 1,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            username: user.username,
-            is_premium: user.is_premium,
-            best_reaction_time: user.reaction_best_time,
-            reaction_games: user.reaction_games,
-            best_reaction_score: user.reaction_best_score,
-            last_played_at: user.last_played_at,
-            isCurrentUser: user.id === currentUserId,
-        }));
-    },
-
-    /**
-     * Get survival mode leaderboard with safe data
-     */
-    async getSurvivalLeaderboard(currentUserId: string, limit: number = 100): Promise<SafeSurvivalLeaderboard[]> {
-        const { data, error } = await supabaseServer
-            .from("users")
-            .select(`
-                id,
-                telegram_id,
-                first_name,
-                last_name,
-                username,
-                is_premium,
-                survival_best_time,
-                survival_max_level,
-                survival_best_streak,
-                survival_games,
-                last_played_at
-            `)
-            .gt("survival_games", 0)
-            .order("survival_best_time", { ascending: false })
-            .order("survival_max_level", { ascending: false })
-            .limit(limit);
-
-        if (error) {
-            console.error("Error fetching survival leaderboard:", error);
-            throw new Error("Failed to fetch survival leaderboard");
-        }
-
-        return (data || []).map((user: any, index: number) => ({
-            position: index + 1,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            username: user.username,
-            is_premium: user.is_premium,
-            best_survival_time: user.survival_best_time,
-            max_level: user.survival_max_level,
-            best_streak: user.survival_best_streak,
-            survival_games: user.survival_games,
-            last_played_at: user.last_played_at,
-            isCurrentUser: user.id === currentUserId,
-        }));
-    },
-
-    /**
-     * Get physics mode leaderboard with safe data
-     */
-    async getPhysicsLeaderboard(currentUserId: string, limit: number = 100): Promise<SafePhysicsLeaderboard[]> {
-        const { data, error } = await supabaseServer
-            .from("users")
-            .select(`
-                id,
-                telegram_id,
-                first_name,
-                last_name,
-                username,
-                is_premium,
-                physics_best_score,
-                physics_best_time,
-                physics_best_hits,
-                physics_least_mistakes,
-                physics_games,
-                last_played_at
-            `)
-            .gt("physics_games", 0)
-            .order("physics_best_score", { ascending: false })
-            .order("physics_best_time", { ascending: false })
-            .limit(limit);
-
-        if (error) {
-            console.error("Error fetching physics leaderboard:", error);
-            throw new Error("Failed to fetch physics leaderboard");
-        }
-
-        return (data || []).map((user: any, index: number) => ({
-            position: index + 1,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            username: user.username,
-            is_premium: user.is_premium,
-            best_physics_score: user.physics_best_score,
-            best_physics_time: user.physics_best_time,
-            best_hits: user.physics_best_hits,
-            least_mistakes: user.physics_least_mistakes,
-            physics_games: user.physics_games,
-            last_played_at: user.last_played_at,
-            isCurrentUser: user.id === currentUserId,
-        }));
-    },
-
-    /**
-     * Get rotation mode leaderboard with safe data
-     */
-    async getRotationLeaderboard(currentUserId: string, limit: number = 100): Promise<SafeRotationLeaderboard[]> {
-        const { data, error } = await supabaseServer
-            .from("users")
-            .select(`
-                id,
-                telegram_id,
-                first_name,
-                last_name,
-                username,
-                is_premium,
-                rotation_best_time,
-                rotation_max_level,
-                rotation_best_streak,
-                rotation_total_hits,
-                rotation_games,
-                last_played_at
-            `)
-            .gt("rotation_games", 0)
-            .order("rotation_best_time", { ascending: false })
-            .order("rotation_max_level", { ascending: false })
-            .limit(limit);
-
-        if (error) {
-            console.error("Error fetching rotation leaderboard:", error);
-            throw new Error("Failed to fetch rotation leaderboard");
-        }
-
-        return (data || []).map((user: any, index: number) => ({
-            position: index + 1,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            username: user.username,
-            is_premium: user.is_premium,
-            best_rotation_time: user.rotation_best_time,
-            max_level: user.rotation_max_level,
-            best_streak: user.rotation_best_streak,
-            total_hits: user.rotation_total_hits,
-            rotation_games: user.rotation_games,
-            last_played_at: user.last_played_at,
-            isCurrentUser: user.id === currentUserId,
-        }));
-    },
-
-    /**
-     * Get user rankings across all leaderboards
-     */
-    async getUserRankings(telegramId: number): Promise<{
-        reaction?: number;
-        survival?: number;
-        physics?: number;
-        rotation?: number;
-    }> {
-        const user = await serverUserService.findByTelegramId(telegramId);
-        if (!user) {
-            throw new Error('User not found');
-        }
-
-        const rankings: any = {};
-
-        // Reaction ranking
-        if (user.reaction_games > 0 && user.reaction_best_time > 0) {
-            const { count, error: reactionError } = await supabaseServer
-                .from("users")
-                .select("id", { count: "exact" })
-                .gt("reaction_games", 0)
-                .gt("reaction_best_time", 0)
-                .lt("reaction_best_time", user.reaction_best_time);
-
-            if (!reactionError) {
-                rankings.reaction = (count || 0) + 1;
-            }
-        }
-
-        // Survival ranking
-        if (user.survival_games > 0) {
-            const { count, error: survivalError } = await supabaseServer
-                .from("users")
-                .select("id", { count: "exact" })
-                .gt("survival_games", 0)
-                .or(`survival_best_time.gt.${user.survival_best_time},and(survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`);
-
-            if (!survivalError) {
-                rankings.survival = (count || 0) + 1;
-            }
-        }
-
-        // Physics ranking
-        if (user.physics_games > 0) {
-            const { count, error: physicsError } = await supabaseServer
-                .from("users")
-                .select("id", { count: "exact" })
-                .gt("physics_games", 0)
-                .or(`physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`);
-
-            if (!physicsError) {
-                rankings.physics = (count || 0) + 1;
-            }
-        }
-
-        // Rotation ranking
-        if (user.rotation_games > 0) {
-            const { count, error: rotationError } = await supabaseServer
-                .from("users")
-                .select("id", { count: "exact" })
-                .gt("rotation_games", 0)
-                .or(`rotation_best_time.gt.${user.rotation_best_time},and(rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`);
-
-            if (!rotationError) {
-                rankings.rotation = (count || 0) + 1;
-            }
-        }
-
-        return rankings;
-    },
-
-    /**
-     * Get all leaderboards in a single request
-     */
-    async getAllLeaderboards(
-        currentUserId: string,
-        telegramId: number,
-        limit: number = 50
-    ): Promise<AllLeaderboardsResponse> {
-        try {
-            console.log(`Fetching all leaderboards for user: ${currentUserId}`);
-
-            const [reaction, survival, physics, rotation, userRankings] = await Promise.all([
-                this.getReactionLeaderboard(currentUserId, limit),
-                this.getSurvivalLeaderboard(currentUserId, limit),
-                this.getPhysicsLeaderboard(currentUserId, limit),
-                this.getRotationLeaderboard(currentUserId, limit),
-                this.getUserRankings(telegramId),
-            ]);
-
-            return {
-                reaction,
-                survival,
-                physics,
-                rotation,
-                userRankings,
-            };
-
-        } catch (error) {
-            console.error('Error fetching all leaderboards:', error);
-            throw new Error('Failed to fetch leaderboards');
-        }
-    },
-};
-
-// Server-side user service
+// Server-side user service (existing code remains unchanged)
 export const serverUserService = {
     async findByTelegramId(telegramId: number): Promise<ServerUser | null> {
         const { data, error } = await supabaseServer

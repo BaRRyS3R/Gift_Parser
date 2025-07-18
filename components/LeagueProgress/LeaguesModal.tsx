@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeaguesModal.tsx - Completely fixed modal with proper layout
+// src/components/LeagueProgress/LeaguesModal.tsx - Updated to use league module
 
 "use client";
 
@@ -28,19 +28,10 @@ import {
     ArrowUp,
     ArrowDown,
     Target,
-    ChevronDown,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, {
-    type League,
-    type LeagueProgressInfo,
-    type UserLeagueReward,
-    type LeagueLeaderboard,
-    type LeagueNeighbors,
-    type LeagueReward
-} from "@/lib/league_service";
 
 interface LeaguesModalProps {
     isOpen: boolean;
@@ -48,64 +39,25 @@ interface LeaguesModalProps {
 }
 
 const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
-    const { user, telegramUser } = useUser();
+    const { user, telegramUser, league } = useUser(); // NEW: Use league module
     const t = useT();
 
-    const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
-    const [allLeagues, setAllLeagues] = useState<League[]>([]);
-    const [userRewards, setUserRewards] = useState<UserLeagueReward[]>([]);
-    const [leaderboards, setLeaderboards] = useState<Record<number, LeagueLeaderboard>>({});
-    const [leagueNeighbors, setLeagueNeighbors] = useState<LeagueNeighbors | null>(null);
-    const [allLeagueRewards, setAllLeagueRewards] = useState<Record<number, LeagueReward[]>>({});
     const [selectedTab, setSelectedTab] = useState("progress");
-    const [isLoading, setIsLoading] = useState(true);
 
+    // Fetch league data when modal opens
     useEffect(() => {
         const loadLeagueData = async () => {
             if (!user || !telegramUser || !isOpen) return;
 
-            try {
-                setIsLoading(true);
-
-                const [progress, leagues, rewards, neighbors, allRewards] = await Promise.all([
-                    leagueService.getUserLeagueProgress(user.id, user.total_games),
-                    leagueService.getAllLeagues(),
-                    leagueService.getUserRewards(user.id),
-                    leagueService.getLeagueNeighbors(user.id, user.total_games),
-                    leagueService.getAllLeagueRewards(),
-                ]);
-
-                setProgressInfo(progress);
-                setAllLeagues(leagues);
-                setUserRewards(rewards);
-                setLeagueNeighbors(neighbors);
-                setAllLeagueRewards(allRewards);
-
-                // Load leaderboards for all leagues
-                const leaderboardPromises = leagues.map(async (league) => {
-                    const leaderboard = await leagueService.getLeagueLeaderboard(league.id, user.id);
-                    return { leagueId: league.id, leaderboard };
-                });
-
-                const leaderboardResults = await Promise.all(leaderboardPromises);
-                const leaderboardsMap: Record<number, LeagueLeaderboard> = {};
-
-                leaderboardResults.forEach(({ leagueId, leaderboard }) => {
-                    if (leaderboard) {
-                        leaderboardsMap[leagueId] = leaderboard;
-                    }
-                });
-
-                setLeaderboards(leaderboardsMap);
-            } catch (error) {
-                console.error("Error loading league data:", error);
-            } finally {
-                setIsLoading(false);
+            // Fetch league data if not already loaded
+            if (!league.leagueData) {
+                console.log("Loading league data for modal...");
+                await league.fetchLeagueData();
             }
         };
 
         loadLeagueData();
-    }, [user, telegramUser, isOpen]);
+    }, [user, telegramUser, isOpen, league]);
 
     // Helper functions
     const getLeagueIcon = (leagueName: string) => {
@@ -181,18 +133,20 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
 
     // Progress Tab Component
     const ProgressTab = () => {
+        const progressInfo = league.getProgressInfo();
+
         if (!progressInfo) return null;
 
         const colors = getLeagueColorClasses(progressInfo.currentLeague.name);
         const Icon = getLeagueIcon(progressInfo.currentLeague.name);
         const isMaxLeague = !progressInfo.nextLeague;
 
-        // Calculate level progress
+        // Calculate level progress using league module utility
         const currentLevel = progressInfo.currentLevel;
-        const gamesInCurrentLevel = progressInfo.totalGames % leagueService.GAMES_PER_LEVEL;
-        const gamesToNextLevel = leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
-        const levelProgressPercent = (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
-        const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
+        const gamesInCurrentLevel = progressInfo.totalGames % 100; // GAMES_PER_LEVEL
+        const gamesToNextLevel = 100 - gamesInCurrentLevel; // GAMES_PER_LEVEL
+        const levelProgressPercent = (gamesInCurrentLevel / 100) * 100; // GAMES_PER_LEVEL
+        const isMaxLevel = currentLevel >= 100; // MAX_LEVEL
 
         return (
             <div className="space-y-6 p-4">
@@ -297,6 +251,11 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
 
     // Rewards Tab Component
     const RewardsTab = () => {
+        const userRewards = league.getUserRewards();
+        const allLeagues = league.getAllLeagues();
+        const leaderboards = league.getLeaderboards();
+        const allLeagueRewards = league.getAllLeagueRewards();
+
         return (
             <div className="space-y-6 p-4">
                 {/* User's Rewards */}
@@ -341,26 +300,26 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     <Accordion variant="splitted" className="px-0">
                         {allLeagues
                             .filter(league => league.name !== 'bronze')
-                            .map((league) => {
-                                const colors = getLeagueColorClasses(league.name);
-                                const Icon = getLeagueIcon(league.name);
-                                const leaderboard = leaderboards[league.id];
-                                const rewards = allLeagueRewards[league.id] || [];
+                            .map((leagueItem) => {
+                                const colors = getLeagueColorClasses(leagueItem.name);
+                                const Icon = getLeagueIcon(leagueItem.name);
+                                const leaderboard = leaderboards[leagueItem.id];
+                                const rewards = allLeagueRewards[leagueItem.id] || [];
 
                                 return (
                                     <AccordionItem
-                                        key={league.id}
-                                        aria-label={t(`leagues.names.${league.name}` as any)}
+                                        key={leagueItem.id}
+                                        aria-label={t(`leagues.names.${leagueItem.name}` as any)}
                                         title={
                                             <div className="flex items-center justify-between w-full">
                                                 <div className="flex items-center space-x-3">
                                                     <Icon className={colors.text} size={20} />
                                                     <div>
                                                         <div className={`font-bold ${colors.text}`}>
-                                                            {t(`leagues.names.${league.name}` as any)}
+                                                            {t(`leagues.names.${leagueItem.name}` as any)}
                                                         </div>
                                                         <div className={`text-xs ${colors.accent}`}>
-                                                            {league.min_games}+ {t("profile.gamesRequired")}
+                                                            {leagueItem.min_games}+ {t("profile.gamesRequired")}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -368,7 +327,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                                 {leaderboard && (
                                                     <div className="text-right mr-4">
                                                         <div className={`text-sm font-bold ${colors.text}`}>
-                                                            {leaderboard.rewardsRemaining}/{league.rewards_count}
+                                                            {leaderboard.rewardsRemaining}/{leagueItem.rewards_count}
                                                         </div>
                                                         <div className={`text-xs ${colors.accent}`}>
                                                             {leaderboard.rewardsRemaining > 0
@@ -424,6 +383,8 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
 
     // Leaderboard Tab Component
     const LeaderboardTab = () => {
+        const leaderboards = league.getLeaderboards();
+
         return (
             <div className="space-y-6 p-4">
                 {Object.values(leaderboards).map((leaderboard) => {
@@ -466,8 +427,8 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                     {leaderboard.topPlayers.length > 0 ? (
                                         leaderboard.topPlayers.map((player, index) => (
                                             <div
-                                                key={player.user_id}
-                                                className={`flex items-center justify-between p-2 rounded ${player.user_id === user?.id ? 'bg-white/10' : 'bg-white/5'}`}
+                                                key={index}
+                                                className={`flex items-center justify-between p-2 rounded ${player.isCurrentUser ? 'bg-white/10' : 'bg-white/5'}`}
                                             >
                                                 <div className="flex items-center space-x-3">
                                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${player.position <= 3 ? colors.bg : 'bg-white/10'
@@ -533,11 +494,26 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                 </ModalHeader>
 
                 <ModalBody>
-                    {isLoading ? (
+                    {league.isLoading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="text-center space-y-4">
                                 <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
                                 <p className="text-white/60">{t("leagues.status.loading")}</p>
+                            </div>
+                        </div>
+                    ) : league.error ? (
+                        <div className="flex items-center justify-center py-12">
+                            <div className="text-center space-y-4">
+                                <div className="w-16 h-16 bg-red-500/10 rounded-lg flex items-center justify-center mx-auto">
+                                    <span className="text-red-400 text-2xl">⚠️</span>
+                                </div>
+                                <p className="text-red-400">{league.error}</p>
+                                <button
+                                    onClick={() => league.fetchLeagueData()}
+                                    className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
+                                >
+                                    Retry
+                                </button>
                             </div>
                         </div>
                     ) : (

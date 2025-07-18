@@ -1,12 +1,11 @@
-// src/components/LeagueProgress/CompactLeagueDisplay.tsx - Simplified inline display with click handler
+// src/components/LeagueProgress/CompactLeagueDisplay.tsx - Updated to use league module
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { Trophy, Star, Medal, Award, Crown } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
 
 interface CompactLeagueDisplayProps {
     className?: string;
@@ -17,36 +16,19 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
     className = "",
     onClick
 }) => {
-    const { user, telegramUser } = useUser();
+    const { user, telegramUser, league } = useUser(); // NEW: Use league module from useUser
     const t = useT();
 
-    const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
+    // Fetch league data when component mounts
     useEffect(() => {
-        const loadProgressInfo = async () => {
-            if (!user || !telegramUser) {
-                setIsLoading(false);
-                return;
-            }
+        if (user && telegramUser && !league.leagueData) {
+            console.log("Fetching league data for compact display...");
+            league.fetchLeagueData();
+        }
+    }, [user, telegramUser, league]);
 
-            try {
-                const progress = await leagueService.getUserLeagueProgress(
-                    user.id,
-                    user.total_games
-                );
-                setProgressInfo(progress);
-            } catch (error) {
-                console.error("Error loading league progress:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadProgressInfo();
-    }, [user, telegramUser]);
-
-    if (isLoading) {
+    // Loading state
+    if (league.isLoading) {
         return (
             <div className={`animate-pulse flex items-center justify-center space-x-2 ${className}`}>
                 <div className="w-4 h-4 bg-white/20 rounded" />
@@ -55,11 +37,14 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
         );
     }
 
+    // Get progress info from league module
+    const progressInfo = league.getProgressInfo();
+
     if (!progressInfo) {
         return null;
     }
 
-    // Get league icon and colors
+    // Helper functions
     const getLeagueIcon = (leagueName: string) => {
         switch (leagueName) {
             case 'bronze': return Trophy;
@@ -85,9 +70,15 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
     const LeagueIcon = getLeagueIcon(progressInfo.currentLeague.name);
     const leagueColor = getLeagueColor(progressInfo.currentLeague.name);
 
+    const handleClick = () => {
+        if (onClick) {
+            onClick();
+        }
+    };
+
     return (
         <button
-            onClick={onClick}
+            onClick={handleClick}
             className={`flex items-center justify-center space-x-3 text-white/80 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 ${className}`}
         >
             {/* Level */}
@@ -108,6 +99,13 @@ const CompactLeagueDisplay: React.FC<CompactLeagueDisplayProps> = ({
                     {t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
                 </span>
             </div>
+
+            {/* Error state */}
+            {league.error && (
+                <div className="text-red-400 text-xs">
+                    ⚠️
+                </div>
+            )}
         </button>
     );
 };
