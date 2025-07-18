@@ -1,39 +1,23 @@
-// src/components/Profile/EnhancedProfileHeader.tsx - Profile header with level and league
+// src/components/Profile/EnhancedProfileHeader.tsx - Updated to use server architecture
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Trophy, Star, Medal, Award, Crown } from "lucide-react";
-import type { User as UserType } from "@/lib/supabase";
+import type { SafeProfileData } from "@/lib/server/profileService";
+import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
 
 interface EnhancedProfileHeaderProps {
-    user: UserType;
+    user: SafeProfileData;
 }
 
 const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({ user }) => {
     const t = useT();
-    const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const { leagues } = useUser();
 
-    useEffect(() => {
-        const loadProgressInfo = async () => {
-            try {
-                const progress = await leagueService.getUserLeagueProgress(
-                    user.id,
-                    user.total_games
-                );
-                setProgressInfo(progress);
-            } catch (error) {
-                console.error("Error loading league progress:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadProgressInfo();
-    }, [user.id, user.total_games]);
+    // Get league data from the leagues module
+    const compactLeagueData = leagues.compactData;
 
     // Get league icon and colors
     const getLeagueIcon = (leagueName: string) => {
@@ -58,8 +42,8 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({ user }) =
         }
     };
 
-    const LeagueIcon = progressInfo ? getLeagueIcon(progressInfo.currentLeague.name) : Trophy;
-    const leagueColor = progressInfo ? getLeagueColor(progressInfo.currentLeague.name) : 'text-white';
+    const LeagueIcon = compactLeagueData ? getLeagueIcon(compactLeagueData.currentLeague.name) : Trophy;
+    const leagueColor = compactLeagueData ? getLeagueColor(compactLeagueData.currentLeague.name) : 'text-white';
 
     return (
         <div className="text-center space-y-3 px-4 py-6">
@@ -77,19 +61,19 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({ user }) =
 
             {/* Level and League */}
             <div className="flex items-center justify-center space-x-4 mt-3">
-                {isLoading ? (
+                {leagues.compactLoading ? (
                     <div className="animate-pulse flex items-center space-x-2">
                         <div className="w-16 h-5 bg-white/20 rounded" />
                         <div className="w-px h-4 bg-white/30" />
                         <div className="w-20 h-5 bg-white/20 rounded" />
                     </div>
-                ) : progressInfo ? (
+                ) : compactLeagueData ? (
                     <>
                         {/* Level */}
                         <div className="flex items-center space-x-1">
                             <Star className="text-white/80" size={16} />
                             <span className="text-white text-sm font-semibold">
-                                {t("profile.levelDisplay", { level: progressInfo.currentLevel })}
+                                {t("profile.levelDisplay", { level: compactLeagueData.currentLevel })}
                             </span>
                         </div>
 
@@ -100,7 +84,7 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({ user }) =
                         <div className="flex items-center space-x-1">
                             <LeagueIcon className={`${leagueColor} animate-pulse-gentle`} size={16} />
                             <span className={`text-sm font-semibold ${leagueColor}`}>
-                                {t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
+                                {t(`leagues.names.${compactLeagueData.currentLeague.name}` as any)}
                             </span>
                         </div>
                     </>

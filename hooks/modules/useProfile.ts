@@ -1,7 +1,12 @@
-// src/hooks/modules/useProfile.ts - Profile management hook module (без кеширования)
+// src/hooks/modules/useProfile.ts - Updated profile hook with correct types
 
 import { useState, useCallback, useRef } from 'react';
-import type { SafeProfileData, SafeReferralData, UserRankings, ProfileResponse } from '@/lib/server/profileService';
+import type {
+    SafeProfileData,
+    SafeReferralData,
+    UserRankings,
+    ProfileResponse
+} from '@/lib/server/profileService';
 
 // Profile state interface
 interface ProfileState {
@@ -15,7 +20,7 @@ interface ProfileState {
 /**
  * Profile management hook with centralized state and API communication
  * Provides profile data, referrals information, and user rankings
- * Данные всегда загружаются свежие без кеширования
+ * Data is always fetched fresh without caching
  */
 export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>) {
     const [state, setState] = useState<ProfileState>({
@@ -30,7 +35,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
     const fetchingRef = useRef<boolean>(false);
 
     /**
-     * Fetch complete profile data from API (всегда свежие данные)
+     * Fetch complete profile data from API (always fresh data)
      */
     const fetchProfile = useCallback(async (forceRefresh = false): Promise<ProfileResponse | null> => {
         // Prevent duplicate requests
@@ -157,7 +162,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
     }, [makeAuthenticatedRequest]);
 
     /**
-     * Get current profile data (если доступны)
+     * Get current profile data (if available)
      */
     const getCurrentProfile = useCallback((): ProfileResponse | null => {
         if (state.profile && state.referrals && state.rankings) {
@@ -171,7 +176,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
     }, [state.profile, state.referrals, state.rankings]);
 
     /**
-     * Invalidate cache (теперь просто сбрасывает данные)
+     * Invalidate cache (now just resets data)
      */
     const invalidateCache = useCallback(() => {
         console.log('Invalidating profile data');
@@ -211,7 +216,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
     }, [state.profile, state.referrals, state.rankings]);
 
     return {
-        // State (исправлена типизация)
+        // State with correct types
         profile: state.profile,
         referrals: state.referrals,
         rankings: state.rankings,
@@ -221,13 +226,13 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
         // Actions
         fetchProfile,
         updateProfile,
-        getCurrentProfile, // Переименовано из getCachedProfile
+        getCurrentProfile,
         invalidateCache,
         clearError,
         resetProfile,
 
         // Utility functions
         hasProfileData,
-        hasValidCache: false, // Кеш убран, всегда false
+        hasValidCache: false, // Caching disabled, always false
     };
 }

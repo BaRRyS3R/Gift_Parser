@@ -1,4 +1,4 @@
-// src/components/Profile/AchievementsModal.tsx - Updated with rotation mode achievements
+// src/components/Profile/AchievementsModal.tsx - Updated with server architecture types
 
 "use client";
 
@@ -17,29 +17,23 @@ import {
     Zap,
     Crosshair,
     Atom,
-    RotateCw, // NEW
+    RotateCw,
     Users,
     Star,
     Target,
     Clock,
     Activity,
-    Crown, // NEW for top achievements
+    Crown,
 } from "lucide-react";
 
-import type { User } from "@/lib/supabase";
+import type { SafeProfileData, UserRankings } from "@/lib/server/profileService";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface AchievementsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    user: User;
-    rankings: {
-        overall: number | null;
-        reaction: number | null;
-        survival: number | null;
-        physics?: number | null;
-        rotation?: number | null; // NEW
-    };
+    user: SafeProfileData;
+    rankings: UserRankings;
 }
 
 interface Achievement {
@@ -211,7 +205,7 @@ export default function AchievementsModal({
                 icon: Clock,
                 color: "text-orange-400",
                 bgColor: "bg-orange-500/20",
-                isUnlocked: user.survival_best_time >= 30000, // 30 seconds
+                isUnlocked: user.survival_best_time >= 30000,
             },
             {
                 id: "survival_legend",
@@ -220,7 +214,7 @@ export default function AchievementsModal({
                 icon: Trophy,
                 color: "text-yellow-400",
                 bgColor: "bg-yellow-500/20",
-                isUnlocked: user.survival_best_time >= 60000, // 1 minute
+                isUnlocked: user.survival_best_time >= 60000,
             },
             {
                 id: "level_climber",
@@ -298,7 +292,7 @@ export default function AchievementsModal({
                 maxProgress: 100,
             },
 
-            // NEW: Rotation mode achievements  
+            // Rotation mode achievements
             {
                 id: "rotation_tester",
                 titleKey: "profile.achievements.rotationTester",
@@ -326,12 +320,12 @@ export default function AchievementsModal({
                 icon: Clock,
                 color: "text-yellow-400",
                 bgColor: "bg-yellow-500/20",
-                isUnlocked: user.rotation_best_time >= 60000, // 1 minute spinning
+                isUnlocked: user.rotation_best_time >= 60000,
                 progress: Math.floor(user.rotation_best_time / 1000),
                 maxProgress: 60,
             },
 
-            // Top player achievements
+            // Top player achievements (using rankings from server)
             {
                 id: "top_player",
                 titleKey: "profile.achievements.topPlayer",

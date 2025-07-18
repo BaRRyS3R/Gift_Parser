@@ -1,8 +1,8 @@
-// src/lib/server/profileService.ts - Dedicated profile service module
+// src/lib/server/profileService.ts - Updated profile service with complete data structure
 
 import { supabaseServer } from '@/lib/supabase_server';
 
-// Profile interfaces (server-side, safe data only)
+// Complete profile data structure matching component expectations
 export interface SafeProfileData {
     id: string;
     telegram_id: number;
@@ -13,6 +13,16 @@ export interface SafeProfileData {
     is_premium: boolean;
     created_at: string;
     updated_at: string;
+
+    // Attempts system (needed for components)
+    attempts_remaining: number;
+    last_attempt_at?: string;
+    attempts_reset_at?: string;
+
+    // Referral system (needed for components)
+    referral_code: string;
+    referral_bonus: number;
+    referral_count: number;
 
     // Game statistics
     total_games: number;
@@ -53,6 +63,7 @@ export interface SafeProfileData {
     total_missed_circles: number;
     best_accuracy: number;
     last_played_at?: string;
+    is_active: boolean;
 }
 
 export interface SafeReferralData {
@@ -64,10 +75,11 @@ export interface SafeReferralData {
 }
 
 export interface UserRankings {
-    reaction?: number;
-    survival?: number;
-    physics?: number;
-    rotation?: number;
+    overall: number | null;
+    reaction: number | null;
+    survival: number | null;
+    physics: number | null;
+    rotation: number | null;
 }
 
 export interface ProfileResponse {
@@ -93,7 +105,7 @@ export const serverProfileService = {
             throw new Error('User not found');
         }
 
-        // Prepare safe profile data (excluding sensitive fields)
+        // Prepare complete profile data (including all fields needed by components)
         const profile: SafeProfileData = {
             id: user.id,
             telegram_id: user.telegram_id,
@@ -105,12 +117,24 @@ export const serverProfileService = {
             created_at: user.created_at,
             updated_at: user.updated_at,
 
+            // Attempts system
+            attempts_remaining: user.attempts_remaining,
+            last_attempt_at: user.last_attempt_at,
+            attempts_reset_at: user.attempts_reset_at,
+
+            // Referral system
+            referral_code: user.referral_code,
+            referral_bonus: user.referral_bonus,
+            referral_count: user.referral_count,
+
+            // Game statistics
             total_games: user.total_games,
             total_score: user.total_score,
             best_score: user.best_score,
             current_level: user.current_level,
             current_league_id: user.current_league_id,
 
+            // Mode-specific statistics
             reaction_games: user.reaction_games,
             reaction_best_score: user.reaction_best_score,
             reaction_best_time: user.reaction_best_time,
@@ -136,11 +160,13 @@ export const serverProfileService = {
             rotation_best_streak: user.rotation_best_streak,
             rotation_total_hits: user.rotation_total_hits,
 
+            // Legacy fields
             total_correct_hits: user.total_correct_hits,
             total_wrong_hits: user.total_wrong_hits,
             total_missed_circles: user.total_missed_circles,
             best_accuracy: user.best_accuracy,
             last_played_at: user.last_played_at,
+            is_active: user.is_active,
         };
 
         // Get referral data with referrer name
@@ -176,7 +202,7 @@ export const serverProfileService = {
             referred_by_name: referredByName,
         };
 
-        // Get user rankings
+        // Get comprehensive user rankings including overall
         const rankings = await this.getUserRankings(telegramId, user);
 
         return {
@@ -187,7 +213,7 @@ export const serverProfileService = {
     },
 
     /**
-     * Get user rankings across all leaderboards
+     * Get comprehensive user rankings across all leaderboards including overall
      */
     async getUserRankings(telegramId: number, user?: any): Promise<UserRankings> {
         // Use provided user data or fetch it
@@ -205,7 +231,26 @@ export const serverProfileService = {
             userData = data;
         }
 
-        const rankings: UserRankings = {};
+        const rankings: UserRankings = {
+            overall: null,
+            reaction: null,
+            survival: null,
+            physics: null,
+            rotation: null,
+        };
+
+        // Overall ranking (based on total games or best score)
+        if (userData.total_games > 0) {
+            const { count, error: overallError } = await supabaseServer
+                .from('users')
+                .select('id', { count: 'exact' })
+                .gt('total_games', 0)
+                .or(`best_score.gt.${userData.best_score},and(best_score.eq.${userData.best_score},total_games.gt.${userData.total_games})`);
+
+            if (!overallError) {
+                rankings.overall = (count || 0) + 1;
+            }
+        }
 
         // Reaction ranking
         if (userData.reaction_games > 0 && userData.reaction_best_time > 0) {
@@ -285,7 +330,7 @@ export const serverProfileService = {
             throw new Error('Failed to update profile');
         }
 
-        // Return safe profile data
+        // Return complete profile data
         return {
             id: data.id,
             telegram_id: data.telegram_id,
@@ -296,6 +341,14 @@ export const serverProfileService = {
             is_premium: data.is_premium,
             created_at: data.created_at,
             updated_at: data.updated_at,
+
+            attempts_remaining: data.attempts_remaining,
+            last_attempt_at: data.last_attempt_at,
+            attempts_reset_at: data.attempts_reset_at,
+
+            referral_code: data.referral_code,
+            referral_bonus: data.referral_bonus,
+            referral_count: data.referral_count,
 
             total_games: data.total_games,
             total_score: data.total_score,
@@ -333,6 +386,7 @@ export const serverProfileService = {
             total_missed_circles: data.total_missed_circles,
             best_accuracy: data.best_accuracy,
             last_played_at: data.last_played_at,
+            is_active: data.is_active,
         };
     },
 };

@@ -1,4 +1,4 @@
-// src/components/Profile/MinimalistGameStats.tsx - Enhanced with level progress
+// src/components/Profile/MinimalistGameStats.tsx - Updated with correct types from server architecture
 
 "use client";
 
@@ -17,13 +17,13 @@ import {
     Star,
     ArrowUp,
 } from "lucide-react";
-import type { User as UserType } from "@/lib/supabase";
+import type { SafeProfileData } from "@/lib/server/profileService";
 import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter";
 import { useT } from "@/contexts/LocalizationContext";
 import leagueService from "@/lib/league_service";
 
 interface MinimalistGameStatsProps {
-    user: UserType;
+    user: SafeProfileData;
 }
 
 const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
@@ -100,7 +100,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
 
             <Card className="bg-black/40 border border-white/20">
                 <CardBody className="p-5">
-                    {/* Level Progress Section - NEW */}
+                    {/* Level Progress Section */}
                     <StatsSection
                         title={`${t("leagues.level")} ${currentLevel}`}
                         icon={Star}
