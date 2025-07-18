@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Исправленная версия с улучшенной обработкой клика лиги
+// src/app/main/page.tsx - Protected main page with authentication guard
 
 "use client";
 
@@ -12,13 +12,14 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { tournamentService } from "@/lib/supabase_tournament_extension";
 import type { Tournament } from "@/types/tournaments";
 import { formatTimeRemaining } from "@/types/tournaments";
+import AuthGuard from "@/components/Auth/AuthGuard";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
 import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
 import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal";
 
-export default function MainPage() {
+function MainPageContent() {
   const router = useRouter();
   const { user, isLoading: userLoading, telegramUser, setTelegramUser } = useUser();
   const { settings } = useSettings();
@@ -251,20 +252,18 @@ export default function MainPage() {
     setIsAboutOpen(false);
   };
 
-  // ИСПРАВЛЕНИЕ: Улучшенная обработка клика лиги с отладкой
   const handleOpenLeagueProgress = () => {
-    console.log("League progress click detected"); // Отладочная информация
-    console.log("Current user:", user); // Проверяем наличие пользователя
-    console.log("User loading:", userLoading); // Проверяем состояние загрузки
+    console.log("League progress click detected");
+    console.log("Current user:", user);
+    console.log("User loading:", userLoading);
     setIsLeagueProgressOpen(true);
   };
 
   const handleCloseLeagueProgress = () => {
-    console.log("Closing league progress modal"); // Отладочная информация
+    console.log("Closing league progress modal");
     setIsLeagueProgressOpen(false);
   };
 
-  // ДОПОЛНИТЕЛЬНО: Debug информация о состоянии
   useEffect(() => {
     console.log("League modal state:", isLeagueProgressOpen);
   }, [isLeagueProgressOpen]);
@@ -496,5 +495,13 @@ export default function MainPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MainPage() {
+  return (
+    <AuthGuard requireCompleteAuth={true} showError={true}>
+      <MainPageContent />
+    </AuthGuard>
   );
 }

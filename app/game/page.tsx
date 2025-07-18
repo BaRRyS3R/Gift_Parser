@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Updated with new attempts architecture
+// src/app/game/page.tsx - Protected game page with authentication guard
 
 "use client";
 
@@ -18,8 +18,10 @@ import {
   RotateCw,
 } from "lucide-react";
 
-import { useAttempts } from "@/hooks/useAttempts";
+import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
+import { type AttemptsStatus } from "@/lib/supabase";
+import AuthGuard from "@/components/Auth/AuthGuard";
 import TournamentCard from "@/components/TournamentCard/TournamentCard";
 
 interface GameMode {
@@ -158,45 +160,19 @@ const GAME_MODES: GameMode[] = [
 ];
 
 const AttemptsDisplay = ({
+  attemptsStatus,
+  timeUntilReset,
   onShopClick,
+  isLoading,
 }: {
+  attemptsStatus: AttemptsStatus | null;
+  timeUntilReset: string;
   onShopClick: () => void;
+  isLoading: boolean;
 }) => {
   const t = useT();
-  const { 
-    attemptsStatus, 
-    isLoading, 
-    error, 
-    attemptsRemaining, 
-    canPlay 
-  } = useAttempts();
 
-  const [timeUntilReset, setTimeUntilReset] = useState<string>("");
-
-  // Timer for countdown
-  useEffect(() => {
-    if (!attemptsStatus?.resetTime || canPlay) {
-      setTimeUntilReset("");
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const now = new Date();
-      const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        setTimeUntilReset("");
-      } else {
-        const minutes = Math.floor(diff / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [attemptsStatus?.resetTime, canPlay]);
-
-  if (isLoading) {
+  if (isLoading || !attemptsStatus) {
     return (
       <div className="bg-white/10 border border-white/30 backdrop-blur-sm rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
@@ -216,17 +192,7 @@ const AttemptsDisplay = ({
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-500/20 border border-red-400/40 backdrop-blur-sm rounded-xl p-4">
-        <div className="text-center">
-          <p className="text-red-400 text-sm mb-2">Error loading attempts</p>
-          <p className="text-red-300/80 text-xs">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
+  const attemptsRemaining = attemptsStatus.attemptsRemaining;
   const isEmpty = attemptsRemaining === 0;
   const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
 
@@ -372,12 +338,12 @@ const CompactGameModeCard = ({
                 <div className="w-1 h-1 rounded-full bg-white/40" />
                 <span
                   className={`${mode.difficulty === "💋😈"
-                      ? "text-red-400"
-                      : mode.difficulty === "👉👌"
-                        ? "text-purple-400"
-                        : mode.difficulty === "🌀"
-                          ? "text-orange-400"
-                          : mode.color.accent
+                    ? "text-red-400"
+                    : mode.difficulty === "👉👌"
+                      ? "text-purple-400"
+                      : mode.difficulty === "🌀"
+                        ? "text-orange-400"
+                        : mode.color.accent
                     }`}
                 >
                   {mode.difficulty}
@@ -407,19 +373,19 @@ const CompactGameModeCard = ({
           <div className="space-y-4 mb-4 animate-fade-in">
             <div>
               <h4 className={`text-sm font-bold ${mode.color.primary} mb-2`}>
-                Особенности:
+                Features:
               </h4>
               <div className="space-y-1">
                 {mode.featuresKeys.map((featureKey, index) => (
                   <div key={index} className="flex items-center space-x-2">
                     <div
                       className={`w-1 h-1 rounded-full ${mode.id === "reaction"
-                          ? "bg-white/60"
-                          : mode.id === "survival"
-                            ? "bg-red-400/60"
-                            : mode.id === "physics"
-                              ? "bg-purple-400/60"
-                              : "bg-orange-400/60"
+                        ? "bg-white/60"
+                        : mode.id === "survival"
+                          ? "bg-red-400/60"
+                          : mode.id === "physics"
+                            ? "bg-purple-400/60"
+                            : "bg-orange-400/60"
                         }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
@@ -477,53 +443,122 @@ const CompactGameModeCard = ({
   );
 };
 
-export default function GamePage() {
+function GamePageContent() {
   const router = useRouter();
+  const { user, makeAuthenticatedRequest } = useUser();
   const t = useT();
-
-  // Use new attempts hook
-  const { 
-    canPlay, 
-    attemptsRemaining, 
-    isLoading, 
-    fetchAttemptsStatus, 
-    consumeAttempt,
-    error: attemptsError 
-  } = useAttempts();
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
+  const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus | null>(null);
+  const [timeUntilReset, setTimeUntilReset] = useState<string>("");
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [attemptsError, setAttemptsError] = useState<string | null>(null);
 
-  const handleModeStart = useCallback(async (mode: GameMode) => {
-    if (!canPlay || loadingModeId || isLoading) {
-      console.log('Cannot start game:', { canPlay, loadingModeId, isLoading });
+  // Load attempts status on page load
+  const loadAttemptsStatus = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setAttemptsError(null);
+      console.log("Loading attempts status for game page...");
+
+      const response = await makeAuthenticatedRequest('/api/user/attempts/status');
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get attempts status');
+      }
+
+      const status: AttemptsStatus = {
+        canPlay: data.canPlay,
+        attemptsRemaining: data.attemptsRemaining,
+        resetTime: data.resetTime ? new Date(data.resetTime) : undefined,
+        timeUntilReset: data.timeUntilReset,
+      };
+
+      setAttemptsStatus(status);
+      console.log("Attempts status loaded:", status);
+
+    } catch (error) {
+      console.error("Error loading attempts status:", error);
+      setAttemptsError(error instanceof Error ? error.message : "Failed to load attempts");
+    } finally {
+      setIsInitialLoading(false);
+    }
+  }, [user, makeAuthenticatedRequest]);
+
+  // Initialize attempts status
+  useEffect(() => {
+    if (user) {
+      loadAttemptsStatus();
+    }
+  }, [user, loadAttemptsStatus]);
+
+  // Timer for countdown
+  useEffect(() => {
+    if (!attemptsStatus?.resetTime || attemptsStatus.canPlay) {
+      setTimeUntilReset("");
       return;
     }
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeUntilReset("");
+        loadAttemptsStatus(); // Refresh attempts when reset time reached
+      } else {
+        const minutes = Math.floor(diff / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [attemptsStatus?.resetTime, attemptsStatus?.canPlay, loadAttemptsStatus]);
+
+  const handleModeStart = useCallback(async (mode: GameMode) => {
+    if (!attemptsStatus?.canPlay || loadingModeId) return;
 
     setLoadingModeId(mode.id);
 
     try {
-      console.log(`Starting ${mode.id} game - verifying attempts on server`);
-      
-      // Refresh attempts status to ensure accuracy
-      const freshStatus = await fetchAttemptsStatus(true);
+      console.log(`Starting ${mode.id} game - final server validation`);
 
-      if (!freshStatus?.canPlay) {
-        console.warn('Server verification failed - cannot start game');
+      // Perform final server validation before game start
+      const response = await makeAuthenticatedRequest('/api/user/attempts/status');
+
+      if (!response.ok) {
+        throw new Error('Failed to validate attempts');
+      }
+
+      const data = await response.json();
+
+      if (!data.success || !data.canPlay) {
+        console.warn('Final validation failed - cannot start game');
         setLoadingModeId(null);
+        loadAttemptsStatus(); // Refresh status
         return;
       }
 
-      // If verification passed, proceed to game
+      // Navigate to game
       setTimeout(() => {
         router.push(mode.route);
       }, 600);
 
     } catch (error) {
-      console.error('Error verifying attempts before game start:', error);
+      console.error('Error during final validation:', error);
       setLoadingModeId(null);
     }
-  }, [canPlay, loadingModeId, isLoading, fetchAttemptsStatus, router]);
+  }, [attemptsStatus?.canPlay, loadingModeId, makeAuthenticatedRequest, router, loadAttemptsStatus]);
 
   const handleToggleExpand = useCallback((modeId: string) => {
     if (loadingModeId) return;
@@ -555,6 +590,8 @@ export default function GamePage() {
     }
   }, [router]);
 
+  const canPlay = attemptsStatus?.canPlay ?? false;
+
   return (
     <div
       className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
@@ -572,8 +609,25 @@ export default function GamePage() {
       </div>
 
       <div className="mb-8 animate-fade-in">
-        <AttemptsDisplay onShopClick={handleOpenShop} />
+        <AttemptsDisplay
+          attemptsStatus={attemptsStatus}
+          timeUntilReset={timeUntilReset}
+          onShopClick={handleOpenShop}
+          isLoading={isInitialLoading}
+        />
       </div>
+
+      {attemptsError && (
+        <div className="mb-6 p-4 bg-red-500/20 border border-red-400/40 rounded-xl">
+          <p className="text-red-400 text-sm text-center">{attemptsError}</p>
+          <button
+            onClick={loadAttemptsStatus}
+            className="mt-2 w-full py-2 text-xs text-red-300 hover:text-red-200 transition-colors"
+          >
+            {t("common.retry")}
+          </button>
+        </div>
+      )}
 
       <div className="mb-8">
         <TournamentCard />
@@ -598,5 +652,13 @@ export default function GamePage() {
         <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
       </div>
     </div>
+  );
+}
+
+export default function GamePage() {
+  return (
+    <AuthGuard requireCompleteAuth={true} showError={true}>
+      <GamePageContent />
+    </AuthGuard>
   );
 }
