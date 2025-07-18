@@ -1,4 +1,4 @@
-// src/hooks/modules/useLeaderboard.ts - Centralized leaderboard management (without caching)
+// src/hooks/modules/useLeaderboard.ts - Исправленная версия без циклических запросов
 
 import { useState, useCallback, useRef } from 'react';
 
@@ -145,7 +145,7 @@ export function useLeaderboard(makeAuthenticatedRequest: (endpoint: string, opti
         } finally {
             fetchingRef.current = false;
         }
-    }, [makeAuthenticatedRequest, state.data]);
+    }, [makeAuthenticatedRequest]); // ← ИСПРАВЛЕНИЕ: удалили state.data из зависимостей
 
     /**
      * Clear error state
