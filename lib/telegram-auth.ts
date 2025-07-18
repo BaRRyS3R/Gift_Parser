@@ -39,7 +39,7 @@ if (!TELEGRAM_BOT_API) {
 const BOT_TOKEN: string = TELEGRAM_BOT_API;
 
 /**
- * Validates Telegram WebApp initData using official algorithm
+ * Validates Telegram WebApp initData using official algorithm.
  * Based on: https://core.telegram.org/bots/webapps#validating-data-received-via-the-web-app
  */
 export function validateTelegramWebAppData(initData: string): ValidationResult {

@@ -95,59 +95,6 @@ export const serverUserService = {
         return data;
     },
 
-    async create(telegramUser: ServerTelegramUser, referralCode?: string): Promise<ServerUser> {
-        const referralCodeToUse = await this.generateUniqueReferralCode();
-        let additionalAttempts = 10;
-        let referredBy = null;
-
-        // Handle referral
-        if (referralCode) {
-            const referrer = await this.findByReferralCode(referralCode);
-            if (referrer) {
-                referredBy = referralCode;
-                additionalAttempts += referrer.referral_bonus;
-
-                // Update referrer
-                await supabaseServer
-                    .from('users')
-                    .update({
-                        referral_count: referrer.referral_count + 1,
-                        attempts_remaining: referrer.attempts_remaining + 5,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', referrer.id);
-            }
-        }
-
-        const userData = {
-            telegram_id: telegramUser.id,
-            first_name: telegramUser.first_name,
-            last_name: telegramUser.last_name || null,
-            username: telegramUser.username || null,
-            language_code: telegramUser.language_code || null,
-            is_premium: telegramUser.is_premium || false,
-            attempts_remaining: additionalAttempts,
-            referral_code: referralCodeToUse,
-            referred_by: referredBy,
-            referral_bonus: 5,
-            referral_count: 0,
-            current_level: 1,
-        };
-
-        const { data, error } = await supabaseServer
-            .from('users')
-            .insert(userData)
-            .select()
-            .single();
-
-        if (error) {
-            console.error('Error creating user:', error);
-            throw error;
-        }
-
-        return data;
-    },
-
     async findByReferralCode(referralCode: string): Promise<ServerUser | null> {
         const { data, error } = await supabaseServer
             .from('users')
@@ -211,6 +158,59 @@ export const serverUserService = {
             console.error('Error validating referral code and getting referrer info:', error);
             return { isValid: false, bonus: 0 };
         }
+    },
+
+    async create(telegramUser: ServerTelegramUser, referralCode?: string): Promise<ServerUser> {
+        const referralCodeToUse = await this.generateUniqueReferralCode();
+        let additionalAttempts = 10;
+        let referredBy = null;
+
+        // Handle referral
+        if (referralCode) {
+            const referrer = await this.findByReferralCode(referralCode);
+            if (referrer) {
+                referredBy = referralCode;
+                additionalAttempts += referrer.referral_bonus;
+
+                // Update referrer
+                await supabaseServer
+                    .from('users')
+                    .update({
+                        referral_count: referrer.referral_count + 1,
+                        attempts_remaining: referrer.attempts_remaining + 5,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', referrer.id);
+            }
+        }
+
+        const userData = {
+            telegram_id: telegramUser.id,
+            first_name: telegramUser.first_name,
+            last_name: telegramUser.last_name || null,
+            username: telegramUser.username || null,
+            language_code: telegramUser.language_code || null,
+            is_premium: telegramUser.is_premium || false,
+            attempts_remaining: additionalAttempts,
+            referral_code: referralCodeToUse,
+            referred_by: referredBy,
+            referral_bonus: 5,
+            referral_count: 0,
+            current_level: 1,
+        };
+
+        const { data, error } = await supabaseServer
+            .from('users')
+            .insert(userData)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error creating user:', error);
+            throw error;
+        }
+
+        return data;
     },
 
     async updateUser(telegramId: number, updates: Partial<ServerUser>): Promise<ServerUser> {
