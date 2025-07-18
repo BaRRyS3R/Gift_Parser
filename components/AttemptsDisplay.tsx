@@ -7,7 +7,7 @@ import { Target, RotateCcw, Clock, ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { useT } from "@/contexts/LocalizationContext";
-import type { AttemptsStatus } from "@/hooks/useAttempts";
+import type { AttemptsStatus } from "@/hooks/modules/useAttempts";
 
 interface AttemptsDisplayProps {
     className?: string;

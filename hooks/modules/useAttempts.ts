@@ -1,7 +1,7 @@
 // src/hooks/useAttempts.ts - Обновленный хук с экспортированным типом для централизованного управления
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useUser } from './useUser';
+import { useUser } from '../useUser';
 
 // Экспортированный интерфейс для использования в других компонентах
 export interface AttemptsStatus {

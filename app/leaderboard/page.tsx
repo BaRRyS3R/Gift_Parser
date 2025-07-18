@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Updated with rotation mode support
+// src/app/leaderboard/page.tsx - Updated leaderboard page with AuthGuard and new API
 
 "use client";
 
@@ -17,60 +17,71 @@ import {
   Crosshair,
   Atom,
   RotateCw,
+  RefreshCw,
+  Info,
+  Eye,
 } from "lucide-react";
 
-import {
-  userService,
-  type ReactionLeaderboard,
-  type SurvivalLeaderboard,
-  type PhysicsLeaderboard,
-  type RotationLeaderboard,
-} from "@/lib/supabase";
 import { useUser } from "@/hooks/useUser";
+import { useLeaderboard } from "@/hooks/modules/useLeaderboard";
 import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter";
 import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
 import { useT } from "@/contexts/LocalizationContext";
+import AuthGuard from "@/components/Auth/AuthGuard";
+
+import type {
+  SafeReactionLeaderboard,
+  SafeSurvivalLeaderboard,
+  SafePhysicsLeaderboard,
+  SafeRotationLeaderboard,
+} from "@/hooks/modules/useLeaderboard";
 
 type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
-export default function LeaderboardPage() {
-  const { user } = useUser();
+function LeaderboardPageContent() {
+  const { user, makeAuthenticatedRequest } = useUser();
+  const {
+    leaderboardData,
+    isLoading,
+    error,
+    fetchLeaderboards,
+    clearCache,
+    clearError,
+    isUserInTopLeaderboard,
+    getUserPosition,
+    formatTimeUntilUpdate,
+    hasValidCache,
+    cacheInfo,
+  } = useLeaderboard(makeAuthenticatedRequest);
+
   const t = useT();
   const [activeTab, setActiveTab] = useState<LeaderboardType>("reaction");
-  const [reactionLeaderboard, setReactionLeaderboard] = useState<ReactionLeaderboard[]>([]);
-  const [survivalLeaderboard, setSurvivalLeaderboard] = useState<SurvivalLeaderboard[]>([]);
-  const [physicsLeaderboard, setPhysicsLeaderboard] = useState<PhysicsLeaderboard[]>([]);
-  const [rotationLeaderboard, setRotationLeaderboard] = useState<RotationLeaderboard[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [showCacheInfo, setShowCacheInfo] = useState(false);
 
+  // Load leaderboards on mount
   useEffect(() => {
-    const loadLeaderboards = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+    if (!leaderboardData && !isLoading) {
+      fetchLeaderboards();
+    }
+  }, [leaderboardData, isLoading, fetchLeaderboards]);
 
-        const [reaction, survival, physics, rotation] = await Promise.all([
-          userService.getReactionLeaderboard(50),
-          userService.getSurvivalLeaderboard(50),
-          userService.getPhysicsLeaderboard(50),
-          userService.getRotationLeaderboard(50),
-        ]);
+  // Auto-refresh when cache expires (optional)
+  useEffect(() => {
+    if (!cacheInfo) return;
 
-        setReactionLeaderboard(reaction);
-        setSurvivalLeaderboard(survival);
-        setPhysicsLeaderboard(physics);
-        setRotationLeaderboard(rotation);
-      } catch (err) {
-        console.error("Error loading leaderboards:", err);
-        setError(t("leaderboard.failedToLoad"));
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    const nextUpdate = new Date(cacheInfo.nextUpdate).getTime();
+    const now = Date.now();
+    const timeUntilUpdate = Math.max(0, nextUpdate - now);
 
-    loadLeaderboards();
-  }, [t]);
+    if (timeUntilUpdate > 0) {
+      const timer = setTimeout(() => {
+        console.log('Cache expired, auto-refreshing leaderboards');
+        fetchLeaderboards(true);
+      }, timeUntilUpdate);
+
+      return () => clearTimeout(timer);
+    }
+  }, [cacheInfo, fetchLeaderboards]);
 
   const getRankIcon = (position: number) => {
     switch (position) {
@@ -85,10 +96,6 @@ export default function LeaderboardPage() {
           <span className="text-white/60 text-sm font-bold">#{position}</span>
         );
     }
-  };
-
-  const isCurrentUser = (telegramId: number) => {
-    return user?.telegram_id === telegramId;
   };
 
   const getTabColors = (tab: LeaderboardType, isActive: boolean) => {
@@ -114,10 +121,7 @@ export default function LeaderboardPage() {
     return isActive ? colors[tab].active : colors[tab].inactive;
   };
 
-  const renderReactionLeaderboardEntry = (
-    entry: ReactionLeaderboard,
-    position: number,
-  ) => {
+  const renderReactionLeaderboardEntry = (entry: SafeReactionLeaderboard) => {
     const getRatingFromTime = (time: number): string => {
       if (time <= 100) return "LIGHTNING";
       if (time <= 200) return "EXCELLENT";
@@ -130,13 +134,13 @@ export default function LeaderboardPage() {
 
     return (
       <div
-        key={entry.id}
+        key={`reaction-${entry.position}`}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
           hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
           transition-all duration-200
-          ${isCurrentUser(entry.telegram_id) ? "ring-1 ring-white/60 bg-white/25" : ""}
+          ${entry.isCurrentUser ? "ring-1 ring-white/60 bg-white/25" : ""}
           rounded-lg
         `}
       >
@@ -151,21 +155,18 @@ export default function LeaderboardPage() {
             <div className="flex-1">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="flex items-center justify-center w-8">
-                  {position <= 3 ? (
-                    getRankIcon(position)
+                  {entry.position <= 3 ? (
+                    getRankIcon(entry.position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{position}</span>
+                    <span className="text-white/80 text-sm font-bold">#{entry.position}</span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}>
+                    <h3 className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
-                    {entry.is_premium && (
-                      <Star className="text-yellow-400 flex-shrink-0" size={12} />
-                    )}
-                    {isCurrentUser(entry.telegram_id) && (
+                    {entry.isCurrentUser && (
                       <span className="text-xs bg-white/30 text-white px-2 py-0.5 rounded border border-white/30">
                         {t("leaderboard.you")}
                       </span>
@@ -201,19 +202,16 @@ export default function LeaderboardPage() {
     );
   };
 
-  const renderSurvivalLeaderboardEntry = (
-    entry: SurvivalLeaderboard,
-    position: number,
-  ) => {
+  const renderSurvivalLeaderboardEntry = (entry: SafeSurvivalLeaderboard) => {
     return (
       <div
-        key={entry.id}
+        key={`survival-${entry.position}`}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
           hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
           transition-all duration-200
-          ${isCurrentUser(entry.telegram_id) ? "ring-1 ring-red-400/60 bg-red-500/25" : ""}
+          ${entry.isCurrentUser ? "ring-1 ring-red-400/60 bg-red-500/25" : ""}
           rounded-lg
         `}
       >
@@ -228,21 +226,18 @@ export default function LeaderboardPage() {
             <div className="flex-1">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="flex items-center justify-center w-8">
-                  {position <= 3 ? (
-                    getRankIcon(position)
+                  {entry.position <= 3 ? (
+                    getRankIcon(entry.position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{position}</span>
+                    <span className="text-white/80 text-sm font-bold">#{entry.position}</span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}>
+                    <h3 className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
-                    {entry.is_premium && (
-                      <Star className="text-yellow-400 flex-shrink-0" size={12} />
-                    )}
-                    {isCurrentUser(entry.telegram_id) && (
+                    {entry.isCurrentUser && (
                       <span className="text-xs bg-red-500/30 text-red-200 px-2 py-0.5 rounded border border-red-400/30">
                         {t("leaderboard.you")}
                       </span>
@@ -283,19 +278,16 @@ export default function LeaderboardPage() {
     );
   };
 
-  const renderPhysicsLeaderboardEntry = (
-    entry: PhysicsLeaderboard,
-    position: number,
-  ) => {
+  const renderPhysicsLeaderboardEntry = (entry: SafePhysicsLeaderboard) => {
     return (
       <div
-        key={entry.id}
+        key={`physics-${entry.position}`}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
           hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
           transition-all duration-200
-          ${isCurrentUser(entry.telegram_id) ? "ring-1 ring-purple-400/60 bg-purple-500/25" : ""}
+          ${entry.isCurrentUser ? "ring-1 ring-purple-400/60 bg-purple-500/25" : ""}
           rounded-lg
         `}
       >
@@ -310,21 +302,18 @@ export default function LeaderboardPage() {
             <div className="flex-1">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="flex items-center justify-center w-8">
-                  {position <= 3 ? (
-                    getRankIcon(position)
+                  {entry.position <= 3 ? (
+                    getRankIcon(entry.position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{position}</span>
+                    <span className="text-white/80 text-sm font-bold">#{entry.position}</span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}>
+                    <h3 className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
-                    {entry.is_premium && (
-                      <Star className="text-yellow-400 flex-shrink-0" size={12} />
-                    )}
-                    {isCurrentUser(entry.telegram_id) && (
+                    {entry.isCurrentUser && (
                       <span className="text-xs bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded border border-purple-400/30">
                         {t("leaderboard.you")}
                       </span>
@@ -365,19 +354,16 @@ export default function LeaderboardPage() {
     );
   };
 
-  const renderRotationLeaderboardEntry = (
-    entry: RotationLeaderboard,
-    position: number,
-  ) => {
+  const renderRotationLeaderboardEntry = (entry: SafeRotationLeaderboard) => {
     return (
       <div
-        key={entry.id}
+        key={`rotation-${entry.position}`}
         className={`
           relative overflow-hidden
           bg-gradient-to-r from-white/10 to-white/5 border border-white/20
           hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
           transition-all duration-200
-          ${isCurrentUser(entry.telegram_id) ? "ring-1 ring-orange-400/60 bg-orange-500/25" : ""}
+          ${entry.isCurrentUser ? "ring-1 ring-orange-400/60 bg-orange-500/25" : ""}
           rounded-lg
         `}
       >
@@ -392,21 +378,18 @@ export default function LeaderboardPage() {
             <div className="flex-1">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="flex items-center justify-center w-8">
-                  {position <= 3 ? (
-                    getRankIcon(position)
+                  {entry.position <= 3 ? (
+                    getRankIcon(entry.position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{position}</span>
+                    <span className="text-white/80 text-sm font-bold">#{entry.position}</span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${isCurrentUser(entry.telegram_id) ? "text-white" : "text-white/90"}`}>
+                    <h3 className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
-                    {entry.is_premium && (
-                      <Star className="text-yellow-400 flex-shrink-0" size={12} />
-                    )}
-                    {isCurrentUser(entry.telegram_id) && (
+                    {entry.isCurrentUser && (
                       <span className="text-xs bg-orange-500/30 text-orange-200 px-2 py-0.5 rounded border border-orange-400/30">
                         {t("leaderboard.you")}
                       </span>
@@ -447,7 +430,17 @@ export default function LeaderboardPage() {
     );
   };
 
-  if (isLoading) {
+  const handleRefresh = async () => {
+    clearError();
+    await fetchLeaderboards(true);
+  };
+
+  const handleClearCache = async () => {
+    await clearCache();
+    await fetchLeaderboards(true);
+  };
+
+  if (isLoading && !leaderboardData) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -458,7 +451,7 @@ export default function LeaderboardPage() {
     );
   }
 
-  if (error) {
+  if (error && !leaderboardData) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -466,7 +459,7 @@ export default function LeaderboardPage() {
           <p className="text-white/80">{error}</p>
           <button
             className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
-            onClick={() => window.location.reload()}
+            onClick={handleRefresh}
           >
             {t("common.retry")}
           </button>
@@ -476,25 +469,29 @@ export default function LeaderboardPage() {
   }
 
   const getCurrentLeaderboard = () => {
+    if (!leaderboardData) return [];
+
     switch (activeTab) {
       case "reaction":
-        return reactionLeaderboard;
+        return leaderboardData.reaction;
       case "survival":
-        return survivalLeaderboard;
+        return leaderboardData.survival;
       case "physics":
-        return physicsLeaderboard;
+        return leaderboardData.physics;
       case "rotation":
-        return rotationLeaderboard;
+        return leaderboardData.rotation;
     }
   };
 
   const currentLeaderboard = getCurrentLeaderboard();
-  const isReactionTab = activeTab === "reaction";
-  const isSurvivalTab = activeTab === "survival";
-  const isPhysicsTab = activeTab === "physics";
-  const isRotationTab = activeTab === "rotation";
+  const userPosition = getUserPosition(activeTab);
+  const isUserInTop = isUserInTopLeaderboard(activeTab);
 
   const getEmptyStateMessage = () => {
+    const isReactionTab = activeTab === "reaction";
+    const isSurvivalTab = activeTab === "survival";
+    const isPhysicsTab = activeTab === "physics";
+
     if (isReactionTab) {
       return {
         icon: <Zap className="text-white/60 mx-auto mb-3" size={32} />,
@@ -525,10 +522,52 @@ export default function LeaderboardPage() {
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {/* Header */}
-      <div className="text-center space-y-4 mb-8 pt-6">
+      <div className="text-center space-y-4 mb-6 pt-6">
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
           {t("leaderboard.title")}
         </h1>
+
+        {/* Cache Info and Controls */}
+        <div className="flex items-center justify-center space-x-2">
+          <button
+            onClick={() => setShowCacheInfo(!showCacheInfo)}
+            className="flex items-center space-x-1 text-xs text-white/60 hover:text-white/80 transition-colors"
+          >
+            <Info size={12} />
+            <span>Cache info</span>
+          </button>
+
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="flex items-center space-x-1 text-xs text-white/60 hover:text-white/80 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`${isLoading ? "animate-spin" : ""}`} size={12} />
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        {/* Cache Information */}
+        {showCacheInfo && cacheInfo && (
+          <div className="bg-white/10 border border-white/20 rounded-lg p-3 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-white/70">Last updated:</span>
+              <span className="text-white">{new Date(cacheInfo.lastUpdated).toLocaleTimeString()}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white/70">Next update in:</span>
+              <span className="text-white">{formatTimeUntilUpdate() || "Soon"}</span>
+            </div>
+            <div className="flex items-center justify-center pt-2">
+              <button
+                onClick={handleClearCache}
+                className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
+              >
+                Clear cache & refresh now
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Current Leaderboard Stats */}
@@ -543,30 +582,26 @@ export default function LeaderboardPage() {
             </div>
             <div className="w-px h-4 bg-white/30" />
             <div className="flex items-center space-x-1">
-              {isReactionTab ? (
-                <Clock className="text-white/80" size={14} />
-              ) : isSurvivalTab ? (
-                <Clock className="text-white/80" size={14} />
-              ) : isPhysicsTab ? (
-                <Target className="text-white/80" size={14} />
-              ) : (
-                <Clock className="text-white/80" size={14} />
-              )}
-              <span className="font-bold text-white">
-                {currentLeaderboard[0]
-                  ? isReactionTab
-                    ? `${(currentLeaderboard[0] as ReactionLeaderboard).best_reaction_time}ms`
-                    : isSurvivalTab
-                      ? formatSurvivalTime(
-                        (currentLeaderboard[0] as SurvivalLeaderboard).best_survival_time,
-                      )
-                      : isPhysicsTab
-                        ? `${(currentLeaderboard[0] as PhysicsLeaderboard).best_physics_score} pts`
-                        : formatRotationTime(
-                          (currentLeaderboard[0] as RotationLeaderboard).best_rotation_time,
-                        )
-                  : "0"}
-              </span>
+              <Eye className="text-white/80" size={14} />
+              <span className="text-white/70 text-xs">Top 100</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Position (if not in top 100) */}
+      {userPosition && !isUserInTop && (
+        <div className="mb-6">
+          <div className="bg-blue-500/20 border border-blue-400/30 rounded-lg p-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <Star className="text-blue-400" size={16} />
+              <span className="text-blue-300 font-bold">Your Position</span>
+            </div>
+            <div className="text-center">
+              <span className="text-2xl font-bold text-white">#{userPosition}</span>
+              <p className="text-blue-300/80 text-sm mt-1">
+                Keep playing to reach the top 100!
+              </p>
             </div>
           </div>
         </div>
@@ -614,21 +649,34 @@ export default function LeaderboardPage() {
           </div>
         ) : (
           <div className="animate-fade-in space-y-3 max-h-[70vh] overflow-y-auto">
-            {currentLeaderboard.map((entry, index) =>
-              isReactionTab
-                ? renderReactionLeaderboardEntry(entry as ReactionLeaderboard, index + 1)
-                : isSurvivalTab
-                  ? renderSurvivalLeaderboardEntry(entry as SurvivalLeaderboard, index + 1)
-                  : isPhysicsTab
-                    ? renderPhysicsLeaderboardEntry(entry as PhysicsLeaderboard, index + 1)
-                    : renderRotationLeaderboardEntry(entry as RotationLeaderboard, index + 1),
-            )}
+            {currentLeaderboard.map((entry) => {
+              switch (activeTab) {
+                case "reaction":
+                  return renderReactionLeaderboardEntry(entry as SafeReactionLeaderboard);
+                case "survival":
+                  return renderSurvivalLeaderboardEntry(entry as SafeSurvivalLeaderboard);
+                case "physics":
+                  return renderPhysicsLeaderboardEntry(entry as SafePhysicsLeaderboard);
+                case "rotation":
+                  return renderRotationLeaderboardEntry(entry as SafeRotationLeaderboard);
+                default:
+                  return null;
+              }
+            })}
           </div>
         )}
       </div>
 
-      {/* Bottom spacing for safe area - КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ */}
+      {/* Bottom spacing for safe area */}
       <div className="h-24" />
     </div>
+  );
+}
+
+export default function LeaderboardPage() {
+  return (
+    <AuthGuard requireCompleteAuth={true} showError={true}>
+      <LeaderboardPageContent />
+    </AuthGuard>
   );
 }
