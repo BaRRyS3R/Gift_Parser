@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Updated with rotation mode
+// src/app/game/page.tsx - Updated with new attempts architecture
 
 "use client";
 
@@ -18,8 +18,7 @@ import {
   RotateCw,
 } from "lucide-react";
 
-import { useUser } from "@/hooks/useUser";
-import { type AttemptsStatus } from "@/lib/supabase";
+import { useAttempts } from "@/hooks/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import TournamentCard from "@/components/TournamentCard/TournamentCard";
 
@@ -128,7 +127,6 @@ const GAME_MODES: GameMode[] = [
       "game.modes.physics.rules.2",
     ],
   },
-  // NEW: Rotation mode
   {
     id: "rotation",
     nameKey: "game.modes.rotation.name",
@@ -160,20 +158,45 @@ const GAME_MODES: GameMode[] = [
 ];
 
 const AttemptsDisplay = ({
-  attemptsStatus,
-  timeUntilReset,
   onShopClick,
-  isLoading,
 }: {
-  attemptsStatus: AttemptsStatus | null;
-  timeUntilReset: string;
   onShopClick: () => void;
-  isLoading: boolean;
 }) => {
   const t = useT();
+  const { 
+    attemptsStatus, 
+    isLoading, 
+    error, 
+    attemptsRemaining, 
+    canPlay 
+  } = useAttempts();
 
-  // Показываем placeholder если данные еще загружаются
-  if (isLoading || !attemptsStatus) {
+  const [timeUntilReset, setTimeUntilReset] = useState<string>("");
+
+  // Timer for countdown
+  useEffect(() => {
+    if (!attemptsStatus?.resetTime || canPlay) {
+      setTimeUntilReset("");
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeUntilReset("");
+      } else {
+        const minutes = Math.floor(diff / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [attemptsStatus?.resetTime, canPlay]);
+
+  if (isLoading) {
     return (
       <div className="bg-white/10 border border-white/30 backdrop-blur-sm rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
@@ -193,7 +216,17 @@ const AttemptsDisplay = ({
     );
   }
 
-  const attemptsRemaining = attemptsStatus.attemptsRemaining;
+  if (error) {
+    return (
+      <div className="bg-red-500/20 border border-red-400/40 backdrop-blur-sm rounded-xl p-4">
+        <div className="text-center">
+          <p className="text-red-400 text-sm mb-2">Error loading attempts</p>
+          <p className="text-red-300/80 text-xs">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   const isEmpty = attemptsRemaining === 0;
   const isLow = attemptsRemaining <= 2 && attemptsRemaining > 0;
 
@@ -310,7 +343,6 @@ const CompactGameModeCard = ({
         ${isExpanded ? "ring-1 ring-white/20" : ""}
       `}
     >
-      {/* Background Gamepad Icon */}
       <div className="absolute right-0 top-1/2 transform translate-x-1/3 -translate-y-1/2 pointer-events-none">
         <Gamepad2
           className="text-white/5"
@@ -321,7 +353,6 @@ const CompactGameModeCard = ({
         />
       </div>
 
-      {/* Main Card Content */}
       <div className="p-4 relative z-10">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-3">
@@ -372,10 +403,8 @@ const CompactGameModeCard = ({
           {t(mode.descriptionKey as any)}
         </p>
 
-        {/* Expanded Content */}
         {isExpanded && !isAnyModeLoading && (
           <div className="space-y-4 mb-4 animate-fade-in">
-            {/* Features */}
             <div>
               <h4 className={`text-sm font-bold ${mode.color.primary} mb-2`}>
                 Особенности:
@@ -390,7 +419,7 @@ const CompactGameModeCard = ({
                             ? "bg-red-400/60"
                             : mode.id === "physics"
                               ? "bg-purple-400/60"
-                              : "bg-orange-400/60" // rotation
+                              : "bg-orange-400/60"
                         }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
@@ -403,7 +432,6 @@ const CompactGameModeCard = ({
           </div>
         )}
 
-        {/* Action Button */}
         <button
           onClick={onStart}
           disabled={isAnyModeLoading || isDisabled}
@@ -435,7 +463,6 @@ const CompactGameModeCard = ({
         </button>
       </div>
 
-      {/* Disabled Overlay */}
       {isDisabled && !isAnyModeLoading && (
         <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
           <div className="text-center space-y-2">
@@ -452,113 +479,51 @@ const CompactGameModeCard = ({
 
 export default function GamePage() {
   const router = useRouter();
-  const { telegramUser, getAttemptsStatus, getCachedAttemptsStatus } = useUser();
   const t = useT();
 
-  // Состояния компонента
+  // Use new attempts hook
+  const { 
+    canPlay, 
+    attemptsRemaining, 
+    isLoading, 
+    fetchAttemptsStatus, 
+    consumeAttempt,
+    error: attemptsError 
+  } = useAttempts();
+
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
-  const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus | null>(null);
-  const [timeUntilReset, setTimeUntilReset] = useState<string>("");
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // Проверка попыток с использованием кэша
-  const checkAttempts = useCallback(async () => {
-    if (!telegramUser?.id) return;
-
-    try {
-      const status = await getAttemptsStatus();
-      setAttemptsStatus(status);
-    } catch (error) {
-      console.error("Error checking attempts:", error);
-      // В случае ошибки показываем безопасное состояние
-      setAttemptsStatus({
-        canPlay: false,
-        attemptsRemaining: 0,
-      });
-    }
-  }, [telegramUser?.id, getAttemptsStatus]);
-
-  // Инициализация данных при загрузке компонента
-  useEffect(() => {
-    const initializeData = async () => {
-      if (!telegramUser?.id) {
-        setIsInitialLoading(false);
-        return;
-      }
-
-      // Сначала пытаемся получить кэшированные данные для быстрого отображения UI
-      const cachedStatus = getCachedAttemptsStatus();
-      if (cachedStatus) {
-        setAttemptsStatus(cachedStatus);
-        setIsInitialLoading(false);
-
-        // Затем в фоне обновляем данные с сервера
-        checkAttempts().finally(() => {
-          // Данные могли измениться, но UI уже отображается
-        });
-      } else {
-        // Если кэша нет, загружаем данные с сервера
-        await checkAttempts();
-        setIsInitialLoading(false);
-      }
-    };
-
-    initializeData();
-  }, [telegramUser?.id, getCachedAttemptsStatus, checkAttempts]);
-
-  // Таймер для обратного отсчета
-  useEffect(() => {
-    if (!attemptsStatus?.resetTime || attemptsStatus.canPlay) {
-      setTimeUntilReset("");
+  const handleModeStart = useCallback(async (mode: GameMode) => {
+    if (!canPlay || loadingModeId || isLoading) {
+      console.log('Cannot start game:', { canPlay, loadingModeId, isLoading });
       return;
     }
-
-    const interval = setInterval(() => {
-      const now = new Date();
-      const diff = attemptsStatus.resetTime!.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        setTimeUntilReset("");
-        checkAttempts(); // Обновляем статус при истечении времени сброса
-      } else {
-        const minutes = Math.floor(diff / 60000);
-        const seconds = Math.floor((diff % 60000) / 1000);
-        setTimeUntilReset(`${minutes}:${seconds.toString().padStart(2, "0")}`);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [attemptsStatus?.resetTime, attemptsStatus?.canPlay, checkAttempts]);
-
-  // Обработчик запуска игры с безопасной проверкой
-  const handleModeStart = useCallback(async (mode: GameMode) => {
-    if (!attemptsStatus?.canPlay || loadingModeId) return;
 
     setLoadingModeId(mode.id);
 
     try {
-      // КРИТИЧЕСКИ ВАЖНО: всегда проверяем попытки на сервере перед запуском игры
       console.log(`Starting ${mode.id} game - verifying attempts on server`);
-      const freshStatus = await getAttemptsStatus();
+      
+      // Refresh attempts status to ensure accuracy
+      const freshStatus = await fetchAttemptsStatus(true);
 
-      if (!freshStatus.canPlay) {
-        console.warn("Attempts check failed - cannot start game");
-        setAttemptsStatus(freshStatus);
+      if (!freshStatus?.canPlay) {
+        console.warn('Server verification failed - cannot start game');
         setLoadingModeId(null);
         return;
       }
 
-      // Если проверка прошла успешно, переходим к игре
+      // If verification passed, proceed to game
       setTimeout(() => {
         router.push(mode.route);
       }, 600);
 
     } catch (error) {
-      console.error("Error verifying attempts before game start:", error);
+      console.error('Error verifying attempts before game start:', error);
       setLoadingModeId(null);
     }
-  }, [attemptsStatus?.canPlay, loadingModeId, getAttemptsStatus, router]);
+  }, [canPlay, loadingModeId, isLoading, fetchAttemptsStatus, router]);
 
   const handleToggleExpand = useCallback((modeId: string) => {
     if (loadingModeId) return;
@@ -590,9 +555,6 @@ export default function GamePage() {
     }
   }, [router]);
 
-  // Определяем можно ли играть
-  const canPlay = attemptsStatus?.canPlay ?? false;
-
   return (
     <div
       className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
@@ -600,7 +562,6 @@ export default function GamePage() {
         : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
     >
-      {/* Header */}
       <div className="text-center space-y-4 mb-8">
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
           {t("game.modes.title")}
@@ -610,22 +571,14 @@ export default function GamePage() {
         </p>
       </div>
 
-      {/* Attempts Display - теперь без видимой загрузки */}
       <div className="mb-8 animate-fade-in">
-        <AttemptsDisplay
-          attemptsStatus={attemptsStatus}
-          timeUntilReset={timeUntilReset}
-          onShopClick={handleOpenShop}
-          isLoading={isInitialLoading}
-        />
+        <AttemptsDisplay onShopClick={handleOpenShop} />
       </div>
 
-      {/* Tournament Card */}
       <div className="mb-8">
         <TournamentCard />
       </div>
 
-      {/* Game Mode Cards */}
       <div className="space-y-4 mb-8">
         {GAME_MODES.map((mode) => (
           <CompactGameModeCard
@@ -641,7 +594,6 @@ export default function GamePage() {
         ))}
       </div>
 
-      {/* Footer Message */}
       <div className="text-center space-y-2 animate-fade-in pb-8">
         <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
       </div>

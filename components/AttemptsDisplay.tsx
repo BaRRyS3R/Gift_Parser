@@ -1,12 +1,11 @@
-// src/components/AttemptsDisplay.tsx - Minimal icon-based attempts display
+// src/components/AttemptsDisplay.tsx - Updated with new attempts architecture
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Target, RotateCcw, Clock } from "lucide-react";
 
-import { useUser } from "@/hooks/useUser";
-import { userService, type AttemptsStatus } from "@/lib/supabase";
+import { useAttempts } from "@/hooks/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface AttemptsDisplayProps {
@@ -14,38 +13,20 @@ interface AttemptsDisplayProps {
 }
 
 const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => {
-    const { telegramUser } = useUser();
     const t = useT();
+    const {
+        attemptsStatus,
+        isLoading,
+        error,
+        attemptsRemaining,
+        canPlay
+    } = useAttempts();
 
-    const [attemptsStatus, setAttemptsStatus] = useState<AttemptsStatus>({
-        canPlay: true,
-        attemptsRemaining: 0,
-    });
     const [timeUntilReset, setTimeUntilReset] = useState<string>("");
-    const [isLoading, setIsLoading] = useState(true);
-
-    const checkAttempts = useCallback(async () => {
-        if (!telegramUser?.id) return;
-
-        try {
-            const status = await userService.checkAndUpdateAttemptsWithServerValidation(
-                telegramUser.id,
-            );
-            setAttemptsStatus(status);
-        } catch (error) {
-            console.error("Error checking attempts:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [telegramUser?.id]);
-
-    useEffect(() => {
-        checkAttempts();
-    }, [checkAttempts]);
 
     // Timer update logic
     useEffect(() => {
-        if (!attemptsStatus.resetTime || attemptsStatus.canPlay) {
+        if (!attemptsStatus?.resetTime || canPlay) {
             setTimeUntilReset("");
             return;
         }
@@ -56,7 +37,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => 
 
             if (diff <= 0) {
                 setTimeUntilReset("");
-                checkAttempts();
+                // The useAttempts hook will automatically refresh when reset time is reached
             } else {
                 const hours = Math.floor(diff / 3600000);
                 const minutes = Math.floor((diff % 3600000) / 60000);
@@ -71,7 +52,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => 
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [attemptsStatus.resetTime, attemptsStatus.canPlay, checkAttempts]);
+    }, [attemptsStatus?.resetTime, canPlay]);
 
     if (isLoading) {
         return (
@@ -81,7 +62,15 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => 
         );
     }
 
-    const isEmpty = attemptsStatus.attemptsRemaining === 0;
+    if (error) {
+        return (
+            <div className={`flex items-center justify-center ${className}`}>
+                <span className="text-red-400 text-sm">⚡ --</span>
+            </div>
+        );
+    }
+
+    const isEmpty = attemptsRemaining === 0;
 
     return (
         <div className={`flex items-center justify-center space-x-2 ${className}`}>
@@ -96,7 +85,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({ className = "" }) => 
             ) : (
                 <>
                     <span className="text-white text-lg font-bold tabular-nums">
-                        {attemptsStatus.attemptsRemaining} ⚡
+                        {attemptsRemaining} ⚡
                     </span>
                 </>
             )}

@@ -1,6 +1,7 @@
-// src/lib/supabase_server.ts - Server-side Supabase client with service key
+// src/lib/supabase_server.ts - Updated server-side client with attempts service integration
 
 import { createClient } from '@supabase/supabase-js';
+import { serverAttemptsService, type AttemptsStatus } from './server/attemptsService';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -230,16 +231,32 @@ export const serverUserService = {
     },
 
     async getServerTime(): Promise<Date> {
-        try {
-            const { data, error } = await supabaseServer.rpc('get_current_timestamp');
-            if (error) {
-                console.warn('Failed to get server time, using current time:', error);
-                return new Date();
-            }
-            return new Date(data);
-        } catch (error) {
-            console.warn('Error getting server time, falling back to current time:', error);
-            return new Date();
-        }
+        return serverAttemptsService.getServerTime();
+    },
+
+    // UPDATED: Delegate attempts management to specialized service
+    async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
+        return serverAttemptsService.checkAndUpdateAttempts(telegramId);
+    },
+
+    async consumeAttemptWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
+        return serverAttemptsService.consumeAttempt(telegramId);
+    },
+
+    async resetAttempts(telegramId: number): Promise<void> {
+        return serverAttemptsService.resetAttempts(telegramId);
+    },
+
+    async instantResetAttempts(telegramId: number): Promise<void> {
+        await serverAttemptsService.instantResetAttempts(telegramId);
+    },
+
+    // Convenience methods for backwards compatibility
+    async checkAndUpdateAttempts(telegramId: number): Promise<AttemptsStatus> {
+        return this.checkAndUpdateAttemptsWithServerValidation(telegramId);
+    },
+
+    async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
+        return this.consumeAttemptWithServerValidation(telegramId);
     },
 };
