@@ -15,6 +15,7 @@ export const config = {
         '/api/tasks/:path*',
         '/api/purchase/:path*',
         '/api/referral/:path*',
+        '/api/leaderboard/:path*',
     ],
 };
 
