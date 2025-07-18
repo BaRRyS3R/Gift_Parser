@@ -1,6 +1,7 @@
 # Полная структура и описание файлов Gift_Parser
 
 ## Корень проекта
+
 - `.eslintrc.json` — настройки линтинга.
 - `.eslintignore` — игнорируемые для линтинга файлы.
 - `.gitattributes` — настройки git-атрибутов.
@@ -19,6 +20,7 @@
 - `tsconfig.json` — конфиг TypeScript.
 
 ## /app
+
 - `globals.css` — глобальные стили.
 - `layout.tsx` — основной layout.
 - `not-found.tsx` — страница 404.
@@ -26,6 +28,7 @@
 - `providers.tsx` — провайдеры контекстов.
 
 ### /app/api
+
 - `/auth/login/route.ts` — эндпоинт логина.
 - `/check-telegram-membership/route.ts` — проверка членства в Telegram.
 - `/game/consume-attempt/route.ts` — списание попытки.
@@ -45,9 +48,11 @@
 - `/user/profile/route.ts` — профиль пользователя.
 
 ### /app/blocked
+
 - `page.tsx` — страница блокировки.
 
 ### /app/game
+
 - `page.tsx` — страница выбора режима.
 - `/physics/page.tsx` — страница физического режима.
 - `/reaction/page.tsx` — страница режима реакции.
@@ -55,25 +60,32 @@
 - `/survival/page.tsx` — страница режима выживания.
 
 ### /app/leaderboard
+
 - `page.tsx` — страница лидерборда.
 
 ### /app/main
+
 - `page.tsx` — главная страница.
 
 ### /app/profile
+
 - `page.tsx` — страница профиля.
 
 ### /app/shop
+
 - `page.tsx` — страница магазина.
 
 ### /app/tasks
+
 - `page.tsx` — страница заданий.
 
 ### /app/tournament
+
 - `page.tsx` — страница турниров.
 - `/play/page.tsx` — страница игры в турнире.
 
 ## /components
+
 - `/AboutModal/AboutModal.tsx` — модалка "О проекте".
 - `/AboutModal/index.ts` — экспорт AboutModal.
 - `AttemptsDisplay.tsx` — отображение попыток.
@@ -106,10 +118,12 @@
 - `/TournamentCard/TournamentCard.tsx` — карточка турнира.
 
 ## /contexts
+
 - `LocalizationContext.tsx` — контекст локализации.
 - `SettingsContext.tsx` — контекст настроек.
 
 ## /DATABASES
+
 - `overall_leaderboard` — данные общего лидерборда.
 - `purchases` — покупки пользователей.
 - `purchases_summary` — сводка покупок.
@@ -124,6 +138,7 @@
 - `user_task_completition` — выполнение заданий.
 
 ## /game-modes
+
 - `/physics/PhysicsGameCanvas.tsx` — канвас физического режима.
 - `/physics/PhysicsGameLogic.ts` — логика физического режима.
 - `/physics/PhysicsGameManager.tsx` — менеджер физического режима.
@@ -138,10 +153,12 @@
 - `/tournament/TournamentGameManager.tsx` — менеджер турнира.
 
 ## /hooks
+
 - `useUser.ts` — пользовательский хук.
 - `useSecurity.ts` — хук безопасности.
 
 ## /lib
+
 - `achievementService.ts` — сервис достижений.
 - `authMiddleware.ts` — middleware аутентификации.
 - `authService.ts` — сервис аутентификации.
@@ -155,6 +172,7 @@
 - `supabase_tournament_extension.ts` — supabase турниры.
 
 ## /locales
+
 - `index.ts` — экспорт локалей.
 - `types.ts` — типы локализации.
 - `/en/about.ts` — описание (en).
@@ -169,6 +187,7 @@
 - `/ru/attempts.ts`, `/ru/auth.ts`, `/ru/common.ts`, `/ru/errors.ts`, `/ru/leaderboard.ts`, `/ru/leagues.ts`, `/ru/main.ts`, `/ru/navigation.ts`, `/ru/profile.ts`, `/ru/save.ts`, `/ru/shop.ts`, `/ru/tasks.ts`, `/ru/time.ts` — остальные разделы (ru).
 
 ## /public
+
 - `/videos/intro.mp4` — вступительное видео.
 - `/videos/mainbg.mp4` — фоновое видео.
 - `/fonts/bpdots-diamond.otf` — шрифт.
@@ -177,6 +196,7 @@
 - `sw.js` — сервис-воркер.
 
 ## /types
+
 - `achievements.ts` — типы достижений.
 - `/game-modes/common.ts` — общие типы игровых режимов.
 - `/game-modes/index.ts` — экспорт типов игровых режимов.
@@ -191,9 +211,10 @@
 - `tournaments.ts` — типы турниров.
 
 ## /utils
+
 - `leagueUtils.ts` — утилиты лиг.
 - `timeFormatter.ts` — форматирование времени.
 
 ---
 
-> Для подробного описания конкретного файла или папки — уточните запрос. 
+> Для подробного описания конкретного файла или папки — уточните запрос.
