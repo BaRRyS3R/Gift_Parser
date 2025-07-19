@@ -8,19 +8,16 @@ import { Card, CardBody, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
     AlertCircle,
-    Star,
     Zap,
     CheckCircle,
     Clock,
     Play,
     RotateCcw,
     Gift,
-    Users,
-    Globe,
-    MessageCircle,
-    X,
-    Repeat
+    Globe
 } from "lucide-react";
+
+import { SiX, SiTelegram } from "react-icons/si";
 
 import { useUser } from "@/hooks/useUser";
 import { useTasks } from "@/hooks/modules/useTasks";
@@ -170,17 +167,17 @@ export default function TasksPage() {
     const getTaskIcon = (taskType: TaskType) => {
         switch (taskType) {
             case TaskType.TELEGRAM_CHANNEL:
-                return <MessageCircle size={20} />;
+                return <SiTelegram size={20} />;
             case TaskType.TELEGRAM_CHAT:
-                return <Users size={20} />;
+                return <SiTelegram size={20} />;
             case TaskType.WEBSITE_VISIT:
                 return <Globe size={20} />;
             case TaskType.TWITTER_FOLLOW:
-                return <X size={20} />;
+                return <SiX size={20} />;
             case TaskType.TWITTER_REPOST:
-                return <Repeat size={20} />;
+                return <SiX size={20} />;
             default:
-                return <Star size={20} />;
+                return <Zap size={20} />;
         }
     };
 
@@ -469,7 +466,7 @@ function TaskCard({
 
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                                <Star className="text-yellow-400" size={16} />
+                                <Zap className="text-yellow-400" size={16} />
                                 <span className="text-yellow-400 font-bold">
                                     +{task.attempts_reward} {t('tasks.reward')}
                                 </span>
