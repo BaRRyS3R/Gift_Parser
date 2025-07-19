@@ -259,11 +259,25 @@ export const serverTasksService = {
 
             } else {
                 // For website, Twitter tasks - trust-based verification
-                isVerified = true;
-                finalVerificationData = {
-                    verifiedAt: new Date().toISOString(),
-                    ...verificationData,
-                };
+                // Check if this is a trust-based verification request
+                const isTrustBased = verificationData?.trustBased === true;
+
+                if (isTrustBased) {
+                    isVerified = true;
+                    finalVerificationData = {
+                        verifiedAt: new Date().toISOString(),
+                        trustBased: true,
+                        taskType: task.task_type,
+                        ...verificationData,
+                    };
+                } else {
+                    // Traditional verification - assume user completed the action
+                    isVerified = true;
+                    finalVerificationData = {
+                        verifiedAt: new Date().toISOString(),
+                        ...verificationData,
+                    };
+                }
             }
 
             if (!isVerified) {

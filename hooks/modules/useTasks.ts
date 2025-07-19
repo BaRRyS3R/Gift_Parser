@@ -215,58 +215,53 @@ export function useTasks(makeAuthenticatedRequest: (endpoint: string, options?: 
         const isTelegramTask = task.task_type === TaskType.TELEGRAM_CHANNEL ||
             task.task_type === TaskType.TELEGRAM_CHAT;
 
-        if (isTelegramTask) {
-            // For Telegram tasks, attempt automatic verification
-            setState(prev => ({ ...prev, verifyingTaskId: task.task_id }));
+        setState(prev => ({ ...prev, verifyingTaskId: task.task_id }));
 
-            try {
-                const response = await makeAuthenticatedRequest('/api/tasks/verify', {
-                    method: 'POST',
-                    body: JSON.stringify({ taskId: task.task_id }),
-                });
+        try {
+            // For all tasks, send verification request to server
+            const response = await makeAuthenticatedRequest('/api/tasks/verify', {
+                method: 'POST',
+                body: JSON.stringify({
+                    taskId: task.task_id,
+                    verificationData: isTelegramTask ? {} : { trustBased: true }
+                }),
+            });
 
-                const result: VerifyTaskResponse = await response.json();
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Verification request failed:', errorData);
 
-                setState(prev => {
-                    const updatedTasks = prev.tasks.map(t => {
-                        if (t.task_id === task.task_id) {
-                            return {
-                                ...t,
-                                user_status: result.verified ? TaskStatus.COMPLETED : TaskStatus.STARTED
-                            };
-                        }
-                        return t;
-                    });
-
-                    return {
-                        ...prev,
-                        tasks: updatedTasks,
-                        verifyingTaskId: null,
-                    };
-                });
-
-                if (!result.verified) {
-                    console.log('Telegram verification failed, user can retry');
-                }
-
-            } catch (error) {
-                console.error('Error verifying Telegram task:', error);
                 setState(prev => ({ ...prev, verifyingTaskId: null }));
+                return;
             }
-        } else {
-            // For non-Telegram tasks, automatically mark as completed (trust-based)
+
+            const result: VerifyTaskResponse = await response.json();
+
             setState(prev => {
-                const updatedTasks = prev.tasks.map(t =>
-                    t.task_id === task.task_id
-                        ? { ...t, user_status: TaskStatus.COMPLETED }
-                        : t
-                );
+                const updatedTasks = prev.tasks.map(t => {
+                    if (t.task_id === task.task_id) {
+                        return {
+                            ...t,
+                            user_status: result.verified ? TaskStatus.COMPLETED : TaskStatus.STARTED
+                        };
+                    }
+                    return t;
+                });
 
                 return {
                     ...prev,
                     tasks: updatedTasks,
+                    verifyingTaskId: null,
                 };
             });
+
+            if (!result.verified && isTelegramTask) {
+                console.log('Telegram verification failed, user can retry');
+            }
+
+        } catch (error) {
+            console.error('Error verifying task after timer:', error);
+            setState(prev => ({ ...prev, verifyingTaskId: null }));
         }
     }, [makeAuthenticatedRequest]);
 
