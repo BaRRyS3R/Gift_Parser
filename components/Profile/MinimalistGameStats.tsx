@@ -1,4 +1,4 @@
-// src/components/Profile/MinimalistGameStats.tsx - Enhanced with level progress
+// src/components/Profile/MinimalistGameStats.tsx - Обновленный с использованием данных профиля
 
 "use client";
 
@@ -17,17 +17,53 @@ import {
     Star,
     ArrowUp,
 } from "lucide-react";
-import type { User as UserType } from "@/lib/supabase";
+import type { UserProfileGameStats } from "@/hooks/modules/useProfile";
 import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter";
 import { useT } from "@/contexts/LocalizationContext";
 import leagueService from "@/lib/league_service";
 
 interface MinimalistGameStatsProps {
-    user: UserType;
+    user: UserProfileGameStats | null;
+    isLoading?: boolean;
 }
 
-const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
+const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user, isLoading = false }) => {
     const t = useT();
+
+    // Show loading state
+    if (isLoading || !user) {
+        return (
+            <div className="space-y-6 px-4">
+                <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
+                    <BarChart3 className="text-white/80" size={18} />
+                    <span>{t("profile.overallStats")}</span>
+                </h3>
+
+                <Card className="bg-black/40 border border-white/20">
+                    <CardBody className="p-5">
+                        <div className="space-y-4">
+                            {[...Array(6)].map((_, i) => (
+                                <div key={i} className="space-y-3">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-6 h-6 rounded bg-white/10 animate-pulse" />
+                                        <div className="h-4 bg-white/10 rounded animate-pulse w-32" />
+                                    </div>
+                                    <div className="ml-8 space-y-2">
+                                        {[...Array(3)].map((_, j) => (
+                                            <div key={j} className="flex justify-between">
+                                                <div className="h-3 bg-white/5 rounded animate-pulse w-24" />
+                                                <div className="h-3 bg-white/5 rounded animate-pulse w-16" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardBody>
+                </Card>
+            </div>
+        );
+    }
 
     // Calculate level progress
     const currentLevel = leagueService.calculateLevel(user.total_games);
@@ -100,7 +136,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({ user }) => {
 
             <Card className="bg-black/40 border border-white/20">
                 <CardBody className="p-5">
-                    {/* Level Progress Section - NEW */}
+                    {/* Level Progress Section */}
                     <StatsSection
                         title={`${t("leagues.level")} ${currentLevel}`}
                         icon={Star}

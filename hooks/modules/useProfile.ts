@@ -1,9 +1,8 @@
-// src/hooks/modules/useProfile.ts - Unified profile hook for referrals, achievements, and stats
+// src/hooks/modules/useProfile.ts - Обновленный хук профиля с полными данными пользователя
 
 import { useState, useCallback, useRef } from 'react';
-import type { User } from '@/lib/supabase';
 
-// Profile interfaces
+// Profile interfaces (обновленные)
 export interface ReferralInfo {
     code: string;
     count: number;
@@ -22,7 +21,60 @@ export interface UserRankings {
     rotation: number | null;
 }
 
+// Полные данные пользователя для профиля
+export interface UserProfileGameStats {
+    id: string;
+    telegram_id: number;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+    language_code?: string;
+    is_premium: boolean;
+    created_at: string;
+    updated_at: string;
+    attempts_remaining: number;
+    last_attempt_at?: string;
+    attempts_reset_at?: string;
+    referral_code: string;
+    referred_by?: string;
+    referral_bonus: number;
+    referral_count: number;
+    total_games: number;
+    total_score: number;
+    best_score: number;
+    current_level: number;
+    current_league_id?: number;
+    reaction_games: number;
+    reaction_best_score: number;
+    reaction_best_time: number;
+    reaction_average_time: number;
+    survival_games: number;
+    survival_best_score: number;
+    survival_best_time: number;
+    survival_max_level: number;
+    survival_best_streak: number;
+    physics_games: number;
+    physics_best_score: number;
+    physics_best_time: number;
+    physics_total_hits: number;
+    physics_best_hits: number;
+    physics_least_mistakes: number;
+    rotation_games: number;
+    rotation_best_score: number;
+    rotation_best_time: number;
+    rotation_max_level: number;
+    rotation_best_streak: number;
+    rotation_total_hits: number;
+    total_correct_hits: number;
+    total_wrong_hits: number;
+    total_missed_circles: number;
+    best_accuracy: number;
+    last_played_at?: string;
+    is_active: boolean;
+}
+
 export interface ProfileData {
+    user: UserProfileGameStats;
     referrals: ReferralInfo;
     rankings: UserRankings;
 }
@@ -35,8 +87,8 @@ interface ProfileState {
 }
 
 /**
- * Unified profile hook for referrals, rankings, and achievements
- * Always fetches fresh data - no caching
+ * Унифицированный хук профиля для рефералов, рейтингов и полной статистики пользователя
+ * Всегда загружает свежие данные - без кеширования
  */
 export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>) {
     const [state, setState] = useState<ProfileState>({
@@ -48,10 +100,10 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
     const fetchingRef = useRef<boolean>(false);
 
     /**
-     * Fetch fresh profile data from API
+     * Загрузить свежие данные профиля из API
      */
     const fetchProfileData = useCallback(async (): Promise<ProfileData | null> => {
-        // Prevent duplicate requests
+        // Предотвращение дублирующих запросов
         if (fetchingRef.current) {
             console.log('Profile fetch already in progress');
             return state.data;
@@ -76,15 +128,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
                 throw new Error(result.error || 'Failed to fetch profile data');
             }
 
-            // Process referral data to add computed fields
-            const profileData: ProfileData = {
-                ...result.data,
-                referrals: {
-                    ...result.data.referrals,
-                    // Add computed referral link
-                    referralLink: `https://t.me/marketaggregator_bot?startapp=${result.data.referrals.code}`,
-                },
-            };
+            const profileData: ProfileData = result.data;
 
             setState({
                 data: profileData,
@@ -93,6 +137,8 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
             });
 
             console.log('Successfully fetched fresh profile data:', {
+                userId: profileData.user.id,
+                totalGames: profileData.user.total_games,
                 referralCode: profileData.referrals.code,
                 referralCount: profileData.referrals.count,
                 rankingsCount: Object.values(profileData.rankings).filter(rank => rank !== null).length
@@ -117,7 +163,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
     }, [makeAuthenticatedRequest]);
 
     /**
-     * Reset profile data state
+     * Сброс данных профиля
      */
     const resetProfileData = useCallback(() => {
         console.log('Resetting profile data');
@@ -129,18 +175,18 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
     }, []);
 
     /**
-     * Clear error state
+     * Очистка состояния ошибки
      */
     const clearError = useCallback(() => {
         setState(prev => ({ ...prev, error: null }));
     }, []);
 
     /**
-     * Calculate achievements based on user data and rankings
+     * Вычисление достижений на основе данных пользователя и рейтингов
      */
-    const calculateAchievements = useCallback((user: User, rankings: UserRankings) => {
-        // This function can be called from components to get achievements
-        // Implementation will be the same as in AchievementsModal but abstracted
+    const calculateAchievements = useCallback((user: UserProfileGameStats, rankings: UserRankings) => {
+        // Эта функция может быть вызвана из компонентов для получения достижений
+        // Реализация будет такой же, как в AchievementsModal, но абстрагированной
         const achievements = [];
 
         // General achievements
@@ -380,6 +426,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
         calculateAchievements,
 
         // Computed values for convenience
+        user: state.data?.user || null,
         referrals: state.data?.referrals || null,
         rankings: state.data?.rankings || null,
     };

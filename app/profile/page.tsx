@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Updated profile page using new profile module
+// src/app/profile/page.tsx - Fixed TypeScript type compatibility
 
 "use client";
 
@@ -16,35 +16,39 @@ import AchievementsModal from "@/components/Profile/AchievementsModal";
 import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
 
 export default function ProfilePage() {
-  const { user, telegramUser, isLoading: userLoading, profile } = useUser();
+  const { authState, telegramUser, profile } = useUser();
   const t = useT();
 
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
   const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
 
-  // Load profile data when page loads
+  // Load profile data when user is authenticated
   useEffect(() => {
-    if (user && telegramUser) {
-      console.log("Loading fresh profile data...");
+    if (authState.isAuthenticated && authState.user && telegramUser) {
+      console.log("User authenticated, loading fresh profile data...");
       profile.fetchProfileData();
     }
-  }, [user, telegramUser, profile.fetchProfileData]);
+  }, [authState.isAuthenticated, authState.user, telegramUser, profile.fetchProfileData]);
 
   const handleOpenReferrals = () => {
-    setIsReferralModalOpen(true);
+    if (profile.profileData?.referrals) {
+      setIsReferralModalOpen(true);
+    }
   };
 
   const handleOpenAchievements = () => {
-    setIsAchievementsModalOpen(true);
+    if (profile.profileData?.user) {
+      setIsAchievementsModalOpen(true);
+    }
   };
 
   const handleOpenLeagues = () => {
     setIsLeaguesModalOpen(true);
   };
 
-  // Show loading while user data or profile data is loading
-  if (userLoading || (user && !profile.profileData && profile.isLoading)) {
+  // Show loading while user data is being authenticated or profile data is loading
+  if (authState.isLoading || (authState.isAuthenticated && !profile.profileData && profile.isLoading)) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -55,7 +59,8 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user || !telegramUser) {
+  // Check if user is not authenticated
+  if (!authState.isAuthenticated || !authState.user || !telegramUser) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -76,7 +81,7 @@ export default function ProfilePage() {
           <div className="w-16 h-16 bg-red-500/10 rounded-lg flex items-center justify-center mx-auto">
             <span className="text-red-400 text-2xl">!</span>
           </div>
-          <p className="text-white">{t("common.error")}</p>
+          <p className="text-white">{profile.error}</p>
           <button
             onClick={() => profile.fetchProfileData()}
             className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 transition-colors"
@@ -88,7 +93,9 @@ export default function ProfilePage() {
     );
   }
 
+  // Get profile data and convert undefined to null for type compatibility
   const profileData = profile.profileData;
+  const profileUser = profileData?.user ?? null; // Convert undefined to null
   const rankings = profileData?.rankings || {
     overall: null,
     reaction: null,
@@ -110,7 +117,16 @@ export default function ProfilePage() {
 
       <div className="max-w-md mx-auto">
         {/* Enhanced Profile Header with Level and League */}
-        <EnhancedProfileHeader user={user} />
+        {profileUser ? (
+          <EnhancedProfileHeader user={profileUser} />
+        ) : (
+          <div className="text-center space-y-3 px-4 py-6">
+            <div className="space-y-2">
+              <div className="h-8 bg-white/10 rounded animate-pulse mx-auto w-48" />
+              <div className="h-4 bg-white/10 rounded animate-pulse mx-auto w-32" />
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <MinimalistActionButtons
@@ -122,8 +138,11 @@ export default function ProfilePage() {
         {/* Divider */}
         <MinimalistDivider />
 
-        {/* Game Statistics with Level Progress */}
-        <MinimalistGameStats user={user} />
+        {/* Game Statistics with Level Progress - FIXED TYPE COMPATIBILITY */}
+        <MinimalistGameStats 
+          user={profileUser} // Now correctly typed as UserProfileGameStats | null
+          isLoading={profile.isLoading}
+        />
 
         {/* Bottom spacing for safe area */}
         <div className="h-20" />
@@ -138,12 +157,14 @@ export default function ProfilePage() {
         />
       )}
 
-      <AchievementsModal
-        isOpen={isAchievementsModalOpen}
-        onClose={() => setIsAchievementsModalOpen(false)}
-        user={user}
-        rankings={rankings}
-      />
+      {profileUser && (
+        <AchievementsModal
+          isOpen={isAchievementsModalOpen}
+          onClose={() => setIsAchievementsModalOpen(false)}
+          user={profileUser}
+          rankings={rankings}
+        />
+      )}
 
       {/* Leagues Modal */}
       <LeaguesModal

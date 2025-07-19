@@ -1,15 +1,15 @@
-// src/components/Profile/EnhancedProfileHeader.tsx - Profile header with level and league
+// src/components/Profile/EnhancedProfileHeader.tsx - Обновленный для работы с UserProfileGameStats
 
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { Trophy, Star, Medal, Award, Crown } from "lucide-react";
-import type { User as UserType } from "@/lib/supabase";
+import type { UserProfileGameStats } from "@/hooks/modules/useProfile";
 import { useT } from "@/contexts/LocalizationContext";
 import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
 
 interface EnhancedProfileHeaderProps {
-    user: UserType;
+    user: UserProfileGameStats;
 }
 
 const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({ user }) => {

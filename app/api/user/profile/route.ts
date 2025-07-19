@@ -1,4 +1,4 @@
-// src/app/api/user/profile/route.ts - User profile endpoint for referrals and stats
+// src/app/api/user/profile/route.ts - Обновленный endpoint профиля с полными данными пользователя
 
 import { NextRequest, NextResponse } from 'next/server';
 import { serverUserProfileService, type UserProfileData } from '@/lib/server/userProfileService';
@@ -12,7 +12,7 @@ interface ProfileResponse {
 
 /**
  * GET /api/user/profile
- * Retrieves user profile data including referrals and rankings
+ * Retrieves complete user profile data including user stats, referrals and rankings
  */
 export async function GET(request: NextRequest): Promise<NextResponse<ProfileResponse>> {
     try {
@@ -41,12 +41,14 @@ export async function GET(request: NextRequest): Promise<NextResponse<ProfileRes
             );
         }
 
-        console.log(`Fetching profile data for user: ${telegramIdNumber}`);
+        console.log(`Fetching complete profile data for user: ${telegramIdNumber}`);
 
-        // Get complete profile data
+        // Get complete profile data including user stats, referrals and rankings
         const profileData = await serverUserProfileService.getUserProfileData(telegramIdNumber);
 
-        console.log(`Successfully fetched profile data for user ${telegramIdNumber}:`, {
+        console.log(`Successfully fetched complete profile data for user ${telegramIdNumber}:`, {
+            hasUserData: !!profileData.user,
+            totalGames: profileData.user.total_games,
             referralCode: profileData.referrals.code,
             referralCount: profileData.referrals.count,
             rankingsCount: Object.values(profileData.rankings).filter(rank => rank !== null).length
