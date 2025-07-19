@@ -1,6 +1,6 @@
-// src/hooks/modules/useTasks.ts - Client-side tasks management hook
+// src/hooks/modules/useTasks.ts - Updated with timer-based verification logic
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
     TaskWithStatus,
     TaskStatus,
@@ -9,45 +9,42 @@ import {
     StartTaskResponse,
     VerifyTaskResponse,
     ClaimRewardResponse,
-    TaskCategory,
     TaskStats,
     TASK_CONFIG
 } from '@/types/tasks';
 
-// Hook state interface
+// Hook state interface with timer support
 interface TasksState {
     tasks: TaskWithStatus[];
-    categorizedTasks: {
-        notStarted: TaskWithStatus[];
-        started: TaskWithStatus[];
-        completed: TaskWithStatus[];
-        rewarded: TaskWithStatus[];
-    } | null;
     isLoading: boolean;
     error: string | null;
     loadingTaskId: string | null;
-    verifyingTaskId: string | null;
     claimingTaskId: string | null;
+    timers: Record<string, number>; // taskId -> seconds remaining
+    verifyingTaskId: string | null;
 }
 
+// Timer intervals for cleanup
+const timerIntervals: Record<string, NodeJS.Timeout> = {};
+
 /**
- * Specialized hook for tasks management with server validation
+ * Updated tasks hook with timer-based verification system
  */
 export function useTasks(makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>) {
     const [state, setState] = useState<TasksState>({
         tasks: [],
-        categorizedTasks: null,
         isLoading: false,
         error: null,
         loadingTaskId: null,
-        verifyingTaskId: null,
         claimingTaskId: null,
+        timers: {},
+        verifyingTaskId: null,
     });
 
     const fetchingRef = useRef<boolean>(false);
 
     /**
-     * Fetch all tasks with user status (always fresh data)
+     * Fetch all tasks (no categorization to prevent reordering)
      */
     const fetchTasks = useCallback(async (): Promise<TaskWithStatus[] | null> => {
         if (fetchingRef.current) {
@@ -74,24 +71,24 @@ export function useTasks(makeAuthenticatedRequest: (endpoint: string, options?: 
                 throw new Error(result.error || 'Failed to fetch tasks');
             }
 
-            setState({
+            // Preserve existing timers for tasks that are still in progress
+            const existingTimers: Record<string, number> = {};
+            result.tasks.forEach(task => {
+                if (state.timers[task.task_id] && task.user_status === TaskStatus.STARTED) {
+                    existingTimers[task.task_id] = state.timers[task.task_id];
+                }
+            });
+
+            setState(prev => ({
+                ...prev,
                 tasks: result.tasks,
-                categorizedTasks: result.categorized || null,
                 isLoading: false,
                 error: null,
-                loadingTaskId: null,
-                verifyingTaskId: null,
-                claimingTaskId: null,
-            });
+                timers: existingTimers,
+            }));
 
             console.log('Successfully fetched tasks:', {
                 total: result.tasks.length,
-                categorized: result.categorized ? {
-                    notStarted: result.categorized.notStarted.length,
-                    started: result.categorized.started.length,
-                    completed: result.categorized.completed.length,
-                    rewarded: result.categorized.rewarded.length,
-                } : 'Not categorized'
             });
 
             return result.tasks;
@@ -113,17 +110,18 @@ export function useTasks(makeAuthenticatedRequest: (endpoint: string, options?: 
     }, [makeAuthenticatedRequest]);
 
     /**
-     * Start a task
+     * Start task with immediate redirect and timer
      */
-    const startTask = useCallback(async (taskId: string): Promise<TaskWithStatus | null> => {
-        setState(prev => ({ ...prev, loadingTaskId: taskId, error: null }));
+    const startTaskWithTimer = useCallback(async (task: TaskWithStatus): Promise<boolean> => {
+        setState(prev => ({ ...prev, loadingTaskId: task.task_id, error: null }));
 
         try {
-            console.log('Starting task:', taskId);
+            console.log('Starting task with timer:', task.task_id);
 
+            // First, start the task on the server
             const response = await makeAuthenticatedRequest('/api/tasks/start', {
                 method: 'POST',
-                body: JSON.stringify({ taskId }),
+                body: JSON.stringify({ taskId: task.task_id }),
             });
 
             if (!response.ok) {
@@ -137,30 +135,64 @@ export function useTasks(makeAuthenticatedRequest: (endpoint: string, options?: 
                 throw new Error(result.error || 'Failed to start task');
             }
 
-            // Update local state
-            setState(prev => {
-                const updatedTasks = prev.tasks.map(task =>
-                    task.task_id === taskId ? result.task! : task
-                );
+            // Open the task URL immediately
+            if (typeof window !== 'undefined') {
+                window.open(task.url, '_blank', 'noopener,noreferrer');
+            }
 
-                // Recategorize tasks
-                const categorizedTasks = {
-                    notStarted: updatedTasks.filter(task => task.user_status === TaskStatus.NOT_STARTED),
-                    started: updatedTasks.filter(task => task.user_status === TaskStatus.STARTED),
-                    completed: updatedTasks.filter(task => task.user_status === TaskStatus.COMPLETED),
-                    rewarded: updatedTasks.filter(task => task.user_status === TaskStatus.REWARDED),
-                };
+            // Update task status and start 10-second timer
+            setState(prev => {
+                const updatedTasks = prev.tasks.map(t =>
+                    t.task_id === task.task_id ? { ...t, user_status: TaskStatus.STARTED } : t
+                );
 
                 return {
                     ...prev,
                     tasks: updatedTasks,
-                    categorizedTasks,
                     loadingTaskId: null,
+                    timers: {
+                        ...prev.timers,
+                        [task.task_id]: 10
+                    }
                 };
             });
 
-            console.log('Task started successfully:', taskId);
-            return result.task;
+            // Start countdown timer
+            const intervalId = setInterval(() => {
+                setState(prev => {
+                    const currentTime = prev.timers[task.task_id];
+                    if (currentTime <= 1) {
+                        // Timer finished, trigger verification
+                        clearInterval(intervalId);
+                        delete timerIntervals[task.task_id];
+
+                        // Remove timer and trigger verification
+                        const newTimers = { ...prev.timers };
+                        delete newTimers[task.task_id];
+
+                        // Trigger verification after timer
+                        setTimeout(() => verifyTaskAfterTimer(task), 100);
+
+                        return {
+                            ...prev,
+                            timers: newTimers
+                        };
+                    }
+
+                    return {
+                        ...prev,
+                        timers: {
+                            ...prev.timers,
+                            [task.task_id]: currentTime - 1
+                        }
+                    };
+                });
+            }, 1000);
+
+            timerIntervals[task.task_id] = intervalId;
+
+            console.log('Task started with timer successfully:', task.task_id);
+            return true;
 
         } catch (error) {
             console.error('Error starting task:', error);
@@ -172,79 +204,113 @@ export function useTasks(makeAuthenticatedRequest: (endpoint: string, options?: 
                 error: errorMessage,
             }));
 
-            return null;
+            return false;
         }
     }, [makeAuthenticatedRequest]);
 
     /**
-     * Verify task completion
+     * Verify task after timer completion
      */
-    const verifyTask = useCallback(async (taskId: string, verificationData?: Record<string, any>): Promise<boolean> => {
-        setState(prev => ({ ...prev, verifyingTaskId: taskId, error: null }));
+    const verifyTaskAfterTimer = useCallback(async (task: TaskWithStatus): Promise<void> => {
+        const isTelegramTask = task.task_type === TaskType.TELEGRAM_CHANNEL ||
+            task.task_type === TaskType.TELEGRAM_CHAT;
 
-        try {
-            console.log('Verifying task:', taskId);
+        if (isTelegramTask) {
+            // For Telegram tasks, attempt automatic verification
+            setState(prev => ({ ...prev, verifyingTaskId: task.task_id }));
 
-            const response = await makeAuthenticatedRequest('/api/tasks/verify', {
-                method: 'POST',
-                body: JSON.stringify({ taskId, verificationData }),
-            });
+            try {
+                const response = await makeAuthenticatedRequest('/api/tasks/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({ taskId: task.task_id }),
+                });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Server error: ${response.status}`);
-            }
+                const result: VerifyTaskResponse = await response.json();
 
-            const result: VerifyTaskResponse = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Verification failed');
-            }
-
-            // If verification successful and task provided, update state
-            if (result.verified && result.task) {
                 setState(prev => {
-                    const updatedTasks = prev.tasks.map(task =>
-                        task.task_id === taskId ? result.task! : task
-                    );
-
-                    // Recategorize tasks
-                    const categorizedTasks = {
-                        notStarted: updatedTasks.filter(task => task.user_status === TaskStatus.NOT_STARTED),
-                        started: updatedTasks.filter(task => task.user_status === TaskStatus.STARTED),
-                        completed: updatedTasks.filter(task => task.user_status === TaskStatus.COMPLETED),
-                        rewarded: updatedTasks.filter(task => task.user_status === TaskStatus.REWARDED),
-                    };
+                    const updatedTasks = prev.tasks.map(t => {
+                        if (t.task_id === task.task_id) {
+                            return {
+                                ...t,
+                                user_status: result.verified ? TaskStatus.COMPLETED : TaskStatus.STARTED
+                            };
+                        }
+                        return t;
+                    });
 
                     return {
                         ...prev,
                         tasks: updatedTasks,
-                        categorizedTasks,
                         verifyingTaskId: null,
                     };
                 });
 
-                console.log('Task verified successfully:', taskId);
-            } else {
-                setState(prev => ({
-                    ...prev,
-                    verifyingTaskId: null,
-                    error: result.error || 'Verification failed - please complete the task and try again',
-                }));
+                if (!result.verified) {
+                    console.log('Telegram verification failed, user can retry');
+                }
+
+            } catch (error) {
+                console.error('Error verifying Telegram task:', error);
+                setState(prev => ({ ...prev, verifyingTaskId: null }));
             }
+        } else {
+            // For non-Telegram tasks, automatically mark as completed (trust-based)
+            setState(prev => {
+                const updatedTasks = prev.tasks.map(t =>
+                    t.task_id === task.task_id
+                        ? { ...t, user_status: TaskStatus.COMPLETED }
+                        : t
+                );
+
+                return {
+                    ...prev,
+                    tasks: updatedTasks,
+                };
+            });
+        }
+    }, [makeAuthenticatedRequest]);
+
+    /**
+     * Retry verification for failed Telegram tasks
+     */
+    const retryVerification = useCallback(async (task: TaskWithStatus): Promise<boolean> => {
+        setState(prev => ({ ...prev, verifyingTaskId: task.task_id, error: null }));
+
+        try {
+            const response = await makeAuthenticatedRequest('/api/tasks/verify', {
+                method: 'POST',
+                body: JSON.stringify({ taskId: task.task_id }),
+            });
+
+            const result: VerifyTaskResponse = await response.json();
+
+            setState(prev => {
+                const updatedTasks = prev.tasks.map(t => {
+                    if (t.task_id === task.task_id) {
+                        return {
+                            ...t,
+                            user_status: result.verified ? TaskStatus.COMPLETED : TaskStatus.STARTED
+                        };
+                    }
+                    return t;
+                });
+
+                return {
+                    ...prev,
+                    tasks: updatedTasks,
+                    verifyingTaskId: null,
+                };
+            });
 
             return result.verified;
 
         } catch (error) {
-            console.error('Error verifying task:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Failed to verify task';
-
+            console.error('Error retrying verification:', error);
             setState(prev => ({
                 ...prev,
                 verifyingTaskId: null,
-                error: errorMessage,
+                error: 'Verification failed, please try again'
             }));
-
             return false;
         }
     }, [makeAuthenticatedRequest]);
@@ -274,34 +340,20 @@ export function useTasks(makeAuthenticatedRequest: (endpoint: string, options?: 
                 throw new Error(result.error || 'Failed to claim reward');
             }
 
-            // Update local state
-            if (result.task) {
-                setState(prev => {
-                    const updatedTasks = prev.tasks.map(task =>
-                        task.task_id === taskId ? result.task! : task
-                    );
+            // Update task status to rewarded
+            setState(prev => {
+                const updatedTasks = prev.tasks.map(task =>
+                    task.task_id === taskId
+                        ? { ...task, user_status: TaskStatus.REWARDED }
+                        : task
+                );
 
-                    // Recategorize tasks
-                    const categorizedTasks = {
-                        notStarted: updatedTasks.filter(task => task.user_status === TaskStatus.NOT_STARTED),
-                        started: updatedTasks.filter(task => task.user_status === TaskStatus.STARTED),
-                        completed: updatedTasks.filter(task => task.user_status === TaskStatus.COMPLETED),
-                        rewarded: updatedTasks.filter(task => task.user_status === TaskStatus.REWARDED),
-                    };
-
-                    return {
-                        ...prev,
-                        tasks: updatedTasks,
-                        categorizedTasks,
-                        claimingTaskId: null,
-                    };
-                });
-            } else {
-                setState(prev => ({
+                return {
                     ...prev,
+                    tasks: updatedTasks,
                     claimingTaskId: null,
-                }));
-            }
+                };
+            });
 
             console.log('Reward claimed successfully:', {
                 taskId,
@@ -330,26 +382,61 @@ export function useTasks(makeAuthenticatedRequest: (endpoint: string, options?: 
     }, [makeAuthenticatedRequest]);
 
     /**
-     * Open task URL (with delay for trust-based verification)
+     * Get remaining timer for a task
      */
-    const openTaskUrl = useCallback(async (task: TaskWithStatus): Promise<void> => {
-        try {
-            // Open the URL
-            if (typeof window !== 'undefined') {
-                window.open(task.url, '_blank', 'noopener,noreferrer');
-            }
+    const getTaskTimer = useCallback((taskId: string): number => {
+        return state.timers[taskId] || 0;
+    }, [state.timers]);
 
-            // For trust-based tasks, add a delay before allowing verification
-            const cooldownTime = TASK_CONFIG.COOLDOWN_PERIODS[task.task_type as TaskType] || 0;
-
-            if (cooldownTime > 0) {
-                console.log(`Applying cooldown of ${cooldownTime}ms for task type: ${task.task_type}`);
-                await new Promise(resolve => setTimeout(resolve, cooldownTime));
-            }
-
-        } catch (error) {
-            console.error('Error opening task URL:', error);
+    /**
+     * Check if task action is in progress
+     */
+    const isTaskLoading = useCallback((taskId: string, action: 'start' | 'verify' | 'claim'): boolean => {
+        switch (action) {
+            case 'start':
+                return state.loadingTaskId === taskId;
+            case 'verify':
+                return state.verifyingTaskId === taskId;
+            case 'claim':
+                return state.claimingTaskId === taskId;
+            default:
+                return false;
         }
+    }, [state.loadingTaskId, state.verifyingTaskId, state.claimingTaskId]);
+
+    /**
+     * Clear error state
+     */
+    const clearError = useCallback(() => {
+        setState(prev => ({ ...prev, error: null }));
+    }, []);
+
+    /**
+     * Reset tasks state and clean up timers
+     */
+    const resetTasks = useCallback(() => {
+        // Clear all active timers
+        Object.values(timerIntervals).forEach(clearInterval);
+        Object.keys(timerIntervals).forEach(key => delete timerIntervals[key]);
+
+        setState({
+            tasks: [],
+            isLoading: false,
+            error: null,
+            loadingTaskId: null,
+            claimingTaskId: null,
+            timers: {},
+            verifyingTaskId: null,
+        });
+    }, []);
+
+    /**
+     * Cleanup timers on unmount
+     */
+    useEffect(() => {
+        return () => {
+            Object.values(timerIntervals).forEach(clearInterval);
+        };
     }, []);
 
     /**
@@ -377,69 +464,35 @@ export function useTasks(makeAuthenticatedRequest: (endpoint: string, options?: 
         };
     }, [state.tasks]);
 
-    /**
-     * Check if task action is in progress
-     */
-    const isTaskLoading = useCallback((taskId: string, action: 'start' | 'verify' | 'claim'): boolean => {
-        switch (action) {
-            case 'start':
-                return state.loadingTaskId === taskId;
-            case 'verify':
-                return state.verifyingTaskId === taskId;
-            case 'claim':
-                return state.claimingTaskId === taskId;
-            default:
-                return false;
-        }
-    }, [state.loadingTaskId, state.verifyingTaskId, state.claimingTaskId]);
-
-    /**
-     * Clear error state
-     */
-    const clearError = useCallback(() => {
-        setState(prev => ({ ...prev, error: null }));
-    }, []);
-
-    /**
-     * Reset tasks state
-     */
-    const resetTasks = useCallback(() => {
-        setState({
-            tasks: [],
-            categorizedTasks: null,
-            isLoading: false,
-            error: null,
-            loadingTaskId: null,
-            verifyingTaskId: null,
-            claimingTaskId: null,
-        });
-    }, []);
-
     return {
         // State
         tasks: state.tasks,
-        categorizedTasks: state.categorizedTasks,
         isLoading: state.isLoading,
         error: state.error,
 
         // Actions
         fetchTasks,
-        startTask,
-        verifyTask,
+        startTaskWithTimer,
+        retryVerification,
         claimReward,
-        openTaskUrl,
         clearError,
         resetTasks,
 
         // Utility functions
         getTaskStats,
+        getTaskTimer,
         isTaskLoading,
 
         // Computed values for convenience
         totalTasks: state.tasks.length,
-        notStartedTasks: state.categorizedTasks?.notStarted || [],
-        startedTasks: state.categorizedTasks?.started || [],
-        completedTasks: state.categorizedTasks?.completed || [],
-        rewardedTasks: state.categorizedTasks?.rewarded || [],
+        completedTasks: state.tasks.filter(task =>
+            task.user_status === TaskStatus.COMPLETED || task.user_status === TaskStatus.REWARDED
+        ),
+        availableTasks: state.tasks.filter(task =>
+            task.user_status === TaskStatus.NOT_STARTED
+        ),
+        inProgressTasks: state.tasks.filter(task =>
+            task.user_status === TaskStatus.STARTED
+        ),
     };
 }

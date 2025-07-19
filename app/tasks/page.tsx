@@ -1,10 +1,10 @@
-// src/app/tasks/page.tsx - Tasks page with complete functionality
+// src/app/tasks/page.tsx - Updated with timer-based logic and no task reordering
 
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, Button, Chip, Tabs, Tab } from "@nextui-org/react";
+import { Card, CardBody, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
     AlertCircle,
@@ -12,9 +12,8 @@ import {
     CheckCircle,
     Clock,
     Play,
-    Eye,
+    RotateCcw,
     Gift,
-    ExternalLink,
     Users,
     Globe,
     MessageCircle,
@@ -30,7 +29,6 @@ import {
     TaskStatus,
     TASK_TYPE_CONFIG,
     canStartTask,
-    canVerifyTask,
     canClaimReward,
     isTaskRewarded
 } from "@/types/tasks";
@@ -48,11 +46,10 @@ export default function TasksPage() {
     const { user, refreshUser, makeAuthenticatedRequest } = useUser();
     const t = useT();
 
-    // Use new tasks hook
+    // Use updated tasks hook
     const tasksModule = useTasks(makeAuthenticatedRequest);
 
     const [isExploding, setIsExploding] = useState(false);
-    const [selectedTab, setSelectedTab] = useState("active");
     const [successNotification, setSuccessNotification] = useState<SuccessNotification>({
         show: false,
         title: "",
@@ -138,22 +135,18 @@ export default function TasksPage() {
         }, 3000);
     };
 
-    const handleTaskAction = async (task: TaskWithStatus, action: 'start' | 'verify' | 'claim' | 'visit') => {
+    const handleTaskAction = async (task: TaskWithStatus, action: 'start' | 'retry' | 'claim') => {
         try {
             switch (action) {
                 case 'start':
-                    const startedTask = await tasksModule.startTask(task.task_id);
-                    if (startedTask) {
-                        showSuccessNotification('started', startedTask);
+                    const started = await tasksModule.startTaskWithTimer(task);
+                    if (started) {
+                        showSuccessNotification('started', task);
                     }
                     break;
 
-                case 'visit':
-                    await tasksModule.openTaskUrl(task);
-                    break;
-
-                case 'verify':
-                    const verified = await tasksModule.verifyTask(task.task_id);
+                case 'retry':
+                    const verified = await tasksModule.retryVerification(task);
                     if (verified) {
                         showSuccessNotification('verified', task);
                     }
@@ -191,10 +184,24 @@ export default function TasksPage() {
     };
 
     const getTaskButton = (task: TaskWithStatus) => {
+        const timer = tasksModule.getTaskTimer(task.task_id);
         const isLoading = tasksModule.isTaskLoading(task.task_id, 'start') ||
             tasksModule.isTaskLoading(task.task_id, 'verify') ||
             tasksModule.isTaskLoading(task.task_id, 'claim');
 
+        // Show timer if running
+        if (timer > 0) {
+            return {
+                text: `${timer}s`,
+                action: null,
+                variant: 'secondary' as const,
+                icon: <Clock size={16} />,
+                disabled: true,
+                loading: false,
+            };
+        }
+
+        // Task not started
         if (canStartTask(task)) {
             return {
                 text: t('tasks.start'),
@@ -206,31 +213,24 @@ export default function TasksPage() {
             };
         }
 
+        // Task started but not completed (for Telegram tasks that failed verification)
         if (task.user_status === TaskStatus.STARTED) {
-            const config = TASK_TYPE_CONFIG[task.task_type as TaskType];
-            const requiresVerification = config?.requiresVerification;
+            const isTelegramTask = task.task_type === TaskType.TELEGRAM_CHANNEL ||
+                task.task_type === TaskType.TELEGRAM_CHAT;
 
-            if (requiresVerification) {
+            if (isTelegramTask) {
                 return {
                     text: t('tasks.checking'),
-                    action: 'verify' as const,
+                    action: 'retry' as const,
                     variant: 'secondary' as const,
-                    icon: <Eye size={16} />,
+                    icon: <RotateCcw size={16} />,
                     disabled: isLoading,
                     loading: tasksModule.isTaskLoading(task.task_id, 'verify'),
-                };
-            } else {
-                return {
-                    text: t('tasks.visit'),
-                    action: 'visit' as const,
-                    variant: 'default' as const,
-                    icon: <ExternalLink size={16} />,
-                    disabled: isLoading,
-                    loading: false,
                 };
             }
         }
 
+        // Task completed, ready to claim
         if (canClaimReward(task)) {
             return {
                 text: t('tasks.claim'),
@@ -242,6 +242,7 @@ export default function TasksPage() {
             };
         }
 
+        // Task rewarded
         if (isTaskRewarded(task)) {
             return {
                 text: t('tasks.completed'),
@@ -253,6 +254,7 @@ export default function TasksPage() {
             };
         }
 
+        // Default fallback
         return {
             text: t('tasks.start'),
             action: 'start' as const,
@@ -271,13 +273,14 @@ export default function TasksPage() {
             return { text: t('tasks.readyToClaim'), color: 'warning' };
         }
         if (task.user_status === TaskStatus.STARTED) {
-            return { text: t('tasks.inProgress'), color: 'primary' };
+            const timer = tasksModule.getTaskTimer(task.task_id);
+            if (timer > 0) {
+                return { text: `${timer}s`, color: 'primary' };
+            }
+            return { text: t('tasks.checking'), color: 'primary' };
         }
         return null;
     };
-
-    const activeTasks = [...tasksModule.notStartedTasks, ...tasksModule.startedTasks, ...tasksModule.completedTasks];
-    const completedTasks = tasksModule.rewardedTasks;
 
     return (
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
@@ -324,85 +327,20 @@ export default function TasksPage() {
                 </div>
             )}
 
-            {/* Tasks content */}
+            {/* Tasks list - single list without categorization */}
             {!tasksModule.isLoading && tasksModule.tasks.length > 0 && (
-                <div className="max-w-2xl mx-auto">
-                    <Tabs
-                        selectedKey={selectedTab}
-                        onSelectionChange={(key) => setSelectedTab(key as string)}
-                        className="mb-6"
-                        classNames={{
-                            tabList: "bg-white/10 backdrop-blur-md",
-                            tab: "text-white/60 data-[selected=true]:text-white",
-                            cursor: "bg-white/20",
-                            panel: "px-0"
-                        }}
-                    >
-                        <Tab
-                            key="active"
-                            title={
-                                <div className="flex items-center space-x-2">
-                                    <span>{t('tasks.sections.active')}</span>
-                                    <Chip size="sm" variant="flat" className="bg-white/20 text-white">
-                                        {activeTasks.length}
-                                    </Chip>
-                                </div>
-                            }
-                        >
-                            <div className="space-y-4">
-                                {activeTasks.length === 0 ? (
-                                    <div className="text-center py-8">
-                                        <p className="text-white/60">{t('tasks.empty.noActiveTasks')}</p>
-                                    </div>
-                                ) : (
-                                    activeTasks.map((task) => (
-                                        <TaskCard
-                                            key={task.task_id}
-                                            task={task}
-                                            onAction={handleTaskAction}
-                                            getTaskIcon={getTaskIcon}
-                                            getTaskButton={getTaskButton}
-                                            getTaskBadge={getTaskBadge}
-                                            t={t}
-                                        />
-                                    ))
-                                )}
-                            </div>
-                        </Tab>
-
-                        <Tab
-                            key="completed"
-                            title={
-                                <div className="flex items-center space-x-2">
-                                    <span>{t('tasks.sections.completed')}</span>
-                                    <Chip size="sm" variant="flat" className="bg-white/20 text-white">
-                                        {completedTasks.length}
-                                    </Chip>
-                                </div>
-                            }
-                        >
-                            <div className="space-y-4">
-                                {completedTasks.length === 0 ? (
-                                    <div className="text-center py-8">
-                                        <p className="text-white/60">{t('tasks.empty.noCompletedTasks')}</p>
-                                        <p className="text-white/40 text-sm mt-2">{t('tasks.empty.startCompleting')}</p>
-                                    </div>
-                                ) : (
-                                    completedTasks.map((task) => (
-                                        <TaskCard
-                                            key={task.task_id}
-                                            task={task}
-                                            onAction={handleTaskAction}
-                                            getTaskIcon={getTaskIcon}
-                                            getTaskButton={getTaskButton}
-                                            getTaskBadge={getTaskBadge}
-                                            t={t}
-                                        />
-                                    ))
-                                )}
-                            </div>
-                        </Tab>
-                    </Tabs>
+                <div className="max-w-2xl mx-auto space-y-4">
+                    {tasksModule.tasks.map((task) => (
+                        <TaskCard
+                            key={task.task_id}
+                            task={task}
+                            onAction={handleTaskAction}
+                            getTaskIcon={getTaskIcon}
+                            getTaskButton={getTaskButton}
+                            getTaskBadge={getTaskBadge}
+                            t={t}
+                        />
+                    ))}
                 </div>
             )}
 
@@ -453,7 +391,7 @@ export default function TasksPage() {
 
 interface TaskCardProps {
     task: TaskWithStatus;
-    onAction: (task: TaskWithStatus, action: 'start' | 'verify' | 'claim' | 'visit') => void;
+    onAction: (task: TaskWithStatus, action: 'start' | 'retry' | 'claim') => void;
     getTaskIcon: (taskType: TaskType) => React.ReactNode;
     getTaskButton: (task: TaskWithStatus) => any;
     getTaskBadge: (task: TaskWithStatus) => any;
