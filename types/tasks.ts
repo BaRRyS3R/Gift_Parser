@@ -1,6 +1,8 @@
 // src/types/tasks.ts - TypeScript types for tasks system
 
 // Task types enum
+import { SiX, SiTelegram } from "react-icons/si";
+
 export enum TaskType {
     TELEGRAM_CHANNEL = 'telegram_channel',
     TELEGRAM_CHAT = 'telegram_chat',

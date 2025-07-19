@@ -8,16 +8,17 @@ import { Card, CardBody, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
     AlertCircle,
-    Zap,
     CheckCircle,
     Clock,
     Play,
     RotateCcw,
     Gift,
-    Globe
+    Users,
+    Globe,
+    Repeat,
+    Zap
 } from "lucide-react";
-
-import { SiX, SiTelegram } from "react-icons/si";
+import { SiTelegram, SiX } from "react-icons/si";
 
 import { useUser } from "@/hooks/useUser";
 import { useTasks } from "@/hooks/modules/useTasks";
@@ -32,13 +33,6 @@ import {
 } from "@/types/tasks";
 import { useT } from "@/contexts/LocalizationContext";
 
-interface SuccessNotification {
-    show: boolean;
-    title: string;
-    message: string;
-    icon: React.ReactNode;
-}
-
 export default function TasksPage() {
     const router = useRouter();
     const { user, refreshUser, makeAuthenticatedRequest } = useUser();
@@ -48,12 +42,6 @@ export default function TasksPage() {
     const tasksModule = useTasks(makeAuthenticatedRequest);
 
     const [isExploding, setIsExploding] = useState(false);
-    const [successNotification, setSuccessNotification] = useState<SuccessNotification>({
-        show: false,
-        title: "",
-        message: "",
-        icon: null
-    });
 
     // Fetch tasks on mount
     useEffect(() => {
@@ -88,66 +76,15 @@ export default function TasksPage() {
         }
     }, [router]);
 
-    const showSuccessNotification = (type: 'started' | 'verified' | 'claimed', task: TaskWithStatus, attemptsAdded?: number) => {
-        let icon: React.ReactNode;
-        let title: string;
-        let message: string;
-
-        switch (type) {
-            case 'started':
-                icon = <Play className="text-blue-400" size={32} />;
-                title = t('tasks.success.taskStarted');
-                message = t('tasks.success.taskStartedMessage', { title: task.title });
-                break;
-            case 'verified':
-                icon = <CheckCircle className="text-green-400" size={32} />;
-                title = t('tasks.success.taskCompleted');
-                message = t('tasks.success.taskCompletedMessage', { title: task.title });
-                break;
-            case 'claimed':
-                icon = <Gift className="text-yellow-400" size={32} />;
-                title = t('tasks.success.rewardClaimed');
-                message = t('tasks.success.rewardClaimedMessage', {
-                    count: attemptsAdded || 0,
-                    title: task.title
-                });
-                break;
-        }
-
-        setSuccessNotification({
-            show: true,
-            title,
-            message,
-            icon
-        });
-
-        if (type === 'claimed') {
-            setIsExploding(true);
-            setTimeout(() => {
-                setIsExploding(false);
-            }, 2000);
-        }
-
-        setTimeout(() => {
-            setSuccessNotification(prev => ({ ...prev, show: false }));
-        }, 3000);
-    };
-
     const handleTaskAction = async (task: TaskWithStatus, action: 'start' | 'retry' | 'claim') => {
         try {
             switch (action) {
                 case 'start':
-                    const started = await tasksModule.startTaskWithTimer(task);
-                    if (started) {
-                        showSuccessNotification('started', task);
-                    }
+                    await tasksModule.startTaskWithTimer(task);
                     break;
 
                 case 'retry':
-                    const verified = await tasksModule.retryVerification(task);
-                    if (verified) {
-                        showSuccessNotification('verified', task);
-                    }
+                    await tasksModule.retryVerification(task);
                     break;
 
                 case 'claim':
@@ -155,12 +92,31 @@ export default function TasksPage() {
                     if (claimResult.success) {
                         // Refresh user data to get updated attempts
                         await refreshUser();
-                        showSuccessNotification('claimed', task, claimResult.attemptsAdded);
+                        // Trigger confetti explosion
+                        setIsExploding(true);
+                        setTimeout(() => {
+                            setIsExploding(false);
+                        }, 2000);
                     }
                     break;
             }
         } catch (error) {
             console.error('Error in task action:', error);
+        }
+    };
+
+    const getBackgroundIcon = (taskType: TaskType) => {
+        switch (taskType) {
+            case TaskType.TELEGRAM_CHANNEL:
+            case TaskType.TELEGRAM_CHAT:
+                return <SiTelegram className="text-white text-[120px] leading-none" />;
+            case TaskType.TWITTER_FOLLOW:
+            case TaskType.TWITTER_REPOST:
+                return <SiX className="text-white text-[120px] leading-none" />;
+            case TaskType.WEBSITE_VISIT:
+                return <Globe className="text-white" size={120} />;
+            default:
+                return <Zap className="text-white" size={120} />;
         }
     };
 
@@ -272,8 +228,9 @@ export default function TasksPage() {
         }
         if (task.user_status === TaskStatus.STARTED) {
             const timer = tasksModule.getTaskTimer(task.task_id);
+            // During timer countdown, show "checking" status, not the timer
             if (timer > 0) {
-                return { text: `${timer}s`, color: 'primary' };
+                return { text: t('tasks.checking'), color: 'primary' };
             }
             return { text: t('tasks.checking'), color: 'primary' };
         }
@@ -334,6 +291,7 @@ export default function TasksPage() {
                             task={task}
                             onAction={handleTaskAction}
                             getTaskIcon={getTaskIcon}
+                            getBackgroundIcon={getBackgroundIcon}
                             getTaskButton={getTaskButton}
                             getTaskBadge={getTaskBadge}
                             t={t}
@@ -358,29 +316,6 @@ export default function TasksPage() {
                 </div>
             )}
 
-            {/* Success Notification */}
-            {successNotification.show && (
-                <div className={`
-                        fixed top-4 left-4 right-4 z-50
-                        transform transition-all duration-500 ease-out
-                        ${successNotification.show ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}
-                    `}>
-                    <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
-                        <CardBody className="p-4">
-                            <div className="flex items-center space-x-4">
-                                <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                                    {successNotification.icon}
-                                </div>
-                                <div className="flex-1">
-                                    <h4 className="font-bold text-green-400 text-lg">{successNotification.title}</h4>
-                                    <p className="text-green-300 text-sm mt-1">{successNotification.message}</p>
-                                </div>
-                            </div>
-                        </CardBody>
-                    </Card>
-                </div>
-            )}
-
             {/* Bottom spacing for safe area */}
             <div className="h-24" />
         </div>
@@ -391,6 +326,7 @@ interface TaskCardProps {
     task: TaskWithStatus;
     onAction: (task: TaskWithStatus, action: 'start' | 'retry' | 'claim') => void;
     getTaskIcon: (taskType: TaskType) => React.ReactNode;
+    getBackgroundIcon: (taskType: TaskType) => React.ReactNode;
     getTaskButton: (task: TaskWithStatus) => any;
     getTaskBadge: (task: TaskWithStatus) => any;
     t: any;
@@ -400,6 +336,7 @@ function TaskCard({
     task,
     onAction,
     getTaskIcon,
+    getBackgroundIcon,
     getTaskButton,
     getTaskBadge,
     t
@@ -407,6 +344,7 @@ function TaskCard({
     const button = getTaskButton(task);
     const badge = getTaskBadge(task);
     const taskIcon = getTaskIcon(task.task_type as TaskType);
+    const backgroundIcon = getBackgroundIcon(task.task_type as TaskType);
 
     return (
         <Card
@@ -425,9 +363,7 @@ function TaskCard({
             {!task.image_url && (
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     <div className="absolute -right-12 top-1/2 transform -translate-y-1/2 opacity-10">
-                        <div className="text-white text-[120px] leading-none">
-                            {TASK_TYPE_CONFIG[task.task_type as TaskType]?.icon || '⭐'}
-                        </div>
+                        {backgroundIcon}
                     </div>
                 </div>
             )}
