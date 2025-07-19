@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Fixed TypeScript type compatibility
+// src/app/profile/page.tsx - Исправленная версия с автообновлением данных лиг
 
 "use client";
 
@@ -16,12 +16,15 @@ import AchievementsModal from "@/components/Profile/AchievementsModal";
 import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
 
 export default function ProfilePage() {
-  const { authState, telegramUser, profile } = useUser();
+  const { authState, telegramUser, profile, leagues } = useUser();
   const t = useT();
 
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
   const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
+
+  // Track total games to detect changes
+  const [lastKnownTotalGames, setLastKnownTotalGames] = useState<number | null>(null);
 
   // Load profile data when user is authenticated
   useEffect(() => {
@@ -29,7 +32,45 @@ export default function ProfilePage() {
       console.log("User authenticated, loading fresh profile data...");
       profile.fetchProfileData();
     }
-  }, [authState.isAuthenticated, authState.user, telegramUser, profile.fetchProfileData]);
+  }, [authState.isAuthenticated, authState.user, telegramUser]);
+
+  // ALWAYS load fresh league data when user is authenticated (regardless of cached data)
+  useEffect(() => {
+    if (authState.isAuthenticated && authState.user && telegramUser && !leagues.isLoading) {
+      console.log("Loading fresh league data on profile page entry...");
+      leagues.fetchLeagueData();
+    }
+  }, [authState.isAuthenticated, authState.user, telegramUser, leagues.isLoading]);
+
+  // Update league data when total games changes (for immediate updates after playing)
+  useEffect(() => {
+    const currentTotalGames = profile.profileData?.user?.total_games;
+
+    if (currentTotalGames !== undefined && currentTotalGames !== null) {
+      // If this is the first time we see the total games, just store it
+      if (lastKnownTotalGames === null) {
+        setLastKnownTotalGames(currentTotalGames);
+        return;
+      }
+
+      // If total games changed, update league data immediately
+      if (currentTotalGames !== lastKnownTotalGames) {
+        console.log(`Total games changed from ${lastKnownTotalGames} to ${currentTotalGames}, updating league data...`);
+        setLastKnownTotalGames(currentTotalGames);
+
+        // Force refresh league data
+        leagues.fetchLeagueData();
+      }
+    }
+  }, [profile.profileData?.user?.total_games, lastKnownTotalGames, leagues.fetchLeagueData]);
+
+  // Reset data when leaving the page (cleanup)
+  useEffect(() => {
+    return () => {
+      console.log("ProfilePage unmounting, resetting league data for fresh load next time");
+      leagues.resetLeagueData();
+    };
+  }, []);
 
   const handleOpenReferrals = () => {
     if (profile.profileData?.referrals) {
@@ -44,7 +85,15 @@ export default function ProfilePage() {
   };
 
   const handleOpenLeagues = () => {
-    setIsLeaguesModalOpen(true);
+    // Ensure we have fresh league data when opening the modal
+    if (profile.profileData?.user && !leagues.isLoading) {
+      console.log("Opening leagues modal, ensuring fresh data...");
+      leagues.fetchLeagueData().then(() => {
+        setIsLeaguesModalOpen(true);
+      });
+    } else {
+      setIsLeaguesModalOpen(true);
+    }
   };
 
   // Show loading while user data is being authenticated or profile data is loading
@@ -83,7 +132,10 @@ export default function ProfilePage() {
           </div>
           <p className="text-white">{profile.error}</p>
           <button
-            onClick={() => profile.fetchProfileData()}
+            onClick={() => {
+              profile.fetchProfileData();
+              leagues.fetchLeagueData();
+            }}
             className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 transition-colors"
           >
             {t("common.retry")}
@@ -95,7 +147,7 @@ export default function ProfilePage() {
 
   // Get profile data and convert undefined to null for type compatibility
   const profileData = profile.profileData;
-  const profileUser = profileData?.user ?? null; // Convert undefined to null
+  const profileUser = profileData?.user ?? null;
   const rankings = profileData?.rankings || {
     overall: null,
     reaction: null,
@@ -138,9 +190,9 @@ export default function ProfilePage() {
         {/* Divider */}
         <MinimalistDivider />
 
-        {/* Game Statistics with Level Progress - FIXED TYPE COMPATIBILITY */}
-        <MinimalistGameStats 
-          user={profileUser} // Now correctly typed as UserProfileGameStats | null
+        {/* Game Statistics with Level Progress */}
+        <MinimalistGameStats
+          user={profileUser}
           isLoading={profile.isLoading}
         />
 
