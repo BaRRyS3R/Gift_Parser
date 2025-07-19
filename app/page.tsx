@@ -110,50 +110,14 @@ export default function IntroPage(): JSX.Element {
     referrerUsername?: string;
   }> => {
     try {
-      console.log(`Validating referral code: ${code}`);
-
-      // ✅ Вызываем наш простой API endpoint
-      const response = await fetch('/api/referral/validate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          referralCode: code,
-        }),
-      });
-
-      if (!response.ok) {
-        console.error(`Referral validation failed: ${response.status}`);
-        // Fallback: разрешить регистрацию, сервер проверит еще раз
-        return { isValid: true, code, bonus: 5 };
-      }
-
-      const result = await response.json();
-
-      if (result.success && result.isValid) {
-        console.log(`✅ Valid referral code: ${code}`, {
-          referrerName: result.referrerName,
-          referrerUsername: result.referrerUsername,
-          bonus: result.bonus
-        });
-
-        return {
-          isValid: true,
-          code,
-          bonus: result.bonus || 5,
-          referrerName: result.referrerName,
-          referrerUsername: result.referrerUsername,
-        };
-      } else {
-        console.log(`❌ Invalid referral code: ${code}`);
-        return { isValid: false, code, bonus: 0 };
-      }
-
+      return {
+        isValid: true,
+        code,
+        bonus: 5, // Default bonus - will be validated by server
+      };
     } catch (error) {
-      console.error('Error validating referral code:', error);
-      // Fallback: разрешить регистрацию, сервер проверит еще раз
-      return { isValid: true, code, bonus: 5 };
+      console.error("Error validating referral code:", error);
+      return { isValid: false, code, bonus: 0 };
     }
   }, []);
 
@@ -523,7 +487,7 @@ export default function IntroPage(): JSX.Element {
     if (pageState.referralInfo?.referrerName) {
       return pageState.referralInfo.referrerName;
     }
-    return "s0meone";
+    return "john doe";
   };
 
   // Determine loading state
