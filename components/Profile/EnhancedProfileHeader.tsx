@@ -1,12 +1,12 @@
-// src/components/Profile/EnhancedProfileHeader.tsx - Обновленный для работы с UserProfileGameStats
+// src/components/Profile/EnhancedProfileHeader.tsx - Обновленный для использования leagues API
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { Trophy, Star, Medal, Award, Crown } from "lucide-react";
 import type { UserProfileGameStats } from "@/hooks/modules/useProfile";
+import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
 
 interface EnhancedProfileHeaderProps {
     user: UserProfileGameStats;
@@ -14,26 +14,15 @@ interface EnhancedProfileHeaderProps {
 
 const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({ user }) => {
     const t = useT();
-    const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const { leagues } = useUser();
 
+    // Load league data when component mounts
     useEffect(() => {
-        const loadProgressInfo = async () => {
-            try {
-                const progress = await leagueService.getUserLeagueProgress(
-                    user.id,
-                    user.total_games
-                );
-                setProgressInfo(progress);
-            } catch (error) {
-                console.error("Error loading league progress:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadProgressInfo();
-    }, [user.id, user.total_games]);
+        if (user && !leagues.leagueData && !leagues.isLoading) {
+            console.log("Loading league data for enhanced profile header...");
+            leagues.fetchLeagueData();
+        }
+    }, [user, leagues.leagueData, leagues.isLoading, leagues.fetchLeagueData]);
 
     // Get league icon and colors
     const getLeagueIcon = (leagueName: string) => {
@@ -58,8 +47,8 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({ user }) =
         }
     };
 
-    const LeagueIcon = progressInfo ? getLeagueIcon(progressInfo.currentLeague.name) : Trophy;
-    const leagueColor = progressInfo ? getLeagueColor(progressInfo.currentLeague.name) : 'text-white';
+    const LeagueIcon = leagues.progressInfo ? getLeagueIcon(leagues.progressInfo.currentLeague.name) : Trophy;
+    const leagueColor = leagues.progressInfo ? getLeagueColor(leagues.progressInfo.currentLeague.name) : 'text-white';
 
     return (
         <div className="text-center space-y-3 px-4 py-6">
@@ -77,19 +66,19 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({ user }) =
 
             {/* Level and League */}
             <div className="flex items-center justify-center space-x-4 mt-3">
-                {isLoading ? (
+                {leagues.isLoading ? (
                     <div className="animate-pulse flex items-center space-x-2">
                         <div className="w-16 h-5 bg-white/20 rounded" />
                         <div className="w-px h-4 bg-white/30" />
                         <div className="w-20 h-5 bg-white/20 rounded" />
                     </div>
-                ) : progressInfo ? (
+                ) : leagues.progressInfo ? (
                     <>
                         {/* Level */}
                         <div className="flex items-center space-x-1">
                             <Star className="text-white/80" size={16} />
                             <span className="text-white text-sm font-semibold">
-                                {t("profile.levelDisplay", { level: progressInfo.currentLevel })}
+                                {t("profile.levelDisplay", { level: leagues.progressInfo.currentLevel })}
                             </span>
                         </div>
 
@@ -100,7 +89,7 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({ user }) =
                         <div className="flex items-center space-x-1">
                             <LeagueIcon className={`${leagueColor} animate-pulse-gentle`} size={16} />
                             <span className={`text-sm font-semibold ${leagueColor}`}>
-                                {t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
+                                {t(`leagues.names.${leagues.progressInfo.currentLeague.name}` as any)}
                             </span>
                         </div>
                     </>

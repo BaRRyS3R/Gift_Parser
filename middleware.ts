@@ -11,7 +11,7 @@ export const config = {
         '/api/user/:path*',
         '/api/game/:path*',
         '/api/tournament/:path*',
-        '/api/league/:path*',
+        '/api/leagues/:path*',
         '/api/tasks/:path*',
         '/api/purchase/:path*',
         '/api/referral/:path*',
