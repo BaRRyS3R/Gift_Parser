@@ -1,4 +1,4 @@
-// src/lib/supabase_tasks.ts - Обновленная версия с использованием API
+// src/lib/supabase_tasks.ts - Исправленная версия без циклических вызовов API
 import { supabase } from "./supabase";
 
 export type TaskType =
@@ -70,42 +70,94 @@ export const taskService = {
         return data || [];
     },
 
-    // Получение заданий с информацией о выполнении для пользователя через API
+    // ИСПРАВЛЕНО: Получение заданий с информацией о выполнении для пользователя - БЕЗ API вызовов
     async getTasksForUser(userId: string): Promise<TaskWithCompletion[]> {
-        console.log('=== TASK SERVICE: getTasksForUser via API ===');
+        console.log('=== TASK SERVICE: getTasksForUser via direct DB ===');
         console.log('User ID:', userId);
 
         try {
-            const response = await fetch('/api/tasks/list', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getAuthToken()}`,
-                },
+            // Получаем все активные задания
+            const { data: tasks, error: tasksError } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('is_active', true)
+                .order('created_at', { ascending: true });
+
+            if (tasksError) {
+                console.error('Error fetching tasks:', tasksError);
+                throw new Error('Failed to fetch tasks');
+            }
+
+            // Получаем завершения пользователя
+            const { data: completions, error: completionsError } = await supabase
+                .from('user_task_completions')
+                .select('*')
+                .eq('user_id', userId);
+
+            if (completionsError) {
+                console.error('Error fetching completions:', completionsError);
+                throw new Error('Failed to fetch task completions');
+            }
+
+            // Объединяем задания с информацией о выполнении
+            const tasksWithCompletion: TaskWithCompletion[] = (tasks || []).map(task => {
+                const completion = completions?.find(c => c.task_id === task.id);
+                const canComplete = this.canTaskBeCompleted(task, completion);
+                const nextAvailable = this.getNextAvailableTime(task, completion);
+
+                return {
+                    ...task,
+                    user_completion: completion,
+                    can_complete: canComplete,
+                    next_available_at: nextAvailable
+                };
             });
 
-            if (!response.ok) {
-                if (response.status === 401) {
-                    throw new Error('Authentication required');
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to fetch tasks');
-            }
-
-            console.log('Tasks fetched via API:', result.tasks?.length || 0);
+            console.log('Tasks fetched via direct DB:', tasksWithCompletion.length);
             console.log('=== TASK SERVICE: getTasksForUser END ===');
 
-            return result.tasks || [];
+            return tasksWithCompletion;
 
         } catch (error) {
-            console.error('Error fetching tasks via API:', error);
+            console.error('Error fetching tasks via direct DB:', error);
             throw error;
         }
+    },
+
+    // Вспомогательный метод для проверки возможности выполнения задания
+    canTaskBeCompleted(task: Task, completion?: UserTaskCompletion): boolean {
+        // Если задание уже получено, то его нельзя выполнить повторно
+        if (completion && completion.status === 'claimed') {
+            return false;
+        }
+
+        // Проверяем кулдаун для story_share заданий
+        if (task.type === 'story_share' && task.cooldown_minutes && completion && completion.claimed_at) {
+            const claimedAt = new Date(completion.claimed_at);
+            const cooldownEnd = new Date(claimedAt.getTime() + (task.cooldown_minutes * 60 * 1000));
+            const now = new Date();
+
+            if (now < cooldownEnd) {
+                return false;
+            }
+        }
+
+        return true;
+    },
+
+    // Вспомогательный метод для получения времени следующего доступа
+    getNextAvailableTime(task: Task, completion?: UserTaskCompletion): string | undefined {
+        if (task.type === 'story_share' && task.cooldown_minutes && completion && completion.claimed_at) {
+            const claimedAt = new Date(completion.claimed_at);
+            const cooldownEnd = new Date(claimedAt.getTime() + (task.cooldown_minutes * 60 * 1000));
+            const now = new Date();
+
+            if (now < cooldownEnd) {
+                return cooldownEnd.toISOString();
+            }
+        }
+
+        return undefined;
     },
 
     // Начало выполнения задания через API
