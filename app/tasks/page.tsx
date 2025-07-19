@@ -1,38 +1,35 @@
-// src/app/tasks/page.tsx - Полная версия с интеграцией API
+// src/app/tasks/page.tsx - Обновленная страница задач с использованием новых API роутов
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, Button, Progress, Chip, Divider } from "@nextui-org/react";
+import { Card, CardBody, Button, Chip, Divider } from "@nextui-org/react";
 import {
     Check,
     Play,
     AlertCircle,
     CheckCircle2,
     Globe,
-    Camera,
-    Loader2,
-    Trophy,
-    Zap
+    Camera
 } from "lucide-react";
 import {
     SiTelegram,
     SiX
 } from "react-icons/si";
 
-import { useT, useLanguage } from "@/contexts/LocalizationContext";
+import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
-import { taskService } from "@/lib/supabase_tasks";
-import type { TaskWithCompletion, TaskType, TaskProcessingState } from "@/types/tasks";
+import { useTasks } from "@/hooks/modules/useTasks";
+import type { TaskWithCompletion, TaskType } from '@/lib/server/tasksService';
+
+interface TaskProcessingState {
+    countdown?: number;
+    error?: string;
+}
 
 interface TaskProcessing {
     [taskId: string]: TaskProcessingState;
-}
-
-interface TaskStats {
-    total_completed: number;
-    total_attempts_earned: number;
-    tasks_completed_today: number;
 }
 
 const getTaskIcon = (taskType: TaskType) => {
@@ -52,107 +49,27 @@ const getTaskIcon = (taskType: TaskType) => {
     }
 };
 
-const getAuthToken = (): string => {
-    if (typeof window !== 'undefined') {
-        return localStorage.getItem('auth_access_token') || '';
-    }
-    return '';
-};
-
 export default function TasksPage() {
     const router = useRouter();
-    const { user, refreshUser, telegramUser, authState } = useUser();
+    const { user, refreshUser, telegramUser, makeAuthenticatedRequest } = useUser();
     const t = useT();
 
-    const [tasks, setTasks] = useState<TaskWithCompletion[]>([]);
-    const [taskStats, setTaskStats] = useState<TaskStats>({
-        total_completed: 0,
-        total_attempts_earned: 0,
-        tasks_completed_today: 0
-    });
-    const [loading, setLoading] = useState(true);
-    const [processing, setProcessing] = useState<TaskProcessing>({});
-    const [error, setError] = useState<string | null>(null);
+    // Use new tasks hook
+    const tasksModule = useTasks(makeAuthenticatedRequest);
 
-    // Проверка аутентификации
+    const [localProcessing, setLocalProcessing] = useState<TaskProcessing>({});
+
+    // Load tasks on component mount
     useEffect(() => {
-        if (!authState.isAuthenticated) {
-            console.log('User not authenticated, redirecting to main page');
-            router.push('/');
-            return;
+        if (user) {
+            tasksModule.fetchTasks();
         }
-    }, [authState.isAuthenticated, router]);
+    }, [user, tasksModule.fetchTasks]);
 
-    const loadTasks = useCallback(async () => {
-        if (!user || !authState.isAuthenticated) {
-            console.log('User not available or not authenticated');
-            setLoading(false);
-            return;
-        }
-
-        const authToken = getAuthToken();
-        if (!authToken) {
-            console.log('Auth token not found, redirecting to main page');
-            router.push('/');
-            return;
-        }
-
-        try {
-            setError(null);
-            setLoading(true);
-
-            console.log('Loading tasks via API...');
-
-            const response = await fetch('/api/tasks/list', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`,
-                },
-            });
-
-            if (!response.ok) {
-                if (response.status === 401) {
-                    console.log('Authentication expired, redirecting to main page');
-                    router.push('/');
-                    return;
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to load tasks');
-            }
-
-            setTasks(result.tasks || []);
-            setTaskStats(result.stats || {
-                total_completed: 0,
-                total_attempts_earned: 0,
-                tasks_completed_today: 0
-            });
-
-            console.log('Tasks loaded successfully via API');
-        } catch (err) {
-            console.error('Error loading tasks:', err);
-            if (err instanceof Error && err.message.includes('Authentication')) {
-                router.push('/');
-                return;
-            }
-            setError(t('tasks.errors.unknownError'));
-        } finally {
-            setLoading(false);
-        }
-    }, [user, authState.isAuthenticated, router, t]);
-
-    useEffect(() => {
-        loadTasks();
-    }, [loadTasks]);
-
+    // Countdown timer for task processing
     useEffect(() => {
         const interval = setInterval(() => {
-            setProcessing(prev => {
+            setLocalProcessing(prev => {
                 const updated = { ...prev };
                 let hasActiveCountdowns = false;
 
@@ -175,6 +92,7 @@ export default function TasksPage() {
         return () => clearInterval(interval);
     }, []);
 
+    // Setup Telegram WebApp back button
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -191,43 +109,11 @@ export default function TasksPage() {
     }, [router]);
 
     const handleStartTask = async (task: TaskWithCompletion) => {
-        if (!user || !telegramUser || !authState.isAuthenticated) return;
-
-        const authToken = getAuthToken();
-        if (!authToken) {
-            console.log('Auth token not found, redirecting to main page');
-            router.push('/');
-            return;
-        }
-
-        setProcessing(prev => ({
-            ...prev,
-            [task.id]: { isStarting: true }
-        }));
+        if (!user || !telegramUser) return;
 
         try {
-            const response = await fetch('/api/tasks/start', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`,
-                },
-                body: JSON.stringify({ taskId: task.id }),
-            });
-
-            if (!response.ok) {
-                if (response.status === 401) {
-                    router.push('/');
-                    return;
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to start task');
-            }
+            const result = await tasksModule.startTask(task.id);
+            if (!result) return;
 
             if (task.type === 'story_share') {
                 handleStoryTask(task);
@@ -238,19 +124,16 @@ export default function TasksPage() {
             if (task.type === 'telegram_channel' || task.type === 'telegram_chat') {
                 setTimeout(() => handleCheckTask(task.id), 3000);
             } else if (task.type !== 'story_share') {
-                setProcessing(prev => ({
+                setLocalProcessing(prev => ({
                     ...prev,
                     [task.id]: { countdown: 10000 }
                 }));
             }
 
-            await loadTasks();
+            // Refresh tasks list
+            await tasksModule.fetchTasks();
         } catch (err) {
             console.error('Error starting task:', err);
-            setProcessing(prev => ({
-                ...prev,
-                [task.id]: { error: t('tasks.errors.unknownError') }
-            }));
         }
     };
 
@@ -270,7 +153,7 @@ export default function TasksPage() {
 
                 setTimeout(() => handleCheckTask(task.id), 1000);
             } else {
-                setProcessing(prev => ({
+                setLocalProcessing(prev => ({
                     ...prev,
                     [task.id]: { error: t('tasks.storyTask.notSupported') }
                 }));
@@ -293,119 +176,62 @@ export default function TasksPage() {
     };
 
     const handleCheckTask = async (taskId: string) => {
-        if (!user || !telegramUser || !authState.isAuthenticated) return;
-
-        setProcessing(prev => ({
-            ...prev,
-            [taskId]: { isChecking: true }
-        }));
+        if (!user || !telegramUser) return;
 
         try {
-            const isCompleted = await taskService.checkTaskCompletion(user.id, taskId, telegramUser.id);
+            const isCompleted = await tasksModule.checkTask(taskId);
 
             if (isCompleted) {
-                await taskService.completeTask(user.id, taskId);
-                await loadTasks();
-
-                setProcessing(prev => ({
-                    ...prev,
-                    [taskId]: {}
-                }));
-            } else {
-                setProcessing(prev => ({
-                    ...prev,
-                    [taskId]: { error: t('tasks.errors.notSubscribed') }
-                }));
+                const result = await tasksModule.completeTask(taskId);
+                if (result) {
+                    await tasksModule.fetchTasks();
+                }
             }
         } catch (err) {
             console.error('Error checking task:', err);
-            setProcessing(prev => ({
-                ...prev,
-                [taskId]: { error: t('tasks.errors.verificationFailed') }
-            }));
         }
     };
 
     const handleClaimReward = async (task: TaskWithCompletion) => {
-        if (!user || !telegramUser || !authState.isAuthenticated) return;
-
-        const authToken = getAuthToken();
-        if (!authToken) {
-            console.log('Auth token not found, redirecting to main page');
-            router.push('/');
-            return;
-        }
-
-        setProcessing(prev => ({
-            ...prev,
-            [task.id]: { isClaiming: true }
-        }));
+        if (!user || !telegramUser) return;
 
         try {
-            const response = await fetch('/api/tasks/claim-reward', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`,
-                },
-                body: JSON.stringify({ taskId: task.id }),
-            });
-
-            if (!response.ok) {
-                if (response.status === 401) {
-                    router.push('/');
-                    return;
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to claim reward');
-            }
+            const result = await tasksModule.claimTaskReward(task.id);
+            if (!result) return;
 
             if (typeof window !== "undefined" && window.Telegram?.WebApp) {
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
             }
 
             await refreshUser();
-            await loadTasks();
-
-            setProcessing(prev => ({
-                ...prev,
-                [task.id]: {}
-            }));
+            await tasksModule.fetchTasks();
         } catch (err) {
             console.error('Error claiming reward:', err);
-            setProcessing(prev => ({
-                ...prev,
-                [task.id]: { error: t('tasks.errors.rewardClaimFailed') }
-            }));
         }
     };
 
     const getButtonState = (task: TaskWithCompletion) => {
-        const proc = processing[task.id];
+        const apiProcessing = tasksModule.processing[task.id];
+        const localProc = localProcessing[task.id];
 
-        if (proc?.isStarting) {
+        if (apiProcessing?.isStarting) {
             return { text: t('tasks.start'), disabled: true, loading: true, color: 'primary' as const };
         }
 
-        if (proc?.isChecking) {
+        if (apiProcessing?.isChecking) {
             return { text: t('tasks.checking'), disabled: true, loading: true, color: 'primary' as const };
         }
 
-        if (proc?.isClaiming) {
+        if (apiProcessing?.isClaiming) {
             return { text: t('tasks.claim'), disabled: true, loading: true, color: 'success' as const };
         }
 
-        if (proc?.countdown) {
-            const seconds = Math.ceil(proc.countdown / 1000);
+        if (localProc?.countdown) {
+            const seconds = Math.ceil(localProc.countdown / 1000);
             return { text: t('tasks.waitSeconds', { seconds }), disabled: true, loading: false, color: 'default' as const };
         }
 
-        if (proc?.error) {
+        if (apiProcessing?.error || localProc?.error) {
             return { text: t('tasks.start'), disabled: false, loading: false, color: 'danger' as const };
         }
 
@@ -436,10 +262,12 @@ export default function TasksPage() {
     };
 
     const handleTaskClick = async (task: TaskWithCompletion) => {
-        const proc = processing[task.id];
+        const apiProcessing = tasksModule.processing[task.id];
+        const localProc = localProcessing[task.id];
 
-        if (proc?.error) {
-            setProcessing(prev => ({
+        if (apiProcessing?.error || localProc?.error) {
+            tasksModule.clearTaskError(task.id);
+            setLocalProcessing(prev => ({
                 ...prev,
                 [task.id]: {}
             }));
@@ -455,6 +283,8 @@ export default function TasksPage() {
         }
     };
 
+    // Organize tasks by type
+    const tasks = tasksModule.tasks || [];
     const storyTasks = tasks.filter(task => task.type === 'story_share');
     const activeTasks = tasks.filter(task =>
         task.type !== 'story_share' &&
@@ -465,11 +295,7 @@ export default function TasksPage() {
         task.user_completion?.status === 'claimed'
     );
 
-    if (!authState.isAuthenticated) {
-        return null;
-    }
-
-    if (loading) {
+    if (tasksModule.isLoading && !tasks.length) {
         return (
             <div className="min-h-screen bg-black text-white flex items-center justify-center">
                 <div className="text-center">
@@ -492,34 +318,13 @@ export default function TasksPage() {
                 </p>
             </div>
 
-            {/* Stats Section */}
-            {taskStats.total_completed > 0 && (
-                <div className="mb-6">
-                    <div className="flex items-center justify-center space-x-4 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg p-3 text-sm">
-                        <div className="flex items-center space-x-1">
-                            <Trophy className="text-yellow-400" size={14} />
-                            <span className="font-bold text-white">
-                                {taskStats.total_completed}
-                            </span>
-                        </div>
-                        <div className="w-px h-4 bg-white/30" />
-                        <div className="flex items-center space-x-1">
-                            <Zap className="text-green-400" size={14} />
-                            <span className="font-bold text-white">
-                                {taskStats.total_attempts_earned}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {error && (
+            {tasksModule.error && (
                 <div className="max-w-2xl mx-auto mb-6">
                     <Card className="bg-white/10 border border-white/20">
                         <CardBody className="p-4">
                             <div className="flex items-center space-x-2">
                                 <AlertCircle size={20} className="text-white" />
-                                <span className="text-white">{error}</span>
+                                <span className="text-white">{tasksModule.error}</span>
                             </div>
                         </CardBody>
                     </Card>
@@ -537,7 +342,8 @@ export default function TasksPage() {
                             <TaskCard
                                 key={task.id}
                                 task={task}
-                                processing={processing[task.id]}
+                                processing={tasksModule.processing[task.id]}
+                                localProcessing={localProcessing[task.id]}
                                 onTaskClick={handleTaskClick}
                                 getButtonState={getButtonState}
                                 t={t}
@@ -558,7 +364,8 @@ export default function TasksPage() {
                                 <TaskCard
                                     key={task.id}
                                     task={task}
-                                    processing={processing[task.id]}
+                                    processing={tasksModule.processing[task.id]}
+                                    localProcessing={localProcessing[task.id]}
                                     onTaskClick={handleTaskClick}
                                     getButtonState={getButtonState}
                                     t={t}
@@ -580,7 +387,8 @@ export default function TasksPage() {
                                 <TaskCard
                                     key={task.id}
                                     task={task}
-                                    processing={processing[task.id]}
+                                    processing={tasksModule.processing[task.id]}
+                                    localProcessing={localProcessing[task.id]}
                                     onTaskClick={handleTaskClick}
                                     getButtonState={getButtonState}
                                     t={t}
@@ -592,7 +400,7 @@ export default function TasksPage() {
                 )}
 
                 {/* Empty State */}
-                {activeTasks.length === 0 && completedTasks.length === 0 && storyTasks.length === 0 && (
+                {activeTasks.length === 0 && completedTasks.length === 0 && storyTasks.length === 0 && !tasksModule.isLoading && (
                     <div className="text-center py-12">
                         <div className="text-6xl mb-4">📋</div>
                         <h3 className="text-lg font-bold mb-2">{t('tasks.empty.noActiveTasks')}</h3>
@@ -610,6 +418,7 @@ export default function TasksPage() {
 interface TaskCardProps {
     task: TaskWithCompletion;
     processing?: any;
+    localProcessing?: TaskProcessingState;
     onTaskClick: (task: TaskWithCompletion) => void;
     getButtonState: (task: TaskWithCompletion) => any;
     t: any;
@@ -620,6 +429,7 @@ interface TaskCardProps {
 function TaskCard({
     task,
     processing,
+    localProcessing,
     onTaskClick,
     getButtonState,
     t,
@@ -715,9 +525,9 @@ function TaskCard({
                             )}
                         </div>
 
-                        {processing?.error && (
+                        {(processing?.error || localProcessing?.error) && (
                             <div className="mt-2 text-white/80 text-xs bg-white/10 rounded px-2 py-1 border border-white/20">
-                                {processing.error}
+                                {processing?.error || localProcessing?.error}
                             </div>
                         )}
                     </div>

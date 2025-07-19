@@ -1,25 +1,20 @@
-// src/app/api/tasks/start/route.ts - Начало выполнения задания
+// src/app/api/tasks/stats/route.ts - Статистика заданий пользователя
 
 import { NextRequest, NextResponse } from 'next/server';
-import { serverTasksService, type UserTaskCompletion } from '@/lib/server/tasksService';
-
-// Request body interface
-interface StartTaskRequest {
-    taskId: string;
-}
+import { serverTasksService, type TaskStats } from '@/lib/server/tasksService';
 
 // Response interface
-interface StartTaskResponse {
+interface TaskStatsResponse {
     success: boolean;
-    data?: UserTaskCompletion;
+    data?: TaskStats;
     error?: string;
 }
 
 /**
- * POST /api/tasks/start
- * Start task execution for the authenticated user
+ * GET /api/tasks/stats
+ * Retrieves task statistics for the authenticated user
  */
-export async function POST(request: NextRequest): Promise<NextResponse<StartTaskResponse>> {
+export async function GET(request: NextRequest): Promise<NextResponse<TaskStatsResponse>> {
     try {
         // Extract user info from middleware headers
         const userId = request.headers.get('X-User-ID');
@@ -34,34 +29,24 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
             );
         }
 
-        // Parse request body
-        const body: StartTaskRequest = await request.json();
-        const { taskId } = body;
+        console.log(`Fetching task statistics for user: ${userId}`);
 
-        if (!taskId) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Task ID is required'
-                },
-                { status: 400 }
-            );
-        }
+        // Get user task statistics
+        const taskStats = await serverTasksService.getUserTaskStats(userId);
 
-        console.log(`Starting task ${taskId} for user ${userId}`);
-
-        // Start task execution
-        const taskCompletion = await serverTasksService.startTask(userId, taskId);
-
-        console.log(`Task ${taskId} started successfully for user ${userId}`);
+        console.log(`Successfully fetched task statistics for user ${userId}:`, {
+            totalCompleted: taskStats.total_completed,
+            totalAttemptsEarned: taskStats.total_attempts_earned,
+            tasksCompletedToday: taskStats.tasks_completed_today
+        });
 
         return NextResponse.json({
             success: true,
-            data: taskCompletion,
+            data: taskStats,
         });
 
     } catch (error) {
-        console.error('Error starting task:', error);
+        console.error('Error fetching task statistics:', error);
 
         // Handle specific error types
         if (error instanceof Error) {
@@ -69,19 +54,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
                 return NextResponse.json(
                     {
                         success: false,
-                        error: 'Task not found'
+                        error: 'User not found'
                     },
                     { status: 404 }
                 );
             }
 
-            if (error.message.includes('cannot be completed')) {
+            if (error.message.includes('fetch')) {
                 return NextResponse.json(
                     {
                         success: false,
-                        error: 'Task cannot be completed at this time'
+                        error: 'Failed to fetch task statistics'
                     },
-                    { status: 400 }
+                    { status: 500 }
                 );
             }
         }
@@ -89,7 +74,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
         return NextResponse.json(
             {
                 success: false,
-                error: 'Failed to start task'
+                error: 'Failed to retrieve task statistics'
             },
             { status: 500 }
         );
@@ -97,7 +82,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
 }
 
 /**
- * OPTIONS /api/tasks/start
+ * OPTIONS /api/tasks/stats
  * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
@@ -105,7 +90,7 @@ export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
         status: 200,
         headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Max-Age': '86400',
         },

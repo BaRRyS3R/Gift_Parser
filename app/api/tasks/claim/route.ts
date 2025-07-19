@@ -1,25 +1,25 @@
-// src/app/api/tasks/start/route.ts - Начало выполнения задания
+// src/app/api/tasks/claim/route.ts - Получение награды за выполненное задание
 
 import { NextRequest, NextResponse } from 'next/server';
-import { serverTasksService, type UserTaskCompletion } from '@/lib/server/tasksService';
+import { serverTasksService, type TaskRewardResult } from '@/lib/server/tasksService';
 
 // Request body interface
-interface StartTaskRequest {
+interface ClaimTaskRequest {
     taskId: string;
 }
 
 // Response interface
-interface StartTaskResponse {
+interface ClaimTaskResponse {
     success: boolean;
-    data?: UserTaskCompletion;
+    data?: TaskRewardResult;
     error?: string;
 }
 
 /**
- * POST /api/tasks/start
- * Start task execution for the authenticated user
+ * POST /api/tasks/claim
+ * Claim reward for completed task for the authenticated user
  */
-export async function POST(request: NextRequest): Promise<NextResponse<StartTaskResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse<ClaimTaskResponse>> {
     try {
         // Extract user info from middleware headers
         const userId = request.headers.get('X-User-ID');
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
         }
 
         // Parse request body
-        const body: StartTaskRequest = await request.json();
+        const body: ClaimTaskRequest = await request.json();
         const { taskId } = body;
 
         if (!taskId) {
@@ -48,20 +48,20 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
             );
         }
 
-        console.log(`Starting task ${taskId} for user ${userId}`);
+        console.log(`Claiming reward for task ${taskId} for user ${userId}`);
 
-        // Start task execution
-        const taskCompletion = await serverTasksService.startTask(userId, taskId);
+        // Claim task reward
+        const rewardResult = await serverTasksService.claimTaskReward(userId, taskId);
 
-        console.log(`Task ${taskId} started successfully for user ${userId}`);
+        console.log(`Reward claimed successfully for task ${taskId}: ${rewardResult.reward} attempts`);
 
         return NextResponse.json({
             success: true,
-            data: taskCompletion,
+            data: rewardResult,
         });
 
     } catch (error) {
-        console.error('Error starting task:', error);
+        console.error('Error claiming task reward:', error);
 
         // Handle specific error types
         if (error instanceof Error) {
@@ -69,19 +69,29 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
                 return NextResponse.json(
                     {
                         success: false,
-                        error: 'Task not found'
+                        error: 'Completed task not found'
                     },
                     { status: 404 }
                 );
             }
 
-            if (error.message.includes('cannot be completed')) {
+            if (error.message.includes('User not found')) {
                 return NextResponse.json(
                     {
                         success: false,
-                        error: 'Task cannot be completed at this time'
+                        error: 'User not found'
                     },
-                    { status: 400 }
+                    { status: 404 }
+                );
+            }
+
+            if (error.message.includes('update user attempts')) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Failed to update user attempts'
+                    },
+                    { status: 500 }
                 );
             }
         }
@@ -89,7 +99,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
         return NextResponse.json(
             {
                 success: false,
-                error: 'Failed to start task'
+                error: 'Failed to claim task reward'
             },
             { status: 500 }
         );
@@ -97,7 +107,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
 }
 
 /**
- * OPTIONS /api/tasks/start
+ * OPTIONS /api/tasks/claim
  * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {

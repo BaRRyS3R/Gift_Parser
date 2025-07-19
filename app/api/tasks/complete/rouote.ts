@@ -1,25 +1,25 @@
-// src/app/api/tasks/start/route.ts - Начало выполнения задания
+// src/app/api/tasks/complete/route.ts - Завершение задания
 
 import { NextRequest, NextResponse } from 'next/server';
 import { serverTasksService, type UserTaskCompletion } from '@/lib/server/tasksService';
 
 // Request body interface
-interface StartTaskRequest {
+interface CompleteTaskRequest {
     taskId: string;
 }
 
 // Response interface
-interface StartTaskResponse {
+interface CompleteTaskResponse {
     success: boolean;
     data?: UserTaskCompletion;
     error?: string;
 }
 
 /**
- * POST /api/tasks/start
- * Start task execution for the authenticated user
+ * POST /api/tasks/complete
+ * Complete task execution for the authenticated user
  */
-export async function POST(request: NextRequest): Promise<NextResponse<StartTaskResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse<CompleteTaskResponse>> {
     try {
         // Extract user info from middleware headers
         const userId = request.headers.get('X-User-ID');
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
         }
 
         // Parse request body
-        const body: StartTaskRequest = await request.json();
+        const body: CompleteTaskRequest = await request.json();
         const { taskId } = body;
 
         if (!taskId) {
@@ -48,12 +48,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
             );
         }
 
-        console.log(`Starting task ${taskId} for user ${userId}`);
+        console.log(`Completing task ${taskId} for user ${userId}`);
 
-        // Start task execution
-        const taskCompletion = await serverTasksService.startTask(userId, taskId);
+        // Complete task execution
+        const taskCompletion = await serverTasksService.completeTask(userId, taskId);
 
-        console.log(`Task ${taskId} started successfully for user ${userId}`);
+        console.log(`Task ${taskId} completed successfully for user ${userId}`);
 
         return NextResponse.json({
             success: true,
@@ -61,27 +61,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
         });
 
     } catch (error) {
-        console.error('Error starting task:', error);
+        console.error('Error completing task:', error);
 
         // Handle specific error types
         if (error instanceof Error) {
-            if (error.message.includes('not found')) {
+            if (error.message.includes('not found') || error.message.includes('not started')) {
                 return NextResponse.json(
                     {
                         success: false,
-                        error: 'Task not found'
+                        error: 'Task completion not found or task was not started'
                     },
                     { status: 404 }
-                );
-            }
-
-            if (error.message.includes('cannot be completed')) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'Task cannot be completed at this time'
-                    },
-                    { status: 400 }
                 );
             }
         }
@@ -89,7 +79,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
         return NextResponse.json(
             {
                 success: false,
-                error: 'Failed to start task'
+                error: 'Failed to complete task'
             },
             { status: 500 }
         );
@@ -97,7 +87,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
 }
 
 /**
- * OPTIONS /api/tasks/start
+ * OPTIONS /api/tasks/complete
  * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {

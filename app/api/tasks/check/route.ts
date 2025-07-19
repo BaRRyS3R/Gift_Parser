@@ -1,30 +1,34 @@
-// src/app/api/tasks/start/route.ts - Начало выполнения задания
+// src/app/api/tasks/check/route.ts - Проверка выполнения задания
 
 import { NextRequest, NextResponse } from 'next/server';
-import { serverTasksService, type UserTaskCompletion } from '@/lib/server/tasksService';
+import { serverTasksService } from '@/lib/server/tasksService';
 
 // Request body interface
-interface StartTaskRequest {
+interface CheckTaskRequest {
     taskId: string;
 }
 
 // Response interface
-interface StartTaskResponse {
+interface CheckTaskResponse {
     success: boolean;
-    data?: UserTaskCompletion;
+    data?: {
+        isCompleted: boolean;
+        taskId: string;
+    };
     error?: string;
 }
 
 /**
- * POST /api/tasks/start
- * Start task execution for the authenticated user
+ * POST /api/tasks/check
+ * Check task completion for the authenticated user
  */
-export async function POST(request: NextRequest): Promise<NextResponse<StartTaskResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse<CheckTaskResponse>> {
     try {
         // Extract user info from middleware headers
         const userId = request.headers.get('X-User-ID');
+        const telegramId = request.headers.get('X-Telegram-ID');
 
-        if (!userId) {
+        if (!userId || !telegramId) {
             return NextResponse.json(
                 {
                     success: false,
@@ -34,8 +38,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
             );
         }
 
+        const telegramIdNumber = parseInt(telegramId);
+        if (isNaN(telegramIdNumber)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Invalid telegram ID'
+                },
+                { status: 400 }
+            );
+        }
+
         // Parse request body
-        const body: StartTaskRequest = await request.json();
+        const body: CheckTaskRequest = await request.json();
         const { taskId } = body;
 
         if (!taskId) {
@@ -48,20 +63,27 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
             );
         }
 
-        console.log(`Starting task ${taskId} for user ${userId}`);
+        console.log(`Checking task completion: ${taskId} for user ${userId}`);
 
-        // Start task execution
-        const taskCompletion = await serverTasksService.startTask(userId, taskId);
+        // Check task completion
+        const isCompleted = await serverTasksService.checkTaskCompletion(
+            userId,
+            taskId,
+            telegramIdNumber
+        );
 
-        console.log(`Task ${taskId} started successfully for user ${userId}`);
+        console.log(`Task ${taskId} completion check result: ${isCompleted}`);
 
         return NextResponse.json({
             success: true,
-            data: taskCompletion,
+            data: {
+                isCompleted,
+                taskId
+            },
         });
 
     } catch (error) {
-        console.error('Error starting task:', error);
+        console.error('Error checking task completion:', error);
 
         // Handle specific error types
         if (error instanceof Error) {
@@ -75,13 +97,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
                 );
             }
 
-            if (error.message.includes('cannot be completed')) {
+            if (error.message.includes('Telegram ID not specified')) {
                 return NextResponse.json(
                     {
                         success: false,
-                        error: 'Task cannot be completed at this time'
+                        error: 'Task configuration error'
                     },
-                    { status: 400 }
+                    { status: 500 }
                 );
             }
         }
@@ -89,7 +111,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
         return NextResponse.json(
             {
                 success: false,
-                error: 'Failed to start task'
+                error: 'Failed to check task completion'
             },
             { status: 500 }
         );
@@ -97,7 +119,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
 }
 
 /**
- * OPTIONS /api/tasks/start
+ * OPTIONS /api/tasks/check
  * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {

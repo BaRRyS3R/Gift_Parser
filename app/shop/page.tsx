@@ -1,33 +1,23 @@
-// src/app/shop/page.tsx - Исправленная версия с улучшенной обработкой ошибок
+// src/app/shop/page.tsx - Обновленная страница покупок с использованием новых API роутов
+
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, CardFooter, Button, Chip } from "@nextui-org/react";
+import { Card, CardBody, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
     AlertCircle,
     Star,
     CheckCircle,
     Clock,
-    ShoppingCart,
-    Loader2,
-    Wifi,
-    WifiOff
+    ShoppingCart
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { usePurchase } from "@/hooks/modules/usePurchase";
 import { PRODUCTS, ProductType } from "@/types/purchases";
-import type { CreateInvoiceResponse } from "@/types/purchases";
 import { useT } from "@/contexts/LocalizationContext";
-
-interface PurchaseState {
-    isLoading: boolean;
-    isProcessing: boolean;
-    error: string | null;
-    loadingProduct: ProductType | null;
-    retryCount: number;
-}
 
 interface SuccessNotification {
     show: boolean;
@@ -36,37 +26,15 @@ interface SuccessNotification {
     icon: React.ReactNode;
 }
 
-// Enum для типов ошибок
-enum ErrorType {
-    NETWORK = 'network',
-    PAYMENT = 'payment',
-    TIMEOUT = 'timeout',
-    INVALID_INVOICE = 'invalid_invoice',
-    AUTHENTICATION = 'authentication',
-    UNKNOWN = 'unknown'
-}
-
-const getAuthToken = (): string => {
-    if (typeof window !== 'undefined') {
-        return localStorage.getItem('auth_access_token') || '';
-    }
-    return '';
-};
-
 export default function ShopPage() {
     const router = useRouter();
-    const { user, refreshUser, authState } = useUser();
+    const { user, refreshUser, makeAuthenticatedRequest } = useUser();
     const t = useT();
+
+    // Use new purchase hook
+    const purchaseModule = usePurchase(makeAuthenticatedRequest);
+
     const [isExploding, setIsExploding] = useState(false);
-
-    const [purchaseState, setPurchaseState] = useState<PurchaseState>({
-        isLoading: false,
-        isProcessing: false,
-        error: null,
-        loadingProduct: null,
-        retryCount: 0
-    });
-
     const [successNotification, setSuccessNotification] = useState<SuccessNotification>({
         show: false,
         title: "",
@@ -74,24 +42,17 @@ export default function ShopPage() {
         icon: null
     });
 
-    // Проверка аутентификации
+    // Clear errors after 4 seconds
     useEffect(() => {
-        if (!authState.isAuthenticated) {
-            console.log('Пользователь не аутентифицирован, перенаправление на главную страницу');
-            router.push('/');
-            return;
-        }
-    }, [authState.isAuthenticated, router]);
-
-    useEffect(() => {
-        if (purchaseState.error) {
+        if (purchaseModule.error) {
             const timer = setTimeout(() => {
-                setPurchaseState(prev => ({ ...prev, error: null }));
-            }, 6000);
+                purchaseModule.clearError();
+            }, 4000);
             return () => clearTimeout(timer);
         }
-    }, [purchaseState.error]);
+    }, [purchaseModule.error, purchaseModule.clearError]);
 
+    // Setup Telegram WebApp back button
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -107,51 +68,6 @@ export default function ShopPage() {
         }
     }, [router]);
 
-    // Функция для определения типа ошибки
-    const categorizeError = (error: any): { type: ErrorType; message: string } => {
-        const errorMessage = error?.message || error?.toString() || '';
-
-        if (errorMessage.includes('timeout') || errorMessage.includes('таймаут')) {
-            return {
-                type: ErrorType.TIMEOUT,
-                message: 'Время ожидания платежа истекло. Попробуйте еще раз.'
-            };
-        }
-
-        if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('NetworkError')) {
-            return {
-                type: ErrorType.NETWORK,
-                message: 'Проблема с сетевым соединением. Проверьте интернет-подключение и попробуйте снова.'
-            };
-        }
-
-        if (errorMessage.includes('401') || errorMessage.includes('authentication') || errorMessage.includes('аутентификация')) {
-            return {
-                type: ErrorType.AUTHENTICATION,
-                message: 'Сессия истекла. Пожалуйста, перезапустите приложение.'
-            };
-        }
-
-        if (errorMessage.includes('Invalid invoice') || errorMessage.includes('платёжный счёт') || errorMessage.includes('invoice')) {
-            return {
-                type: ErrorType.INVALID_INVOICE,
-                message: 'Ошибка создания платежа. Платежная система временно недоступна.'
-            };
-        }
-
-        if (errorMessage.includes('Payment') || errorMessage.includes('платеж') || errorMessage.includes('payment')) {
-            return {
-                type: ErrorType.PAYMENT,
-                message: 'Ошибка обработки платежа. Проверьте баланс Telegram Stars и попробуйте снова.'
-            };
-        }
-
-        return {
-            type: ErrorType.UNKNOWN,
-            message: 'Произошла неизвестная ошибка. Попробуйте еще раз через несколько минут.'
-        };
-    };
-
     const showSuccessNotification = (product: ProductType) => {
         const productInfo = PRODUCTS[product];
         const isInstantReset = productInfo.is_instant_reset;
@@ -161,15 +77,18 @@ export default function ShopPage() {
             <CheckCircle className="text-green-400" size={32} />;
 
         const title = isInstantReset ?
-            'Попытки восстановлены!' :
-            'Покупка успешна!';
+            t('shop.notifications.instantResetSuccess') :
+            t('shop.notifications.purchaseSuccess');
 
         const attemptsText = productInfo.attempts_bonus || 0;
-        const plural = attemptsText === 1 ? 'попытка' : attemptsText < 5 ? 'попытки' : 'попыток';
+        const plural = attemptsText > 1 ? 's' : '';
 
         const message = isInstantReset ?
-            'Ваши попытки восстановлены и кулдаун сброшен!' :
-            `Добавлено ${attemptsText} ${plural}!`;
+            t('shop.notifications.instantResetMessage') :
+            t('shop.notifications.purchaseSuccessMessage', {
+                attempts: attemptsText,
+                plural: plural
+            });
 
         setSuccessNotification({
             show: true,
@@ -185,280 +104,56 @@ export default function ShopPage() {
 
         setTimeout(() => {
             setSuccessNotification(prev => ({ ...prev, show: false }));
-        }, 4000);
-    };
-
-    // Улучшенная функция создания инвойса с валидацией
-    const createInvoiceWithValidation = async (productType: ProductType): Promise<string> => {
-        const authToken = getAuthToken();
-        if (!authToken) {
-            throw new Error('Токен аутентификации не найден');
-        }
-
-        const response = await fetch('/api/shop/create-invoice', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({
-                productType,
-                initData: window.Telegram?.WebApp?.initData || ''
-            }),
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('authentication');
-            }
-            if (response.status === 503) {
-                throw new Error('Платежная система временно недоступна');
-            }
-            throw new Error(`HTTP ошибка: ${response.status}`);
-        }
-
-        const result: CreateInvoiceResponse = await response.json();
-
-        if (!result.success) {
-            throw new Error(result.error || 'Не удалось создать инвойс');
-        }
-
-        if (!result.invoice_url) {
-            throw new Error('Отсутствует URL инвойса');
-        }
-
-        // Валидация URL инвойса
-        if (!result.invoice_url.startsWith('https://t.me/')) {
-            throw new Error('Invalid invoice URL format');
-        }
-
-        return result.invoice_url;
-    };
-
-    // Улучшенная функция открытия инвойса с таймаутом
-    const openInvoiceWithTimeout = async (invoiceUrl: string): Promise<boolean> => {
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error('timeout'));
-            }, 120000); // 2 минуты таймаут
-
-            try {
-                if (typeof window === "undefined") {
-                    clearTimeout(timeout);
-                    reject(new Error("Window object not available"));
-                    return;
-                }
-
-                if (!window.Telegram?.WebApp) {
-                    console.warn("Telegram WebApp недоступен, открываем в новой вкладке");
-                    window.open(invoiceUrl, "_blank");
-                    clearTimeout(timeout);
-                    resolve(true);
-                    return;
-                }
-
-                const tg = window.Telegram.WebApp;
-
-                if (tg.openInvoice) {
-                    console.log("Открываем инвойс через Telegram WebApp API");
-
-                    tg.openInvoice(invoiceUrl, (status: string) => {
-                        clearTimeout(timeout);
-                        console.log("Статус инвойса:", status);
-
-                        switch (status) {
-                            case "paid":
-                                console.log("Платеж успешен");
-                                resolve(true);
-                                break;
-                            case "cancelled":
-                                console.log("Платеж отменен пользователем");
-                                resolve(false);
-                                break;
-                            case "failed":
-                                console.log("Платеж не удался");
-                                resolve(false);
-                                break;
-                            default:
-                                console.log("Неизвестный статус платежа:", status);
-                                resolve(false);
-                                break;
-                        }
-                    });
-                } else {
-                    console.log("openInvoice API недоступен, используем fallback");
-                    window.open(invoiceUrl, "_blank");
-                    clearTimeout(timeout);
-                    resolve(true);
-                }
-            } catch (error) {
-                clearTimeout(timeout);
-                reject(error);
-            }
-        });
-    };
-
-    // Функция обработки платежа с улучшенной валидацией
-    const processPaymentWithValidation = async (productType: ProductType, paymentResult: boolean): Promise<void> => {
-        const authToken = getAuthToken();
-        if (!authToken) {
-            throw new Error('authentication');
-        }
-
-        const response = await fetch('/api/shop/process-purchase', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({
-                productType,
-                paymentResult
-            }),
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('authentication');
-            }
-            throw new Error(`HTTP ошибка при обработке платежа: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-            throw new Error(result.error || 'Ошибка обработки платежа');
-        }
+        }, 3000);
     };
 
     const handlePurchase = async (productType: ProductType) => {
-        if (purchaseState.isLoading || purchaseState.isProcessing || !authState.isAuthenticated) return;
-
-        setPurchaseState({
-            isLoading: true,
-            isProcessing: false,
-            error: null,
-            loadingProduct: productType,
-            retryCount: 0
-        });
+        if (purchaseModule.isLoading || purchaseModule.isProcessing) return;
 
         try {
-            console.log('Создание инвойса через API для продукта:', productType);
+            console.log(`Processing purchase for product: ${productType}`);
 
-            // Шаг 1: Создание инвойса с валидацией
-            const invoiceUrl = await createInvoiceWithValidation(productType);
+            const success = await purchaseModule.processPurchase(productType);
 
-            setPurchaseState(prev => ({
-                ...prev,
-                isLoading: false,
-                isProcessing: true
-            }));
-
-            // Шаг 2: Открытие инвойса с таймаутом
-            const paymentResult = await openInvoiceWithTimeout(invoiceUrl);
-
-            // Шаг 3: Обработка результата
-            if (paymentResult) {
-                await processPaymentWithValidation(productType, true);
+            if (success) {
+                // Refresh user data to get updated attempts
                 await refreshUser();
+
+                // Show success notification
                 showSuccessNotification(productType);
 
-                setPurchaseState({
-                    isLoading: false,
-                    isProcessing: false,
-                    error: null,
-                    loadingProduct: null,
-                    retryCount: 0
-                });
+                console.log(`Purchase completed successfully for product: ${productType}`);
             } else {
-                setPurchaseState({
-                    isLoading: false,
-                    isProcessing: false,
-                    error: 'Платеж был отменен или не удался.',
-                    loadingProduct: null,
-                    retryCount: 0
-                });
+                console.log(`Purchase was not completed for product: ${productType}`);
+                // Error handling is managed by the purchase module
             }
         } catch (error) {
-            console.error('Ошибка покупки:', error);
-
-            const { type, message } = categorizeError(error);
-
-            // Автоматический retry для сетевых ошибок
-            if (type === ErrorType.NETWORK && purchaseState.retryCount < 2) {
-                console.log(`Повтор попытки ${purchaseState.retryCount + 1}/3`);
-                setPurchaseState(prev => ({
-                    ...prev,
-                    retryCount: prev.retryCount + 1
-                }));
-
-                setTimeout(() => {
-                    handlePurchase(productType);
-                }, 2000);
-                return;
-            }
-
-            // Для критических ошибок - перенаправление
-            if (type === ErrorType.AUTHENTICATION) {
-                router.push('/');
-                return;
-            }
-
-            setPurchaseState({
-                isLoading: false,
-                isProcessing: false,
-                error: message,
-                loadingProduct: null,
-                retryCount: 0
-            });
+            console.error('Error in purchase process:', error);
         }
     };
 
     const getProductBadge = (productType: ProductType) => {
         switch (productType) {
-            case 'attempts_5': return { text: 'Популярно', textKey: 'shop.badges.popular' };
-            case 'attempts_10': return { text: 'Выгодно', textKey: 'shop.badges.bestvalue' };
-            case 'attempts_100': return { text: 'Топ', textKey: 'shop.badges.ultimate' };
+            case 'attempts_5': return { text: 'Popular', textKey: 'shop.badges.popular' };
+            case 'attempts_10': return { text: 'Best Value', textKey: 'shop.badges.bestvalue' };
+            case 'attempts_100': return { text: 'Ultimate', textKey: 'shop.badges.ultimate' };
             default: return null;
         }
     };
 
-    const isLoading = (productType: ProductType) => {
-        return purchaseState.loadingProduct === productType &&
-            (purchaseState.isLoading || purchaseState.isProcessing);
-    };
-
-    const getLoadingText = (productType: ProductType) => {
-        if (purchaseState.loadingProduct !== productType) return null;
-
-        if (purchaseState.retryCount > 0) {
-            return `Повтор ${purchaseState.retryCount}/3...`;
-        }
-
-        return purchaseState.isLoading ? 'Создание платежа...' : 'Обработка платежа...';
-    };
-
     const getButtonText = (productType: ProductType) => {
-        const loading = isLoading(productType);
-        if (loading) {
-            return getLoadingText(productType);
-        }
-        return 'Купить';
-    };
+        const isLoadingThisProduct = purchaseModule.isLoadingProduct(productType);
 
-    const getErrorIcon = () => {
-        if (!purchaseState.error) return <AlertCircle size={20} className="text-white" />;
-
-        if (purchaseState.error.includes('интернет') || purchaseState.error.includes('сеть')) {
-            return <WifiOff size={20} className="text-red-400" />;
+        if (isLoadingThisProduct) {
+            if (purchaseModule.isLoading) {
+                return t('shop.creatingInvoice');
+            } else if (purchaseModule.isProcessing) {
+                return t('shop.processingPayment');
+            }
         }
 
-        return <AlertCircle size={20} className="text-red-400" />;
+        return t('shop.buy');
     };
-
-    if (!authState.isAuthenticated) {
-        return null;
-    }
 
     return (
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
@@ -477,30 +172,21 @@ export default function ShopPage() {
             {/* Header */}
             <div className="text-center space-y-4 mb-8 pt-6">
                 <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-                    МАГАЗИН
+                    {t("shop.title")}
                 </h1>
                 <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-                    Получите дополнительные попытки
+                    {t("shop.subtitle")}
                 </p>
             </div>
 
-            {/* Error message с улучшенным дизайном */}
-            {purchaseState.error && (
+            {/* Error message */}
+            {purchaseModule.error && (
                 <div className="max-w-2xl mx-auto mb-6">
-                    <Card className="bg-gradient-to-r from-red-500/20 to-red-600/20 border border-red-400/30 backdrop-blur-md">
+                    <Card className="bg-white/10 border border-white/20">
                         <CardBody className="p-4">
-                            <div className="flex items-start space-x-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                    {getErrorIcon()}
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-white font-medium">{purchaseState.error}</p>
-                                    {purchaseState.retryCount > 0 && (
-                                        <p className="text-white/70 text-sm mt-1">
-                                            Попытка {purchaseState.retryCount}/3
-                                        </p>
-                                    )}
-                                </div>
+                            <div className="flex items-center space-x-2">
+                                <AlertCircle size={20} className="text-white" />
+                                <span className="text-white">{purchaseModule.error}</span>
                             </div>
                         </CardBody>
                     </Card>
@@ -511,7 +197,7 @@ export default function ShopPage() {
                 {Object.entries(PRODUCTS).map(([key, product]) => {
                     const productType = key as ProductType;
                     const badge = getProductBadge(productType);
-                    const loading = isLoading(productType);
+                    const isLoadingThisProduct = purchaseModule.isLoadingProduct(productType);
 
                     return (
                         <ProductCard
@@ -519,10 +205,10 @@ export default function ShopPage() {
                             productType={productType}
                             product={product}
                             badge={badge}
-                            loading={loading}
+                            loading={isLoadingThisProduct}
                             onPurchase={handlePurchase}
                             getButtonText={getButtonText}
-                            disabled={purchaseState.isLoading || purchaseState.isProcessing}
+                            t={t}
                         />
                     );
                 })}
@@ -535,10 +221,10 @@ export default function ShopPage() {
                         transform transition-all duration-500 ease-out
                         ${successNotification.show ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}
                     `}>
-                    <Card className="bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-400/30 backdrop-blur-md shadow-2xl">
+                    <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
                         <CardBody className="p-4">
                             <div className="flex items-center space-x-4">
-                                <div className="flex-shrink-0 w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
+                                <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                                     {successNotification.icon}
                                 </div>
                                 <div className="flex-1">
@@ -563,8 +249,8 @@ interface ProductCardProps {
     badge: { text: string; textKey: string } | null;
     loading: boolean;
     onPurchase: (productType: ProductType) => void;
-    getButtonText: (productType: ProductType) => string | null;
-    disabled: boolean;
+    getButtonText: (productType: ProductType) => string;
+    t: any;
 }
 
 function ProductCard({
@@ -574,17 +260,15 @@ function ProductCard({
     loading,
     onPurchase,
     getButtonText,
-    disabled
+    t
 }: ProductCardProps) {
 
     return (
         <Card
             className={`
                 relative overflow-hidden
-                bg-gradient-to-r from-white/10 to-white/5 border border-white/20
                 hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
                 transition-all duration-200
-                ${disabled ? 'opacity-60' : ''}
             `}
         >
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -600,7 +284,7 @@ function ProductCard({
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2 mb-1">
                                     <h3 className="font-bold text-white truncate">
-                                        {product.title}
+                                        {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.title`)}
                                     </h3>
                                     {badge && (
                                         <Chip
@@ -608,19 +292,19 @@ function ProductCard({
                                             variant="flat"
                                             className="bg-white/20 text-white border border-white/30"
                                         >
-                                            {badge.text}
+                                            {t(badge.textKey)}
                                         </Chip>
                                     )}
                                 </div>
                                 <p className="text-white/70 text-sm">
-                                    {product.description}
+                                    {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.description`)}
                                 </p>
                             </div>
                         </div>
 
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                                <Star className="text-yellow-400" size={16} />
+                                <Star className="text-white" size={16} />
                                 <span className="text-white font-bold">
                                     {product.price}
                                 </span>
@@ -635,13 +319,9 @@ function ProductCard({
                                     disabled:opacity-50 disabled:cursor-not-allowed
                                 "
                                 isLoading={loading}
-                                isDisabled={loading || disabled}
+                                isDisabled={loading}
                                 startContent={
-                                    loading ? (
-                                        <Loader2 className="animate-spin" size={16} />
-                                    ) : (
-                                        <ShoppingCart size={16} />
-                                    )
+                                    !loading ? <ShoppingCart size={16} /> : null
                                 }
                                 onPress={() => onPurchase(productType)}
                             >

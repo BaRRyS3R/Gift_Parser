@@ -16,7 +16,6 @@ export const config = {
         '/api/purchase/:path*',
         '/api/referral/:path*',
         '/api/leaderboard/:path*',
-        '/api/shop/:path',
     ],
 };
 
