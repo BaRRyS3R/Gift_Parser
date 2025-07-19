@@ -69,102 +69,124 @@ export const serverTasksService = {
      * Получение всех активных заданий
      */
     async getActiveTasks(): Promise<Task[]> {
-        const { data, error } = await supabaseServer
-            .from('tasks')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: true });
+        try {
+            console.log('Fetching active tasks from database...');
 
-        if (error) {
-            console.error('Error fetching active tasks:', error);
-            throw new Error('Failed to fetch active tasks');
+            const { data, error } = await supabaseServer
+                .from('tasks')
+                .select('*')
+                .eq('is_active', true)
+                .order('created_at', { ascending: true });
+
+            if (error) {
+                console.error('Error fetching active tasks:', error);
+                throw new Error(`Failed to fetch active tasks: ${error.message}`);
+            }
+
+            console.log(`Fetched ${data?.length || 0} active tasks`);
+            return data || [];
+        } catch (error) {
+            console.error('Exception in getActiveTasks:', error);
+            throw error;
         }
-
-        return data || [];
     },
 
     /**
      * Получение заданий с информацией о выполнении для пользователя
      */
     async getTasksForUser(userId: string): Promise<TaskWithCompletion[]> {
-        console.log('=== SERVER TASKS SERVICE: getTasksForUser START ===');
-        console.log('User ID:', userId);
+        try {
+            console.log('=== SERVER TASKS SERVICE: getTasksForUser START ===');
+            console.log('User ID:', userId);
 
-        // Получаем активные задания
-        const { data: tasks, error: tasksError } = await supabaseServer
-            .from('tasks')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: true });
-
-        if (tasksError) {
-            console.error('Error fetching tasks:', tasksError);
-            throw new Error('Failed to fetch tasks');
-        }
-
-        console.log('Active tasks found:', tasks?.length || 0);
-
-        if (!tasks) {
-            return [];
-        }
-
-        // Получаем выполнения заданий только для текущего пользователя
-        const { data: completions, error: completionsError } = await supabaseServer
-            .from('user_task_completions')
-            .select('*')
-            .eq('user_id', userId);
-
-        if (completionsError) {
-            console.error('Error fetching user completions:', completionsError);
-            throw new Error('Failed to fetch user task completions');
-        }
-
-        console.log('User completions found:', completions?.length || 0);
-
-        const completionsMap = new Map<string, UserTaskCompletion[]>();
-        (completions || []).forEach(completion => {
-            if (!completionsMap.has(completion.task_id)) {
-                completionsMap.set(completion.task_id, []);
+            if (!userId) {
+                throw new Error('User ID is required');
             }
-            completionsMap.get(completion.task_id)!.push(completion);
-        });
 
-        const result = tasks.map(task => {
-            const userCompletions = completionsMap.get(task.id) || [];
-            const latestCompletion = userCompletions
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+            // Получаем активные задания
+            console.log('Fetching active tasks...');
+            const { data: tasks, error: tasksError } = await supabaseServer
+                .from('tasks')
+                .select('*')
+                .eq('is_active', true)
+                .order('created_at', { ascending: true });
 
-            let canComplete = true;
-            let nextAvailableAt: string | undefined;
+            if (tasksError) {
+                console.error('Error fetching tasks:', tasksError);
+                throw new Error(`Failed to fetch tasks: ${tasksError.message}`);
+            }
 
-            if (task.type === 'story_share') {
-                if (task.cooldown_minutes && latestCompletion?.claimed_at) {
-                    const lastClaimedAt = new Date(latestCompletion.claimed_at);
-                    const cooldownMs = task.cooldown_minutes * 60 * 1000;
-                    const nextAvailable = new Date(lastClaimedAt.getTime() + cooldownMs);
+            console.log('Active tasks found:', tasks?.length || 0);
 
-                    if (new Date() < nextAvailable) {
+            if (!tasks || tasks.length === 0) {
+                console.log('No active tasks found, returning empty array');
+                return [];
+            }
+
+            // Получаем выполнения заданий только для текущего пользователя
+            console.log('Fetching user completions for user ID:', userId);
+            const { data: completions, error: completionsError } = await supabaseServer
+                .from('user_task_completions')
+                .select('*')
+                .eq('user_id', userId);
+
+            if (completionsError) {
+                console.error('Error fetching user completions:', completionsError);
+                throw new Error(`Failed to fetch user task completions: ${completionsError.message}`);
+            }
+
+            console.log('User completions found:', completions?.length || 0);
+
+            const completionsMap = new Map<string, UserTaskCompletion[]>();
+            (completions || []).forEach(completion => {
+                if (!completionsMap.has(completion.task_id)) {
+                    completionsMap.set(completion.task_id, []);
+                }
+                completionsMap.get(completion.task_id)!.push(completion);
+            });
+
+            const result = tasks.map(task => {
+                const userCompletions = completionsMap.get(task.id) || [];
+                const latestCompletion = userCompletions
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+                let canComplete = true;
+                let nextAvailableAt: string | undefined;
+
+                if (task.type === 'story_share') {
+                    if (task.cooldown_minutes && latestCompletion?.claimed_at) {
+                        const lastClaimedAt = new Date(latestCompletion.claimed_at);
+                        const cooldownMs = task.cooldown_minutes * 60 * 1000;
+                        const nextAvailable = new Date(lastClaimedAt.getTime() + cooldownMs);
+
+                        if (new Date() < nextAvailable) {
+                            canComplete = false;
+                            nextAvailableAt = nextAvailable.toISOString();
+                        }
+                    }
+                } else {
+                    // Для всех остальных заданий: только одно выполнение
+                    if (latestCompletion?.status === 'claimed') {
                         canComplete = false;
-                        nextAvailableAt = nextAvailable.toISOString();
                     }
                 }
-            } else {
-                // Для всех остальных заданий: только одно выполнение
-                if (latestCompletion?.status === 'claimed') {
-                    canComplete = false;
-                }
-            }
 
-            return {
-                ...task,
-                user_completion: latestCompletion,
-                can_complete: canComplete,
-                next_available_at: nextAvailableAt
-            };
-        });
+                return {
+                    ...task,
+                    user_completion: latestCompletion,
+                    can_complete: canComplete,
+                    next_available_at: nextAvailableAt
+                };
+            });
 
-        console.log('=== SERVER TASKS SERVICE: getTasksForUser END ===');
-        return result;
+            console.log('Final result count:', result.length);
+            console.log('=== SERVER TASKS SERVICE: getTasksForUser END ===');
+
+            return result;
+        } catch (error) {
+            console.error('Exception in getTasksForUser:', error);
+            throw error;
+        }
     },
 
     /**
