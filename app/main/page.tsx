@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Обновленная главная страница с централизованным управлением попыток
+// src/app/main/page.tsx - Updated to use API instead of direct DB
 
 "use client";
 
@@ -10,9 +10,6 @@ import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import { useSettings } from "@/contexts/SettingsContext";
-import { tournamentService } from "@/lib/supabase_tournament_extension";
-import type { Tournament } from "@/types/tournaments";
-import { formatTimeRemaining } from "@/types/tournaments";
 import AuthGuard from "@/components/Auth/AuthGuard";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
@@ -20,9 +17,50 @@ import AttemptsDisplay from "@/components/AttemptsDisplay";
 import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
 import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal";
 
+// Tournament types (from new API)
+interface Tournament {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  prizes: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface TournamentStatus {
+  isActive: boolean;
+  activeTournament: Tournament | null;
+  timeRemaining?: number;
+  hasStarted?: boolean;
+}
+
+// Utility function to format time remaining
+const formatTimeRemaining = (milliseconds: number): string => {
+  if (milliseconds <= 0) return "Ended";
+
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const days = Math.floor(totalHours / 24);
+
+  if (days > 0) {
+    const hours = totalHours % 24;
+    return `${days}d ${hours}h`;
+  } else if (totalHours > 0) {
+    const minutes = totalMinutes % 60;
+    return `${totalHours}h ${minutes}m`;
+  } else if (totalMinutes > 0) {
+    const seconds = totalSeconds % 60;
+    return `${totalMinutes}m ${seconds}s`;
+  } else {
+    return `${totalSeconds}s`;
+  }
+};
+
 function MainPageContent() {
   const router = useRouter();
-  const { user, isLoading: userLoading, telegramUser, setTelegramUser } = useUser();
+  const { user, isLoading: userLoading, telegramUser, setTelegramUser, makeAuthenticatedRequest } = useUser();
   const {
     attemptsStatus,
     isLoading: attemptsLoading,
@@ -60,11 +98,16 @@ function MainPageContent() {
   const [isLeagueProgressOpen, setIsLeagueProgressOpen] = useState(false);
 
   /* -------------------------------------------------
-   * Tournament state
+   * Tournament state - using new API
    * -------------------------------------------------*/
-  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
+  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus>({
+    isActive: false,
+    activeTournament: null,
+  });
   const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
   const [showTournamentButton, setShowTournamentButton] = useState(false);
+  const [tournamentLoading, setTournamentLoading] = useState(false);
+  const [tournamentError, setTournamentError] = useState<string | null>(null);
 
   /* -------------------------------------------------
    * Dynamic offset for Telegram system UI
@@ -118,27 +161,63 @@ function MainPageContent() {
   }, [telegramUser, setTelegramUser]);
 
   /* -------------------------------------------------
-   * Tournament data loading
+   * Tournament data loading using new API
    * -------------------------------------------------*/
   useEffect(() => {
     const loadTournamentStatus = async () => {
-      try {
-        const tournamentStatus = await tournamentService.getTournamentStatus();
+      if (!makeAuthenticatedRequest) return;
 
-        if (tournamentStatus.isActive && tournamentStatus.activeTournament) {
-          setActiveTournament(tournamentStatus.activeTournament);
+      try {
+        setTournamentLoading(true);
+        setTournamentError(null);
+
+        console.log('Loading tournament status using API...');
+
+        const response = await makeAuthenticatedRequest('/api/tournament/active');
+
+        if (!response.ok) {
+          // Silently handle errors for main page
+          console.log('Tournament API not available or no active tournament');
+          setTournamentStatus({
+            isActive: false,
+            activeTournament: null,
+          });
+          setShowTournamentButton(false);
+          return;
+        }
+
+        const result = await response.json();
+
+        if (!result.success) {
+          console.log('No active tournament available');
+          setTournamentStatus({
+            isActive: false,
+            activeTournament: null,
+          });
+          setShowTournamentButton(false);
+          return;
+        }
+
+        const status: TournamentStatus = result.data;
+        setTournamentStatus(status);
+
+        if (status.isActive && status.activeTournament) {
           setShowTournamentButton(true);
 
-          if (tournamentStatus.timeRemaining) {
-            setTournamentTimeRemaining(formatTimeRemaining(tournamentStatus.timeRemaining));
+          if (status.timeRemaining) {
+            setTournamentTimeRemaining(formatTimeRemaining(status.timeRemaining));
 
+            // Set up countdown timer
             const interval = setInterval(() => {
               const now = new Date();
-              const endDate = new Date(tournamentStatus.activeTournament!.end_date);
+              const endDate = new Date(status.activeTournament!.end_date);
               const diff = endDate.getTime() - now.getTime();
 
               if (diff <= 0) {
-                setActiveTournament(null);
+                setTournamentStatus({
+                  isActive: false,
+                  activeTournament: null,
+                });
                 setShowTournamentButton(false);
                 setTournamentTimeRemaining("");
                 clearInterval(interval);
@@ -150,18 +229,31 @@ function MainPageContent() {
             return () => clearInterval(interval);
           }
         } else {
-          setActiveTournament(null);
           setShowTournamentButton(false);
         }
+
+        console.log('Tournament status loaded:', {
+          isActive: status.isActive,
+          tournamentName: status.activeTournament?.name
+        });
+
       } catch (error) {
-        console.error("Error loading tournament status:", error);
-        setActiveTournament(null);
+        console.log("Tournament loading failed (silently handled):", error);
+        setTournamentStatus({
+          isActive: false,
+          activeTournament: null,
+        });
         setShowTournamentButton(false);
+      } finally {
+        setTournamentLoading(false);
       }
     };
 
-    loadTournamentStatus();
-  }, []);
+    // Only load tournament status if user is authenticated
+    if (user) {
+      loadTournamentStatus();
+    }
+  }, [user, makeAuthenticatedRequest]);
 
   /* -------------------------------------------------
    * Background video logic
@@ -361,7 +453,7 @@ function MainPageContent() {
           </div>
 
           {/* Tournament Button */}
-          {showTournamentButton && activeTournament && (
+          {showTournamentButton && tournamentStatus.activeTournament && (
             <button
               aria-label="Active Tournament"
               className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"

@@ -1,4 +1,4 @@
-// src/app/tournament/page.tsx - Обновленная страница турниров с модальными окнами и правилами
+// src/app/tournament/page.tsx - Updated to use API instead of direct DB
 
 "use client";
 
@@ -37,15 +37,99 @@ import {
     X,
 } from "lucide-react";
 
-import { tournamentService, formatTournamentSurvivalTime } from "@/lib/supabase_tournament_extension";
-import type {
-    TournamentWithStatus,
-    TournamentListResponse
-} from "@/lib/supabase_tournament_extension";
-import type { TournamentLeaderboardEntry } from "@/types/tournaments";
-import { formatTimeRemaining } from "@/types/tournaments";
-import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
+import { useT } from "@/contexts/LocalizationContext";
+
+// Tournament types (from new API)
+interface Tournament {
+    id: string;
+    name: string;
+    start_date: string;
+    end_date: string;
+    prizes: string[];
+    created_at: string;
+    updated_at: string;
+}
+
+interface TournamentWithStatus extends Tournament {
+    status: 'upcoming' | 'active' | 'completed';
+    participants_count?: number;
+    time_until_start?: number;
+    time_until_end?: number;
+}
+
+interface TournamentLeaderboardEntry {
+    id: string;
+    tournament_id: string;
+    user_id: string;
+    telegram_id: number;
+    first_name: string;
+    last_name?: string;
+    username?: string;
+    is_premium: boolean;
+    survival_time: number;
+    survival_score: number;
+    last_game_score: number;
+    max_level_reached: number;
+    perfect_streak: number;
+    correct_hits: number;
+    death_cause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+    games_played: number;
+    created_at: string;
+    rank: number;
+}
+
+interface TournamentListResponse {
+    active: TournamentWithStatus[];
+    upcoming: TournamentWithStatus[];
+    completed: TournamentWithStatus[];
+}
+
+// Utility functions
+const formatTimeRemaining = (milliseconds: number): string => {
+    if (milliseconds <= 0) return "Ended";
+
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const days = Math.floor(totalHours / 24);
+
+    if (days > 0) {
+        const hours = totalHours % 24;
+        return `${days}d ${hours}h`;
+    } else if (totalHours > 0) {
+        const minutes = totalMinutes % 60;
+        return `${totalHours}h ${minutes}m`;
+    } else if (totalMinutes > 0) {
+        const seconds = totalSeconds % 60;
+        return `${totalMinutes}m ${seconds}s`;
+    } else {
+        return `${totalSeconds}s`;
+    }
+};
+
+const formatTournamentSurvivalTime = (milliseconds: number): string => {
+    if (milliseconds < 0) {
+        console.warn('Negative survival time detected:', milliseconds);
+        return "0.000s";
+    }
+
+    if (isNaN(milliseconds) || !isFinite(milliseconds)) {
+        console.warn('Invalid survival time value:', milliseconds);
+        return "0.000s";
+    }
+
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const ms = milliseconds % 1000;
+
+    if (minutes > 0) {
+        return `${minutes}:${seconds.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
+    }
+
+    return `${seconds}.${ms.toString().padStart(3, "0")}s`;
+};
 
 interface UserPositionComponentProps {
     leaderboard: TournamentLeaderboardEntry[];
@@ -234,7 +318,7 @@ const ParticipantsModal: React.FC<ParticipantsModalProps> = ({
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2">
                                         <span className={`font-medium text-sm ${isCurrentUser(participant.telegram_id) ? "text-white" :
-                                                isWinner ? "text-yellow-400" : "text-white/90"
+                                            isWinner ? "text-yellow-400" : "text-white/90"
                                             }`}>
                                             {participant.first_name} {participant.last_name || ""}
                                         </span>
@@ -844,12 +928,14 @@ interface CompletedTournamentCardProps {
     tournament: TournamentWithStatus;
     isExpanded: boolean;
     onToggleExpand: () => void;
+    onLoadWinners: (tournamentId: string, prizeCount: number) => Promise<TournamentLeaderboardEntry[]>;
 }
 
 const CompletedTournamentCard: React.FC<CompletedTournamentCardProps> = ({
     tournament,
     isExpanded,
     onToggleExpand,
+    onLoadWinners,
 }) => {
     const t = useT();
     const [winners, setWinners] = useState<TournamentLeaderboardEntry[]>([]);
@@ -860,10 +946,7 @@ const CompletedTournamentCard: React.FC<CompletedTournamentCardProps> = ({
             const loadWinners = async () => {
                 setIsLoadingWinners(true);
                 try {
-                    const tournamentWinners = await tournamentService.getTournamentWinners(
-                        tournament.id,
-                        tournament.prizes.length
-                    );
+                    const tournamentWinners = await onLoadWinners(tournament.id, tournament.prizes.length);
                     setWinners(tournamentWinners);
                 } catch (error) {
                     console.error("Error loading winners:", error);
@@ -873,7 +956,7 @@ const CompletedTournamentCard: React.FC<CompletedTournamentCardProps> = ({
             };
             loadWinners();
         }
-    }, [isExpanded, tournament.id, tournament.prizes.length, winners.length]);
+    }, [isExpanded, tournament.id, tournament.prizes.length, winners.length, onLoadWinners]);
 
     const getRankIcon = (position: number) => {
         switch (position) {
@@ -1047,6 +1130,8 @@ const CompletedTournamentCard: React.FC<CompletedTournamentCardProps> = ({
 export default function TournamentsPage() {
     const router = useRouter();
     const t = useT();
+    const { makeAuthenticatedRequest } = useUser();
+
     const [tournaments, setTournaments] = useState<TournamentListResponse>({
         active: [],
         upcoming: [],
@@ -1062,25 +1147,63 @@ export default function TournamentsPage() {
             try {
                 setIsLoading(true);
                 setError(null);
-                const tournamentsData = await tournamentService.getAllTournaments();
+
+                console.log('Loading tournaments...');
+
+                // Load all tournaments
+                const tournamentsResponse = await makeAuthenticatedRequest('/api/tournament/list');
+
+                if (!tournamentsResponse.ok) {
+                    const errorData = await tournamentsResponse.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Failed to load tournaments');
+                }
+
+                const tournamentsResult = await tournamentsResponse.json();
+
+                if (!tournamentsResult.success) {
+                    throw new Error(tournamentsResult.error || 'Failed to load tournaments');
+                }
+
+                const tournamentsData: TournamentListResponse = tournamentsResult.data;
                 setTournaments(tournamentsData);
 
                 // Load leaderboard for active tournament
                 if (tournamentsData.active.length > 0) {
                     const activeTournament = tournamentsData.active[0];
-                    const leaderboard = await tournamentService.getTournamentLeaderboard(activeTournament.id, 100);
-                    setActiveLeaderboard(leaderboard);
+                    console.log('Loading leaderboard for active tournament:', activeTournament.id);
+
+                    const leaderboardResponse = await makeAuthenticatedRequest('/api/tournament/leaderboard', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            tournamentId: activeTournament.id,
+                            limit: 100
+                        }),
+                    });
+
+                    if (leaderboardResponse.ok) {
+                        const leaderboardResult = await leaderboardResponse.json();
+                        if (leaderboardResult.success) {
+                            setActiveLeaderboard(leaderboardResult.data);
+                        }
+                    }
                 }
+
+                console.log('Tournaments loaded successfully:', {
+                    active: tournamentsData.active.length,
+                    upcoming: tournamentsData.upcoming.length,
+                    completed: tournamentsData.completed.length
+                });
+
             } catch (err) {
                 console.error("Error loading tournaments:", err);
-                setError(t("tournament.errorLoadingTournaments"));
+                setError(err instanceof Error ? err.message : t("tournament.errorLoadingTournaments"));
             } finally {
                 setIsLoading(false);
             }
         };
 
         loadTournaments();
-    }, [t]);
+    }, [t, makeAuthenticatedRequest]);
 
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -1115,6 +1238,30 @@ export default function TournamentsPage() {
             }
             return newSet;
         });
+    };
+
+    const handleLoadWinners = async (tournamentId: string, prizeCount: number): Promise<TournamentLeaderboardEntry[]> => {
+        try {
+            const response = await makeAuthenticatedRequest('/api/tournament/winners', {
+                method: 'POST',
+                body: JSON.stringify({ tournamentId, prizeCount }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load winners');
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to load winners');
+            }
+
+            return result.data;
+        } catch (error) {
+            console.error('Error loading winners:', error);
+            return [];
+        }
     };
 
     if (isLoading) {
@@ -1215,6 +1362,7 @@ export default function TournamentsPage() {
                                 tournament={tournament}
                                 isExpanded={expandedTournaments.has(tournament.id)}
                                 onToggleExpand={() => handleToggleExpand(tournament.id)}
+                                onLoadWinners={handleLoadWinners}
                             />
                         ))}
                     </div>

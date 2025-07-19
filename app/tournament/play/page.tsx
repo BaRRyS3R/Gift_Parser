@@ -1,4 +1,4 @@
-// src/app/tournament/play/page.tsx - Tournament game play page
+// src/app/tournament/play/page.tsx - Updated to use API instead of direct DB
 
 "use client";
 
@@ -6,18 +6,36 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Trophy } from "lucide-react";
 
-import { tournamentService } from "@/lib/supabase_tournament_extension";
+import { useUser } from "@/hooks/useUser";
 import TournamentGameManager from "@/game-modes/tournament/TournamentGameManager";
-import type { Tournament } from "@/types/tournaments";
 import { useT } from "@/contexts/LocalizationContext";
+
+// Tournament interface (from new API)
+interface Tournament {
+    id: string;
+    name: string;
+    start_date: string;
+    end_date: string;
+    prizes: string[];
+    created_at: string;
+    updated_at: string;
+}
+
+interface TournamentStatus {
+    isActive: boolean;
+    activeTournament: Tournament | null;
+    timeRemaining?: number;
+    hasStarted?: boolean;
+}
 
 export default function TournamentPlayPage() {
     const router = useRouter();
+    const { makeAuthenticatedRequest } = useUser();
+    const t = useT();
+
     const [tournament, setTournament] = useState<Tournament | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const t = useT();
 
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -39,9 +57,26 @@ export default function TournamentPlayPage() {
         const loadTournament = async () => {
             try {
                 setIsLoading(true);
-                const activeTournament = await tournamentService.getActiveTournament();
+                setError(null);
 
-                if (!activeTournament) {
+                console.log('Loading tournament for play...');
+
+                const response = await makeAuthenticatedRequest('/api/tournament/active');
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Failed to load tournament');
+                }
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load tournament');
+                }
+
+                const tournamentStatus: TournamentStatus = result.data;
+
+                if (!tournamentStatus.isActive || !tournamentStatus.activeTournament) {
                     setError("No active tournament found");
                     setTimeout(() => {
                         router.push("/tournament");
@@ -49,10 +84,12 @@ export default function TournamentPlayPage() {
                     return;
                 }
 
-                setTournament(activeTournament);
+                console.log('Active tournament loaded:', tournamentStatus.activeTournament.name);
+                setTournament(tournamentStatus.activeTournament);
             } catch (err) {
                 console.error("Error loading tournament:", err);
-                setError("Failed to load tournament");
+                const errorMessage = err instanceof Error ? err.message : "Failed to load tournament";
+                setError(errorMessage);
                 setTimeout(() => {
                     router.push("/tournament");
                 }, 2000);
@@ -62,7 +99,7 @@ export default function TournamentPlayPage() {
         };
 
         loadTournament();
-    }, [router]);
+    }, [router, makeAuthenticatedRequest]);
 
     if (isLoading) {
         return (

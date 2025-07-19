@@ -1,4 +1,4 @@
-// src/hooks/useUser.ts - Updated with leagues module integration
+// src/hooks/useUser.ts - Updated with enhanced game module integration
 
 "use client";
 
@@ -7,6 +7,7 @@ import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
 import { useProfile } from "./modules/useProfile";
 import { useLeagues } from "./modules/useLeagues";
+import { useGame } from "./modules/useGame"; // Enhanced with tournament support
 import type { User, TelegramUser } from "@/lib/supabase";
 import type {
   AuthState,
@@ -55,6 +56,9 @@ interface UserContextType {
   // Leagues module
   leagues: ReturnType<typeof useLeagues>;
 
+  // Enhanced game module (with tournament support)
+  game: ReturnType<typeof useGame>;
+
   // Utility methods
   makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>;
 }
@@ -85,6 +89,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // Use leagues module
   const leaguesModule = useLeagues(makeAuthenticatedRequest);
+
+  // Use enhanced game module (with tournament support)
+  const gameModule = useGame(makeAuthenticatedRequest);
 
   // Local state for user data and UI
   const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
@@ -191,9 +198,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     leaderboardModule.resetLeaderboard();
     profileModule.resetProfileData();
     leaguesModule.resetLeagueData();
+    gameModule.resetTournamentState();
 
     console.log("User logged out");
-  }, [authLogout, leaderboardModule, profileModule, leaguesModule]);
+  }, [authLogout, leaderboardModule, profileModule, leaguesModule, gameModule]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -273,6 +281,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     // Leagues module
     leagues: leaguesModule,
+
+    // Enhanced game module (with tournament support)
+    game: gameModule,
 
     // Utility methods
     makeAuthenticatedRequest,
