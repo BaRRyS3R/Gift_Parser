@@ -1,5 +1,4 @@
-// src/app/shop/page.tsx - Обновленный дизайн магазина с монохромными карточками в стиле заданий
-
+// src/app/shop/page.tsx - Полная версия с интеграцией API
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -11,11 +10,11 @@ import {
     Star,
     CheckCircle,
     Clock,
-    ShoppingCart
+    ShoppingCart,
+    Loader2
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
-import { purchaseService } from "@/lib/purchaseService";
 import { PRODUCTS, ProductType } from "@/types/purchases";
 import type { CreateInvoiceResponse } from "@/types/purchases";
 import { useT } from "@/contexts/LocalizationContext";
@@ -34,9 +33,16 @@ interface SuccessNotification {
     icon: React.ReactNode;
 }
 
+const getAuthToken = (): string => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('auth_access_token') || '';
+    }
+    return '';
+};
+
 export default function ShopPage() {
     const router = useRouter();
-    const { user, refreshUser } = useUser();
+    const { user, refreshUser, authState } = useUser();
     const t = useT();
     const [isExploding, setIsExploding] = useState(false);
 
@@ -53,6 +59,15 @@ export default function ShopPage() {
         message: "",
         icon: null
     });
+
+    // Проверка аутентификации
+    useEffect(() => {
+        if (!authState.isAuthenticated) {
+            console.log('User not authenticated, redirecting to main page');
+            router.push('/');
+            return;
+        }
+    }, [authState.isAuthenticated, router]);
 
     useEffect(() => {
         if (purchaseState.error) {
@@ -118,7 +133,14 @@ export default function ShopPage() {
     };
 
     const handlePurchase = async (productType: ProductType) => {
-        if (purchaseState.isLoading || purchaseState.isProcessing) return;
+        if (purchaseState.isLoading || purchaseState.isProcessing || !authState.isAuthenticated) return;
+
+        const authToken = getAuthToken();
+        if (!authToken) {
+            console.log('Auth token not found, redirecting to main page');
+            router.push('/');
+            return;
+        }
 
         setPurchaseState({
             isLoading: true,
@@ -128,7 +150,30 @@ export default function ShopPage() {
         });
 
         try {
-            const invoiceResult: CreateInvoiceResponse = await purchaseService.createInvoice(productType);
+            console.log('Creating invoice via API for product:', productType);
+
+            // Step 1: Create invoice
+            const invoiceResponse = await fetch('/api/shop/create-invoice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({
+                    productType,
+                    initData: window.Telegram?.WebApp?.initData || ''
+                }),
+            });
+
+            if (!invoiceResponse.ok) {
+                if (invoiceResponse.status === 401) {
+                    router.push('/');
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${invoiceResponse.status}`);
+            }
+
+            const invoiceResult: CreateInvoiceResponse = await invoiceResponse.json();
 
             if (!invoiceResult.success || !invoiceResult.invoice_url) {
                 throw new Error(invoiceResult.error || t('errors.createInvoice'));
@@ -140,20 +185,46 @@ export default function ShopPage() {
                 isProcessing: true
             }));
 
-            const paymentResult = await purchaseService.openInvoice(invoiceResult.invoice_url);
+            // Step 2: Open invoice
+            const paymentResult = await openInvoice(invoiceResult.invoice_url);
 
+            // Step 3: Process result
             if (paymentResult) {
-                await purchaseService.checkPurchaseStatus();
-                await refreshUser();
-
-                showSuccessNotification(productType);
-
-                setPurchaseState({
-                    isLoading: false,
-                    isProcessing: false,
-                    error: null,
-                    loadingProduct: null
+                const processResponse = await fetch('/api/shop/process-purchase', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                    },
+                    body: JSON.stringify({
+                        productType,
+                        paymentResult: true
+                    }),
                 });
+
+                if (!processResponse.ok) {
+                    if (processResponse.status === 401) {
+                        router.push('/');
+                        return;
+                    }
+                    throw new Error(`HTTP error! status: ${processResponse.status}`);
+                }
+
+                const processResult = await processResponse.json();
+
+                if (processResult.success) {
+                    await refreshUser();
+                    showSuccessNotification(productType);
+
+                    setPurchaseState({
+                        isLoading: false,
+                        isProcessing: false,
+                        error: null,
+                        loadingProduct: null
+                    });
+                } else {
+                    throw new Error(processResult.error || 'Purchase processing failed');
+                }
             } else {
                 setPurchaseState({
                     isLoading: false,
@@ -163,12 +234,65 @@ export default function ShopPage() {
                 });
             }
         } catch (error) {
+            console.error('Purchase error:', error);
             setPurchaseState({
                 isLoading: false,
                 isProcessing: false,
                 error: error instanceof Error ? error.message : t('errors.unknownError'),
                 loadingProduct: null
             });
+        }
+    };
+
+    const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
+        try {
+            if (typeof window === "undefined") {
+                throw new Error("Window object not available");
+            }
+
+            if (!window.Telegram?.WebApp) {
+                console.warn("Telegram WebApp not available, opening in new tab");
+                window.open(invoiceUrl, "_blank");
+                return true;
+            }
+
+            const tg = window.Telegram.WebApp;
+
+            if (tg.openInvoice) {
+                console.log("Opening invoice via Telegram WebApp API");
+
+                return new Promise((resolve) => {
+                    tg.openInvoice(invoiceUrl, (status: string) => {
+                        console.log("Invoice status:", status);
+
+                        switch (status) {
+                            case "paid":
+                                console.log("Payment successful");
+                                resolve(true);
+                                break;
+                            case "cancelled":
+                                console.log("Payment cancelled by user");
+                                resolve(false);
+                                break;
+                            case "failed":
+                                console.log("Payment failed");
+                                resolve(false);
+                                break;
+                            default:
+                                console.log("Unknown payment status:", status);
+                                resolve(false);
+                                break;
+                        }
+                    });
+                });
+            } else {
+                console.log("openInvoice API not available, using fallback");
+                window.open(invoiceUrl, "_blank");
+                return true;
+            }
+        } catch (error) {
+            console.error("Error opening invoice:", error);
+            return false;
         }
     };
 
@@ -198,6 +322,10 @@ export default function ShopPage() {
         }
         return t('shop.buy');
     };
+
+    if (!authState.isAuthenticated) {
+        return null;
+    }
 
     return (
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
@@ -281,7 +409,7 @@ export default function ShopPage() {
                 </div>
             )}
 
-            {/* Bottom spacing for safe area - КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ */}
+            {/* Bottom spacing for safe area */}
             <div className="h-24" />
         </div>
     );
@@ -311,6 +439,7 @@ function ProductCard({
         <Card
             className={`
                 relative overflow-hidden
+                bg-gradient-to-r from-white/10 to-white/5 border border-white/20
                 hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
                 transition-all duration-200
             `}
@@ -365,7 +494,11 @@ function ProductCard({
                                 isLoading={loading}
                                 isDisabled={loading}
                                 startContent={
-                                    !loading ? <ShoppingCart size={16} /> : null
+                                    loading ? (
+                                        <Loader2 className="animate-spin" size={16} />
+                                    ) : (
+                                        <ShoppingCart size={16} />
+                                    )
                                 }
                                 onPress={() => onPurchase(productType)}
                             >

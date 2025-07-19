@@ -1,5 +1,4 @@
-// src/app/tasks/page.tsx - Исправленная версия с корректными отступами
-
+// src/app/tasks/page.tsx - Полная версия с интеграцией API
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -11,7 +10,10 @@ import {
     AlertCircle,
     CheckCircle2,
     Globe,
-    Camera
+    Camera,
+    Loader2,
+    Trophy,
+    Zap
 } from "lucide-react";
 import {
     SiTelegram,
@@ -25,6 +27,12 @@ import type { TaskWithCompletion, TaskType, TaskProcessingState } from "@/types/
 
 interface TaskProcessing {
     [taskId: string]: TaskProcessingState;
+}
+
+interface TaskStats {
+    total_completed: number;
+    total_attempts_earned: number;
+    tasks_completed_today: number;
 }
 
 const getTaskIcon = (taskType: TaskType) => {
@@ -44,46 +52,99 @@ const getTaskIcon = (taskType: TaskType) => {
     }
 };
 
+const getAuthToken = (): string => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('auth_access_token') || '';
+    }
+    return '';
+};
+
 export default function TasksPage() {
     const router = useRouter();
-    const { user, refreshUser, telegramUser } = useUser();
+    const { user, refreshUser, telegramUser, authState } = useUser();
     const t = useT();
 
     const [tasks, setTasks] = useState<TaskWithCompletion[]>([]);
+    const [taskStats, setTaskStats] = useState<TaskStats>({
+        total_completed: 0,
+        total_attempts_earned: 0,
+        tasks_completed_today: 0
+    });
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState<TaskProcessing>({});
     const [error, setError] = useState<string | null>(null);
 
-    const loadTasks = useCallback(async () => {
-        if (!user) {
-            if (telegramUser) {
-                try {
-                    await refreshUser();
-                    return;
-                } catch (err) {
-                    console.error('Error refreshing user:', err);
-                    setError(t('tasks.errors.userNotFound'));
-                    setLoading(false);
-                    return;
-                }
-            } else {
-                console.log('No telegramUser available, cannot refresh user');
-                setError(t('tasks.errors.userNotFound'));
-                setLoading(false);
-                return;
-            }
+    // Проверка аутентификации
+    useEffect(() => {
+        if (!authState.isAuthenticated) {
+            console.log('User not authenticated, redirecting to main page');
+            router.push('/');
+            return;
         }
+    }, [authState.isAuthenticated, router]);
+
+    const loadTasks = useCallback(async () => {
+        if (!user || !authState.isAuthenticated) {
+            console.log('User not available or not authenticated');
+            setLoading(false);
+            return;
+        }
+
+        const authToken = getAuthToken();
+        if (!authToken) {
+            console.log('Auth token not found, redirecting to main page');
+            router.push('/');
+            return;
+        }
+
         try {
             setError(null);
-            const tasksData = await taskService.getTasksForUser(user.id);
-            setTasks(tasksData);
+            setLoading(true);
+
+            console.log('Loading tasks via API...');
+
+            const response = await fetch('/api/tasks/list', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                },
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    console.log('Authentication expired, redirecting to main page');
+                    router.push('/');
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to load tasks');
+            }
+
+            setTasks(result.tasks || []);
+            setTaskStats(result.stats || {
+                total_completed: 0,
+                total_attempts_earned: 0,
+                tasks_completed_today: 0
+            });
+
+            console.log('Tasks loaded successfully via API');
         } catch (err) {
             console.error('Error loading tasks:', err);
+            if (err instanceof Error && err.message.includes('Authentication')) {
+                router.push('/');
+                return;
+            }
             setError(t('tasks.errors.unknownError'));
         } finally {
             setLoading(false);
         }
-    }, [user, telegramUser, refreshUser, t]);
+    }, [user, authState.isAuthenticated, router, t]);
 
     useEffect(() => {
         loadTasks();
@@ -130,7 +191,14 @@ export default function TasksPage() {
     }, [router]);
 
     const handleStartTask = async (task: TaskWithCompletion) => {
-        if (!user || !telegramUser) return;
+        if (!user || !telegramUser || !authState.isAuthenticated) return;
+
+        const authToken = getAuthToken();
+        if (!authToken) {
+            console.log('Auth token not found, redirecting to main page');
+            router.push('/');
+            return;
+        }
 
         setProcessing(prev => ({
             ...prev,
@@ -138,7 +206,28 @@ export default function TasksPage() {
         }));
 
         try {
-            await taskService.startTask(user.id, task.id);
+            const response = await fetch('/api/tasks/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({ taskId: task.id }),
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    router.push('/');
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to start task');
+            }
 
             if (task.type === 'story_share') {
                 handleStoryTask(task);
@@ -204,7 +293,7 @@ export default function TasksPage() {
     };
 
     const handleCheckTask = async (taskId: string) => {
-        if (!user || !telegramUser) return;
+        if (!user || !telegramUser || !authState.isAuthenticated) return;
 
         setProcessing(prev => ({
             ...prev,
@@ -238,7 +327,14 @@ export default function TasksPage() {
     };
 
     const handleClaimReward = async (task: TaskWithCompletion) => {
-        if (!user || !telegramUser) return;
+        if (!user || !telegramUser || !authState.isAuthenticated) return;
+
+        const authToken = getAuthToken();
+        if (!authToken) {
+            console.log('Auth token not found, redirecting to main page');
+            router.push('/');
+            return;
+        }
 
         setProcessing(prev => ({
             ...prev,
@@ -246,7 +342,28 @@ export default function TasksPage() {
         }));
 
         try {
-            const result = await taskService.claimTaskReward(user.id, task.id, telegramUser.id);
+            const response = await fetch('/api/tasks/claim-reward', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({ taskId: task.id }),
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    router.push('/');
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to claim reward');
+            }
 
             if (typeof window !== "undefined" && window.Telegram?.WebApp) {
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
@@ -348,17 +465,16 @@ export default function TasksPage() {
         task.user_completion?.status === 'claimed'
     );
 
+    if (!authState.isAuthenticated) {
+        return null;
+    }
+
     if (loading) {
         return (
             <div className="min-h-screen bg-black text-white flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
                     <p className="text-white/60">{t("tasks.loading")}</p>
-                    <div className="mt-4 text-xs text-white/40">
-                        <p>User: {user ? 'Loaded' : 'Not loaded'}</p>
-                        <p>TelegramUser: {telegramUser ? 'Loaded' : 'Not loaded'}</p>
-                        <p>Tasks: {tasks.length}</p>
-                    </div>
                 </div>
             </div>
         );
@@ -375,6 +491,27 @@ export default function TasksPage() {
                     {t("tasks.subtitle")}
                 </p>
             </div>
+
+            {/* Stats Section */}
+            {taskStats.total_completed > 0 && (
+                <div className="mb-6">
+                    <div className="flex items-center justify-center space-x-4 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg p-3 text-sm">
+                        <div className="flex items-center space-x-1">
+                            <Trophy className="text-yellow-400" size={14} />
+                            <span className="font-bold text-white">
+                                {taskStats.total_completed}
+                            </span>
+                        </div>
+                        <div className="w-px h-4 bg-white/30" />
+                        <div className="flex items-center space-x-1">
+                            <Zap className="text-green-400" size={14} />
+                            <span className="font-bold text-white">
+                                {taskStats.total_attempts_earned}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {error && (
                 <div className="max-w-2xl mx-auto mb-6">
@@ -464,7 +601,7 @@ export default function TasksPage() {
                 )}
             </div>
 
-            {/* Bottom spacing for safe area - КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ */}
+            {/* Bottom spacing for safe area */}
             <div className="h-24" />
         </div>
     );

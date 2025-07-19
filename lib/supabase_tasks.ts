@@ -1,5 +1,4 @@
-// src/lib/supabase_tasks.ts - Сервис для работы с заданиями
-
+// src/lib/supabase_tasks.ts - Обновленная версия с использованием API
 import { supabase } from "./supabase";
 
 export type TaskType =
@@ -37,7 +36,7 @@ export interface UserTaskCompletion {
     status: TaskStatus;
     created_at: string;
     updated_at: string;
-    task?: Task; // Подключаемые данные задания
+    task?: Task;
 }
 
 export interface TaskWithCompletion extends Task {
@@ -45,6 +44,14 @@ export interface TaskWithCompletion extends Task {
     can_complete: boolean;
     next_available_at?: string;
 }
+
+// Вспомогательная функция для получения токена авторизации
+const getAuthToken = (): string => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('auth_access_token') || '';
+    }
+    return '';
+};
 
 export const taskService = {
     // Получение всех активных заданий
@@ -63,151 +70,78 @@ export const taskService = {
         return data || [];
     },
 
-    // Получение заданий с информацией о выполнении для пользователя
-    // Получение заданий с информацией о выполнении для пользователя
+    // Получение заданий с информацией о выполнении для пользователя через API
     async getTasksForUser(userId: string): Promise<TaskWithCompletion[]> {
-        console.log('=== TASK SERVICE: getTasksForUser START ===');
+        console.log('=== TASK SERVICE: getTasksForUser via API ===');
         console.log('User ID:', userId);
-        
-        // Получаем активные задания
-        console.log('Fetching active tasks...');
-        const { data: tasks, error: tasksError } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: true });
 
-        if (tasksError) {
-            console.error('Error fetching tasks:', tasksError);
-            throw tasksError;
-        }
-
-        console.log('Active tasks found:', tasks?.length || 0);
-        console.log('Tasks:', tasks?.map(t => ({ id: t.id, name: t.name, type: t.type })));
-
-        if (!tasks) {
-            console.log('No tasks found, returning empty array');
-            return [];
-        }
-
-        // Получаем выполнения заданий только для текущего пользователя
-        console.log('Fetching user completions for user ID:', userId);
-        const { data: completions, error: completionsError } = await supabase
-            .from('user_task_completions')
-            .select('*')
-            .eq('user_id', userId);
-
-        if (completionsError) {
-            console.error('Error fetching user completions:', completionsError);
-            throw completionsError;
-        }
-
-        console.log('User completions found:', completions?.length || 0);
-        console.log('Completions:', completions?.map(c => ({ 
-            task_id: c.task_id, 
-            status: c.status, 
-            claimed_at: c.claimed_at 
-        })));
-
-        const completionsMap = new Map<string, UserTaskCompletion[]>();
-        (completions || []).forEach(completion => {
-            if (!completionsMap.has(completion.task_id)) {
-                completionsMap.set(completion.task_id, []);
-            }
-            completionsMap.get(completion.task_id)!.push(completion);
-        });
-
-        console.log('Completions map keys:', Array.from(completionsMap.keys()));
-
-        const result = tasks.map(task => {
-            const userCompletions = completionsMap.get(task.id) || [];
-            const latestCompletion = userCompletions
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-
-            let canComplete = true;
-            let nextAvailableAt: string | undefined;
-
-            if (task.type === 'story_share') {
-                if (task.cooldown_minutes && latestCompletion?.claimed_at) {
-                    const lastClaimedAt = new Date(latestCompletion.claimed_at);
-                    const cooldownMs = task.cooldown_minutes * 60 * 1000;
-                    const nextAvailable = new Date(lastClaimedAt.getTime() + cooldownMs);
-
-                    if (new Date() < nextAvailable) {
-                        canComplete = false;
-                        nextAvailableAt = nextAvailable.toISOString();
-                    }
-                }
-            } else {
-                // Для всех остальных заданий: только одно выполнение
-                if (latestCompletion?.status === 'claimed') {
-                    canComplete = false;
-                }
-            }
-
-            const taskWithCompletion = {
-                ...task,
-                user_completion: latestCompletion,
-                can_complete: canComplete,
-                next_available_at: nextAvailableAt
-            };
-
-            console.log(`Task ${task.id} (${task.name}):`, {
-                type: task.type,
-                can_complete: canComplete,
-                user_completion: latestCompletion ? {
-                    status: latestCompletion.status,
-                    claimed_at: latestCompletion.claimed_at
-                } : null,
-                next_available_at: nextAvailableAt
+        try {
+            const response = await fetch('/api/tasks/list', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`,
+                },
             });
 
-            return taskWithCompletion;
-        });
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('Authentication required');
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-        console.log('Final result:', result.map(t => ({ 
-            id: t.id, 
-            name: t.name, 
-            can_complete: t.can_complete 
-        })));
-        console.log('=== TASK SERVICE: getTasksForUser END ===');
-        
-        return result;
-    },
+            const result = await response.json();
 
-    // Начало выполнения задания
-    async startTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
-        // Проверяем, можно ли начать задание
-        const tasksWithCompletion = await this.getTasksForUser(userId);
-        const task = tasksWithCompletion.find(t => t.id === taskId);
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to fetch tasks');
+            }
 
-        if (!task) {
-            throw new Error('Task not found');
-        }
+            console.log('Tasks fetched via API:', result.tasks?.length || 0);
+            console.log('=== TASK SERVICE: getTasksForUser END ===');
 
-        if (!task.can_complete) {
-            throw new Error('Task cannot be completed at this time');
-        }
+            return result.tasks || [];
 
-        const { data, error } = await supabase
-            .from('user_task_completions')
-            .insert({
-                user_id: userId,
-                task_id: taskId,
-                status: 'started'
-            })
-            .select()
-            .single();
-
-        if (error) {
-            console.error('Error starting task:', error);
+        } catch (error) {
+            console.error('Error fetching tasks via API:', error);
             throw error;
         }
-
-        return data;
     },
 
-    // Проверка выполнения задания
+    // Начало выполнения задания через API
+    async startTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
+        try {
+            const response = await fetch('/api/tasks/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`,
+                },
+                body: JSON.stringify({ taskId }),
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('Authentication required');
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to start task');
+            }
+
+            return result.completion;
+
+        } catch (error) {
+            console.error('Error starting task via API:', error);
+            throw error;
+        }
+    },
+
+    // Проверка выполнения задания - остается локальной для внутреннего использования
     async checkTaskCompletion(userId: string, taskId: string, telegramUserId: number): Promise<boolean> {
         const { data: task, error: taskError } = await supabase
             .from('tasks')
@@ -219,16 +153,14 @@ export const taskService = {
             throw new Error('Task not found');
         }
 
-        // Для telegram каналов и чатов проверяем через API
         if (task.type === 'telegram_channel' || task.type === 'telegram_chat') {
             return await this.checkTelegramMembership(task.telegram_id!, telegramUserId);
         }
 
-        // Для остальных типов заданий возвращаем true (проверка на доверии)
         return true;
     },
 
-    // Проверка подписки на Telegram канал/чат
+    // Проверка подписки на Telegram канал/чат - остается локальной
     async checkTelegramMembership(chatId: number, userId: number): Promise<boolean> {
         try {
             const response = await fetch('/api/check-telegram-membership', {
@@ -254,9 +186,8 @@ export const taskService = {
         }
     },
 
-    // Завершение задания (отметка как выполненное)
+    // Завершение задания - локальная функция
     async completeTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
-        // Находим последнее начатое выполнение задания
         const { data: completion, error: findError } = await supabase
             .from('user_task_completions')
             .select('*')
@@ -289,75 +220,46 @@ export const taskService = {
         return data;
     },
 
-    // Получение награды за задание
+    // Получение награды за задание через API
     async claimTaskReward(userId: string, taskId: string, telegramUserId: number): Promise<{
         completion: UserTaskCompletion;
         reward: number;
     }> {
-        // Находим завершенное задание
-        const { data: completion, error: findError } = await supabase
-            .from('user_task_completions')
-            .select('*, task:tasks(*)')
-            .eq('user_id', userId)
-            .eq('task_id', taskId)
-            .eq('status', 'completed')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+        try {
+            const response = await fetch('/api/tasks/claim-reward', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAuthToken()}`,
+                },
+                body: JSON.stringify({ taskId }),
+            });
 
-        if (findError || !completion) {
-            throw new Error('Completed task not found');
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('Authentication required');
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to claim reward');
+            }
+
+            return {
+                completion: result.completion || {} as UserTaskCompletion,
+                reward: result.reward?.attempts || 0,
+            };
+
+        } catch (error) {
+            console.error('Error claiming reward via API:', error);
+            throw error;
         }
-
-        const task = completion.task as unknown as Task;
-
-        // Обновляем статус на "claimed" и добавляем время получения награды
-        const { data: updatedCompletion, error: updateError } = await supabase
-            .from('user_task_completions')
-            .update({
-                claimed_at: new Date().toISOString(),
-                status: 'claimed'
-            })
-            .eq('id', completion.id)
-            .select()
-            .single();
-
-        if (updateError) {
-            console.error('Error claiming task reward:', updateError);
-            throw updateError;
-        }
-
-        // Начисляем попытки пользователю
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('attempts_remaining')
-            .eq('id', userId)
-            .single();
-
-        if (userError || !user) {
-            throw new Error('User not found');
-        }
-
-        const { error: updateUserError } = await supabase
-            .from('users')
-            .update({
-                attempts_remaining: user.attempts_remaining + task.reward_attempts,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-
-        if (updateUserError) {
-            console.error('Error updating user attempts:', updateUserError);
-            throw updateUserError;
-        }
-
-        return {
-            completion: updatedCompletion,
-            reward: task.reward_attempts
-        };
     },
 
-    // Получение выполненных заданий пользователя
+    // Получение выполненных заданий пользователя - остается локальной
     async getUserCompletedTasks(userId: string): Promise<UserTaskCompletion[]> {
         const { data, error } = await supabase
             .from('user_task_completions')
@@ -374,7 +276,7 @@ export const taskService = {
         return data || [];
     },
 
-    // Получение статистики заданий пользователя
+    // Получение статистики заданий пользователя - остается локальной
     async getUserTaskStats(userId: string): Promise<{
         total_completed: number;
         total_attempts_earned: number;
