@@ -34,11 +34,9 @@ interface ProfileState {
     error: string | null;
 }
 
-// Cache duration in milliseconds (2 minutes for profile data)
-const CACHE_DURATION = 120000;
-
 /**
  * Unified profile hook for referrals, rankings, and achievements
+ * Always fetches fresh data - no caching
  */
 export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>) {
     const [state, setState] = useState<ProfileState>({
@@ -48,21 +46,11 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
     });
 
     const fetchingRef = useRef<boolean>(false);
-    const lastFetchRef = useRef<number>(0);
 
     /**
-     * Fetch profile data from API
+     * Fetch fresh profile data from API
      */
-    const fetchProfileData = useCallback(async (forceRefresh = false): Promise<ProfileData | null> => {
-        // Check cache validity
-        const now = Date.now();
-        const isCacheValid = state.data && !forceRefresh && (now - lastFetchRef.current) < CACHE_DURATION;
-
-        if (isCacheValid) {
-            console.log('Using cached profile data');
-            return state.data;
-        }
-
+    const fetchProfileData = useCallback(async (): Promise<ProfileData | null> => {
         // Prevent duplicate requests
         if (fetchingRef.current) {
             console.log('Profile fetch already in progress');
@@ -73,7 +61,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
         setState(prev => ({ ...prev, isLoading: true, error: null }));
 
         try {
-            console.log('Fetching profile data from API...');
+            console.log('Fetching fresh profile data from API...');
 
             const response = await makeAuthenticatedRequest('/api/user/profile');
 
@@ -104,9 +92,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
                 error: null,
             });
 
-            lastFetchRef.current = now;
-
-            console.log('Successfully fetched profile data:', {
+            console.log('Successfully fetched fresh profile data:', {
                 referralCode: profileData.referrals.code,
                 referralCount: profileData.referrals.count,
                 rankingsCount: Object.values(profileData.rankings).filter(rank => rank !== null).length
@@ -128,28 +114,18 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
         } finally {
             fetchingRef.current = false;
         }
-    }, [state.data, makeAuthenticatedRequest]);
+    }, [makeAuthenticatedRequest]);
 
     /**
-     * Get cached profile data if valid
+     * Reset profile data state
      */
-    const getCachedProfileData = useCallback((): ProfileData | null => {
-        const now = Date.now();
-        const isCacheValid = state.data && (now - lastFetchRef.current) < CACHE_DURATION;
-
-        if (isCacheValid) {
-            return state.data;
-        }
-
-        return null;
-    }, [state.data]);
-
-    /**
-     * Invalidate cache and force refresh
-     */
-    const invalidateCache = useCallback(() => {
-        console.log('Invalidating profile cache');
-        lastFetchRef.current = 0;
+    const resetProfileData = useCallback(() => {
+        console.log('Resetting profile data');
+        setState({
+            data: null,
+            isLoading: false,
+            error: null,
+        });
     }, []);
 
     /**
@@ -397,8 +373,7 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
 
         // Actions
         fetchProfileData,
-        getCachedProfileData,
-        invalidateCache,
+        resetProfileData,
         clearError,
 
         // Utility functions
@@ -407,6 +382,5 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
         // Computed values for convenience
         referrals: state.data?.referrals || null,
         rankings: state.data?.rankings || null,
-        hasValidCache: state.data && (Date.now() - lastFetchRef.current) < CACHE_DURATION,
     };
 }

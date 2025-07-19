@@ -23,13 +23,13 @@ export default function ProfilePage() {
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
   const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
 
-  // Auto-load profile data when user is available
+  // Load profile data when page loads
   useEffect(() => {
-    if (user && telegramUser && !profile.profileData && !profile.isLoading) {
-      console.log("Auto-loading profile data...");
+    if (user && telegramUser) {
+      console.log("Loading fresh profile data...");
       profile.fetchProfileData();
     }
-  }, [user, telegramUser, profile]);
+  }, [user, telegramUser, profile.fetchProfileData]);
 
   const handleOpenReferrals = () => {
     setIsReferralModalOpen(true);
@@ -78,7 +78,7 @@ export default function ProfilePage() {
           </div>
           <p className="text-white">{t("common.error")}</p>
           <button
-            onClick={() => profile.fetchProfileData(true)}
+            onClick={() => profile.fetchProfileData()}
             className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 transition-colors"
           >
             {t("common.retry")}

@@ -147,14 +147,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setError(authState.error);
   }, [authState.error]);
 
-  // Auto-load profile data when user is authenticated
-  useEffect(() => {
-    if (authState.isAuthenticated && authState.user && !profileModule.profileData && !profileModule.isLoading) {
-      console.log("Auto-loading profile data for authenticated user");
-      profileModule.fetchProfileData();
-    }
-  }, [authState.isAuthenticated, authState.user, profileModule]);
-
   // Enhanced register function with referral support
   const register = useCallback(async (
     initData: string,
@@ -169,9 +161,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         if (result.referralBonus) {
           console.log("Referral bonus received:", result.referralBonus);
         }
-
-        // Invalidate profile cache to force fresh data load
-        profileModule.invalidateCache();
       }
 
       return result;
@@ -191,9 +180,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       if (result.success && result.user) {
         console.log("Login successful:", result.user.first_name);
-
-        // Invalidate profile cache to force fresh data load
-        profileModule.invalidateCache();
       }
 
       return result;
@@ -214,7 +200,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     // Reset leaderboard and profile data on logout
     leaderboardModule.resetLeaderboard();
-    profileModule.invalidateCache();
+    profileModule.resetProfileData();
 
     console.log("User logged out");
   }, [authLogout, leaderboardModule, profileModule]);
@@ -227,8 +213,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     try {
       setIsLoading(true);
-      // Refresh profile data
-      await profileModule.fetchProfileData(true);
+      // Profile data will be refreshed when user visits profile page
       console.log("User data refreshed");
     } catch (error) {
       console.error("Error refreshing user:", error);
@@ -236,14 +221,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [authState.isAuthenticated, authState.user, profileModule]);
+  }, [authState.isAuthenticated, authState.user]);
 
   // Direct user update (for external updates)
   const updateUser = useCallback((userData: User) => {
     console.log("User data updated externally");
-    // Invalidate profile cache when user data changes
-    profileModule.invalidateCache();
-  }, [profileModule]);
+    // Profile data will be refreshed when user visits profile page
+  }, []);
 
   // Set Telegram user data
   const setTelegramUser = useCallback((userData: TelegramUser) => {
