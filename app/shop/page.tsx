@@ -1,4 +1,4 @@
-// src/app/tasks/page.tsx - Updated with timer-based logic and no task reordering
+// src/app/shop/page.tsx - Обновленная страница покупок с использованием новых API роутов
 
 "use client";
 
@@ -8,57 +8,49 @@ import { Card, CardBody, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
     AlertCircle,
+    Star,
     CheckCircle,
     Clock,
-    Play,
-    RotateCcw,
-    Gift,
-    Users,
-    Globe,
-    Repeat,
-    Zap
+    ShoppingCart
 } from "lucide-react";
-import { SiTelegram, SiX } from "react-icons/si";
 
 import { useUser } from "@/hooks/useUser";
-import { useTasks } from "@/hooks/modules/useTasks";
-import { 
-    TaskWithStatus, 
-    TaskType, 
-    TaskStatus, 
-    TASK_TYPE_CONFIG,
-    canStartTask,
-    canClaimReward,
-    isTaskRewarded
-} from "@/types/tasks";
+import { usePurchase } from "@/hooks/modules/usePurchase";
+import { PRODUCTS, ProductType } from "@/types/purchases";
 import { useT } from "@/contexts/LocalizationContext";
 
-export default function TasksPage() {
+interface SuccessNotification {
+    show: boolean;
+    title: string;
+    message: string;
+    icon: React.ReactNode;
+}
+
+export default function ShopPage() {
     const router = useRouter();
     const { user, refreshUser, makeAuthenticatedRequest } = useUser();
     const t = useT();
-
-    // Use updated tasks hook
-    const tasksModule = useTasks(makeAuthenticatedRequest);
-
+    
+    // Use new purchase hook
+    const purchaseModule = usePurchase(makeAuthenticatedRequest);
+    
     const [isExploding, setIsExploding] = useState(false);
-
-    // Fetch tasks on mount
-    useEffect(() => {
-        if (user && !tasksModule.isLoading && tasksModule.tasks.length === 0) {
-            tasksModule.fetchTasks();
-        }
-    }, [user]);
+    const [successNotification, setSuccessNotification] = useState<SuccessNotification>({
+        show: false,
+        title: "",
+        message: "",
+        icon: null
+    });
 
     // Clear errors after 4 seconds
     useEffect(() => {
-        if (tasksModule.error) {
+        if (purchaseModule.error) {
             const timer = setTimeout(() => {
-                tasksModule.clearError();
+                purchaseModule.clearError();
             }, 4000);
             return () => clearTimeout(timer);
         }
-    }, [tasksModule.error, tasksModule.clearError]);
+    }, [purchaseModule.error, purchaseModule.clearError]);
 
     // Setup Telegram WebApp back button
     useEffect(() => {
@@ -76,150 +68,91 @@ export default function TasksPage() {
         }
     }, [router]);
 
-    const handleTaskAction = async (task: TaskWithStatus, action: 'start' | 'retry' | 'claim') => {
+    const showSuccessNotification = (product: ProductType) => {
+        const productInfo = PRODUCTS[product];
+        const isInstantReset = productInfo.is_instant_reset;
+
+        const icon = isInstantReset ?
+            <Clock className="text-green-400" size={32} /> :
+            <CheckCircle className="text-green-400" size={32} />;
+
+        const title = isInstantReset ?
+            t('shop.notifications.instantResetSuccess') :
+            t('shop.notifications.purchaseSuccess');
+
+        const attemptsText = productInfo.attempts_bonus || 0;
+        const plural = attemptsText > 1 ? 's' : '';
+
+        const message = isInstantReset ?
+            t('shop.notifications.instantResetMessage') :
+            t('shop.notifications.purchaseSuccessMessage', {
+                attempts: attemptsText,
+                plural: plural
+            });
+
+        setSuccessNotification({
+            show: true,
+            title,
+            message,
+            icon
+        });
+
+        setIsExploding(true);
+        setTimeout(() => {
+            setIsExploding(false);
+        }, 2000);
+
+        setTimeout(() => {
+            setSuccessNotification(prev => ({ ...prev, show: false }));
+        }, 3000);
+    };
+
+    const handlePurchase = async (productType: ProductType) => {
+        if (purchaseModule.isLoading || purchaseModule.isProcessing) return;
+
         try {
-            switch (action) {
-                case 'start':
-                    await tasksModule.startTaskWithTimer(task);
-                    break;
+            console.log(`Processing purchase for product: ${productType}`);
+            
+            const success = await purchaseModule.processPurchase(productType);
 
-                case 'retry':
-                    await tasksModule.retryVerification(task);
-                    break;
-
-                case 'claim':
-                    const claimResult = await tasksModule.claimReward(task.task_id);
-                    if (claimResult.success) {
-                        // Refresh user data to get updated attempts
-                        await refreshUser();
-                        // Trigger confetti explosion
-                        setIsExploding(true);
-                        setTimeout(() => {
-                            setIsExploding(false);
-                        }, 2000);
-                    }
-                    break;
+            if (success) {
+                // Refresh user data to get updated attempts
+                await refreshUser();
+                
+                // Show success notification
+                showSuccessNotification(productType);
+                
+                console.log(`Purchase completed successfully for product: ${productType}`);
+            } else {
+                console.log(`Purchase was not completed for product: ${productType}`);
+                // Error handling is managed by the purchase module
             }
         } catch (error) {
-            console.error('Error in task action:', error);
+            console.error('Error in purchase process:', error);
         }
     };
 
-    const getTaskIcon = (taskType: TaskType) => {
-        switch (taskType) {
-            case TaskType.TELEGRAM_CHANNEL:
-                return <SiTelegram size={20} />;
-            case TaskType.TELEGRAM_CHAT:
-                return <SiTelegram size={20} />;
-            case TaskType.WEBSITE_VISIT:
-                return <Globe size={20} />;
-            case TaskType.TWITTER_FOLLOW:
-                return <SiX size={20} />;
-            case TaskType.TWITTER_REPOST:
-                return <SiX size={20} />;
-            default:
-                return <Zap size={20} />;
+    const getProductBadge = (productType: ProductType) => {
+        switch (productType) {
+            case 'attempts_5': return { text: 'Popular', textKey: 'shop.badges.popular' };
+            case 'attempts_10': return { text: 'Best Value', textKey: 'shop.badges.bestvalue' };
+            case 'attempts_100': return { text: 'Ultimate', textKey: 'shop.badges.ultimate' };
+            default: return null;
         }
     };
 
-    const getTaskButton = (task: TaskWithStatus) => {
-        const timer = tasksModule.getTaskTimer(task.task_id);
-        const isLoading = tasksModule.isTaskLoading(task.task_id, 'start') ||
-                          tasksModule.isTaskLoading(task.task_id, 'verify') ||
-                          tasksModule.isTaskLoading(task.task_id, 'claim');
-
-        // Show timer if running
-        if (timer > 0) {
-            return {
-                text: `${timer}s`,
-                action: null,
-                variant: 'secondary' as const,
-                icon: <Clock size={16} />,
-                disabled: true,
-                loading: false,
-            };
-        }
-
-        // Task not started
-        if (canStartTask(task)) {
-            return {
-                text: t('tasks.start'),
-                action: 'start' as const,
-                variant: 'default' as const,
-                icon: <Play size={16} />,
-                disabled: isLoading,
-                loading: tasksModule.isTaskLoading(task.task_id, 'start'),
-            };
-        }
-
-        // Task started but not completed (for Telegram tasks that failed verification)
-        if (task.user_status === TaskStatus.STARTED) {
-            const isTelegramTask = task.task_type === TaskType.TELEGRAM_CHANNEL || 
-                                  task.task_type === TaskType.TELEGRAM_CHAT;
-            
-            if (isTelegramTask) {
-                return {
-                    text: t('tasks.checking'),
-                    action: 'retry' as const,
-                    variant: 'secondary' as const,
-                    icon: <RotateCcw size={16} />,
-                    disabled: isLoading,
-                    loading: tasksModule.isTaskLoading(task.task_id, 'verify'),
-                };
+    const getButtonText = (productType: ProductType) => {
+        const isLoadingThisProduct = purchaseModule.isLoadingProduct(productType);
+        
+        if (isLoadingThisProduct) {
+            if (purchaseModule.isLoading) {
+                return t('shop.creatingInvoice');
+            } else if (purchaseModule.isProcessing) {
+                return t('shop.processingPayment');
             }
         }
-
-        // Task completed, ready to claim
-        if (canClaimReward(task)) {
-            return {
-                text: t('tasks.claim'),
-                action: 'claim' as const,
-                variant: 'success' as const,
-                icon: <Gift size={16} />,
-                disabled: isLoading,
-                loading: tasksModule.isTaskLoading(task.task_id, 'claim'),
-            };
-        }
-
-        // Task rewarded
-        if (isTaskRewarded(task)) {
-            return {
-                text: t('tasks.completed'),
-                action: null,
-                variant: 'success' as const,
-                icon: <CheckCircle size={16} />,
-                disabled: true,
-                loading: false,
-            };
-        }
-
-        // Default fallback
-        return {
-            text: t('tasks.start'),
-            action: 'start' as const,
-            variant: 'default' as const,
-            icon: <Play size={16} />,
-            disabled: true,
-            loading: false,
-        };
-    };
-
-    const getTaskBadge = (task: TaskWithStatus) => {
-        if (isTaskRewarded(task)) {
-            return { text: t('tasks.completed'), color: 'success' };
-        }
-        if (canClaimReward(task)) {
-            return { text: t('tasks.readyToClaim'), color: 'warning' };
-        }
-        if (task.user_status === TaskStatus.STARTED) {
-            const timer = tasksModule.getTaskTimer(task.task_id);
-            // During timer countdown, show "checking" status, not the timer
-            if (timer > 0) {
-                return { text: t('tasks.checking'), color: 'primary' };
-            }
-            return { text: t('tasks.checking'), color: 'primary' };
-        }
-        return null;
+        
+        return t('shop.buy');
     };
 
     return (
@@ -239,64 +172,68 @@ export default function TasksPage() {
             {/* Header */}
             <div className="text-center space-y-4 mb-8 pt-6">
                 <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-                    {t("tasks.title")}
+                    {t("shop.title")}
                 </h1>
                 <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-                    {t("tasks.subtitle")}
+                    {t("shop.subtitle")}
                 </p>
             </div>
 
             {/* Error message */}
-            {tasksModule.error && (
+            {purchaseModule.error && (
                 <div className="max-w-2xl mx-auto mb-6">
                     <Card className="bg-white/10 border border-white/20">
                         <CardBody className="p-4">
                             <div className="flex items-center space-x-2">
                                 <AlertCircle size={20} className="text-white" />
-                                <span className="text-white">{tasksModule.error}</span>
+                                <span className="text-white">{purchaseModule.error}</span>
                             </div>
                         </CardBody>
                     </Card>
                 </div>
             )}
 
-            {/* Loading state */}
-            {tasksModule.isLoading && tasksModule.tasks.length === 0 && (
-                <div className="max-w-2xl mx-auto text-center py-8">
-                    <p className="text-white/60">{t('tasks.loading')}</p>
-                </div>
-            )}
+            <div className="max-w-2xl mx-auto space-y-4">
+                {Object.entries(PRODUCTS).map(([key, product]) => {
+                    const productType = key as ProductType;
+                    const badge = getProductBadge(productType);
+                    const isLoadingThisProduct = purchaseModule.isLoadingProduct(productType);
 
-            {/* Tasks list - single list without categorization */}
-            {!tasksModule.isLoading && tasksModule.tasks.length > 0 && (
-                <div className="max-w-2xl mx-auto space-y-4">
-                    {tasksModule.tasks.map((task) => (
-                        <TaskCard
-                            key={task.task_id}
-                            task={task}
-                            onAction={handleTaskAction}
-                            getTaskIcon={getTaskIcon}
-                            getTaskButton={getTaskButton}
-                            getTaskBadge={getTaskBadge}
+                    return (
+                        <ProductCard
+                            key={productType}
+                            productType={productType}
+                            product={product}
+                            badge={badge}
+                            loading={isLoadingThisProduct}
+                            onPurchase={handlePurchase}
+                            getButtonText={getButtonText}
                             t={t}
                         />
-                    ))}
-                </div>
-            )}
+                    );
+                })}
+            </div>
 
-            {/* Empty state */}
-            {!tasksModule.isLoading && tasksModule.tasks.length === 0 && (
-                <div className="max-w-2xl mx-auto text-center py-12">
-                    <div className="text-6xl mb-4">📋</div>
-                    <h3 className="text-xl font-bold mb-2">{t('tasks.empty.noActiveTasks')}</h3>
-                    <p className="text-white/60 mb-6">{t('tasks.empty.startCompleting')}</p>
-                    <Button
-                        variant="bordered"
-                        className="border-white/30 text-white"
-                        onPress={() => tasksModule.fetchTasks()}
-                    >
-                        {t('tasks.refresh')}
-                    </Button>
+            {/* Success Notification */}
+            {successNotification.show && (
+                <div className={`
+                        fixed top-4 left-4 right-4 z-50
+                        transform transition-all duration-500 ease-out
+                        ${successNotification.show ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}
+                    `}>
+                    <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
+                        <CardBody className="p-4">
+                            <div className="flex items-center space-x-4">
+                                <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                    {successNotification.icon}
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-green-400 text-lg">{successNotification.title}</h4>
+                                    <p className="text-green-300 text-sm mt-1">{successNotification.message}</p>
+                                </div>
+                            </div>
+                        </CardBody>
+                    </Card>
                 </div>
             )}
 
@@ -306,26 +243,25 @@ export default function TasksPage() {
     );
 }
 
-interface TaskCardProps {
-    task: TaskWithStatus;
-    onAction: (task: TaskWithStatus, action: 'start' | 'retry' | 'claim') => void;
-    getTaskIcon: (taskType: TaskType) => React.ReactNode;
-    getTaskButton: (task: TaskWithStatus) => any;
-    getTaskBadge: (task: TaskWithStatus) => any;
+interface ProductCardProps {
+    productType: ProductType;
+    product: any;
+    badge: { text: string; textKey: string } | null;
+    loading: boolean;
+    onPurchase: (productType: ProductType) => void;
+    getButtonText: (productType: ProductType) => string;
     t: any;
 }
 
-function TaskCard({
-    task,
-    onAction,
-    getTaskIcon,
-    getTaskButton,
-    getTaskBadge,
+function ProductCard({
+    productType,
+    product,
+    badge,
+    loading,
+    onPurchase,
+    getButtonText,
     t
-}: TaskCardProps) {
-    const button = getTaskButton(task);
-    const badge = getTaskBadge(task);
-    const taskIcon = getTaskIcon(task.task_type as TaskType);
+}: ProductCardProps) {
 
     return (
         <Card
@@ -333,23 +269,13 @@ function TaskCard({
                 relative overflow-hidden
                 hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
                 transition-all duration-200
-                ${task.image_url ? '' : 'bg-gradient-to-r from-white/5 to-white/10'}
             `}
-            style={task.image_url ? {
-                backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-            } : undefined}
         >
-            {!task.image_url && (
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute -right-12 top-1/2 transform -translate-y-1/2 opacity-10">
-                        <div className="text-white text-[120px] leading-none">
-                            {TASK_TYPE_CONFIG[task.task_type as TaskType]?.icon || '⭐'}
-                        </div>
-                    </div>
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -right-12 top-1/2 transform -translate-y-1/2 opacity-10">
+                    <div className="text-white text-[140px] leading-none">⚡</div>
                 </div>
-            )}
+            </div>
 
             <CardBody className="p-4 relative z-10">
                 <div className="flex items-center justify-between">
@@ -357,64 +283,49 @@ function TaskCard({
                         <div className="flex items-start space-x-3 mb-3">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2 mb-1">
-                                    <div className="flex items-center space-x-2">
-                                        {taskIcon}
-                                        <h3 className="font-bold text-white truncate">
-                                            {task.title}
-                                        </h3>
-                                    </div>
+                                    <h3 className="font-bold text-white truncate">
+                                        {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.title`)}
+                                    </h3>
                                     {badge && (
                                         <Chip
                                             size="sm"
                                             variant="flat"
-                                            className={`
-                                                ${badge.color === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : ''}
-                                                ${badge.color === 'warning' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : ''}
-                                                ${badge.color === 'primary' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : ''}
-                                            `}
+                                            className="bg-white/20 text-white border border-white/30"
                                         >
-                                            {badge.text}
+                                            {t(badge.textKey)}
                                         </Chip>
                                     )}
                                 </div>
-                                <p className="text-white/70 text-sm mb-2">
-                                    {task.description}
+                                <p className="text-white/70 text-sm">
+                                    {t(`shop.products.${productType.replace('_', '') === 'instantreset' ? 'instantReset' : productType.replace('_', '')}.description`)}
                                 </p>
                             </div>
                         </div>
 
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                                <Zap className="text-yellow-400" size={16} />
-                                <span className="text-yellow-400 font-bold">
-                                    +{task.attempts_reward} {t('tasks.reward')}
+                                <Star className="text-white" size={16} />
+                                <span className="text-white font-bold">
+                                    {product.price}
                                 </span>
                             </div>
 
                             <Button
                                 size="sm"
-                                className={`
+                                className="
                                     relative z-20 
-                                    ${button.variant === 'success' 
-                                        ? 'bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30'
-                                        : button.variant === 'secondary'
-                                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30'
-                                        : 'bg-white/20 text-white border border-white/40 hover:bg-white/30'
-                                    }
+                                    bg-white/20 text-white border border-white/40 
+                                    hover:bg-white/30 hover:border-white/60
                                     disabled:opacity-50 disabled:cursor-not-allowed
-                                `}
-                                isLoading={button.loading}
-                                isDisabled={button.disabled}
+                                "
+                                isLoading={loading}
+                                isDisabled={loading}
                                 startContent={
-                                    !button.loading ? button.icon : null
+                                    !loading ? <ShoppingCart size={16} /> : null
                                 }
-                                onPress={() => {
-                                    if (button.action) {
-                                        onAction(task, button.action);
-                                    }
-                                }}
+                                onPress={() => onPurchase(productType)}
                             >
-                                {button.text}
+                                {getButtonText(productType)}
                             </Button>
                         </div>
                     </div>

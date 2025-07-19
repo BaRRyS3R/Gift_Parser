@@ -9,6 +9,7 @@ import ConfettiExplosion from "react-confetti-explosion";
 import {
     AlertCircle,
     Star,
+    Zap,
     CheckCircle,
     Clock,
     Play,
@@ -17,7 +18,7 @@ import {
     Users,
     Globe,
     MessageCircle,
-    Twitter,
+    X,
     Repeat
 } from "lucide-react";
 
@@ -175,7 +176,7 @@ export default function TasksPage() {
             case TaskType.WEBSITE_VISIT:
                 return <Globe size={20} />;
             case TaskType.TWITTER_FOLLOW:
-                return <Twitter size={20} />;
+                return <X size={20} />;
             case TaskType.TWITTER_REPOST:
                 return <Repeat size={20} />;
             default:
