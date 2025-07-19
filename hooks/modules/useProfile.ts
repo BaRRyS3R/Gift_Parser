@@ -100,13 +100,24 @@ export function useProfile(makeAuthenticatedRequest: (endpoint: string, options?
     const fetchingRef = useRef<boolean>(false);
 
     /**
-     * Загрузить свежие данные профиля из API
+     * Загрузить свежие данные профиля из API (всегда актуальные данные)
      */
     const fetchProfileData = useCallback(async (): Promise<ProfileData | null> => {
-        // Предотвращение дублирующих запросов
+        // Wait for current request to complete instead of returning cached data
         if (fetchingRef.current) {
-            console.log('Profile fetch already in progress');
-            return state.data;
+            console.log('Profile fetch already in progress, waiting...');
+
+            // Wait for current fetch to complete
+            return new Promise((resolve) => {
+                const checkCompletion = () => {
+                    if (!fetchingRef.current) {
+                        resolve(state.data);
+                    } else {
+                        setTimeout(checkCompletion, 100);
+                    }
+                };
+                checkCompletion();
+            });
         }
 
         fetchingRef.current = true;

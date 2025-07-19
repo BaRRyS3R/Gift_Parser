@@ -86,13 +86,24 @@ export function useLeaderboard(makeAuthenticatedRequest: (endpoint: string, opti
     const fetchingRef = useRef<boolean>(false);
 
     /**
-     * Fetch all leaderboards from API (fresh data every time)
+     * Fetch all leaderboards from API (always fresh data)
      */
     const fetchLeaderboards = useCallback(async (): Promise<LeaderboardData | null> => {
-        // Prevent duplicate requests
+        // Wait for current request to complete instead of returning cached data
         if (fetchingRef.current) {
-            console.log('Leaderboard fetch already in progress');
-            return state.data;
+            console.log('Leaderboard fetch already in progress, waiting...');
+
+            // Wait for current fetch to complete
+            return new Promise((resolve) => {
+                const checkCompletion = () => {
+                    if (!fetchingRef.current) {
+                        resolve(state.data);
+                    } else {
+                        setTimeout(checkCompletion, 100);
+                    }
+                };
+                checkCompletion();
+            });
         }
 
         fetchingRef.current = true;
@@ -145,7 +156,7 @@ export function useLeaderboard(makeAuthenticatedRequest: (endpoint: string, opti
         } finally {
             fetchingRef.current = false;
         }
-    }, [makeAuthenticatedRequest]); // ← ИСПРАВЛЕНИЕ: удалили state.data из зависимостей
+    }, [makeAuthenticatedRequest]);
 
     /**
      * Clear error state

@@ -178,13 +178,24 @@ export function useLeagues(makeAuthenticatedRequest: (endpoint: string, options?
     const fetchingRef = useRef<boolean>(false);
 
     /**
-     * Fetch complete league data from API
+     * Fetch complete league data from API (always fresh data)
      */
     const fetchLeagueData = useCallback(async (): Promise<CompleteLeagueData | null> => {
-        // Prevent duplicate requests
+        // Wait for current request to complete instead of returning cached data
         if (fetchingRef.current) {
-            console.log('League data fetch already in progress');
-            return state.data;
+            console.log('League data fetch already in progress, waiting...');
+            
+            // Wait for current fetch to complete
+            return new Promise((resolve) => {
+                const checkCompletion = () => {
+                    if (!fetchingRef.current) {
+                        resolve(state.data);
+                    } else {
+                        setTimeout(checkCompletion, 100);
+                    }
+                };
+                checkCompletion();
+            });
         }
 
         fetchingRef.current = true;
@@ -214,7 +225,7 @@ export function useLeagues(makeAuthenticatedRequest: (endpoint: string, options?
                 error: null,
             });
 
-            console.log('Successfully fetched league data:', {
+            console.log('Successfully fetched fresh league data:', {
                 leagues: leagueData.leagues.length,
                 hasProgressInfo: !!leagueData.progressInfo,
                 userRewards: leagueData.userRewards.length,
