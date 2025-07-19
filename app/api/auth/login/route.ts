@@ -22,6 +22,8 @@ interface LoginResponse {
         username?: string;
         language_code?: string;
         is_premium: boolean;
+        trust_score: number;
+        blocked_until?: string;
         current_level: number;
         current_league_id?: number;
         total_games: number;
@@ -138,6 +140,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
             username: updatedUser.username,
             language_code: updatedUser.language_code,
             is_premium: updatedUser.is_premium,
+
+            // Trust and moderation fields
+            trust_score: updatedUser.trust_score,
+            blocked_until: updatedUser.blocked_until,
+
             current_level: updatedUser.current_level,
             current_league_id: updatedUser.current_league_id,
             total_games: updatedUser.total_games,

@@ -24,6 +24,8 @@ interface RegisterResponse {
     username?: string;
     language_code?: string;
     is_premium: boolean;
+    trust_score: number;
+    blocked_until?: string;
     current_level: number;
     total_games: number;
     attempts_remaining: number;
@@ -162,6 +164,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
       username: newUser.username,
       language_code: newUser.language_code,
       is_premium: newUser.is_premium,
+
+      // Trust and moderation fields
+      trust_score: newUser.trust_score,
+      blocked_until: newUser.blocked_until,
+
       current_level: newUser.current_level,
       total_games: newUser.total_games,
       attempts_remaining: newUser.attempts_remaining,

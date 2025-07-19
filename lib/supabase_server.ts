@@ -33,6 +33,10 @@ export interface ServerUser {
     is_premium: boolean;
     created_at: string;
     updated_at: string;
+    // Trust and moderation system
+    trust_score: number; // Default: 50, Premium: 60
+    blocked_until?: string; // ISO timestamp when user is blocked until (null if not blocked)
+
     attempts_remaining: number;
     last_attempt_at?: string;
     attempts_reset_at?: string;
@@ -170,6 +174,9 @@ export const serverUserService = {
         let additionalAttempts = 10;
         let referredBy = null;
 
+        // Calculate trust_score based on premium status
+        const trustScore = telegramUser.is_premium ? 60 : 50;
+
         // Handle referral
         if (referralCode) {
             const referrer = await this.findByReferralCode(referralCode);
@@ -196,6 +203,11 @@ export const serverUserService = {
             username: telegramUser.username || null,
             language_code: telegramUser.language_code || null,
             is_premium: telegramUser.is_premium || false,
+
+            // Trust and moderation system
+            trust_score: trustScore,
+            blocked_until: null, // User is not blocked by default
+
             attempts_remaining: additionalAttempts,
             referral_code: referralCodeToUse,
             referred_by: referredBy,

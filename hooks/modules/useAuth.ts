@@ -19,7 +19,22 @@ export interface AuthTokens {
 
 export interface RegistrationResult {
     success: boolean;
-    user?: User;
+    user?: {
+        id: string;
+        telegram_id: number;
+        first_name: string;
+        last_name?: string;
+        username?: string;
+        language_code?: string;
+        is_premium: boolean;
+        trust_score: number;
+        blocked_until?: string;
+        current_level: number;
+        total_games: number;
+        attempts_remaining: number;
+        referral_code: string;
+        created_at: string;
+    };
     tokens?: AuthTokens;
     referralBonus?: {
         received: number;
@@ -31,7 +46,30 @@ export interface RegistrationResult {
 
 export interface LoginResult {
     success: boolean;
-    user?: User;
+    user?: {
+        id: string;
+        telegram_id: number;
+        first_name: string;
+        last_name?: string;
+        username?: string;
+        language_code?: string;
+        is_premium: boolean;
+        trust_score: number;
+        blocked_until?: string;
+        current_level: number;
+        current_league_id?: number;
+        total_games: number;
+        total_score: number;
+        best_score: number;
+        attempts_remaining: number;
+        last_attempt_at?: string;
+        attempts_reset_at?: string;
+        referral_code: string;
+        referral_count: number;
+        created_at: string;
+        updated_at: string;
+        last_played_at?: string;
+    };
     tokens?: AuthTokens;
     error?: string;
 }

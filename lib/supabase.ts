@@ -25,6 +25,10 @@ export interface User {
   created_at: string;
   updated_at: string;
 
+  // Trust and moderation system
+  trust_score: number; // Default: 50, Premium: 60
+  blocked_until?: string; // ISO timestamp when user is blocked until (null if not blocked)
+
   // Attempts management system
   attempts_remaining: number;
   last_attempt_at?: string;

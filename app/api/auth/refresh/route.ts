@@ -19,6 +19,8 @@ interface RefreshResponse {
         username?: string;
         language_code?: string;
         is_premium: boolean;
+        trust_score: number;
+        blocked_until?: string;
         current_level: number;
         current_league_id?: number;
         total_games: number;
@@ -107,6 +109,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<RefreshRe
             username: user.username,
             language_code: user.language_code,
             is_premium: user.is_premium,
+
+            // Trust and moderation fields
+            trust_score: user.trust_score,
+            blocked_until: user.blocked_until,
+
             current_level: user.current_level,
             current_league_id: user.current_league_id,
             total_games: user.total_games,
