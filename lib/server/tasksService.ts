@@ -202,47 +202,10 @@ export const serverTasksService = {
     },
 
     /**
-     * Проверка выполнения задания через Telegram API
-     */
-    async checkTelegramMembership(chatId: number, userId: number): Promise<boolean> {
-        try {
-            const botToken = process.env.TELEGRAM_BOT_API;
-            if (!botToken) {
-                console.error('TELEGRAM_BOT_API environment variable is not set');
-                return false;
-            }
-
-            const telegramApiUrl = `https://api.telegram.org/bot${botToken}/getChatMember`;
-            const response = await fetch(telegramApiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    chat_id: chatId,
-                    user_id: userId,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!data.ok) {
-                console.error('Telegram API error:', data.error_code, data.description);
-                return false;
-            }
-
-            const memberStatuses = ['creator', 'administrator', 'member'];
-            return memberStatuses.includes(data.result?.status);
-        } catch (error) {
-            console.error('Error checking telegram membership:', error);
-            return false;
-        }
-    },
-
-    /**
      * Проверка выполнения задания
+     * Примечание: проверка Telegram членства теперь выполняется в API роуте
      */
-    async checkTaskCompletion(userId: string, taskId: string, telegramUserId: number): Promise<boolean> {
+    async checkTaskCompletion(userId: string, taskId: string): Promise<boolean> {
         const { data: task, error: taskError } = await supabaseServer
             .from('tasks')
             .select('*')
@@ -253,15 +216,8 @@ export const serverTasksService = {
             throw new Error('Task not found');
         }
 
-        // Для telegram каналов и чатов проверяем через API
-        if (task.type === 'telegram_channel' || task.type === 'telegram_chat') {
-            if (!task.telegram_id) {
-                throw new Error('Telegram ID not specified for task');
-            }
-            return await this.checkTelegramMembership(task.telegram_id, telegramUserId);
-        }
-
-        // Для остальных типов заданий возвращаем true (проверка на доверии)
+        // Эта функция теперь только проверяет существование задания
+        // Логика проверки выполнения перенесена в API роут /api/tasks/check
         return true;
     },
 

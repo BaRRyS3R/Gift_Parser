@@ -1,7 +1,7 @@
 // src/app/api/tasks/check/route.ts - Проверка выполнения задания
 
 import { NextRequest, NextResponse } from 'next/server';
-import { serverTasksService } from '@/lib/server/tasksService';
+import { supabaseServer } from '@/lib/supabase_server';
 
 // Request body interface
 interface CheckTaskRequest {
@@ -65,12 +65,70 @@ export async function POST(request: NextRequest): Promise<NextResponse<CheckTask
 
         console.log(`Checking task completion: ${taskId} for user ${userId}`);
 
-        // Check task completion
-        const isCompleted = await serverTasksService.checkTaskCompletion(
-            userId,
-            taskId,
-            telegramIdNumber
-        );
+        // Get task details first to determine how to check completion
+        const { data: task, error: taskError } = await supabaseServer
+            .from('tasks')
+            .select('*')
+            .eq('id', taskId)
+            .single();
+
+        if (taskError || !task) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Task not found'
+                },
+                { status: 404 }
+            );
+        }
+
+        let isCompleted = false;
+
+        // For telegram channels and chats, check membership through existing API
+        if (task.type === 'telegram_channel' || task.type === 'telegram_chat') {
+            if (!task.telegram_id) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Task configuration error: missing telegram_id'
+                    },
+                    { status: 500 }
+                );
+            }
+
+            try {
+                console.log(`Checking Telegram membership for chat_id: ${task.telegram_id}, user_id: ${telegramIdNumber}`);
+
+                // Use existing telegram membership check endpoint
+                const telegramCheckResponse = await fetch(`${request.nextUrl.origin}/api/check-telegram-membership`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chat_id: task.telegram_id,
+                        user_id: telegramIdNumber,
+                    }),
+                });
+
+                if (telegramCheckResponse.ok) {
+                    const telegramResult = await telegramCheckResponse.json();
+                    isCompleted = telegramResult.is_member || false;
+                    console.log(`Telegram membership check result: ${isCompleted}`);
+                } else {
+                    const errorText = await telegramCheckResponse.text();
+                    console.error('Telegram membership check failed:', telegramCheckResponse.status, errorText);
+                    isCompleted = false;
+                }
+            } catch (telegramError) {
+                console.error('Error calling telegram membership check:', telegramError);
+                isCompleted = false;
+            }
+        } else {
+            // For other task types (trust-based), assume completed
+            console.log(`Task type ${task.type} is trust-based, marking as completed`);
+            isCompleted = true;
+        }
 
         console.log(`Task ${taskId} completion check result: ${isCompleted}`);
 
