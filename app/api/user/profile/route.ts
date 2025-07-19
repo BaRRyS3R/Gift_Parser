@@ -1,21 +1,20 @@
-// src/app/api/user/initialize-league/route.ts - Initialize user league endpoint
+// src/app/api/user/profile/route.ts - User profile endpoint for referrals and stats
 
 import { NextRequest, NextResponse } from 'next/server';
-import { serverLeagueService } from '@/lib/server/leagueService';
-import { serverUserService } from '@/lib/supabase_server';
+import { serverUserProfileService, type UserProfileData } from '@/lib/server/userProfileService';
 
 // Response interface
-interface InitializeLeagueResponse {
+interface ProfileResponse {
     success: boolean;
-    message?: string;
+    data?: UserProfileData;
     error?: string;
 }
 
 /**
- * POST /api/user/initialize-league
- * Initialize league for a new user
+ * GET /api/user/profile
+ * Retrieves user profile data including referrals and rankings
  */
-export async function POST(request: NextRequest): Promise<NextResponse<InitializeLeagueResponse>> {
+export async function GET(request: NextRequest): Promise<NextResponse<ProfileResponse>> {
     try {
         // Extract user info from middleware headers
         const telegramId = request.headers.get('X-Telegram-ID');
@@ -42,32 +41,24 @@ export async function POST(request: NextRequest): Promise<NextResponse<Initializ
             );
         }
 
-        // Get user data to determine total games
-        const user = await serverUserService.findByTelegramId(telegramIdNumber);
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'User not found'
-                },
-                { status: 404 }
-            );
-        }
+        console.log(`Fetching profile data for user: ${telegramIdNumber}`);
 
-        console.log(`Initializing league for user ${telegramIdNumber} with ${user.total_games} games`);
+        // Get complete profile data
+        const profileData = await serverUserProfileService.getUserProfileData(telegramIdNumber);
 
-        // Initialize user league using server service
-        await serverLeagueService.initializeUserLeague(userId, user.total_games);
-
-        console.log(`League initialized successfully for user ${telegramIdNumber}`);
+        console.log(`Successfully fetched profile data for user ${telegramIdNumber}:`, {
+            referralCode: profileData.referrals.code,
+            referralCount: profileData.referrals.count,
+            rankingsCount: Object.values(profileData.rankings).filter(rank => rank !== null).length
+        });
 
         return NextResponse.json({
             success: true,
-            message: 'League initialized successfully'
+            data: profileData,
         });
 
     } catch (error) {
-        console.error('Error initializing user league:', error);
+        console.error('Error fetching user profile:', error);
 
         // Handle specific error types
         if (error instanceof Error) {
@@ -81,13 +72,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<Initializ
                 );
             }
 
-            if (error.message.includes('already exists')) {
+            if (error.message.includes('profile')) {
                 return NextResponse.json(
                     {
                         success: false,
-                        error: 'League already initialized'
+                        error: 'Failed to fetch profile data'
                     },
-                    { status: 409 }
+                    { status: 500 }
                 );
             }
         }
@@ -95,7 +86,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Initializ
         return NextResponse.json(
             {
                 success: false,
-                error: 'Failed to initialize league'
+                error: 'Failed to retrieve user profile'
             },
             { status: 500 }
         );
@@ -103,7 +94,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Initializ
 }
 
 /**
- * OPTIONS /api/user/initialize-league
+ * OPTIONS /api/user/profile
  * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
@@ -111,7 +102,7 @@ export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
         status: 200,
         headers: {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
             'Access-Control-Max-Age': '86400',
         },

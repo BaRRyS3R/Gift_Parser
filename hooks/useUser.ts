@@ -1,11 +1,11 @@
-// src/hooks/useUser.ts - Updated with league module integration
+// src/hooks/useUser.ts - Updated with profile module integration
 
 "use client";
 
 import React, { useState, useCallback, useContext, createContext, useEffect } from "react";
 import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
-import { useLeague } from "./modules/useLeague"; // NEW: League module
+import { useProfile } from "./modules/useProfile";
 import type { User, TelegramUser, AttemptsStatus } from "@/lib/supabase";
 import type {
   AuthState,
@@ -54,8 +54,8 @@ interface UserContextType {
   // Leaderboard module (replaces individual leaderboard methods)
   leaderboard: ReturnType<typeof useLeaderboard>;
 
-  // NEW: League module (replaces direct league_service usage)
-  league: ReturnType<typeof useLeague>;
+  // Profile module (NEW - for referrals, achievements, and stats)
+  profile: ReturnType<typeof useProfile>;
 
   // Utility methods
   makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>;
@@ -82,8 +82,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   // Use leaderboard module (centralized leaderboard management without caching)
   const leaderboardModule = useLeaderboard(makeAuthenticatedRequest);
 
-  // NEW: Use league module (centralized league management)
-  const leagueModule = useLeague(makeAuthenticatedRequest);
+  // Use profile module (NEW - for referrals, achievements, and stats)
+  const profileModule = useProfile(makeAuthenticatedRequest);
 
   // Local state for user data and UI
   const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
@@ -147,6 +147,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setError(authState.error);
   }, [authState.error]);
 
+  // Auto-load profile data when user is authenticated
+  useEffect(() => {
+    if (authState.isAuthenticated && authState.user && !profileModule.profileData && !profileModule.isLoading) {
+      console.log("Auto-loading profile data for authenticated user");
+      profileModule.fetchProfileData();
+    }
+  }, [authState.isAuthenticated, authState.user, profileModule]);
+
   // Enhanced register function with referral support
   const register = useCallback(async (
     initData: string,
@@ -161,6 +169,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         if (result.referralBonus) {
           console.log("Referral bonus received:", result.referralBonus);
         }
+
+        // Invalidate profile cache to force fresh data load
+        profileModule.invalidateCache();
       }
 
       return result;
@@ -170,7 +181,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, [authRegister]);
+  }, [authRegister, profileModule]);
 
   // Enhanced login function
   const login = useCallback(async (initData: string): Promise<LoginResult> => {
@@ -180,6 +191,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
       if (result.success && result.user) {
         console.log("Login successful:", result.user.first_name);
+
+        // Invalidate profile cache to force fresh data load
+        profileModule.invalidateCache();
       }
 
       return result;
@@ -189,7 +203,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, [authLogin]);
+  }, [authLogin, profileModule]);
 
   // Enhanced logout function
   const logout = useCallback(() => {
@@ -198,12 +212,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setError(null);
     setAttemptsCache({ status: null, lastUpdate: 0, isValid: false });
 
-    // Reset leaderboard and league data on logout
+    // Reset leaderboard and profile data on logout
     leaderboardModule.resetLeaderboard();
-    leagueModule.resetLeagueData(); // NEW: Reset league data
+    profileModule.invalidateCache();
 
     console.log("User logged out");
-  }, [authLogout, leaderboardModule, leagueModule]);
+  }, [authLogout, leaderboardModule, profileModule]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -213,8 +227,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     try {
       setIsLoading(true);
-      // In the future, this will call a dedicated user refresh API
-      // For now, we rely on the authentication system
+      // Refresh profile data
+      await profileModule.fetchProfileData(true);
       console.log("User data refreshed");
     } catch (error) {
       console.error("Error refreshing user:", error);
@@ -222,13 +236,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [authState.isAuthenticated, authState.user]);
+  }, [authState.isAuthenticated, authState.user, profileModule]);
 
   // Direct user update (for external updates)
   const updateUser = useCallback((userData: User) => {
     console.log("User data updated externally");
-    // This will be enhanced when we create a dedicated user data module
-  }, []);
+    // Invalidate profile cache when user data changes
+    profileModule.invalidateCache();
+  }, [profileModule]);
 
   // Set Telegram user data
   const setTelegramUser = useCallback((userData: TelegramUser) => {
@@ -367,8 +382,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     // Leaderboard module (without caching - fresh data on each request)
     leaderboard: leaderboardModule,
 
-    // NEW: League module (centralized league management)
-    league: leagueModule,
+    // Profile module (NEW - for referrals, achievements, and stats)
+    profile: profileModule,
 
     // Utility methods
     makeAuthenticatedRequest,

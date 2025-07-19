@@ -1,18 +1,17 @@
-// src/lib/server/gameService.ts - Updated game service with consolidated type imports
+// src/lib/server/gameService.ts - Centralized game results processing service
 
 import { supabaseServer } from '@/lib/supabase_server';
-import { serverLeagueService, type LeagueCheckResult } from '@/lib/server/leagueService';
-import type { League, LeagueRewardResult } from '@/types/league-definitions';
+import leagueService, { type LeagueRewardResult, type League } from '@/lib/league_service';
 import { GameMode } from '@/types/game-modes/common';
 import type { ReactionGameResult } from '@/types/game-modes/reaction';
 import type { SurvivalGameResult } from '@/types/game-modes/survival';
 import type { PhysicsGameResult } from '@/types/game-modes/physics';
 import type { RotationGameResult } from '@/types/game-modes/rotation';
 
-// Unified game result type encompassing all supported game modes
+// Game result union type
 type GameResult = ReactionGameResult | SurvivalGameResult | PhysicsGameResult | RotationGameResult;
 
-// Comprehensive game save result interface with league progression data
+// Game save result interface
 export interface GameSaveResult {
     success: boolean;
     leagueChanged?: boolean;
@@ -24,7 +23,7 @@ export interface GameSaveResult {
     error?: string;
 }
 
-// Tournament game save response interface for competitive play
+// Tournament save response interface
 export interface TournamentSaveResponse {
     result_id: string;
     total_score: number;
@@ -33,13 +32,13 @@ export interface TournamentSaveResponse {
     previous_total: number;
 }
 
-// Centralized server-side game processing service
+// Server-side game service
 export const serverGameService = {
     /**
-     * Comprehensive user statistics update with integrated league progression logic
+     * Update user game statistics with league progression logic
      */
     async updateGameStats(telegramId: number, gameResult: GameResult): Promise<GameSaveResult> {
-        // Retrieve current user data for statistics calculation
+        // Get user data
         const { data: user, error: userError } = await supabaseServer
             .from('users')
             .select('*')
@@ -47,40 +46,37 @@ export const serverGameService = {
             .single();
 
         if (userError || !user) {
-            throw new Error('User account not found for statistics update');
+            throw new Error('User not found');
         }
 
         const previousTotalGames = user.total_games;
 
-        // Strategic exclusion of reaction mode from competitive game counting
+        // CRITICAL: Exclude reaction mode from total_games counting
         const isCompetitiveMode = gameResult.mode !== GameMode.REACTION;
         const newTotalGames = isCompetitiveMode ? previousTotalGames + 1 : previousTotalGames;
 
         const previousLevel = user.current_level;
-        const newLevel = serverLeagueService.calculateLevel(newTotalGames);
+        const newLevel = leagueService.calculateLevel(newTotalGames);
 
-        // Core statistics updates applicable to all game modes
         const updates: any = {
-            total_games: newTotalGames,
+            total_games: newTotalGames, // Only incremented for competitive modes
             total_score: user.total_score + gameResult.score,
             best_score: Math.max(user.best_score, gameResult.score),
             current_level: newLevel,
             last_played_at: new Date().toISOString(),
         };
 
-        // Mode-specific statistical enhancements
+        // Mode-specific stats updates
         if (gameResult.mode === GameMode.REACTION) {
             const reactionResult = gameResult as ReactionGameResult;
             updates.reaction_games = user.reaction_games + 1;
             updates.reaction_best_score = Math.max(user.reaction_best_score || 0, reactionResult.score);
 
-            // Advanced reaction time tracking for successful attempts
             if (!reactionResult.missed && reactionResult.reactionTime > 0) {
                 updates.reaction_best_time = user.reaction_best_time > 0
                     ? Math.min(user.reaction_best_time, reactionResult.reactionTime)
                     : reactionResult.reactionTime;
 
-                // Rolling average calculation for reaction time performance
                 const totalReactionGames = user.reaction_games;
                 const currentAverage = user.reaction_average_time || 0;
                 const newAverage = totalReactionGames > 0
@@ -104,7 +100,6 @@ export const serverGameService = {
             updates.physics_total_hits = (user.physics_total_hits || 0) + physicsResult.totalHits;
             updates.physics_best_hits = Math.max(user.physics_best_hits || 0, physicsResult.totalHits);
 
-            // Optimistic mistake tracking with initial value handling
             if (user.physics_least_mistakes === undefined || user.physics_least_mistakes === null) {
                 updates.physics_least_mistakes = physicsResult.mistakesMade;
             } else {
@@ -120,21 +115,21 @@ export const serverGameService = {
             updates.rotation_total_hits = (user.rotation_total_hits || 0) + rotationResult.correctHits;
         }
 
-        // Execute comprehensive statistics update
+        // Update user stats in database
         const { error: updateError } = await supabaseServer
             .from('users')
             .update(updates)
             .eq('telegram_id', telegramId);
 
         if (updateError) {
-            console.error('Critical error updating user statistics:', updateError);
-            throw new Error('Failed to update user game statistics');
+            console.error('Error updating user stats:', updateError);
+            throw new Error('Failed to update user statistics');
         }
 
-        // League progression assessment for competitive modes only
+        // League checking only for competitive modes
         try {
             if (isCompetitiveMode) {
-                const leagueResult: LeagueCheckResult = await serverLeagueService.checkAndUpdateLeague(user.id, newTotalGames);
+                const leagueResult = await leagueService.checkAndUpdateLeague(user.id, newTotalGames);
 
                 return {
                     success: true,
@@ -146,7 +141,7 @@ export const serverGameService = {
                     missedRewards: leagueResult.missedRewards
                 };
             } else {
-                // Simplified response for non-competitive modes
+                // For reaction mode, return result without league checking
                 return {
                     success: true,
                     leagueChanged: false,
@@ -154,22 +149,22 @@ export const serverGameService = {
                 };
             }
         } catch (leagueError) {
-            console.error('League progression assessment failed:', leagueError);
+            console.error('Error checking league after game:', leagueError);
             return {
                 success: true,
                 leagueChanged: false,
                 levelChanged: newLevel !== previousLevel,
                 newLevel: newLevel !== previousLevel ? newLevel : undefined,
-                error: 'League progression assessment encountered an error'
+                error: 'League check failed'
             };
         }
     },
 
     /**
-     * Standard game result processing for regular gameplay sessions
+     * Save regular game result (non-tournament)
      */
     async saveGameResult(telegramId: number, gameResult: GameResult): Promise<GameSaveResult> {
-        console.log('Processing standard game result:', {
+        console.log('Processing game result:', {
             mode: gameResult.mode,
             score: gameResult.score,
             duration: gameResult.duration
@@ -179,21 +174,21 @@ export const serverGameService = {
     },
 
     /**
-     * Tournament-specific result processing with competitive point accumulation
+     * Save tournament game result with point accumulation
      */
     async saveTournamentResult(
         tournamentId: string,
         telegramId: number,
         gameResult: SurvivalGameResult
     ): Promise<TournamentSaveResponse> {
-        console.log('Processing tournament game result:', {
+        console.log('Processing tournament result:', {
             tournamentId,
             telegramId,
             score: gameResult.score,
             survivalTime: gameResult.survivalTime
         });
 
-        // Validate user account existence
+        // Get user data
         const { data: user, error: userError } = await supabaseServer
             .from('users')
             .select('id')
@@ -201,10 +196,10 @@ export const serverGameService = {
             .single();
 
         if (userError || !user) {
-            throw new Error('User account not found for tournament result processing');
+            throw new Error('User not found');
         }
 
-        // Execute specialized tournament result accumulation procedure
+        // Call the tournament accumulation RPC function
         const { data, error } = await supabaseServer.rpc('save_tournament_result_accumulative', {
             tournament_id_param: tournamentId,
             user_id_param: user.id,
@@ -218,14 +213,14 @@ export const serverGameService = {
         });
 
         if (error) {
-            console.error('Tournament result processing failed:', error);
-            throw new Error('Failed to save tournament game result');
+            console.error('Error saving tournament result:', error);
+            throw new Error('Failed to save tournament result');
         }
 
-        // Parse and validate tournament save response
+        // Parse JSON response from the RPC function
         const saveResponse: TournamentSaveResponse = typeof data === 'string' ? JSON.parse(data) : data;
 
-        console.log(`Tournament points successfully accumulated: +${saveResponse.game_score} (Total: ${saveResponse.total_score})`);
+        console.log(`Tournament points accumulated: +${saveResponse.game_score} (Total: ${saveResponse.total_score})`);
 
         return saveResponse;
     },

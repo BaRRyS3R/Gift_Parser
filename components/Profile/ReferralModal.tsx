@@ -1,4 +1,4 @@
-// src/components/Profile/ReferralModal.tsx - Compact referral information modal
+// src/components/Profile/ReferralModal.tsx - Updated to use new ReferralInfo interface
 
 "use client";
 
@@ -21,7 +21,7 @@ import {
     Star,
     X
 } from "lucide-react";
-import type { ReferralInfo } from "@/lib/supabase";
+import type { ReferralInfo } from "@/hooks/modules/useProfile";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface ReferralModalProps {
@@ -108,7 +108,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                             <CardBody className="text-center p-3">
                                 <Users className="text-white mx-auto mb-1" size={20} />
                                 <div className="text-xl font-bold text-white">
-                                    {referralInfo.referralCount}
+                                    {referralInfo.count}
                                 </div>
                                 <div className="text-xs text-white/60 uppercase tracking-wider">
                                     {t("profile.referrals.friendsInvited")}
@@ -120,7 +120,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                             <CardBody className="text-center p-3">
                                 <Gift className="text-white mx-auto mb-1" size={20} />
                                 <div className="text-xl font-bold text-white">
-                                    +{referralInfo.referralBonus}
+                                    +{referralInfo.bonus}
                                 </div>
                                 <div className="text-xs text-white/60 uppercase tracking-wider">
                                     {t("profile.referrals.attemptsBonus")}
@@ -137,7 +137,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                         <Card className="bg-black/40 border border-white/30">
                             <CardBody className="p-3">
                                 <div className="text-center font-mono text-xl font-bold text-white tracking-wider">
-                                    {referralInfo.referralCode}
+                                    {referralInfo.code}
                                 </div>
                             </CardBody>
                         </Card>
@@ -201,7 +201,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                                     <div className="w-1 h-1 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                                     <span>
                                         {t("profile.referrals.theyGetExtra", {
-                                            bonus: referralInfo.referralBonus,
+                                            bonus: referralInfo.bonus,
                                         })}
                                     </span>
                                 </div>

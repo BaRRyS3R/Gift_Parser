@@ -1,10 +1,9 @@
-// src/app/profile/page.tsx - Updated to use league module instead of direct league_service
+// src/app/profile/page.tsx - Updated profile page using new profile module
 
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
-import { userService, type ReferralInfo } from "@/lib/supabase";
 import { useT } from "@/contexts/LocalizationContext";
 
 // Import components
@@ -16,87 +15,21 @@ import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
 import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
 
-interface UserRankings {
-  overall: number | null;
-  reaction: number | null;
-  survival: number | null;
-  physics?: number | null;
-  rotation?: number | null;
-}
-
 export default function ProfilePage() {
-  const { user, telegramUser, isLoading: userLoading, league } = useUser();
+  const { user, telegramUser, isLoading: userLoading, profile } = useUser();
   const t = useT();
 
-  const [rankings, setRankings] = useState<UserRankings>({
-    overall: null,
-    reaction: null,
-    survival: null,
-    physics: null,
-    rotation: null,
-  });
-  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
   const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
 
+  // Auto-load profile data when user is available
   useEffect(() => {
-    const loadProfileData = async () => {
-      if (!telegramUser?.id || !user?.id) return;
-
-      try {
-        setIsLoadingData(true);
-
-        // Load user-specific data (rankings and referral info)
-        const [
-          overallRank,
-          reactionRank,
-          survivalRank,
-          physicsRank,
-          rotationRank,
-          refInfo
-        ] = await Promise.all([
-          userService.getUserRanking(telegramUser.id),
-          userService.getUserReactionRanking(telegramUser.id),
-          userService.getUserSurvivalRanking(telegramUser.id),
-          userService.getUserPhysicsRanking(telegramUser.id),
-          userService.getUserRotationRanking(telegramUser.id),
-          userService.getReferralInfo(telegramUser.id)
-        ]);
-
-        setRankings({
-          overall: overallRank,
-          reaction: reactionRank,
-          survival: survivalRank,
-          physics: physicsRank,
-          rotation: rotationRank,
-        });
-        setReferralInfo(refInfo);
-
-        // Preload league data using league module to prevent modal loading delays
-        if (!league.leagueData) {
-          console.log("Preloading league data for profile...");
-          await league.fetchLeagueData();
-        }
-
-        console.log("Profile data loaded successfully:", {
-          rankings: { overallRank, reactionRank, survivalRank, physicsRank, rotationRank },
-          hasReferralInfo: !!refInfo,
-          hasLeagueData: !!league.leagueData
-        });
-
-      } catch (error) {
-        console.error("Error loading profile data:", error);
-      } finally {
-        setIsLoadingData(false);
-      }
-    };
-
-    if (telegramUser && user && !userLoading) {
-      loadProfileData();
+    if (user && telegramUser && !profile.profileData && !profile.isLoading) {
+      console.log("Auto-loading profile data...");
+      profile.fetchProfileData();
     }
-  }, [telegramUser, user, userLoading, league]);
+  }, [user, telegramUser, profile]);
 
   const handleOpenReferrals = () => {
     setIsReferralModalOpen(true);
@@ -110,7 +43,8 @@ export default function ProfilePage() {
     setIsLeaguesModalOpen(true);
   };
 
-  if (userLoading || isLoadingData) {
+  // Show loading while user data or profile data is loading
+  if (userLoading || (user && !profile.profileData && profile.isLoading)) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -133,6 +67,35 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+  // Show error if profile data failed to load
+  if (profile.error) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 bg-red-500/10 rounded-lg flex items-center justify-center mx-auto">
+            <span className="text-red-400 text-2xl">!</span>
+          </div>
+          <p className="text-white">{t("common.error")}</p>
+          <button
+            onClick={() => profile.fetchProfileData(true)}
+            className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 transition-colors"
+          >
+            {t("common.retry")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const profileData = profile.profileData;
+  const rankings = profileData?.rankings || {
+    overall: null,
+    reaction: null,
+    survival: null,
+    physics: null,
+    rotation: null,
+  };
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
@@ -167,11 +130,11 @@ export default function ProfilePage() {
       </div>
 
       {/* Modals */}
-      {referralInfo && (
+      {profileData?.referrals && (
         <ReferralModal
           isOpen={isReferralModalOpen}
           onClose={() => setIsReferralModalOpen(false)}
-          referralInfo={referralInfo}
+          referralInfo={profileData.referrals}
         />
       )}
 
@@ -182,7 +145,7 @@ export default function ProfilePage() {
         rankings={rankings}
       />
 
-      {/* League modal now uses league module from useUser */}
+      {/* Leagues Modal */}
       <LeaguesModal
         isOpen={isLeaguesModalOpen}
         onClose={() => setIsLeaguesModalOpen(false)}

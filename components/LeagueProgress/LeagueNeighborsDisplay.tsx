@@ -1,8 +1,8 @@
-// src/components/LeagueProgress/LeagueNeighborsDisplay.tsx - Updated to use league module
+// src/components/LeagueProgress/LeagueNeighborsDisplay.tsx - Component for showing neighbor players in league
 
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardBody } from "@nextui-org/react";
 import {
     Trophy,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
+import leagueService, { type LeagueNeighbors } from "@/lib/league_service";
 
 interface LeagueNeighborsDisplayProps {
     className?: string;
@@ -25,19 +26,36 @@ interface LeagueNeighborsDisplayProps {
 const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
     className = ""
 }) => {
-    const { user, telegramUser, league } = useUser(); // NEW: Use league module
+    const { user, telegramUser } = useUser();
     const t = useT();
 
-    // Fetch league data when component mounts
-    useEffect(() => {
-        if (user && telegramUser && !league.leagueData) {
-            console.log("Fetching league data for neighbors display...");
-            league.fetchLeagueData();
-        }
-    }, [user, telegramUser, league]);
+    const [neighbors, setNeighbors] = useState<LeagueNeighbors | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Loading state
-    if (league.isLoading) {
+    useEffect(() => {
+        const loadNeighbors = async () => {
+            if (!user || !telegramUser) {
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                const neighborsData = await leagueService.getLeagueNeighbors(
+                    user.id,
+                    user.total_games
+                );
+                setNeighbors(neighborsData);
+            } catch (error) {
+                console.error("Error loading league neighbors:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadNeighbors();
+    }, [user, telegramUser]);
+
+    if (isLoading) {
         return (
             <Card className={`bg-black/40 border border-white/20 ${className}`}>
                 <CardBody className="p-4">
@@ -61,28 +79,6 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
         );
     }
 
-    // Get neighbors data from league module
-    const neighbors = league.getNeighbors();
-
-    // Error state
-    if (league.error) {
-        return (
-            <Card className={`bg-red-500/10 border border-red-400/30 ${className}`}>
-                <CardBody className="p-4 text-center">
-                    <div className="text-red-400 mb-2">⚠️</div>
-                    <p className="text-red-400 text-sm">{league.error}</p>
-                    <button
-                        onClick={() => league.fetchLeagueData()}
-                        className="mt-2 px-3 py-1 bg-red-500/20 text-red-400 rounded text-sm hover:bg-red-500/30 transition-colors"
-                    >
-                        Retry
-                    </button>
-                </CardBody>
-            </Card>
-        );
-    }
-
-    // No data state
     if (!neighbors) {
         return null;
     }
@@ -171,9 +167,9 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
                 {/* Players List */}
                 <div className="space-y-2">
                     {/* Players Ahead */}
-                    {neighbors.playersAhead.map((player, index) => (
+                    {neighbors.playersAhead.map((player) => (
                         <div
-                            key={`ahead-${index}`}
+                            key={player.user_id}
                             className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-400/20"
                         >
                             <div className="flex items-center space-x-3">
@@ -218,9 +214,9 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
                     </div>
 
                     {/* Players Behind */}
-                    {neighbors.playersBehind.map((player, index) => (
+                    {neighbors.playersBehind.map((player) => (
                         <div
-                            key={`behind-${index}`}
+                            key={player.user_id}
                             className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-400/20"
                         >
                             <div className="flex items-center space-x-3">

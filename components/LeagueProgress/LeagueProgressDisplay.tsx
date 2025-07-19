@@ -1,11 +1,12 @@
-// src/components/LeagueProgress/LeagueProgressDisplay.tsx - Updated to use league module
+// src/components/LeagueProgress/LeagueProgressDisplay.tsx - Enhanced with level progress
 
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Trophy, Star, ArrowUp, Target } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
+import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
 
 interface LeagueProgressDisplayProps {
     className?: string;
@@ -16,19 +17,36 @@ const LeagueProgressDisplay: React.FC<LeagueProgressDisplayProps> = ({
     className = "",
     showLevelProgress = false
 }) => {
-    const { user, telegramUser, league } = useUser(); // NEW: Use league module from useUser
+    const { user, telegramUser } = useUser();
     const t = useT();
 
-    // Fetch league data when component mounts
-    useEffect(() => {
-        if (user && telegramUser && !league.leagueData) {
-            console.log("Fetching league data for progress display...");
-            league.fetchLeagueData();
-        }
-    }, [user, telegramUser, league]);
+    const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Loading state
-    if (league.isLoading) {
+    useEffect(() => {
+        const loadProgressInfo = async () => {
+            if (!user || !telegramUser) {
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                const progress = await leagueService.getUserLeagueProgress(
+                    user.id,
+                    user.total_games
+                );
+                setProgressInfo(progress);
+            } catch (error) {
+                console.error("Error loading league progress:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadProgressInfo();
+    }, [user, telegramUser]);
+
+    if (isLoading) {
         return (
             <div className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 ${className}`}>
                 <div className="animate-pulse">
@@ -42,14 +60,11 @@ const LeagueProgressDisplay: React.FC<LeagueProgressDisplayProps> = ({
         );
     }
 
-    // Get progress info from league module
-    const progressInfo = league.getProgressInfo();
-
     if (!progressInfo) {
         return null;
     }
 
-    // Helper function to determine league color
+    // Определяем цвет лиги
     const getLeagueColor = (leagueName: string) => {
         switch (leagueName) {
             case 'bronze': return 'text-orange-400';
@@ -64,12 +79,12 @@ const LeagueProgressDisplay: React.FC<LeagueProgressDisplayProps> = ({
     const leagueColor = getLeagueColor(progressInfo.currentLeague.name);
     const isMaxLeague = !progressInfo.nextLeague;
 
-    // Calculate level progress using league module utility
+    // Calculate level progress
     const currentLevel = progressInfo.currentLevel;
-    const gamesInCurrentLevel = progressInfo.totalGames % 100; // GAMES_PER_LEVEL constant
-    const gamesToNextLevel = 100 - gamesInCurrentLevel; // GAMES_PER_LEVEL constant
-    const levelProgressPercent = (gamesInCurrentLevel / 100) * 100; // GAMES_PER_LEVEL constant
-    const isMaxLevel = currentLevel >= 100; // MAX_LEVEL constant
+    const gamesInCurrentLevel = progressInfo.totalGames % leagueService.GAMES_PER_LEVEL;
+    const gamesToNextLevel = leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
+    const levelProgressPercent = (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
+    const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
 
     return (
         <div className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 hover:bg-white/15 transition-all duration-300 ${className}`}>
@@ -78,7 +93,7 @@ const LeagueProgressDisplay: React.FC<LeagueProgressDisplayProps> = ({
                 <div className="flex items-center space-x-2">
                     <Star className={`${leagueColor} animate-pulse-gentle`} size={16} />
                     <span className="text-white text-sm font-bold">
-                        {t("leagues.level")} {currentLevel}
+                        {t("leagues.level")} {progressInfo.currentLevel}
                     </span>
                 </div>
 
@@ -188,15 +203,6 @@ const LeagueProgressDisplay: React.FC<LeagueProgressDisplayProps> = ({
                     )}
                 </div>
             </div>
-
-            {/* Error Display */}
-            {league.error && (
-                <div className="mt-2 text-center">
-                    <span className="text-red-400 text-xs">
-                        {league.error}
-                    </span>
-                </div>
-            )}
         </div>
     );
 };

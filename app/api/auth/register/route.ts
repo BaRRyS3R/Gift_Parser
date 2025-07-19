@@ -1,7 +1,8 @@
-// src/app/api/auth/register/route.ts - Enhanced registration with league initialization
+// src/app/api/auth/register/route.ts - User registration endpoint
 
 import { NextRequest, NextResponse } from 'next/server';
-import { serverUserService } from '@/lib/supabase_server';
+import { supabaseServer, serverUserService } from '@/lib/supabase_server';
+import { leagueService } from '@/lib/league_service';
 import { validateTelegramData, extractReferralCode, createInitDataHash } from '@/lib/telegram-auth';
 import { createJWT, createRefreshToken } from '@/lib/jwt';
 import type { TelegramUser } from '@/lib/supabase';
@@ -24,18 +25,10 @@ interface RegisterResponse {
     language_code?: string;
     is_premium: boolean;
     current_level: number;
-    current_league_id?: number;
     total_games: number;
-    total_score: number;
-    best_score: number;
     attempts_remaining: number;
-    last_attempt_at?: string;
-    attempts_reset_at?: string;
     referral_code: string;
-    referral_count: number;
     created_at: string;
-    updated_at: string;
-    last_played_at?: string;
   };
   tokens?: {
     accessToken: string;
@@ -50,48 +43,33 @@ interface RegisterResponse {
 }
 
 /**
- * Initialize user league via server league service
- */
-async function initializeUserLeague(userId: string): Promise<void> {
-  try {
-    const { serverLeagueService } = await import('@/lib/server/leagueService');
-    await serverLeagueService.initializeUserLeague(userId, 0);
-    console.log(`League initialized successfully for new user: ${userId}`);
-  } catch (error) {
-    console.error('Error initializing league for new user:', error);
-    // Non-blocking error - registration should still succeed
-    // The user can initialize their league later through the API
-  }
-}
-
-/**
  * POST /api/auth/register
- * Registers new user with comprehensive validation and league initialization
+ * Registers a new user with Telegram WebApp data validation
  */
 export async function POST(request: NextRequest): Promise<NextResponse<RegisterResponse>> {
   try {
-    // Parse and validate request body
+    // Parse request body
     const body: RegisterRequest = await request.json();
     const { initData, referralCode } = body;
 
     if (!initData) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing initData parameter'
+        { 
+          success: false, 
+          error: 'Missing initData parameter' 
         },
         { status: 400 }
       );
     }
 
-    // Validate Telegram WebApp data with strict security checks
+    // Validate Telegram WebApp data
     const validation = validateTelegramData(initData);
-
+    
     if (!validation.isValid || !validation.user) {
       return NextResponse.json(
-        {
-          success: false,
-          error: validation.error || 'Invalid Telegram authentication data'
+        { 
+          success: false, 
+          error: validation.error || 'Invalid Telegram data' 
         },
         { status: 400 }
       );
@@ -99,53 +77,56 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
 
     const telegramUser: TelegramUser = validation.user;
 
-    // Check for existing user registration
+    // Check if user already exists
     const existingUser = await serverUserService.findByTelegramId(telegramUser.id);
-
+    
     if (existingUser) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'User account already exists. Please use the login endpoint instead.'
+        { 
+          success: false, 
+          error: 'User already exists' 
         },
         { status: 409 }
       );
     }
 
-    // Process referral code from multiple sources
-    const finalReferralCode = referralCode || extractReferralCode(initData);
+    // Extract referral code from initData if not provided
+    const extractedReferralCode = extractReferralCode(initData);
+    const finalReferralCode = referralCode || (extractedReferralCode || undefined);
 
-    // Validate referral code and calculate bonus
-    let referralBonus: RegisterResponse['referralBonus'];
+    // Validate referral code and get referrer info
+    let referralBonusInfo: {
+      received: number;
+      referrerName?: string;
+      referrerUsername?: string;
+    } | undefined;
+
     if (finalReferralCode) {
       const referralValidation = await serverUserService.validateReferralCodeAndGetReferrer(finalReferralCode);
+      
       if (referralValidation.isValid) {
-        referralBonus = {
+        referralBonusInfo = {
           received: referralValidation.bonus,
           referrerName: referralValidation.referrerName,
           referrerUsername: referralValidation.referrerUsername,
         };
-        console.log(`Valid referral code provided: ${finalReferralCode} from ${referralValidation.referrerName}`);
-      } else {
-        console.warn(`Invalid referral code provided: ${finalReferralCode}`);
       }
     }
 
-    // Create new user account with properly typed referral code
-    const newUser = await serverUserService.create(telegramUser, finalReferralCode || undefined);
+    // Create new user
+    const newUser = await serverUserService.create(telegramUser, finalReferralCode);
 
-    console.log(`User account created successfully: ${newUser.telegram_id} (${newUser.first_name})`);
+    // Initialize user league
+    try {
+      await leagueService.initializeUserLeague(newUser.id, 0);
+    } catch (leagueError) {
+      console.error('Error initializing user league:', leagueError);
+      // Continue with registration even if league initialization fails
+    }
 
-    // Initialize user league asynchronously with error handling
-    initializeUserLeague(newUser.id).catch(error => {
-      console.error('League initialization failed during registration (non-blocking):', error);
-      // This error is logged but does not prevent successful registration
-      // The user can initialize their league later through the /api/user/initialize-league endpoint
-    });
-
-    // Generate secure JWT tokens
+    // Create JWT tokens
     const initDataHash = createInitDataHash(initData);
-
+    
     const accessToken = await createJWT({
       userId: newUser.id,
       telegramId: newUser.telegram_id,
@@ -171,7 +152,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
       },
     });
 
-    // Prepare sanitized user data for response
+    // Prepare user data for response (excluding sensitive fields)
     const userData = {
       id: newUser.id,
       telegram_id: newUser.telegram_id,
@@ -181,24 +162,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
       language_code: newUser.language_code,
       is_premium: newUser.is_premium,
       current_level: newUser.current_level,
-      current_league_id: newUser.current_league_id,
       total_games: newUser.total_games,
-      total_score: newUser.total_score,
-      best_score: newUser.best_score,
       attempts_remaining: newUser.attempts_remaining,
-      last_attempt_at: newUser.last_attempt_at,
-      attempts_reset_at: newUser.attempts_reset_at,
       referral_code: newUser.referral_code,
-      referral_count: newUser.referral_count,
       created_at: newUser.created_at,
-      updated_at: newUser.updated_at,
-      last_played_at: newUser.last_played_at,
     };
 
-    // Log successful registration with referral information
-    if (referralBonus) {
-      console.log(`Registration completed with referral bonus: +${referralBonus.received} attempts from ${referralBonus.referrerName}`);
-    }
+    // Log successful registration
+    console.log(`User registered successfully: ${newUser.telegram_id} (${newUser.first_name})`);
 
     return NextResponse.json({
       success: true,
@@ -207,59 +178,39 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
         accessToken,
         refreshToken,
       },
-      referralBonus,
+      referralBonus: referralBonusInfo,
     });
 
   } catch (error) {
-    console.error('User registration error:', error);
-
-    // Handle specific error conditions with appropriate responses
+    console.error('Registration error:', error);
+    
+    // Handle specific error types
     if (error instanceof Error) {
-      if (error.message.includes('already exists')) {
+      if (error.message.includes('duplicate key')) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'User account already exists'
+          { 
+            success: false, 
+            error: 'User already exists' 
           },
           { status: 409 }
         );
       }
-
-      if (error.message.includes('Invalid') || error.message.includes('validation')) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid registration data provided'
-          },
-          { status: 400 }
-        );
-      }
-
+      
       if (error.message.includes('referral')) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid referral code provided'
+          { 
+            success: false, 
+            error: 'Invalid referral code' 
           },
           { status: 400 }
-        );
-      }
-
-      if (error.message.includes('JWT') || error.message.includes('token')) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Authentication token generation failed'
-          },
-          { status: 500 }
         );
       }
     }
 
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Registration process failed. Please try again.'
+      { 
+        success: false, 
+        error: 'Registration failed. Please try again.' 
       },
       { status: 500 }
     );
@@ -268,7 +219,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
 
 /**
  * OPTIONS /api/auth/register
- * Handle CORS preflight requests for registration endpoint
+ * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
   return new NextResponse(null, {

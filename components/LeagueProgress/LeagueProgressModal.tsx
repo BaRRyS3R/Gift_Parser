@@ -1,8 +1,8 @@
-// src/components/LeagueProgress/LeagueProgressModal.tsx - Updated to use league module
+// src/components/LeagueProgress/LeagueProgressModal.tsx - Fixed layout and league progress bar
 
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Modal,
     ModalContent,
@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
+import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
 
 interface LeagueProgressModalProps {
     isOpen: boolean;
@@ -33,23 +34,32 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
     isOpen,
     onClose
 }) => {
-    const { user, telegramUser, league } = useUser(); // NEW: Use league module
+    const { user, telegramUser } = useUser();
     const t = useT();
 
-    // Fetch league data when modal opens
+    const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
     useEffect(() => {
         const loadProgressInfo = async () => {
             if (!user || !telegramUser || !isOpen) return;
 
-            // Fetch league data if not already loaded
-            if (!league.leagueData) {
-                console.log("Loading league progress data...");
-                await league.fetchLeagueData();
+            try {
+                setIsLoading(true);
+                const progress = await leagueService.getUserLeagueProgress(
+                    user.id,
+                    user.total_games
+                );
+                setProgressInfo(progress);
+            } catch (error) {
+                console.error("Error loading league progress:", error);
+            } finally {
+                setIsLoading(false);
             }
         };
 
         loadProgressInfo();
-    }, [user, telegramUser, isOpen, league]);
+    }, [user, telegramUser, isOpen]);
 
     // Helper functions
     const getLeagueIcon = (leagueName: string) => {
@@ -110,22 +120,23 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
         }
     };
 
-    // Get progress info from league module
-    const progressInfo = league.getProgressInfo();
+    if (!progressInfo && !isLoading) {
+        return null;
+    }
 
-    // Calculate level progress using league module utility
+    // Calculate level progress
     const currentLevel = progressInfo?.currentLevel || 1;
     const totalGames = progressInfo?.totalGames || 0;
-    const gamesInCurrentLevel = totalGames % 100; // GAMES_PER_LEVEL constant
-    const gamesToNextLevel = 100 - gamesInCurrentLevel; // GAMES_PER_LEVEL constant
-    const levelProgressPercent = (gamesInCurrentLevel / 100) * 100; // GAMES_PER_LEVEL constant
-    const isMaxLevel = currentLevel >= 100; // MAX_LEVEL constant
+    const gamesInCurrentLevel = totalGames % leagueService.GAMES_PER_LEVEL;
+    const gamesToNextLevel = leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
+    const levelProgressPercent = (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
+    const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
 
     const currentColors = progressInfo ? getLeagueColors(progressInfo.currentLeague.name) : getLeagueColors('bronze');
     const CurrentIcon = progressInfo ? getLeagueIcon(progressInfo.currentLeague.name) : Trophy;
     const isMaxLeague = !progressInfo?.nextLeague;
 
-    // Calculate league progress correctly
+    // FIXED: Calculate league progress correctly
     const leagueProgressPercent = progressInfo ? Math.min(100, progressInfo.progressPercent) : 0;
 
     return (
@@ -163,35 +174,11 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                 </ModalHeader>
 
                 <ModalBody>
-                    {league.isLoading ? (
+                    {isLoading ? (
                         <div className="flex items-center justify-center py-8">
                             <div className="text-center space-y-4">
                                 <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
                                 <p className="text-white/60 text-sm">{t("leagues.status.loading")}</p>
-                            </div>
-                        </div>
-                    ) : league.error ? (
-                        <div className="flex items-center justify-center py-8">
-                            <div className="text-center space-y-4">
-                                <div className="w-12 h-12 bg-red-500/10 rounded-lg flex items-center justify-center mx-auto">
-                                    <span className="text-red-400 text-xl">⚠️</span>
-                                </div>
-                                <p className="text-red-400 text-sm">{league.error}</p>
-                                <button
-                                    onClick={() => league.fetchLeagueData()}
-                                    className="px-3 py-1 bg-red-500/20 text-red-400 rounded text-sm hover:bg-red-500/30 transition-colors"
-                                >
-                                    Retry
-                                </button>
-                            </div>
-                        </div>
-                    ) : !progressInfo ? (
-                        <div className="flex items-center justify-center py-8">
-                            <div className="text-center space-y-4">
-                                <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center mx-auto">
-                                    <span className="text-white/60 text-xl">?</span>
-                                </div>
-                                <p className="text-white/60 text-sm">No league data available</p>
                             </div>
                         </div>
                     ) : (
@@ -205,7 +192,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                                 {t("profile.levelDisplay", { level: currentLevel })}
                                             </div>
                                             <div className={`text-sm ${currentColors.text} opacity-80`}>
-                                                {t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
+                                                {progressInfo && t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -258,8 +245,8 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                 </Card>
                             )}
 
-                            {/* League Progress */}
-                            {!isMaxLeague && progressInfo.nextLeague && (
+                            {/* League Progress - FIXED */}
+                            {!isMaxLeague && progressInfo?.nextLeague && (
                                 <Card className="bg-white/5 border border-white/20">
                                     <CardBody className="p-4">
                                         <div className="space-y-3">
@@ -278,7 +265,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                                 </div>
                                             </div>
 
-                                            {/* League Progress Bar with correct colors and percentage */}
+                                            {/* FIXED: League Progress Bar with correct colors and percentage */}
                                             <div className="w-full bg-white/20 rounded-full h-2">
                                                 <div
                                                     className={`h-2 rounded-full transition-all duration-500 ${currentColors.progressBg}`}

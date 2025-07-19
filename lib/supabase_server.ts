@@ -1,10 +1,10 @@
-// src/lib/supabase_server.ts - Updated with league service integration while preserving all existing functionality
+// src/lib/supabase_server.ts - Updated with profile service integration
 
 import { createClient } from '@supabase/supabase-js';
 import { serverAttemptsService, type AttemptsStatus } from './server/attemptsService';
 import { serverGameService, type GameSaveResult, type TournamentSaveResponse } from './server/gameService';
-import { serverLeaderboardService } from './server/leaderboardService'; // Keep existing leaderboard service
-import { serverLeagueService } from './server/leagueService'; // NEW: Add league service
+import { serverLeaderboardService } from './server/leaderboardService';
+import { serverUserProfileService, type UserProfileData } from './server/userProfileService';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -21,7 +21,7 @@ export const supabaseServer = createClient(supabaseUrl, supabaseServiceKey, {
     },
 });
 
-// Types for server operations (RESTORED from original)
+// Types for server operations
 export interface ServerUser {
     id: string;
     telegram_id: number;
@@ -82,96 +82,7 @@ export interface ServerTelegramUser {
     is_premium?: boolean;
 }
 
-// Leaderboard interfaces (without sensitive data) - RESTORED from original
-export interface SafeLeaderboardEntry {
-    position: number;
-    first_name: string;
-    last_name?: string;
-    username?: string;
-    is_premium: boolean;
-    best_score: number;
-    total_games: number;
-    last_played_at?: string;
-    isCurrentUser?: boolean;
-}
-
-export interface SafeReactionLeaderboard {
-    position: number;
-    first_name: string;
-    last_name?: string;
-    username?: string;
-    is_premium: boolean;
-    best_reaction_time: number;
-    reaction_games: number;
-    best_reaction_score: number;
-    last_played_at?: string;
-    isCurrentUser?: boolean;
-}
-
-export interface SafeSurvivalLeaderboard {
-    position: number;
-    first_name: string;
-    last_name?: string;
-    username?: string;
-    is_premium: boolean;
-    best_survival_time: number;
-    max_level: number;
-    best_streak: number;
-    survival_games: number;
-    last_played_at?: string;
-    isCurrentUser?: boolean;
-}
-
-export interface SafePhysicsLeaderboard {
-    position: number;
-    first_name: string;
-    last_name?: string;
-    username?: string;
-    is_premium: boolean;
-    best_physics_score: number;
-    best_physics_time: number;
-    best_hits: number;
-    least_mistakes: number;
-    physics_games: number;
-    last_played_at?: string;
-    isCurrentUser?: boolean;
-}
-
-export interface SafeRotationLeaderboard {
-    position: number;
-    first_name: string;
-    last_name?: string;
-    username?: string;
-    is_premium: boolean;
-    best_rotation_time: number;
-    max_level: number;
-    best_streak: number;
-    total_hits: number;
-    rotation_games: number;
-    last_played_at?: string;
-    isCurrentUser?: boolean;
-}
-
-export interface AllLeaderboardsResponse {
-    reaction: SafeReactionLeaderboard[];
-    survival: SafeSurvivalLeaderboard[];
-    physics: SafePhysicsLeaderboard[];
-    rotation: SafeRotationLeaderboard[];
-    userRankings?: {
-        reaction?: number;
-        survival?: number;
-        physics?: number;
-        rotation?: number;
-    };
-}
-
-// Re-export the existing serverLeaderboardService (IMPORTANT: Keep this functionality!)
-export { serverLeaderboardService };
-
-// NEW: Export the league service
-export { serverLeagueService };
-
-// Server-side user service (existing code remains unchanged)
+// Server-side user service
 export const serverUserService = {
     async findByTelegramId(telegramId: number): Promise<ServerUser | null> {
         const { data, error } = await supabaseServer
@@ -360,4 +271,15 @@ export const serverUserService = {
     async saveTournamentResult(tournamentId: string, telegramId: number, gameResult: any): Promise<TournamentSaveResponse> {
         return serverGameService.saveTournamentResult(tournamentId, telegramId, gameResult);
     },
+
+    // Delegate profile operations to profile service
+    async getUserProfileData(telegramId: number): Promise<UserProfileData> {
+        return serverUserProfileService.getUserProfileData(telegramId);
+    },
 };
+
+// Export specialized services
+export { serverAttemptsService };
+export { serverGameService };
+export { serverLeaderboardService };
+export { serverUserProfileService };

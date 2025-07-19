@@ -1,4 +1,4 @@
-// src/lib/supabase.ts - Updated client service without direct league_service dependency
+// src/lib/supabase.ts - Cleaned client service with moved logic to API endpoints
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -90,38 +90,6 @@ export interface TelegramUser {
   is_premium?: boolean;
 }
 
-/**
- * Initialize user league via API endpoint
- */
-async function initializeUserLeagueViaAPI(accessToken: string): Promise<void> {
-  try {
-    const response = await fetch('/api/user/initialize-league', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('League initialization failed:', errorData);
-      // Non-blocking error - user creation should still succeed
-      return;
-    }
-
-    const result = await response.json();
-    if (result.success) {
-      console.log('League initialized successfully via API');
-    } else {
-      console.error('League initialization failed:', result.error);
-    }
-  } catch (error) {
-    console.error('Error initializing league via API:', error);
-    // Non-blocking error - user creation should still succeed
-  }
-}
-
 export const userService = {
   async getServerTime(): Promise<Date> {
     try {
@@ -152,306 +120,37 @@ export const userService = {
     return data;
   },
 
-  async validateReferralCodeAndGetReferrer(referralCode: string): Promise<{
-    isValid: boolean;
-    bonus: number;
-    referrerName?: string;
-    referrerUsername?: string;
-  }> {
-    try {
-      const referrer = await this.findByReferralCode(referralCode);
+  // REMOVED: validateReferralCodeAndGetReferrer - moved to profile module/API
+  // REMOVED: findByReferralCode - moved to server service
+  // REMOVED: generateUniqueReferralCode - moved to server service
 
-      if (referrer) {
-        let referrerName = referrer.first_name;
-        if (referrer.last_name) {
-          referrerName += ` ${referrer.last_name}`;
-        }
-
-        return {
-          isValid: true,
-          bonus: referrer.referral_bonus,
-          referrerName,
-          referrerUsername: referrer.username,
-        };
-      }
-
-      return { isValid: false, bonus: 0 };
-    } catch (error) {
-      console.error("Error validating referral code and getting referrer info:", error);
-      return { isValid: false, bonus: 0 };
-    }
+  async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
+    // This method should primarily be used for client-side data creation
+    // Most creation logic should go through the registration API
+    throw new Error("User creation should go through /api/auth/register endpoint");
   },
 
-  async findByReferralCode(referralCode: string): Promise<User | null> {
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("referral_code", referralCode)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error finding user by referral code:", error);
-      throw error;
-    }
-
-    return data;
-  },
-
-  async generateUniqueReferralCode(): Promise<string> {
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let code = "";
-    let isUnique = false;
-
-    while (!isUnique) {
-      code = "";
-      for (let i = 0; i < 8; i++) {
-        code += characters.charAt(Math.floor(Math.random() * characters.length));
-      }
-
-      const existingUser = await this.findByReferralCode(code);
-      if (!existingUser) {
-        isUnique = true;
-      }
-    }
-
-    return code;
-  },
-
-  async create(telegramUser: TelegramUser, referralCode?: string, accessToken?: string): Promise<User> {
-    const referralCodeToUse = await this.generateUniqueReferralCode();
-    let additionalAttempts = 10;
-    let referredBy = null;
-
-    // Handle referral
-    if (referralCode) {
-      const referrer = await this.findByReferralCode(referralCode);
-      if (referrer) {
-        referredBy = referralCode;
-        additionalAttempts += referrer.referral_bonus;
-
-        await supabase
-          .from("users")
-          .update({
-            referral_count: referrer.referral_count + 1,
-            attempts_remaining: referrer.attempts_remaining + 5,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", referrer.id);
-      }
-    }
-
-    const userData = {
-      telegram_id: telegramUser.id,
-      first_name: telegramUser.first_name,
-      last_name: telegramUser.last_name || null,
-      username: telegramUser.username || null,
-      language_code: telegramUser.language_code || null,
-      is_premium: telegramUser.is_premium || false,
-      attempts_remaining: additionalAttempts,
-      referral_code: referralCodeToUse,
-      referred_by: referredBy,
-      referral_bonus: 5,
-      referral_count: 0,
-      current_level: 1,
-    };
-
-    const { data, error } = await supabase
-      .from("users")
-      .insert(userData)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error creating user:", error);
-      throw error;
-    }
-
-    // Initialize user league via API endpoint (non-blocking)
-    if (accessToken) {
-      // Use the access token provided during registration process
-      initializeUserLeagueViaAPI(accessToken).catch(error => {
-        console.error("League initialization failed (non-blocking):", error);
-      });
-    } else {
-      console.warn("No access token provided for league initialization");
-    }
-
-    return data;
-  },
-
-  async getReferralInfo(telegramId: number): Promise<ReferralInfo | null> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user) return null;
-
-    let referredByName: string | undefined;
-
-    if (user.referred_by) {
-      try {
-        const referrer = await this.findByReferralCode(user.referred_by);
-        if (referrer) {
-          if (referrer.username) {
-            referredByName = `@${referrer.username}`;
-          } else if (referrer.first_name) {
-            referredByName = referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : "");
-          } else {
-            referredByName = "s0meone";
-          }
-        }
-      } catch (error) {
-        console.error("Error getting referrer display name:", error);
-        referredByName = "s0meone";
-      }
-    }
-
-    return {
-      referralCode: user.referral_code,
-      referralLink: `https://t.me/marketaggregator_bot?startapp=${user.referral_code}`,
-      referralCount: user.referral_count,
-      referralBonus: user.referral_bonus,
-      referredBy: user.referred_by || undefined,
-      referredByName: referredByName,
-    };
-  },
-
-  async getReferrerInfo(referralCode: string): Promise<{
-    name: string;
-    username?: string;
-    bonus: number;
-  } | null> {
-    try {
-      const referrer = await this.findByReferralCode(referralCode);
-      if (!referrer) return null;
-
-      return {
-        name: referrer.first_name + (referrer.last_name ? ` ${referrer.last_name}` : ""),
-        username: referrer.username,
-        bonus: referrer.referral_bonus,
-      };
-    } catch (error) {
-      console.error("Error getting referrer info:", error);
-      return null;
-    }
-  },
+  // REMOVED: getReferralInfo - moved to profile module/API
+  // REMOVED: getReferrerInfo - moved to profile module/API
 
   async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user) throw new Error("User not found");
-
-    const serverTime = await this.getServerTime();
-    const resetTime = user.attempts_reset_at ? new Date(user.attempts_reset_at) : null;
-
-    if (resetTime && serverTime >= resetTime) {
-      await this.resetAttempts(telegramId);
-      return {
-        canPlay: true,
-        attemptsRemaining: Math.max(5, user.attempts_remaining),
-        resetTime: undefined,
-        timeUntilReset: undefined,
-      };
-    }
-
-    if (user.last_attempt_at) {
-      const lastAttemptTime = new Date(user.last_attempt_at);
-      const timeSinceLastAttempt = serverTime.getTime() - lastAttemptTime.getTime();
-      if (timeSinceLastAttempt < 0) {
-        console.warn("Potential time manipulation detected for user:", telegramId);
-      }
-    }
-
-    let timeUntilReset: number | undefined;
-    if (resetTime && user.attempts_remaining === 0) {
-      timeUntilReset = Math.max(0, resetTime.getTime() - serverTime.getTime());
-    }
-
-    return {
-      canPlay: user.attempts_remaining > 0,
-      attemptsRemaining: user.attempts_remaining,
-      resetTime: resetTime || undefined,
-      timeUntilReset,
-    };
+    // These should now go through the attempts API
+    throw new Error("Attempts management should go through /api/user/attempts endpoints");
   },
 
   async consumeAttemptWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user) throw new Error("User not found");
-    if (user.attempts_remaining <= 0) {
-      throw new Error("No attempts remaining");
-    }
-
-    const serverTime = await this.getServerTime();
-    const newAttemptsRemaining = Math.max(0, user.attempts_remaining - 1);
-
-    const updates: any = {
-      attempts_remaining: newAttemptsRemaining,
-      last_attempt_at: serverTime.toISOString(),
-    };
-
-    if (newAttemptsRemaining === 0) {
-      const resetTime = new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS);
-      updates.attempts_reset_at = resetTime.toISOString();
-    }
-
-    const { error } = await supabase
-      .from("users")
-      .update(updates)
-      .eq("telegram_id", telegramId);
-
-    if (error) {
-      console.error("Error consuming attempt:", error);
-      throw error;
-    }
-
-    const timeUntilReset = newAttemptsRemaining === 0 ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS : undefined;
-
-    return {
-      canPlay: newAttemptsRemaining > 0,
-      attemptsRemaining: newAttemptsRemaining,
-      resetTime: newAttemptsRemaining === 0
-        ? new Date(serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS)
-        : undefined,
-      timeUntilReset,
-    };
+    throw new Error("Attempts management should go through /api/user/attempts endpoints");
   },
 
   async resetAttempts(telegramId: number): Promise<void> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user) throw new Error("User not found");
-
-    const newAttempts = Math.max(ATTEMPTS_CONFIG.RESET_ATTEMPTS, user.attempts_remaining);
-
-    const { error } = await supabase
-      .from("users")
-      .update({
-        attempts_remaining: newAttempts,
-        attempts_reset_at: null,
-      })
-      .eq("telegram_id", telegramId);
-
-    if (error) {
-      console.error("Error resetting attempts:", error);
-      throw error;
-    }
+    throw new Error("Attempts management should go through /api/user/attempts endpoints");
   },
 
   async instantResetAttempts(telegramId: number): Promise<void> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user) throw new Error("User not found");
-
-    const { error } = await supabase
-      .from("users")
-      .update({
-        attempts_remaining: ATTEMPTS_CONFIG.RESET_ATTEMPTS,
-        attempts_reset_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("telegram_id", telegramId);
-
-    if (error) {
-      console.error("Error performing instant reset:", error);
-      throw error;
-    }
+    throw new Error("Attempts management should go through /api/user/attempts endpoints");
   },
 
+  // Convenience methods for backwards compatibility
   async checkAndUpdateAttempts(telegramId: number): Promise<AttemptsStatus> {
     return this.checkAndUpdateAttemptsWithServerValidation(telegramId);
   },
@@ -460,269 +159,27 @@ export const userService = {
     return this.consumeAttemptWithServerValidation(telegramId);
   },
 
-  // Existing leaderboard methods (unchanged - delegated to API)
-  async getLeaderboard(limit: number = 100): Promise<LeaderboardEntry[]> {
-    const { data, error } = await supabase
-      .from("users")
-      .select(`
-        id,
-        telegram_id,
-        first_name,
-        last_name,
-        username,
-        is_premium,
-        best_score,
-        total_games,
-        last_played_at
-      `)
-      .gt("total_games", 0)
-      .order("best_score", { ascending: false })
-      .limit(limit);
+  // REMOVED: All leaderboard methods - moved to leaderboard module/API
+  // These include:
+  // - getLeaderboard
+  // - getReactionLeaderboard  
+  // - getSurvivalLeaderboard
+  // - getPhysicsLeaderboard
+  // - getRotationLeaderboard
+  // - getUserRanking
+  // - getUserReactionRanking
+  // - getUserSurvivalRanking
+  // - getUserPhysicsRanking
+  // - getUserRotationRanking
 
-    if (error) {
-      console.error("Error fetching leaderboard:", error);
-      throw error;
-    }
-
-    return data || [];
-  },
-
-  async getReactionLeaderboard(limit: number = 100): Promise<ReactionLeaderboard[]> {
-    const { data, error } = await supabase
-      .from("users")
-      .select(`
-        id,
-        telegram_id,
-        first_name,
-        last_name,
-        username,
-        is_premium,
-        reaction_best_time,
-        reaction_games,
-        reaction_best_score,
-        last_played_at
-      `)
-      .gt("reaction_games", 0)
-      .gt("reaction_best_time", 0)
-      .order("reaction_best_time", { ascending: true })
-      .order("reaction_best_score", { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error("Error fetching reaction leaderboard:", error);
-      throw error;
-    }
-
-    return (data || []).map((user: any) => ({
-      ...user,
-      best_reaction_time: user.reaction_best_time,
-      reaction_games: user.reaction_games,
-      best_reaction_score: user.reaction_best_score,
-    }));
-  },
-
-  async getSurvivalLeaderboard(limit: number = 100): Promise<SurvivalLeaderboard[]> {
-    const { data, error } = await supabase
-      .from("users")
-      .select(`
-        id,
-        telegram_id,
-        first_name,
-        last_name,
-        username,
-        is_premium,
-        survival_best_time,
-        survival_max_level,
-        survival_best_streak,
-        survival_games,
-        last_played_at
-      `)
-      .gt("survival_games", 0)
-      .order("survival_best_time", { ascending: false })
-      .order("survival_max_level", { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error("Error fetching survival leaderboard:", error);
-      throw error;
-    }
-
-    return (data || []).map((user: any) => ({
-      ...user,
-      best_survival_time: user.survival_best_time,
-      max_level: user.survival_max_level,
-      best_streak: user.survival_best_streak,
-      survival_games: user.survival_games,
-    }));
-  },
-
-  async getPhysicsLeaderboard(limit: number = 100): Promise<PhysicsLeaderboard[]> {
-    const { data, error } = await supabase
-      .from("users")
-      .select(`
-        id,
-        telegram_id,
-        first_name,
-        last_name,
-        username,
-        is_premium,
-        physics_best_score,
-        physics_best_time,
-        physics_best_hits,
-        physics_least_mistakes,
-        physics_games,
-        last_played_at
-      `)
-      .gt("physics_games", 0)
-      .order("physics_best_score", { ascending: false })
-      .order("physics_best_time", { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error("Error fetching physics leaderboard:", error);
-      throw error;
-    }
-
-    return (data || []).map((user: any) => ({
-      ...user,
-      best_physics_score: user.physics_best_score,
-      best_physics_time: user.physics_best_time,
-      best_hits: user.physics_best_hits,
-      least_mistakes: user.physics_least_mistakes,
-      physics_games: user.physics_games,
-    }));
-  },
-
-  async getRotationLeaderboard(limit: number = 100): Promise<RotationLeaderboard[]> {
-    const { data, error } = await supabase
-      .from("users")
-      .select(`
-        id,
-        telegram_id,
-        first_name,
-        last_name,
-        username,
-        is_premium,
-        rotation_best_time,
-        rotation_max_level,
-        rotation_best_streak,
-        rotation_total_hits,
-        rotation_games,
-        last_played_at
-      `)
-      .gt("rotation_games", 0)
-      .order("rotation_best_time", { ascending: false })
-      .order("rotation_max_level", { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error("Error fetching rotation leaderboard:", error);
-      throw error;
-    }
-
-    return (data || []).map((user: any) => ({
-      ...user,
-      best_rotation_time: user.rotation_best_time,
-      max_level: user.rotation_max_level,
-      best_streak: user.rotation_best_streak,
-      total_hits: user.rotation_total_hits,
-      rotation_games: user.rotation_games,
-    }));
-  },
-
-  async getUserRanking(telegramId: number): Promise<number | null> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user || user.total_games === 0) return null;
-
-    const { count, error } = await supabase
-      .from("users")
-      .select("id", { count: "exact" })
-      .gt("total_games", 0)
-      .gt("best_score", user.best_score);
-
-    if (error) {
-      console.error("Error fetching user ranking:", error);
-      throw error;
-    }
-
-    return (count || 0) + 1;
-  },
-
-  async getUserReactionRanking(telegramId: number): Promise<number | null> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user || user.reaction_games === 0 || !user.reaction_best_time) return null;
-
-    const { count, error } = await supabase
-      .from("users")
-      .select("id", { count: "exact" })
-      .gt("reaction_games", 0)
-      .gt("reaction_best_time", 0)
-      .lt("reaction_best_time", user.reaction_best_time);
-
-    if (error) {
-      console.error("Error fetching user reaction ranking:", error);
-      throw error;
-    }
-
-    return (count || 0) + 1;
-  },
-
-  async getUserSurvivalRanking(telegramId: number): Promise<number | null> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user || user.survival_games === 0) return null;
-
-    const { count, error } = await supabase
-      .from("users")
-      .select("id", { count: "exact" })
-      .gt("survival_games", 0)
-      .or(`survival_best_time.gt.${user.survival_best_time},and(survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`);
-
-    if (error) {
-      console.error("Error fetching user survival ranking:", error);
-      throw error;
-    }
-
-    return (count || 0) + 1;
-  },
-
-  async getUserPhysicsRanking(telegramId: number): Promise<number | null> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user || user.physics_games === 0) return null;
-
-    const { count, error } = await supabase
-      .from("users")
-      .select("id", { count: "exact" })
-      .gt("physics_games", 0)
-      .or(`physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`);
-
-    if (error) {
-      console.error("Error fetching user physics ranking:", error);
-      throw error;
-    }
-
-    return (count || 0) + 1;
-  },
-
-  async getUserRotationRanking(telegramId: number): Promise<number | null> {
-    const user = await this.findByTelegramId(telegramId);
-    if (!user || user.rotation_games === 0) return null;
-
-    const { count, error } = await supabase
-      .from("users")
-      .select("id", { count: "exact" })
-      .gt("rotation_games", 0)
-      .or(`rotation_best_time.gt.${user.rotation_best_time},and(rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`);
-
-    if (error) {
-      console.error("Error fetching user rotation ranking:", error);
-      throw error;
-    }
-
-    return (count || 0) + 1;
-  },
+  // NOTE: All removed methods should now be accessed through:
+  // - useProfile hook for referrals and rankings
+  // - useLeaderboard hook for leaderboard data
+  // - useAttempts hook for attempts management (when created)
+  // - Respective API endpoints for server operations
 };
 
-// Existing interfaces (unchanged)
+// Existing interfaces (for backward compatibility)
 export interface LeaderboardEntry {
   id: string;
   telegram_id: number;
