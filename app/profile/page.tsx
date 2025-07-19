@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -25,6 +25,9 @@ export default function ProfilePage() {
 
   // Track total games to detect changes
   const [lastKnownTotalGames, setLastKnownTotalGames] = useState<number | null>(null);
+  
+  // Track if initial league data load has been triggered for this page session
+  const leagueDataLoadedRef = useRef<boolean>(false);
 
   // Load profile data when user is authenticated
   useEffect(() => {
@@ -36,8 +39,9 @@ export default function ProfilePage() {
 
   // ALWAYS load fresh league data when user is authenticated (regardless of cached data)
   useEffect(() => {
-    if (authState.isAuthenticated && authState.user && telegramUser && !leagues.isLoading) {
+    if (authState.isAuthenticated && authState.user && telegramUser && !leagues.isLoading && !leagueDataLoadedRef.current) {
       console.log("Loading fresh league data on profile page entry...");
+      leagueDataLoadedRef.current = true;
       leagues.fetchLeagueData();
     }
   }, [authState.isAuthenticated, authState.user, telegramUser, leagues.isLoading]);
@@ -45,24 +49,24 @@ export default function ProfilePage() {
   // Update league data when total games changes (for immediate updates after playing)
   useEffect(() => {
     const currentTotalGames = profile.profileData?.user?.total_games;
-
+    
     if (currentTotalGames !== undefined && currentTotalGames !== null) {
       // If this is the first time we see the total games, just store it
       if (lastKnownTotalGames === null) {
         setLastKnownTotalGames(currentTotalGames);
         return;
       }
-
+      
       // If total games changed, update league data immediately
       if (currentTotalGames !== lastKnownTotalGames) {
         console.log(`Total games changed from ${lastKnownTotalGames} to ${currentTotalGames}, updating league data...`);
         setLastKnownTotalGames(currentTotalGames);
-
+        
         // Force refresh league data
         leagues.fetchLeagueData();
       }
     }
-  }, [profile.profileData?.user?.total_games, lastKnownTotalGames, leagues.fetchLeagueData]);
+  }, [profile.profileData?.user?.total_games, lastKnownTotalGames]);
 
   // Reset data when leaving the page (cleanup)
   useEffect(() => {
@@ -191,7 +195,7 @@ export default function ProfilePage() {
         <MinimalistDivider />
 
         {/* Game Statistics with Level Progress */}
-        <MinimalistGameStats
+        <MinimalistGameStats 
           user={profileUser}
           isLoading={profile.isLoading}
         />
