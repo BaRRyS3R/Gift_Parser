@@ -1,10 +1,11 @@
-// src/lib/supabase_server.ts - Updated with profile service integration
+// src/lib/supabase_server.ts - Updated with league service integration
 
 import { createClient } from '@supabase/supabase-js';
 import { serverAttemptsService, type AttemptsStatus } from './server/attemptsService';
 import { serverGameService, type GameSaveResult, type TournamentSaveResponse } from './server/gameService';
 import { serverLeaderboardService } from './server/leaderboardService';
 import { serverUserProfileService, type UserProfileData } from './server/userProfileService';
+import { serverLeagueService, type CompleteLeagueData } from './server/leagueServerService';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -276,6 +277,11 @@ export const serverUserService = {
     async getUserProfileData(telegramId: number): Promise<UserProfileData> {
         return serverUserProfileService.getUserProfileData(telegramId);
     },
+
+    // Delegate league operations to league service
+    async getCompleteLeagueData(userId: string, totalGames: number): Promise<CompleteLeagueData> {
+        return serverLeagueService.getCompleteLeagueData(userId, totalGames);
+    },
 };
 
 // Export specialized services
@@ -283,3 +289,4 @@ export { serverAttemptsService };
 export { serverGameService };
 export { serverLeaderboardService };
 export { serverUserProfileService };
+export { serverLeagueService };

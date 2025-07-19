@@ -1,4 +1,4 @@
-// src/hooks/useUser.ts - Исправленный без кеширования попыток
+// src/hooks/useUser.ts - Updated with leagues module integration
 
 "use client";
 
@@ -6,6 +6,7 @@ import React, { useState, useCallback, useContext, createContext, useEffect } fr
 import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
 import { useProfile } from "./modules/useProfile";
+import { useLeagues } from "./modules/useLeagues";
 import type { User, TelegramUser } from "@/lib/supabase";
 import type {
   AuthState,
@@ -51,6 +52,9 @@ interface UserContextType {
   // Profile module
   profile: ReturnType<typeof useProfile>;
 
+  // Leagues module
+  leagues: ReturnType<typeof useLeagues>;
+
   // Utility methods
   makeAuthenticatedRequest: (endpoint: string, options?: RequestInit) => Promise<Response>;
 }
@@ -78,6 +82,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // Use profile module
   const profileModule = useProfile(makeAuthenticatedRequest);
+
+  // Use leagues module
+  const leaguesModule = useLeagues(makeAuthenticatedRequest);
 
   // Local state for user data and UI
   const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(null);
@@ -180,12 +187,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setTelegramUserState(null);
     setError(null);
 
-    // Reset leaderboard and profile data on logout
+    // Reset all module data on logout
     leaderboardModule.resetLeaderboard();
     profileModule.resetProfileData();
+    leaguesModule.resetLeagueData();
 
     console.log("User logged out");
-  }, [authLogout, leaderboardModule, profileModule]);
+  }, [authLogout, leaderboardModule, profileModule, leaguesModule]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -262,6 +270,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     // Profile module
     profile: profileModule,
+
+    // Leagues module
+    leagues: leaguesModule,
 
     // Utility methods
     makeAuthenticatedRequest,

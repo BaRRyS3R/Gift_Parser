@@ -1,8 +1,8 @@
-// src/components/LeagueProgress/LeagueProgressModal.tsx - Fixed layout and league progress bar
+// src/components/LeagueProgress/LeagueProgressModal.tsx - Updated to use leagues API
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
     Modal,
     ModalContent,
@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, { type LeagueProgressInfo } from "@/lib/league_service";
 
 interface LeagueProgressModalProps {
     isOpen: boolean;
@@ -34,32 +33,16 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
     isOpen,
     onClose
 }) => {
-    const { user, telegramUser } = useUser();
+    const { user, telegramUser, leagues } = useUser();
     const t = useT();
 
-    const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
+    // Load league data when modal opens
     useEffect(() => {
-        const loadProgressInfo = async () => {
-            if (!user || !telegramUser || !isOpen) return;
-
-            try {
-                setIsLoading(true);
-                const progress = await leagueService.getUserLeagueProgress(
-                    user.id,
-                    user.total_games
-                );
-                setProgressInfo(progress);
-            } catch (error) {
-                console.error("Error loading league progress:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadProgressInfo();
-    }, [user, telegramUser, isOpen]);
+        if (isOpen && user && telegramUser && !leagues.leagueData && !leagues.isLoading) {
+            console.log("Loading league data for progress modal...");
+            leagues.fetchLeagueData();
+        }
+    }, [isOpen, user, telegramUser, leagues.leagueData, leagues.isLoading, leagues.fetchLeagueData]);
 
     // Helper functions
     const getLeagueIcon = (leagueName: string) => {
@@ -120,24 +103,24 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
         }
     };
 
-    if (!progressInfo && !isLoading) {
+    if (!leagues.progressInfo && !leagues.isLoading) {
         return null;
     }
 
-    // Calculate level progress
-    const currentLevel = progressInfo?.currentLevel || 1;
-    const totalGames = progressInfo?.totalGames || 0;
-    const gamesInCurrentLevel = totalGames % leagueService.GAMES_PER_LEVEL;
-    const gamesToNextLevel = leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
-    const levelProgressPercent = (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
-    const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
+    // Calculate level progress using client-side utilities
+    const currentLevel = leagues.progressInfo?.currentLevel || 1;
+    const totalGames = leagues.progressInfo?.totalGames || 0;
+    const gamesInCurrentLevel = totalGames % leagues.leagueUtils.GAMES_PER_LEVEL;
+    const gamesToNextLevel = leagues.leagueUtils.GAMES_PER_LEVEL - gamesInCurrentLevel;
+    const levelProgressPercent = (gamesInCurrentLevel / leagues.leagueUtils.GAMES_PER_LEVEL) * 100;
+    const isMaxLevel = currentLevel >= leagues.leagueUtils.MAX_LEVEL;
 
-    const currentColors = progressInfo ? getLeagueColors(progressInfo.currentLeague.name) : getLeagueColors('bronze');
-    const CurrentIcon = progressInfo ? getLeagueIcon(progressInfo.currentLeague.name) : Trophy;
-    const isMaxLeague = !progressInfo?.nextLeague;
+    const currentColors = leagues.progressInfo ? getLeagueColors(leagues.progressInfo.currentLeague.name) : getLeagueColors('bronze');
+    const CurrentIcon = leagues.progressInfo ? getLeagueIcon(leagues.progressInfo.currentLeague.name) : Trophy;
+    const isMaxLeague = !leagues.progressInfo?.nextLeague;
 
-    // FIXED: Calculate league progress correctly
-    const leagueProgressPercent = progressInfo ? Math.min(100, progressInfo.progressPercent) : 0;
+    // Calculate league progress correctly
+    const leagueProgressPercent = leagues.progressInfo ? Math.min(100, leagues.progressInfo.progressPercent) : 0;
 
     return (
         <Modal
@@ -174,7 +157,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                 </ModalHeader>
 
                 <ModalBody>
-                    {isLoading ? (
+                    {leagues.isLoading ? (
                         <div className="flex items-center justify-center py-8">
                             <div className="text-center space-y-4">
                                 <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
@@ -192,7 +175,7 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                                 {t("profile.levelDisplay", { level: currentLevel })}
                                             </div>
                                             <div className={`text-sm ${currentColors.text} opacity-80`}>
-                                                {progressInfo && t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
+                                                {leagues.progressInfo && t(`leagues.names.${leagues.progressInfo.currentLeague.name}` as any)}
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -245,8 +228,8 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                 </Card>
                             )}
 
-                            {/* League Progress - FIXED */}
-                            {!isMaxLeague && progressInfo?.nextLeague && (
+                            {/* League Progress */}
+                            {!isMaxLeague && leagues.progressInfo?.nextLeague && (
                                 <Card className="bg-white/5 border border-white/20">
                                     <CardBody className="p-4">
                                         <div className="space-y-3">
@@ -260,12 +243,12 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                                 <div className="flex items-center space-x-1">
                                                     <ArrowUp className="text-white/60" size={14} />
                                                     <span className="text-sm font-bold text-white">
-                                                        {progressInfo.gamesToNextLeague}
+                                                        {leagues.progressInfo.gamesToNextLeague}
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            {/* FIXED: League Progress Bar with correct colors and percentage */}
+                                            {/* League Progress Bar */}
                                             <div className="w-full bg-white/20 rounded-full h-2">
                                                 <div
                                                     className={`h-2 rounded-full transition-all duration-500 ${currentColors.progressBg}`}
@@ -276,8 +259,8 @@ const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
                                             <div className="text-center">
                                                 <span className="text-white/60 text-xs">
                                                     {t("profile.levelProgress.nextLeague")}: {' '}
-                                                    <span className={getLeagueColors(progressInfo.nextLeague.name).text}>
-                                                        {t(`leagues.names.${progressInfo.nextLeague.name}` as any)}
+                                                    <span className={getLeagueColors(leagues.progressInfo.nextLeague.name).text}>
+                                                        {t(`leagues.names.${leagues.progressInfo.nextLeague.name}` as any)}
                                                     </span>
                                                 </span>
                                             </div>

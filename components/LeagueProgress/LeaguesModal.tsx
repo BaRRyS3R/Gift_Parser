@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeaguesModal.tsx - Completely fixed modal with proper layout
+// src/components/LeagueProgress/LeaguesModal.tsx - Updated to use leagues API
 
 "use client";
 
@@ -33,14 +33,6 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import leagueService, {
-    type League,
-    type LeagueProgressInfo,
-    type UserLeagueReward,
-    type LeagueLeaderboard,
-    type LeagueNeighbors,
-    type LeagueReward
-} from "@/lib/league_service";
 
 interface LeaguesModalProps {
     isOpen: boolean;
@@ -48,64 +40,18 @@ interface LeaguesModalProps {
 }
 
 const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
-    const { user, telegramUser } = useUser();
+    const { user, telegramUser, leagues } = useUser();
     const t = useT();
 
-    const [progressInfo, setProgressInfo] = useState<LeagueProgressInfo | null>(null);
-    const [allLeagues, setAllLeagues] = useState<League[]>([]);
-    const [userRewards, setUserRewards] = useState<UserLeagueReward[]>([]);
-    const [leaderboards, setLeaderboards] = useState<Record<number, LeagueLeaderboard>>({});
-    const [leagueNeighbors, setLeagueNeighbors] = useState<LeagueNeighbors | null>(null);
-    const [allLeagueRewards, setAllLeagueRewards] = useState<Record<number, LeagueReward[]>>({});
     const [selectedTab, setSelectedTab] = useState("progress");
-    const [isLoading, setIsLoading] = useState(true);
 
+    // Load league data when modal opens
     useEffect(() => {
-        const loadLeagueData = async () => {
-            if (!user || !telegramUser || !isOpen) return;
-
-            try {
-                setIsLoading(true);
-
-                const [progress, leagues, rewards, neighbors, allRewards] = await Promise.all([
-                    leagueService.getUserLeagueProgress(user.id, user.total_games),
-                    leagueService.getAllLeagues(),
-                    leagueService.getUserRewards(user.id),
-                    leagueService.getLeagueNeighbors(user.id, user.total_games),
-                    leagueService.getAllLeagueRewards(),
-                ]);
-
-                setProgressInfo(progress);
-                setAllLeagues(leagues);
-                setUserRewards(rewards);
-                setLeagueNeighbors(neighbors);
-                setAllLeagueRewards(allRewards);
-
-                // Load leaderboards for all leagues
-                const leaderboardPromises = leagues.map(async (league) => {
-                    const leaderboard = await leagueService.getLeagueLeaderboard(league.id, user.id);
-                    return { leagueId: league.id, leaderboard };
-                });
-
-                const leaderboardResults = await Promise.all(leaderboardPromises);
-                const leaderboardsMap: Record<number, LeagueLeaderboard> = {};
-
-                leaderboardResults.forEach(({ leagueId, leaderboard }) => {
-                    if (leaderboard) {
-                        leaderboardsMap[leagueId] = leaderboard;
-                    }
-                });
-
-                setLeaderboards(leaderboardsMap);
-            } catch (error) {
-                console.error("Error loading league data:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadLeagueData();
-    }, [user, telegramUser, isOpen]);
+        if (isOpen && user && telegramUser && !leagues.leagueData && !leagues.isLoading) {
+            console.log("Loading league data for leagues modal...");
+            leagues.fetchLeagueData();
+        }
+    }, [isOpen, user, telegramUser, leagues.leagueData, leagues.isLoading, leagues.fetchLeagueData]);
 
     // Helper functions
     const getLeagueIcon = (leagueName: string) => {
@@ -181,18 +127,18 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
 
     // Progress Tab Component
     const ProgressTab = () => {
-        if (!progressInfo) return null;
+        if (!leagues.progressInfo) return null;
 
-        const colors = getLeagueColorClasses(progressInfo.currentLeague.name);
-        const Icon = getLeagueIcon(progressInfo.currentLeague.name);
-        const isMaxLeague = !progressInfo.nextLeague;
+        const colors = getLeagueColorClasses(leagues.progressInfo.currentLeague.name);
+        const Icon = getLeagueIcon(leagues.progressInfo.currentLeague.name);
+        const isMaxLeague = !leagues.progressInfo.nextLeague;
 
-        // Calculate level progress
-        const currentLevel = progressInfo.currentLevel;
-        const gamesInCurrentLevel = progressInfo.totalGames % leagueService.GAMES_PER_LEVEL;
-        const gamesToNextLevel = leagueService.GAMES_PER_LEVEL - gamesInCurrentLevel;
-        const levelProgressPercent = (gamesInCurrentLevel / leagueService.GAMES_PER_LEVEL) * 100;
-        const isMaxLevel = currentLevel >= leagueService.MAX_LEVEL;
+        // Calculate level progress using client-side utilities
+        const currentLevel = leagues.progressInfo.currentLevel;
+        const gamesInCurrentLevel = leagues.progressInfo.totalGames % leagues.leagueUtils.GAMES_PER_LEVEL;
+        const gamesToNextLevel = leagues.leagueUtils.GAMES_PER_LEVEL - gamesInCurrentLevel;
+        const levelProgressPercent = (gamesInCurrentLevel / leagues.leagueUtils.GAMES_PER_LEVEL) * 100;
+        const isMaxLevel = currentLevel >= leagues.leagueUtils.MAX_LEVEL;
 
         return (
             <div className="space-y-6 p-4">
@@ -206,17 +152,17 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                 </div>
                                 <div>
                                     <h3 className={`text-lg font-bold ${colors.text}`}>
-                                        {t(`leagues.names.${progressInfo.currentLeague.name}` as any)}
+                                        {t(`leagues.names.${leagues.progressInfo.currentLeague.name}` as any)}
                                     </h3>
                                     <p className={`text-sm ${colors.accent}`}>
-                                        {t("profile.levelDisplay", { level: progressInfo.currentLevel })}
+                                        {t("profile.levelDisplay", { level: leagues.progressInfo.currentLevel })}
                                     </p>
                                 </div>
                             </div>
 
                             <div className="text-right">
                                 <div className={`text-2xl font-bold ${colors.text}`}>
-                                    {progressInfo.totalGames}
+                                    {leagues.progressInfo.totalGames}
                                 </div>
                                 <div className={`text-xs ${colors.accent}`}>
                                     {t("leagues.progressDisplay.gamesPlayed")}
@@ -252,28 +198,28 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                         )}
 
                         {/* League Progress */}
-                        {!isMaxLeague && progressInfo.nextLeague && (
+                        {!isMaxLeague && leagues.progressInfo.nextLeague && (
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <span className="text-white/70 text-sm">
                                         {t("leagues.progressDisplay.gamesToNext")}
                                     </span>
                                     <span className="text-white font-bold">
-                                        {progressInfo.gamesToNextLeague}
+                                        {leagues.progressInfo.gamesToNextLeague}
                                     </span>
                                 </div>
 
                                 <div className="w-full bg-white/20 rounded-full h-2">
                                     <div
                                         className={`h-2 rounded-full transition-all duration-500 ${colors.progressBg}`}
-                                        style={{ width: `${progressInfo.progressPercent}%` }}
+                                        style={{ width: `${leagues.progressInfo.progressPercent}%` }}
                                     />
                                 </div>
 
                                 <div className="flex items-center justify-center space-x-2 pt-2">
                                     <span className="text-white/60 text-sm">{t("profile.levelProgress.nextLeague")}:</span>
-                                    <span className={`font-bold ${getLeagueColorClasses(progressInfo.nextLeague.name).text}`}>
-                                        {t(`leagues.names.${progressInfo.nextLeague.name}` as any)}
+                                    <span className={`font-bold ${getLeagueColorClasses(leagues.progressInfo.nextLeague.name).text}`}>
+                                        {t(`leagues.names.${leagues.progressInfo.nextLeague.name}` as any)}
                                     </span>
                                     <ChevronRight className="text-white/60" size={16} />
                                 </div>
@@ -300,10 +246,10 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
         return (
             <div className="space-y-6 p-4">
                 {/* User's Rewards */}
-                {userRewards.length > 0 && (
+                {leagues.userRewards.length > 0 && (
                     <div className="space-y-3">
                         <h4 className="text-lg font-bold text-white">{t("leagues.rewardsSection.yourRewards")}</h4>
-                        {userRewards.map((reward) => (
+                        {leagues.userRewards.map((reward) => (
                             <Card key={reward.id} className="bg-green-500/10 border border-green-400/30">
                                 <CardBody className="p-3">
                                     <div className="flex items-center justify-between">
@@ -339,13 +285,13 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     <h4 className="text-lg font-bold text-white">{t("leagues.rewardsSection.availableRewards")}</h4>
 
                     <Accordion variant="splitted" className="px-0">
-                        {allLeagues
+                        {leagues.leagues
                             .filter(league => league.name !== 'bronze')
                             .map((league) => {
                                 const colors = getLeagueColorClasses(league.name);
                                 const Icon = getLeagueIcon(league.name);
-                                const leaderboard = leaderboards[league.id];
-                                const rewards = allLeagueRewards[league.id] || [];
+                                const leaderboard = leagues.leaderboards[league.id];
+                                const rewards = leagues.allLeagueRewards[league.id] || [];
 
                                 return (
                                     <AccordionItem
@@ -426,7 +372,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
     const LeaderboardTab = () => {
         return (
             <div className="space-y-6 p-4">
-                {Object.values(leaderboards).map((leaderboard) => {
+                {Object.values(leagues.leaderboards).map((leaderboard) => {
                     const colors = getLeagueColorClasses(leaderboard.league.name);
                     const Icon = getLeagueIcon(leaderboard.league.name);
 
@@ -464,7 +410,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                                 <div className="space-y-2">
                                     <h5 className="text-sm font-bold text-white/80">{t("leagues.leaderboardSection.topPlayers")}</h5>
                                     {leaderboard.topPlayers.length > 0 ? (
-                                        leaderboard.topPlayers.map((player, index) => (
+                                        leaderboard.topPlayers.map((player) => (
                                             <div
                                                 key={player.user_id}
                                                 className={`flex items-center justify-between p-2 rounded ${player.user_id === user?.id ? 'bg-white/10' : 'bg-white/5'}`}
@@ -533,7 +479,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                 </ModalHeader>
 
                 <ModalBody>
-                    {isLoading ? (
+                    {leagues.isLoading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="text-center space-y-4">
                                 <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />

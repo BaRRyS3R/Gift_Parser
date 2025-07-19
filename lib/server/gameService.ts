@@ -1,7 +1,7 @@
-// src/lib/server/gameService.ts - Centralized game results processing service
+// src/lib/server/gameService.ts - Updated to use server league service
 
 import { supabaseServer } from '@/lib/supabase_server';
-import leagueService, { type LeagueRewardResult, type League } from '@/lib/league_service';
+import { serverLeagueService, type LeagueRewardResult, type League } from '@/lib/server/leagueServerService';
 import { GameMode } from '@/types/game-modes/common';
 import type { ReactionGameResult } from '@/types/game-modes/reaction';
 import type { SurvivalGameResult } from '@/types/game-modes/survival';
@@ -56,7 +56,7 @@ export const serverGameService = {
         const newTotalGames = isCompetitiveMode ? previousTotalGames + 1 : previousTotalGames;
 
         const previousLevel = user.current_level;
-        const newLevel = leagueService.calculateLevel(newTotalGames);
+        const newLevel = serverLeagueService.calculateLevel(newTotalGames);
 
         const updates: any = {
             total_games: newTotalGames, // Only incremented for competitive modes
@@ -129,7 +129,7 @@ export const serverGameService = {
         // League checking only for competitive modes
         try {
             if (isCompetitiveMode) {
-                const leagueResult = await leagueService.checkAndUpdateLeague(user.id, newTotalGames);
+                const leagueResult = await serverLeagueService.checkAndUpdateLeague(user.id, newTotalGames);
 
                 return {
                     success: true,

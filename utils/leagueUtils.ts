@@ -1,6 +1,6 @@
-// src/utils/leagueUtils.ts - Utility functions for league system
+// src/utils/leagueUtils.ts - Updated utility functions for league system (client-side only)
 
-import type { League } from "@/lib/league_service";
+import type { League } from "@/hooks/modules/useLeagues";
 
 /**
  * Get league icon component based on league name
@@ -94,12 +94,15 @@ export const getLeagueHexColor = (leagueName: string): string => {
 };
 
 /**
+ * Client-side level calculations
+ */
+export const GAMES_PER_LEVEL = 100;
+export const MAX_LEVEL = 100;
+
+/**
  * Calculate level from games count
  */
 export const calculateLevel = (gamesCount: number): number => {
-    const GAMES_PER_LEVEL = 100;
-    const MAX_LEVEL = 100;
-
     const level = Math.floor(gamesCount / GAMES_PER_LEVEL) + 1;
     return Math.min(level, MAX_LEVEL);
 };
@@ -108,9 +111,6 @@ export const calculateLevel = (gamesCount: number): number => {
  * Get games needed for next level
  */
 export const getGamesToNextLevel = (currentGames: number): number => {
-    const GAMES_PER_LEVEL = 100;
-    const MAX_LEVEL = 100;
-
     const currentLevel = calculateLevel(currentGames);
 
     if (currentLevel >= MAX_LEVEL) {
@@ -125,9 +125,6 @@ export const getGamesToNextLevel = (currentGames: number): number => {
  * Get progress percentage to next level
  */
 export const getLevelProgress = (currentGames: number): number => {
-    const GAMES_PER_LEVEL = 100;
-    const MAX_LEVEL = 100;
-
     const currentLevel = calculateLevel(currentGames);
 
     if (currentLevel >= MAX_LEVEL) {
@@ -139,7 +136,15 @@ export const getLevelProgress = (currentGames: number): number => {
 };
 
 /**
- * Determine league by games count
+ * Check if user is at max level
+ */
+export const isMaxLevel = (currentGames: number): boolean => {
+    return calculateLevel(currentGames) >= MAX_LEVEL;
+};
+
+/**
+ * Determine league by games count (client-side estimation only)
+ * Note: This is only an estimation. Use API for accurate league data.
  */
 export const getLeagueByGames = (gamesCount: number): string => {
     if (gamesCount >= 4000) return 'diamond';
@@ -150,7 +155,7 @@ export const getLeagueByGames = (gamesCount: number): string => {
 };
 
 /**
- * Get league requirements
+ * Get league requirements (client-side estimation only)
  */
 export const getLeagueRequirements = (leagueName: string): { min: number; max: number | null } => {
     switch (leagueName) {
@@ -164,7 +169,7 @@ export const getLeagueRequirements = (leagueName: string): { min: number; max: n
 };
 
 /**
- * Get games needed to reach specific league
+ * Get games needed to reach specific league (client-side estimation only)
  */
 export const getGamesToLeague = (currentGames: number, targetLeague: string): number => {
     const requirements = getLeagueRequirements(targetLeague);
@@ -172,7 +177,7 @@ export const getGamesToLeague = (currentGames: number, targetLeague: string): nu
 };
 
 /**
- * Check if user can get reward in league
+ * Check if user can get reward in league (client-side only)
  */
 export const canGetRewardInLeague = (leagueName: string): boolean => {
     return leagueName !== 'bronze'; // Bronze league has no rewards
