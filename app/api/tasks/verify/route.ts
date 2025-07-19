@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { serverTasksService } from '@/lib/server/tasksService';
 import { VerifyTaskRequest, VerifyTaskResponse } from '@/types/tasks';
+import { supabaseServer } from '@/lib/supabase_server';
 
 /**
  * POST /api/tasks/verify
@@ -13,6 +14,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyTas
         // Extract user info from middleware headers
         const userId = request.headers.get('X-User-ID');
         const telegramId = request.headers.get('X-Telegram-ID');
+
+        console.log('Verify task request - Headers:', { userId, telegramId });
 
         if (!userId || !telegramId) {
             return NextResponse.json(
@@ -41,6 +44,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyTas
         const body: VerifyTaskRequest = await request.json();
         const { taskId, verificationData } = body;
 
+        console.log('Verify task request - Body:', { taskId, verificationData });
+
         if (!taskId) {
             return NextResponse.json(
                 {
@@ -52,12 +57,45 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyTas
             );
         }
 
+        // Debug: Check if user task exists before verification
+        console.log(`Checking user task existence for userId: ${userId}, taskId: ${taskId}`);
+        
+        try {
+            // Additional debugging - check if the user and task exist
+            const { data: debugUserTask, error: debugError } = await supabaseServer
+                .from('user_tasks')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('task_id', taskId);
+
+            console.log('Debug user task lookup:', { 
+                found: debugUserTask?.length || 0,
+                tasks: debugUserTask,
+                error: debugError 
+            });
+
+            // Also check if task exists
+            const { data: debugTask, error: debugTaskError } = await supabaseServer
+                .from('tasks')
+                .select('*')
+                .eq('id', taskId);
+
+            console.log('Debug task lookup:', { 
+                found: debugTask?.length || 0,
+                task: debugTask?.[0],
+                error: debugTaskError 
+            });
+
+        } catch (debugErr) {
+            console.error('Debug lookup error:', debugErr);
+        }
+
         console.log(`Verifying task ${taskId} for user ${telegramId}`);
 
         // Verify the task
         const task = await serverTasksService.verifyTask(
-            userId,
-            taskId,
+            userId, 
+            taskId, 
             telegramIdNumber,
             verificationData
         );
@@ -73,8 +111,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<VerifyTas
     } catch (error) {
         console.error('Error verifying task:', error);
 
-        // Handle specific error types
+        // Handle specific error types with more detailed logging
         if (error instanceof Error) {
+            console.error('Detailed error info:', {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            });
+
             if (error.message.includes('not found')) {
                 return NextResponse.json(
                     {
