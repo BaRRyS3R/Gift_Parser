@@ -477,19 +477,6 @@ export default function IntroPage(): JSX.Element {
     }
   }, [initializeAuthentication]);
 
-  /**
-   * Format referrer display name
-   */
-  const getDisplayReferrerName = (): string => {
-    if (pageState.referralInfo?.referrerUsername) {
-      return `@${pageState.referralInfo.referrerUsername}`;
-    }
-    if (pageState.referralInfo?.referrerName) {
-      return pageState.referralInfo.referrerName;
-    }
-    return "john doe";
-  };
-
   // Determine loading state
   const isInitialLoading = pageState.isInitializing ||
     userLoading ||
@@ -600,17 +587,8 @@ export default function IntroPage(): JSX.Element {
                             {t("auth.referralBonus")}
                           </span>
                         </div>
-                        <p className="text-green-400 text-sm">
-                          {t("auth.youllGet")}{" "}
-                          <span className="font-bold">
-                            +{pageState.referralInfo.bonus}{" "}
-                            {pageState.referralInfo.bonus > 1
-                              ? t("auth.extraAttempts")
-                              : t("auth.extraAttempt")}
-                          </span>
-                        </p>
                         <p className="text-green-400/60 text-xs">
-                          {t("auth.referredBy")} {getDisplayReferrerName()}
+                          by John Doe
                         </p>
                       </div>
                     )}
