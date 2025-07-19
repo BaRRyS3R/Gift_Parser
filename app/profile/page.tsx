@@ -89,15 +89,9 @@ export default function ProfilePage() {
   };
 
   const handleOpenLeagues = () => {
-    // Ensure we have fresh league data when opening the modal
-    if (profile.profileData?.user && !leagues.isLoading) {
-      console.log("Opening leagues modal, ensuring fresh data...");
-      leagues.fetchLeagueData().then(() => {
-        setIsLeaguesModalOpen(true);
-      });
-    } else {
-      setIsLeaguesModalOpen(true);
-    }
+    // Simply open the modal - league data is already loaded on page entry
+    // or will be loaded by LeaguesModal component if needed
+    setIsLeaguesModalOpen(true);
   };
 
   // Show loading while user data is being authenticated or profile data is loading

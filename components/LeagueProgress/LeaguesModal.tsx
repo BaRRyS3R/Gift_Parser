@@ -1,8 +1,8 @@
-// src/components/LeagueProgress/LeaguesModal.tsx - Updated to use leagues API
+// src/components/LeagueProgress/LeaguesModal.tsx - Оптимизированная версия без избыточной загрузки
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Modal,
     ModalContent,
@@ -45,13 +45,24 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
 
     const [selectedTab, setSelectedTab] = useState("progress");
 
-    // Load league data when modal opens
+    // Track if league data has been loaded for this modal session
+    const modalLeagueDataLoadedRef = useRef<boolean>(false);
+
+    // Load league data when modal opens ONLY if no data exists
     useEffect(() => {
-        if (isOpen && user && telegramUser && !leagues.leagueData && !leagues.isLoading) {
-            console.log("Loading league data for leagues modal...");
+        if (isOpen && user && telegramUser && !leagues.leagueData && !leagues.isLoading && !modalLeagueDataLoadedRef.current) {
+            console.log("Loading league data for leagues modal (no existing data)...");
+            modalLeagueDataLoadedRef.current = true;
             leagues.fetchLeagueData();
         }
-    }, [isOpen, user, telegramUser, leagues.leagueData, leagues.isLoading, leagues.fetchLeagueData]);
+    }, [isOpen, user, telegramUser, leagues.leagueData, leagues.isLoading]);
+
+    // Reset modal data load flag when modal closes
+    useEffect(() => {
+        if (!isOpen) {
+            modalLeagueDataLoadedRef.current = false;
+        }
+    }, [isOpen]);
 
     // Helper functions
     const getLeagueIcon = (leagueName: string) => {
