@@ -1,4 +1,4 @@
-// src/hooks/modules/useAttempts.ts - Обновленный хук с экспортированным типом для централизованного управления
+// src/hooks/modules/useAttempts.ts - Исправленный хук без кеширования
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useUser } from '../useUser';
@@ -16,15 +16,11 @@ interface AttemptsState {
     status: AttemptsStatus | null;
     isLoading: boolean;
     error: string | null;
-    lastUpdate: number;
 }
-
-// Cache duration in milliseconds (30 seconds)
-const CACHE_DURATION = 30000;
 
 /**
  * Специализированный хук для управления попытками пользователя с серверной валидацией
- * Обеспечивает централизованное управление состоянием, кэширование и предотвращение дублирующих запросов
+ * Обеспечивает централизованное управление состоянием без кеширования для актуальных данных
  */
 export function useAttempts() {
     const { makeAuthenticatedRequest, authState } = useUser();
@@ -32,26 +28,16 @@ export function useAttempts() {
         status: null,
         isLoading: false,
         error: null,
-        lastUpdate: 0,
     });
 
     // Отслеживание текущих запросов для предотвращения дублирования
     const fetchingRef = useRef<boolean>(false);
 
     /**
-     * Получение статуса попыток с сервера с поддержкой кэширования
-     * @param forceRefresh - принудительное обновление данных, игнорируя кэш
+     * Получение актуального статуса попыток с сервера (без кеширования)
+     * @param forceRefresh - параметр сохранен для совместимости, но игнорируется
      */
     const fetchAttemptsStatus = useCallback(async (forceRefresh = false): Promise<AttemptsStatus | null> => {
-        // Проверка валидности кэша
-        const now = Date.now();
-        const isCacheValid = state.status && !forceRefresh && (now - state.lastUpdate) < CACHE_DURATION;
-
-        if (isCacheValid && !forceRefresh) {
-            console.log('Using cached attempts status');
-            return state.status;
-        }
-
         // Предотвращение дублирующих запросов
         if (fetchingRef.current) {
             console.log('Attempts fetch already in progress');
@@ -67,7 +53,7 @@ export function useAttempts() {
         setState(prev => ({ ...prev, isLoading: true, error: null }));
 
         try {
-            console.log('Fetching attempts status from server...');
+            console.log('Fetching fresh attempts status from server...');
 
             const response = await makeAuthenticatedRequest('/api/user/attempts/status');
 
@@ -93,7 +79,6 @@ export function useAttempts() {
                 status: attemptsStatus,
                 isLoading: false,
                 error: null,
-                lastUpdate: now,
             });
 
             console.log('Successfully fetched attempts status:', attemptsStatus);
@@ -113,7 +98,7 @@ export function useAttempts() {
         } finally {
             fetchingRef.current = false;
         }
-    }, [state.status, state.lastUpdate, authState.isAuthenticated, makeAuthenticatedRequest]);
+    }, [authState.isAuthenticated, makeAuthenticatedRequest]);
 
     /**
      * Потребление одной попытки с серверной валидацией
@@ -161,7 +146,6 @@ export function useAttempts() {
                 status: attemptsStatus,
                 isLoading: false,
                 error: null,
-                lastUpdate: Date.now(),
             });
 
             console.log('Successfully consumed attempt:', attemptsStatus);
@@ -184,28 +168,15 @@ export function useAttempts() {
     }, [authState.isAuthenticated, makeAuthenticatedRequest, state.status]);
 
     /**
-     * Получение кэшированного статуса попыток (если валиден)
+     * Сброс состояния данных
      */
-    const getCachedStatus = useCallback((): AttemptsStatus | null => {
-        const now = Date.now();
-        const isCacheValid = state.status && (now - state.lastUpdate) < CACHE_DURATION;
-
-        if (isCacheValid) {
-            return state.status;
-        }
-
-        return null;
-    }, [state.status, state.lastUpdate]);
-
-    /**
-     * Инвалидация кэша и принудительное обновление
-     */
-    const invalidateCache = useCallback(() => {
-        console.log('Invalidating attempts cache');
-        setState(prev => ({
-            ...prev,
-            lastUpdate: 0, // Принудительная инвалидация кэша
-        }));
+    const resetState = useCallback(() => {
+        console.log('Resetting attempts state');
+        setState({
+            status: null,
+            isLoading: false,
+            error: null,
+        });
     }, []);
 
     /**
@@ -234,13 +205,11 @@ export function useAttempts() {
         // Действия
         fetchAttemptsStatus,
         consumeAttempt,
-        getCachedStatus,
-        invalidateCache,
+        resetState,
         clearError,
 
         // Вычисляемые значения для удобства
         canPlay: state.status?.canPlay ?? false,
         attemptsRemaining: state.status?.attemptsRemaining ?? 0,
-        hasValidCache: state.status && (Date.now() - state.lastUpdate) < CACHE_DURATION,
     };
 }

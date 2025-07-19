@@ -1,4 +1,4 @@
-// src/hooks/useUser.ts - Updated with profile module integration
+// src/hooks/useUser.ts - Исправленный без кеширования попыток
 
 "use client";
 
@@ -6,7 +6,7 @@ import React, { useState, useCallback, useContext, createContext, useEffect } fr
 import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
 import { useProfile } from "./modules/useProfile";
-import type { User, TelegramUser, AttemptsStatus } from "@/lib/supabase";
+import type { User, TelegramUser } from "@/lib/supabase";
 import type {
   AuthState,
   RegistrationResult,
@@ -40,21 +40,15 @@ interface UserContextType {
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 
-  // Attempts management (will be moved to separate module later)
-  getAttemptsStatus: () => Promise<AttemptsStatus>;
-  consumeAttemptForGame: () => Promise<AttemptsStatus>;
-  invalidateAttemptsCache: () => void;
-  getCachedAttemptsStatus: () => AttemptsStatus | null;
-
   // Achievement notifications
   currentAchievement: AchievementNotificationData | null;
   showAchievement: (achievement: AchievementNotificationData) => void;
   hideAchievement: () => void;
 
-  // Leaderboard module (replaces individual leaderboard methods)
+  // Leaderboard module
   leaderboard: ReturnType<typeof useLeaderboard>;
 
-  // Profile module (NEW - for referrals, achievements, and stats)
+  // Profile module
   profile: ReturnType<typeof useProfile>;
 
   // Utility methods
@@ -79,10 +73,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     clearError,
   } = useAuth();
 
-  // Use leaderboard module (centralized leaderboard management without caching)
+  // Use leaderboard module
   const leaderboardModule = useLeaderboard(makeAuthenticatedRequest);
 
-  // Use profile module (NEW - for referrals, achievements, and stats)
+  // Use profile module
   const profileModule = useProfile(makeAuthenticatedRequest);
 
   // Local state for user data and UI
@@ -92,17 +86,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   // Achievement notifications state
   const [currentAchievement, setCurrentAchievement] = useState<AchievementNotificationData | null>(null);
-
-  // Attempts cache (temporary - will be moved to separate module)
-  const [attemptsCache, setAttemptsCache] = useState<{
-    status: AttemptsStatus | null;
-    lastUpdate: number;
-    isValid: boolean;
-  }>({
-    status: null,
-    lastUpdate: 0,
-    isValid: false,
-  });
 
   // Auto-detect Telegram user on mount
   useEffect(() => {
@@ -170,7 +153,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, [authRegister, profileModule]);
+  }, [authRegister]);
 
   // Enhanced login function
   const login = useCallback(async (initData: string): Promise<LoginResult> => {
@@ -189,14 +172,13 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, [authLogin, profileModule]);
+  }, [authLogin]);
 
   // Enhanced logout function
   const logout = useCallback(() => {
     authLogout();
     setTelegramUserState(null);
     setError(null);
-    setAttemptsCache({ status: null, lastUpdate: 0, isValid: false });
 
     // Reset leaderboard and profile data on logout
     leaderboardModule.resetLeaderboard();
@@ -213,7 +195,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     try {
       setIsLoading(true);
-      // Profile data will be refreshed when user visits profile page
       console.log("User data refreshed");
     } catch (error) {
       console.error("Error refreshing user:", error);
@@ -226,7 +207,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   // Direct user update (for external updates)
   const updateUser = useCallback((userData: User) => {
     console.log("User data updated externally");
-    // Profile data will be refreshed when user visits profile page
   }, []);
 
   // Set Telegram user data
@@ -248,86 +228,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     setError(null);
     clearError();
   }, [clearError]);
-
-  // ========================================
-  // TEMPORARY METHODS (to be moved to modules)
-  // ========================================
-
-  // Temporary attempts methods (will be moved to attempts module)
-  const getAttemptsStatus = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!authState.isAuthenticated) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest('/api/user/attempts/status');
-
-      if (!response.ok) {
-        throw new Error('Failed to get attempts status');
-      }
-
-      const status = await response.json();
-
-      // Update cache
-      setAttemptsCache({
-        status,
-        lastUpdate: Date.now(),
-        isValid: true,
-      });
-
-      return status;
-    } catch (error) {
-      console.error("Error getting attempts status:", error);
-      throw error;
-    }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
-
-  const consumeAttemptForGame = useCallback(async (): Promise<AttemptsStatus> => {
-    if (!authState.isAuthenticated) {
-      throw new Error("User not authenticated");
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest('/api/user/attempts/consume', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to consume attempt');
-      }
-
-      const status = await response.json();
-
-      // Update cache
-      setAttemptsCache({
-        status,
-        lastUpdate: Date.now(),
-        isValid: true,
-      });
-
-      return status;
-    } catch (error) {
-      console.error("Error consuming attempt:", error);
-      throw error;
-    }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest]);
-
-  const invalidateAttemptsCache = useCallback(() => {
-    setAttemptsCache({ status: null, lastUpdate: 0, isValid: false });
-  }, []);
-
-  const getCachedAttemptsStatus = useCallback((): AttemptsStatus | null => {
-    const now = Date.now();
-    const CACHE_DURATION = 60000; // 1 minute
-
-    if (attemptsCache.isValid &&
-      attemptsCache.status &&
-      (now - attemptsCache.lastUpdate) < CACHE_DURATION) {
-      return attemptsCache.status;
-    }
-
-    return null;
-  }, [attemptsCache]);
 
   // Context value
   const contextValue: UserContextType = {
@@ -352,21 +252,15 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     updateUser,
     setTelegramUser,
 
-    // Attempts management (temporary)
-    getAttemptsStatus,
-    consumeAttemptForGame,
-    invalidateAttemptsCache,
-    getCachedAttemptsStatus,
-
     // Achievement notifications
     currentAchievement,
     showAchievement,
     hideAchievement,
 
-    // Leaderboard module (without caching - fresh data on each request)
+    // Leaderboard module
     leaderboard: leaderboardModule,
 
-    // Profile module (NEW - for referrals, achievements, and stats)
+    // Profile module
     profile: profileModule,
 
     // Utility methods

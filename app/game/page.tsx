@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Унифицированная страница игр с устранением дублирования запросов
+// src/app/game/page.tsx - Исправленная страница игр с корректным потреблением попыток
 
 "use client";
 
@@ -14,6 +14,7 @@ import {
   Gamepad2,
   RotateCw,
   Zap,
+  AlertTriangle,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -331,25 +332,53 @@ function GamePageContent() {
     canPlay,
     attemptsRemaining,
     fetchAttemptsStatus,
+    consumeAttempt,
     clearError
   } = useAttempts();
   const t = useT();
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
+  const [consumeError, setConsumeError] = useState<string | null>(null);
 
-  const handleModeStart = useCallback((mode: GameMode) => {
-    if (loadingModeId) return;
+  const handleModeStart = useCallback(async (mode: GameMode) => {
+    if (loadingModeId || !canPlay) {
+      console.log('Cannot start game:', { loadingModeId, canPlay });
+      return;
+    }
 
     setLoadingModeId(mode.id);
+    setConsumeError(null);
 
-    console.log(`Starting ${mode.id} game`);
+    try {
+      console.log(`Starting ${mode.id} game - consuming attempt first...`);
 
-    // Navigate to game after brief loading animation
-    setTimeout(() => {
-      router.push(mode.route);
-    }, 600);
-  }, [loadingModeId, router]);
+      // Потребляем попытку перед началом игры
+      const updatedStatus = await consumeAttempt();
+
+      if (!updatedStatus) {
+        throw new Error('Failed to consume attempt');
+      }
+
+      console.log(`Attempt consumed successfully. Remaining: ${updatedStatus.attemptsRemaining}`);
+
+      // Небольшая задержка для показа анимации загрузки
+      setTimeout(() => {
+        router.push(mode.route);
+      }, 600);
+
+    } catch (error) {
+      console.error('Error consuming attempt:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start game';
+      setConsumeError(errorMessage);
+      setLoadingModeId(null);
+
+      // Обновляем статус попыток после ошибки
+      setTimeout(() => {
+        fetchAttemptsStatus(true);
+      }, 1000);
+    }
+  }, [loadingModeId, canPlay, consumeAttempt, router, fetchAttemptsStatus]);
 
   const handleToggleExpand = useCallback((modeId: string) => {
     if (loadingModeId) return;
@@ -363,8 +392,16 @@ function GamePageContent() {
 
   const handleAttemptsRetry = useCallback(() => {
     clearError();
+    setConsumeError(null);
     fetchAttemptsStatus(true);
   }, [clearError, fetchAttemptsStatus]);
+
+  // Clear consume error when attempts change
+  useEffect(() => {
+    if (consumeError && attemptsStatus) {
+      setConsumeError(null);
+    }
+  }, [attemptsStatus, consumeError]);
 
   // Telegram WebApp back button
   useEffect(() => {
@@ -398,7 +435,28 @@ function GamePageContent() {
         </p>
       </div>
 
-      {/* Централизованное отображение попыток с расширенными возможностями */}
+      {/* Отображение ошибки потребления попыток */}
+      {consumeError && (
+        <div className="mb-6 p-4 bg-red-500/10 border border-red-400/30 rounded-xl animate-fade-in">
+          <div className="flex items-center space-x-2 mb-2">
+            <AlertTriangle className="text-red-400" size={16} />
+            <span className="text-red-400 text-sm font-bold">
+              {t("common.error")}
+            </span>
+          </div>
+          <p className="text-red-300 text-xs">
+            {consumeError}
+          </p>
+          <button
+            onClick={handleAttemptsRetry}
+            className="mt-2 text-xs text-red-300 hover:text-red-200 transition-colors underline"
+          >
+            {t("common.retry")}
+          </button>
+        </div>
+      )}
+
+      {/* Централизованное отображение попыток */}
       <div className="mb-8 animate-fade-in">
         <AttemptsDisplay
           attemptsStatus={attemptsStatus}
