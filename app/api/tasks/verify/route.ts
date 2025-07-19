@@ -1,14 +1,14 @@
-// src/app/api/tasks/claim/route.ts - Claim task reward API route
+// src/app/api/tasks/verify/route.ts - Verify task completion API route
 
 import { NextRequest, NextResponse } from 'next/server';
 import { serverTasksService } from '@/lib/server/tasksService';
-import { ClaimRewardRequest, ClaimRewardResponse } from '@/types/tasks';
+import { VerifyTaskRequest, VerifyTaskResponse } from '@/types/tasks';
 
 /**
- * POST /api/tasks/claim
- * Claim reward for completed task
+ * POST /api/tasks/verify
+ * Verify task completion for the authenticated user
  */
-export async function POST(request: NextRequest): Promise<NextResponse<ClaimRewardResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse<VerifyTaskResponse>> {
     try {
         // Extract user info from middleware headers
         const userId = request.headers.get('X-User-ID');
@@ -18,49 +18,60 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimRewa
             return NextResponse.json(
                 {
                     success: false,
-                    attemptsAdded: 0,
-                    newAttemptsTotal: 0,
+                    verified: false,
                     error: 'User authentication required'
                 },
                 { status: 401 }
             );
         }
 
+        const telegramIdNumber = parseInt(telegramId);
+        if (isNaN(telegramIdNumber)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    verified: false,
+                    error: 'Invalid telegram ID'
+                },
+                { status: 400 }
+            );
+        }
+
         // Parse request body
-        const body: ClaimRewardRequest = await request.json();
-        const { taskId } = body;
+        const body: VerifyTaskRequest = await request.json();
+        const { taskId, verificationData } = body;
 
         if (!taskId) {
             return NextResponse.json(
                 {
                     success: false,
-                    attemptsAdded: 0,
-                    newAttemptsTotal: 0,
+                    verified: false,
                     error: 'Task ID is required'
                 },
                 { status: 400 }
             );
         }
 
-        console.log(`Claiming reward for task ${taskId} by user ${telegramId}`);
+        console.log(`Verifying task ${taskId} for user ${telegramId}`);
 
-        // Claim the reward
-        const result = await serverTasksService.claimTaskReward(userId, taskId);
+        // Verify the task
+        const task = await serverTasksService.verifyTask(
+            userId,
+            taskId,
+            telegramIdNumber,
+            verificationData
+        );
 
-        console.log(`Reward claimed successfully for task ${taskId} by user ${telegramId}:`, {
-            attemptsAdded: result.attemptsAdded,
-            newAttemptsTotal: result.newAttemptsTotal,
-        });
+        console.log(`Task ${taskId} verified successfully for user ${telegramId}`);
 
         return NextResponse.json({
             success: true,
-            attemptsAdded: result.attemptsAdded,
-            newAttemptsTotal: result.newAttemptsTotal,
-            task: result.taskWithStatus,
+            verified: true,
+            task,
         });
 
     } catch (error) {
-        console.error('Error claiming task reward:', error);
+        console.error('Error verifying task:', error);
 
         // Handle specific error types
         if (error instanceof Error) {
@@ -68,47 +79,43 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimRewa
                 return NextResponse.json(
                     {
                         success: false,
-                        attemptsAdded: 0,
-                        newAttemptsTotal: 0,
-                        error: 'Task not found'
+                        verified: false,
+                        error: 'Task not found or not started'
                     },
                     { status: 404 }
                 );
             }
 
-            if (error.message.includes('not completed')) {
+            if (error.message.includes('not in started state')) {
                 return NextResponse.json(
                     {
                         success: false,
-                        attemptsAdded: 0,
-                        newAttemptsTotal: 0,
-                        error: 'Task must be completed before claiming reward'
+                        verified: false,
+                        error: 'Task not in correct state for verification'
                     },
                     { status: 400 }
                 );
             }
 
-            if (error.message.includes('already rewarded') || error.message.includes('already claimed')) {
+            if (error.message.includes('verification failed') || error.message.includes('not subscribed')) {
                 return NextResponse.json(
                     {
-                        success: false,
-                        attemptsAdded: 0,
-                        newAttemptsTotal: 0,
-                        error: 'Reward already claimed for this task'
+                        success: true,
+                        verified: false,
+                        error: 'Verification failed - please complete the task and try again'
                     },
-                    { status: 400 }
+                    { status: 200 }
                 );
             }
 
-            if (error.message.includes('User not found')) {
+            if (error.message.includes('Telegram')) {
                 return NextResponse.json(
                     {
                         success: false,
-                        attemptsAdded: 0,
-                        newAttemptsTotal: 0,
-                        error: 'User not found'
+                        verified: false,
+                        error: 'Telegram verification error - please try again'
                     },
-                    { status: 404 }
+                    { status: 400 }
                 );
             }
         }
@@ -116,9 +123,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimRewa
         return NextResponse.json(
             {
                 success: false,
-                attemptsAdded: 0,
-                newAttemptsTotal: 0,
-                error: 'Failed to claim task reward'
+                verified: false,
+                error: 'Failed to verify task'
             },
             { status: 500 }
         );
@@ -126,7 +132,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ClaimRewa
 }
 
 /**
- * OPTIONS /api/tasks/claim
+ * OPTIONS /api/tasks/verify
  * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {

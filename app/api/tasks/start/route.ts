@@ -1,30 +1,20 @@
-// src/app/api/tasks/start/route.ts - Начало выполнения задания
+// src/app/api/tasks/start/route.ts - Start task API route
 
 import { NextRequest, NextResponse } from 'next/server';
-import { serverTasksService, type UserTaskCompletion } from '@/lib/server/tasksService';
-
-// Request body interface
-interface StartTaskRequest {
-    taskId: string;
-}
-
-// Response interface
-interface StartTaskResponse {
-    success: boolean;
-    data?: UserTaskCompletion;
-    error?: string;
-}
+import { serverTasksService } from '@/lib/server/tasksService';
+import { StartTaskRequest, StartTaskResponse } from '@/types/tasks';
 
 /**
  * POST /api/tasks/start
- * Start task execution for the authenticated user
+ * Start a task for the authenticated user
  */
 export async function POST(request: NextRequest): Promise<NextResponse<StartTaskResponse>> {
     try {
         // Extract user info from middleware headers
         const userId = request.headers.get('X-User-ID');
+        const telegramId = request.headers.get('X-Telegram-ID');
 
-        if (!userId) {
+        if (!userId || !telegramId) {
             return NextResponse.json(
                 {
                     success: false,
@@ -48,16 +38,16 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
             );
         }
 
-        console.log(`Starting task ${taskId} for user ${userId}`);
+        console.log(`Starting task ${taskId} for user ${telegramId}`);
 
-        // Start task execution
-        const taskCompletion = await serverTasksService.startTask(userId, taskId);
+        // Start the task
+        const task = await serverTasksService.startTask(userId, taskId);
 
-        console.log(`Task ${taskId} started successfully for user ${userId}`);
+        console.log(`Task ${taskId} started successfully for user ${telegramId}`);
 
         return NextResponse.json({
             success: true,
-            data: taskCompletion,
+            task,
         });
 
     } catch (error) {
@@ -69,17 +59,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartTask
                 return NextResponse.json(
                     {
                         success: false,
-                        error: 'Task not found'
+                        error: 'Task not found or inactive'
                     },
                     { status: 404 }
                 );
             }
 
-            if (error.message.includes('cannot be completed')) {
+            if (error.message.includes('already')) {
                 return NextResponse.json(
                     {
                         success: false,
-                        error: 'Task cannot be completed at this time'
+                        error: 'Task already started or completed'
                     },
                     { status: 400 }
                 );

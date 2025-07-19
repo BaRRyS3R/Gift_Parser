@@ -1,406 +1,492 @@
-// src/lib/server/tasksService.ts - Серверный сервис для работы с заданиями
+// src/lib/server/tasksService.ts - Server-side tasks management service
 
 import { supabaseServer } from '@/lib/supabase_server';
+import {
+    Task,
+    UserTask,
+    TaskWithStatus,
+    TaskType,
+    TaskStatus,
+    TelegramMembershipResponse,
+    TaskStats
+} from '@/types/tasks';
 
-export type TaskType =
-    | 'telegram_channel'
-    | 'telegram_chat'
-    | 'twitter_follow'
-    | 'twitter_repost'
-    | 'website_visit'
-    | 'story_share';
-
-export type TaskStatus = 'started' | 'completed' | 'claimed';
-
-export interface Task {
-    id: string;
-    name: string;
-    type: TaskType;
-    telegram_id?: number;
-    url: string;
-    reward_attempts: number;
-    icon: string;
-    color: string;
-    is_active: boolean;
-    cooldown_minutes?: number;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface UserTaskCompletion {
-    id: string;
-    user_id: string;
-    task_id: string;
-    started_at: string;
-    completed_at?: string;
-    claimed_at?: string;
-    status: TaskStatus;
-    created_at: string;
-    updated_at: string;
-    task?: Task;
-}
-
-export interface TaskWithCompletion extends Task {
-    user_completion?: UserTaskCompletion;
-    can_complete: boolean;
-    next_available_at?: string;
-}
-
-export interface TaskRewardResult {
-    completion: UserTaskCompletion;
-    reward: number;
-}
-
-export interface TaskStats {
-    total_completed: number;
-    total_attempts_earned: number;
-    tasks_completed_today: number;
-}
-
-// Константы для заданий
-export const TASK_COMPLETION_DELAY = 10000; // 10 секунд для проверки на доверии
-export const STORY_TASK_COOLDOWN = 120; // 2 часа в минутах
-
-/**
- * Серверный сервис для работы с заданиями
- */
+// Server-side tasks service
 export const serverTasksService = {
     /**
-     * Получение всех активных заданий
+     * Get all tasks with user completion status
      */
-    async getActiveTasks(): Promise<Task[]> {
+    async getUserTasksWithStatus(userId: string): Promise<TaskWithStatus[]> {
         try {
-            console.log('Fetching active tasks from database...');
-
-            const { data, error } = await supabaseServer
-                .from('tasks')
-                .select('*')
-                .eq('is_active', true)
-                .order('created_at', { ascending: true });
+            const { data, error } = await supabaseServer.rpc('get_user_tasks_with_status', {
+                user_id_param: userId
+            });
 
             if (error) {
-                console.error('Error fetching active tasks:', error);
-                throw new Error(`Failed to fetch active tasks: ${error.message}`);
+                console.error('Error fetching user tasks:', error);
+                throw error;
             }
 
-            console.log(`Fetched ${data?.length || 0} active tasks`);
             return data || [];
         } catch (error) {
-            console.error('Exception in getActiveTasks:', error);
-            throw error;
+            console.error('Error in getUserTasksWithStatus:', error);
+            throw new Error('Failed to fetch user tasks');
         }
     },
 
     /**
-     * Получение заданий с информацией о выполнении для пользователя
+     * Start a task for user
      */
-    async getTasksForUser(userId: string): Promise<TaskWithCompletion[]> {
+    async startTask(userId: string, taskId: string): Promise<TaskWithStatus> {
         try {
-            console.log('=== SERVER TASKS SERVICE: getTasksForUser START ===');
-            console.log('User ID:', userId);
-
-            if (!userId) {
-                throw new Error('User ID is required');
-            }
-
-            // Получаем активные задания
-            console.log('Fetching active tasks...');
-            const { data: tasks, error: tasksError } = await supabaseServer
+            // First, get the task details
+            const { data: task, error: taskError } = await supabaseServer
                 .from('tasks')
                 .select('*')
+                .eq('id', taskId)
                 .eq('is_active', true)
-                .order('created_at', { ascending: true });
+                .single();
 
-            if (tasksError) {
-                console.error('Error fetching tasks:', tasksError);
-                throw new Error(`Failed to fetch tasks: ${tasksError.message}`);
+            if (taskError || !task) {
+                throw new Error('Task not found or inactive');
             }
 
-            console.log('Active tasks found:', tasks?.length || 0);
-
-            if (!tasks || tasks.length === 0) {
-                console.log('No active tasks found, returning empty array');
-                return [];
-            }
-
-            // Получаем выполнения заданий только для текущего пользователя
-            console.log('Fetching user completions for user ID:', userId);
-            const { data: completions, error: completionsError } = await supabaseServer
-                .from('user_task_completions')
+            // Check if user already has this task
+            const { data: existingUserTask, error: existingError } = await supabaseServer
+                .from('user_tasks')
                 .select('*')
-                .eq('user_id', userId);
+                .eq('user_id', userId)
+                .eq('task_id', taskId)
+                .maybeSingle();
 
-            if (completionsError) {
-                console.error('Error fetching user completions:', completionsError);
-                throw new Error(`Failed to fetch user task completions: ${completionsError.message}`);
+            if (existingError) {
+                console.error('Error checking existing task:', existingError);
+                throw existingError;
             }
 
-            console.log('User completions found:', completions?.length || 0);
-
-            const completionsMap = new Map<string, UserTaskCompletion[]>();
-            (completions || []).forEach(completion => {
-                if (!completionsMap.has(completion.task_id)) {
-                    completionsMap.set(completion.task_id, []);
-                }
-                completionsMap.get(completion.task_id)!.push(completion);
-            });
-
-            const result = tasks.map(task => {
-                const userCompletions = completionsMap.get(task.id) || [];
-                const latestCompletion = userCompletions
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-
-                let canComplete = true;
-                let nextAvailableAt: string | undefined;
-
-                if (task.type === 'story_share') {
-                    if (task.cooldown_minutes && latestCompletion?.claimed_at) {
-                        const lastClaimedAt = new Date(latestCompletion.claimed_at);
-                        const cooldownMs = task.cooldown_minutes * 60 * 1000;
-                        const nextAvailable = new Date(lastClaimedAt.getTime() + cooldownMs);
-
-                        if (new Date() < nextAvailable) {
-                            canComplete = false;
-                            nextAvailableAt = nextAvailable.toISOString();
-                        }
-                    }
-                } else {
-                    // Для всех остальных заданий: только одно выполнение
-                    if (latestCompletion?.status === 'claimed') {
-                        canComplete = false;
-                    }
-                }
-
-                return {
-                    ...task,
-                    user_completion: latestCompletion,
-                    can_complete: canComplete,
-                    next_available_at: nextAvailableAt
+            // If task already exists and not in not_started state, return current state
+            if (existingUserTask && existingUserTask.status !== TaskStatus.NOT_STARTED) {
+                // Return current task with status
+                const taskWithStatus: TaskWithStatus = {
+                    task_id: task.id,
+                    title: task.title,
+                    description: task.description,
+                    task_type: task.task_type,
+                    url: task.url,
+                    telegram_id: task.telegram_id,
+                    attempts_reward: task.attempts_reward,
+                    image_url: task.image_url,
+                    user_status: existingUserTask.status,
+                    started_at: existingUserTask.started_at,
+                    completed_at: existingUserTask.completed_at,
+                    rewarded_at: existingUserTask.rewarded_at,
                 };
-            });
+                return taskWithStatus;
+            }
 
-            console.log('Final result count:', result.length);
-            console.log('=== SERVER TASKS SERVICE: getTasksForUser END ===');
+            const now = new Date().toISOString();
 
-            return result;
+            // Create or update user task
+            const { data: userTask, error: userTaskError } = existingUserTask
+                ? await supabaseServer
+                    .from('user_tasks')
+                    .update({
+                        status: TaskStatus.STARTED,
+                        started_at: now,
+                        updated_at: now,
+                    })
+                    .eq('id', existingUserTask.id)
+                    .select()
+                    .single()
+                : await supabaseServer
+                    .from('user_tasks')
+                    .insert({
+                        user_id: userId,
+                        task_id: taskId,
+                        status: TaskStatus.STARTED,
+                        started_at: now,
+                    })
+                    .select()
+                    .single();
+
+            if (userTaskError) {
+                console.error('Error creating/updating user task:', userTaskError);
+                throw userTaskError;
+            }
+
+            const taskWithStatus: TaskWithStatus = {
+                task_id: task.id,
+                title: task.title,
+                description: task.description,
+                task_type: task.task_type,
+                url: task.url,
+                telegram_id: task.telegram_id,
+                attempts_reward: task.attempts_reward,
+                image_url: task.image_url,
+                user_status: TaskStatus.STARTED,
+                started_at: userTask.started_at,
+                completed_at: userTask.completed_at,
+                rewarded_at: userTask.rewarded_at,
+            };
+
+            console.log(`Task started for user ${userId}:`, taskId);
+            return taskWithStatus;
+
         } catch (error) {
-            console.error('Exception in getTasksForUser:', error);
-            throw error;
-        }
-    },
-
-    /**
-     * Начало выполнения задания
-     */
-    async startTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
-        // Проверяем, можно ли начать задание
-        const tasksWithCompletion = await this.getTasksForUser(userId);
-        const task = tasksWithCompletion.find(t => t.id === taskId);
-
-        if (!task) {
-            throw new Error('Task not found');
-        }
-
-        if (!task.can_complete) {
-            throw new Error('Task cannot be completed at this time');
-        }
-
-        const { data, error } = await supabaseServer
-            .from('user_task_completions')
-            .insert({
-                user_id: userId,
-                task_id: taskId,
-                status: 'started'
-            })
-            .select()
-            .single();
-
-        if (error) {
             console.error('Error starting task:', error);
             throw new Error('Failed to start task');
         }
-
-        return data;
     },
 
     /**
-     * Проверка выполнения задания
-     * Примечание: проверка Telegram членства теперь выполняется в API роуте
+     * Verify Telegram channel/chat membership
      */
-    async checkTaskCompletion(userId: string, taskId: string): Promise<boolean> {
-        const { data: task, error: taskError } = await supabaseServer
-            .from('tasks')
-            .select('*')
-            .eq('id', taskId)
-            .single();
+    async verifyTelegramMembership(telegramUserId: number, chatId: number): Promise<TelegramMembershipResponse> {
+        try {
+            const botToken = process.env.TELEGRAM_BOT_API;
+            if (!botToken) {
+                throw new Error('Telegram Bot API token not configured');
+            }
 
-        if (taskError || !task) {
-            throw new Error('Task not found');
+            const response = await fetch(
+                `https://api.telegram.org/bot${botToken}/getChatMember?chat_id=${chatId}&user_id=${telegramUserId}`
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Telegram API error:', errorData);
+
+                // Handle specific Telegram API errors
+                if (errorData.error_code === 400) {
+                    return {
+                        success: false,
+                        isMember: false,
+                        error: 'User not found in chat',
+                    };
+                }
+
+                throw new Error(`Telegram API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (!data.ok) {
+                return {
+                    success: false,
+                    isMember: false,
+                    error: data.description || 'Telegram verification failed',
+                };
+            }
+
+            const memberStatus = data.result.status;
+            const isMember = ['creator', 'administrator', 'member'].includes(memberStatus);
+
+            return {
+                success: true,
+                isMember,
+                memberStatus,
+            };
+
+        } catch (error) {
+            console.error('Error verifying Telegram membership:', error);
+            return {
+                success: false,
+                isMember: false,
+                error: error instanceof Error ? error.message : 'Verification failed',
+            };
         }
-
-        // Эта функция теперь только проверяет существование задания
-        // Логика проверки выполнения перенесена в API роут /api/tasks/check
-        return true;
     },
 
     /**
-     * Завершение задания (отметка как выполненное)
+     * Verify task completion
      */
-    async completeTask(userId: string, taskId: string): Promise<UserTaskCompletion> {
-        // Находим последнее начатое выполнение задания
-        const { data: completion, error: findError } = await supabaseServer
-            .from('user_task_completions')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('task_id', taskId)
-            .eq('status', 'started')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+    async verifyTask(
+        userId: string,
+        taskId: string,
+        telegramUserId?: number,
+        verificationData?: Record<string, any>
+    ): Promise<TaskWithStatus> {
+        try {
+            // Get task and user task details
+            const { data: task, error: taskError } = await supabaseServer
+                .from('tasks')
+                .select('*')
+                .eq('id', taskId)
+                .eq('is_active', true)
+                .single();
 
-        if (findError || !completion) {
-            throw new Error('Task completion not found or not started');
+            if (taskError || !task) {
+                throw new Error('Task not found or inactive');
+            }
+
+            const { data: userTask, error: userTaskError } = await supabaseServer
+                .from('user_tasks')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('task_id', taskId)
+                .single();
+
+            if (userTaskError || !userTask) {
+                throw new Error('User task not found');
+            }
+
+            if (userTask.status !== TaskStatus.STARTED) {
+                throw new Error('Task not in started state');
+            }
+
+            let isVerified = false;
+            let finalVerificationData = verificationData || {};
+
+            // Perform verification based on task type
+            if (task.task_type === TaskType.TELEGRAM_CHANNEL || task.task_type === TaskType.TELEGRAM_CHAT) {
+                if (!telegramUserId || !task.telegram_id) {
+                    throw new Error('Telegram verification data missing');
+                }
+
+                const membershipResult = await this.verifyTelegramMembership(telegramUserId, task.telegram_id);
+
+                if (!membershipResult.success) {
+                    throw new Error(membershipResult.error || 'Telegram verification failed');
+                }
+
+                isVerified = membershipResult.isMember;
+                finalVerificationData = {
+                    chatId: task.telegram_id,
+                    userId: telegramUserId,
+                    memberStatus: membershipResult.memberStatus,
+                    verifiedAt: new Date().toISOString(),
+                };
+
+            } else {
+                // For website, Twitter tasks - trust-based verification
+                isVerified = true;
+                finalVerificationData = {
+                    verifiedAt: new Date().toISOString(),
+                    ...verificationData,
+                };
+            }
+
+            if (!isVerified) {
+                throw new Error('Task verification failed');
+            }
+
+            // Update user task to completed
+            const now = new Date().toISOString();
+            const { data: updatedUserTask, error: updateError } = await supabaseServer
+                .from('user_tasks')
+                .update({
+                    status: TaskStatus.COMPLETED,
+                    completed_at: now,
+                    verification_data: finalVerificationData,
+                    updated_at: now,
+                })
+                .eq('id', userTask.id)
+                .select()
+                .single();
+
+            if (updateError) {
+                console.error('Error updating task status:', updateError);
+                throw updateError;
+            }
+
+            const taskWithStatus: TaskWithStatus = {
+                task_id: task.id,
+                title: task.title,
+                description: task.description,
+                task_type: task.task_type,
+                url: task.url,
+                telegram_id: task.telegram_id,
+                attempts_reward: task.attempts_reward,
+                image_url: task.image_url,
+                user_status: TaskStatus.COMPLETED,
+                started_at: updatedUserTask.started_at,
+                completed_at: updatedUserTask.completed_at,
+                rewarded_at: updatedUserTask.rewarded_at,
+            };
+
+            console.log(`Task verified for user ${userId}:`, taskId);
+            return taskWithStatus;
+
+        } catch (error) {
+            console.error('Error verifying task:', error);
+            throw error;
         }
-
-        const { data, error } = await supabaseServer
-            .from('user_task_completions')
-            .update({
-                completed_at: new Date().toISOString(),
-                status: 'completed'
-            })
-            .eq('id', completion.id)
-            .select()
-            .single();
-
-        if (error) {
-            console.error('Error completing task:', error);
-            throw new Error('Failed to complete task');
-        }
-
-        return data;
     },
 
     /**
-     * Получение награды за задание
+     * Claim task reward
      */
-    async claimTaskReward(userId: string, taskId: string): Promise<TaskRewardResult> {
-        // Находим завершенное задание
-        const { data: completion, error: findError } = await supabaseServer
-            .from('user_task_completions')
-            .select('*, task:tasks(*)')
-            .eq('user_id', userId)
-            .eq('task_id', taskId)
-            .eq('status', 'completed')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+    async claimTaskReward(userId: string, taskId: string): Promise<{
+        taskWithStatus: TaskWithStatus;
+        attemptsAdded: number;
+        newAttemptsTotal: number;
+    }> {
+        try {
+            // Get task and user task details
+            const { data: task, error: taskError } = await supabaseServer
+                .from('tasks')
+                .select('*')
+                .eq('id', taskId)
+                .eq('is_active', true)
+                .single();
 
-        if (findError || !completion) {
-            throw new Error('Completed task not found');
+            if (taskError || !task) {
+                throw new Error('Task not found or inactive');
+            }
+
+            const { data: userTask, error: userTaskError } = await supabaseServer
+                .from('user_tasks')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('task_id', taskId)
+                .single();
+
+            if (userTaskError || !userTask) {
+                throw new Error('User task not found');
+            }
+
+            if (userTask.status !== TaskStatus.COMPLETED) {
+                throw new Error('Task not completed yet');
+            }
+
+            // Get current user data
+            const { data: user, error: userError } = await supabaseServer
+                .from('users')
+                .select('attempts_remaining')
+                .eq('id', userId)
+                .single();
+
+            if (userError || !user) {
+                throw new Error('User not found');
+            }
+
+            const now = new Date().toISOString();
+            const attemptsToAdd = task.attempts_reward;
+            const newAttemptsTotal = user.attempts_remaining + attemptsToAdd;
+
+            // Start transaction
+            const { error: transactionError } = await supabaseServer.rpc('claim_task_reward_transaction', {
+                p_user_id: userId,
+                p_task_id: taskId,
+                p_attempts_to_add: attemptsToAdd,
+                p_completed_at: now,
+            });
+
+            if (transactionError) {
+                console.error('Error in reward claim transaction:', transactionError);
+                throw transactionError;
+            }
+
+            // Alternative approach using individual updates if RPC doesn't exist
+            try {
+                // Update user attempts
+                const { error: userUpdateError } = await supabaseServer
+                    .from('users')
+                    .update({
+                        attempts_remaining: newAttemptsTotal,
+                        updated_at: now,
+                    })
+                    .eq('id', userId);
+
+                if (userUpdateError) throw userUpdateError;
+
+                // Update user task
+                const { error: taskUpdateError } = await supabaseServer
+                    .from('user_tasks')
+                    .update({
+                        status: TaskStatus.REWARDED,
+                        rewarded_at: now,
+                        updated_at: now,
+                    })
+                    .eq('id', userTask.id);
+
+                if (taskUpdateError) throw taskUpdateError;
+
+            } catch (updateError) {
+                console.error('Error updating reward claim:', updateError);
+                throw updateError;
+            }
+
+            const taskWithStatus: TaskWithStatus = {
+                task_id: task.id,
+                title: task.title,
+                description: task.description,
+                task_type: task.task_type,
+                url: task.url,
+                telegram_id: task.telegram_id,
+                attempts_reward: task.attempts_reward,
+                image_url: task.image_url,
+                user_status: TaskStatus.REWARDED,
+                started_at: userTask.started_at,
+                completed_at: userTask.completed_at,
+                rewarded_at: now,
+            };
+
+            console.log(`Task reward claimed for user ${userId}:`, {
+                taskId,
+                attemptsAdded: attemptsToAdd,
+                newAttemptsTotal,
+            });
+
+            return {
+                taskWithStatus,
+                attemptsAdded: attemptsToAdd,
+                newAttemptsTotal,
+            };
+
+        } catch (error) {
+            console.error('Error claiming task reward:', error);
+            throw error;
         }
-
-        const task = completion.task as unknown as Task;
-
-        // Обновляем статус на "claimed" и добавляем время получения награды
-        const { data: updatedCompletion, error: updateError } = await supabaseServer
-            .from('user_task_completions')
-            .update({
-                claimed_at: new Date().toISOString(),
-                status: 'claimed'
-            })
-            .eq('id', completion.id)
-            .select()
-            .single();
-
-        if (updateError) {
-            console.error('Error claiming task reward:', updateError);
-            throw new Error('Failed to claim task reward');
-        }
-
-        // Начисляем попытки пользователю
-        const { data: user, error: userError } = await supabaseServer
-            .from('users')
-            .select('attempts_remaining')
-            .eq('id', userId)
-            .single();
-
-        if (userError || !user) {
-            throw new Error('User not found');
-        }
-
-        const { error: updateUserError } = await supabaseServer
-            .from('users')
-            .update({
-                attempts_remaining: user.attempts_remaining + task.reward_attempts,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-
-        if (updateUserError) {
-            console.error('Error updating user attempts:', updateUserError);
-            throw new Error('Failed to update user attempts');
-        }
-
-        return {
-            completion: updatedCompletion,
-            reward: task.reward_attempts
-        };
     },
 
     /**
-     * Получение выполненных заданий пользователя
-     */
-    async getUserCompletedTasks(userId: string): Promise<UserTaskCompletion[]> {
-        const { data, error } = await supabaseServer
-            .from('user_task_completions')
-            .select('*, task:tasks(*)')
-            .eq('user_id', userId)
-            .eq('status', 'claimed')
-            .order('claimed_at', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching completed tasks:', error);
-            throw new Error('Failed to fetch completed tasks');
-        }
-
-        return data || [];
-    },
-
-    /**
-     * Получение статистики заданий пользователя
+     * Get user task statistics
      */
     async getUserTaskStats(userId: string): Promise<TaskStats> {
-        const { data: completions, error } = await supabaseServer
-            .from('user_task_completions')
-            .select('*, task:tasks(reward_attempts)')
-            .eq('user_id', userId)
-            .eq('status', 'claimed');
+        try {
+            const tasks = await this.getUserTasksWithStatus(userId);
 
-        if (error) {
-            console.error('Error fetching user task stats:', error);
-            throw new Error('Failed to fetch user task stats');
+            const totalTasks = tasks.length;
+            const completedTasks = tasks.filter(task =>
+                task.user_status === TaskStatus.COMPLETED || task.user_status === TaskStatus.REWARDED
+            ).length;
+            const pendingTasks = tasks.filter(task =>
+                task.user_status === TaskStatus.STARTED
+            ).length;
+            const totalRewardsEarned = tasks
+                .filter(task => task.user_status === TaskStatus.REWARDED)
+                .reduce((total, task) => total + task.attempts_reward, 0);
+            const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+            return {
+                totalTasks,
+                completedTasks,
+                pendingTasks,
+                totalRewardsEarned,
+                completionRate,
+            };
+
+        } catch (error) {
+            console.error('Error getting user task stats:', error);
+            throw new Error('Failed to get task statistics');
         }
+    },
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const stats = {
-            total_completed: completions?.length || 0,
-            total_attempts_earned: 0,
-            tasks_completed_today: 0
-        };
-
-        if (completions) {
-            for (const completion of completions) {
-                const task = completion.task as unknown as Task;
-                stats.total_attempts_earned += task.reward_attempts;
-
-                if (completion.claimed_at && new Date(completion.claimed_at) >= today) {
-                    stats.tasks_completed_today++;
-                }
+    /**
+     * Get server time for consistent validation
+     */
+    async getServerTime(): Promise<Date> {
+        try {
+            const { data, error } = await supabaseServer.rpc('get_current_timestamp');
+            if (error) {
+                console.warn('Failed to get server time, using current time:', error);
+                return new Date();
             }
+            return new Date(data);
+        } catch (error) {
+            console.warn('Error getting server time, falling back to current time:', error);
+            return new Date();
         }
-
-        return stats;
-    }
+    },
 };

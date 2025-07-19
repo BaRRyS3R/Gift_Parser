@@ -1,126 +1,64 @@
-// src/app/api/tasks/route.ts - Получение всех задач пользователя
+// src/app/api/tasks/route.ts - Main tasks API route
 
 import { NextRequest, NextResponse } from 'next/server';
-import { serverTasksService, type TaskWithCompletion } from '@/lib/server/tasksService';
-
-// Response interface
-interface TasksResponse {
-    success: boolean;
-    data?: TaskWithCompletion[];
-    error?: string;
-}
+import { serverTasksService } from '@/lib/server/tasksService';
+import { GetTasksResponse, TaskWithStatus, TaskStatus } from '@/types/tasks';
 
 /**
  * GET /api/tasks
- * Retrieves all tasks with completion status for the authenticated user
+ * Get all tasks with user completion status
  */
-export async function GET(request: NextRequest): Promise<NextResponse<TasksResponse>> {
+export async function GET(request: NextRequest): Promise<NextResponse<GetTasksResponse>> {
     try {
         // Extract user info from middleware headers
         const userId = request.headers.get('X-User-ID');
         const telegramId = request.headers.get('X-Telegram-ID');
 
-        console.log('Tasks API called with headers:', {
-            userId,
-            telegramId,
-            hasUserId: !!userId,
-            hasTelegramId: !!telegramId
-        });
-
-        if (!userId) {
-            console.error('Missing X-User-ID header in tasks API');
+        if (!userId || !telegramId) {
             return NextResponse.json(
                 {
                     success: false,
+                    tasks: [],
                     error: 'User authentication required'
                 },
                 { status: 401 }
             );
         }
 
-        console.log(`Fetching tasks for user: ${userId}`);
+        console.log(`Fetching tasks for user ${telegramId}`);
 
-        try {
-            // Get tasks with completion status for user
-            const tasks = await serverTasksService.getTasksForUser(userId);
+        // Get tasks with user status
+        const tasks = await serverTasksService.getUserTasksWithStatus(userId);
 
-            console.log(`Successfully fetched ${tasks.length} tasks for user ${userId}`);
+        // Categorize tasks for easier UI handling
+        const categorized = {
+            notStarted: tasks.filter(task => task.user_status === TaskStatus.NOT_STARTED),
+            started: tasks.filter(task => task.user_status === TaskStatus.STARTED),
+            completed: tasks.filter(task => task.user_status === TaskStatus.COMPLETED),
+            rewarded: tasks.filter(task => task.user_status === TaskStatus.REWARDED),
+        };
 
-            return NextResponse.json({
-                success: true,
-                data: tasks,
-            });
+        console.log(`Successfully fetched ${tasks.length} tasks for user ${telegramId}:`, {
+            notStarted: categorized.notStarted.length,
+            started: categorized.started.length,
+            completed: categorized.completed.length,
+            rewarded: categorized.rewarded.length,
+        });
 
-        } catch (serviceError) {
-            console.error('Error in serverTasksService.getTasksForUser:', serviceError);
-
-            // More specific error handling based on service errors
-            const errorMessage = serviceError instanceof Error ? serviceError.message : 'Unknown service error';
-
-            if (errorMessage.includes('not found')) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'User not found'
-                    },
-                    { status: 404 }
-                );
-            }
-
-            if (errorMessage.includes('tasks')) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'Failed to fetch tasks from database'
-                    },
-                    { status: 500 }
-                );
-            }
-
-            if (errorMessage.includes('completions')) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'Failed to fetch task completions'
-                    },
-                    { status: 500 }
-                );
-            }
-
-            // Generic service error
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: `Service error: ${errorMessage}`
-                },
-                { status: 500 }
-            );
-        }
+        return NextResponse.json({
+            success: true,
+            tasks,
+            categorized,
+        });
 
     } catch (error) {
-        console.error('Unexpected error in tasks API:', error);
-
-        // Handle different types of errors
-        if (error instanceof Error) {
-            console.error('Error details:', {
-                name: error.name,
-                message: error.message,
-                stack: error.stack
-            });
-
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: `Server error: ${error.message}`
-                },
-                { status: 500 }
-            );
-        }
+        console.error('Error fetching tasks:', error);
 
         return NextResponse.json(
             {
                 success: false,
-                error: 'Unknown server error occurred'
+                tasks: [],
+                error: 'Failed to fetch tasks'
             },
             { status: 500 }
         );

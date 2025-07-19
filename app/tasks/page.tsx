@@ -1,96 +1,81 @@
-// src/app/tasks/page.tsx - Обновленная страница задач с использованием новых API роутов
+// src/app/tasks/page.tsx - Tasks page with complete functionality
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, Button, Chip, Divider } from "@nextui-org/react";
+import { Card, CardBody, Button, Chip, Tabs, Tab } from "@nextui-org/react";
+import ConfettiExplosion from "react-confetti-explosion";
 import {
-    Check,
-    Play,
     AlertCircle,
-    CheckCircle2,
+    Star,
+    CheckCircle,
+    Clock,
+    Play,
+    Eye,
+    Gift,
+    ExternalLink,
+    Users,
     Globe,
-    Camera
+    MessageCircle,
+    Twitter,
+    Repeat
 } from "lucide-react";
-import {
-    SiTelegram,
-    SiX
-} from "react-icons/si";
 
-import { useT } from "@/contexts/LocalizationContext";
 import { useUser } from "@/hooks/useUser";
 import { useTasks } from "@/hooks/modules/useTasks";
-import type { TaskWithCompletion, TaskType } from '@/lib/server/tasksService';
+import {
+    TaskWithStatus,
+    TaskType,
+    TaskStatus,
+    TASK_TYPE_CONFIG,
+    canStartTask,
+    canVerifyTask,
+    canClaimReward,
+    isTaskRewarded
+} from "@/types/tasks";
+import { useT } from "@/contexts/LocalizationContext";
 
-interface TaskProcessingState {
-    countdown?: number;
-    error?: string;
+interface SuccessNotification {
+    show: boolean;
+    title: string;
+    message: string;
+    icon: React.ReactNode;
 }
-
-interface TaskProcessing {
-    [taskId: string]: TaskProcessingState;
-}
-
-const getTaskIcon = (taskType: TaskType) => {
-    switch (taskType) {
-        case 'telegram_channel':
-        case 'telegram_chat':
-            return SiTelegram;
-        case 'twitter_follow':
-        case 'twitter_repost':
-            return SiX;
-        case 'website_visit':
-            return Globe;
-        case 'story_share':
-            return Camera;
-        default:
-            return Globe;
-    }
-};
 
 export default function TasksPage() {
     const router = useRouter();
-    const { user, refreshUser, telegramUser, makeAuthenticatedRequest } = useUser();
+    const { user, refreshUser, makeAuthenticatedRequest } = useUser();
     const t = useT();
 
     // Use new tasks hook
     const tasksModule = useTasks(makeAuthenticatedRequest);
 
-    const [localProcessing, setLocalProcessing] = useState<TaskProcessing>({});
+    const [isExploding, setIsExploding] = useState(false);
+    const [selectedTab, setSelectedTab] = useState("active");
+    const [successNotification, setSuccessNotification] = useState<SuccessNotification>({
+        show: false,
+        title: "",
+        message: "",
+        icon: null
+    });
 
-    // Load tasks on component mount
+    // Fetch tasks on mount
     useEffect(() => {
-        if (user) {
+        if (user && !tasksModule.isLoading && tasksModule.tasks.length === 0) {
             tasksModule.fetchTasks();
         }
-    }, [user, tasksModule.fetchTasks]);
+    }, [user]);
 
-    // Countdown timer for task processing
+    // Clear errors after 4 seconds
     useEffect(() => {
-        const interval = setInterval(() => {
-            setLocalProcessing(prev => {
-                const updated = { ...prev };
-                let hasActiveCountdowns = false;
-
-                Object.keys(updated).forEach(taskId => {
-                    if (updated[taskId].countdown && updated[taskId].countdown! > 0) {
-                        updated[taskId].countdown! -= 1000;
-                        hasActiveCountdowns = true;
-
-                        if (updated[taskId].countdown! <= 0) {
-                            delete updated[taskId].countdown;
-                            handleCheckTask(taskId);
-                        }
-                    }
-                });
-
-                return hasActiveCountdowns ? updated : prev;
-            });
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, []);
+        if (tasksModule.error) {
+            const timer = setTimeout(() => {
+                tasksModule.clearError();
+            }, 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [tasksModule.error, tasksModule.clearError]);
 
     // Setup Telegram WebApp back button
     useEffect(() => {
@@ -108,206 +93,206 @@ export default function TasksPage() {
         }
     }, [router]);
 
-    const handleStartTask = async (task: TaskWithCompletion) => {
-        if (!user || !telegramUser) return;
+    const showSuccessNotification = (type: 'started' | 'verified' | 'claimed', task: TaskWithStatus, attemptsAdded?: number) => {
+        let icon: React.ReactNode;
+        let title: string;
+        let message: string;
 
-        try {
-            const result = await tasksModule.startTask(task.id);
-            if (!result) return;
-
-            if (task.type === 'story_share') {
-                handleStoryTask(task);
-            } else {
-                openTaskLink(task);
-            }
-
-            if (task.type === 'telegram_channel' || task.type === 'telegram_chat') {
-                setTimeout(() => handleCheckTask(task.id), 3000);
-            } else if (task.type !== 'story_share') {
-                setLocalProcessing(prev => ({
-                    ...prev,
-                    [task.id]: { countdown: 10000 }
-                }));
-            }
-
-            // Refresh tasks list
-            await tasksModule.fetchTasks();
-        } catch (err) {
-            console.error('Error starting task:', err);
-        }
-    };
-
-    const handleStoryTask = (task: TaskWithCompletion) => {
-        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-            const tg = window.Telegram.WebApp;
-
-            if (tg.shareToStory) {
-                const storyUrl = `${window.location.origin}${task.url}`;
-                tg.shareToStory(storyUrl, {
-                    text: "Попробуйте эту игру на реакцию!",
-                    widget_link: {
-                        url: `https://t.me/marketaggregator_bot?startapp=${user?.referral_code || ''}`,
-                        name: "Играть"
-                    }
+        switch (type) {
+            case 'started':
+                icon = <Play className="text-blue-400" size={32} />;
+                title = t('tasks.success.taskStarted');
+                message = t('tasks.success.taskStartedMessage', { title: task.title });
+                break;
+            case 'verified':
+                icon = <CheckCircle className="text-green-400" size={32} />;
+                title = t('tasks.success.taskCompleted');
+                message = t('tasks.success.taskCompletedMessage', { title: task.title });
+                break;
+            case 'claimed':
+                icon = <Gift className="text-yellow-400" size={32} />;
+                title = t('tasks.success.rewardClaimed');
+                message = t('tasks.success.rewardClaimedMessage', {
+                    count: attemptsAdded || 0,
+                    title: task.title
                 });
-
-                setTimeout(() => handleCheckTask(task.id), 1000);
-            } else {
-                setLocalProcessing(prev => ({
-                    ...prev,
-                    [task.id]: { error: t('tasks.storyTask.notSupported') }
-                }));
-            }
+                break;
         }
+
+        setSuccessNotification({
+            show: true,
+            title,
+            message,
+            icon
+        });
+
+        if (type === 'claimed') {
+            setIsExploding(true);
+            setTimeout(() => {
+                setIsExploding(false);
+            }, 2000);
+        }
+
+        setTimeout(() => {
+            setSuccessNotification(prev => ({ ...prev, show: false }));
+        }, 3000);
     };
 
-    const openTaskLink = (task: TaskWithCompletion) => {
-        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-            const tg = window.Telegram.WebApp;
-
-            if (task.type === 'twitter_follow' || task.type === 'twitter_repost' || task.type === 'website_visit') {
-                tg.openLink(task.url);
-            } else {
-                tg.openTelegramLink(task.url);
-            }
-        } else {
-            window.open(task.url, '_blank');
-        }
-    };
-
-    const handleCheckTask = async (taskId: string) => {
-        if (!user || !telegramUser) return;
-
+    const handleTaskAction = async (task: TaskWithStatus, action: 'start' | 'verify' | 'claim' | 'visit') => {
         try {
-            const isCompleted = await tasksModule.checkTask(taskId);
+            switch (action) {
+                case 'start':
+                    const startedTask = await tasksModule.startTask(task.task_id);
+                    if (startedTask) {
+                        showSuccessNotification('started', startedTask);
+                    }
+                    break;
 
-            if (isCompleted) {
-                const result = await tasksModule.completeTask(taskId);
-                if (result) {
-                    await tasksModule.fetchTasks();
-                }
+                case 'visit':
+                    await tasksModule.openTaskUrl(task);
+                    break;
+
+                case 'verify':
+                    const verified = await tasksModule.verifyTask(task.task_id);
+                    if (verified) {
+                        showSuccessNotification('verified', task);
+                    }
+                    break;
+
+                case 'claim':
+                    const claimResult = await tasksModule.claimReward(task.task_id);
+                    if (claimResult.success) {
+                        // Refresh user data to get updated attempts
+                        await refreshUser();
+                        showSuccessNotification('claimed', task, claimResult.attemptsAdded);
+                    }
+                    break;
             }
-        } catch (err) {
-            console.error('Error checking task:', err);
+        } catch (error) {
+            console.error('Error in task action:', error);
         }
     };
 
-    const handleClaimReward = async (task: TaskWithCompletion) => {
-        if (!user || !telegramUser) return;
+    const getTaskIcon = (taskType: TaskType) => {
+        switch (taskType) {
+            case TaskType.TELEGRAM_CHANNEL:
+                return <MessageCircle size={20} />;
+            case TaskType.TELEGRAM_CHAT:
+                return <Users size={20} />;
+            case TaskType.WEBSITE_VISIT:
+                return <Globe size={20} />;
+            case TaskType.TWITTER_FOLLOW:
+                return <Twitter size={20} />;
+            case TaskType.TWITTER_REPOST:
+                return <Repeat size={20} />;
+            default:
+                return <Star size={20} />;
+        }
+    };
 
-        try {
-            const result = await tasksModule.claimTaskReward(task.id);
-            if (!result) return;
+    const getTaskButton = (task: TaskWithStatus) => {
+        const isLoading = tasksModule.isTaskLoading(task.task_id, 'start') ||
+            tasksModule.isTaskLoading(task.task_id, 'verify') ||
+            tasksModule.isTaskLoading(task.task_id, 'claim');
 
-            if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-                window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        if (canStartTask(task)) {
+            return {
+                text: t('tasks.start'),
+                action: 'start' as const,
+                variant: 'default' as const,
+                icon: <Play size={16} />,
+                disabled: isLoading,
+                loading: tasksModule.isTaskLoading(task.task_id, 'start'),
+            };
+        }
+
+        if (task.user_status === TaskStatus.STARTED) {
+            const config = TASK_TYPE_CONFIG[task.task_type as TaskType];
+            const requiresVerification = config?.requiresVerification;
+
+            if (requiresVerification) {
+                return {
+                    text: t('tasks.checking'),
+                    action: 'verify' as const,
+                    variant: 'secondary' as const,
+                    icon: <Eye size={16} />,
+                    disabled: isLoading,
+                    loading: tasksModule.isTaskLoading(task.task_id, 'verify'),
+                };
+            } else {
+                return {
+                    text: t('tasks.visit'),
+                    action: 'visit' as const,
+                    variant: 'default' as const,
+                    icon: <ExternalLink size={16} />,
+                    disabled: isLoading,
+                    loading: false,
+                };
             }
-
-            await refreshUser();
-            await tasksModule.fetchTasks();
-        } catch (err) {
-            console.error('Error claiming reward:', err);
         }
+
+        if (canClaimReward(task)) {
+            return {
+                text: t('tasks.claim'),
+                action: 'claim' as const,
+                variant: 'success' as const,
+                icon: <Gift size={16} />,
+                disabled: isLoading,
+                loading: tasksModule.isTaskLoading(task.task_id, 'claim'),
+            };
+        }
+
+        if (isTaskRewarded(task)) {
+            return {
+                text: t('tasks.completed'),
+                action: null,
+                variant: 'success' as const,
+                icon: <CheckCircle size={16} />,
+                disabled: true,
+                loading: false,
+            };
+        }
+
+        return {
+            text: t('tasks.start'),
+            action: 'start' as const,
+            variant: 'default' as const,
+            icon: <Play size={16} />,
+            disabled: true,
+            loading: false,
+        };
     };
 
-    const getButtonState = (task: TaskWithCompletion) => {
-        const apiProcessing = tasksModule.processing[task.id];
-        const localProc = localProcessing[task.id];
-
-        if (apiProcessing?.isStarting) {
-            return { text: t('tasks.start'), disabled: true, loading: true, color: 'primary' as const };
+    const getTaskBadge = (task: TaskWithStatus) => {
+        if (isTaskRewarded(task)) {
+            return { text: t('tasks.completed'), color: 'success' };
         }
-
-        if (apiProcessing?.isChecking) {
-            return { text: t('tasks.checking'), disabled: true, loading: true, color: 'primary' as const };
+        if (canClaimReward(task)) {
+            return { text: t('tasks.readyToClaim'), color: 'warning' };
         }
-
-        if (apiProcessing?.isClaiming) {
-            return { text: t('tasks.claim'), disabled: true, loading: true, color: 'success' as const };
+        if (task.user_status === TaskStatus.STARTED) {
+            return { text: t('tasks.inProgress'), color: 'primary' };
         }
-
-        if (localProc?.countdown) {
-            const seconds = Math.ceil(localProc.countdown / 1000);
-            return { text: t('tasks.waitSeconds', { seconds }), disabled: true, loading: false, color: 'default' as const };
-        }
-
-        if (apiProcessing?.error || localProc?.error) {
-            return { text: t('tasks.start'), disabled: false, loading: false, color: 'danger' as const };
-        }
-
-        if (!task.can_complete) {
-            if (task.next_available_at) {
-                const nextAvailable = new Date(task.next_available_at);
-                const now = new Date();
-                const diffMs = nextAvailable.getTime() - now.getTime();
-                const diffMinutes = Math.ceil(diffMs / 60000);
-                return { text: t('tasks.waitMinutes', { minutes: diffMinutes }), disabled: true, loading: false, color: 'default' as const };
-            }
-            return { text: t('tasks.completed'), disabled: true, loading: false, color: 'default' as const };
-        }
-
-        if (!task.user_completion) {
-            return { text: t('tasks.start'), disabled: false, loading: false, color: 'primary' as const };
-        }
-
-        if (task.user_completion.status === 'started') {
-            return { text: t('tasks.checking'), disabled: false, loading: false, color: 'primary' as const };
-        }
-
-        if (task.user_completion.status === 'completed') {
-            return { text: t('tasks.claim'), disabled: false, loading: false, color: 'success' as const };
-        }
-
-        return { text: t('tasks.start'), disabled: false, loading: false, color: 'primary' as const };
+        return null;
     };
 
-    const handleTaskClick = async (task: TaskWithCompletion) => {
-        const apiProcessing = tasksModule.processing[task.id];
-        const localProc = localProcessing[task.id];
-
-        if (apiProcessing?.error || localProc?.error) {
-            tasksModule.clearTaskError(task.id);
-            setLocalProcessing(prev => ({
-                ...prev,
-                [task.id]: {}
-            }));
-            return;
-        }
-
-        if (!task.user_completion) {
-            await handleStartTask(task);
-        } else if (task.user_completion.status === 'started') {
-            await handleCheckTask(task.id);
-        } else if (task.user_completion.status === 'completed') {
-            await handleClaimReward(task);
-        }
-    };
-
-    // Organize tasks by type
-    const tasks = tasksModule.tasks || [];
-    const storyTasks = tasks.filter(task => task.type === 'story_share');
-    const activeTasks = tasks.filter(task =>
-        task.type !== 'story_share' &&
-        (task.can_complete || (task.user_completion && task.user_completion.status !== 'claimed'))
-    );
-    const completedTasks = tasks.filter(task =>
-        task.type !== 'story_share' &&
-        task.user_completion?.status === 'claimed'
-    );
-
-    if (tasksModule.isLoading && !tasks.length) {
-        return (
-            <div className="min-h-screen bg-black text-white flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white/60">{t("tasks.loading")}</p>
-                </div>
-            </div>
-        );
-    }
+    const activeTasks = [...tasksModule.notStartedTasks, ...tasksModule.startedTasks, ...tasksModule.completedTasks];
+    const completedTasks = tasksModule.rewardedTasks;
 
     return (
         <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
+            {isExploding && (
+                <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+                    <ConfettiExplosion
+                        force={0.8}
+                        duration={2000}
+                        particleCount={100}
+                        width={400}
+                        colors={['#FFD700', '#FF69B4', '#00BFFF', '#7B68EE', '#FF4500']}
+                    />
+                </div>
+            )}
+
             {/* Header */}
             <div className="text-center space-y-4 mb-8 pt-6">
                 <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
@@ -318,6 +303,7 @@ export default function TasksPage() {
                 </p>
             </div>
 
+            {/* Error message */}
             {tasksModule.error && (
                 <div className="max-w-2xl mx-auto mb-6">
                     <Card className="bg-white/10 border border-white/20">
@@ -331,83 +317,133 @@ export default function TasksPage() {
                 </div>
             )}
 
-            <div className="max-w-2xl mx-auto space-y-8">
-                {/* Story Task Section */}
-                {storyTasks.length > 0 && (
-                    <div>
-                        <h2 className="text-lg font-bold mb-4 text-white">
-                            {t('tasks.sections.story')}
-                        </h2>
-                        {storyTasks.map(task => (
-                            <TaskCard
-                                key={task.id}
-                                task={task}
-                                processing={tasksModule.processing[task.id]}
-                                localProcessing={localProcessing[task.id]}
-                                onTaskClick={handleTaskClick}
-                                getButtonState={getButtonState}
-                                t={t}
-                                isSpecial={true}
-                            />
-                        ))}
-                    </div>
-                )}
+            {/* Loading state */}
+            {tasksModule.isLoading && tasksModule.tasks.length === 0 && (
+                <div className="max-w-2xl mx-auto text-center py-8">
+                    <p className="text-white/60">{t('tasks.loading')}</p>
+                </div>
+            )}
 
-                {/* Active Tasks Section */}
-                {activeTasks.length > 0 && (
-                    <div>
-                        <h2 className="text-lg font-bold mb-4">
-                            {t('tasks.sections.active')}
-                        </h2>
-                        <div className="space-y-4">
-                            {activeTasks.map(task => (
-                                <TaskCard
-                                    key={task.id}
-                                    task={task}
-                                    processing={tasksModule.processing[task.id]}
-                                    localProcessing={localProcessing[task.id]}
-                                    onTaskClick={handleTaskClick}
-                                    getButtonState={getButtonState}
-                                    t={t}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
+            {/* Tasks content */}
+            {!tasksModule.isLoading && tasksModule.tasks.length > 0 && (
+                <div className="max-w-2xl mx-auto">
+                    <Tabs
+                        selectedKey={selectedTab}
+                        onSelectionChange={(key) => setSelectedTab(key as string)}
+                        className="mb-6"
+                        classNames={{
+                            tabList: "bg-white/10 backdrop-blur-md",
+                            tab: "text-white/60 data-[selected=true]:text-white",
+                            cursor: "bg-white/20",
+                            panel: "px-0"
+                        }}
+                    >
+                        <Tab
+                            key="active"
+                            title={
+                                <div className="flex items-center space-x-2">
+                                    <span>{t('tasks.sections.active')}</span>
+                                    <Chip size="sm" variant="flat" className="bg-white/20 text-white">
+                                        {activeTasks.length}
+                                    </Chip>
+                                </div>
+                            }
+                        >
+                            <div className="space-y-4">
+                                {activeTasks.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-white/60">{t('tasks.empty.noActiveTasks')}</p>
+                                    </div>
+                                ) : (
+                                    activeTasks.map((task) => (
+                                        <TaskCard
+                                            key={task.task_id}
+                                            task={task}
+                                            onAction={handleTaskAction}
+                                            getTaskIcon={getTaskIcon}
+                                            getTaskButton={getTaskButton}
+                                            getTaskBadge={getTaskBadge}
+                                            t={t}
+                                        />
+                                    ))
+                                )}
+                            </div>
+                        </Tab>
 
-                {/* Completed Tasks Section */}
-                {completedTasks.length > 0 && (
-                    <div>
-                        <Divider className="bg-white/10 mb-4" />
-                        <h2 className="text-lg font-bold mb-4 text-white">
-                            {t('tasks.sections.completed')}
-                        </h2>
-                        <div className="space-y-4">
-                            {completedTasks.map(task => (
-                                <TaskCard
-                                    key={task.id}
-                                    task={task}
-                                    processing={tasksModule.processing[task.id]}
-                                    localProcessing={localProcessing[task.id]}
-                                    onTaskClick={handleTaskClick}
-                                    getButtonState={getButtonState}
-                                    t={t}
-                                    isCompleted={true}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
+                        <Tab
+                            key="completed"
+                            title={
+                                <div className="flex items-center space-x-2">
+                                    <span>{t('tasks.sections.completed')}</span>
+                                    <Chip size="sm" variant="flat" className="bg-white/20 text-white">
+                                        {completedTasks.length}
+                                    </Chip>
+                                </div>
+                            }
+                        >
+                            <div className="space-y-4">
+                                {completedTasks.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-white/60">{t('tasks.empty.noCompletedTasks')}</p>
+                                        <p className="text-white/40 text-sm mt-2">{t('tasks.empty.startCompleting')}</p>
+                                    </div>
+                                ) : (
+                                    completedTasks.map((task) => (
+                                        <TaskCard
+                                            key={task.task_id}
+                                            task={task}
+                                            onAction={handleTaskAction}
+                                            getTaskIcon={getTaskIcon}
+                                            getTaskButton={getTaskButton}
+                                            getTaskBadge={getTaskBadge}
+                                            t={t}
+                                        />
+                                    ))
+                                )}
+                            </div>
+                        </Tab>
+                    </Tabs>
+                </div>
+            )}
 
-                {/* Empty State */}
-                {activeTasks.length === 0 && completedTasks.length === 0 && storyTasks.length === 0 && !tasksModule.isLoading && (
-                    <div className="text-center py-12">
-                        <div className="text-6xl mb-4">📋</div>
-                        <h3 className="text-lg font-bold mb-2">{t('tasks.empty.noActiveTasks')}</h3>
-                        <p className="text-white/60 text-sm">{t('tasks.empty.startCompleting')}</p>
-                    </div>
-                )}
-            </div>
+            {/* Empty state */}
+            {!tasksModule.isLoading && tasksModule.tasks.length === 0 && (
+                <div className="max-w-2xl mx-auto text-center py-12">
+                    <div className="text-6xl mb-4">📋</div>
+                    <h3 className="text-xl font-bold mb-2">{t('tasks.empty.noActiveTasks')}</h3>
+                    <p className="text-white/60 mb-6">{t('tasks.empty.startCompleting')}</p>
+                    <Button
+                        variant="bordered"
+                        className="border-white/30 text-white"
+                        onPress={() => tasksModule.fetchTasks()}
+                    >
+                        {t('tasks.refresh')}
+                    </Button>
+                </div>
+            )}
+
+            {/* Success Notification */}
+            {successNotification.show && (
+                <div className={`
+                        fixed top-4 left-4 right-4 z-50
+                        transform transition-all duration-500 ease-out
+                        ${successNotification.show ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}
+                    `}>
+                    <Card className="bg-gradient-to-r from-white/15 to-white/10 border border-white/30 backdrop-blur-md shadow-2xl">
+                        <CardBody className="p-4">
+                            <div className="flex items-center space-x-4">
+                                <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                                    {successNotification.icon}
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-green-400 text-lg">{successNotification.title}</h4>
+                                    <p className="text-green-300 text-sm mt-1">{successNotification.message}</p>
+                                </div>
+                            </div>
+                        </CardBody>
+                    </Card>
+                </div>
+            )}
 
             {/* Bottom spacing for safe area */}
             <div className="h-24" />
@@ -416,120 +452,116 @@ export default function TasksPage() {
 }
 
 interface TaskCardProps {
-    task: TaskWithCompletion;
-    processing?: any;
-    localProcessing?: TaskProcessingState;
-    onTaskClick: (task: TaskWithCompletion) => void;
-    getButtonState: (task: TaskWithCompletion) => any;
+    task: TaskWithStatus;
+    onAction: (task: TaskWithStatus, action: 'start' | 'verify' | 'claim' | 'visit') => void;
+    getTaskIcon: (taskType: TaskType) => React.ReactNode;
+    getTaskButton: (task: TaskWithStatus) => any;
+    getTaskBadge: (task: TaskWithStatus) => any;
     t: any;
-    isSpecial?: boolean;
-    isCompleted?: boolean;
 }
 
 function TaskCard({
     task,
-    processing,
-    localProcessing,
-    onTaskClick,
-    getButtonState,
-    t,
-    isSpecial = false,
-    isCompleted = false
+    onAction,
+    getTaskIcon,
+    getTaskButton,
+    getTaskBadge,
+    t
 }: TaskCardProps) {
-    const buttonState = getButtonState(task);
-    const TaskIcon = getTaskIcon(task.type);
+    const button = getTaskButton(task);
+    const badge = getTaskBadge(task);
+    const taskIcon = getTaskIcon(task.task_type as TaskType);
 
     return (
         <Card
             className={`
                 relative overflow-hidden
-                ${isSpecial
-                    ? 'bg-gradient-to-r from-white/20 to-white/15 border-2 border-white/40'
-                    : 'bg-gradient-to-r from-white/10 to-white/5 border border-white/20'
-                } 
                 hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
                 transition-all duration-200
-                ${isCompleted ? 'opacity-75' : ''}
+                ${task.image_url ? '' : 'bg-gradient-to-r from-white/5 to-white/10'}
             `}
+            style={task.image_url ? {
+                backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+            } : undefined}
         >
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-                    <TaskIcon size={120} className="text-white" />
+            {!task.image_url && (
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute -right-12 top-1/2 transform -translate-y-1/2 opacity-10">
+                        <div className="text-white text-[120px] leading-none">
+                            {TASK_TYPE_CONFIG[task.task_type as TaskType]?.icon || '⭐'}
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
 
             <CardBody className="p-4 relative z-10">
                 <div className="flex items-center justify-between">
                     <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-3">
-                            <div className="flex-shrink-0">
-                                <TaskIcon size={24} className="text-white" />
-                            </div>
+                        <div className="flex items-start space-x-3 mb-3">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2 mb-1">
-                                    <h3 className="font-bold text-white truncate">
-                                        {task.name}
-                                    </h3>
-                                    <Chip
-                                        size="sm"
-                                        variant="flat"
-                                        className="bg-white/20 text-white border border-white/30"
-                                    >
-                                        {t(`tasks.types.${task.type}`)}
-                                    </Chip>
+                                    <div className="flex items-center space-x-2">
+                                        {taskIcon}
+                                        <h3 className="font-bold text-white truncate">
+                                            {task.title}
+                                        </h3>
+                                    </div>
+                                    {badge && (
+                                        <Chip
+                                            size="sm"
+                                            variant="flat"
+                                            className={`
+                                                ${badge.color === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : ''}
+                                                ${badge.color === 'warning' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : ''}
+                                                ${badge.color === 'primary' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : ''}
+                                            `}
+                                        >
+                                            {badge.text}
+                                        </Chip>
+                                    )}
                                 </div>
-                                <p className="text-white/70 text-sm">
-                                    {t(`tasks.descriptions.${task.type}`)}
+                                <p className="text-white/70 text-sm mb-2">
+                                    {task.description}
                                 </p>
                             </div>
                         </div>
 
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                                <span className="text-white font-bold">
-                                    ⚡ +{task.reward_attempts}
+                                <Star className="text-yellow-400" size={16} />
+                                <span className="text-yellow-400 font-bold">
+                                    +{task.attempts_reward} {t('tasks.reward')}
                                 </span>
-                                {isCompleted && (
-                                    <CheckCircle2 className="text-white ml-2" size={16} />
-                                )}
                             </div>
 
-                            {!isCompleted && (
-                                <Button
-                                    size="sm"
-                                    className={`
-                                        relative z-20
-                                        ${buttonState.color === 'success'
-                                            ? 'bg-white text-black hover:bg-white/90'
-                                            : buttonState.color === 'primary'
-                                                ? 'bg-white/20 text-white border border-white/40 hover:bg-white/30'
-                                                : buttonState.color === 'danger'
-                                                    ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20'
-                                                    : 'bg-white/10 text-white/60 border border-white/20'
-                                        }
-                                        ${buttonState.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
-                                    `}
-                                    isLoading={buttonState.loading}
-                                    isDisabled={buttonState.disabled}
-                                    startContent={
-                                        !buttonState.loading && buttonState.color === 'success' ? (
-                                            <Check size={16} />
-                                        ) : !buttonState.loading && buttonState.color !== 'danger' ? (
-                                            <Play size={16} />
-                                        ) : null
+                            <Button
+                                size="sm"
+                                className={`
+                                    relative z-20 
+                                    ${button.variant === 'success'
+                                        ? 'bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30'
+                                        : button.variant === 'secondary'
+                                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30'
+                                            : 'bg-white/20 text-white border border-white/40 hover:bg-white/30'
                                     }
-                                    onPress={() => onTaskClick(task)}
-                                >
-                                    {buttonState.text}
-                                </Button>
-                            )}
+                                    disabled:opacity-50 disabled:cursor-not-allowed
+                                `}
+                                isLoading={button.loading}
+                                isDisabled={button.disabled}
+                                startContent={
+                                    !button.loading ? button.icon : null
+                                }
+                                onPress={() => {
+                                    if (button.action) {
+                                        onAction(task, button.action);
+                                    }
+                                }}
+                            >
+                                {button.text}
+                            </Button>
                         </div>
-
-                        {(processing?.error || localProcessing?.error) && (
-                            <div className="mt-2 text-white/80 text-xs bg-white/10 rounded px-2 py-1 border border-white/20">
-                                {processing?.error || localProcessing?.error}
-                            </div>
-                        )}
                     </div>
                 </div>
             </CardBody>

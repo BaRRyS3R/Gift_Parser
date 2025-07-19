@@ -1,122 +1,255 @@
-// src/types/tasks.ts - Типы для системы заданий
+// src/types/tasks.ts - TypeScript types for tasks system
 
-export type TaskType =
-    | 'telegram_channel'
-    | 'telegram_chat'
-    | 'twitter_follow'
-    | 'twitter_repost'
-    | 'website_visit'
-    | 'story_share';
+// Task types enum
+export enum TaskType {
+    TELEGRAM_CHANNEL = 'telegram_channel',
+    TELEGRAM_CHAT = 'telegram_chat',
+    WEBSITE_VISIT = 'website_visit',
+    TWITTER_FOLLOW = 'twitter_follow',
+    TWITTER_REPOST = 'twitter_repost',
+}
 
-export type TaskStatus = 'started' | 'completed' | 'claimed';
+// Task status enum
+export enum TaskStatus {
+    NOT_STARTED = 'not_started',
+    STARTED = 'started',
+    COMPLETED = 'completed',
+    REWARDED = 'rewarded',
+}
 
+// Base task interface
 export interface Task {
     id: string;
-    name: string;
-    type: TaskType;
-    telegram_id?: number;
+    title: string;
+    description?: string;
+    task_type: TaskType;
     url: string;
-    reward_attempts: number;
-    color: string;
+    telegram_id?: number;
+    attempts_reward: number;
+    image_url?: string;
     is_active: boolean;
-    cooldown_minutes?: number;
     created_at: string;
     updated_at: string;
 }
 
-export interface UserTaskCompletion {
+// User task completion interface
+export interface UserTask {
     id: string;
     user_id: string;
     task_id: string;
-    started_at: string;
-    completed_at?: string;
-    claimed_at?: string;
     status: TaskStatus;
+    started_at?: string;
+    completed_at?: string;
+    rewarded_at?: string;
+    verification_data?: Record<string, any>;
     created_at: string;
     updated_at: string;
-    task?: Task;
 }
 
-export interface TaskWithCompletion extends Task {
-    user_completion?: UserTaskCompletion;
-    can_complete: boolean;
-    next_available_at?: string;
+// Combined task with user status
+export interface TaskWithStatus {
+    task_id: string;
+    title: string;
+    description?: string;
+    task_type: TaskType;
+    url: string;
+    telegram_id?: number;
+    attempts_reward: number;
+    image_url?: string;
+    user_status: TaskStatus;
+    started_at?: string;
+    completed_at?: string;
+    rewarded_at?: string;
 }
 
-export interface TaskProcessingState {
-    isStarting?: boolean;
-    isChecking?: boolean;
-    isClaiming?: boolean;
-    countdown?: number;
+// API Request/Response interfaces
+export interface StartTaskRequest {
+    taskId: string;
+}
+
+export interface StartTaskResponse {
+    success: boolean;
+    task?: TaskWithStatus;
     error?: string;
 }
 
-export interface TelegramMembershipCheckRequest {
-    chat_id: number;
-    user_id: number;
+export interface VerifyTaskRequest {
+    taskId: string;
+    verificationData?: Record<string, any>;
 }
 
-export interface TelegramMembershipCheckResponse {
-    is_member: boolean;
-    status?: string;
+export interface VerifyTaskResponse {
+    success: boolean;
+    verified: boolean;
+    task?: TaskWithStatus;
     error?: string;
-    user_info?: {
-        id: number;
-        first_name: string;
-        username?: string;
+}
+
+export interface ClaimRewardRequest {
+    taskId: string;
+}
+
+export interface ClaimRewardResponse {
+    success: boolean;
+    attemptsAdded: number;
+    newAttemptsTotal: number;
+    task?: TaskWithStatus;
+    error?: string;
+}
+
+export interface GetTasksResponse {
+    success: boolean;
+    tasks: TaskWithStatus[];
+    categorized?: {
+        notStarted: TaskWithStatus[];
+        started: TaskWithStatus[];
+        completed: TaskWithStatus[];
+        rewarded: TaskWithStatus[];
     };
+    error?: string;
 }
 
-export interface TaskRewardResult {
-    completion: UserTaskCompletion;
-    reward: number;
+// Telegram verification interfaces
+export interface TelegramMembershipCheck {
+    taskId: string;
+    userId: number;
+    chatId: number;
 }
 
+export interface TelegramMembershipResponse {
+    success: boolean;
+    isMember: boolean;
+    memberStatus?: 'creator' | 'administrator' | 'member' | 'restricted' | 'left' | 'kicked';
+    error?: string;
+}
+
+// Task verification data interfaces
+export interface TelegramVerificationData {
+    chatId: number;
+    userId: number;
+    memberStatus: string;
+    verifiedAt: string;
+}
+
+export interface WebsiteVerificationData {
+    visitedAt: string;
+    userAgent?: string;
+    referrer?: string;
+}
+
+export interface TwitterVerificationData {
+    verifiedAt: string;
+    action: 'follow' | 'repost';
+    username?: string;
+    tweetId?: string;
+}
+
+// Task category for UI organization
+export interface TaskCategory {
+    key: 'not_started' | 'started' | 'completed' | 'rewarded';
+    title: string;
+    tasks: TaskWithStatus[];
+    count: number;
+}
+
+// Task button state interface
+export interface TaskButtonState {
+    text: string;
+    variant: 'default' | 'secondary' | 'success' | 'warning';
+    disabled: boolean;
+    loading: boolean;
+    icon?: React.ComponentType<any>;
+}
+
+// Task completion statistics
 export interface TaskStats {
-    total_completed: number;
-    total_attempts_earned: number;
-    tasks_completed_today: number;
+    totalTasks: number;
+    completedTasks: number;
+    pendingTasks: number;
+    totalRewardsEarned: number;
+    completionRate: number;
 }
 
-// Константы для заданий
-export const TASK_COMPLETION_DELAY = 10000; // 10 секунд для проверки на доверии
-export const STORY_TASK_COOLDOWN = 120; // 2 часа в минутах
-
-// Маппинг типов заданий к цветам
-export const TASK_TYPE_COLORS: Record<TaskType, string> = {
-    telegram_channel: 'from-blue-500/20 to-cyan-500/20',
-    telegram_chat: 'from-green-500/20 to-emerald-500/20',
-    twitter_follow: 'from-sky-500/20 to-blue-500/20',
-    twitter_repost: 'from-sky-500/20 to-blue-500/20',
-    website_visit: 'from-orange-500/20 to-red-500/20',
-    story_share: 'from-yellow-500/20 to-orange-500/20'
+// Utility type for task filtering
+export type TaskFilter = {
+    type?: TaskType;
+    status?: TaskStatus;
+    hasReward?: boolean;
+    isActive?: boolean;
 };
 
-// Функция для проверки, является ли задание telegram-заданием
-export function isTelegramTask(type: TaskType): boolean {
-    return type === 'telegram_channel' || type === 'telegram_chat';
-}
+// Constants for task configuration
+export const TASK_CONFIG = {
+    VERIFICATION_TIMEOUT: 30000, // 30 seconds
+    MAX_VERIFICATION_ATTEMPTS: 3,
+    COOLDOWN_PERIODS: {
+        [TaskType.TELEGRAM_CHANNEL]: 0,
+        [TaskType.TELEGRAM_CHAT]: 0,
+        [TaskType.WEBSITE_VISIT]: 5000, // 5 seconds
+        [TaskType.TWITTER_FOLLOW]: 10000, // 10 seconds
+        [TaskType.TWITTER_REPOST]: 10000, // 10 seconds
+    },
+} as const;
 
-// Функция для проверки, требует ли задание автоматической проверки
-export function requiresAutomaticVerification(type: TaskType): boolean {
-    return isTelegramTask(type);
-}
+// Task action types for UI
+export type TaskAction = 'start' | 'verify' | 'claim' | 'visit';
 
-// Функция для получения времени задержки для задания
-export function getTaskDelay(type: TaskType): number {
-    if (isTelegramTask(type)) {
-        return 3000; // 3 секунды для telegram заданий
-    }
-    return TASK_COMPLETION_DELAY; // 10 секунд для остальных
-}
+// Helper type guards
+export const isTaskCompleted = (task: TaskWithStatus): boolean => {
+    return task.user_status === TaskStatus.COMPLETED || task.user_status === TaskStatus.REWARDED;
+};
 
-// Функция для форматирования времени кулдауна
-export function formatCooldownTime(milliseconds: number): string {
-    const minutes = Math.floor(milliseconds / 60000);
-    const seconds = Math.floor((milliseconds % 60000) / 1000);
+export const isTaskRewarded = (task: TaskWithStatus): boolean => {
+    return task.user_status === TaskStatus.REWARDED;
+};
 
-    if (minutes > 0) {
-        return `${minutes}m ${seconds}s`;
-    }
-    return `${seconds}s`;
-}
+export const canStartTask = (task: TaskWithStatus): boolean => {
+    return task.user_status === TaskStatus.NOT_STARTED;
+};
+
+export const canVerifyTask = (task: TaskWithStatus): boolean => {
+    return task.user_status === TaskStatus.STARTED;
+};
+
+export const canClaimReward = (task: TaskWithStatus): boolean => {
+    return task.user_status === TaskStatus.COMPLETED;
+};
+
+// Task type display configuration
+export const TASK_TYPE_CONFIG = {
+    [TaskType.TELEGRAM_CHANNEL]: {
+        name: 'Telegram Channel',
+        icon: '📢',
+        color: 'blue',
+        requiresVerification: true,
+        actionText: 'Subscribe',
+    },
+    [TaskType.TELEGRAM_CHAT]: {
+        name: 'Telegram Chat',
+        icon: '💬',
+        color: 'blue',
+        requiresVerification: true,
+        actionText: 'Join',
+    },
+    [TaskType.WEBSITE_VISIT]: {
+        name: 'Website Visit',
+        icon: '🌐',
+        color: 'green',
+        requiresVerification: false,
+        actionText: 'Visit',
+    },
+    [TaskType.TWITTER_FOLLOW]: {
+        name: 'Twitter Follow',
+        icon: '🐦',
+        color: 'sky',
+        requiresVerification: false,
+        actionText: 'Follow',
+    },
+    [TaskType.TWITTER_REPOST]: {
+        name: 'Twitter Repost',
+        icon: '🔄',
+        color: 'sky',
+        requiresVerification: false,
+        actionText: 'Repost',
+    },
+} as const;
