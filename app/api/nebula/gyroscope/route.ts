@@ -1,4 +1,4 @@
-// src/app/api/nebula/gyroscope/route.ts - Исправленный Nebula Gyroscope Verification API
+// src/app/api/nebula/gyroscope/route.ts - Восстановленный исходный код с минимальными исправлениями
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -28,9 +28,6 @@ interface GyroscopeResponse {
     error?: string;
 }
 
-// Map для отслеживания обрабатываемых запросов (предотвращение дублирования)
-const processingRequests = new Map<string, boolean>();
-
 /**
  * POST /api/nebula/gyroscope
  * Validate gyroscope verification for Nebula security system
@@ -38,8 +35,6 @@ const processingRequests = new Map<string, boolean>();
 export async function POST(
     request: NextRequest,
 ): Promise<NextResponse<GyroscopeResponse>> {
-    let requestKey: string | null = null;
-
     try {
         // Extract user info from middleware headers
         const telegramId = request.headers.get("X-Telegram-ID");
@@ -67,27 +62,18 @@ export async function POST(
             );
         }
 
-        // Создаем уникальный ключ для предотвращения дублирования запросов
-        requestKey = `gyroscope_${telegramIdNumber}_${Date.now()}`;
-
-        // Проверяем, не обрабатывается ли уже запрос для этого пользователя
-        const existingRequestKey = Array.from(processingRequests.keys()).find(key =>
-            key.startsWith(`gyroscope_${telegramIdNumber}_`)
-        );
-
-        if (existingRequestKey) {
-            console.log(`Duplicate gyroscope request detected for user ${telegramIdNumber}, rejecting`);
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "Verification already in progress",
-                },
-                { status: 429 },
-            );
+        // МИНИМАЛЬНОЕ ИСПРАВЛЕНИЕ: Проверяем, не заблокирован ли пользователь уже
+        const existingBlock = await serverBlockService.checkUserBlock(telegramIdNumber);
+        if (existingBlock && existingBlock.isActive && existingBlock.timeRemainingSeconds > 0) {
+            console.log(`User ${telegramIdNumber} is already blocked, rejecting verification attempt`);
+            return NextResponse.json({
+                success: true,
+                verified: false,
+                blocked: true,
+                blockReason: "User is already blocked",
+                blockDuration: "existing block",
+            });
         }
-
-        // Отмечаем запрос как обрабатываемый
-        processingRequests.set(requestKey, true);
 
         // Parse request body
         const body: GyroscopeRequest = await request.json();
@@ -105,22 +91,8 @@ export async function POST(
                 completedInTime,
                 deviceSupported,
                 movementData,
-                timestamp: new Date().toISOString(),
             },
         );
-
-        // Проверяем, не заблокирован ли пользователь уже
-        const existingBlock = await serverBlockService.checkUserBlock(telegramIdNumber);
-        if (existingBlock && existingBlock.isActive && existingBlock.timeRemainingSeconds > 0) {
-            console.log(`User ${telegramIdNumber} is already blocked, rejecting verification attempt`);
-            return NextResponse.json({
-                success: true,
-                verified: false,
-                blocked: true,
-                blockReason: "User is already blocked",
-                blockDuration: "existing block",
-            });
-        }
 
         // Handle device not supported case
         if (!deviceSupported) {
@@ -159,47 +131,21 @@ export async function POST(
             }
         }
 
-        // Simplified movement validation to prevent false negatives
+        // Validate movement data for successful verification
         let isValidMovement = true;
-        let validationDetails = "";
 
         if (gyroscopeSuccess && movementData) {
-            const { totalMovements, requiredMovements, timeSpent, significantMovements } = movementData;
+            const { totalMovements, requiredMovements, significantMovements } =
+                movementData;
 
-            // Основные проверки без избыточных ограничений
-            const validations = {
-                sufficientMovements: totalMovements >= requiredMovements,
-                significantMovements: significantMovements === true,
-                reasonableTimeSpent: timeSpent >= 500 && timeSpent <= 25000, // 0.5-25 seconds (more lenient)
-                hasMovements: totalMovements > 0,
-            };
-
-            isValidMovement = validations.sufficientMovements &&
-                validations.significantMovements &&
-                validations.reasonableTimeSpent &&
-                validations.hasMovements;
-
-            validationDetails = `Movements: ${totalMovements}/${requiredMovements}, ` +
-                `Time: ${timeSpent}ms, Significant: ${significantMovements}, ` +
-                `Valid: ${isValidMovement}`;
-
-            console.log(`Movement validation for user ${telegramIdNumber}: ${validationDetails}`);
-
-            // Детальное логирование для диагностики
-            if (!isValidMovement) {
-                console.log(`Validation failed for user ${telegramIdNumber}:`, validations);
-            }
-        } else if (gyroscopeSuccess) {
-            // Если успех заявлен, но данные о движении отсутствуют
-            isValidMovement = false;
-            validationDetails = "Missing movement data despite claimed success";
-            console.log(`Invalid gyroscope verification for user ${telegramIdNumber}: ${validationDetails}`);
+            isValidMovement =
+                totalMovements >= requiredMovements && significantMovements;
         }
 
         // Handle successful gyroscope verification
         if (gyroscopeSuccess && completedInTime && isValidMovement) {
             console.log(
-                `Gyroscope verification successful for user ${telegramIdNumber}. ${validationDetails}`,
+                `Gyroscope verification successful for user ${telegramIdNumber}`,
             );
 
             // Restore trust score
@@ -209,14 +155,13 @@ export async function POST(
             );
 
             if (restoreResult.success) {
-                console.log(`Trust score successfully restored for user ${telegramIdNumber}`);
                 return NextResponse.json({
                     success: true,
                     verified: true,
                     trustRestored: true,
                 });
             } else {
-                console.error(`Failed to restore trust score for user ${telegramIdNumber}:`, restoreResult.error);
+                console.error("Failed to restore trust score:", restoreResult.error);
 
                 return NextResponse.json(
                     {
@@ -228,19 +173,17 @@ export async function POST(
             }
         } else {
             // Handle failed gyroscope verification
-            let failureReasons = [];
+            let failureReason = "Unknown failure";
 
-            if (!gyroscopeSuccess) {
-                failureReasons.push("gyroscope verification failed");
+            if (!gyroscopeSuccess && !completedInTime) {
+                failureReason = "Gyroscope verification failed and timed out";
+            } else if (!gyroscopeSuccess) {
+                failureReason = "Gyroscope verification failed";
+            } else if (!completedInTime) {
+                failureReason = "Gyroscope verification timed out";
+            } else if (!isValidMovement) {
+                failureReason = "Insufficient device movement detected";
             }
-            if (!completedInTime) {
-                failureReasons.push("verification timed out");
-            }
-            if (!isValidMovement) {
-                failureReasons.push(`invalid movement pattern (${validationDetails})`);
-            }
-
-            const failureReason = failureReasons.join(", ");
 
             console.log(
                 `Gyroscope verification failed for user ${telegramIdNumber}: ${failureReason}`,
@@ -255,7 +198,6 @@ export async function POST(
             );
 
             if (blockResult.success) {
-                console.log(`User ${telegramIdNumber} blocked successfully for gyroscope verification failure`);
                 return NextResponse.json({
                     success: true,
                     verified: false,
@@ -264,7 +206,7 @@ export async function POST(
                     blockDuration: "1 month",
                 });
             } else {
-                console.error(`Failed to block user ${telegramIdNumber}:`, blockResult.error);
+                console.error("Failed to block user:", blockResult.error);
 
                 return NextResponse.json(
                     {
@@ -285,26 +227,6 @@ export async function POST(
             },
             { status: 500 },
         );
-    } finally {
-        // Убираем запрос из списка обрабатываемых
-        if (requestKey) {
-            processingRequests.delete(requestKey);
-        }
-
-        // Очищаем старые записи (старше 30 секунд)
-        const now = Date.now();
-        const keysToDelete: string[] = [];
-
-        processingRequests.forEach((_, key) => {
-            const timestamp = parseInt(key.split('_').pop() || '0');
-            if (now - timestamp > 30000) {
-                keysToDelete.push(key);
-            }
-        });
-
-        keysToDelete.forEach(key => {
-            processingRequests.delete(key);
-        });
     }
 }
 
