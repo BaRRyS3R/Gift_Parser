@@ -206,11 +206,23 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     const handleAuthenticate = useCallback(async () => {
         if (
             !state.biometricManager ||
-            !state.biometricManager.isAccessGranted ||
             state.isAuthenticating ||
             state.attemptMade ||
             !attemptId
         ) {
+            console.log("Authentication blocked:", {
+                hasManager: !!state.biometricManager,
+                isAuthenticating: state.isAuthenticating,
+                attemptMade: state.attemptMade,
+                hasAttemptId: !!attemptId
+            });
+            return;
+        }
+
+        // Проверяем разрешения перед аутентификацией
+        if (!state.biometricManager.isAccessGranted) {
+            console.log("Biometric access not granted, cannot authenticate");
+            handleBiometricFailure("Biometric access permission not granted");
             return;
         }
 
