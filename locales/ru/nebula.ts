@@ -1,4 +1,4 @@
-// src/locales/ru/nebula.ts - Система безопасности Nebula (Русский)
+// src/locales/ru/nebula.ts - Система безопасности Nebula (Русский) - Обновленная версия
 
 export const nebula = {
     // Главная страница верификации
@@ -33,6 +33,22 @@ export const nebula = {
             gyroscope: {
                 name: "ГИРОСКОП",
                 description: "Покрутите устройство. Не перестарайтесь, а то укачает.",
+            },
+        },
+
+        // Статусы разрешений
+        permissionStatus: {
+            checking: "Проверка поддержки {type}...",
+            granted: "{type} готова к использованию",
+            prompt: "Требуется разрешение для {type}",
+            denied: "Разрешение для {type} отклонено",
+            unavailable: "{type} не поддерживается устройством",
+
+            // Типы для подстановки
+            typeNames: {
+                biometric: "биометрии",
+                gyroscope: "гироскопа",
+                captcha: "капчи",
             },
         },
 
@@ -78,6 +94,9 @@ export const nebula = {
         permissionInstructions: "Вам необходимо предоставить разрешение на биометрическую аутентификацию для продолжения",
         grantPermission: "ПРЕДОСТАВИТЬ РАЗРЕШЕНИЕ",
         openSettings: "Открыть настройки биометрии",
+        recheckPermissions: "Проверить разрешения",
+        checkingPermissions: "Проверка разрешений...",
+        requestingPermission: "Запрос разрешения...",
 
         // Инструкции
         instructions: {
@@ -111,6 +130,7 @@ export const nebula = {
             permissionDenied: "Разрешение не было предоставлено. Пожалуйста, включите его в настройках устройства.",
             timeout: "Тайм-аут аутентификации",
             noData: "Данные биометрии не обнаружены",
+            permissionCheckFailed: "Ошибка проверки разрешений",
         },
 
         // Предупреждения
@@ -139,6 +159,9 @@ export const nebula = {
         permissionRequired: "РАЗРЕШЕНИЕ НА ГИРОСКОП ТРЕБУЕТСЯ",
         permissionInstructions: "Вам необходимо предоставить разрешение на доступ к гироскопу для продолжения",
         grantPermission: "ПРЕДОСТАВИТЬ РАЗРЕШЕНИЕ",
+        recheckPermissions: "Проверить разрешения",
+        checkingPermissions: "Проверка разрешений...",
+        requestingPermission: "Запрос разрешения...",
 
         // Инструкции движения
         movementInstructions: "Инструкции по движению",
@@ -168,6 +191,7 @@ export const nebula = {
             noData: "Данные гироскопа не обнаружены",
             timeout: "Тайм-аут верификации",
             verificationFailed: "Верификация не удалась",
+            permissionCheckFailed: "Ошибка проверки разрешений",
         },
 
         securityPolicy: "Политика безопасности",
@@ -269,5 +293,8 @@ export const nebula = {
         trustScore: "Рейтинг доверия",
         blockedTemporarily: "Временно заблокирован",
         contactSupport: "Связаться с поддержкой",
+        checking: "Проверка...",
+        checkingPermissions: "Проверка разрешений...",
+        recheckPermissions: "Проверить разрешения",
     },
 } as const;

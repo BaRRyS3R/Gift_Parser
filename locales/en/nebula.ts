@@ -1,4 +1,4 @@
-// src/locales/en/nebula.ts - Nebula Security System (English)
+// src/locales/en/nebula.ts - Nebula Security System (English) - Updated Version
 
 export const nebula = {
     // Main verification page
@@ -33,6 +33,22 @@ export const nebula = {
             gyroscope: {
                 name: "GYROSCOPE",
                 description: "Spin your device around. Don't overdo it or you'll get dizzy.",
+            },
+        },
+
+        // Permission status
+        permissionStatus: {
+            checking: "Checking {type} support...",
+            granted: "{type} ready for use",
+            prompt: "Permission required for {type}",
+            denied: "Permission for {type} denied",
+            unavailable: "{type} not supported by device",
+
+            // Type names for substitution
+            typeNames: {
+                biometric: "biometrics",
+                gyroscope: "gyroscope",
+                captcha: "captcha",
             },
         },
 
@@ -78,6 +94,9 @@ export const nebula = {
         permissionInstructions: "You need to grant biometric authentication permission to continue",
         grantPermission: "GRANT PERMISSION",
         openSettings: "Open Biometric Settings",
+        recheckPermissions: "Check Permissions",
+        checkingPermissions: "Checking permissions...",
+        requestingPermission: "Requesting permission...",
 
         // Instructions
         instructions: {
@@ -111,6 +130,7 @@ export const nebula = {
             permissionDenied: "Permission was not granted. Please enable it in your device settings.",
             timeout: "Authentication timeout",
             noData: "No biometric data detected",
+            permissionCheckFailed: "Permission check failed",
         },
 
         // Warnings
@@ -139,6 +159,9 @@ export const nebula = {
         permissionRequired: "GYROSCOPE PERMISSION REQUIRED",
         permissionInstructions: "You need to grant gyroscope access permission to continue",
         grantPermission: "GRANT PERMISSION",
+        recheckPermissions: "Check Permissions",
+        checkingPermissions: "Checking permissions...",
+        requestingPermission: "Requesting permission...",
 
         // Movement instructions
         movementInstructions: "Movement Instructions",
@@ -168,6 +191,7 @@ export const nebula = {
             noData: "No gyroscope data detected",
             timeout: "Verification timeout",
             verificationFailed: "Verification failed",
+            permissionCheckFailed: "Permission check failed",
         },
 
         securityPolicy: "Security Policy",
@@ -269,5 +293,8 @@ export const nebula = {
         trustScore: "Trust Score",
         blockedTemporarily: "Temporarily Blocked",
         contactSupport: "Contact Support",
+        checking: "Checking...",
+        checkingPermissions: "Checking permissions...",
+        recheckPermissions: "Check Permissions",
     },
 } as const;

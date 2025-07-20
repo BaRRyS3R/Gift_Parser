@@ -1,13 +1,14 @@
-// src/app/nebula/page.tsx - Fixed with intelligent abandonment detection and localization
+// src/app/nebula/page.tsx - Полная интеграция с улучшенной системой разрешений и локализацией
 
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, AlertTriangle, Clock, Zap } from "lucide-react";
+import { Shield, AlertTriangle, Clock, Zap, RefreshCw } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
+import { usePermissionStatus } from "@/hooks/modules/usePermissionStatus";
 import NebulaCaptchaModal from "@/components/Security/NebulaCaptchaModal";
 import NebulaBiometricModal from "@/components/Security/NebulaBiometricModal";
 import NebulaGyroscopeModal from "@/components/Security/NebulaGyroscopeModal";
@@ -34,7 +35,7 @@ interface NebulaCheckResponse {
 }
 
 type VerificationType = "captcha" | "biometric" | "gyroscope";
-type AuthPhase = "initializing" | "permission_required" | "auth" | "success" | "error" | "unsupported";
+type AuthPhase = "initializing" | "permission_required" | "auth" | "success" | "error" | "unsupported" | "instructions" | "verification";
 
 interface PageState {
     isLoading: boolean;
@@ -60,6 +61,10 @@ interface AbandonmentState {
 export default function NebulaPage(): JSX.Element {
     const router = useRouter();
     const { makeAuthenticatedRequest, authState } = useUser();
+    const {
+        status: permissionStatus,
+        recheckAllPermissions
+    } = usePermissionStatus();
     const t = useT();
 
     // Refs for state management
@@ -181,10 +186,15 @@ export default function NebulaPage(): JSX.Element {
                 (pageState.currentPhase === "auth" && !abandonmentState.userReturnedAfterPermission)) {
                 abandonmentState.userReturnedAfterPermission = true;
                 console.log("User returned after permission phase");
+
+                // Recheck permissions when user returns
+                setTimeout(() => {
+                    recheckAllPermissions();
+                }, 1000);
             }
         }
     }, [pageState.canAbandon, pageState.verificationInProgress, pageState.attemptId,
-    pageState.currentPhase, reportAbandonment]);
+    pageState.currentPhase, reportAbandonment, recheckAllPermissions]);
 
     /**
      * Handle before unload - immediate abandonment for page close
@@ -413,6 +423,85 @@ export default function NebulaPage(): JSX.Element {
         return "text-red-400";
     };
 
+    /**
+     * Get permission status display using proper localization
+     */
+    const getPermissionStatusDisplay = () => {
+        if (!pageState.verificationType) return null;
+
+        const status = permissionStatus[pageState.verificationType];
+        const typeKey = pageState.verificationType;
+
+        // Handle captcha case - it doesn't require permissions
+        if (typeKey === 'captcha') {
+            return null; // Captcha doesn't need permission status display
+        }
+
+        const typeName = typeKey === 'biometric'
+            ? t("nebula.verification.permissionStatus.typeNames.biometric")
+            : t("nebula.verification.permissionStatus.typeNames.gyroscope");
+
+        switch (status) {
+            case "checking":
+                return (
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                            <span className="text-blue-300 text-sm">
+                                {t("nebula.verification.permissionStatus.checking").replace("{type}", typeName)}
+                            </span>
+                        </div>
+                    </div>
+                );
+            case "granted":
+                return (
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 mb-4">
+                        <div className="flex items-center space-x-2">
+                            <Shield className="text-green-400" size={16} />
+                            <span className="text-green-300 text-sm">
+                                {t("nebula.verification.permissionStatus.granted").replace("{type}", typeName)}
+                            </span>
+                        </div>
+                    </div>
+                );
+            case "prompt":
+                return (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
+                        <div className="flex items-center space-x-2">
+                            <AlertTriangle className="text-yellow-400" size={16} />
+                            <span className="text-yellow-300 text-sm">
+                                {t("nebula.verification.permissionStatus.prompt").replace("{type}", typeName)}
+                            </span>
+                        </div>
+                    </div>
+                );
+            case "denied":
+                return (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
+                        <div className="flex items-center space-x-2">
+                            <AlertTriangle className="text-red-400" size={16} />
+                            <span className="text-red-300 text-sm">
+                                {t("nebula.verification.permissionStatus.denied").replace("{type}", typeName)}
+                            </span>
+                        </div>
+                    </div>
+                );
+            case "unavailable":
+                return (
+                    <div className="bg-gray-500/10 border border-gray-500/30 rounded-lg p-3 mb-4">
+                        <div className="flex items-center space-x-2">
+                            <AlertTriangle className="text-gray-400" size={16} />
+                            <span className="text-gray-300 text-sm">
+                                {t("nebula.verification.permissionStatus.unavailable").replace("{type}", typeName)}
+                            </span>
+                        </div>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
     // Loading state
     if (pageState.isLoading) {
         return (
@@ -508,6 +597,9 @@ export default function NebulaPage(): JSX.Element {
                     </p>
                 </div>
 
+                {/* Permission Status Display */}
+                {getPermissionStatusDisplay()}
+
                 {/* Trust Score Display */}
                 <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6">
                     <div className="flex items-center justify-between mb-2">
@@ -535,10 +627,18 @@ export default function NebulaPage(): JSX.Element {
                 {pageState.verificationType && (
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
                         <h3 className="text-blue-300 font-semibold mb-2 capitalize">
-                            {t(`nebula.verification.types.${pageState.verificationType}.name` as any)}
+                            {pageState.verificationType === 'captcha'
+                                ? t("nebula.verification.types.captcha.name")
+                                : pageState.verificationType === 'biometric'
+                                    ? t("nebula.verification.types.biometric.name")
+                                    : t("nebula.verification.types.gyroscope.name")}
                         </h3>
                         <p className="text-blue-200 text-sm">
-                            {t(`nebula.verification.types.${pageState.verificationType}.description` as any)}
+                            {pageState.verificationType === 'captcha'
+                                ? t("nebula.verification.types.captcha.description")
+                                : pageState.verificationType === 'biometric'
+                                    ? t("nebula.verification.types.biometric.description")
+                                    : t("nebula.verification.types.gyroscope.description")}
                         </p>
                     </div>
                 )}
@@ -660,6 +760,7 @@ export default function NebulaPage(): JSX.Element {
                     onClose={handleCloseModal}
                     onFailure={handleVerificationFailure}
                     onSuccess={handleVerificationSuccess}
+                    onPhaseChange={handlePhaseChange}
                 />
             )}
         </div>

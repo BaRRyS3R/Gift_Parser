@@ -1,8 +1,8 @@
-// src/components/Security/NebulaBiometricModal.tsx - Updated with localization
+// src/components/Security/NebulaBiometricModal.tsx - Улучшенная версия с управлением разрешениями
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Fingerprint,
     Eye,
@@ -12,10 +12,12 @@ import {
     Shield,
     XCircle,
     CheckCircle2,
+    RefreshCw,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
+import { usePermissionStatus } from "@/hooks/modules/usePermissionStatus";
 
 interface NebulaBiometricModalProps {
     isOpen: boolean;
@@ -46,6 +48,7 @@ interface BiometricState {
     authTimerActive: boolean;
     isBiometricSupported: boolean;
     canAbandon: boolean;
+    isCheckingPermissions: boolean;
 }
 
 const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
@@ -58,7 +61,15 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 }) => {
     const { makeAuthenticatedRequest } = useUser();
     const t = useT();
+    const {
+        status: permissionStatus,
+        checkBiometricPermission,
+        requestBiometricPermission,
+        recheckAllPermissions
+    } = usePermissionStatus();
+
     const authTimeout = 15000; // 15 seconds for authentication
+    const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [state, setState] = useState<BiometricState>({
         currentPhase: "initializing",
@@ -71,6 +82,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         authTimerActive: false,
         isBiometricSupported: true,
         canAbandon: false,
+        isCheckingPermissions: false,
     });
 
     // Notify parent component about phase changes and abandonment safety
@@ -92,6 +104,91 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         }));
     }, []);
 
+    /**
+     * Повторная проверка разрешений
+     */
+    const recheckPermissions = useCallback(async () => {
+        console.log("Rechecking biometric permissions...");
+
+        setState(prev => ({ ...prev, isCheckingPermissions: true, error: null }));
+
+        try {
+            const permissionInfo = await checkBiometricPermission();
+
+            console.log("Permission recheck result:", permissionInfo);
+
+            if (!permissionInfo.isSupported) {
+                await handleUnsupportedDevice(
+                    t("nebula.biometric.errors.deviceNotSupported")
+                );
+                return;
+            }
+
+            if (permissionInfo.isGranted) {
+                console.log("Permission now granted, proceeding to auth");
+                updatePhase("auth", true);
+                setState((prev) => ({
+                    ...prev,
+                    authTimeRemaining: authTimeout,
+                    authTimerActive: true,
+                    isCheckingPermissions: false,
+                }));
+            } else {
+                console.log("Permission still not granted");
+                updatePhase("permission_required", false);
+                setState(prev => ({ ...prev, isCheckingPermissions: false }));
+            }
+        } catch (error) {
+            console.error("Error during permission recheck:", error);
+            setState(prev => ({
+                ...prev,
+                isCheckingPermissions: false,
+                error: t("nebula.biometric.errors.permissionCheckFailed")
+            }));
+        }
+    }, [checkBiometricPermission, t, updatePhase, authTimeout]);
+
+    /**
+     * Обработка возврата пользователя из настроек
+     */
+    const handleVisibilityChange = useCallback(() => {
+        if (document.hidden) {
+            // Пользователь покинул страницу
+            if (visibilityTimeoutRef.current) {
+                clearTimeout(visibilityTimeoutRef.current);
+            }
+            console.log("Page hidden during biometric verification");
+        } else {
+            // Пользователь вернулся на страницу
+            console.log("Page visible again, checking if permissions changed");
+
+            // Проверяем разрешения через небольшую задержку
+            if (visibilityTimeoutRef.current) {
+                clearTimeout(visibilityTimeoutRef.current);
+            }
+
+            visibilityTimeoutRef.current = setTimeout(() => {
+                if (state.currentPhase === "permission_required" && !state.isCheckingPermissions) {
+                    console.log("Auto-rechecking permissions after visibility change");
+                    recheckPermissions();
+                }
+            }, 1000); // 1 секунда задержки для стабилизации
+        }
+    }, [state.currentPhase, state.isCheckingPermissions, recheckPermissions]);
+
+    // Set up visibility change listener
+    useEffect(() => {
+        if (isOpen && state.currentPhase === "permission_required") {
+            document.addEventListener("visibilitychange", handleVisibilityChange);
+            return () => {
+                document.removeEventListener("visibilitychange", handleVisibilityChange);
+                if (visibilityTimeoutRef.current) {
+                    clearTimeout(visibilityTimeoutRef.current);
+                }
+            };
+        }
+    }, [isOpen, state.currentPhase, handleVisibilityChange]);
+
     // Reset state when modal opens/closes
     useEffect(() => {
         if (!isOpen) {
@@ -106,7 +203,13 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 authTimerActive: false,
                 isBiometricSupported: true,
                 canAbandon: false,
+                isCheckingPermissions: false,
             });
+
+            if (visibilityTimeoutRef.current) {
+                clearTimeout(visibilityTimeoutRef.current);
+                visibilityTimeoutRef.current = null;
+            }
             return;
         }
 
@@ -445,38 +548,38 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     const handleRequestPermission = useCallback(async () => {
         if (!state.biometricManager || !attemptId) return;
 
-        try {
-            state.biometricManager.requestAccess(
-                { reason: "Security verification required for continued access" },
-                (granted: boolean) => {
-                    console.log("Permission request result:", granted);
+        setState(prev => ({ ...prev, isCheckingPermissions: true }));
 
-                    if (granted) {
-                        console.log("Permission granted, proceeding to authentication");
-                        updatePhase("auth", true);
-                        setState((prev) => ({
-                            ...prev,
-                            authTimeRemaining: authTimeout,
-                            authTimerActive: true,
-                        }));
-                    } else {
-                        updatePhase("error", true);
-                        setState((prev) => ({
-                            ...prev,
-                            error: t("nebula.biometric.errors.permissionDenied"),
-                        }));
-                    }
-                },
-            );
+        try {
+            const granted = await requestBiometricPermission();
+
+            if (granted) {
+                console.log("Permission granted via request, proceeding to authentication");
+                updatePhase("auth", true);
+                setState((prev) => ({
+                    ...prev,
+                    authTimeRemaining: authTimeout,
+                    authTimerActive: true,
+                    isCheckingPermissions: false,
+                }));
+            } else {
+                updatePhase("error", true);
+                setState((prev) => ({
+                    ...prev,
+                    error: t("nebula.biometric.errors.permissionDenied"),
+                    isCheckingPermissions: false,
+                }));
+            }
         } catch (error) {
             console.error("Error requesting biometric permission:", error);
             updatePhase("error", true);
             setState((prev) => ({
                 ...prev,
                 error: t("nebula.biometric.errors.permissionDenied"),
+                isCheckingPermissions: false,
             }));
         }
-    }, [state.biometricManager, attemptId, authTimeout, updatePhase, t]);
+    }, [state.biometricManager, attemptId, authTimeout, updatePhase, t, requestBiometricPermission]);
 
     /**
      * Get biometric icon
@@ -661,11 +764,39 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
                         <div className="space-y-3">
                             <button
-                                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 onClick={handleRequestPermission}
+                                disabled={state.isCheckingPermissions}
                             >
-                                <Shield size={20} />
-                                <span>{t("nebula.biometric.grantPermission")}</span>
+                                {state.isCheckingPermissions ? (
+                                    <>
+                                        <RefreshCw className="animate-spin" size={20} />
+                                        <span>Проверка...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Shield size={20} />
+                                        <span>{t("nebula.biometric.grantPermission")}</span>
+                                    </>
+                                )}
+                            </button>
+
+                            <button
+                                className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={recheckPermissions}
+                                disabled={state.isCheckingPermissions}
+                            >
+                                {state.isCheckingPermissions ? (
+                                    <>
+                                        <RefreshCw className="animate-spin" size={16} />
+                                        <span>Проверка разрешений...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw size={16} />
+                                        <span>Проверить разрешения</span>
+                                    </>
+                                )}
                             </button>
 
                             {state.biometricManager?.openSettings && (
