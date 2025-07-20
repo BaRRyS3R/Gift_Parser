@@ -1,4 +1,4 @@
-// src/app/nebula/page.tsx - Updated with device support and permission logic
+// src/app/nebula/page.tsx - Fixed with proper device checking and permission logic
 
 "use client";
 
@@ -25,9 +25,6 @@ interface NebulaCheckResponse {
         trustScore: number;
         threshold: number;
         attemptId: string;
-        needsDeviceCheck?: boolean;
-        needsPermission?: boolean;
-        permissionExpiry?: string;
     };
     allowed?: {
         proceed: true;
@@ -70,11 +67,12 @@ interface PageState {
     verificationResult: "success" | "failure" | null;
 }
 
-// Permission flow timing configuration
+// Permission flow timing configuration (5 minutes total)
 const PERMISSION_CONFIG = {
     TOTAL_TIME: 300000, // 5 minutes total
     WARNING_TIME: 180000, // 3 minutes - start warning
     CHECK_INTERVAL: 1000, // Check every second
+    PERMISSION_CHECK_DELAY: 2000, // 2 seconds delay between permission checks
 } as const;
 
 export default function NebulaPage(): JSX.Element {
@@ -83,6 +81,7 @@ export default function NebulaPage(): JSX.Element {
     const t = useT();
 
     const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const permissionCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [pageState, setPageState] = useState<PageState>({
         flow: "loading",
@@ -153,39 +152,13 @@ export default function NebulaPage(): JSX.Element {
                         ...prev,
                         flow: "verification_modal",
                         isModalOpen: true,
+                        canSafelyLeave: false,
                     }));
                 } else {
-                    // For biometric/gyroscope, check device support flow
-                    if (verification.needsDeviceCheck) {
-                        console.log(`${verification.type} verification - checking device support`);
-                        setPageState(prev => ({ ...prev, flow: "checking_device" }));
-                        await checkDeviceSupport(verification.type, verification.attemptId);
-                    } else if (verification.needsPermission) {
-                        console.log(`${verification.type} verification - in permission flow`);
-                        const expiryTime = verification.permissionExpiry ?
-                            new Date(verification.permissionExpiry).getTime() :
-                            Date.now() + PERMISSION_CONFIG.TOTAL_TIME;
-
-                        setPageState(prev => ({
-                            ...prev,
-                            flow: "permission_instructions",
-                            permissionExpiryTime: expiryTime,
-                            canSafelyLeave: true,
-                            deviceSupported: true, // Already determined
-                        }));
-
-                        startPermissionTimer(expiryTime);
-                    } else {
-                        // Permission already granted, open modal
-                        console.log(`${verification.type} verification - opening modal`);
-                        setPageState(prev => ({
-                            ...prev,
-                            flow: "verification_modal",
-                            isModalOpen: true,
-                            deviceSupported: true,
-                            permissionGranted: true,
-                        }));
-                    }
+                    // For biometric/gyroscope, check device support first
+                    console.log(`${verification.type} verification - checking device support`);
+                    setPageState(prev => ({ ...prev, flow: "checking_device" }));
+                    await checkDeviceSupport(verification.type, verification.attemptId);
                 }
             }
 
@@ -200,7 +173,7 @@ export default function NebulaPage(): JSX.Element {
     }, [makeAuthenticatedRequest, router]);
 
     /**
-     * Check device support for biometric/gyroscope
+     * Check device support for biometric/gyroscope - 1:1 from original modals
      */
     const checkDeviceSupport = useCallback(async (
         verificationType: "biometric" | "gyroscope",
@@ -210,38 +183,300 @@ export default function NebulaPage(): JSX.Element {
             let deviceSupported = false;
 
             if (verificationType === "biometric") {
-                // Check biometric support
-                const tg = window.Telegram?.WebApp;
-                deviceSupported = !!(tg?.BiometricManager);
+                // Exact logic from NebulaBiometricModal.tsx
+                console.log("Checking biometric device support");
 
-                if (deviceSupported && tg?.BiometricManager) {
-                    // Initialize to check actual availability
-                    await new Promise<void>((resolve) => {
-                        const manager = tg.BiometricManager;
-                        if (!manager) {
-                            deviceSupported = false;
-                            resolve();
-                            return;
-                        }
-
-                        manager.init(() => {
-                            deviceSupported = manager.isBiometricAvailable;
-                            resolve();
-                        });
-
-                        // Timeout after 3 seconds
-                        setTimeout(() => {
-                            deviceSupported = false;
-                            resolve();
-                        }, 3000);
-                    });
+                if (typeof window === "undefined") {
+                    console.log("Window not available");
+                    await handleDeviceUnavailable("Device environment not supported", attemptId);
+                    return;
                 }
-            } else if (verificationType === "gyroscope") {
-                // Check gyroscope support
-                deviceSupported = !!window.DeviceOrientationEvent;
 
-                if (deviceSupported) {
-                    // Test actual data availability
+                const tg = window.Telegram?.WebApp;
+
+                if (!tg?.BiometricManager) {
+                    console.log("BiometricManager not available - device/platform not supported");
+                    await handleDeviceUnavailable("Biometric authentication unavailable on this device", attemptId);
+                    return;
+                }
+
+                const manager = tg.BiometricManager;
+
+                // Initialize and check availability
+                await new Promise<void>((resolve) => {
+                    manager.init(() => {
+                        console.log("BiometricManager initialized");
+
+                        if (!manager.isBiometricAvailable) {
+                            console.log("Biometric not available on device");
+                            deviceSupported = false;
+                        } else {
+                            console.log("Biometric available on device");
+                            deviceSupported = true;
+                        }
+                        resolve();
+                    });
+                });
+
+                if (!deviceSupported) {
+                    await handleDeviceUnavailable("Biometric authentication unavailable on this device", attemptId);
+                    return;
+                }
+
+                // Device supported, now check permissions
+                const permissionGranted = manager.isAccessGranted;
+                console.log("Biometric permission status:", permissionGranted);
+
+                setPageState(prev => ({
+                    ...prev,
+                    deviceSupported: true,
+                    permissionGranted,
+                }));
+
+                if (permissionGranted) {
+                    // Permission already granted - open modal directly
+                    console.log("Biometric permission already granted, opening modal");
+                    setPageState(prev => ({
+                        ...prev,
+                        flow: "verification_modal",
+                        isModalOpen: true,
+                        canSafelyLeave: false,
+                    }));
+                } else {
+                    // Permission needed - show instructions
+                    console.log("Biometric permission required, showing instructions");
+                    const expiryTime = Date.now() + PERMISSION_CONFIG.TOTAL_TIME;
+
+                    setPageState(prev => ({
+                        ...prev,
+                        flow: "permission_instructions",
+                        permissionExpiryTime: expiryTime,
+                        canSafelyLeave: true,
+                    }));
+
+                    startPermissionTimer(expiryTime, attemptId);
+                }
+
+            } else if (verificationType === "gyroscope") {
+                // Exact logic from NebulaGyroscopeModal.tsx
+                console.log("Checking gyroscope device support");
+
+                if (typeof window === "undefined") {
+                    console.log("Window not available");
+                    await handleDeviceUnavailable("Device environment not supported", attemptId);
+                    return;
+                }
+
+                // Check DeviceOrientationEvent support
+                if (!window.DeviceOrientationEvent) {
+                    console.log("DeviceOrientationEvent not supported");
+                    await handleDeviceUnavailable("Gyroscope verification unavailable on this device", attemptId);
+                    return;
+                }
+
+                // Test actual data availability
+                console.log("Testing gyroscope data availability");
+                await new Promise<void>((resolve) => {
+                    let dataReceived = false;
+
+                    const testListener = (event: DeviceOrientationEvent) => {
+                        if (event.alpha !== null || event.beta !== null || event.gamma !== null) {
+                            dataReceived = true;
+                            window.removeEventListener("deviceorientation", testListener);
+                            console.log("Gyroscope data available");
+                            resolve();
+                        }
+                    };
+
+                    window.addEventListener("deviceorientation", testListener);
+
+                    setTimeout(() => {
+                        window.removeEventListener("deviceorientation", testListener);
+                        deviceSupported = dataReceived;
+                        if (!dataReceived) {
+                            console.log("No gyroscope data received - device likely doesn't support it");
+                        }
+                        resolve();
+                    }, 4000); // 4 second timeout like in original
+                });
+
+                if (!deviceSupported) {
+                    await handleDeviceUnavailable("Gyroscope verification unavailable on this device", attemptId);
+                    return;
+                }
+
+                // Device supported, now check permissions
+                const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
+                let permissionGranted = true; // Default for most devices
+
+                if (typeof DeviceOrientationEvent.requestPermission === "function") {
+                    // iOS 13+ requires permission
+                    console.log("iOS permission model detected");
+                    permissionGranted = false; // Will be checked below
+                } else {
+                    console.log("No permission required for gyroscope");
+                }
+
+                setPageState(prev => ({
+                    ...prev,
+                    deviceSupported: true,
+                    permissionGranted,
+                }));
+
+                if (permissionGranted) {
+                    // Permission already granted or not required - open modal directly
+                    console.log("Gyroscope permission already granted/not required, opening modal");
+                    setPageState(prev => ({
+                        ...prev,
+                        flow: "verification_modal",
+                        isModalOpen: true,
+                        canSafelyLeave: false,
+                    }));
+                } else {
+                    // Permission needed (iOS) - show instructions
+                    console.log("Gyroscope permission required (iOS), showing instructions");
+                    const expiryTime = Date.now() + PERMISSION_CONFIG.TOTAL_TIME;
+
+                    setPageState(prev => ({
+                        ...prev,
+                        flow: "permission_instructions",
+                        permissionExpiryTime: expiryTime,
+                        canSafelyLeave: true,
+                    }));
+
+                    startPermissionTimer(expiryTime, attemptId);
+                }
+            }
+
+        } catch (error) {
+            console.error("Error checking device support:", error);
+            setPageState(prev => ({
+                ...prev,
+                flow: "error",
+                error: error instanceof Error ? error.message : "Failed to check device support",
+            }));
+        }
+    }, []);
+
+    /**
+     * Handle device unavailability with blocking
+     */
+    const handleDeviceUnavailable = useCallback(async (reason: string, attemptId: string) => {
+        console.log("Device unavailable:", reason);
+
+        setPageState(prev => ({
+            ...prev,
+            flow: "device_unsupported",
+            deviceSupported: false,
+            error: reason,
+            canSafelyLeave: true,
+        }));
+
+        // Block user through API
+        try {
+            const blockReason = pageState.verificationType === "biometric"
+                ? "biometric_unavailable"
+                : "gyroscope_unavailable";
+
+            const response = await makeAuthenticatedRequest(`/api/nebula/${pageState.verificationType}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    success: false,
+                    completedInTime: false,
+                    deviceSupported: false,
+                    unavailable: true,
+                    attemptId,
+                }),
+            });
+
+            if (response.ok) {
+                setTimeout(() => {
+                    router.push("/blocked");
+                }, 3000);
+            } else {
+                setTimeout(() => {
+                    router.push("/blocked");
+                }, 1000);
+            }
+        } catch (error) {
+            console.error("Error blocking for device unavailability:", error);
+            setTimeout(() => {
+                router.push("/blocked");
+            }, 1000);
+        }
+    }, [pageState.verificationType, makeAuthenticatedRequest, router]);
+
+    /**
+     * Start permission timer countdown with automatic checking
+     */
+    const startPermissionTimer = useCallback((expiryTime: number, attemptId: string) => {
+        console.log("Starting permission timer");
+
+        // Clear existing timers
+        if (checkIntervalRef.current) {
+            clearInterval(checkIntervalRef.current);
+        }
+        if (permissionCheckTimeoutRef.current) {
+            clearTimeout(permissionCheckTimeoutRef.current);
+        }
+
+        // Start automatic permission checking
+        startAutomaticPermissionCheck(attemptId);
+
+        const updateTimer = () => {
+            const now = Date.now();
+            const remaining = Math.max(0, expiryTime - now);
+
+            setPageState(prev => ({
+                ...prev,
+                timeRemaining: remaining,
+            }));
+
+            if (remaining <= 0) {
+                // Timer expired - block user
+                console.log("Permission timer expired");
+
+                if (checkIntervalRef.current) {
+                    clearInterval(checkIntervalRef.current);
+                    checkIntervalRef.current = null;
+                }
+                if (permissionCheckTimeoutRef.current) {
+                    clearTimeout(permissionCheckTimeoutRef.current);
+                    permissionCheckTimeoutRef.current = null;
+                }
+
+                handlePermissionExpired(attemptId);
+            }
+        };
+
+        // Initial update
+        updateTimer();
+
+        // Start interval
+        checkIntervalRef.current = setInterval(updateTimer, PERMISSION_CONFIG.CHECK_INTERVAL);
+    }, []);
+
+    /**
+     * Automatic permission checking (runs every 2 seconds)
+     */
+    const startAutomaticPermissionCheck = useCallback((attemptId: string) => {
+        const checkPermissions = async () => {
+            if (!pageState.verificationType || pageState.permissionGranted) {
+                return; // Stop checking if already granted
+            }
+
+            try {
+                let permissionGranted = false;
+
+                if (pageState.verificationType === "biometric") {
+                    const tg = window.Telegram?.WebApp;
+                    const manager = tg?.BiometricManager;
+                    if (manager) {
+                        permissionGranted = manager.isAccessGranted;
+                    }
+                } else if (pageState.verificationType === "gyroscope") {
+                    // For gyroscope, test data availability (indicates permission granted)
                     await new Promise<void>((resolve) => {
                         let dataReceived = false;
 
@@ -257,132 +492,36 @@ export default function NebulaPage(): JSX.Element {
 
                         setTimeout(() => {
                             window.removeEventListener("deviceorientation", testListener);
-                            deviceSupported = dataReceived;
+                            permissionGranted = dataReceived;
                             resolve();
-                        }, 2000);
+                        }, 1000);
                     });
                 }
-            }
 
-            console.log(`Device support check for ${verificationType}: ${deviceSupported}`);
-
-            // Update server with device support status
-            const response = await makeAuthenticatedRequest("/api/nebula/device-support", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    attemptId,
-                    verificationType,
-                    deviceSupported,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to update device support: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.blocked) {
-                // Device not supported - user will be redirected to blocked page
-                setPageState(prev => ({
-                    ...prev,
-                    flow: "device_unsupported",
-                    deviceSupported: false,
-                    error: result.blockReason,
-                }));
-
-                // Redirect to blocked page after showing message
-                setTimeout(() => {
-                    router.push("/blocked");
-                }, 3000);
-
-            } else if (result.permissionRequired) {
-                // Device supported but needs permission
-                console.log(`${verificationType} permission required`);
-
-                const expiryTime = Date.now() + PERMISSION_CONFIG.TOTAL_TIME;
-
-                setPageState(prev => ({
-                    ...prev,
-                    flow: "permission_instructions",
-                    deviceSupported: true,
-                    permissionExpiryTime: expiryTime,
-                    canSafelyLeave: true,
-                }));
-
-                startPermissionTimer(expiryTime);
-
-            } else {
-                // Permission already granted - open modal
-                setPageState(prev => ({
-                    ...prev,
-                    flow: "verification_modal",
-                    isModalOpen: true,
-                    deviceSupported: true,
-                    permissionGranted: true,
-                }));
-            }
-
-        } catch (error) {
-            console.error("Error checking device support:", error);
-            setPageState(prev => ({
-                ...prev,
-                flow: "error",
-                error: error instanceof Error ? error.message : "Failed to check device support",
-            }));
-        }
-    }, [makeAuthenticatedRequest, router]);
-
-    /**
-     * Start permission timer countdown
-     */
-    const startPermissionTimer = useCallback((expiryTime: number) => {
-        // Clear existing timer
-        if (checkIntervalRef.current) {
-            clearInterval(checkIntervalRef.current);
-        }
-
-        const updateTimer = () => {
-            const now = Date.now();
-            const remaining = Math.max(0, expiryTime - now);
-
-            setPageState(prev => ({
-                ...prev,
-                timeRemaining: remaining,
-            }));
-
-            if (remaining <= 0) {
-                // Timer expired
-                console.log("Permission timer expired");
-
-                if (checkIntervalRef.current) {
-                    clearInterval(checkIntervalRef.current);
-                    checkIntervalRef.current = null;
+                if (permissionGranted && !pageState.permissionGranted) {
+                    console.log(`${pageState.verificationType} permission detected automatically`);
+                    handlePermissionGranted();
+                } else {
+                    // Schedule next check
+                    permissionCheckTimeoutRef.current = setTimeout(() => {
+                        startAutomaticPermissionCheck(attemptId);
+                    }, PERMISSION_CONFIG.PERMISSION_CHECK_DELAY);
                 }
-
-                setPageState(prev => ({
-                    ...prev,
-                    flow: "permission_expired",
-                    canSafelyLeave: false,
-                }));
-
-                // Redirect to blocked page
-                setTimeout(() => {
-                    router.push("/blocked");
-                }, 2000);
+            } catch (error) {
+                console.error("Error in automatic permission check:", error);
+                // Continue checking despite errors
+                permissionCheckTimeoutRef.current = setTimeout(() => {
+                    startAutomaticPermissionCheck(attemptId);
+                }, PERMISSION_CONFIG.PERMISSION_CHECK_DELAY);
             }
         };
 
-        // Initial update
-        updateTimer();
-
-        // Start interval
-        checkIntervalRef.current = setInterval(updateTimer, PERMISSION_CONFIG.CHECK_INTERVAL);
-    }, [router]);
+        // Start first check with small delay
+        permissionCheckTimeoutRef.current = setTimeout(checkPermissions, 500);
+    }, [pageState.verificationType, pageState.permissionGranted]);
 
     /**
-     * Handle permission request
+     * Handle permission request button click
      */
     const handleRequestPermission = useCallback(async () => {
         if (!pageState.verificationType || !pageState.attemptId) return;
@@ -396,7 +535,7 @@ export default function NebulaPage(): JSX.Element {
                     manager.requestAccess(
                         { reason: "Security verification required for continued access" },
                         (granted: boolean) => {
-                            console.log("Biometric permission result:", granted);
+                            console.log("Biometric permission request result:", granted);
                             if (granted) {
                                 handlePermissionGranted();
                             }
@@ -417,7 +556,7 @@ export default function NebulaPage(): JSX.Element {
                     const permission = await DeviceOrientationEvent.requestPermission();
                     const granted = permission === "granted";
 
-                    console.log("Gyroscope permission result:", granted);
+                    console.log("Gyroscope permission request result:", granted);
                     if (granted) {
                         handlePermissionGranted();
                     }
@@ -431,41 +570,64 @@ export default function NebulaPage(): JSX.Element {
     /**
      * Handle permission granted
      */
-    const handlePermissionGranted = useCallback(async () => {
-        if (!pageState.attemptId || !pageState.verificationType) return;
+    const handlePermissionGranted = useCallback(() => {
+        console.log("Permission granted, opening verification modal");
 
+        // Clear timers
+        if (checkIntervalRef.current) {
+            clearInterval(checkIntervalRef.current);
+            checkIntervalRef.current = null;
+        }
+        if (permissionCheckTimeoutRef.current) {
+            clearTimeout(permissionCheckTimeoutRef.current);
+            permissionCheckTimeoutRef.current = null;
+        }
+
+        setPageState(prev => ({
+            ...prev,
+            flow: "verification_modal",
+            isModalOpen: true,
+            permissionGranted: true,
+            canSafelyLeave: false, // No longer safe to leave during actual verification
+        }));
+    }, []);
+
+    /**
+     * Handle permission timer expired
+     */
+    const handlePermissionExpired = useCallback(async (attemptId: string) => {
+        console.log("Permission timer expired, blocking user");
+
+        setPageState(prev => ({
+            ...prev,
+            flow: "permission_expired",
+            canSafelyLeave: false,
+        }));
+
+        // Block user through API
         try {
-            // Update server with permission status
-            const response = await makeAuthenticatedRequest("/api/nebula/device-support", {
+            const response = await makeAuthenticatedRequest(`/api/nebula/${pageState.verificationType}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    attemptId: pageState.attemptId,
-                    verificationType: pageState.verificationType,
+                    success: false,
+                    completedInTime: false,
                     deviceSupported: true,
-                    permissionGranted: true,
+                    permissionDenied: true,
+                    attemptId,
                 }),
             });
 
-            if (response.ok) {
-                // Clear timer and open modal
-                if (checkIntervalRef.current) {
-                    clearInterval(checkIntervalRef.current);
-                    checkIntervalRef.current = null;
-                }
-
-                setPageState(prev => ({
-                    ...prev,
-                    flow: "verification_modal",
-                    isModalOpen: true,
-                    permissionGranted: true,
-                    canSafelyLeave: false,
-                }));
-            }
+            setTimeout(() => {
+                router.push("/blocked");
+            }, 2000);
         } catch (error) {
-            console.error("Error updating permission status:", error);
+            console.error("Error blocking for permission timeout:", error);
+            setTimeout(() => {
+                router.push("/blocked");
+            }, 1000);
         }
-    }, [pageState.attemptId, pageState.verificationType, makeAuthenticatedRequest]);
+    }, [pageState.verificationType, makeAuthenticatedRequest, router]);
 
     /**
      * Handle verification success
@@ -478,12 +640,17 @@ export default function NebulaPage(): JSX.Element {
             clearInterval(checkIntervalRef.current);
             checkIntervalRef.current = null;
         }
+        if (permissionCheckTimeoutRef.current) {
+            clearTimeout(permissionCheckTimeoutRef.current);
+            permissionCheckTimeoutRef.current = null;
+        }
 
         setPageState(prev => ({
             ...prev,
             flow: "success",
             isModalOpen: false,
             verificationResult: "success",
+            canSafelyLeave: true,
         }));
 
         setTimeout(() => {
@@ -502,12 +669,17 @@ export default function NebulaPage(): JSX.Element {
             clearInterval(checkIntervalRef.current);
             checkIntervalRef.current = null;
         }
+        if (permissionCheckTimeoutRef.current) {
+            clearTimeout(permissionCheckTimeoutRef.current);
+            permissionCheckTimeoutRef.current = null;
+        }
 
         setPageState(prev => ({
             ...prev,
             flow: "error",
             isModalOpen: false,
             verificationResult: "failure",
+            canSafelyLeave: true,
         }));
 
         setTimeout(() => {
@@ -529,6 +701,10 @@ export default function NebulaPage(): JSX.Element {
             if (checkIntervalRef.current) {
                 clearInterval(checkIntervalRef.current);
                 checkIntervalRef.current = null;
+            }
+            if (permissionCheckTimeoutRef.current) {
+                clearTimeout(permissionCheckTimeoutRef.current);
+                permissionCheckTimeoutRef.current = null;
             }
         };
     }, [authState.isAuthenticated, checkNebulaStatus, router]);
@@ -678,10 +854,9 @@ export default function NebulaPage(): JSX.Element {
                             Quick Setup Instructions:
                         </h3>
                         <div className="text-blue-200 text-sm space-y-1">
-                            <p>1. Tap &quot;Grant Permission&quot; below</p>
+                            <p>1. Tap "Grant Permission" below</p>
                             <p>2. Allow access when prompted</p>
-                            <p>3. Restart the application</p>
-                            <p>4. Return here to complete verification</p>
+                            <p>3. Return here (verification will start automatically)</p>
                         </div>
                     </div>
 
@@ -694,7 +869,7 @@ export default function NebulaPage(): JSX.Element {
                                     Safe to Leave App
                                 </h4>
                                 <p className="text-green-200 text-xs">
-                                    You may safely switch to settings and return within the time limit.
+                                    You may safely switch to settings and return within the time limit. Verification will start automatically when permission is granted.
                                 </p>
                             </div>
                         </div>
