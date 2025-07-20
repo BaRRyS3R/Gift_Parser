@@ -159,28 +159,36 @@ export async function POST(
             }
         }
 
-        // Enhanced validation for movement data
+        // Simplified movement validation to prevent false negatives
         let isValidMovement = true;
         let validationDetails = "";
 
         if (gyroscopeSuccess && movementData) {
             const { totalMovements, requiredMovements, timeSpent, significantMovements } = movementData;
 
-            // Comprehensive movement validation
+            // Основные проверки без избыточных ограничений
             const validations = {
                 sufficientMovements: totalMovements >= requiredMovements,
                 significantMovements: significantMovements === true,
-                reasonableTimeSpent: timeSpent >= 1000 && timeSpent <= 15000, // 1-15 seconds
-                movementRate: totalMovements > 0 && (timeSpent / totalMovements) >= 500, // Минимум 500ms между движениями
+                reasonableTimeSpent: timeSpent >= 500 && timeSpent <= 25000, // 0.5-25 seconds (more lenient)
+                hasMovements: totalMovements > 0,
             };
 
-            isValidMovement = Object.values(validations).every(Boolean);
+            isValidMovement = validations.sufficientMovements &&
+                validations.significantMovements &&
+                validations.reasonableTimeSpent &&
+                validations.hasMovements;
 
             validationDetails = `Movements: ${totalMovements}/${requiredMovements}, ` +
                 `Time: ${timeSpent}ms, Significant: ${significantMovements}, ` +
-                `Validations: ${JSON.stringify(validations)}`;
+                `Valid: ${isValidMovement}`;
 
             console.log(`Movement validation for user ${telegramIdNumber}: ${validationDetails}`);
+
+            // Детальное логирование для диагностики
+            if (!isValidMovement) {
+                console.log(`Validation failed for user ${telegramIdNumber}:`, validations);
+            }
         } else if (gyroscopeSuccess) {
             // Если успех заявлен, но данные о движении отсутствуют
             isValidMovement = false;
