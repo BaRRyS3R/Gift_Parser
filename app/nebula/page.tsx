@@ -1,4 +1,4 @@
-// src/app/nebula/page.tsx - Enhanced with better abandonment detection for permission phases
+// src/app/nebula/page.tsx - Обновленная система отслеживания с улучшенной логикой фаз
 
 "use client";
 
@@ -12,7 +12,7 @@ import NebulaCaptchaModal from "@/components/Security/NebulaCaptchaModal";
 import NebulaBiometricModal from "@/components/Security/NebulaBiometricModal";
 import NebulaGyroscopeModal from "@/components/Security/NebulaGyroscopeModal";
 
-// Types for Nebula check response
+// Интерфейсы типов данных
 interface NebulaCheckResponse {
     success: boolean;
     blocked?: {
@@ -39,6 +39,7 @@ type AuthPhase =
     | "checking_availability"
     | "unavailable"
     | "permission_required"
+    | "permission_requested"
     | "permission_checking"
     | "instructions"
     | "auth"
@@ -60,26 +61,51 @@ interface PageState {
     canAbandon: boolean;
 }
 
+// Улучшенная конфигурация отслеживания покидания
 interface AbandonmentState {
     lastVisibleTime: number;
-    minimumAwayTime: number; // 30 seconds before considering abandonment
+    unsafePhaseAbandonmentTimeout: number; // 45 секунд вместо 30
+    safePhaseGraceTime: number; // 300 секунд (5 минут) для безопасных фаз
     abandonmentTimeoutId: NodeJS.Timeout | null;
-    permissionPhaseStartTime: number | null; // Track when permission phase started
-    totalPermissionTime: number; // Total time spent in permission phases
+    permissionPhaseStartTime: number | null;
+    totalPermissionTime: number;
+    phaseTransitionBuffer: number; // 5 секунд буфера при смене фаз
+    lastPhaseChange: number;
 }
+
+// Определение безопасных фаз для покидания страницы
+const SAFE_ABANDONMENT_PHASES: AuthPhase[] = [
+    "initializing",
+    "checking_availability",
+    "permission_required",
+    "permission_requested",
+    "permission_checking",
+    "instructions",
+    "error",
+    "success"
+];
+
+// Небезопасные фазы (пользователь не должен покидать страницу)
+const UNSAFE_ABANDONMENT_PHASES: AuthPhase[] = [
+    "auth",
+    "verification"
+];
 
 export default function NebulaPage(): JSX.Element {
     const router = useRouter();
     const { makeAuthenticatedRequest, authState } = useUser();
     const t = useT();
 
-    // Enhanced refs for abandonment state management
+    // Улучшенные ссылки для состояния покидания
     const abandonmentStateRef = useRef<AbandonmentState>({
         lastVisibleTime: Date.now(),
-        minimumAwayTime: 30000, // 30 seconds
+        unsafePhaseAbandonmentTimeout: 45000, // Увеличено с 30 до 45 секунд
+        safePhaseGraceTime: 300000, // 5 минут для безопасных фаз
         abandonmentTimeoutId: null,
         permissionPhaseStartTime: null,
         totalPermissionTime: 0,
+        phaseTransitionBuffer: 5000, // 5 секунд буфера при смене фаз
+        lastPhaseChange: Date.now(),
     });
 
     const [pageState, setPageState] = useState<PageState>({
@@ -97,44 +123,90 @@ export default function NebulaPage(): JSX.Element {
     });
 
     /**
-     * Enhanced phase change handler with smart abandonment tracking
+     * Определение безопасности фазы для покидания
      */
-    const handlePhaseChange = useCallback((phase: AuthPhase, canAbandon: boolean) => {
-        console.log(`Verification phase changed: ${phase}, can abandon: ${canAbandon}`);
+    const isPhaseAbandonmentSafe = useCallback((phase: AuthPhase): boolean => {
+        return SAFE_ABANDONMENT_PHASES.includes(phase);
+    }, []);
 
+    /**
+     * Получение подходящего тайм-аута для текущей фазы
+     */
+    const getPhaseAbandonmentTimeout = useCallback((phase: AuthPhase, canAbandon: boolean): number => {
         const abandonmentState = abandonmentStateRef.current;
-        const now = Date.now();
 
-        // Track permission phase timing
-        if (phase === "permission_required" || phase === "permission_checking") {
-            if (!abandonmentState.permissionPhaseStartTime) {
-                abandonmentState.permissionPhaseStartTime = now;
-                console.log("Permission phase started - safe abandonment enabled");
-            }
-        } else {
-            if (abandonmentState.permissionPhaseStartTime) {
-                const permissionDuration = now - abandonmentState.permissionPhaseStartTime;
-                abandonmentState.totalPermissionTime += permissionDuration;
-                abandonmentState.permissionPhaseStartTime = null;
-                console.log(`Permission phase ended after ${permissionDuration}ms`);
-            }
+        // Если фаза считается безопасной или явно разрешено покидание
+        if (isPhaseAbandonmentSafe(phase) || canAbandon) {
+            return abandonmentState.safePhaseGraceTime;
         }
 
+        // Для небезопасных фаз используем короткий тайм-аут
+        return abandonmentState.unsafePhaseAbandonmentTimeout;
+    }, [isPhaseAbandonmentSafe]);
+
+    /**
+     * Улучшенный обработчик изменения фазы с умной логикой покидания
+     */
+    const handlePhaseChange = useCallback((phase: AuthPhase, canAbandon: boolean) => {
+        const now = Date.now();
+        const abandonmentState = abandonmentStateRef.current;
+
+        console.log(`Phase changed: ${pageState.currentPhase} → ${phase}, can abandon: ${canAbandon}`);
+
+        // Отслеживание времени в фазах разрешений
+        const isPermissionPhase = phase === "permission_required" ||
+            phase === "permission_requested" ||
+            phase === "permission_checking";
+
+        if (isPermissionPhase && !abandonmentState.permissionPhaseStartTime) {
+            abandonmentState.permissionPhaseStartTime = now;
+            console.log("Permission phase started - enabling safe abandonment tracking");
+        } else if (!isPermissionPhase && abandonmentState.permissionPhaseStartTime) {
+            const permissionDuration = now - abandonmentState.permissionPhaseStartTime;
+            abandonmentState.totalPermissionTime += permissionDuration;
+            abandonmentState.permissionPhaseStartTime = null;
+            console.log(`Permission phase ended after ${permissionDuration}ms`);
+        }
+
+        // Обновление состояния страницы
         setPageState(prev => ({
             ...prev,
             currentPhase: phase,
             canAbandon,
         }));
 
-        // Clear any existing abandonment timeout when phase changes
+        // Отслеживание времени изменения фазы
+        abandonmentState.lastPhaseChange = now;
+
+        // Очистка существующего тайм-аута покидания
         if (abandonmentState.abandonmentTimeoutId) {
             clearTimeout(abandonmentState.abandonmentTimeoutId);
             abandonmentState.abandonmentTimeoutId = null;
+            console.log("Cleared existing abandonment timeout due to phase change");
         }
-    }, []);
+
+        // Установка нового тайм-аута если страница скрыта
+        if (document.hidden && pageState.verificationInProgress && pageState.attemptId) {
+            const phaseTimeout = getPhaseAbandonmentTimeout(phase, canAbandon);
+            const timeSinceHidden = now - abandonmentState.lastVisibleTime;
+            const remainingTimeout = Math.max(1000, phaseTimeout - timeSinceHidden);
+
+            console.log(`Setting new abandonment timeout: ${remainingTimeout}ms for phase: ${phase}`);
+
+            abandonmentState.abandonmentTimeoutId = setTimeout(() => {
+                if (document.hidden) {
+                    const finalPhaseCheck = isPhaseAbandonmentSafe(phase) || canAbandon;
+                    if (!finalPhaseCheck) {
+                        console.log("User away too long in unsafe phase after phase change, reporting abandonment");
+                        reportAbandonment("phase_change_timeout");
+                    }
+                }
+            }, remainingTimeout);
+        }
+    }, [pageState.currentPhase, pageState.verificationInProgress, pageState.attemptId, getPhaseAbandonmentTimeout, isPhaseAbandonmentSafe]);
 
     /**
-     * Report verification abandonment to server
+     * Сообщение о покидании верификации на сервер
      */
     const reportAbandonment = useCallback(async (reason: string) => {
         if (!pageState.attemptId) {
@@ -145,17 +217,21 @@ export default function NebulaPage(): JSX.Element {
         console.log(`Reporting abandonment: ${reason}`);
 
         try {
+            const abandonmentContext = {
+                currentPhase: pageState.currentPhase,
+                canAbandon: pageState.canAbandon,
+                totalPermissionTime: abandonmentStateRef.current.totalPermissionTime,
+                phaseAtAbandonment: pageState.currentPhase,
+                timeInCurrentPhase: Date.now() - abandonmentStateRef.current.lastPhaseChange,
+            };
+
             await makeAuthenticatedRequest("/api/nebula/abandon", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     attemptId: pageState.attemptId,
                     reason,
-                    abandonmentContext: {
-                        currentPhase: pageState.currentPhase,
-                        canAbandon: pageState.canAbandon,
-                        totalPermissionTime: abandonmentStateRef.current.totalPermissionTime,
-                    },
+                    abandonmentContext,
                 }),
             });
             console.log("Abandonment reported successfully");
@@ -165,78 +241,97 @@ export default function NebulaPage(): JSX.Element {
     }, [pageState.attemptId, pageState.currentPhase, pageState.canAbandon, makeAuthenticatedRequest]);
 
     /**
-     * Smart visibility change handler that accounts for permission phases
+     * Улучшенный обработчик изменения видимости с буферизацией фаз
      */
     const handleVisibilityChange = useCallback(async () => {
         const now = Date.now();
         const abandonmentState = abandonmentStateRef.current;
 
         if (document.hidden) {
-            // User left the page
+            // Пользователь покинул страницу
             abandonmentState.lastVisibleTime = now;
-            console.log(`Page became hidden in phase: ${pageState.currentPhase}, can abandon: ${pageState.canAbandon}`);
+            const timeSincePhaseChange = now - abandonmentState.lastPhaseChange;
 
-            // Clear any existing timeout
+            console.log(`Page hidden. Phase: ${pageState.currentPhase}, can abandon: ${pageState.canAbandon}, time since phase change: ${timeSincePhaseChange}ms`);
+
+            // Очистка существующего тайм-аута
             if (abandonmentState.abandonmentTimeoutId) {
                 clearTimeout(abandonmentState.abandonmentTimeoutId);
                 abandonmentState.abandonmentTimeoutId = null;
             }
 
-            // Only set abandonment timeout if user can abandon in current phase
-            if (!pageState.canAbandon && pageState.verificationInProgress && pageState.attemptId) {
-                console.log(`Setting abandonment timeout for ${abandonmentState.minimumAwayTime}ms in unsafe phase`);
+            // Проверка необходимости отслеживания покидания
+            if (pageState.verificationInProgress && pageState.attemptId) {
+                const isSafePhase = isPhaseAbandonmentSafe(pageState.currentPhase) || pageState.canAbandon;
+                const phaseTimeout = getPhaseAbandonmentTimeout(pageState.currentPhase, pageState.canAbandon);
+
+                // Добавляем буфер если смена фазы была недавно
+                const bufferTime = timeSincePhaseChange < abandonmentState.phaseTransitionBuffer ?
+                    abandonmentState.phaseTransitionBuffer : 0;
+
+                const finalTimeout = phaseTimeout + bufferTime;
+
+                console.log(`Setting abandonment timeout: ${finalTimeout}ms (base: ${phaseTimeout}ms, buffer: ${bufferTime}ms) for ${isSafePhase ? 'safe' : 'unsafe'} phase`);
 
                 abandonmentState.abandonmentTimeoutId = setTimeout(() => {
-                    if (document.hidden && !pageState.canAbandon) {
-                        console.log("User away too long in unsafe phase, reporting abandonment");
-                        reportAbandonment("page_hidden_timeout");
+                    if (document.hidden) {
+                        const currentlySafe = isPhaseAbandonmentSafe(pageState.currentPhase) || pageState.canAbandon;
+                        if (!currentlySafe) {
+                            console.log("User away too long in unsafe phase, reporting abandonment");
+                            reportAbandonment("page_hidden_timeout");
+                        } else {
+                            console.log("User away in safe phase - no abandonment reported");
+                        }
                     }
-                }, abandonmentState.minimumAwayTime);
-            } else if (pageState.canAbandon) {
-                console.log("User in safe phase - no abandonment timeout set");
-            } else if (!pageState.verificationInProgress) {
-                console.log("Verification not in progress - no abandonment tracking");
+                }, finalTimeout);
+            } else {
+                console.log("Verification not in progress - no abandonment tracking needed");
             }
         } else {
-            // User returned to the page
+            // Пользователь вернулся на страницу
             const awayTime = now - abandonmentState.lastVisibleTime;
-            console.log(`Page became visible, was away for ${awayTime}ms`);
+            console.log(`Page visible again. Away time: ${awayTime}ms, phase: ${pageState.currentPhase}`);
 
-            // Clear abandonment timeout
+            // Очистка тайм-аута покидания
             if (abandonmentState.abandonmentTimeoutId) {
                 clearTimeout(abandonmentState.abandonmentTimeoutId);
                 abandonmentState.abandonmentTimeoutId = null;
+                console.log("Cleared abandonment timeout - user returned");
             }
 
-            // If returning from a long absence during permission phase, that's expected
-            if (pageState.canAbandon && awayTime > 60000) { // More than 1 minute
-                console.log("Long absence during permission phase is acceptable");
+            // Логирование длительного отсутствия в безопасных фазах
+            const isSafePhase = isPhaseAbandonmentSafe(pageState.currentPhase) || pageState.canAbandon;
+            if (isSafePhase && awayTime > 60000) {
+                console.log(`Long absence (${awayTime}ms) during safe phase - this is acceptable`);
             }
         }
     }, [
+        pageState.currentPhase,
         pageState.canAbandon,
         pageState.verificationInProgress,
         pageState.attemptId,
-        pageState.currentPhase,
-        reportAbandonment
+        reportAbandonment,
+        isPhaseAbandonmentSafe,
+        getPhaseAbandonmentTimeout
     ]);
 
     /**
-     * Enhanced before unload handler
+     * Улучшенный обработчик закрытия страницы
      */
     const handleBeforeUnload = useCallback(() => {
         const abandonmentState = abandonmentStateRef.current;
 
         if (pageState.verificationInProgress && pageState.attemptId) {
-            // Don't report abandonment if user is in a safe phase
-            if (pageState.canAbandon) {
+            const isSafePhase = isPhaseAbandonmentSafe(pageState.currentPhase) || pageState.canAbandon;
+
+            if (isSafePhase) {
                 console.log("Page unloading during safe phase - no abandonment reported");
                 return;
             }
 
             console.log("Page unloading during unsafe phase - reporting immediate abandonment");
 
-            // Use sendBeacon for reliable delivery during page unload
+            // Использование sendBeacon для надежной доставки при закрытии страницы
             const payload = JSON.stringify({
                 attemptId: pageState.attemptId,
                 reason: "page_unload",
@@ -244,6 +339,7 @@ export default function NebulaPage(): JSX.Element {
                     currentPhase: pageState.currentPhase,
                     canAbandon: pageState.canAbandon,
                     totalPermissionTime: abandonmentState.totalPermissionTime,
+                    timeInCurrentPhase: Date.now() - abandonmentState.lastPhaseChange,
                 },
             });
 
@@ -256,27 +352,28 @@ export default function NebulaPage(): JSX.Element {
     }, [
         pageState.verificationInProgress,
         pageState.attemptId,
+        pageState.currentPhase,
         pageState.canAbandon,
-        pageState.currentPhase
+        isPhaseAbandonmentSafe
     ]);
 
     /**
-     * Set up enhanced abandonment tracking event listeners
+     * Настройка улучшенных обработчиков событий отслеживания покидания
      */
     useEffect(() => {
         console.log("Setting up enhanced abandonment tracking listeners");
 
-        // Add event listeners
+        // Добавление обработчиков событий
         document.addEventListener("visibilitychange", handleVisibilityChange);
         window.addEventListener("beforeunload", handleBeforeUnload);
 
-        // Cleanup function
+        // Функция очистки
         return () => {
             console.log("Cleaning up abandonment tracking listeners");
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("beforeunload", handleBeforeUnload);
 
-            // Clear any pending timeouts
+            // Очистка pending тайм-аутов
             const abandonmentState = abandonmentStateRef.current;
             if (abandonmentState.abandonmentTimeoutId) {
                 clearTimeout(abandonmentState.abandonmentTimeoutId);
@@ -286,7 +383,7 @@ export default function NebulaPage(): JSX.Element {
     }, [handleVisibilityChange, handleBeforeUnload]);
 
     /**
-     * Check Nebula verification requirements
+     * Проверка статуса Nebula верификации
      */
     const checkNebulaStatus = useCallback(async () => {
         setPageState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -304,21 +401,21 @@ export default function NebulaPage(): JSX.Element {
                 throw new Error(result.error || "Failed to check verification status");
             }
 
-            // Check if user is blocked
+            // Проверка блокировки пользователя
             if (result.blocked) {
                 console.log("User is blocked, redirecting to blocked page");
                 router.push("/blocked");
                 return;
             }
 
-            // Check if user is allowed to proceed
+            // Проверка разрешения на продолжение
             if (result.allowed) {
                 console.log("User passed Nebula checks, redirecting to main");
                 router.push("/main");
                 return;
             }
 
-            // User requires verification
+            // Пользователь требует верификации
             if (result.verification) {
                 console.log(`User requires ${result.verification.type} verification`);
                 setPageState((prev) => ({
@@ -345,7 +442,7 @@ export default function NebulaPage(): JSX.Element {
         }
     }, [makeAuthenticatedRequest, router]);
 
-    // Initialize page
+    // Инициализация страницы
     useEffect(() => {
         if (!authState.isAuthenticated) {
             router.push("/");
@@ -356,7 +453,7 @@ export default function NebulaPage(): JSX.Element {
     }, [authState.isAuthenticated, checkNebulaStatus, router]);
 
     /**
-     * Start verification process
+     * Начало процесса верификации
      */
     const handleStartVerification = useCallback(() => {
         if (
@@ -375,10 +472,11 @@ export default function NebulaPage(): JSX.Element {
             verificationResult: null,
         }));
 
-        // Reset abandonment tracking for new verification
+        // Сброс отслеживания покидания для новой верификации
         const abandonmentState = abandonmentStateRef.current;
         abandonmentState.permissionPhaseStartTime = null;
         abandonmentState.totalPermissionTime = 0;
+        abandonmentState.lastPhaseChange = Date.now();
     }, [
         pageState.verificationInProgress,
         pageState.verificationType,
@@ -386,7 +484,7 @@ export default function NebulaPage(): JSX.Element {
     ]);
 
     /**
-     * Handle successful verification
+     * Обработка успешной верификации
      */
     const handleVerificationSuccess = useCallback(() => {
         console.log("Verification completed successfully");
@@ -396,24 +494,25 @@ export default function NebulaPage(): JSX.Element {
             verificationInProgress: false,
             verificationResult: "success",
             attemptId: null,
-            canAbandon: false, // Safe state
+            canAbandon: true, // Безопасное состояние
+            currentPhase: "success",
         }));
 
-        // Clear any pending abandonment timeouts
+        // Очистка pending тайм-аутов покидания
         const abandonmentState = abandonmentStateRef.current;
         if (abandonmentState.abandonmentTimeoutId) {
             clearTimeout(abandonmentState.abandonmentTimeoutId);
             abandonmentState.abandonmentTimeoutId = null;
         }
 
-        // Redirect to main page after short delay
+        // Перенаправление на главную страницу после короткой задержки
         setTimeout(() => {
             router.push("/main");
         }, 2000);
     }, [router]);
 
     /**
-     * Handle failed verification
+     * Обработка неудачной верификации
      */
     const handleVerificationFailure = useCallback(() => {
         console.log("Verification failed");
@@ -423,24 +522,25 @@ export default function NebulaPage(): JSX.Element {
             verificationInProgress: false,
             verificationResult: "failure",
             attemptId: null,
-            canAbandon: false, // Safe state
+            canAbandon: true, // Безопасное состояние
+            currentPhase: "error",
         }));
 
-        // Clear any pending abandonment timeouts
+        // Очистка pending тайм-аутов покидания
         const abandonmentState = abandonmentStateRef.current;
         if (abandonmentState.abandonmentTimeoutId) {
             clearTimeout(abandonmentState.abandonmentTimeoutId);
             abandonmentState.abandonmentTimeoutId = null;
         }
 
-        // Redirect to blocked page after short delay
+        // Перенаправление на страницу блокировки после короткой задержки
         setTimeout(() => {
             router.push("/blocked");
         }, 2000);
     }, [router]);
 
     /**
-     * Close verification modal (only if not in progress)
+     * Закрытие модального окна верификации (только если не в процессе)
      */
     const handleCloseModal = useCallback(() => {
         if (!pageState.verificationInProgress) {
@@ -452,7 +552,7 @@ export default function NebulaPage(): JSX.Element {
     }, [pageState.verificationInProgress]);
 
     /**
-     * Get verification icon
+     * Получение иконки верификации
      */
     const getVerificationIcon = (type: VerificationType) => {
         switch (type) {
@@ -468,7 +568,7 @@ export default function NebulaPage(): JSX.Element {
     };
 
     /**
-     * Get trust score color
+     * Получение цвета рейтинга доверия
      */
     const getTrustScoreColor = (score: number): string => {
         if (score >= 40) return "text-green-400";
@@ -477,7 +577,7 @@ export default function NebulaPage(): JSX.Element {
         return "text-red-400";
     };
 
-    // Loading state
+    // Состояние загрузки
     if (pageState.isLoading) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
@@ -489,7 +589,7 @@ export default function NebulaPage(): JSX.Element {
         );
     }
 
-    // Error state
+    // Состояние ошибки
     if (pageState.error) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center p-6">
@@ -510,7 +610,7 @@ export default function NebulaPage(): JSX.Element {
         );
     }
 
-    // Success result display
+    // Отображение результата успеха
     if (pageState.verificationResult === "success") {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center p-6">
@@ -530,7 +630,7 @@ export default function NebulaPage(): JSX.Element {
         );
     }
 
-    // Failure result display
+    // Отображение результата неудачи
     if (pageState.verificationResult === "failure") {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center p-6">
@@ -552,11 +652,11 @@ export default function NebulaPage(): JSX.Element {
         );
     }
 
-    // Main verification page
+    // Главная страница верификации
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-6">
             <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6">
-                {/* Header */}
+                {/* Заголовок */}
                 <div className="text-center mb-8">
                     <div className="flex items-center justify-center mb-4">
                         <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center">
@@ -572,7 +672,7 @@ export default function NebulaPage(): JSX.Element {
                     </p>
                 </div>
 
-                {/* Trust Score Display */}
+                {/* Отображение рейтинга доверия */}
                 <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-gray-300 text-sm">{t("nebula.verification.trustScore")}</span>
@@ -595,7 +695,7 @@ export default function NebulaPage(): JSX.Element {
                     </p>
                 </div>
 
-                {/* Verification Info */}
+                {/* Информация о верификации */}
                 {pageState.verificationType && (
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
                         <h3 className="text-blue-300 font-semibold mb-2 capitalize">
@@ -607,7 +707,7 @@ export default function NebulaPage(): JSX.Element {
                     </div>
                 )}
 
-                {/* Enhanced Warning for Biometric/Gyroscope */}
+                {/* Улучшенное предупреждение для биометрии/гироскопа */}
                 {pageState.verificationType === "biometric" || pageState.verificationType === "gyroscope" ? (
                     <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-6">
                         <div className="flex items-start space-x-2">
@@ -647,7 +747,7 @@ export default function NebulaPage(): JSX.Element {
                     </div>
                 )}
 
-                {/* Appeal Contact Information */}
+                {/* Информация о контакте для апелляций */}
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
                     <h4 className="text-yellow-300 font-semibold mb-2 text-sm">
                         {t("nebula.blocked.appeal.title")}
@@ -671,7 +771,7 @@ export default function NebulaPage(): JSX.Element {
                     </p>
                 </div>
 
-                {/* Start Verification Button */}
+                {/* Кнопка начала верификации */}
                 <button
                     className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-lg font-semibold"
                     disabled={
@@ -695,7 +795,7 @@ export default function NebulaPage(): JSX.Element {
                 </button>
             </div>
 
-            {/* Verification Modals with Enhanced Phase Tracking */}
+            {/* Модальные окна верификации с улучшенным отслеживанием фаз */}
             {pageState.verificationType === "captcha" && (
                 <NebulaCaptchaModal
                     attemptId={pageState.attemptId}
