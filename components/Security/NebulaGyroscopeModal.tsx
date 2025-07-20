@@ -59,7 +59,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     const { makeAuthenticatedRequest } = useUser();
     const verificationTimeout = 15000; // 15 seconds for verification
     const movementThreshold = 15; // Degrees of rotation to count as movement
-    const movementCooldown = 10; // 1 second between movements
+    const movementCooldown = 500; // 1 second between movements
     const requiredMovements = 3; // Require 3 distinct movements
 
     // Refs for gyroscope data and movement detection
