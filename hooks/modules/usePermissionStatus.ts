@@ -1,8 +1,8 @@
-// src/hooks/modules/usePermissionStatus.ts - Централизованная система управления разрешениями
+// src/hooks/modules/usePermissionStatus.ts - Обновленная система управления разрешениями
 
 import { useState, useCallback, useEffect } from "react";
 
-export type PermissionState = 'granted' | 'denied' | 'prompt' | 'checking' | 'unavailable';
+export type PermissionState = 'granted' | 'denied' | 'prompt' | 'checking' | 'unavailable' | 'ready';
 
 export interface PermissionStatus {
     biometric: PermissionState;
@@ -15,19 +15,30 @@ export interface PermissionInfo {
     isGranted: boolean;
     needsPermission: boolean;
     canRequest: boolean;
+    hasManager: boolean;
+}
+
+export interface BiometricManagerInfo {
+    isAvailable: boolean;
+    isAccessGranted: boolean;
+    biometricType: string | null;
+    manager: any;
 }
 
 export interface UsePermissionStatusReturn {
     status: PermissionStatus;
     checkBiometricPermission: () => Promise<PermissionInfo>;
     checkGyroscopePermission: () => Promise<PermissionInfo>;
+    checkCaptchaPermission: () => Promise<PermissionInfo>;
     requestBiometricPermission: () => Promise<boolean>;
     requestGyroscopePermission: () => Promise<boolean>;
+    requestCaptchaPermission: () => Promise<boolean>;
     recheckAllPermissions: () => Promise<void>;
+    getBiometricManagerInfo: () => Promise<BiometricManagerInfo>;
 }
 
 /**
- * Централизованный хук для управления разрешениями верификации
+ * Enhanced hook for managing verification permissions with better state tracking
  */
 export function usePermissionStatus(): UsePermissionStatusReturn {
     const [status, setStatus] = useState<PermissionStatus>({
@@ -37,62 +48,85 @@ export function usePermissionStatus(): UsePermissionStatusReturn {
     });
 
     /**
-     * Проверка статуса биометрических разрешений
+     * Get detailed biometric manager information
      */
-    const checkBiometricPermission = useCallback(async (): Promise<PermissionInfo> => {
+    const getBiometricManagerInfo = useCallback(async (): Promise<BiometricManagerInfo> => {
         try {
-            // Проверяем доступность Telegram WebApp
             if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
-                setStatus(prev => ({ ...prev, biometric: 'unavailable' }));
                 return {
-                    isSupported: false,
-                    isGranted: false,
-                    needsPermission: false,
-                    canRequest: false
+                    isAvailable: false,
+                    isAccessGranted: false,
+                    biometricType: null,
+                    manager: null
                 };
             }
 
-            // Проверяем доступность BiometricManager
             const manager = window.Telegram.WebApp.BiometricManager;
             if (!manager) {
-                setStatus(prev => ({ ...prev, biometric: 'unavailable' }));
                 return {
-                    isSupported: false,
-                    isGranted: false,
-                    needsPermission: false,
-                    canRequest: false
+                    isAvailable: false,
+                    isAccessGranted: false,
+                    biometricType: null,
+                    manager: null
                 };
             }
 
-            // Инициализируем менеджер если не инициализирован
+            // Initialize manager if needed
             if (!manager.isInited) {
                 await new Promise<void>((resolve) => {
                     manager.init(() => resolve());
                 });
             }
 
-            // Проверяем доступность биометрии на устройстве
-            if (!manager.isBiometricAvailable) {
+            return {
+                isAvailable: manager.isBiometricAvailable,
+                isAccessGranted: manager.isAccessGranted,
+                biometricType: manager.biometricType || null,
+                manager: manager
+            };
+
+        } catch (error) {
+            console.error('Error getting biometric manager info:', error);
+            return {
+                isAvailable: false,
+                isAccessGranted: false,
+                biometricType: null,
+                manager: null
+            };
+        }
+    }, []);
+
+    /**
+     * Enhanced biometric permission checking
+     */
+    const checkBiometricPermission = useCallback(async (): Promise<PermissionInfo> => {
+        try {
+            setStatus(prev => ({ ...prev, biometric: 'checking' }));
+
+            const managerInfo = await getBiometricManagerInfo();
+
+            if (!managerInfo.isAvailable) {
                 setStatus(prev => ({ ...prev, biometric: 'unavailable' }));
                 return {
                     isSupported: false,
                     isGranted: false,
                     needsPermission: false,
-                    canRequest: false
+                    canRequest: false,
+                    hasManager: false
                 };
             }
 
-            // Проверяем статус разрешений
-            const isGranted = manager.isAccessGranted;
+            const isGranted = managerInfo.isAccessGranted;
             const newStatus: PermissionState = isGranted ? 'granted' : 'prompt';
-            
+
             setStatus(prev => ({ ...prev, biometric: newStatus }));
 
             return {
                 isSupported: true,
                 isGranted,
                 needsPermission: !isGranted,
-                canRequest: !isGranted
+                canRequest: !isGranted,
+                hasManager: true
             };
 
         } catch (error) {
@@ -102,33 +136,35 @@ export function usePermissionStatus(): UsePermissionStatusReturn {
                 isSupported: false,
                 isGranted: false,
                 needsPermission: false,
-                canRequest: false
+                canRequest: false,
+                hasManager: false
             };
         }
-    }, []);
+    }, [getBiometricManagerInfo]);
 
     /**
-     * Проверка статуса разрешений гироскопа
+     * Enhanced gyroscope permission checking
      */
     const checkGyroscopePermission = useCallback(async (): Promise<PermissionInfo> => {
         try {
-            // Проверяем доступность API
+            setStatus(prev => ({ ...prev, gyroscope: 'checking' }));
+
             if (typeof window === 'undefined' || !window.DeviceOrientationEvent) {
                 setStatus(prev => ({ ...prev, gyroscope: 'unavailable' }));
                 return {
                     isSupported: false,
                     isGranted: false,
                     needsPermission: false,
-                    canRequest: false
+                    canRequest: false,
+                    hasManager: false
                 };
             }
 
             const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
 
-            // Проверяем нужно ли разрешение (iOS 13+ и современные браузеры)
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
-                    // Проверяем текущий статус без запроса
+                    // Try to check current permission status
                     const permission = await navigator.permissions?.query?.({ name: 'accelerometer' as any })
                         .catch(() => null);
 
@@ -148,7 +184,6 @@ export function usePermissionStatus(): UsePermissionStatusReturn {
                                 permissionState = 'prompt';
                         }
                     } else {
-                        // Если permissions API недоступен, предполагаем что нужно запросить
                         permissionState = 'prompt';
                     }
 
@@ -158,7 +193,8 @@ export function usePermissionStatus(): UsePermissionStatusReturn {
                         isSupported: true,
                         isGranted,
                         needsPermission: !isGranted,
-                        canRequest: permissionState !== 'denied'
+                        canRequest: permissionState !== 'denied',
+                        hasManager: true
                     };
 
                 } catch (error) {
@@ -168,17 +204,19 @@ export function usePermissionStatus(): UsePermissionStatusReturn {
                         isSupported: true,
                         isGranted: false,
                         needsPermission: true,
-                        canRequest: true
+                        canRequest: true,
+                        hasManager: true
                     };
                 }
             } else {
-                // Для старых браузеров/устройств разрешение не требуется
+                // For older browsers/devices permission is not required
                 setStatus(prev => ({ ...prev, gyroscope: 'granted' }));
                 return {
                     isSupported: true,
                     isGranted: true,
                     needsPermission: false,
-                    canRequest: false
+                    canRequest: false,
+                    hasManager: false
                 };
             }
 
@@ -189,21 +227,27 @@ export function usePermissionStatus(): UsePermissionStatusReturn {
                 isSupported: false,
                 isGranted: false,
                 needsPermission: false,
-                canRequest: false
+                canRequest: false,
+                hasManager: false
             };
         }
     }, []);
 
     /**
-     * Запрос биометрического разрешения
+     * Enhanced biometric permission request
      */
     const requestBiometricPermission = useCallback(async (): Promise<boolean> => {
         try {
-            const manager = window.Telegram?.WebApp?.BiometricManager;
-            if (!manager) return false;
+            setStatus(prev => ({ ...prev, biometric: 'checking' }));
+
+            const managerInfo = await getBiometricManagerInfo();
+            if (!managerInfo.manager || !managerInfo.isAvailable) {
+                setStatus(prev => ({ ...prev, biometric: 'unavailable' }));
+                return false;
+            }
 
             return new Promise<boolean>((resolve) => {
-                manager.requestAccess(
+                managerInfo.manager.requestAccess(
                     { reason: "Security verification required for continued access" },
                     (granted: boolean) => {
                         const newStatus: PermissionState = granted ? 'granted' : 'denied';
@@ -218,28 +262,31 @@ export function usePermissionStatus(): UsePermissionStatusReturn {
             setStatus(prev => ({ ...prev, biometric: 'denied' }));
             return false;
         }
-    }, []);
+    }, [getBiometricManagerInfo]);
 
     /**
-     * Запрос разрешения гироскопа
+     * Enhanced gyroscope permission request
      */
     const requestGyroscopePermission = useCallback(async (): Promise<boolean> => {
         try {
+            setStatus(prev => ({ ...prev, gyroscope: 'checking' }));
+
             const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
 
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 const permission = await DeviceOrientationEvent.requestPermission();
                 const granted = permission === 'granted';
-                
-                setStatus(prev => ({ 
-                    ...prev, 
-                    gyroscope: granted ? 'granted' : 'denied' 
+
+                setStatus(prev => ({
+                    ...prev,
+                    gyroscope: granted ? 'granted' : 'denied'
                 }));
 
                 return granted;
             }
 
-            // Для устройств без необходимости разрешения
+            // For devices without permission requirement
+            setStatus(prev => ({ ...prev, gyroscope: 'granted' }));
             return true;
 
         } catch (error) {
@@ -250,24 +297,54 @@ export function usePermissionStatus(): UsePermissionStatusReturn {
     }, []);
 
     /**
-     * Повторная проверка всех разрешений
+     * Captcha permission check (always available)
+     */
+    const checkCaptchaPermission = useCallback(async (): Promise<PermissionInfo> => {
+        setStatus(prev => ({ ...prev, captcha: 'granted' }));
+
+        return {
+            isSupported: true,
+            isGranted: true,
+            needsPermission: false,
+            canRequest: false,
+            hasManager: false
+        };
+    }, []);
+
+    /**
+     * Captcha permission request (no-op)
+     */
+    const requestCaptchaPermission = useCallback(async (): Promise<boolean> => {
+        return true;
+    }, []);
+
+    /**
+     * Recheck all permissions with enhanced error handling
      */
     const recheckAllPermissions = useCallback(async (): Promise<void> => {
         console.log('Rechecking all permissions...');
-        
+
         try {
-            await Promise.all([
+            const results = await Promise.allSettled([
                 checkBiometricPermission(),
-                checkGyroscopePermission()
+                checkGyroscopePermission(),
+                checkCaptchaPermission()
             ]);
-            
+
+            results.forEach((result, index) => {
+                if (result.status === 'rejected') {
+                    const permissionType = index === 0 ? 'biometric' : index === 1 ? 'gyroscope' : 'captcha';
+                    console.error(`Failed to check ${permissionType} permission:`, result.reason);
+                }
+            });
+
             console.log('Permission recheck completed');
         } catch (error) {
             console.error('Error during permission recheck:', error);
         }
-    }, [checkBiometricPermission, checkGyroscopePermission]);
+    }, [checkBiometricPermission, checkGyroscopePermission, checkCaptchaPermission]);
 
-    // Инициализация при монтировании компонента
+    // Initialize permissions on mount
     useEffect(() => {
         recheckAllPermissions();
     }, [recheckAllPermissions]);
@@ -276,8 +353,11 @@ export function usePermissionStatus(): UsePermissionStatusReturn {
         status,
         checkBiometricPermission,
         checkGyroscopePermission,
+        checkCaptchaPermission,
         requestBiometricPermission,
         requestGyroscopePermission,
-        recheckAllPermissions
+        requestCaptchaPermission,
+        recheckAllPermissions,
+        getBiometricManagerInfo
     };
 }
