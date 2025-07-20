@@ -1,4 +1,4 @@
-// src/components/Security/NebulaBiometricModal.tsx - Исправленная версия на основе рабочего кода
+// src/components/Security/NebulaBiometricModal.tsx - Версия с отладочной информацией на экране
 
 "use client";
 
@@ -12,6 +12,7 @@ import {
     Shield,
     XCircle,
     CheckCircle2,
+    Bug,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -48,6 +49,18 @@ interface BiometricState {
     canAbandon: boolean;
 }
 
+interface DebugInfo {
+    logs: string[];
+    telegramWebAppAvailable: boolean;
+    biometricManagerAvailable: boolean;
+    biometricManagerInitialized: boolean;
+    biometricAvailable: boolean;
+    accessGranted: boolean;
+    biometricType: string;
+    initCallbackCalled: boolean;
+    windowObject: any;
+}
+
 const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     isOpen,
     onSuccess,
@@ -58,7 +71,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     onPhaseChange,
 }) => {
     const { makeAuthenticatedRequest } = useUser();
-    const authTimeout = 15000; // 15 seconds for authentication
+    const authTimeout = 15000;
 
     const [state, setState] = useState<BiometricState>({
         currentPhase: "initializing",
@@ -73,24 +86,52 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         canAbandon: false,
     });
 
-    // Notify parent component about phase changes and abandonment safety
+    const [debugInfo, setDebugInfo] = useState<DebugInfo>({
+        logs: [],
+        telegramWebAppAvailable: false,
+        biometricManagerAvailable: false,
+        biometricManagerInitialized: false,
+        biometricAvailable: false,
+        accessGranted: false,
+        biometricType: "unknown",
+        initCallbackCalled: false,
+        windowObject: null,
+    });
+
+    const [showDebug, setShowDebug] = useState(true);
+
+    const addDebugLog = useCallback((message: string) => {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = `[${timestamp}] ${message}`;
+        console.log(logEntry);
+        setDebugInfo(prev => ({
+            ...prev,
+            logs: [...prev.logs.slice(-10), logEntry] // Keep last 10 logs
+        }));
+    }, []);
+
+    const updateDebugInfo = useCallback((updates: Partial<DebugInfo>) => {
+        setDebugInfo(prev => ({ ...prev, ...updates }));
+    }, []);
+
+    // Notify parent component about phase changes
     useEffect(() => {
         if (onPhaseChange) {
             onPhaseChange(state.currentPhase, state.canAbandon);
         }
     }, [state.currentPhase, state.canAbandon, onPhaseChange]);
 
-    // Helper function to update phase and abandonment status
     const updatePhase = useCallback((
         newPhase: AuthPhase,
         canAbandon: boolean = false
     ) => {
+        addDebugLog(`Phase change: ${state.currentPhase} -> ${newPhase}`);
         setState((prev) => ({
             ...prev,
             currentPhase: newPhase,
             canAbandon,
         }));
-    }, []);
+    }, [state.currentPhase, addDebugLog]);
 
     // Reset state when modal opens/closes
     useEffect(() => {
@@ -107,13 +148,28 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 isBiometricSupported: true,
                 canAbandon: false,
             });
+            setDebugInfo({
+                logs: [],
+                telegramWebAppAvailable: false,
+                biometricManagerAvailable: false,
+                biometricManagerInitialized: false,
+                biometricAvailable: false,
+                accessGranted: false,
+                biometricType: "unknown",
+                initCallbackCalled: false,
+                windowObject: null,
+            });
             return;
         }
 
+        addDebugLog("Modal opened, starting initialization");
+        
         if (attemptId) {
+            addDebugLog(`Attempt ID: ${attemptId}`);
             updatePhase("initializing", false);
             initBiometric();
         } else {
+            addDebugLog("ERROR: No attempt ID provided");
             setState((prev) => ({
                 ...prev,
                 error: "No verification attempt ID provided",
@@ -121,7 +177,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 canAbandon: true,
             }));
         }
-    }, [isOpen, attemptId, updatePhase]);
+    }, [isOpen, attemptId, updatePhase, addDebugLog]);
 
     // Authentication phase timer
     useEffect(() => {
@@ -144,71 +200,130 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     }, [state.authTimerActive, state.currentPhase]);
 
     /**
-     * ИСПРАВЛЕННАЯ инициализация биометрии - точно как в рабочей версии
+     * ОТЛАДОЧНАЯ инициализация биометрии
      */
     const initBiometric = async () => {
-        console.log("Initializing biometric authentication");
+        addDebugLog("=== Starting biometric initialization ===");
 
+        // Проверка window
         if (typeof window === "undefined") {
-            console.log("Window not available");
-            await handleUnsupportedDevice(
-                "Biometric authentication is not available in this environment",
-            );
+            addDebugLog("ERROR: Window object is undefined");
+            await handleUnsupportedDevice("Window not available");
             return;
         }
 
-        const tg = window.Telegram?.WebApp;
+        addDebugLog("✓ Window object available");
 
-        if (!tg || !tg.BiometricManager) {
-            console.log(
-                "BiometricManager not available - device/platform not supported",
-            );
-            await handleUnsupportedDevice(
-                "Biometric authentication is not supported on this device or platform",
-            );
-            return;
-        }
+        // Детальная проверка Telegram объекта
+        const windowTelegram = (window as any).Telegram;
+        addDebugLog(`Telegram object: ${windowTelegram ? 'Available' : 'Not Available'}`);
+        
+        if (windowTelegram) {
+            addDebugLog(`Telegram keys: ${Object.keys(windowTelegram).join(', ')}`);
+            
+            const webApp = windowTelegram.WebApp;
+            addDebugLog(`WebApp object: ${webApp ? 'Available' : 'Not Available'}`);
+            
+            if (webApp) {
+                addDebugLog(`WebApp version: ${webApp.version || 'Unknown'}`);
+                addDebugLog(`WebApp platform: ${webApp.platform || 'Unknown'}`);
+                addDebugLog(`WebApp keys: ${Object.keys(webApp).join(', ')}`);
+                
+                updateDebugInfo({
+                    telegramWebAppAvailable: true,
+                    windowObject: {
+                        telegramKeys: Object.keys(windowTelegram),
+                        webAppKeys: Object.keys(webApp),
+                        version: webApp.version,
+                        platform: webApp.platform
+                    }
+                });
 
-        const manager = tg.BiometricManager;
+                const biometricManager = webApp.BiometricManager;
+                addDebugLog(`BiometricManager: ${biometricManager ? 'Available' : 'Not Available'}`);
+                
+                if (biometricManager) {
+                    addDebugLog(`BiometricManager keys: ${Object.keys(biometricManager).join(', ')}`);
+                    updateDebugInfo({ biometricManagerAvailable: true });
+                    
+                    // Проверка методов BiometricManager
+                    addDebugLog(`init method: ${typeof biometricManager.init}`);
+                    addDebugLog(`isBiometricAvailable: ${biometricManager.isBiometricAvailable}`);
+                    addDebugLog(`isAccessGranted: ${biometricManager.isAccessGranted}`);
+                    addDebugLog(`biometricType: ${biometricManager.biometricType || 'Unknown'}`);
 
-        // КЛЮЧЕВОЕ ОТЛИЧИЕ: Простая инициализация без таймаутов и сложных проверок
-        manager.init(() => {
-            console.log("BiometricManager initialized");
-            setState((prev) => ({
-                ...prev,
-                biometricManager: manager,
-                biometricType: manager.biometricType || "unknown",
-            }));
+                    // Попытка инициализации
+                    addDebugLog("Calling BiometricManager.init()...");
+                    
+                    try {
+                        biometricManager.init(() => {
+                            addDebugLog("🎉 BiometricManager init callback called!");
+                            
+                            updateDebugInfo({
+                                biometricManagerInitialized: true,
+                                initCallbackCalled: true,
+                                biometricAvailable: biometricManager.isBiometricAvailable,
+                                accessGranted: biometricManager.isAccessGranted,
+                                biometricType: biometricManager.biometricType || 'unknown'
+                            });
 
-            if (!manager.isBiometricAvailable) {
-                console.log("Biometric not available on device");
-                handleUnsupportedDevice(
-                    "Biometric authentication is not available on this device",
-                );
-                return;
-            }
+                            setState((prev) => ({
+                                ...prev,
+                                biometricManager: biometricManager,
+                                biometricType: biometricManager.biometricType || "unknown",
+                            }));
 
-            // Check if permission is already granted
-            if (manager.isAccessGranted) {
-                console.log("Permission already granted, proceeding to authentication");
-                updatePhase("auth", true); // Can abandon during auth phase
-                setState((prev) => ({
-                    ...prev,
-                    authTimeRemaining: authTimeout,
-                    authTimerActive: true,
-                }));
+                            if (!biometricManager.isBiometricAvailable) {
+                                addDebugLog("❌ Biometric not available on device");
+                                handleUnsupportedDevice("Biometric not available on this device");
+                                return;
+                            }
+
+                            addDebugLog("✓ Biometric available on device");
+
+                            if (biometricManager.isAccessGranted) {
+                                addDebugLog("✓ Permission already granted, proceeding to auth");
+                                updatePhase("auth", true);
+                                setState((prev) => ({
+                                    ...prev,
+                                    authTimeRemaining: authTimeout,
+                                    authTimerActive: true,
+                                }));
+                            } else {
+                                addDebugLog("⚠️ Permission not granted, showing permission screen");
+                                updatePhase("permission_required", false);
+                            }
+                        });
+
+                        // Таймаут для обнаружения зависших инициализаций
+                        setTimeout(() => {
+                            if (!debugInfo.initCallbackCalled) {
+                                addDebugLog("🚨 TIMEOUT: Init callback never called after 5 seconds");
+                                addDebugLog("This suggests BiometricManager.init() is not working properly");
+                            }
+                        }, 5000);
+
+                    } catch (error) {
+                        addDebugLog(`❌ Error calling BiometricManager.init(): ${error}`);
+                        await handleUnsupportedDevice(`Init error: ${error}`);
+                    }
+                } else {
+                    addDebugLog("❌ BiometricManager not available in WebApp");
+                    updateDebugInfo({ biometricManagerAvailable: false });
+                    await handleUnsupportedDevice("BiometricManager not supported");
+                }
             } else {
-                console.log("Permission not granted, showing permission required screen");
-                updatePhase("permission_required", false); // SAFE: Cannot abandon during permission request
+                addDebugLog("❌ WebApp object not available");
+                await handleUnsupportedDevice("Telegram WebApp not available");
             }
-        });
+        } else {
+            addDebugLog("❌ Telegram object not available");
+            await handleUnsupportedDevice("Telegram object not found");
+        }
     };
 
-    /**
-     * Handle authentication timeout
-     */
     const handleAuthTimeout = useCallback(() => {
-        console.log("Authentication timeout");
+        addDebugLog("⏰ Authentication timeout");
         setState((prev) => ({ ...prev, authTimerActive: false }));
 
         if (!state.attemptMade) {
@@ -223,11 +338,8 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 handleBiometricFailure();
             }, 1000);
         }
-    }, [state.attemptMade, updatePhase]);
+    }, [state.attemptMade, updatePhase, addDebugLog]);
 
-    /**
-     * Handle biometric authentication
-     */
     const handleAuthenticate = useCallback(async () => {
         if (
             !state.biometricManager ||
@@ -236,10 +348,16 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
             state.attemptMade ||
             !attemptId
         ) {
+            addDebugLog("❌ Cannot authenticate - conditions not met");
+            addDebugLog(`Manager: ${!!state.biometricManager}`);
+            addDebugLog(`Access: ${state.biometricManager?.isAccessGranted}`);
+            addDebugLog(`Authenticating: ${state.isAuthenticating}`);
+            addDebugLog(`Attempt made: ${state.attemptMade}`);
+            addDebugLog(`Attempt ID: ${attemptId}`);
             return;
         }
 
-        console.log("Starting biometric authentication");
+        addDebugLog("🔐 Starting biometric authentication");
         setState((prev) => ({
             ...prev,
             isAuthenticating: true,
@@ -256,11 +374,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                     const authEndTime = Date.now();
                     const completedInTime = authEndTime - authStartTime < authTimeout;
 
-                    console.log("Biometric authentication result:", {
-                        success,
-                        completedInTime,
-                        hasToken: !!token,
-                    });
+                    addDebugLog(`🔍 Auth result: success=${success}, time=${completedInTime}, token=${!!token}`);
 
                     try {
                         const response = await makeAuthenticatedRequest(
@@ -279,19 +393,18 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                         );
 
                         if (!response.ok) {
-                            throw new Error(
-                                `HTTP ${response.status}: ${response.statusText}`,
-                            );
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                         }
 
                         const result = await response.json();
+                        addDebugLog(`📡 API response: ${JSON.stringify(result)}`);
 
                         if (!result.success) {
                             throw new Error(result.error || "Verification failed");
                         }
 
                         if (result.verified && result.trustRestored) {
-                            console.log("Biometric authentication successful");
+                            addDebugLog("✅ Authentication successful");
                             updatePhase("success", false);
                             setState((prev) => ({
                                 ...prev,
@@ -303,7 +416,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                                 onSuccess();
                             }, 1500);
                         } else if (result.blocked) {
-                            console.log("Biometric authentication failed, user blocked");
+                            addDebugLog("❌ Authentication failed, user blocked");
                             updatePhase("error", true);
                             setState((prev) => ({
                                 ...prev,
@@ -319,13 +432,13 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             throw new Error("Unexpected verification result");
                         }
                     } catch (error) {
-                        console.error("Error validating biometric:", error);
+                        addDebugLog(`❌ API error: ${error}`);
                         handleBiometricFailure();
                     }
                 },
             );
         } catch (error) {
-            console.error("Error during biometric authentication:", error);
+            addDebugLog(`❌ Authentication error: ${error}`);
             handleBiometricFailure();
         }
     }, [
@@ -339,16 +452,11 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         onFailure,
         attemptId,
         updatePhase,
+        addDebugLog,
     ]);
 
-    /**
-     * Handle biometric failure
-     */
     const handleBiometricFailure = useCallback(async () => {
-        console.log(
-            "Handling biometric failure, supported:",
-            state.isBiometricSupported,
-        );
+        addDebugLog("💥 Handling biometric failure");
 
         updatePhase("error", true);
         setState((prev) => ({
@@ -357,34 +465,14 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
             authTimerActive: false,
         }));
 
-        if (attemptId) {
-            try {
-                await makeAuthenticatedRequest("/api/nebula/biometric", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        success: false,
-                        completedInTime: false,
-                        deviceSupported: state.isBiometricSupported,
-                        attemptId,
-                    }),
-                });
-            } catch (error) {
-                console.error("Error sending biometric failure to API:", error);
-            }
-        }
-
         setTimeout(() => {
             onFailure();
         }, 1000);
-    }, [state.isBiometricSupported, makeAuthenticatedRequest, onFailure, attemptId, updatePhase]);
+    }, [updatePhase, onFailure, addDebugLog]);
 
-    /**
-     * Handle unsupported device with automatic blocking
-     */
     const handleUnsupportedDevice = useCallback(
         async (reason: string) => {
-            console.log("Auto-blocking for unsupported device:", reason);
+            addDebugLog(`🚫 Unsupported device: ${reason}`);
 
             updatePhase("unsupported", true);
             setState((prev) => ({
@@ -393,69 +481,35 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 isBiometricSupported: false,
             }));
 
-            if (attemptId) {
-                try {
-                    const response = await makeAuthenticatedRequest(
-                        "/api/nebula/biometric",
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                success: false,
-                                completedInTime: false,
-                                deviceSupported: false,
-                                unavailable: true,
-                                attemptId,
-                            }),
-                        },
-                    );
-
-                    if (response.ok) {
-                        setTimeout(() => onFailure(), 2000);
-                    } else {
-                        setTimeout(() => onFailure(), 1000);
-                    }
-                } catch (error) {
-                    console.error("Error auto-blocking unsupported device:", error);
-                    setTimeout(() => onFailure(), 1000);
-                }
-            } else {
-                setTimeout(() => onFailure(), 1000);
-            }
+            setTimeout(() => onFailure(), 2000);
         },
-        [makeAuthenticatedRequest, onFailure, attemptId, updatePhase],
+        [updatePhase, onFailure, addDebugLog],
     );
 
-    /**
-     * Handle open settings
-     */
-    const handleOpenSettings = useCallback(() => {
-        if (state.biometricManager?.openSettings) {
-            state.biometricManager.openSettings();
-        }
-    }, [state.biometricManager]);
-
-    /**
-     * Handle request permission - как в рабочей версии
-     */
     const handleRequestPermission = useCallback(async () => {
-        if (!state.biometricManager || !attemptId) return;
+        if (!state.biometricManager || !attemptId) {
+            addDebugLog("❌ Cannot request permission - missing manager or attempt ID");
+            return;
+        }
+
+        addDebugLog("🔑 Requesting biometric permission");
 
         try {
             state.biometricManager.requestAccess(
                 { reason: "Security verification required for continued access" },
                 (granted: boolean) => {
-                    console.log("Permission request result:", granted);
+                    addDebugLog(`🔑 Permission result: ${granted}`);
 
                     if (granted) {
-                        console.log("Permission granted, proceeding to authentication");
-                        updatePhase("auth", true); // NOW can abandon during auth phase
+                        addDebugLog("✅ Permission granted, proceeding to auth");
+                        updatePhase("auth", true);
                         setState((prev) => ({
                             ...prev,
                             authTimeRemaining: authTimeout,
                             authTimerActive: true,
                         }));
                     } else {
+                        addDebugLog("❌ Permission denied");
                         updatePhase("error", true);
                         setState((prev) => ({
                             ...prev,
@@ -465,18 +519,15 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 },
             );
         } catch (error) {
-            console.error("Error requesting biometric permission:", error);
+            addDebugLog(`❌ Permission request error: ${error}`);
             updatePhase("error", true);
             setState((prev) => ({
                 ...prev,
                 error: "Failed to request permission",
             }));
         }
-    }, [state.biometricManager, attemptId, authTimeout, updatePhase]);
+    }, [state.biometricManager, attemptId, authTimeout, updatePhase, addDebugLog]);
 
-    /**
-     * Get biometric icon
-     */
     const getBiometricIcon = () => {
         switch (state.biometricType) {
             case "finger":
@@ -488,23 +539,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         }
     };
 
-    /**
-     * Get biometric type name
-     */
-    const getBiometricTypeName = () => {
-        switch (state.biometricType) {
-            case "finger":
-                return "Fingerprint";
-            case "face":
-                return "Face ID";
-            default:
-                return "Biometric";
-        }
-    };
-
-    /**
-     * Format time in seconds
-     */
     const formatTime = (ms: number): string => {
         const seconds = Math.ceil(ms / 1000);
         return `${seconds}s`;
@@ -514,7 +548,54 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative w-full max-w-md mx-4 bg-gray-900 border border-gray-700 rounded-xl p-6 shadow-2xl">
+            <div className="relative w-full max-w-lg mx-4 bg-gray-900 border border-gray-700 rounded-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                {/* Debug Toggle */}
+                <button
+                    className="absolute top-2 right-2 p-2 text-gray-400 hover:text-white"
+                    onClick={() => setShowDebug(!showDebug)}
+                >
+                    <Bug size={16} />
+                </button>
+
+                {/* Debug Panel */}
+                {showDebug && (
+                    <div className="mb-4 p-3 bg-gray-800 border border-gray-600 rounded-lg text-xs">
+                        <h4 className="text-yellow-400 font-semibold mb-2">Debug Info</h4>
+                        
+                        <div className="grid grid-cols-2 gap-2 mb-3 text-gray-300">
+                            <div>Telegram WebApp: {debugInfo.telegramWebAppAvailable ? '✅' : '❌'}</div>
+                            <div>BiometricManager: {debugInfo.biometricManagerAvailable ? '✅' : '❌'}</div>
+                            <div>Initialized: {debugInfo.biometricManagerInitialized ? '✅' : '❌'}</div>
+                            <div>Init Callback: {debugInfo.initCallbackCalled ? '✅' : '❌'}</div>
+                            <div>Biometric Available: {debugInfo.biometricAvailable ? '✅' : '❌'}</div>
+                            <div>Access Granted: {debugInfo.accessGranted ? '✅' : '❌'}</div>
+                        </div>
+
+                        <div className="mb-3">
+                            <strong className="text-yellow-400">Type:</strong> {debugInfo.biometricType}
+                        </div>
+
+                        <div className="mb-3">
+                            <strong className="text-yellow-400">Phase:</strong> {state.currentPhase}
+                        </div>
+
+                        {debugInfo.windowObject && (
+                            <div className="mb-3">
+                                <strong className="text-yellow-400">WebApp Version:</strong> {debugInfo.windowObject.version}
+                            </div>
+                        )}
+
+                        <div>
+                            <strong className="text-yellow-400">Logs:</strong>
+                            <div className="mt-1 max-h-32 overflow-y-auto bg-black/50 p-2 rounded text-green-400 font-mono">
+                                {debugInfo.logs.map((log, index) => (
+                                    <div key={index} className="mb-1">{log}</div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header */}
                 <div className="text-center mb-6">
                     <div className="flex items-center justify-center mb-4">
@@ -537,24 +618,12 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                     <p className="text-gray-400 text-sm">
                         {state.currentPhase === "success"
                             ? "Your identity has been verified successfully"
-                            : state.currentPhase === "permission_required"
-                                ? "Please grant biometric access to continue verification"
-                                : "Your trust score is low. Please authenticate using biometrics to continue."}
+                            : "Please complete biometric authentication to continue"}
                     </p>
                 </div>
 
-                {/* Content */}
-                {!attemptId ? (
-                    <div className="text-center py-4">
-                        <p className="text-red-400">No verification attempt found</p>
-                        <button
-                            className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
-                            onClick={onFailure}
-                        >
-                            Close
-                        </button>
-                    </div>
-                ) : state.currentPhase === "initializing" ? (
+                {/* Content based on phase */}
+                {state.currentPhase === "initializing" ? (
                     <div className="text-center py-8">
                         <div className="animate-pulse">
                             <Fingerprint className="text-blue-400 mx-auto mb-4" size={32} />
@@ -562,190 +631,71 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                         <p className="text-gray-400">
                             Initializing biometric authentication...
                         </p>
-                    </div>
-                ) : state.currentPhase === "unsupported" ||
-                    state.currentPhase === "error" ? (
-                    <div className="text-center space-y-4">
-                        <div className="flex items-center justify-center space-x-2 p-4 bg-red-500/20 border border-red-500/40 rounded-lg">
-                            <XCircle className="text-red-400 flex-shrink-0" size={20} />
-                            <div className="text-left">
-                                <p className="text-red-300 text-sm font-semibold">
-                                    {state.currentPhase === "unsupported"
-                                        ? "Device Not Supported"
-                                        : "Verification Failed"}
-                                </p>
-                                <p className="text-red-200 text-xs">{state.error}</p>
-                            </div>
-                        </div>
-
-                        {state.currentPhase === "unsupported" && (
-                            <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                                <div className="flex items-start space-x-2">
-                                    <AlertTriangle
-                                        className="text-orange-400 flex-shrink-0 mt-0.5"
-                                        size={16}
-                                    />
-                                    <div>
-                                        <h4 className="text-orange-300 font-semibold mb-1 text-sm">
-                                            Security Policy
-                                        </h4>
-                                        <p className="text-orange-200 text-xs">
-                                            Due to security requirements, accounts with very low trust
-                                            scores require biometric authentication. Since your device
-                                            does not support this feature, your account will be
-                                            blocked for security reasons.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                            <p className="text-yellow-300 text-xs text-center">
-                                {state.currentPhase === "unsupported"
-                                    ? "Your account will be blocked for 2 days due to device incompatibility."
-                                    : "Your account will be blocked for 2 days due to biometric authentication failure."}
-                            </p>
-                        </div>
+                        <p className="text-gray-500 text-xs mt-2">
+                            Check debug panel for detailed progress
+                        </p>
                     </div>
                 ) : state.currentPhase === "permission_required" ? (
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                         <div className="text-center">
-                            <div className="mb-4">
-                                <Shield className="text-yellow-400 mx-auto" size={48} />
-                            </div>
-                            <h3 className="text-white font-semibold mb-2">
-                                Biometric Permission Required
-                            </h3>
-                            <p className="text-gray-400 text-sm mb-4">
-                                You need to grant biometric authentication permission to
-                                continue
-                            </p>
+                            <Shield className="text-yellow-400 mx-auto mb-2" size={48} />
+                            <h3 className="text-white font-semibold mb-2">Permission Required</h3>
+                            <p className="text-gray-400 text-sm">Grant biometric access to continue</p>
                         </div>
 
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                            <h4 className="text-blue-300 font-semibold mb-2 text-sm">
-                                Instructions:
-                            </h4>
-                            <div className="text-blue-200 text-sm space-y-1">
-                                <p>1. Tap &quot;Grant Permission&quot; below</p>
-                                <p>2. You may need to temporarily leave the app to enable biometric access in settings</p>
-                                <p>3. Return to this app and authentication will begin automatically</p>
-                                <p>4. Complete the biometric authentication when prompted</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-                            <div className="flex items-start space-x-2">
-                                <CheckCircle2
-                                    className="text-green-400 flex-shrink-0 mt-0.5"
-                                    size={16}
-                                />
-                                <div>
-                                    <h4 className="text-green-300 font-semibold mb-1 text-sm">
-                                        Safe to Leave App
-                                    </h4>
-                                    <p className="text-green-200 text-xs">
-                                        You can safely minimize or switch away from this app while granting biometric permission.
-                                        Your verification session will remain active.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            <button
-                                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                                onClick={handleRequestPermission}
-                            >
-                                <Shield size={20} />
-                                <span>Grant Permission</span>
-                            </button>
-
-                            {state.biometricManager?.openSettings && (
-                                <button
-                                    className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                                    onClick={handleOpenSettings}
-                                >
-                                    <Settings size={16} />
-                                    <span>Open Biometric Settings</span>
-                                </button>
-                            )}
-                        </div>
+                        <button
+                            className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
+                            onClick={handleRequestPermission}
+                        >
+                            Grant Permission
+                        </button>
                     </div>
                 ) : state.currentPhase === "auth" ? (
-                    <div className="space-y-6">
-                        {/* Authentication Timer */}
+                    <div className="space-y-4">
                         <div className="flex items-center justify-center space-x-2 text-sm">
                             <Clock className="text-orange-400" size={16} />
-                            <span
-                                className={`font-bold ${state.authTimeRemaining < 5000 ? "text-red-400" : "text-orange-400"}`}
-                            >
+                            <span className={`font-bold ${state.authTimeRemaining < 5000 ? "text-red-400" : "text-orange-400"}`}>
                                 {formatTime(state.authTimeRemaining)}
                             </span>
                             <span className="text-gray-500">remaining</span>
                         </div>
 
-                        {/* Biometric Authentication Info */}
-                        <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
-                            <div className="mb-3">{getBiometricIcon()}</div>
-                            <h3 className="text-white font-semibold mb-1">
-                                {getBiometricTypeName()} Authentication
-                            </h3>
-                            <p className="text-gray-400 text-sm">
-                                Touch the sensor or look at the camera to authenticate
-                            </p>
-                        </div>
-
-                        {/* Single Attempt Warning */}
-                        <div className="text-center">
-                            <p className="text-gray-500 text-xs">
-                                Single attempt only - be careful!
-                            </p>
-                        </div>
-
-                        {/* Authentication Button */}
                         <button
-                            className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-lg font-semibold"
-                            disabled={
-                                state.isAuthenticating ||
-                                state.authTimeRemaining === 0 ||
-                                state.attemptMade
-                            }
+                            className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50"
+                            disabled={state.isAuthenticating || state.attemptMade}
                             onClick={handleAuthenticate}
                         >
                             {state.isAuthenticating ? (
                                 <>
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    <span>Authenticating...</span>
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block mr-2" />
+                                    Authenticating...
                                 </>
                             ) : (
                                 <>
-                                    <Fingerprint size={20} />
-                                    <span>Authenticate</span>
+                                    <Fingerprint className="inline-block mr-2" size={20} />
+                                    Authenticate
                                 </>
                             )}
                         </button>
-
-                        {/* Authentication Progress */}
-                        {state.isAuthenticating && (
-                            <div className="flex items-center justify-center space-x-2 p-3 bg-blue-500/20 border border-blue-500/40 rounded-lg">
-                                <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                                <p className="text-blue-300 text-sm">
-                                    Please complete biometric authentication on your device
-                                </p>
-                            </div>
-                        )}
                     </div>
                 ) : state.currentPhase === "success" ? (
                     <div className="text-center py-4">
                         <p className="text-green-300 text-sm mb-4">
-                            Your trust score has been restored. Redirecting to the
-                            application...
+                            Authentication successful! Redirecting...
                         </p>
                         <div className="w-8 h-8 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin mx-auto" />
                     </div>
-                ) : null}
+                ) : (
+                    <div className="text-center space-y-4">
+                        <div className="p-4 bg-red-500/20 border border-red-500/40 rounded-lg">
+                            <XCircle className="text-red-400 mx-auto mb-2" size={32} />
+                            <p className="text-red-300 text-sm font-semibold">
+                                {state.currentPhase === "unsupported" ? "Device Not Supported" : "Authentication Failed"}
+                            </p>
+                            <p className="text-red-200 text-xs mt-1">{state.error}</p>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
