@@ -1,4 +1,4 @@
-// src/components/Security/NebulaGyroscopeModal.tsx - Adapted for Nebula Security System
+// src/components/Security/NebulaGyroscopeModal.tsx - Исправленная версия с корректной валидацией гироскопа
 
 "use client";
 
@@ -59,7 +59,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     const { makeAuthenticatedRequest } = useUser();
     const verificationTimeout = 15000; // 15 seconds for verification
     const movementThreshold = 15; // Degrees of rotation to count as movement
-    const movementCooldown = 500; // 1 second between movements
+    const movementCooldown = 1000; // 1 second between movements
     const requiredMovements = 3; // Require 3 distinct movements
 
     // Refs for gyroscope data and movement detection
@@ -224,6 +224,127 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     };
 
     /**
+     * Handle successful verification with actual movement count
+     */
+    const handleVerificationSuccess = useCallback(async (actualMovements?: number) => {
+        console.log("Gyroscope verification successful");
+        setState((prev) => ({
+            ...prev,
+            verificationTimerActive: false,
+            currentPhase: "success",
+        }));
+
+        // Clean up event listener
+        if (eventListenerRef.current) {
+            window.removeEventListener("deviceorientation", eventListenerRef.current);
+            eventListenerRef.current = null;
+        }
+
+        try {
+            const response = await makeAuthenticatedRequest("/api/nebula/gyroscope", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    success: true,
+                    completedInTime: true,
+                    deviceSupported: state.isGyroscopeSupported,
+                    movementData: {
+                        totalMovements: actualMovements ?? state.detectedMovements, // ИСПРАВЛЕНИЕ: используем переданное значение
+                        requiredMovements: requiredMovements,
+                        timeSpent: verificationTimeout - state.verificationTimeRemaining,
+                        significantMovements: true,
+                    },
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || "Verification failed");
+            }
+
+            if (result.verified && result.trustRestored) {
+                console.log("Gyroscope verification validated successfully");
+                setTimeout(() => onSuccess(), 1500);
+            } else if (result.blocked) {
+                console.log("Gyroscope verification validation failed");
+                handleVerificationFailure(
+                    result.blockReason || "Verification validation failed",
+                );
+            } else {
+                throw new Error("Unexpected verification result");
+            }
+        } catch (error) {
+            console.error("Error validating gyroscope:", error);
+            handleVerificationFailure("Verification validation error");
+        }
+    }, [
+        state.isGyroscopeSupported,
+        state.verificationTimeRemaining,
+        makeAuthenticatedRequest,
+        onSuccess,
+    ]);
+
+    /**
+     * Handle verification timeout
+     */
+    const handleVerificationTimeout = useCallback(() => {
+        console.log("Gyroscope verification timeout");
+        setState((prev) => ({ ...prev, verificationTimerActive: false }));
+        handleVerificationFailure("Verification timeout");
+    }, []);
+
+    /**
+     * Handle verification failure
+     */
+    const handleVerificationFailure = useCallback(
+        async (reason: string) => {
+            console.log("Gyroscope verification failed:", reason);
+            setState((prev) => ({
+                ...prev,
+                error: reason,
+                currentPhase: "error",
+                verificationTimerActive: false,
+            }));
+
+            // Clean up event listener
+            if (eventListenerRef.current) {
+                window.removeEventListener(
+                    "deviceorientation",
+                    eventListenerRef.current,
+                );
+                eventListenerRef.current = null;
+            }
+
+            try {
+                // Send failure to server
+                await makeAuthenticatedRequest("/api/nebula/gyroscope", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        success: false,
+                        completedInTime: false,
+                        deviceSupported: state.isGyroscopeSupported,
+                    }),
+                });
+            } catch (error) {
+                console.error("Error sending gyroscope failure to API:", error);
+            }
+
+            setTimeout(() => onFailure(), 1000);
+        },
+        [state.isGyroscopeSupported, makeAuthenticatedRequest, onFailure],
+    );
+
+    /**
      * Start verification process
      */
     const handleStartVerification = () => {
@@ -333,7 +454,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
 
                 // Check if verification is complete
                 if (newCount >= requiredMovements) {
-                    handleVerificationSuccess();
+                    handleVerificationSuccess(newCount); // ИСПРАВЛЕНИЕ: передаем актуальное значение
                 }
 
                 return {
@@ -343,128 +464,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             });
         }
     };
-
-    /**
-     * Handle successful verification
-     */
-    const handleVerificationSuccess = useCallback(async () => {
-        console.log("Gyroscope verification successful");
-        setState((prev) => ({
-            ...prev,
-            verificationTimerActive: false,
-            currentPhase: "success",
-        }));
-
-        // Clean up event listener
-        if (eventListenerRef.current) {
-            window.removeEventListener("deviceorientation", eventListenerRef.current);
-            eventListenerRef.current = null;
-        }
-
-        try {
-            const response = await makeAuthenticatedRequest("/api/nebula/gyroscope", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    success: true,
-                    completedInTime: true,
-                    deviceSupported: state.isGyroscopeSupported,
-                    movementData: {
-                        totalMovements: state.detectedMovements,
-                        requiredMovements: requiredMovements,
-                        timeSpent: verificationTimeout - state.verificationTimeRemaining,
-                        significantMovements: true,
-                    },
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || "Verification failed");
-            }
-
-            if (result.verified && result.trustRestored) {
-                console.log("Gyroscope verification validated successfully");
-                setTimeout(() => onSuccess(), 1500);
-            } else if (result.blocked) {
-                console.log("Gyroscope verification validation failed");
-                handleVerificationFailure(
-                    result.blockReason || "Verification validation failed",
-                );
-            } else {
-                throw new Error("Unexpected verification result");
-            }
-        } catch (error) {
-            console.error("Error validating gyroscope:", error);
-            handleVerificationFailure("Verification validation error");
-        }
-    }, [
-        state.isGyroscopeSupported,
-        state.detectedMovements,
-        state.verificationTimeRemaining,
-        makeAuthenticatedRequest,
-        onSuccess,
-    ]);
-
-    /**
-     * Handle verification timeout
-     */
-    const handleVerificationTimeout = useCallback(() => {
-        console.log("Gyroscope verification timeout");
-        setState((prev) => ({ ...prev, verificationTimerActive: false }));
-        handleVerificationFailure("Verification timeout");
-    }, []);
-
-    /**
-     * Handle verification failure
-     */
-    const handleVerificationFailure = useCallback(
-        async (reason: string) => {
-            console.log("Gyroscope verification failed:", reason);
-            setState((prev) => ({
-                ...prev,
-                error: reason,
-                currentPhase: "error",
-                verificationTimerActive: false,
-            }));
-
-            // Clean up event listener
-            if (eventListenerRef.current) {
-                window.removeEventListener(
-                    "deviceorientation",
-                    eventListenerRef.current,
-                );
-                eventListenerRef.current = null;
-            }
-
-            try {
-                // Send failure to server
-                await makeAuthenticatedRequest("/api/nebula/gyroscope", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        success: false,
-                        completedInTime: false,
-                        deviceSupported: state.isGyroscopeSupported,
-                    }),
-                });
-            } catch (error) {
-                console.error("Error sending gyroscope failure to API:", error);
-            }
-
-            setTimeout(() => onFailure(), 1000);
-        },
-        [state.isGyroscopeSupported, makeAuthenticatedRequest, onFailure],
-    );
 
     /**
      * Handle unsupported device
