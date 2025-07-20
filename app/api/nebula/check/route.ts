@@ -1,10 +1,10 @@
-// src/app/api/nebula/check/route.ts - Fixed to work with existing database schema
+// src/app/api/nebula/check/route.ts - Updated to include expiration time information
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { serverBlockService, type UserBlock } from "@/lib/server/blockService";
 
-// Response interface
+// Response interface with expiration time
 interface NebulaCheckResponse {
     success: boolean;
     blocked?: {
@@ -17,6 +17,8 @@ interface NebulaCheckResponse {
         trustScore: number;
         threshold: number;
         attemptId: string;
+        expiresAt?: string; // ISO string for expiration time
+        timeRemainingSeconds?: number;
     };
     allowed?: {
         proceed: true;
@@ -28,7 +30,7 @@ interface NebulaCheckResponse {
 /**
  * GET /api/nebula/check
  * Check if user is blocked, has abandoned verification, or requires verification
- * Fixed to work with existing database schema
+ * Updated to include expiration time information for verification attempts
  */
 export async function GET(
     request: NextRequest,
@@ -109,14 +111,26 @@ export async function GET(
                     `User ${telegramIdNumber} has active verification attempt, redirecting to continue`,
                 );
 
+                // Calculate time remaining based on server time
+                const expiresAt = new Date(attempt.expiresAt);
+                const now = new Date();
+                const timeRemainingMs = Math.max(0, expiresAt.getTime() - now.getTime());
+                const timeRemainingSeconds = Math.ceil(timeRemainingMs / 1000);
+
+                // Get user's current trust score for display
+                const verificationReq =
+                    await serverBlockService.checkVerificationRequirement(telegramIdNumber);
+
                 return NextResponse.json({
                     success: true,
                     verification: {
                         required: true,
                         type: attempt.verificationType,
-                        trustScore: 0, // Will be determined on verification page
-                        threshold: 0,
+                        trustScore: verificationReq.trustScore,
+                        threshold: verificationReq.threshold,
                         attemptId: attempt.id,
+                        expiresAt: attempt.expiresAt,
+                        timeRemainingSeconds,
                     },
                 });
             }
@@ -146,13 +160,28 @@ export async function GET(
                 `User ${telegramIdNumber} requires ${verificationReq.type} verification. Trust score: ${verificationReq.trustScore}`,
             );
 
-            // Create new verification attempt with basic parameters
+            // Create new verification attempt with device support assumption
             const attemptId = await serverBlockService.createVerificationAttempt(
                 userId,
                 telegramIdNumber,
                 verificationReq.type,
                 true, // Assume device supported initially
             );
+
+            // Get the newly created attempt to fetch expiration time
+            const { attempt: newAttempt } =
+                await serverBlockService.checkVerificationAttempt(telegramIdNumber);
+
+            let expiresAt: string | undefined;
+            let timeRemainingSeconds: number | undefined;
+
+            if (newAttempt) {
+                expiresAt = newAttempt.expiresAt;
+                const expiresAtDate = new Date(newAttempt.expiresAt);
+                const now = new Date();
+                const timeRemainingMs = Math.max(0, expiresAtDate.getTime() - now.getTime());
+                timeRemainingSeconds = Math.ceil(timeRemainingMs / 1000);
+            }
 
             return NextResponse.json({
                 success: true,
@@ -162,6 +191,8 @@ export async function GET(
                     trustScore: verificationReq.trustScore,
                     threshold: verificationReq.threshold,
                     attemptId,
+                    expiresAt,
+                    timeRemainingSeconds,
                 },
             });
         }

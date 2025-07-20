@@ -1,4 +1,4 @@
-// src/lib/server/blockService.ts - Updated with new permission-related block reasons
+// src/lib/server/blockService.ts - Updated with corrected expiration times for verification attempts
 
 import { supabaseServer } from "@/lib/supabase_server";
 
@@ -41,6 +41,13 @@ export const BLOCK_DURATIONS = {
     MANUAL_BLOCK: 24, // 1 day (default)
     SUSPICIOUS_ACTIVITY: 168, // 1 week
     ABANDONED_VERIFICATION: 2, // 2 hours for abandoned attempts
+} as const;
+
+// Verification attempt timeout durations in milliseconds
+export const VERIFICATION_TIMEOUTS = {
+    CAPTCHA: 15000, // 15 seconds for captcha
+    BIOMETRIC: 5 * 60 * 1000, // 5 minutes for biometric permission setup
+    GYROSCOPE: 5 * 60 * 1000, // 5 minutes for gyroscope permission setup
 } as const;
 
 // Restored trust score after successful verification
@@ -151,7 +158,7 @@ export const serverBlockService = {
     },
 
     /**
-     * Create verification attempt (compatible with existing database schema)
+     * Create verification attempt with correct timeout based on verification type
      */
     async createVerificationAttempt(
         userId: string,
@@ -161,7 +168,12 @@ export const serverBlockService = {
     ): Promise<string> {
         try {
             const startedAt = new Date().toISOString();
-            const expiresAt = new Date(Date.now() + 15000).toISOString(); // 15 seconds
+
+            // Set expiration time based on verification type
+            const timeoutMs = VERIFICATION_TIMEOUTS[verificationType.toUpperCase() as keyof typeof VERIFICATION_TIMEOUTS] || VERIFICATION_TIMEOUTS.CAPTCHA;
+            const expiresAt = new Date(Date.now() + timeoutMs).toISOString();
+
+            console.log(`Creating verification attempt for ${verificationType}. Timeout: ${timeoutMs}ms (${Math.round(timeoutMs / 1000)}s)`);
 
             const { data, error } = await supabaseServer
                 .from("verification_attempts")
@@ -183,7 +195,7 @@ export const serverBlockService = {
             }
 
             console.log(
-                `Created verification attempt ${data.id} for user ${telegramId}, type: ${verificationType}`,
+                `Created verification attempt ${data.id} for user ${telegramId}, type: ${verificationType}, expires: ${expiresAt}`,
             );
 
             return data.id;

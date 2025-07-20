@@ -513,11 +513,16 @@ export default function NebulaPage(): JSX.Element {
      * Блокировка за неподдерживаемое устройство
      */
     const blockForUnsupportedDevice = useCallback(async (type: VerificationType) => {
-        if (!pageState.attemptId) return;
+        if (!pageState.attemptId) {
+            console.error("No attempt ID for blocking unsupported device");
+            router.push("/blocked");
+            return;
+        }
 
         try {
+            console.log(`Blocking user for unsupported ${type} device`);
             const endpoint = type === "biometric" ? "/api/nebula/biometric" : "/api/nebula/gyroscope";
-            await makeAuthenticatedRequest(endpoint, {
+            const response = await makeAuthenticatedRequest(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -529,9 +534,18 @@ export default function NebulaPage(): JSX.Element {
                 }),
             });
 
+            if (!response.ok) {
+                throw new Error(`Failed to block user: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            console.log("Block result:", result);
+
+            // Принудительно перенаправляем на страницу блокировки
             router.push("/blocked");
         } catch (error) {
             console.error("Error blocking for unsupported device:", error);
+            // В любом случае перенаправляем на страницу блокировки
             router.push("/blocked");
         }
     }, [pageState.attemptId, makeAuthenticatedRequest, router]);
@@ -540,11 +554,16 @@ export default function NebulaPage(): JSX.Element {
      * Блокировка за истечение времени на получение разрешения
      */
     const blockForPermissionTimeout = useCallback(async () => {
-        if (!pageState.attemptId || !pageState.verificationType) return;
+        if (!pageState.attemptId || !pageState.verificationType) {
+            console.error("Missing attempt ID or verification type for permission timeout blocking");
+            router.push("/blocked");
+            return;
+        }
 
         try {
+            console.log(`Blocking user for permission timeout: ${pageState.verificationType}`);
             const endpoint = pageState.verificationType === "biometric" ? "/api/nebula/biometric" : "/api/nebula/gyroscope";
-            await makeAuthenticatedRequest(endpoint, {
+            const response = await makeAuthenticatedRequest(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -555,6 +574,10 @@ export default function NebulaPage(): JSX.Element {
                     attemptId: pageState.attemptId,
                 }),
             });
+
+            if (!response.ok) {
+                throw new Error(`Failed to block user: ${response.status} ${response.statusText}`);
+            }
 
             setPageState((prev) => ({ ...prev, phase: "failure" }));
             setTimeout(() => router.push("/blocked"), 2000);
@@ -568,10 +591,16 @@ export default function NebulaPage(): JSX.Element {
      * Открытие модального окна верификации
      */
     const openVerificationModal = useCallback(() => {
-        if (!pageState.verificationType || !pageState.attemptId) return;
+        if (!pageState.verificationType || !pageState.attemptId) {
+            console.error("Cannot open verification modal: missing verification type or attempt ID");
+            return;
+        }
 
-        console.log("Opening verification modal");
-        setPageState((prev) => ({ ...prev, phase: "verifying" }));
+        console.log(`Opening ${pageState.verificationType} verification modal`);
+        setPageState((prev) => ({ 
+            ...prev, 
+            phase: "verifying"
+        }));
     }, [pageState.verificationType, pageState.attemptId]);
 
     /**
