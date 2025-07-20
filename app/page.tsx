@@ -1,4 +1,4 @@
-// src/app/page.tsx - Fixed with complete Nebula Security Integration
+// src/app/page.tsx - Optimized with Nebula Security Integration
 
 "use client";
 
@@ -53,7 +53,6 @@ export default function IntroPage(): JSX.Element {
     isLoading: userLoading
   } = useUser();
 
-  // Initialization flags
   const authInitializedRef = useRef<boolean>(false);
   const operationInProgressRef = useRef<boolean>(false);
 
@@ -113,7 +112,7 @@ export default function IntroPage(): JSX.Element {
       return {
         isValid: true,
         code,
-        bonus: 5, // Default bonus - will be validated by server
+        bonus: 5,
       };
     } catch (error) {
       console.error("Error validating referral code:", error);
@@ -122,61 +121,65 @@ export default function IntroPage(): JSX.Element {
   }, []);
 
   /**
-   * FIXED: Attempt user authentication with complete Nebula integration
+   * Attempt user authentication with comprehensive Nebula security integration
    */
   const attemptAuthentication = useCallback(async (
     initData: string
   ): Promise<LoginResult> => {
     try {
+      console.log("NEBULA DEBUG: Updated authentication function is running");
       console.log("Attempting user authentication...");
       const result = await login(initData);
 
-      console.log("Login result:", result);
+      console.log("Login result received:", {
+        success: result.success,
+        hasUser: !!result.user,
+        hasSecurity: !!result.security,
+        error: result.error
+      });
 
-      // Handle USER_NOT_FOUND as expected behavior for new users
       if (!result.success && result.error === 'USER_NOT_FOUND') {
-        console.log("User not found - this is expected for new users, not an error");
+        console.log("User not found - this is expected for new users");
         return result;
       }
 
-      // Check if login was successful
       if (result.success && result.user) {
-        console.log("Authentication successful:", result.user.first_name);
+        console.log("Authentication successful for user:", result.user.first_name);
 
-        // CRITICAL: Check Nebula security status first
         if (result.security) {
-          console.log("Processing Nebula security checks:", result.security);
+          console.log("Processing Nebula security checks:", {
+            blocked: result.security.blocked,
+            verificationRequired: result.security.verificationRequired,
+            verificationType: result.security.verificationType,
+            trustScore: result.security.trustScore
+          });
 
-          // Priority 1: Check if user is blocked
           if (result.security.blocked) {
-            console.log("User is blocked, redirecting to blocked page");
+            console.log("User is blocked - redirecting to blocked page");
             setTimeout(() => {
               router.push("/blocked");
             }, 1000);
             return result;
           }
 
-          // Priority 2: Check if verification is required
           if (result.security.verificationRequired && result.security.verificationType) {
-            console.log(`User requires ${result.security.verificationType} verification (trust score: ${result.security.trustScore}), redirecting to Nebula page`);
+            console.log(`User requires ${result.security.verificationType} verification (trust score: ${result.security.trustScore}) - redirecting to Nebula page`);
             setTimeout(() => {
               router.push("/nebula");
             }, 1000);
             return result;
           }
 
-          // Priority 3: User passed all security checks
-          console.log(`User passed all Nebula security checks (trust score: ${result.security.trustScore}), redirecting to main page`);
+          console.log(`User passed all Nebula security checks (trust score: ${result.security.trustScore}) - redirecting to main page`);
         } else {
-          console.log("No security object in response, proceeding to main page");
+          console.log("No security object in response - proceeding to main page");
         }
 
-        // Redirect to main page if no security issues
         setTimeout(() => {
           router.push("/main");
         }, 1000);
       } else {
-        console.error("Login failed:", result.error);
+        console.error("Login failed with error:", result.error);
       }
 
       return result;
@@ -190,7 +193,8 @@ export default function IntroPage(): JSX.Element {
   }, [login, router]);
 
   /**
-   * Register new user with referral support
+   * Register new user without Nebula security checks
+   * New users receive default trust_score and do not require immediate verification
    */
   const registerNewUser = useCallback(async (
     initData: string,
@@ -208,7 +212,7 @@ export default function IntroPage(): JSX.Element {
       const result = await register(initData, referralCode);
 
       if (result.success && result.user) {
-        console.log("Registration successful:", result.user.first_name);
+        console.log("Registration successful for new user:", result.user.first_name);
 
         if (result.referralBonus) {
           console.log("Referral bonus received:", result.referralBonus);
@@ -220,7 +224,7 @@ export default function IntroPage(): JSX.Element {
           needsAuthentication: false,
         }));
 
-        // Redirect to main page after successful registration
+        console.log("New user registration complete - redirecting to main page");
         setTimeout(() => {
           router.push("/main");
         }, 1000);
@@ -239,7 +243,7 @@ export default function IntroPage(): JSX.Element {
   }, [register, router]);
 
   /**
-   * Initialize authentication flow with proper new user handling
+   * Initialize authentication flow with proper handling for existing and new users
    */
   const initializeAuthentication = useCallback(async () => {
     if (authInitializedRef.current) {
@@ -269,7 +273,6 @@ export default function IntroPage(): JSX.Element {
 
       setTelegramUser(telegramUserData);
 
-      // Extract and validate referral code
       const referralCode = extractReferralCode(initData);
       let referralInfo: {
         code: string;
@@ -296,11 +299,9 @@ export default function IntroPage(): JSX.Element {
         referralInfo,
       }));
 
-      // Try to authenticate existing user
       console.log("Attempting authentication for existing user...");
       const authResult = await attemptAuthentication(initData);
 
-      // Check if user not found (expected for new users)
       if (!authResult.success && authResult.error === 'USER_NOT_FOUND') {
         console.log("User not found - showing registration UI for new user");
         setPageState(prev => ({
@@ -311,7 +312,6 @@ export default function IntroPage(): JSX.Element {
         return;
       }
 
-      // Handle other authentication errors
       if (!authResult.success && authResult.error !== 'USER_NOT_FOUND') {
         console.error("Authentication failed with error:", authResult.error);
         setPageState(prev => ({
@@ -321,8 +321,6 @@ export default function IntroPage(): JSX.Element {
         }));
         return;
       }
-
-      // If authentication was successful, the redirect is handled in attemptAuthentication
 
     } catch (error) {
       console.error("Authentication initialization error:", error);
@@ -341,7 +339,7 @@ export default function IntroPage(): JSX.Element {
   ]);
 
   /**
-   * Handle video completion and trigger registration
+   * Handle video completion and trigger new user registration
    */
   const handleVideoCompletion = useCallback(async () => {
     console.log("Video completed");
@@ -366,7 +364,6 @@ export default function IntroPage(): JSX.Element {
         pageState.referralInfo?.code
       );
 
-      // Registration handles its own redirects, including Nebula checks
       if (!registrationResult.success) {
         console.error("Registration failed after video:", registrationResult.error);
         setTimeout(() => {
@@ -383,7 +380,7 @@ export default function IntroPage(): JSX.Element {
   }, [registerNewUser, pageState.referralInfo?.code, router]);
 
   /**
-   * Handle quick registration without video
+   * Handle quick registration without video for new users
    */
   const handleQuickRegistration = useCallback(async () => {
     const initData = getTelegramInitData();
@@ -503,14 +500,13 @@ export default function IntroPage(): JSX.Element {
     };
   }, [handleVideoCompletion]);
 
-  // Initialize authentication flow with proper error handling
+  // Initialize authentication flow
   useEffect(() => {
     if (!authInitializedRef.current && !authState.isAuthenticated) {
       initializeAuthentication();
     }
   }, [initializeAuthentication, authState.isAuthenticated]);
 
-  // Determine loading state
   const isInitialLoading = pageState.isInitializing ||
     userLoading ||
     (videoState.isLoading && !pageState.videoError) ||
@@ -603,7 +599,6 @@ export default function IntroPage(): JSX.Element {
                 </div>
               ) : (
                 <div className="text-center space-y-8">
-                  {/* Header */}
                   <div className="space-y-4">
                     <div className="relative">
                       <h1 className="text-4xl font-bold text-white tracking-wider">
@@ -617,7 +612,6 @@ export default function IntroPage(): JSX.Element {
                       })}
                     </p>
 
-                    {/* Referral Bonus Information */}
                     {pageState.referralInfo && (
                       <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-4 space-y-2">
                         <div className="flex items-center justify-center space-x-2">
@@ -637,9 +631,7 @@ export default function IntroPage(): JSX.Element {
                     </p>
                   </div>
 
-                  {/* Action Buttons */}
                   <div className="space-y-6">
-                    {/* Main Button - With Intro Video */}
                     <div className="space-y-3">
                       <button
                         className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
@@ -662,10 +654,8 @@ export default function IntroPage(): JSX.Element {
                             {t("main.initialize")}
                           </span>
                         </div>
-
                         <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
                       </button>
-
                       <div className="text-center space-y-1">
                         <p className="text-white/60 text-sm">
                           {t("main.fullExperience")}
@@ -676,7 +666,6 @@ export default function IntroPage(): JSX.Element {
                       </div>
                     </div>
 
-                    {/* Divider */}
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full border-t border-white/20" />
@@ -688,7 +677,6 @@ export default function IntroPage(): JSX.Element {
                       </div>
                     </div>
 
-                    {/* Alternative Button - Quick Registration */}
                     <div className="space-y-3">
                       <button
                         className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
@@ -710,7 +698,6 @@ export default function IntroPage(): JSX.Element {
                           <span>{t("main.quickStart")}</span>
                         </div>
                       </button>
-
                       <div className="text-center space-y-1">
                         <p className="text-white/50 text-sm">
                           {t("main.skipIntro")}
@@ -732,7 +719,6 @@ export default function IntroPage(): JSX.Element {
         className={`video-container ${videoState.isPlaying ? "opacity-100" : "opacity-0"
           } transition-opacity duration-500`}
       >
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
           ref={videoRef}
           playsInline
