@@ -1,10 +1,10 @@
-// src/app/api/nebula/check/route.ts - Fixed to work with existing database schema
+// src/app/api/nebula/check/route.ts - Updated with device support checking
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { serverBlockService, type UserBlock } from "@/lib/server/blockService";
 
-// Response interface
+// Response interface with device support information
 interface NebulaCheckResponse {
     success: boolean;
     blocked?: {
@@ -17,6 +17,10 @@ interface NebulaCheckResponse {
         trustScore: number;
         threshold: number;
         attemptId: string;
+        // New fields for device support flow
+        needsDeviceCheck?: boolean; // Client should check device support
+        needsPermission?: boolean; // Device supports but needs permission
+        permissionExpiry?: string; // When permission request expires
     };
     allowed?: {
         proceed: true;
@@ -27,8 +31,7 @@ interface NebulaCheckResponse {
 
 /**
  * GET /api/nebula/check
- * Check if user is blocked, has abandoned verification, or requires verification
- * Fixed to work with existing database schema
+ * Enhanced to handle device support checking flow
  */
 export async function GET(
     request: NextRequest,
@@ -103,11 +106,60 @@ export async function GET(
                 );
             }
 
-            // If there's an active (non-expired) verification attempt, user should continue it
+            // If there's an active (non-expired) verification attempt, determine the flow
             if (!isExpired) {
                 console.log(
-                    `User ${telegramIdNumber} has active verification attempt, redirecting to continue`,
+                    `User ${telegramIdNumber} has active verification attempt for ${attempt.verificationType}`,
                 );
+
+                // For captcha, always proceed directly to modal
+                if (attempt.verificationType === "captcha") {
+                    return NextResponse.json({
+                        success: true,
+                        verification: {
+                            required: true,
+                            type: attempt.verificationType,
+                            trustScore: 0, // Will be determined on verification page
+                            threshold: 0,
+                            attemptId: attempt.id,
+                        },
+                    });
+                }
+
+                // For biometric/gyroscope, determine if we need device checking or permission flow
+                // If device_supported is false, this means device doesn't support it
+                if (!attempt.deviceSupported) {
+                    // Device already determined to be unsupported, should be blocked
+                    console.log(`Device unsupported for ${attempt.verificationType}, should be blocked`);
+
+                    const blockReason = attempt.verificationType === "biometric"
+                        ? "device_unsupported_biometric"
+                        : "device_unsupported_gyroscope";
+
+                    const blockResult = await serverBlockService.handleVerificationFailure(
+                        userId,
+                        telegramIdNumber,
+                        attempt.verificationType,
+                        blockReason,
+                    );
+
+                    if (blockResult.success) {
+                        const blockInfo = await serverBlockService.checkUserBlock(telegramIdNumber);
+                        if (blockInfo) {
+                            return NextResponse.json({
+                                success: true,
+                                blocked: {
+                                    isBlocked: true,
+                                    blockInfo,
+                                },
+                            });
+                        }
+                    }
+                }
+
+                // Check if this is a fresh attempt that needs device checking
+                const attemptAge = Date.now() - new Date(attempt.startedAt).getTime();
+                const isNewAttempt = attemptAge < 10000; // Less than 10 seconds old
 
                 return NextResponse.json({
                     success: true,
@@ -117,6 +169,9 @@ export async function GET(
                         trustScore: 0, // Will be determined on verification page
                         threshold: 0,
                         attemptId: attempt.id,
+                        needsDeviceCheck: isNewAttempt, // Fresh attempts need device checking
+                        needsPermission: !isNewAttempt, // Older attempts are in permission flow
+                        permissionExpiry: attempt.expiresAt,
                     },
                 });
             }
@@ -146,12 +201,16 @@ export async function GET(
                 `User ${telegramIdNumber} requires ${verificationReq.type} verification. Trust score: ${verificationReq.trustScore}`,
             );
 
-            // Create new verification attempt with basic parameters
+            // Create new verification attempt
+            // For biometric/gyroscope, we'll determine device support on the client
+            // For captcha, device support is always true
+            const deviceSupported = verificationReq.type === "captcha";
+
             const attemptId = await serverBlockService.createVerificationAttempt(
                 userId,
                 telegramIdNumber,
                 verificationReq.type,
-                true, // Assume device supported initially
+                deviceSupported, // Will be updated after device check
             );
 
             return NextResponse.json({
@@ -162,6 +221,7 @@ export async function GET(
                     trustScore: verificationReq.trustScore,
                     threshold: verificationReq.threshold,
                     attemptId,
+                    needsDeviceCheck: verificationReq.type !== "captcha", // Only biometric/gyroscope need device checking
                 },
             });
         }
@@ -192,7 +252,7 @@ export async function GET(
 }
 
 /**
- * OPTIONS /api/nebula/check
+ * OPTIONS /api/nebula/gyroscope
  * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
@@ -200,7 +260,7 @@ export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
         status: 200,
         headers: {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Authorization",
             "Access-Control-Max-Age": "86400",
         },

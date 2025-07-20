@@ -1,15 +1,12 @@
-// src/components/Security/NebulaBiometricModal.tsx - Исправленная версия с улучшенной логикой разрешений
+// src/components/Security/NebulaBiometricModal.tsx - Simplified version for authentication only
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
     Fingerprint,
     Eye,
-    Settings,
     Clock,
-    AlertTriangle,
-    Shield,
     XCircle,
     CheckCircle2,
 } from "lucide-react";
@@ -30,11 +27,6 @@ type BiometricType = "finger" | "face" | "unknown";
 
 type AuthPhase =
     | "initializing"
-    | "checking_availability"
-    | "unavailable"
-    | "permission_required"
-    | "permission_requested"
-    | "permission_checking"
     | "auth"
     | "success"
     | "error";
@@ -48,24 +40,10 @@ interface BiometricState {
     error: string | null;
     attemptMade: boolean;
     authTimerActive: boolean;
-    isBiometricSupported: boolean;
-    isBiometricAvailable: boolean;
-    permissionRequested: boolean;
-    permissionGranted: boolean;
-    canAbandon: boolean;
-    permissionCheckAttempts: number;
-    lastPermissionCheck: number;
-    autoCheckActive: boolean;
 }
 
-// Улучшенная конфигурация с более частыми проверками
 const TIMING_CONFIG = {
-    AUTH_TIMEOUT: 20000,
-    PERMISSION_CHECK_DELAY: 2000, // Снижено с 3 до 2 секунд
-    MAX_PERMISSION_ATTEMPTS: 5, // Увеличено с 3 до 5 попыток
-    PERMISSION_RETRY_INTERVAL: 1500, // Снижено с 2000 до 1500мс
-    AUTO_CHECK_INTERVAL: 2000, // Автоматическая проверка каждые 2 секунды
-    VISIBILITY_CHECK_DELAY: 1000, // Проверка при возврате в приложение
+    AUTH_TIMEOUT: 20000, // 20 seconds for authentication
 } as const;
 
 const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
@@ -79,10 +57,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     const { makeAuthenticatedRequest } = useUser();
     const t = useT();
 
-    // Добавляем refs для автоматических проверок
-    const autoCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const visibilityCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
     const [state, setState] = useState<BiometricState>({
         currentPhase: "initializing",
         biometricManager: null,
@@ -92,48 +66,17 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         error: null,
         attemptMade: false,
         authTimerActive: false,
-        isBiometricSupported: false,
-        isBiometricAvailable: false,
-        permissionRequested: false,
-        permissionGranted: false,
-        canAbandon: false,
-        permissionCheckAttempts: 0,
-        lastPermissionCheck: 0,
-        autoCheckActive: false,
     });
 
     useEffect(() => {
         if (onPhaseChange) {
-            onPhaseChange(state.currentPhase, state.canAbandon);
+            onPhaseChange(state.currentPhase, false); // Never safe to abandon during authentication
         }
-    }, [state.currentPhase, state.canAbandon, onPhaseChange]);
+    }, [state.currentPhase, onPhaseChange]);
 
-    const updatePhase = useCallback((
-        newPhase: AuthPhase,
-        canAbandon: boolean = false
-    ) => {
-        setState((prev) => ({
-            ...prev,
-            currentPhase: newPhase,
-            canAbandon,
-        }));
-    }, []);
-
-    // Очистка всех таймеров при закрытии модального окна
-    const cleanupTimers = useCallback(() => {
-        if (autoCheckIntervalRef.current) {
-            clearInterval(autoCheckIntervalRef.current);
-            autoCheckIntervalRef.current = null;
-        }
-        if (visibilityCheckTimeoutRef.current) {
-            clearTimeout(visibilityCheckTimeoutRef.current);
-            visibilityCheckTimeoutRef.current = null;
-        }
-    }, []);
-
+    // Reset state when modal opens/closes
     useEffect(() => {
         if (!isOpen) {
-            cleanupTimers();
             setState({
                 currentPhase: "initializing",
                 biometricManager: null,
@@ -143,14 +86,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 error: null,
                 attemptMade: false,
                 authTimerActive: false,
-                isBiometricSupported: false,
-                isBiometricAvailable: false,
-                permissionRequested: false,
-                permissionGranted: false,
-                canAbandon: false,
-                permissionCheckAttempts: 0,
-                lastPermissionCheck: 0,
-                autoCheckActive: false,
             });
             return;
         }
@@ -162,14 +97,11 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 ...prev,
                 error: t("nebula.captcha.noAttemptId"),
                 currentPhase: "error",
-                canAbandon: true,
             }));
         }
+    }, [isOpen, attemptId, t]);
 
-        return cleanupTimers;
-    }, [isOpen, attemptId, t, cleanupTimers]);
-
-    // Таймер для фазы аутентификации
+    // Authentication timer
     useEffect(() => {
         if (!state.authTimerActive || state.currentPhase !== "auth") return;
 
@@ -189,73 +121,19 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         return () => clearInterval(timer);
     }, [state.authTimerActive, state.currentPhase]);
 
-    // Автоматическая проверка разрешений при нахождении в фазе запроса разрешений
-    useEffect(() => {
-        if (state.autoCheckActive && state.permissionRequested &&
-            (state.currentPhase === "permission_required" || state.currentPhase === "permission_requested")) {
-
-            autoCheckIntervalRef.current = setInterval(() => {
-                console.log("Auto-checking permission status...");
-                checkPermissionStatusSilently();
-            }, TIMING_CONFIG.AUTO_CHECK_INTERVAL);
-
-            return () => {
-                if (autoCheckIntervalRef.current) {
-                    clearInterval(autoCheckIntervalRef.current);
-                    autoCheckIntervalRef.current = null;
-                }
-            };
-        }
-    }, [state.autoCheckActive, state.permissionRequested, state.currentPhase]);
-
-    // Обработчик изменения видимости страницы для проверки разрешений при возврате
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (!document.hidden && state.permissionRequested &&
-                (state.currentPhase === "permission_required" || state.currentPhase === "permission_requested")) {
-
-                console.log("App became visible, checking permissions...");
-
-                // Небольшая задержка для стабилизации
-                visibilityCheckTimeoutRef.current = setTimeout(() => {
-                    checkPermissionStatusSilently();
-                }, TIMING_CONFIG.VISIBILITY_CHECK_DELAY);
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            if (visibilityCheckTimeoutRef.current) {
-                clearTimeout(visibilityCheckTimeoutRef.current);
-                visibilityCheckTimeoutRef.current = null;
-            }
-        };
-    }, [state.permissionRequested, state.currentPhase]);
-
     /**
-     * Инициализация биометрии
+     * Initialize biometric authentication - assumes device support and permissions already confirmed
      */
     const initializeBiometric = async () => {
         console.log("Initializing biometric authentication");
-        updatePhase("checking_availability", false);
-
-        if (typeof window === "undefined") {
-            console.log("Window not available");
-            await handleDeviceUnavailable("Device environment not supported");
-            return;
-        }
 
         const tg = window.Telegram?.WebApp;
+        const manager = tg?.BiometricManager;
 
-        if (!tg?.BiometricManager) {
-            console.log("BiometricManager not available - device/platform not supported");
-            await handleDeviceUnavailable(t("nebula.biometric.errors.unavailable"));
+        if (!manager) {
+            handleBiometricFailure("Biometric manager not available");
             return;
         }
-
-        const manager = tg.BiometricManager;
 
         manager.init(() => {
             console.log("BiometricManager initialized");
@@ -263,295 +141,31 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 ...prev,
                 biometricManager: manager,
                 biometricType: manager.biometricType || "unknown",
-                isBiometricSupported: true,
             }));
 
-            if (!manager.isBiometricAvailable) {
-                console.log("Biometric not available on device");
-                handleDeviceUnavailable(t("nebula.biometric.errors.unavailable"));
-                return;
-            }
-
-            setState((prev) => ({ ...prev, isBiometricAvailable: true }));
-
-            // Немедленная проверка разрешений
-            checkInitialPermissionStatus(manager);
+            // Since permissions are handled on the main page, go directly to authentication
+            startAuthentication();
         });
     };
 
-    /**
-     * Проверка начального статуса разрешений
-     */
-    const checkInitialPermissionStatus = (manager: any) => {
-        console.log("Checking initial permission status...");
-
-        if (manager.isAccessGranted) {
-            console.log("Permission already granted, proceeding to authentication");
-            setState((prev) => ({ ...prev, permissionGranted: true }));
-            startAuthentication();
-        } else {
-            console.log("Permission not granted, showing permission request");
-            updatePhase("permission_required", true);
-        }
-    };
-
-    /**
-     * Тихая проверка статуса разрешений без изменения UI состояния
-     */
-    const checkPermissionStatusSilently = useCallback(async () => {
-        if (!state.biometricManager) return;
-
-        try {
-            const isGranted = state.biometricManager.isAccessGranted;
-            console.log("Silent permission check result:", isGranted);
-
-            if (isGranted && !state.permissionGranted) {
-                console.log("Permission detected, starting authentication");
-                setState((prev) => ({
-                    ...prev,
-                    permissionGranted: true,
-                    autoCheckActive: false
-                }));
-                startAuthentication();
-            }
-        } catch (error) {
-            console.error("Error in silent permission check:", error);
-        }
-    }, [state.biometricManager, state.permissionGranted]);
-
-    const handleDeviceUnavailable = useCallback(
-        async (reason: string) => {
-            console.log("Biometric unavailable on device:", reason);
-
-            cleanupTimers();
-            updatePhase("unavailable", true);
-            setState((prev) => ({
-                ...prev,
-                error: reason,
-                isBiometricAvailable: false,
-            }));
-
-            if (attemptId) {
-                try {
-                    const response = await makeAuthenticatedRequest(
-                        "/api/nebula/biometric",
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                success: false,
-                                completedInTime: false,
-                                deviceSupported: false,
-                                unavailable: true,
-                                attemptId,
-                            }),
-                        },
-                    );
-
-                    if (response.ok) {
-                        setTimeout(() => onFailure(), 3000);
-                    } else {
-                        setTimeout(() => onFailure(), 1000);
-                    }
-                } catch (error) {
-                    console.error("Error auto-blocking for unavailable biometric:", error);
-                    setTimeout(() => onFailure(), 1000);
-                }
-            } else {
-                setTimeout(() => onFailure(), 1000);
-            }
-        },
-        [makeAuthenticatedRequest, onFailure, attemptId, updatePhase, t, cleanupTimers],
-    );
-
-    /**
-     * УЛУЧШЕННАЯ функция запроса разрешения с принудительным открытием настроек
-     */
-    const handleRequestPermission = useCallback(async () => {
-        if (!state.biometricManager || !attemptId) return;
-
-        console.log("Requesting biometric permission...");
-        setState((prev) => ({
-            ...prev,
-            permissionRequested: true,
-            lastPermissionCheck: Date.now(),
-            autoCheckActive: true, // Включаем автоматическую проверку
-        }));
-        updatePhase("permission_requested", true);
-
-        try {
-            // Сначала пытаемся стандартный запрос разрешения
-            state.biometricManager.requestAccess(
-                { reason: "Security verification required for continued access" },
-                (granted: boolean) => {
-                    console.log("Permission request callback result:", granted);
-
-                    setState((prev) => ({
-                        ...prev,
-                        permissionGranted: granted
-                    }));
-
-                    if (granted) {
-                        console.log("Permission granted immediately, starting authentication");
-                        setState((prev) => ({ ...prev, autoCheckActive: false }));
-                        startAuthentication();
-                    } else {
-                        console.log("Permission not granted in callback, starting auto-check");
-                        // Не блокируем пользователя, автоматическая проверка активна
-                    }
-                },
-            );
-
-            // КРИТИЧЕСКОЕ УЛУЧШЕНИЕ: Принудительное открытие настроек
-            // Даем небольшую задержку для системного диалога, затем открываем настройки
-            setTimeout(() => {
-                if (state.biometricManager?.openSettings) {
-                    console.log("Opening biometric settings...");
-                    state.biometricManager.openSettings();
-                } else {
-                    console.log("openSettings not available, using manual instruction");
-                }
-            }, 1000);
-
-        } catch (error) {
-            console.error("Error requesting biometric permission:", error);
-            setState((prev) => ({
-                ...prev,
-                error: t("nebula.biometric.errors.permissionDenied"),
-                autoCheckActive: false,
-            }));
-        }
-    }, [state.biometricManager, attemptId, updatePhase, t]);
-
-    /**
-     * УЛУЧШЕННАЯ функция проверки статуса разрешения с множественными попытками
-     */
-    const handleCheckPermission = useCallback(async () => {
-        if (!state.biometricManager || !attemptId) return;
-
-        const currentAttempt = state.permissionCheckAttempts + 1;
-        console.log(`Manual permission check (attempt ${currentAttempt}/${TIMING_CONFIG.MAX_PERMISSION_ATTEMPTS})`);
-
-        updatePhase("permission_checking", false);
-        setState((prev) => ({
-            ...prev,
-            permissionCheckAttempts: currentAttempt,
-            autoCheckActive: false // Останавливаем автопроверку во время мануальной
-        }));
-
-        // Ожидание для стабилизации
-        await new Promise(resolve => setTimeout(resolve, TIMING_CONFIG.PERMISSION_CHECK_DELAY));
-
-        try {
-            // Множественные проверки с интервалом
-            let isGranted = false;
-            const maxSubChecks = 3;
-
-            for (let i = 0; i < maxSubChecks; i++) {
-                isGranted = state.biometricManager.isAccessGranted;
-                console.log(`Sub-check ${i + 1}/${maxSubChecks}: ${isGranted}`);
-
-                if (isGranted) break;
-
-                if (i < maxSubChecks - 1) {
-                    await new Promise(resolve => setTimeout(resolve, TIMING_CONFIG.PERMISSION_RETRY_INTERVAL));
-                }
-            }
-
-            setState((prev) => ({ ...prev, permissionGranted: isGranted }));
-
-            if (isGranted) {
-                console.log("Permission granted, starting authentication");
-                startAuthentication();
-            } else {
-                if (currentAttempt < TIMING_CONFIG.MAX_PERMISSION_ATTEMPTS) {
-                    console.log(`Permission not granted, allowing retry (${currentAttempt}/${TIMING_CONFIG.MAX_PERMISSION_ATTEMPTS})`);
-                    updatePhase("permission_required", true);
-                    // Возобновляем автопроверку
-                    setState((prev) => ({ ...prev, autoCheckActive: true }));
-                } else {
-                    console.log("Maximum permission check attempts reached, blocking user");
-                    handlePermissionDenied();
-                }
-            }
-        } catch (error) {
-            console.error("Error checking permission status:", error);
-
-            if (currentAttempt < TIMING_CONFIG.MAX_PERMISSION_ATTEMPTS) {
-                setState((prev) => ({
-                    ...prev,
-                    error: t("nebula.biometric.errors.permissionCheckFailed"),
-                    autoCheckActive: true,
-                }));
-                updatePhase("permission_required", true);
-            } else {
-                handlePermissionDenied();
-            }
-        }
-    }, [state.biometricManager, state.permissionCheckAttempts, attemptId, updatePhase, t]);
-
-    const handlePermissionDenied = useCallback(async () => {
-        console.log("Biometric permission denied after maximum attempts");
-
-        cleanupTimers();
-        updatePhase("error", true);
-        setState((prev) => ({
-            ...prev,
-            error: t("nebula.biometric.errors.permissionDenied"),
-            autoCheckActive: false,
-        }));
-
-        if (attemptId) {
-            try {
-                const response = await makeAuthenticatedRequest(
-                    "/api/nebula/biometric",
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            success: false,
-                            completedInTime: false,
-                            deviceSupported: true,
-                            permissionDenied: true,
-                            attemptId,
-                        }),
-                    },
-                );
-
-                if (response.ok) {
-                    setTimeout(() => onFailure(), 2000);
-                } else {
-                    setTimeout(() => onFailure(), 1000);
-                }
-            } catch (error) {
-                console.error("Error blocking for permission denial:", error);
-                setTimeout(() => onFailure(), 1000);
-            }
-        } else {
-            setTimeout(() => onFailure(), 1000);
-        }
-    }, [makeAuthenticatedRequest, onFailure, attemptId, updatePhase, t, cleanupTimers]);
-
     const startAuthentication = useCallback(() => {
         console.log("Starting biometric authentication");
-        cleanupTimers();
-        updatePhase("auth", false);
         setState((prev) => ({
             ...prev,
+            currentPhase: "auth",
             authTimeRemaining: TIMING_CONFIG.AUTH_TIMEOUT,
             authTimerActive: true,
-            autoCheckActive: false,
         }));
-    }, [updatePhase, cleanupTimers]);
+    }, []);
 
     const handleAuthTimeout = useCallback(() => {
         console.log("Authentication timeout");
         setState((prev) => ({ ...prev, authTimerActive: false }));
 
         if (!state.attemptMade) {
-            updatePhase("error", true);
             setState((prev) => ({
                 ...prev,
+                currentPhase: "error",
                 error: t("nebula.biometric.errors.timeout"),
                 attemptMade: true,
             }));
@@ -560,7 +174,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 handleBiometricFailure();
             }, 1000);
         }
-    }, [state.attemptMade, updatePhase, t]);
+    }, [state.attemptMade, t]);
 
     const handleAuthenticate = useCallback(async () => {
         if (
@@ -605,7 +219,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                                 body: JSON.stringify({
                                     success,
                                     completedInTime,
-                                    deviceSupported: state.isBiometricSupported,
+                                    deviceSupported: true, // Already confirmed on main page
                                     token,
                                     attemptId,
                                 }),
@@ -624,9 +238,9 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
                         if (result.verified && result.trustRestored) {
                             console.log("Biometric authentication successful");
-                            updatePhase("success", false);
                             setState((prev) => ({
                                 ...prev,
+                                currentPhase: "success",
                                 isAuthenticating: false,
                                 authTimerActive: false,
                             }));
@@ -636,9 +250,9 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             }, 1500);
                         } else if (result.blocked) {
                             console.log("Biometric authentication failed, user blocked");
-                            updatePhase("error", true);
                             setState((prev) => ({
                                 ...prev,
+                                currentPhase: "error",
                                 error: result.blockReason || t("nebula.biometric.errors.verificationFailed"),
                                 isAuthenticating: false,
                                 authTimerActive: false,
@@ -664,25 +278,22 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         state.biometricManager,
         state.isAuthenticating,
         state.attemptMade,
-        state.isBiometricSupported,
         makeAuthenticatedRequest,
         onSuccess,
         onFailure,
         attemptId,
-        updatePhase,
         t,
     ]);
 
-    const handleBiometricFailure = useCallback(async () => {
-        console.log("Handling biometric failure");
+    const handleBiometricFailure = useCallback(async (reason?: string) => {
+        console.log("Handling biometric failure:", reason);
 
-        cleanupTimers();
-        updatePhase("error", true);
         setState((prev) => ({
             ...prev,
+            currentPhase: "error",
             isAuthenticating: false,
             authTimerActive: false,
-            autoCheckActive: false,
+            error: reason || t("nebula.biometric.errors.verificationFailed"),
         }));
 
         if (attemptId) {
@@ -693,7 +304,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                     body: JSON.stringify({
                         success: false,
                         completedInTime: false,
-                        deviceSupported: state.isBiometricSupported,
+                        deviceSupported: true,
                         attemptId,
                     }),
                 });
@@ -705,16 +316,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         setTimeout(() => {
             onFailure();
         }, 1000);
-    }, [state.isBiometricSupported, makeAuthenticatedRequest, onFailure, attemptId, updatePhase, cleanupTimers]);
-
-    const handleOpenSettings = useCallback(() => {
-        if (state.biometricManager?.openSettings) {
-            console.log("Manually opening biometric settings");
-            state.biometricManager.openSettings();
-        } else {
-            console.log("openSettings method not available");
-        }
-    }, [state.biometricManager]);
+    }, [makeAuthenticatedRequest, onFailure, attemptId, t]);
 
     const getBiometricIcon = () => {
         switch (state.biometricType) {
@@ -743,21 +345,16 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         return `${seconds}s`;
     };
 
-    const isPermissionPhase = (phase: AuthPhase): boolean => {
-        return phase === "permission_required" ||
-            phase === "permission_requested";
-    };
-
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
             <div className="relative w-full max-w-md mx-4 bg-gray-900 border border-gray-700 rounded-xl p-6 shadow-2xl">
-                {/* Заголовок */}
+                {/* Header */}
                 <div className="text-center mb-6">
                     <div className="flex items-center justify-center mb-4">
                         <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center">
-                            {state.currentPhase === "unavailable" || state.currentPhase === "error" ? (
+                            {state.currentPhase === "error" ? (
                                 <XCircle className="text-red-400" size={48} />
                             ) : state.currentPhase === "success" ? (
                                 <CheckCircle2 className="text-green-400" size={48} />
@@ -774,13 +371,11 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                     <p className="text-gray-400 text-sm">
                         {state.currentPhase === "success"
                             ? t("nebula.biometric.success.message")
-                            : isPermissionPhase(state.currentPhase)
-                                ? t("nebula.biometric.permissionInstructions")
-                                : t("nebula.biometric.subtitle")}
+                            : t("nebula.biometric.subtitle")}
                     </p>
                 </div>
 
-                {/* Основной контент */}
+                {/* Main content */}
                 {!attemptId ? (
                     <div className="text-center py-4">
                         <p className="text-red-400">{t("nebula.captcha.noAttemptId")}</p>
@@ -791,181 +386,30 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             {t("nebula.common.close")}
                         </button>
                     </div>
-                ) : state.currentPhase === "initializing" || state.currentPhase === "checking_availability" ? (
+                ) : state.currentPhase === "initializing" ? (
                     <div className="text-center py-8">
                         <div className="animate-pulse">
                             <Fingerprint className="text-blue-400 mx-auto mb-4" size={32} />
                         </div>
                         <p className="text-gray-400">
-                            {state.currentPhase === "checking_availability"
-                                ? t("nebula.biometric.checkingAvailability")
-                                : t("nebula.biometric.initializing")}
+                            {t("nebula.biometric.initializing")}
                         </p>
                     </div>
-                ) : state.currentPhase === "unavailable" || state.currentPhase === "error" ? (
+                ) : state.currentPhase === "error" ? (
                     <div className="text-center space-y-4">
                         <div className="flex items-center justify-center space-x-2 p-4 bg-red-500/20 border border-red-500/40 rounded-lg">
                             <XCircle className="text-red-400 flex-shrink-0" size={20} />
                             <div className="text-left">
                                 <p className="text-red-300 text-sm font-semibold">
-                                    {state.currentPhase === "unavailable"
-                                        ? t("nebula.biometric.errors.unavailable")
-                                        : t("nebula.biometric.errors.verificationFailed")}
+                                    {t("nebula.biometric.errors.verificationFailed")}
                                 </p>
                                 <p className="text-red-200 text-xs">{state.error}</p>
                             </div>
                         </div>
-
-                        {state.currentPhase === "unavailable" && (
-                            <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                                <div className="flex items-start space-x-2">
-                                    <AlertTriangle
-                                        className="text-orange-400 flex-shrink-0 mt-0.5"
-                                        size={16}
-                                    />
-                                    <div>
-                                        <h4 className="text-orange-300 font-semibold mb-1 text-sm">
-                                            {t("nebula.biometric.securityPolicy")}
-                                        </h4>
-                                        <p className="text-orange-200 text-xs">
-                                            {t("nebula.biometric.unavailableWarning")}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                            <p className="text-yellow-300 text-xs text-center">
-                                {state.currentPhase === "unavailable"
-                                    ? t("nebula.biometric.blockWarningUnavailable")
-                                    : state.error?.includes("permission")
-                                        ? t("nebula.biometric.blockWarningPermissionDenied")
-                                        : t("nebula.biometric.blockWarning")}
-                            </p>
-                        </div>
-                    </div>
-                ) : isPermissionPhase(state.currentPhase) ? (
-                    <div className="space-y-6">
-                        <div className="text-center">
-                            <div className="mb-4">
-                                <Shield className="text-yellow-400 mx-auto" size={48} />
-                            </div>
-                            <h3 className="text-white font-semibold mb-2">
-                                {t("nebula.biometric.permissionRequired")}
-                            </h3>
-                            <p className="text-gray-400 text-sm mb-4">
-                                {state.autoCheckActive ?
-                                    "Автоматически проверяем разрешения..." :
-                                    t("nebula.biometric.permissionInstructions")}
-                            </p>
-                        </div>
-
-                        {/* Индикатор автоматической проверки */}
-                        {state.autoCheckActive && (
-                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                                    <p className="text-blue-300 text-sm">
-                                        Ожидаем предоставления разрешений... Проверка каждые {TIMING_CONFIG.AUTO_CHECK_INTERVAL / 1000} секунд
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                            <h4 className="text-blue-300 font-semibold mb-2 text-sm">
-                                Инструкции по предоставлению разрешений:
-                            </h4>
-                            <div className="text-blue-200 text-sm space-y-1">
-                                <p>1. Нажмите &quot;Запросить разрешение&quot; ниже</p>
-                                <p>2. Система автоматически откроет настройки Telegram</p>
-                                <p>3. Включите биометрический доступ для этого приложения</p>
-                                <p>4. Вернитесь в приложение - аутентификация начнется автоматически</p>
-                                <p>5. При необходимости нажмите &quot;Проверить статус&quot; для принудительной проверки</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-                            <div className="flex items-start space-x-2">
-                                <CheckCircle2
-                                    className="text-green-400 flex-shrink-0 mt-0.5"
-                                    size={16}
-                                />
-                                <div>
-                                    <h4 className="text-green-300 font-semibold mb-1 text-sm">
-                                        Безопасно покинуть приложение
-                                    </h4>
-                                    <p className="text-green-200 text-xs">
-                                        Вы можете безопасно переключиться в настройки. Система автоматически обнаружит изменения при возврате.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Показываем предупреждение только если превышено максимальное количество попыток */}
-                        {state.permissionCheckAttempts >= TIMING_CONFIG.MAX_PERMISSION_ATTEMPTS - 1 && (
-                            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                                <p className="text-yellow-300 text-xs text-center">
-                                    Последняя попытка проверки разрешений. Отказ приведет к блокировке аккаунта.
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="space-y-3">
-                            {!state.permissionRequested ? (
-                                <button
-                                    className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                                    onClick={handleRequestPermission}
-                                >
-                                    <Shield size={20} />
-                                    <span>Запросить разрешение</span>
-                                </button>
-                            ) : (
-                                <button
-                                    className="w-full px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                                    onClick={handleCheckPermission}
-                                    disabled={state.currentPhase === "permission_checking"}
-                                >
-                                    <Shield size={20} />
-                                    <span>
-                                        {state.currentPhase === "permission_checking"
-                                            ? "Проверка..."
-                                            : "Проверить статус разрешения"}
-                                    </span>
-                                </button>
-                            )}
-
-                            <button
-                                className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                                onClick={handleOpenSettings}
-                            >
-                                <Settings size={16} />
-                                <span>Открыть настройки вручную</span>
-                            </button>
-
-                            {/* Показываем счетчик попыток */}
-                            {state.permissionCheckAttempts > 0 && (
-                                <div className="text-center">
-                                    <p className="text-gray-500 text-xs">
-                                        Попытка {state.permissionCheckAttempts} из {TIMING_CONFIG.MAX_PERMISSION_ATTEMPTS}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ) : state.currentPhase === "permission_checking" ? (
-                    <div className="text-center py-8">
-                        <div className="animate-pulse">
-                            <Shield className="text-blue-400 mx-auto mb-4" size={32} />
-                        </div>
-                        <p className="text-gray-400">
-                            Проверка статуса разрешения...
-                        </p>
                     </div>
                 ) : state.currentPhase === "auth" ? (
                     <div className="space-y-6">
-                        {/* Таймер аутентификации */}
+                        {/* Timer */}
                         <div className="flex items-center justify-center space-x-2 text-sm">
                             <Clock className="text-orange-400" size={16} />
                             <span
@@ -976,25 +420,25 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             <span className="text-gray-500">{t("nebula.common.timeRemaining")}</span>
                         </div>
 
-                        {/* Информация о биометрической аутентификации */}
+                        {/* Authentication info */}
                         <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
                             <div className="mb-3">{getBiometricIcon()}</div>
                             <h3 className="text-white font-semibold mb-1">
-                                Аутентификация {getBiometricTypeName()}
+                                {t("nebula.biometric.authentication.title", { type: getBiometricTypeName() })}
                             </h3>
                             <p className="text-gray-400 text-sm">
-                                Прикоснитесь к сенсору или посмотрите в камеру для аутентификации
+                                {t("nebula.biometric.authentication.touchSensor")}
                             </p>
                         </div>
 
-                        {/* Предупреждение о единственной попытке */}
+                        {/* Single attempt warning */}
                         <div className="text-center">
                             <p className="text-gray-500 text-xs">
-                                Только одна попытка - будьте осторожны!
+                                {t("nebula.biometric.authentication.singleAttempt")}
                             </p>
                         </div>
 
-                        {/* Кнопка аутентификации */}
+                        {/* Authentication button */}
                         <button
                             className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-lg font-semibold"
                             disabled={
@@ -1007,22 +451,22 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             {state.isAuthenticating ? (
                                 <>
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    <span>Аутентификация...</span>
+                                    <span>{t("nebula.biometric.authentication.authenticating")}</span>
                                 </>
                             ) : (
                                 <>
                                     <Fingerprint size={20} />
-                                    <span>АУТЕНТИФИЦИРОВАТЬСЯ</span>
+                                    <span>{t("nebula.biometric.authentication.authenticate")}</span>
                                 </>
                             )}
                         </button>
 
-                        {/* Прогресс аутентификации */}
+                        {/* Authentication progress */}
                         {state.isAuthenticating && (
                             <div className="flex items-center justify-center space-x-2 p-3 bg-blue-500/20 border border-blue-500/40 rounded-lg">
                                 <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
                                 <p className="text-blue-300 text-sm">
-                                    Пожалуйста, завершите биометрическую аутентификацию на вашем устройстве
+                                    {t("nebula.biometric.authentication.pleaseComplete")}
                                 </p>
                             </div>
                         )}
@@ -1030,7 +474,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 ) : state.currentPhase === "success" ? (
                     <div className="text-center py-4">
                         <p className="text-green-300 text-sm mb-4">
-                            Ваш рейтинг доверия был восстановлен. Перенаправление в приложение...
+                            {t("nebula.biometric.success.restoring")}
                         </p>
                         <div className="w-8 h-8 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin mx-auto" />
                     </div>
