@@ -1,8 +1,8 @@
-// src/app/nebula/page.tsx - Updated without grace period logic
+// src/app/nebula/page.tsx - Fixed with intelligent abandonment detection
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, AlertTriangle, Clock, Zap } from "lucide-react";
 
@@ -33,6 +33,7 @@ interface NebulaCheckResponse {
 }
 
 type VerificationType = "captcha" | "biometric" | "gyroscope";
+type AuthPhase = "initializing" | "permission_required" | "auth" | "success" | "error" | "unsupported";
 
 interface PageState {
     isLoading: boolean;
@@ -44,11 +45,28 @@ interface PageState {
     verificationInProgress: boolean;
     verificationResult: "success" | "failure" | null;
     attemptId: string | null;
+    currentPhase: AuthPhase;
+    canAbandon: boolean;
+}
+
+interface AbandonmentState {
+    lastVisibleTime: number;
+    minimumAwayTime: number; // 30 seconds before considering abandonment
+    abandonmentTimeoutId: NodeJS.Timeout | null;
+    userReturnedAfterPermission: boolean;
 }
 
 export default function NebulaPage(): JSX.Element {
     const router = useRouter();
     const { makeAuthenticatedRequest, authState } = useUser();
+
+    // Refs for state management
+    const abandonmentStateRef = useRef<AbandonmentState>({
+        lastVisibleTime: Date.now(),
+        minimumAwayTime: 30000, // 30 seconds
+        abandonmentTimeoutId: null,
+        userReturnedAfterPermission: false,
+    });
 
     const [pageState, setPageState] = useState<PageState>({
         isLoading: true,
@@ -60,54 +78,151 @@ export default function NebulaPage(): JSX.Element {
         verificationInProgress: false,
         verificationResult: null,
         attemptId: null,
+        currentPhase: "initializing",
+        canAbandon: false,
     });
 
     /**
-     * Handle page unload/close events to report abandonment
+     * Handle phase change from verification modal
+     */
+    const handlePhaseChange = useCallback((phase: AuthPhase, canAbandon: boolean) => {
+        console.log(`Verification phase changed: ${phase}, can abandon: ${canAbandon}`);
+        setPageState(prev => ({
+            ...prev,
+            currentPhase: phase,
+            canAbandon,
+        }));
+
+        // Reset abandonment tracking when phase changes
+        const abandonmentState = abandonmentStateRef.current;
+        if (abandonmentState.abandonmentTimeoutId) {
+            clearTimeout(abandonmentState.abandonmentTimeoutId);
+            abandonmentState.abandonmentTimeoutId = null;
+        }
+
+        // Special handling for permission_required phase
+        if (phase === "permission_required") {
+            abandonmentState.userReturnedAfterPermission = false;
+            console.log("Entered permission phase - abandonment tracking disabled");
+        }
+    }, []);
+
+    /**
+     * Report verification abandonment to server
+     */
+    const reportAbandonment = useCallback(async (reason: string) => {
+        if (!pageState.attemptId) {
+            console.log("No attempt ID available for abandonment reporting");
+            return;
+        }
+
+        console.log(`Reporting abandonment: ${reason}`);
+
+        try {
+            await makeAuthenticatedRequest("/api/nebula/abandon", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    attemptId: pageState.attemptId,
+                    reason
+                }),
+            });
+            console.log("Abandonment reported successfully");
+        } catch (error) {
+            console.error("Error reporting abandonment:", error);
+        }
+    }, [pageState.attemptId, makeAuthenticatedRequest]);
+
+    /**
+     * Enhanced visibility change handler with intelligent abandonment detection
+     */
+    const handleVisibilityChange = useCallback(async () => {
+        const now = Date.now();
+        const abandonmentState = abandonmentStateRef.current;
+
+        if (document.hidden) {
+            // User left the page
+            abandonmentState.lastVisibleTime = now;
+            console.log("Page became hidden");
+
+            // Clear any existing timeout
+            if (abandonmentState.abandonmentTimeoutId) {
+                clearTimeout(abandonmentState.abandonmentTimeoutId);
+            }
+
+            // Only set abandonment timeout if user can abandon in current phase
+            if (pageState.canAbandon && pageState.verificationInProgress && pageState.attemptId) {
+                console.log(`Setting abandonment timeout for ${abandonmentState.minimumAwayTime}ms`);
+
+                abandonmentState.abandonmentTimeoutId = setTimeout(() => {
+                    if (document.hidden && pageState.canAbandon) {
+                        console.log("User away too long, reporting abandonment");
+                        reportAbandonment("page_hidden_timeout");
+                    }
+                }, abandonmentState.minimumAwayTime);
+            } else {
+                console.log("User in safe phase - no abandonment tracking");
+            }
+        } else {
+            // User returned to the page
+            const awayTime = now - abandonmentState.lastVisibleTime;
+            console.log(`Page became visible, was away for ${awayTime}ms`);
+
+            // Clear abandonment timeout
+            if (abandonmentState.abandonmentTimeoutId) {
+                clearTimeout(abandonmentState.abandonmentTimeoutId);
+                abandonmentState.abandonmentTimeoutId = null;
+            }
+
+            // Track return after permission phase
+            if (pageState.currentPhase === "permission_required" ||
+                (pageState.currentPhase === "auth" && !abandonmentState.userReturnedAfterPermission)) {
+                abandonmentState.userReturnedAfterPermission = true;
+                console.log("User returned after permission phase");
+            }
+        }
+    }, [pageState.canAbandon, pageState.verificationInProgress, pageState.attemptId,
+    pageState.currentPhase, reportAbandonment]);
+
+    /**
+     * Handle before unload - immediate abandonment for page close
+     */
+    const handleBeforeUnload = useCallback(() => {
+        if (pageState.verificationInProgress && pageState.attemptId && pageState.canAbandon) {
+            console.log("Page unloading - reporting immediate abandonment");
+            // Use sendBeacon for reliable delivery during page unload
+            const payload = JSON.stringify({
+                attemptId: pageState.attemptId,
+                reason: "page_unload"
+            });
+            navigator.sendBeacon("/api/nebula/abandon", payload);
+        }
+    }, [pageState.verificationInProgress, pageState.attemptId, pageState.canAbandon]);
+
+    /**
+     * Set up abandonment tracking event listeners
      */
     useEffect(() => {
-        const handleBeforeUnload = () => {
-            if (pageState.verificationInProgress && pageState.attemptId) {
-                // Use sendBeacon for reliable delivery during page unload
-                navigator.sendBeacon(
-                    "/api/nebula/abandon",
-                    JSON.stringify({ attemptId: pageState.attemptId }),
-                );
-            }
-        };
-
-        const handleVisibilityChange = async () => {
-            if (
-                document.hidden &&
-                pageState.verificationInProgress &&
-                pageState.attemptId
-            ) {
-                try {
-                    await makeAuthenticatedRequest("/api/nebula/abandon", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ attemptId: pageState.attemptId }),
-                    });
-                } catch (error) {
-                    console.error("Error reporting abandoned attempt:", error);
-                }
-            }
-        };
+        console.log("Setting up abandonment tracking listeners");
 
         // Add event listeners
-        window.addEventListener("beforeunload", handleBeforeUnload);
         document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("beforeunload", handleBeforeUnload);
 
-        // Cleanup
+        // Cleanup function
         return () => {
-            window.removeEventListener("beforeunload", handleBeforeUnload);
+            console.log("Cleaning up abandonment tracking listeners");
             document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+
+            // Clear any pending timeouts
+            const abandonmentState = abandonmentStateRef.current;
+            if (abandonmentState.abandonmentTimeoutId) {
+                clearTimeout(abandonmentState.abandonmentTimeoutId);
+                abandonmentState.abandonmentTimeoutId = null;
+            }
         };
-    }, [
-        pageState.verificationInProgress,
-        pageState.attemptId,
-        makeAuthenticatedRequest,
-    ]);
+    }, [handleVisibilityChange, handleBeforeUnload]);
 
     /**
      * Check Nebula verification requirements
@@ -191,6 +306,7 @@ export default function NebulaPage(): JSX.Element {
             return;
         }
 
+        console.log("Starting verification process");
         setPageState((prev) => ({
             ...prev,
             isModalOpen: true,
@@ -207,14 +323,22 @@ export default function NebulaPage(): JSX.Element {
      * Handle successful verification
      */
     const handleVerificationSuccess = useCallback(() => {
-        console.log("Verification successful");
+        console.log("Verification completed successfully");
         setPageState((prev) => ({
             ...prev,
             isModalOpen: false,
             verificationInProgress: false,
             verificationResult: "success",
-            attemptId: null, // Clear attempt ID as verification is complete
+            attemptId: null,
+            canAbandon: false, // Safe state
         }));
+
+        // Clear any pending abandonment timeouts
+        const abandonmentState = abandonmentStateRef.current;
+        if (abandonmentState.abandonmentTimeoutId) {
+            clearTimeout(abandonmentState.abandonmentTimeoutId);
+            abandonmentState.abandonmentTimeoutId = null;
+        }
 
         // Redirect to main page after short delay
         setTimeout(() => {
@@ -232,8 +356,16 @@ export default function NebulaPage(): JSX.Element {
             isModalOpen: false,
             verificationInProgress: false,
             verificationResult: "failure",
-            attemptId: null, // Clear attempt ID as verification is complete (failed)
+            attemptId: null,
+            canAbandon: false, // Safe state
         }));
+
+        // Clear any pending abandonment timeouts
+        const abandonmentState = abandonmentStateRef.current;
+        if (abandonmentState.abandonmentTimeoutId) {
+            clearTimeout(abandonmentState.abandonmentTimeoutId);
+            abandonmentState.abandonmentTimeoutId = null;
+        }
 
         // Redirect to blocked page after short delay
         setTimeout(() => {
@@ -427,25 +559,46 @@ export default function NebulaPage(): JSX.Element {
                     </div>
                 )}
 
-                {/* Warning */}
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
-                    <div className="flex items-start space-x-2">
-                        <AlertTriangle
-                            className="text-yellow-400 flex-shrink-0 mt-0.5"
-                            size={16}
-                        />
-                        <div>
-                            <h4 className="text-yellow-300 font-semibold mb-1 text-sm">
-                                Important
-                            </h4>
-                            <p className="text-yellow-200 text-xs">
-                                You have one attempt to complete verification. Closing this page
-                                or navigating away will result in account blocking. Complete the
-                                verification within 15 seconds.
-                            </p>
+                {/* Enhanced Warning for Biometric */}
+                {pageState.verificationType === "biometric" ? (
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-6">
+                        <div className="flex items-start space-x-2">
+                            <Shield
+                                className="text-green-400 flex-shrink-0 mt-0.5"
+                                size={16}
+                            />
+                            <div>
+                                <h4 className="text-green-300 font-semibold mb-1 text-sm">
+                                    Safe Navigation During Setup
+                                </h4>
+                                <p className="text-green-200 text-xs">
+                                    You may safely leave this application while granting biometric permissions.
+                                    Your verification session will remain active and you can return at any time
+                                    during the permission setup process.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
+                        <div className="flex items-start space-x-2">
+                            <AlertTriangle
+                                className="text-yellow-400 flex-shrink-0 mt-0.5"
+                                size={16}
+                            />
+                            <div>
+                                <h4 className="text-yellow-300 font-semibold mb-1 text-sm">
+                                    Important
+                                </h4>
+                                <p className="text-yellow-200 text-xs">
+                                    You have one attempt to complete verification. Closing this page
+                                    or navigating away will result in account blocking. Complete the
+                                    verification within 15 seconds.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Start Verification Button */}
                 <button
@@ -471,7 +624,7 @@ export default function NebulaPage(): JSX.Element {
                 </button>
             </div>
 
-            {/* Verification Modals - Updated props */}
+            {/* Verification Modals with Phase Tracking */}
             {pageState.verificationType === "captcha" && (
                 <NebulaCaptchaModal
                     attemptId={pageState.attemptId}
@@ -489,6 +642,7 @@ export default function NebulaPage(): JSX.Element {
                     onClose={handleCloseModal}
                     onFailure={handleVerificationFailure}
                     onSuccess={handleVerificationSuccess}
+                    onPhaseChange={handlePhaseChange}
                 />
             )}
 
