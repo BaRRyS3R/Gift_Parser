@@ -1,7 +1,8 @@
-// src/app/api/auth/login/route.ts - User login endpoint
+// src/app/api/auth/login/route.ts - Updated with Nebula Security Integration
 
 import { NextRequest, NextResponse } from 'next/server';
 import { serverUserService } from '@/lib/supabase_server';
+import { serverBlockService } from '@/lib/server/blockService';
 import { validateTelegramData, createInitDataHash } from '@/lib/telegram-auth';
 import { createJWT, createRefreshToken } from '@/lib/jwt';
 import type { TelegramUser } from '@/lib/supabase';
@@ -11,7 +12,7 @@ interface LoginRequest {
     initData: string;
 }
 
-// Response interface
+// Response interface with Nebula integration
 interface LoginResponse {
     success: boolean;
     user?: {
@@ -42,12 +43,20 @@ interface LoginResponse {
         accessToken: string;
         refreshToken: string;
     };
+    // Nebula security fields
+    security?: {
+        blocked: boolean;
+        verificationRequired: boolean;
+        verificationType?: 'captcha' | 'biometric' | 'gyroscope';
+        trustScore: number;
+        blockInfo?: any;
+    };
     error?: string;
 }
 
 /**
  * POST /api/auth/login
- * Authenticates existing user with Telegram WebApp data validation
+ * Authenticates existing user with Telegram WebApp data validation and Nebula security checks
  */
 export async function POST(request: NextRequest): Promise<NextResponse<LoginResponse>> {
     try {
@@ -103,7 +112,157 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
             updated_at: new Date().toISOString(),
         });
 
-        // Create JWT tokens
+        console.log(`User login attempt: ${updatedUser.telegram_id} (${updatedUser.first_name}), Trust Score: ${updatedUser.trust_score}`);
+
+        // NEBULA SECURITY CHECKS
+        // Step 1: Check if user is currently blocked
+        const blockInfo = await serverBlockService.checkUserBlock(updatedUser.telegram_id);
+
+        if (blockInfo && blockInfo.isActive && blockInfo.timeRemainingSeconds > 0) {
+            console.log(`User ${updatedUser.telegram_id} is currently blocked:`, blockInfo);
+
+            // Create limited tokens for accessing block status page
+            const initDataHash = createInitDataHash(initData);
+            const accessToken = await createJWT({
+                userId: updatedUser.id,
+                telegramId: updatedUser.telegram_id,
+                telegramData: {
+                    first_name: updatedUser.first_name,
+                    last_name: updatedUser.last_name,
+                    username: updatedUser.username,
+                    language_code: updatedUser.language_code,
+                    is_premium: updatedUser.is_premium,
+                },
+                initDataHash,
+            });
+
+            const refreshToken = await createRefreshToken({
+                userId: updatedUser.id,
+                telegramId: updatedUser.telegram_id,
+                telegramData: {
+                    first_name: updatedUser.first_name,
+                    last_name: updatedUser.last_name,
+                    username: updatedUser.username,
+                    language_code: updatedUser.language_code,
+                    is_premium: updatedUser.is_premium,
+                },
+            });
+
+            return NextResponse.json({
+                success: true,
+                user: {
+                    id: updatedUser.id,
+                    telegram_id: updatedUser.telegram_id,
+                    first_name: updatedUser.first_name,
+                    last_name: updatedUser.last_name,
+                    username: updatedUser.username,
+                    language_code: updatedUser.language_code,
+                    is_premium: updatedUser.is_premium,
+                    trust_score: updatedUser.trust_score,
+                    blocked_until: updatedUser.blocked_until,
+                    current_level: updatedUser.current_level,
+                    current_league_id: updatedUser.current_league_id,
+                    total_games: updatedUser.total_games,
+                    total_score: updatedUser.total_score,
+                    best_score: updatedUser.best_score,
+                    attempts_remaining: updatedUser.attempts_remaining,
+                    last_attempt_at: updatedUser.last_attempt_at,
+                    attempts_reset_at: updatedUser.attempts_reset_at,
+                    referral_code: updatedUser.referral_code,
+                    referral_count: updatedUser.referral_count,
+                    created_at: updatedUser.created_at,
+                    updated_at: updatedUser.updated_at,
+                    last_played_at: updatedUser.last_played_at,
+                },
+                tokens: {
+                    accessToken,
+                    refreshToken,
+                },
+                security: {
+                    blocked: true,
+                    verificationRequired: false,
+                    trustScore: updatedUser.trust_score,
+                    blockInfo,
+                }
+            });
+        }
+
+        // Step 2: Check if user requires verification based on trust score
+        const verificationReq = await serverBlockService.checkVerificationRequirement(updatedUser.telegram_id);
+
+        if (verificationReq.required && verificationReq.type) {
+            console.log(`User ${updatedUser.telegram_id} requires ${verificationReq.type} verification. Trust score: ${verificationReq.trustScore}`);
+
+            // Create limited tokens for accessing verification page
+            const initDataHash = createInitDataHash(initData);
+            const accessToken = await createJWT({
+                userId: updatedUser.id,
+                telegramId: updatedUser.telegram_id,
+                telegramData: {
+                    first_name: updatedUser.first_name,
+                    last_name: updatedUser.last_name,
+                    username: updatedUser.username,
+                    language_code: updatedUser.language_code,
+                    is_premium: updatedUser.is_premium,
+                },
+                initDataHash,
+            });
+
+            const refreshToken = await createRefreshToken({
+                userId: updatedUser.id,
+                telegramId: updatedUser.telegram_id,
+                telegramData: {
+                    first_name: updatedUser.first_name,
+                    last_name: updatedUser.last_name,
+                    username: updatedUser.username,
+                    language_code: updatedUser.language_code,
+                    is_premium: updatedUser.is_premium,
+                },
+            });
+
+            return NextResponse.json({
+                success: true,
+                user: {
+                    id: updatedUser.id,
+                    telegram_id: updatedUser.telegram_id,
+                    first_name: updatedUser.first_name,
+                    last_name: updatedUser.last_name,
+                    username: updatedUser.username,
+                    language_code: updatedUser.language_code,
+                    is_premium: updatedUser.is_premium,
+                    trust_score: updatedUser.trust_score,
+                    blocked_until: updatedUser.blocked_until,
+                    current_level: updatedUser.current_level,
+                    current_league_id: updatedUser.current_league_id,
+                    total_games: updatedUser.total_games,
+                    total_score: updatedUser.total_score,
+                    best_score: updatedUser.best_score,
+                    attempts_remaining: updatedUser.attempts_remaining,
+                    last_attempt_at: updatedUser.last_attempt_at,
+                    attempts_reset_at: updatedUser.attempts_reset_at,
+                    referral_code: updatedUser.referral_code,
+                    referral_count: updatedUser.referral_count,
+                    created_at: updatedUser.created_at,
+                    updated_at: updatedUser.updated_at,
+                    last_played_at: updatedUser.last_played_at,
+                },
+                tokens: {
+                    accessToken,
+                    refreshToken,
+                },
+                security: {
+                    blocked: false,
+                    verificationRequired: true,
+                    verificationType: verificationReq.type,
+                    trustScore: verificationReq.trustScore,
+                }
+            });
+        }
+
+        // Step 3: User passes all security checks - normal login flow
+        console.log(`User ${updatedUser.telegram_id} passed all Nebula security checks. Trust score: ${verificationReq.trustScore}`);
+
+        // Create full access JWT tokens
         const initDataHash = createInitDataHash(initData);
 
         const accessToken = await createJWT({
@@ -140,11 +299,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
             username: updatedUser.username,
             language_code: updatedUser.language_code,
             is_premium: updatedUser.is_premium,
-
-            // Trust and moderation fields
             trust_score: updatedUser.trust_score,
             blocked_until: updatedUser.blocked_until,
-
             current_level: updatedUser.current_level,
             current_league_id: updatedUser.current_league_id,
             total_games: updatedUser.total_games,
@@ -160,7 +316,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
             last_played_at: updatedUser.last_played_at,
         };
 
-        // Log successful login
         console.log(`User logged in successfully: ${updatedUser.telegram_id} (${updatedUser.first_name})`);
 
         return NextResponse.json({
@@ -170,6 +325,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
                 accessToken,
                 refreshToken,
             },
+            security: {
+                blocked: false,
+                verificationRequired: false,
+                trustScore: verificationReq.trustScore,
+            }
         });
 
     } catch (error) {

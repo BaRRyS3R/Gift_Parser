@@ -71,6 +71,14 @@ export interface LoginResult {
         last_played_at?: string;
     };
     tokens?: AuthTokens;
+    // Nebula security fields
+    security?: {
+        blocked: boolean;
+        verificationRequired: boolean;
+        verificationType?: 'captcha' | 'biometric' | 'gyroscope';
+        trustScore: number;
+        blockInfo?: any;
+    };
     error?: string;
 }
 

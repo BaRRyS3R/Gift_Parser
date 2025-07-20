@@ -122,7 +122,7 @@ export default function IntroPage(): JSX.Element {
   }, []);
 
   /**
-   * FIXED: Attempt user authentication with proper 404 handling
+   * FIXED: Attempt user authentication with proper 404 handling and Nebula integration
    */
   const attemptAuthentication = useCallback(async (
     initData: string
@@ -140,7 +140,26 @@ export default function IntroPage(): JSX.Element {
       if (result.success && result.user) {
         console.log("Authentication successful:", result.user.first_name);
 
-        // Redirect to main page after successful login
+        // NEW: Handle Nebula security checks
+        if (result.security) {
+          if (result.security.blocked) {
+            console.log("User is blocked, redirecting to blocked page");
+            setTimeout(() => {
+              router.push("/blocked");
+            }, 1000);
+            return result;
+          }
+
+          if (result.security.verificationRequired) {
+            console.log(`User requires ${result.security.verificationType} verification, redirecting to nebula page`);
+            setTimeout(() => {
+              router.push("/nebula");
+            }, 1000);
+            return result;
+          }
+        }
+
+        // User passed all security checks, redirect to main page
         setTimeout(() => {
           router.push("/main");
         }, 1000);
