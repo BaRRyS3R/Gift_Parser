@@ -1,4 +1,4 @@
-// src/components/Security/NebulaGyroscopeModal.tsx - Исправленная версия с корректной валидацией гироскопа
+// src/components/Security/NebulaGyroscopeModal.tsx - Updated with attempt tracking and auto-blocking
 
 "use client";
 
@@ -21,6 +21,7 @@ interface NebulaGyroscopeModalProps {
     onSuccess: () => void;
     onFailure: () => void;
     onClose?: () => void;
+    attemptId: string | null;
 }
 
 type GyroscopePhase =
@@ -55,6 +56,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     onSuccess,
     onFailure,
     onClose,
+    attemptId,
 }) => {
     const { makeAuthenticatedRequest } = useUser();
     const verificationTimeout = 15000; // 15 seconds for verification
@@ -121,8 +123,16 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             return;
         }
 
-        initializeGyroscope();
-    }, [isOpen]);
+        if (attemptId) {
+            initializeGyroscope();
+        } else {
+            setState((prev) => ({
+                ...prev,
+                error: "No verification attempt ID provided",
+                currentPhase: "error",
+            }));
+        }
+    }, [isOpen, attemptId]);
 
     // Verification phase timer
     useEffect(() => {
@@ -135,7 +145,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
 
                 if (newTime <= 0) {
                     handleVerificationTimeout();
-
                     return { ...prev, verificationTimeRemaining: 0 };
                 }
 
@@ -155,26 +164,14 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
 
         if (typeof window === "undefined") {
             console.log("Window not available");
-            setState((prev) => ({
-                ...prev,
-                error: "Gyroscope verification is not available in this environment",
-                currentPhase: "unsupported",
-                isGyroscopeSupported: false,
-            }));
-
+            await handleUnsupportedDevice("Gyroscope verification is not available in this environment");
             return;
         }
 
         // Check if DeviceOrientationEvent is supported
         if (!window.DeviceOrientationEvent) {
             console.log("DeviceOrientationEvent not supported");
-            setState((prev) => ({
-                ...prev,
-                error: "Your device does not support gyroscope verification",
-                currentPhase: "unsupported",
-                isGyroscopeSupported: false,
-            }));
-
+            await handleUnsupportedDevice("Your device does not support gyroscope verification");
             return;
         }
 
@@ -207,8 +204,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                     console.log("Gyroscope permission denied");
                     setState((prev) => ({
                         ...prev,
-                        error:
-                            "Gyroscope permission was denied. Please enable it in your device settings.",
+                        error: "Gyroscope permission was denied. Please enable it in your device settings.",
                         currentPhase: "error",
                     }));
                 }
@@ -240,55 +236,60 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             eventListenerRef.current = null;
         }
 
-        try {
-            const response = await makeAuthenticatedRequest("/api/nebula/gyroscope", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    success: true,
-                    completedInTime: true,
-                    deviceSupported: state.isGyroscopeSupported,
-                    movementData: {
-                        totalMovements: actualMovements ?? state.detectedMovements, // ИСПРАВЛЕНИЕ: используем переданное значение
-                        requiredMovements: requiredMovements,
-                        timeSpent: verificationTimeout - state.verificationTimeRemaining,
-                        significantMovements: true,
-                    },
-                }),
-            });
+        if (attemptId) {
+            try {
+                const response = await makeAuthenticatedRequest("/api/nebula/gyroscope", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        success: true,
+                        completedInTime: true,
+                        deviceSupported: state.isGyroscopeSupported,
+                        attemptId,
+                        movementData: {
+                            totalMovements: actualMovements ?? state.detectedMovements,
+                            requiredMovements: requiredMovements,
+                            timeSpent: verificationTimeout - state.verificationTimeRemaining,
+                            significantMovements: true,
+                        },
+                    }),
+                });
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || "Verification failed");
+                }
+
+                if (result.verified && result.trustRestored) {
+                    console.log("Gyroscope verification validated successfully");
+                    setTimeout(() => onSuccess(), 1500);
+                } else if (result.blocked) {
+                    console.log("Gyroscope verification validation failed");
+                    handleVerificationFailure(
+                        result.blockReason || "Verification validation failed",
+                    );
+                } else {
+                    throw new Error("Unexpected verification result");
+                }
+            } catch (error) {
+                console.error("Error validating gyroscope:", error);
+                handleVerificationFailure("Verification validation error");
             }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || "Verification failed");
-            }
-
-            if (result.verified && result.trustRestored) {
-                console.log("Gyroscope verification validated successfully");
-                setTimeout(() => onSuccess(), 1500);
-            } else if (result.blocked) {
-                console.log("Gyroscope verification validation failed");
-                handleVerificationFailure(
-                    result.blockReason || "Verification validation failed",
-                );
-            } else {
-                throw new Error("Unexpected verification result");
-            }
-        } catch (error) {
-            console.error("Error validating gyroscope:", error);
-            handleVerificationFailure("Verification validation error");
+        } else {
+            setTimeout(() => onSuccess(), 1500);
         }
     }, [
         state.isGyroscopeSupported,
         state.verificationTimeRemaining,
+        state.detectedMovements,
         makeAuthenticatedRequest,
         onSuccess,
+        attemptId,
     ]);
 
     /**
@@ -322,27 +323,69 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                 eventListenerRef.current = null;
             }
 
-            try {
-                // Send failure to server
-                await makeAuthenticatedRequest("/api/nebula/gyroscope", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        success: false,
-                        completedInTime: false,
-                        deviceSupported: state.isGyroscopeSupported,
-                    }),
-                });
-            } catch (error) {
-                console.error("Error sending gyroscope failure to API:", error);
+            if (attemptId) {
+                try {
+                    // Send failure to server
+                    await makeAuthenticatedRequest("/api/nebula/gyroscope", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            success: false,
+                            completedInTime: false,
+                            deviceSupported: state.isGyroscopeSupported,
+                            attemptId,
+                        }),
+                    });
+                } catch (error) {
+                    console.error("Error sending gyroscope failure to API:", error);
+                }
             }
 
             setTimeout(() => onFailure(), 1000);
         },
-        [state.isGyroscopeSupported, makeAuthenticatedRequest, onFailure],
+        [state.isGyroscopeSupported, makeAuthenticatedRequest, onFailure, attemptId],
     );
+
+    /**
+     * Handle unsupported device with automatic blocking
+     */
+    const handleUnsupportedDevice = useCallback(async (reason: string) => {
+        console.log("Auto-blocking for unsupported device:", reason);
+
+        setState((prev) => ({
+            ...prev,
+            error: reason,
+            currentPhase: "error",
+            isGyroscopeSupported: false,
+        }));
+
+        if (attemptId) {
+            try {
+                // Immediately block user for unsupported device
+                const response = await makeAuthenticatedRequest("/api/nebula/gyroscope", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        success: false,
+                        completedInTime: false,
+                        deviceSupported: false,
+                        attemptId,
+                    }),
+                });
+
+                if (response.ok) {
+                    setTimeout(() => onFailure(), 2000);
+                } else {
+                    setTimeout(() => onFailure(), 1000);
+                }
+            } catch (error) {
+                console.error("Error auto-blocking unsupported device:", error);
+                setTimeout(() => onFailure(), 1000);
+            }
+        } else {
+            setTimeout(() => onFailure(), 1000);
+        }
+    }, [makeAuthenticatedRequest, onFailure, attemptId]);
 
     /**
      * Start verification process
@@ -374,7 +417,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             if (initialDataRef.current.alpha === null && currentData.alpha !== null) {
                 initialDataRef.current = { ...currentData };
                 console.log("Initial gyroscope data captured:", initialDataRef.current);
-
                 return;
             }
 
@@ -454,7 +496,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
 
                 // Check if verification is complete
                 if (newCount >= requiredMovements) {
-                    handleVerificationSuccess(newCount); // ИСПРАВЛЕНИЕ: передаем актуальное значение
+                    handleVerificationSuccess(newCount);
                 }
 
                 return {
@@ -466,19 +508,10 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     };
 
     /**
-     * Handle unsupported device
-     */
-    const handleUnsupportedDevice = useCallback(() => {
-        console.log("Handling unsupported device - triggering extended block");
-        handleVerificationFailure("Device does not support gyroscope verification");
-    }, [handleVerificationFailure]);
-
-    /**
      * Format time remaining
      */
     const formatTime = (ms: number): string => {
         const seconds = Math.ceil(ms / 1000);
-
         return `${seconds}s`;
     };
 
@@ -521,7 +554,17 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                 </div>
 
                 {/* Content */}
-                {state.currentPhase === "initializing" ? (
+                {!attemptId ? (
+                    <div className="text-center py-4">
+                        <p className="text-red-400">No verification attempt found</p>
+                        <button
+                            className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
+                            onClick={onFailure}
+                        >
+                            Close
+                        </button>
+                    </div>
+                ) : state.currentPhase === "initializing" ? (
                     <div className="text-center py-8">
                         <div className="animate-pulse">
                             <Compass className="text-blue-400 mx-auto mb-4" size={32} />
@@ -530,44 +573,45 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                             Initializing gyroscope verification...
                         </p>
                     </div>
-                ) : state.currentPhase === "unsupported" ? (
+                ) : state.currentPhase === "unsupported" || state.currentPhase === "error" ? (
                     <div className="text-center space-y-4">
                         <div className="flex items-center justify-center space-x-2 p-4 bg-red-500/20 border border-red-500/40 rounded-lg">
                             <XCircle className="text-red-400 flex-shrink-0" size={20} />
                             <div className="text-left">
                                 <p className="text-red-300 text-sm font-semibold">
-                                    Device Not Supported
+                                    {state.currentPhase === "unsupported" ? "Device Not Supported" : "Verification Failed"}
                                 </p>
                                 <p className="text-red-200 text-xs">{state.error}</p>
                             </div>
                         </div>
 
-                        <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                            <div className="flex items-start space-x-2">
-                                <AlertTriangle
-                                    className="text-orange-400 flex-shrink-0 mt-0.5"
-                                    size={16}
-                                />
-                                <div>
-                                    <h4 className="text-orange-300 font-semibold mb-1 text-sm">
-                                        Security Policy
-                                    </h4>
-                                    <p className="text-orange-200 text-xs">
-                                        Accounts with extremely low trust scores require gyroscope
-                                        verification. Since your device does not support this
-                                        feature, your account will be temporarily blocked.
-                                    </p>
+                        {state.currentPhase === "unsupported" && (
+                            <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                                <div className="flex items-start space-x-2">
+                                    <AlertTriangle
+                                        className="text-orange-400 flex-shrink-0 mt-0.5"
+                                        size={16}
+                                    />
+                                    <div>
+                                        <h4 className="text-orange-300 font-semibold mb-1 text-sm">
+                                            Security Policy
+                                        </h4>
+                                        <p className="text-orange-200 text-xs">
+                                            Accounts with extremely low trust scores require gyroscope
+                                            verification. Since your device does not support this
+                                            feature, your account will be temporarily blocked.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
-                        <button
-                            className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
-                            onClick={handleUnsupportedDevice}
-                        >
-                            <Shield size={16} />
-                            <span>I Understand</span>
-                        </button>
+                        <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                            <p className="text-yellow-300 text-xs text-center">
+                                Your account will be temporarily blocked due to verification
+                                failure.
+                            </p>
+                        </div>
                     </div>
                 ) : state.currentPhase === "permission_required" ? (
                     <div className="space-y-6">
@@ -719,21 +763,10 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                         </p>
                         <div className="w-8 h-8 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin mx-auto" />
                     </div>
-                ) : state.currentPhase === "error" ? (
-                    <div className="text-center space-y-4">
-                        <div className="flex items-center justify-center space-x-2 p-4 bg-red-500/20 border border-red-500/40 rounded-lg">
-                            <AlertTriangle className="text-red-400 flex-shrink-0" size={20} />
-                            <p className="text-red-300 text-sm">{state.error}</p>
-                        </div>
-                        <p className="text-gray-400 text-sm">
-                            Your account will be temporarily blocked due to verification
-                            failure.
-                        </p>
-                    </div>
                 ) : null}
 
                 {/* Warning Message */}
-                {state.currentPhase !== "success" && (
+                {state.currentPhase !== "success" && attemptId && (
                     <div className="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                         <p className="text-red-300 text-xs text-center">
                             {state.currentPhase === "unsupported"

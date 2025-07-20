@@ -1,4 +1,4 @@
-// src/app/api/nebula/gyroscope/route.ts - Nebula Gyroscope Verification API
+// src/app/api/nebula/gyroscope/route.ts - Nebula Gyroscope Verification API with attempt tracking
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -9,6 +9,7 @@ interface GyroscopeRequest {
     success: boolean;
     completedInTime: boolean;
     deviceSupported: boolean;
+    attemptId?: string;
     movementData?: {
         totalMovements: number;
         requiredMovements: number;
@@ -68,6 +69,7 @@ export async function POST(
             success: gyroscopeSuccess,
             completedInTime,
             deviceSupported,
+            attemptId,
             movementData,
         } = body;
 
@@ -77,9 +79,24 @@ export async function POST(
                 success: gyroscopeSuccess,
                 completedInTime,
                 deviceSupported,
+                attemptId,
                 movementData,
             },
         );
+
+        // Verify attempt belongs to user (if attemptId provided)
+        if (attemptId) {
+            const { attempt } = await serverBlockService.checkVerificationAttempt(telegramIdNumber);
+            if (!attempt || attempt.id !== attemptId) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: "Invalid verification attempt",
+                    },
+                    { status: 400 },
+                );
+            }
+        }
 
         // Handle device not supported case
         if (!deviceSupported) {
@@ -93,6 +110,11 @@ export async function POST(
                 "gyroscope",
                 false, // Device not supported
             );
+
+            // Remove verification attempt record if provided
+            if (attemptId) {
+                await serverBlockService.removeVerificationAttempt(attemptId);
+            }
 
             if (blockResult.success) {
                 return NextResponse.json({
@@ -141,6 +163,11 @@ export async function POST(
                 "gyroscope",
             );
 
+            // Remove verification attempt record if provided
+            if (attemptId) {
+                await serverBlockService.removeVerificationAttempt(attemptId);
+            }
+
             if (restoreResult.success) {
                 return NextResponse.json({
                     success: true,
@@ -183,6 +210,11 @@ export async function POST(
                 "gyroscope",
                 true, // Device supports gyroscope
             );
+
+            // Remove verification attempt record if provided
+            if (attemptId) {
+                await serverBlockService.removeVerificationAttempt(attemptId);
+            }
 
             if (blockResult.success) {
                 return NextResponse.json({
