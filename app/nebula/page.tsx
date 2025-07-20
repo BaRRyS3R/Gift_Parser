@@ -36,7 +36,7 @@ interface NebulaCheckResponse {
 type VerificationType = "captcha" | "biometric" | "gyroscope";
 
 // Расширенные состояния страницы
-type PagePhase = 
+type PagePhase =
     | "loading"
     | "error"
     | "device_checking"
@@ -64,7 +64,7 @@ interface PageState {
     trustScore: number;
     threshold: number;
     attemptId: string | null;
-    
+
     // Новые поля для управления устройством
     deviceCapability: DeviceCapability;
     permissionTimer: number; // оставшееся время в секундах
@@ -205,7 +205,7 @@ export default function NebulaPage(): JSX.Element {
                 phase: "device_unsupported",
                 error: error instanceof Error ? error.message : `${type} not supported`,
             }));
-            
+
             // Блокируем пользователя за неподдерживаемое устройство
             setTimeout(() => blockForUnsupportedDevice(type), 3000);
         }
@@ -235,7 +235,7 @@ export default function NebulaPage(): JSX.Element {
             const manager = tg.BiometricManager;
             manager.init(() => {
                 console.log("BiometricManager initialized");
-                
+
                 if (!manager.isBiometricAvailable) {
                     reject(new Error("Biometric authentication not available on this device"));
                     return;
@@ -259,7 +259,7 @@ export default function NebulaPage(): JSX.Element {
 
                 if (permissionGranted) {
                     // Разрешение уже есть, можем сразу открыть модальное окно
-                    setTimeout(() => openVerificationModal(), 500);
+                    setTimeout(() => openVerificationModal("biometric", pageState.attemptId || undefined), 500);
                 } else {
                     // Нужно запросить разрешение
                     startPermissionTimer();
@@ -319,7 +319,7 @@ export default function NebulaPage(): JSX.Element {
                             },
                             phase: "ready_to_verify",
                         }));
-                        setTimeout(() => openVerificationModal(), 500);
+                        setTimeout(() => openVerificationModal("gyroscope", pageState.attemptId || undefined), 500);
                         resolve();
                     })
                     .catch(reject);
@@ -494,7 +494,7 @@ export default function NebulaPage(): JSX.Element {
     const handlePermissionGranted = useCallback(() => {
         console.log("Permission granted - switching to verification");
         cleanupTimers();
-        
+
         setPageState((prev) => ({
             ...prev,
             deviceCapability: {
@@ -505,9 +505,9 @@ export default function NebulaPage(): JSX.Element {
             autoCheckPermissions: false,
         }));
 
-        // Открываем модальное окно через небольшую задержку
-        setTimeout(() => openVerificationModal(), 1000);
-    }, [cleanupTimers]);
+        // Открываем модальное окно через небольшую задержку с корректными параметрами
+        setTimeout(() => openVerificationModal(pageState.verificationType || undefined, pageState.attemptId || undefined), 1000);
+    }, [cleanupTimers, pageState.verificationType, pageState.attemptId, openVerificationModal]);
 
     /**
      * Блокировка за неподдерживаемое устройство
@@ -590,16 +590,26 @@ export default function NebulaPage(): JSX.Element {
     /**
      * Открытие модального окна верификации
      */
-    const openVerificationModal = useCallback(() => {
-        if (!pageState.verificationType || !pageState.attemptId) {
-            console.error("Cannot open verification modal: missing verification type or attempt ID");
+    const openVerificationModal = useCallback((verificationType?: VerificationType, attemptId?: string) => {
+        const vType = verificationType || pageState.verificationType;
+        const aId = attemptId || pageState.attemptId;
+
+        if (!vType || !aId) {
+            console.error("Cannot open verification modal: missing verification type or attempt ID", {
+                verificationType: vType,
+                attemptId: aId,
+                pageStateVerificationType: pageState.verificationType,
+                pageStateAttemptId: pageState.attemptId
+            });
             return;
         }
 
-        console.log(`Opening ${pageState.verificationType} verification modal`);
-        setPageState((prev) => ({ 
-            ...prev, 
-            phase: "verifying"
+        console.log(`Opening ${vType} verification modal with attempt ID: ${aId}`);
+        setPageState((prev) => ({
+            ...prev,
+            phase: "verifying",
+            verificationType: vType,
+            attemptId: aId
         }));
     }, [pageState.verificationType, pageState.attemptId]);
 
@@ -626,12 +636,24 @@ export default function NebulaPage(): JSX.Element {
      */
     const handleCloseModal = useCallback(() => {
         if (pageState.phase !== "verifying") return;
-        
-        setPageState((prev) => ({ 
-            ...prev, 
+
+        setPageState((prev) => ({
+            ...prev,
             phase: pageState.deviceCapability.permissionGranted ? "ready_to_verify" : "permission_required"
         }));
     }, [pageState.phase, pageState.deviceCapability.permissionGranted]);
+
+    // Автоматическое открытие модального окна при переходе в фазу ready_to_verify
+    useEffect(() => {
+        if (pageState.phase === "ready_to_verify" && pageState.verificationType && pageState.attemptId) {
+            console.log("Auto-opening verification modal due to phase change");
+            const timer = setTimeout(() => {
+                openVerificationModal(pageState.verificationType!, pageState.attemptId!);
+            }, 1000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [pageState.phase, pageState.verificationType, pageState.attemptId, openVerificationModal]);
 
     // Инициализация при загрузке страницы
     useEffect(() => {
@@ -788,8 +810,8 @@ export default function NebulaPage(): JSX.Element {
                         <div className="w-full bg-orange-900/30 rounded-full h-2">
                             <div
                                 className="h-2 rounded-full bg-orange-500 transition-all duration-1000"
-                                style={{ 
-                                    width: `${(pageState.permissionTimer / (PERMISSION_TIMEOUT_MS / 1000)) * 100}%` 
+                                style={{
+                                    width: `${(pageState.permissionTimer / (PERMISSION_TIMEOUT_MS / 1000)) * 100}%`
                                 }}
                             />
                         </div>
@@ -815,7 +837,7 @@ export default function NebulaPage(): JSX.Element {
                             <div>
                                 <h4 className="text-red-300 font-semibold mb-1 text-sm">Внимание!</h4>
                                 <p className="text-red-200 text-xs">
-                                    Если вы не предоставите разрешение в течение {formatTime(pageState.permissionTimer)}, 
+                                    Если вы не предоставите разрешение в течение {formatTime(pageState.permissionTimer)},
                                     ваш аккаунт будет автоматически заблокирован.
                                 </p>
                             </div>
@@ -830,8 +852,8 @@ export default function NebulaPage(): JSX.Element {
                     >
                         <Shield size={20} />
                         <span>
-                            {pageState.deviceCapability.permissionRequested 
-                                ? "Разрешение запрошено" 
+                            {pageState.deviceCapability.permissionRequested
+                                ? "Разрешение запрошено"
                                 : "Предоставить разрешение"
                             }
                         </span>
