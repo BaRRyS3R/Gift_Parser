@@ -252,7 +252,53 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                     addDebugLog(`isAccessGranted: ${biometricManager.isAccessGranted}`);
                     addDebugLog(`biometricType: ${biometricManager.biometricType || 'Unknown'}`);
 
-                    // Попытка инициализации
+                    // Проверка состояния isInited
+                    addDebugLog(`isInited property: ${biometricManager.isInited}`);
+                    
+                    // Альтернативный подход: проверяем, уже ли инициализирован
+                    if (biometricManager.isInited) {
+                        addDebugLog("🎉 BiometricManager already initialized, skipping init call");
+                        
+                        // Сразу обрабатываем как успешную инициализацию
+                        updateDebugInfo({
+                            biometricManagerInitialized: true,
+                            initCallbackCalled: true,
+                            biometricAvailable: biometricManager.isBiometricAvailable,
+                            accessGranted: biometricManager.isAccessGranted,
+                            biometricType: biometricManager.biometricType || 'unknown'
+                        });
+
+                        setState((prev) => ({
+                            ...prev,
+                            biometricManager: biometricManager,
+                            biometricType: biometricManager.biometricType || "unknown",
+                        }));
+
+                        if (!biometricManager.isBiometricAvailable) {
+                            addDebugLog("❌ Biometric not available on device");
+                            handleUnsupportedDevice("Biometric not available on this device");
+                            return;
+                        }
+
+                        addDebugLog("✓ Biometric available on device");
+
+                        if (biometricManager.isAccessGranted) {
+                            addDebugLog("✓ Permission already granted, proceeding to auth");
+                            updatePhase("auth", true);
+                            setState((prev) => ({
+                                ...prev,
+                                authTimeRemaining: authTimeout,
+                                authTimerActive: true,
+                            }));
+                        } else {
+                            addDebugLog("⚠️ Permission not granted, showing permission screen");
+                            updatePhase("permission_required", false);
+                        }
+                        
+                        return; // Выходим, не вызывая init
+                    }
+                    
+                    // Попытка инициализации только если не инициализирован
                     addDebugLog("Calling BiometricManager.init()...");
                     
                     try {
@@ -299,7 +345,41 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                         setTimeout(() => {
                             if (!debugInfo.initCallbackCalled) {
                                 addDebugLog("🚨 TIMEOUT: Init callback never called after 5 seconds");
-                                addDebugLog("This suggests BiometricManager.init() is not working properly");
+                                addDebugLog("Attempting fallback approach...");
+                                
+                                // Fallback: пробуем работать без callback
+                                if (biometricManager.isBiometricAvailable) {
+                                    addDebugLog("💡 Fallback: Using manager without init callback");
+                                    
+                                    updateDebugInfo({
+                                        biometricManagerInitialized: true,
+                                        biometricAvailable: biometricManager.isBiometricAvailable,
+                                        accessGranted: biometricManager.isAccessGranted,
+                                        biometricType: biometricManager.biometricType || 'unknown'
+                                    });
+
+                                    setState((prev) => ({
+                                        ...prev,
+                                        biometricManager: biometricManager,
+                                        biometricType: biometricManager.biometricType || "unknown",
+                                    }));
+
+                                    if (biometricManager.isAccessGranted) {
+                                        addDebugLog("✓ Fallback: Permission available, proceeding to auth");
+                                        updatePhase("auth", true);
+                                        setState((prev) => ({
+                                            ...prev,
+                                            authTimeRemaining: authTimeout,
+                                            authTimerActive: true,
+                                        }));
+                                    } else {
+                                        addDebugLog("⚠️ Fallback: Permission required");
+                                        updatePhase("permission_required", false);
+                                    }
+                                } else {
+                                    addDebugLog("❌ Fallback failed: Biometric not available");
+                                    handleUnsupportedDevice("Biometric initialization failed");
+                                }
                             }
                         }, 5000);
 
