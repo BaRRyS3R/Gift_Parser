@@ -1,11 +1,11 @@
-// src/app/page.tsx - Fixed new user handling and video completion
+// src/app/page.tsx - Fixed with complete Nebula Security Integration
 
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
-import { Play, Zap, Wifi, WifiOff, Gift } from "lucide-react";
+import { Play, Zap, Wifi, WifiOff, Gift, Shield, AlertTriangle } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -122,7 +122,7 @@ export default function IntroPage(): JSX.Element {
   }, []);
 
   /**
-   * FIXED: Attempt user authentication with proper 404 handling and Nebula integration
+   * FIXED: Attempt user authentication with complete Nebula integration
    */
   const attemptAuthentication = useCallback(async (
     initData: string
@@ -131,17 +131,23 @@ export default function IntroPage(): JSX.Element {
       console.log("Attempting user authentication...");
       const result = await login(initData);
 
-      // CRITICAL FIX: Handle USER_NOT_FOUND as expected behavior, not an error
+      console.log("Login result:", result);
+
+      // Handle USER_NOT_FOUND as expected behavior for new users
       if (!result.success && result.error === 'USER_NOT_FOUND') {
         console.log("User not found - this is expected for new users, not an error");
-        return result; // Return the result without treating it as an error
+        return result;
       }
 
+      // Check if login was successful
       if (result.success && result.user) {
         console.log("Authentication successful:", result.user.first_name);
 
-        // NEW: Handle Nebula security checks
+        // CRITICAL: Check Nebula security status first
         if (result.security) {
+          console.log("Processing Nebula security checks:", result.security);
+
+          // Priority 1: Check if user is blocked
           if (result.security.blocked) {
             console.log("User is blocked, redirecting to blocked page");
             setTimeout(() => {
@@ -150,19 +156,27 @@ export default function IntroPage(): JSX.Element {
             return result;
           }
 
-          if (result.security.verificationRequired) {
-            console.log(`User requires ${result.security.verificationType} verification, redirecting to nebula page`);
+          // Priority 2: Check if verification is required
+          if (result.security.verificationRequired && result.security.verificationType) {
+            console.log(`User requires ${result.security.verificationType} verification (trust score: ${result.security.trustScore}), redirecting to Nebula page`);
             setTimeout(() => {
               router.push("/nebula");
             }, 1000);
             return result;
           }
+
+          // Priority 3: User passed all security checks
+          console.log(`User passed all Nebula security checks (trust score: ${result.security.trustScore}), redirecting to main page`);
+        } else {
+          console.log("No security object in response, proceeding to main page");
         }
 
-        // User passed all security checks, redirect to main page
+        // Redirect to main page if no security issues
         setTimeout(() => {
           router.push("/main");
         }, 1000);
+      } else {
+        console.error("Login failed:", result.error);
       }
 
       return result;
@@ -225,7 +239,7 @@ export default function IntroPage(): JSX.Element {
   }, [register, router]);
 
   /**
-   * FIXED: Initialize authentication flow with proper new user handling
+   * Initialize authentication flow with proper new user handling
    */
   const initializeAuthentication = useCallback(async () => {
     if (authInitializedRef.current) {
@@ -282,7 +296,7 @@ export default function IntroPage(): JSX.Element {
         referralInfo,
       }));
 
-      // CRITICAL FIX: Try to authenticate existing user with proper handling
+      // Try to authenticate existing user
       console.log("Attempting authentication for existing user...");
       const authResult = await attemptAuthentication(initData);
 
@@ -308,15 +322,14 @@ export default function IntroPage(): JSX.Element {
         return;
       }
 
-      // If we reach here, authentication was successful (handled in attemptAuthentication)
+      // If authentication was successful, the redirect is handled in attemptAuthentication
 
     } catch (error) {
       console.error("Authentication initialization error:", error);
       setPageState(prev => ({
         ...prev,
         isInitializing: false,
-        videoError: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")
-          }`,
+        videoError: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")}`,
       }));
     }
   }, [
@@ -328,7 +341,7 @@ export default function IntroPage(): JSX.Element {
   ]);
 
   /**
-   * FIXED: Handle video completion and trigger registration
+   * Handle video completion and trigger registration
    */
   const handleVideoCompletion = useCallback(async () => {
     console.log("Video completed");
@@ -353,15 +366,13 @@ export default function IntroPage(): JSX.Element {
         pageState.referralInfo?.code
       );
 
-      // FIXED: registerNewUser уже содержит редирект при успешной регистрации
-      // Здесь обрабатываем только ошибки
+      // Registration handles its own redirects, including Nebula checks
       if (!registrationResult.success) {
         console.error("Registration failed after video:", registrationResult.error);
         setTimeout(() => {
           router.push("/main");
         }, 2000);
       }
-      // При успешной регистрации редирект происходит в registerNewUser
     } else if (currentAuthState.isAuthenticated) {
       console.log("User already authenticated, redirecting to main");
       router.push("/main");
@@ -492,8 +503,7 @@ export default function IntroPage(): JSX.Element {
     };
   }, [handleVideoCompletion]);
 
-  // FIXED: Initialize authentication flow with proper error handling
-  // Предотвращаем повторную инициализацию после успешной регистрации
+  // Initialize authentication flow with proper error handling
   useEffect(() => {
     if (!authInitializedRef.current && !authState.isAuthenticated) {
       initializeAuthentication();
@@ -529,6 +539,9 @@ export default function IntroPage(): JSX.Element {
       {/* Authentication Error Screen */}
       {authState.error && !isInitialLoading && (
         <div className="loader-container">
+          <div className="flex items-center justify-center mb-4">
+            <AlertTriangle className="text-red-400" size={48} />
+          </div>
           <p className="text-white text-center mb-4">{authState.error}</p>
           <button
             className="px-4 py-2 bg-white text-black rounded"
@@ -551,6 +564,9 @@ export default function IntroPage(): JSX.Element {
       {/* Video Error Screen */}
       {pageState.videoError && !isInitialLoading && !authState.error && (
         <div className="loader-container">
+          <div className="flex items-center justify-center mb-4">
+            <AlertTriangle className="text-red-400" size={48} />
+          </div>
           <p className="text-white text-center mb-4">{pageState.videoError}</p>
           <button
             className="px-4 py-2 bg-white text-black rounded mb-4"
