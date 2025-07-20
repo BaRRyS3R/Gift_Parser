@@ -1,4 +1,4 @@
-// src/app/blocked/page.tsx - User Block Information Page with localization
+// src/app/blocked/page.tsx - Updated with new block reasons and enhanced UI
 
 "use client";
 
@@ -11,6 +11,9 @@ import {
     CheckCircle2,
     RotateCcw,
     ExternalLink,
+    XCircle,
+    Smartphone,
+    Fingerprint,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -241,7 +244,7 @@ export default function BlockedPage(): JSX.Element {
     };
 
     /**
-     * Get block reason description
+     * Get block reason description with enhanced localization
      */
     const getBlockReasonDescription = (reason: string): string => {
         const reasonKey = `nebula.blocked.reasons.${reason}` as any;
@@ -249,30 +252,34 @@ export default function BlockedPage(): JSX.Element {
     };
 
     /**
-     * Get block severity level
+     * Get block severity level with enhanced categorization
      */
-    const getBlockSeverity = (reason: string): "low" | "medium" | "high" => {
+    const getBlockSeverity = (reason: string): "low" | "medium" | "high" | "critical" => {
         switch (reason) {
             case "failed_captcha":
+            case "abandoned_verification":
                 return "low";
             case "failed_biometric":
+            case "biometric_unavailable":
+            case "biometric_permission_denied":
             case "device_unsupported_biometric":
                 return "medium";
             case "failed_gyroscope":
+            case "gyroscope_unavailable":
+            case "gyroscope_permission_denied":
             case "device_unsupported_gyroscope":
             case "manual_block":
             case "suspicious_activity":
-            case "verification_abandonment":
-                return "high";
+                return "critical";
             default:
                 return "medium";
         }
     };
 
     /**
-     * Get severity color
+     * Get severity color with enhanced styling
      */
-    const getSeverityColor = (severity: "low" | "medium" | "high"): string => {
+    const getSeverityColor = (severity: "low" | "medium" | "high" | "critical"): string => {
         switch (severity) {
             case "low":
                 return "text-yellow-400 border-yellow-500/30 bg-yellow-500/10";
@@ -280,8 +287,37 @@ export default function BlockedPage(): JSX.Element {
                 return "text-orange-400 border-orange-500/30 bg-orange-500/10";
             case "high":
                 return "text-red-400 border-red-500/30 bg-red-500/10";
+            case "critical":
+                return "text-red-500 border-red-600/40 bg-red-600/15";
             default:
                 return "text-gray-400 border-gray-500/30 bg-gray-500/10";
+        }
+    };
+
+    /**
+     * Get block reason icon
+     */
+    const getBlockReasonIcon = (reason: string) => {
+        switch (reason) {
+            case "failed_biometric":
+            case "biometric_unavailable":
+            case "biometric_permission_denied":
+            case "device_unsupported_biometric":
+                return <Fingerprint size={20} />;
+            case "failed_gyroscope":
+            case "gyroscope_unavailable":
+            case "gyroscope_permission_denied":
+            case "device_unsupported_gyroscope":
+                return <Smartphone size={20} />;
+            case "failed_captcha":
+                return <Shield size={20} />;
+            case "abandoned_verification":
+                return <XCircle size={20} />;
+            case "manual_block":
+            case "suspicious_activity":
+                return <AlertTriangle size={20} />;
+            default:
+                return <Shield size={20} />;
         }
     };
 
@@ -386,17 +422,29 @@ export default function BlockedPage(): JSX.Element {
                     </p>
                 </div>
 
-                {/* Block Information */}
+                {/* Enhanced Block Information */}
                 <div className={`border rounded-lg p-4 mb-6 ${severityColors}`}>
-                    <h3 className="font-semibold mb-2 capitalize">{t("nebula.blocked.blockReason")}</h3>
-                    <p className="text-sm opacity-90">
+                    <div className="flex items-center space-x-3 mb-3">
+                        {getBlockReasonIcon(blockInfo.blockReason)}
+                        <div className="flex-1">
+                            <h3 className="font-semibold capitalize">
+                                {t("nebula.blocked.blockReason")}
+                            </h3>
+                            <div className="flex items-center space-x-2 mt-1">
+                                <span className="text-xs px-2 py-1 rounded-full bg-gray-700 text-gray-300">
+                                    {severity === "critical" ? "CRITICAL" : severity.toUpperCase()}
+                                </span>
+                                {blockInfo.verificationType && (
+                                    <span className="text-xs px-2 py-1 rounded-full bg-blue-600/20 text-blue-300">
+                                        {blockInfo.verificationType.toUpperCase()}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-sm opacity-90 leading-relaxed">
                         {getBlockReasonDescription(blockInfo.blockReason)}
                     </p>
-                    {blockInfo.verificationType && (
-                        <p className="text-xs opacity-70 mt-2">
-                            {t("nebula.blocked.verificationType", { type: blockInfo.verificationType })}
-                        </p>
-                    )}
                 </div>
 
                 {/* Time Remaining */}
@@ -424,7 +472,7 @@ export default function BlockedPage(): JSX.Element {
                     </div>
                 </div>
 
-                {/* Block Details */}
+                {/* Enhanced Block Details */}
                 <div className="space-y-3 mb-6">
                     <div className="flex justify-between text-sm">
                         <span className="text-gray-400">{t("nebula.blocked.blockedAt")}</span>
@@ -458,7 +506,7 @@ export default function BlockedPage(): JSX.Element {
                     </div>
                 </div>
 
-                {/* Appeal Contact Information */}
+                {/* Enhanced Appeal Contact Information */}
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
                     <h4 className="text-yellow-300 font-semibold mb-2 text-sm">
                         {t("nebula.blocked.appeal.title")}

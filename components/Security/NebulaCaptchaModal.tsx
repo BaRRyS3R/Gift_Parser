@@ -1,4 +1,4 @@
-// src/components/Security/NebulaCaptchaModal.tsx - Updated with localization
+// src/components/Security/NebulaCaptchaModal.tsx - Updated for consistency with new system
 
 "use client";
 
@@ -394,8 +394,8 @@ const NebulaCaptchaModal: React.FC<NebulaCaptchaModalProps> = ({
                                             <Clock className="text-orange-400" size={16} />
                                             <span
                                                 className={`font-bold ${state.timeRemaining < 5000
-                                                        ? "text-red-400"
-                                                        : "text-orange-400"
+                                                    ? "text-red-400"
+                                                    : "text-orange-400"
                                                     }`}
                                             >
                                                 {formatTime(state.timeRemaining)}

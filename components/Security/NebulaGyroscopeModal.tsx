@@ -1,4 +1,4 @@
-// src/components/Security/NebulaGyroscopeModal.tsx - Улучшенная версия с управлением разрешениями
+// src/components/Security/NebulaGyroscopeModal.tsx - Updated with new permission logic
 
 "use client";
 
@@ -12,13 +12,10 @@ import {
     CheckCircle2,
     XCircle,
     Smartphone,
-    RefreshCw,
-    Settings,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import { usePermissionStatus } from "@/hooks/modules/usePermissionStatus";
 
 interface NebulaGyroscopeModalProps {
     isOpen: boolean;
@@ -31,12 +28,14 @@ interface NebulaGyroscopeModalProps {
 
 type GyroscopePhase =
     | "initializing"
+    | "checking_availability"
+    | "unavailable"
     | "permission_required"
+    | "permission_checking"
     | "instructions"
     | "verification"
     | "success"
-    | "error"
-    | "unsupported";
+    | "error";
 
 interface GyroscopeData {
     alpha: number | null; // Z-axis rotation
@@ -52,10 +51,12 @@ interface GyroscopeState {
     attemptMade: boolean;
     verificationTimerActive: boolean;
     isGyroscopeSupported: boolean;
+    isGyroscopeAvailable: boolean;
+    permissionRequested: boolean;
+    permissionGranted: boolean;
     detectedMovements: number;
     requiredMovements: number;
     canAbandon: boolean;
-    isCheckingPermissions: boolean;
 }
 
 const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
@@ -68,18 +69,10 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
 }) => {
     const { makeAuthenticatedRequest } = useUser();
     const t = useT();
-    const {
-        status: permissionStatus,
-        checkGyroscopePermission,
-        requestGyroscopePermission,
-        recheckAllPermissions
-    } = usePermissionStatus();
-
     const verificationTimeout = 15000; // 15 seconds for verification
     const movementThreshold = 15; // Degrees of rotation to count as movement
     const movementCooldown = 1000; // 1 second between movements
     const requiredMovements = 3; // Require 3 distinct movements
-    const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Refs for gyroscope data and movement detection
     const gyroscopeDataRef = useRef<GyroscopeData>({
@@ -104,11 +97,13 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
         error: null,
         attemptMade: false,
         verificationTimerActive: false,
-        isGyroscopeSupported: true,
+        isGyroscopeSupported: false,
+        isGyroscopeAvailable: false,
+        permissionRequested: false,
+        permissionGranted: false,
         detectedMovements: 0,
         requiredMovements: requiredMovements,
         canAbandon: false,
-        isCheckingPermissions: false,
     });
 
     // Notify parent component about phase changes and abandonment safety
@@ -130,86 +125,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
         }));
     }, []);
 
-    /**
-     * Повторная проверка разрешений
-     */
-    const recheckPermissions = useCallback(async () => {
-        console.log("Rechecking gyroscope permissions...");
-
-        setState(prev => ({ ...prev, isCheckingPermissions: true, error: null }));
-
-        try {
-            const permissionInfo = await checkGyroscopePermission();
-
-            console.log("Gyroscope permission recheck result:", permissionInfo);
-
-            if (!permissionInfo.isSupported) {
-                await handleUnsupportedDevice(
-                    t("nebula.gyroscope.errors.deviceNotSupported")
-                );
-                return;
-            }
-
-            if (permissionInfo.isGranted || !permissionInfo.needsPermission) {
-                console.log("Gyroscope permission granted or not needed, proceeding to instructions");
-                updatePhase("instructions", false);
-                setState(prev => ({ ...prev, isCheckingPermissions: false }));
-            } else {
-                console.log("Gyroscope permission still not granted");
-                updatePhase("permission_required", false);
-                setState(prev => ({ ...prev, isCheckingPermissions: false }));
-            }
-        } catch (error) {
-            console.error("Error during gyroscope permission recheck:", error);
-            setState(prev => ({
-                ...prev,
-                isCheckingPermissions: false,
-                error: t("nebula.gyroscope.errors.permissionCheckFailed")
-            }));
-        }
-    }, [checkGyroscopePermission, t, updatePhase]);
-
-    /**
-     * Обработка возврата пользователя из настроек
-     */
-    const handleVisibilityChange = useCallback(() => {
-        if (document.hidden) {
-            // Пользователь покинул страницу
-            if (visibilityTimeoutRef.current) {
-                clearTimeout(visibilityTimeoutRef.current);
-            }
-            console.log("Page hidden during gyroscope verification");
-        } else {
-            // Пользователь вернулся на страницу
-            console.log("Page visible again, checking if gyroscope permissions changed");
-
-            // Проверяем разрешения через небольшую задержку
-            if (visibilityTimeoutRef.current) {
-                clearTimeout(visibilityTimeoutRef.current);
-            }
-
-            visibilityTimeoutRef.current = setTimeout(() => {
-                if (state.currentPhase === "permission_required" && !state.isCheckingPermissions) {
-                    console.log("Auto-rechecking gyroscope permissions after visibility change");
-                    recheckPermissions();
-                }
-            }, 1000); // 1 секунда задержки для стабилизации
-        }
-    }, [state.currentPhase, state.isCheckingPermissions, recheckPermissions]);
-
-    // Set up visibility change listener
-    useEffect(() => {
-        if (isOpen && state.currentPhase === "permission_required") {
-            document.addEventListener("visibilitychange", handleVisibilityChange);
-            return () => {
-                document.removeEventListener("visibilitychange", handleVisibilityChange);
-                if (visibilityTimeoutRef.current) {
-                    clearTimeout(visibilityTimeoutRef.current);
-                }
-            };
-        }
-    }, [isOpen, state.currentPhase, handleVisibilityChange]);
-
     // Reset state when modal opens/closes
     useEffect(() => {
         if (!isOpen) {
@@ -220,11 +135,13 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                 error: null,
                 attemptMade: false,
                 verificationTimerActive: false,
-                isGyroscopeSupported: true,
+                isGyroscopeSupported: false,
+                isGyroscopeAvailable: false,
+                permissionRequested: false,
+                permissionGranted: false,
                 detectedMovements: 0,
                 requiredMovements: requiredMovements,
                 canAbandon: false,
-                isCheckingPermissions: false,
             });
 
             gyroscopeDataRef.current = { alpha: null, beta: null, gamma: null };
@@ -238,11 +155,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                     eventListenerRef.current,
                 );
                 eventListenerRef.current = null;
-            }
-
-            if (visibilityTimeoutRef.current) {
-                clearTimeout(visibilityTimeoutRef.current);
-                visibilityTimeoutRef.current = null;
             }
 
             return;
@@ -283,92 +195,298 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     }, [state.verificationTimerActive, state.currentPhase]);
 
     /**
-     * Initialize gyroscope functionality
+     * Initialize gyroscope availability check
      */
     const initializeGyroscope = async () => {
         console.log("Initializing gyroscope verification");
-        setState((prev) => ({ ...prev, currentPhase: "initializing" }));
+        updatePhase("checking_availability", false);
 
         if (typeof window === "undefined") {
             console.log("Window not available");
-            await handleUnsupportedDevice(
-                t("nebula.gyroscope.errors.deviceNotSupported"),
-            );
+            await handleDeviceUnavailable("Device environment not supported");
             return;
         }
 
         // Check if DeviceOrientationEvent is supported
         if (!window.DeviceOrientationEvent) {
             console.log("DeviceOrientationEvent not supported");
-            await handleUnsupportedDevice(
-                t("nebula.gyroscope.errors.deviceNotSupported"),
-            );
+            await handleDeviceUnavailable(t("nebula.gyroscope.errors.unavailable"));
             return;
         }
 
-        // Check permission status using the centralized hook
-        try {
-            const permissionInfo = await checkGyroscopePermission();
+        setState((prev) => ({ ...prev, isGyroscopeSupported: true }));
 
-            if (!permissionInfo.isSupported) {
-                console.log("Gyroscope not supported on this device");
-                await handleUnsupportedDevice(
-                    t("nebula.gyroscope.errors.deviceNotSupported"),
-                );
-                return;
-            }
+        // Check if permission is required (iOS 13+)
+        const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
 
-            if (permissionInfo.needsPermission && !permissionInfo.isGranted) {
-                console.log("Gyroscope permission required");
-                updatePhase("permission_required", false);
-            } else {
-                console.log("Gyroscope permission granted or not needed, proceeding to instructions");
-                updatePhase("instructions", false);
-            }
-        } catch (error) {
-            console.error("Error checking gyroscope permission:", error);
-            setState((prev) => ({
-                ...prev,
-                error: t("nebula.gyroscope.errors.permissionCheckFailed"),
-                currentPhase: "error",
-                canAbandon: true,
-            }));
+        if (typeof DeviceOrientationEvent.requestPermission === "function") {
+            console.log("Permission required for gyroscope access");
+            setState((prev) => ({ ...prev, isGyroscopeAvailable: true }));
+            updatePhase("permission_required", true); // Safe to abandon during permission request
+        } else {
+            console.log("No permission required, checking gyroscope data availability");
+            setState((prev) => ({ ...prev, isGyroscopeAvailable: true, permissionGranted: true }));
+            await checkGyroscopeData();
         }
     };
 
     /**
-     * Request permission for gyroscope access
+     * Check if gyroscope data is actually available
+     */
+    const checkGyroscopeData = async () => {
+        console.log("Checking gyroscope data availability");
+
+        return new Promise<void>((resolve, reject) => {
+            let dataReceived = false;
+
+            const testListener = (event: DeviceOrientationEvent) => {
+                if (event.alpha !== null || event.beta !== null || event.gamma !== null) {
+                    dataReceived = true;
+                    window.removeEventListener("deviceorientation", testListener);
+                    console.log("Gyroscope data available");
+                    updatePhase("instructions", true);
+                    resolve();
+                }
+            };
+
+            window.addEventListener("deviceorientation", testListener);
+
+            // Timeout after 3 seconds if no data received
+            setTimeout(() => {
+                if (!dataReceived) {
+                    window.removeEventListener("deviceorientation", testListener);
+                    console.log("No gyroscope data received - device likely doesn't support it");
+                    handleDeviceUnavailable(t("nebula.gyroscope.errors.unavailable"));
+                    reject();
+                }
+            }, 3000);
+        });
+    };
+
+    /**
+     * Handle device unavailable - immediately block user
+     */
+    const handleDeviceUnavailable = useCallback(
+        async (reason: string) => {
+            console.log("Gyroscope unavailable on device:", reason);
+
+            updatePhase("unavailable", true);
+            setState((prev) => ({
+                ...prev,
+                error: reason,
+                isGyroscopeAvailable: false,
+            }));
+
+            if (attemptId) {
+                try {
+                    // Immediately block user for unavailable gyroscope
+                    const response = await makeAuthenticatedRequest(
+                        "/api/nebula/gyroscope",
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                success: false,
+                                completedInTime: false,
+                                deviceSupported: false,
+                                unavailable: true,
+                                attemptId,
+                            }),
+                        },
+                    );
+
+                    if (response.ok) {
+                        setTimeout(() => onFailure(), 3000);
+                    } else {
+                        setTimeout(() => onFailure(), 1000);
+                    }
+                } catch (error) {
+                    console.error("Error auto-blocking for unavailable gyroscope:", error);
+                    setTimeout(() => onFailure(), 1000);
+                }
+            } else {
+                setTimeout(() => onFailure(), 1000);
+            }
+        },
+        [makeAuthenticatedRequest, onFailure, attemptId, updatePhase, t],
+    );
+
+    /**
+     * Request gyroscope permission (iOS)
      */
     const handleRequestPermission = useCallback(async () => {
-        setState(prev => ({ ...prev, isCheckingPermissions: true, error: null }));
+        setState((prev) => ({ ...prev, permissionRequested: true }));
 
         try {
-            const granted = await requestGyroscopePermission();
+            const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
 
-            if (granted) {
-                console.log("Gyroscope permission granted via request");
-                updatePhase("instructions", false);
-            } else {
-                console.log("Gyroscope permission denied");
-                setState((prev) => ({
-                    ...prev,
-                    error: t("nebula.gyroscope.errors.permissionDenied"),
-                    currentPhase: "error",
-                    canAbandon: true,
-                }));
+            if (typeof DeviceOrientationEvent.requestPermission === "function") {
+                const permission = await DeviceOrientationEvent.requestPermission();
+                const granted = permission === "granted";
+
+                console.log("Gyroscope permission request result:", granted);
+                setState((prev) => ({ ...prev, permissionGranted: granted }));
+
+                if (!granted) {
+                    // Give user 2 seconds to see the updated button before blocking
+                    setTimeout(() => {
+                        handlePermissionDenied();
+                    }, 2000);
+                }
             }
         } catch (error) {
             console.error("Error requesting gyroscope permission:", error);
+            handlePermissionDenied();
+        }
+    }, []);
+
+    /**
+     * Check permission status after user potentially went to settings
+     */
+    const handleCheckPermission = useCallback(async () => {
+        updatePhase("permission_checking", false);
+
+        // Small delay to allow system to process permissions
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        try {
+            // Test if gyroscope data is now available
+            let dataReceived = false;
+
+            const testListener = (event: DeviceOrientationEvent) => {
+                if (event.alpha !== null || event.beta !== null || event.gamma !== null) {
+                    dataReceived = true;
+                    window.removeEventListener("deviceorientation", testListener);
+                }
+            };
+
+            window.addEventListener("deviceorientation", testListener);
+
+            // Wait for 2 seconds to check for data
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            window.removeEventListener("deviceorientation", testListener);
+
+            console.log("Permission check result:", dataReceived);
+            setState((prev) => ({ ...prev, permissionGranted: dataReceived }));
+
+            if (dataReceived) {
+                updatePhase("instructions", true);
+            } else {
+                handlePermissionDenied();
+            }
+        } catch (error) {
+            console.error("Error checking permission status:", error);
             setState((prev) => ({
                 ...prev,
-                error: t("nebula.gyroscope.errors.permissionDenied"),
+                error: t("nebula.gyroscope.errors.permissionCheckFailed"),
+            }));
+            setTimeout(() => handlePermissionDenied(), 1000);
+        }
+    }, [updatePhase, t]);
+
+    /**
+     * Handle permission denied - block user
+     */
+    const handlePermissionDenied = useCallback(async () => {
+        console.log("Gyroscope permission denied");
+
+        updatePhase("error", true);
+        setState((prev) => ({
+            ...prev,
+            error: t("nebula.gyroscope.errors.permissionDenied"),
+        }));
+
+        if (attemptId) {
+            try {
+                // Block user for permission denial
+                const response = await makeAuthenticatedRequest(
+                    "/api/nebula/gyroscope",
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            success: false,
+                            completedInTime: false,
+                            deviceSupported: true,
+                            permissionDenied: true,
+                            attemptId,
+                        }),
+                    },
+                );
+
+                if (response.ok) {
+                    setTimeout(() => onFailure(), 2000);
+                } else {
+                    setTimeout(() => onFailure(), 1000);
+                }
+            } catch (error) {
+                console.error("Error blocking for permission denial:", error);
+                setTimeout(() => onFailure(), 1000);
+            }
+        } else {
+            setTimeout(() => onFailure(), 1000);
+        }
+    }, [makeAuthenticatedRequest, onFailure, attemptId, updatePhase, t]);
+
+    /**
+     * Handle verification timeout
+     */
+    const handleVerificationTimeout = useCallback(() => {
+        console.log("Gyroscope verification timeout");
+        setState((prev) => ({ ...prev, verificationTimerActive: false }));
+        handleVerificationFailure(t("nebula.gyroscope.errors.timeout"));
+    }, [t]);
+
+    /**
+     * Handle verification failure
+     */
+    const handleVerificationFailure = useCallback(
+        async (reason: string) => {
+            console.log("Gyroscope verification failed:", reason);
+            setState((prev) => ({
+                ...prev,
+                error: reason,
                 currentPhase: "error",
+                verificationTimerActive: false,
                 canAbandon: true,
             }));
-        } finally {
-            setState(prev => ({ ...prev, isCheckingPermissions: false }));
-        }
-    }, [requestGyroscopePermission, t, updatePhase]);
+
+            // Clean up event listener
+            if (eventListenerRef.current) {
+                window.removeEventListener(
+                    "deviceorientation",
+                    eventListenerRef.current,
+                );
+                eventListenerRef.current = null;
+            }
+
+            if (attemptId) {
+                try {
+                    // Send failure to server
+                    await makeAuthenticatedRequest("/api/nebula/gyroscope", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            success: false,
+                            completedInTime: false,
+                            deviceSupported: state.isGyroscopeSupported,
+                            attemptId,
+                        }),
+                    });
+                } catch (error) {
+                    console.error("Error sending gyroscope failure to API:", error);
+                }
+            }
+
+            setTimeout(() => onFailure(), 1000);
+        },
+        [
+            state.isGyroscopeSupported,
+            makeAuthenticatedRequest,
+            onFailure,
+            attemptId,
+        ],
+    );
 
     /**
      * Handle successful verification with actual movement count
@@ -456,114 +574,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     );
 
     /**
-     * Handle verification timeout
-     */
-    const handleVerificationTimeout = useCallback(() => {
-        console.log("Gyroscope verification timeout");
-        setState((prev) => ({ ...prev, verificationTimerActive: false }));
-        handleVerificationFailure(t("nebula.gyroscope.errors.timeout"));
-    }, [t]);
-
-    /**
-     * Handle verification failure
-     */
-    const handleVerificationFailure = useCallback(
-        async (reason: string) => {
-            console.log("Gyroscope verification failed:", reason);
-            setState((prev) => ({
-                ...prev,
-                error: reason,
-                currentPhase: "error",
-                verificationTimerActive: false,
-                canAbandon: true,
-            }));
-
-            // Clean up event listener
-            if (eventListenerRef.current) {
-                window.removeEventListener(
-                    "deviceorientation",
-                    eventListenerRef.current,
-                );
-                eventListenerRef.current = null;
-            }
-
-            if (attemptId) {
-                try {
-                    // Send failure to server
-                    await makeAuthenticatedRequest("/api/nebula/gyroscope", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            success: false,
-                            completedInTime: false,
-                            deviceSupported: state.isGyroscopeSupported,
-                            attemptId,
-                        }),
-                    });
-                } catch (error) {
-                    console.error("Error sending gyroscope failure to API:", error);
-                }
-            }
-
-            setTimeout(() => onFailure(), 1000);
-        },
-        [
-            state.isGyroscopeSupported,
-            makeAuthenticatedRequest,
-            onFailure,
-            attemptId,
-        ],
-    );
-
-    /**
-     * Handle unsupported device with automatic blocking
-     */
-    const handleUnsupportedDevice = useCallback(
-        async (reason: string) => {
-            console.log("Auto-blocking for unsupported device:", reason);
-
-            setState((prev) => ({
-                ...prev,
-                error: reason,
-                currentPhase: "error",
-                isGyroscopeSupported: false,
-                canAbandon: true,
-            }));
-
-            if (attemptId) {
-                try {
-                    // Immediately block user for unsupported device
-                    const response = await makeAuthenticatedRequest(
-                        "/api/nebula/gyroscope",
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                success: false,
-                                completedInTime: false,
-                                deviceSupported: false,
-                                attemptId,
-                            }),
-                        },
-                    );
-
-                    if (response.ok) {
-                        setTimeout(() => onFailure(), 2000);
-                    } else {
-                        setTimeout(() => onFailure(), 1000);
-                    }
-                } catch (error) {
-                    console.error("Error auto-blocking unsupported device:", error);
-                    setTimeout(() => onFailure(), 1000);
-                }
-            } else {
-                setTimeout(() => onFailure(), 1000);
-            }
-        },
-        [makeAuthenticatedRequest, onFailure, attemptId],
-    );
-
-    /**
      * Start verification process
      */
     const handleStartVerification = () => {
@@ -579,7 +589,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             verificationTimerActive: true,
             detectedMovements: 0,
             error: null,
-            canAbandon: true,
+            canAbandon: false, // Not safe to abandon during verification
         }));
 
         // Set up event listener for device orientation
@@ -710,7 +720,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                 <div className="text-center mb-6">
                     <div className="flex items-center justify-center mb-4">
                         <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center">
-                            {state.currentPhase === "unsupported" ||
+                            {state.currentPhase === "unavailable" ||
                                 state.currentPhase === "error" ? (
                                 <XCircle className="text-red-400" size={48} />
                             ) : state.currentPhase === "success" ? (
@@ -743,31 +753,32 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                             {t("nebula.common.close")}
                         </button>
                     </div>
-                ) : state.currentPhase === "initializing" ? (
+                ) : state.currentPhase === "initializing" || state.currentPhase === "checking_availability" ? (
                     <div className="text-center py-8">
                         <div className="animate-pulse">
                             <Compass className="text-blue-400 mx-auto mb-4" size={32} />
                         </div>
                         <p className="text-gray-400">
-                            {t("nebula.gyroscope.initializing")}
+                            {state.currentPhase === "checking_availability"
+                                ? t("nebula.gyroscope.checkingAvailability")
+                                : t("nebula.gyroscope.initializing")}
                         </p>
                     </div>
-                ) : state.currentPhase === "unsupported" ||
-                    state.currentPhase === "error" ? (
+                ) : state.currentPhase === "unavailable" || state.currentPhase === "error" ? (
                     <div className="text-center space-y-4">
                         <div className="flex items-center justify-center space-x-2 p-4 bg-red-500/20 border border-red-500/40 rounded-lg">
                             <XCircle className="text-red-400 flex-shrink-0" size={20} />
                             <div className="text-left">
                                 <p className="text-red-300 text-sm font-semibold">
-                                    {state.currentPhase === "unsupported"
-                                        ? t("nebula.gyroscope.errors.deviceNotSupported")
+                                    {state.currentPhase === "unavailable"
+                                        ? t("nebula.gyroscope.errors.unavailable")
                                         : t("nebula.gyroscope.errors.verificationFailed")}
                                 </p>
                                 <p className="text-red-200 text-xs">{state.error}</p>
                             </div>
                         </div>
 
-                        {state.currentPhase === "unsupported" && (
+                        {state.currentPhase === "unavailable" && (
                             <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
                                 <div className="flex items-start space-x-2">
                                     <AlertTriangle
@@ -779,7 +790,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                                             {t("nebula.gyroscope.securityPolicy")}
                                         </h4>
                                         <p className="text-orange-200 text-xs">
-                                            {t("nebula.gyroscope.securityPolicyText")}
+                                            {t("nebula.gyroscope.unavailableWarning")}
                                         </p>
                                     </div>
                                 </div>
@@ -788,7 +799,11 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
 
                         <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                             <p className="text-yellow-300 text-xs text-center">
-                                {t("nebula.gyroscope.blockWarning")}
+                                {state.currentPhase === "unavailable"
+                                    ? t("nebula.gyroscope.blockWarningUnavailable")
+                                    : state.error?.includes("permission")
+                                        ? t("nebula.gyroscope.blockWarningPermissionDenied")
+                                        : t("nebula.gyroscope.blockWarning")}
                             </p>
                         </div>
                     </div>
@@ -808,12 +823,13 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
 
                         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                             <h4 className="text-blue-300 font-semibold mb-2 text-sm">
-                                {t("nebula.biometric.instructions.title")}
+                                {t("nebula.gyroscope.permissionInstructions2.title")}
                             </h4>
                             <div className="text-blue-200 text-sm space-y-1">
-                                <p>1. {t("nebula.gyroscope.grantPermission")}</p>
-                                <p>2. {t("nebula.biometric.instructions.step2")}</p>
-                                <p>3. {t("nebula.biometric.instructions.step3")}</p>
+                                <p>{t("nebula.gyroscope.permissionInstructions2.step1")}</p>
+                                <p>{t("nebula.gyroscope.permissionInstructions2.step2")}</p>
+                                <p>{t("nebula.gyroscope.permissionInstructions2.step3")}</p>
+                                <p>{t("nebula.gyroscope.permissionInstructions2.step4")}</p>
                             </div>
                         </div>
 
@@ -834,43 +850,43 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <button
-                                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                onClick={handleRequestPermission}
-                                disabled={state.isCheckingPermissions}
-                            >
-                                {state.isCheckingPermissions ? (
-                                    <>
-                                        <RefreshCw className="animate-spin" size={20} />
-                                        <span>Запрос разрешения...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Shield size={20} />
-                                        <span>{t("nebula.gyroscope.grantPermission")}</span>
-                                    </>
-                                )}
-                            </button>
-
-                            <button
-                                className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                onClick={recheckPermissions}
-                                disabled={state.isCheckingPermissions}
-                            >
-                                {state.isCheckingPermissions ? (
-                                    <>
-                                        <RefreshCw className="animate-spin" size={16} />
-                                        <span>Проверка разрешений...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <RefreshCw size={16} />
-                                        <span>Проверить разрешения</span>
-                                    </>
-                                )}
-                            </button>
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                            <p className="text-yellow-300 text-xs text-center">
+                                {t("nebula.gyroscope.permissionWarning")}
+                            </p>
                         </div>
+
+                        <div className="space-y-3">
+                            {!state.permissionRequested ? (
+                                <button
+                                    className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+                                    onClick={handleRequestPermission}
+                                >
+                                    <Shield size={20} />
+                                    <span>{t("nebula.gyroscope.grantPermission")}</span>
+                                </button>
+                            ) : (
+                                <button
+                                    className={`w-full px-6 py-3 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 ${state.permissionGranted
+                                        ? "bg-green-600 hover:bg-green-700"
+                                        : "bg-orange-600 hover:bg-orange-700"
+                                        }`}
+                                    onClick={handleCheckPermission}
+                                >
+                                    <Shield size={20} />
+                                    <span>{t("nebula.gyroscope.checkPermission")}</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ) : state.currentPhase === "permission_checking" ? (
+                    <div className="text-center py-8">
+                        <div className="animate-pulse">
+                            <Shield className="text-blue-400 mx-auto mb-4" size={32} />
+                        </div>
+                        <p className="text-gray-400">
+                            {t("nebula.gyroscope.errors.permissionCheckFailed")}
+                        </p>
                     </div>
                 ) : state.currentPhase === "instructions" ? (
                     <div className="space-y-6">
@@ -982,23 +998,8 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                         <p className="text-green-300 text-sm mb-4">
                             {t("nebula.gyroscope.success.restoring")}
                         </p>
-                        <div className="w-8 h-8 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin mx-auto" />
                     </div>
                 ) : null}
-
-                {/* Warning Message */}
-                {state.currentPhase !== "success" &&
-                    state.currentPhase !== "permission_required" &&
-                    state.currentPhase !== "instructions" &&
-                    attemptId && (
-                        <div className="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                            <p className="text-red-300 text-xs text-center">
-                                {state.currentPhase === "unsupported"
-                                    ? t("nebula.gyroscope.blockWarning")
-                                    : t("nebula.gyroscope.blockWarningFailed")}
-                            </p>
-                        </div>
-                    )}
             </div>
         </div>
     );

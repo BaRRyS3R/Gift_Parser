@@ -1,14 +1,13 @@
-// src/app/nebula/page.tsx - Полная интеграция с улучшенной системой разрешений и локализацией
+// src/app/nebula/page.tsx - Enhanced with better abandonment detection for permission phases
 
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, AlertTriangle, Clock, Zap, RefreshCw } from "lucide-react";
+import { Shield, AlertTriangle, Clock, Zap } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
-import { usePermissionStatus } from "@/hooks/modules/usePermissionStatus";
 import NebulaCaptchaModal from "@/components/Security/NebulaCaptchaModal";
 import NebulaBiometricModal from "@/components/Security/NebulaBiometricModal";
 import NebulaGyroscopeModal from "@/components/Security/NebulaGyroscopeModal";
@@ -35,7 +34,17 @@ interface NebulaCheckResponse {
 }
 
 type VerificationType = "captcha" | "biometric" | "gyroscope";
-type AuthPhase = "initializing" | "permission_required" | "auth" | "success" | "error" | "unsupported" | "instructions" | "verification";
+type AuthPhase =
+    | "initializing"
+    | "checking_availability"
+    | "unavailable"
+    | "permission_required"
+    | "permission_checking"
+    | "instructions"
+    | "auth"
+    | "verification"
+    | "success"
+    | "error";
 
 interface PageState {
     isLoading: boolean;
@@ -55,24 +64,22 @@ interface AbandonmentState {
     lastVisibleTime: number;
     minimumAwayTime: number; // 30 seconds before considering abandonment
     abandonmentTimeoutId: NodeJS.Timeout | null;
-    userReturnedAfterPermission: boolean;
+    permissionPhaseStartTime: number | null; // Track when permission phase started
+    totalPermissionTime: number; // Total time spent in permission phases
 }
 
 export default function NebulaPage(): JSX.Element {
     const router = useRouter();
     const { makeAuthenticatedRequest, authState } = useUser();
-    const {
-        status: permissionStatus,
-        recheckAllPermissions
-    } = usePermissionStatus();
     const t = useT();
 
-    // Refs for state management
+    // Enhanced refs for abandonment state management
     const abandonmentStateRef = useRef<AbandonmentState>({
         lastVisibleTime: Date.now(),
         minimumAwayTime: 30000, // 30 seconds
         abandonmentTimeoutId: null,
-        userReturnedAfterPermission: false,
+        permissionPhaseStartTime: null,
+        totalPermissionTime: 0,
     });
 
     const [pageState, setPageState] = useState<PageState>({
@@ -90,27 +97,39 @@ export default function NebulaPage(): JSX.Element {
     });
 
     /**
-     * Handle phase change from verification modal
+     * Enhanced phase change handler with smart abandonment tracking
      */
     const handlePhaseChange = useCallback((phase: AuthPhase, canAbandon: boolean) => {
         console.log(`Verification phase changed: ${phase}, can abandon: ${canAbandon}`);
+
+        const abandonmentState = abandonmentStateRef.current;
+        const now = Date.now();
+
+        // Track permission phase timing
+        if (phase === "permission_required" || phase === "permission_checking") {
+            if (!abandonmentState.permissionPhaseStartTime) {
+                abandonmentState.permissionPhaseStartTime = now;
+                console.log("Permission phase started - safe abandonment enabled");
+            }
+        } else {
+            if (abandonmentState.permissionPhaseStartTime) {
+                const permissionDuration = now - abandonmentState.permissionPhaseStartTime;
+                abandonmentState.totalPermissionTime += permissionDuration;
+                abandonmentState.permissionPhaseStartTime = null;
+                console.log(`Permission phase ended after ${permissionDuration}ms`);
+            }
+        }
+
         setPageState(prev => ({
             ...prev,
             currentPhase: phase,
             canAbandon,
         }));
 
-        // Reset abandonment tracking when phase changes
-        const abandonmentState = abandonmentStateRef.current;
+        // Clear any existing abandonment timeout when phase changes
         if (abandonmentState.abandonmentTimeoutId) {
             clearTimeout(abandonmentState.abandonmentTimeoutId);
             abandonmentState.abandonmentTimeoutId = null;
-        }
-
-        // Special handling for permission_required phase
-        if (phase === "permission_required") {
-            abandonmentState.userReturnedAfterPermission = false;
-            console.log("Entered permission phase - abandonment tracking disabled");
         }
     }, []);
 
@@ -131,17 +150,22 @@ export default function NebulaPage(): JSX.Element {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     attemptId: pageState.attemptId,
-                    reason
+                    reason,
+                    abandonmentContext: {
+                        currentPhase: pageState.currentPhase,
+                        canAbandon: pageState.canAbandon,
+                        totalPermissionTime: abandonmentStateRef.current.totalPermissionTime,
+                    },
                 }),
             });
             console.log("Abandonment reported successfully");
         } catch (error) {
             console.error("Error reporting abandonment:", error);
         }
-    }, [pageState.attemptId, makeAuthenticatedRequest]);
+    }, [pageState.attemptId, pageState.currentPhase, pageState.canAbandon, makeAuthenticatedRequest]);
 
     /**
-     * Enhanced visibility change handler with intelligent abandonment detection
+     * Smart visibility change handler that accounts for permission phases
      */
     const handleVisibilityChange = useCallback(async () => {
         const now = Date.now();
@@ -150,25 +174,28 @@ export default function NebulaPage(): JSX.Element {
         if (document.hidden) {
             // User left the page
             abandonmentState.lastVisibleTime = now;
-            console.log("Page became hidden");
+            console.log(`Page became hidden in phase: ${pageState.currentPhase}, can abandon: ${pageState.canAbandon}`);
 
             // Clear any existing timeout
             if (abandonmentState.abandonmentTimeoutId) {
                 clearTimeout(abandonmentState.abandonmentTimeoutId);
+                abandonmentState.abandonmentTimeoutId = null;
             }
 
             // Only set abandonment timeout if user can abandon in current phase
-            if (pageState.canAbandon && pageState.verificationInProgress && pageState.attemptId) {
-                console.log(`Setting abandonment timeout for ${abandonmentState.minimumAwayTime}ms`);
+            if (!pageState.canAbandon && pageState.verificationInProgress && pageState.attemptId) {
+                console.log(`Setting abandonment timeout for ${abandonmentState.minimumAwayTime}ms in unsafe phase`);
 
                 abandonmentState.abandonmentTimeoutId = setTimeout(() => {
-                    if (document.hidden && pageState.canAbandon) {
-                        console.log("User away too long, reporting abandonment");
+                    if (document.hidden && !pageState.canAbandon) {
+                        console.log("User away too long in unsafe phase, reporting abandonment");
                         reportAbandonment("page_hidden_timeout");
                     }
                 }, abandonmentState.minimumAwayTime);
-            } else {
-                console.log("User in safe phase - no abandonment tracking");
+            } else if (pageState.canAbandon) {
+                console.log("User in safe phase - no abandonment timeout set");
+            } else if (!pageState.verificationInProgress) {
+                console.log("Verification not in progress - no abandonment tracking");
             }
         } else {
             // User returned to the page
@@ -181,41 +208,63 @@ export default function NebulaPage(): JSX.Element {
                 abandonmentState.abandonmentTimeoutId = null;
             }
 
-            // Track return after permission phase
-            if (pageState.currentPhase === "permission_required" ||
-                (pageState.currentPhase === "auth" && !abandonmentState.userReturnedAfterPermission)) {
-                abandonmentState.userReturnedAfterPermission = true;
-                console.log("User returned after permission phase");
-
-                // Recheck permissions when user returns
-                setTimeout(() => {
-                    recheckAllPermissions();
-                }, 1000);
+            // If returning from a long absence during permission phase, that's expected
+            if (pageState.canAbandon && awayTime > 60000) { // More than 1 minute
+                console.log("Long absence during permission phase is acceptable");
             }
         }
-    }, [pageState.canAbandon, pageState.verificationInProgress, pageState.attemptId,
-    pageState.currentPhase, reportAbandonment, recheckAllPermissions]);
+    }, [
+        pageState.canAbandon,
+        pageState.verificationInProgress,
+        pageState.attemptId,
+        pageState.currentPhase,
+        reportAbandonment
+    ]);
 
     /**
-     * Handle before unload - immediate abandonment for page close
+     * Enhanced before unload handler
      */
     const handleBeforeUnload = useCallback(() => {
-        if (pageState.verificationInProgress && pageState.attemptId && pageState.canAbandon) {
-            console.log("Page unloading - reporting immediate abandonment");
+        const abandonmentState = abandonmentStateRef.current;
+
+        if (pageState.verificationInProgress && pageState.attemptId) {
+            // Don't report abandonment if user is in a safe phase
+            if (pageState.canAbandon) {
+                console.log("Page unloading during safe phase - no abandonment reported");
+                return;
+            }
+
+            console.log("Page unloading during unsafe phase - reporting immediate abandonment");
+
             // Use sendBeacon for reliable delivery during page unload
             const payload = JSON.stringify({
                 attemptId: pageState.attemptId,
-                reason: "page_unload"
+                reason: "page_unload",
+                abandonmentContext: {
+                    currentPhase: pageState.currentPhase,
+                    canAbandon: pageState.canAbandon,
+                    totalPermissionTime: abandonmentState.totalPermissionTime,
+                },
             });
-            navigator.sendBeacon("/api/nebula/abandon", payload);
+
+            try {
+                navigator.sendBeacon("/api/nebula/abandon", payload);
+            } catch (error) {
+                console.error("Failed to send abandonment beacon:", error);
+            }
         }
-    }, [pageState.verificationInProgress, pageState.attemptId, pageState.canAbandon]);
+    }, [
+        pageState.verificationInProgress,
+        pageState.attemptId,
+        pageState.canAbandon,
+        pageState.currentPhase
+    ]);
 
     /**
-     * Set up abandonment tracking event listeners
+     * Set up enhanced abandonment tracking event listeners
      */
     useEffect(() => {
-        console.log("Setting up abandonment tracking listeners");
+        console.log("Setting up enhanced abandonment tracking listeners");
 
         // Add event listeners
         document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -325,6 +374,11 @@ export default function NebulaPage(): JSX.Element {
             verificationInProgress: true,
             verificationResult: null,
         }));
+
+        // Reset abandonment tracking for new verification
+        const abandonmentState = abandonmentStateRef.current;
+        abandonmentState.permissionPhaseStartTime = null;
+        abandonmentState.totalPermissionTime = 0;
     }, [
         pageState.verificationInProgress,
         pageState.verificationType,
@@ -423,85 +477,6 @@ export default function NebulaPage(): JSX.Element {
         return "text-red-400";
     };
 
-    /**
-     * Get permission status display using proper localization
-     */
-    const getPermissionStatusDisplay = () => {
-        if (!pageState.verificationType) return null;
-
-        const status = permissionStatus[pageState.verificationType];
-        const typeKey = pageState.verificationType;
-
-        // Handle captcha case - it doesn't require permissions
-        if (typeKey === 'captcha') {
-            return null; // Captcha doesn't need permission status display
-        }
-
-        const typeName = typeKey === 'biometric'
-            ? t("nebula.verification.permissionStatus.typeNames.biometric")
-            : t("nebula.verification.permissionStatus.typeNames.gyroscope");
-
-        switch (status) {
-            case "checking":
-                return (
-                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
-                        <div className="flex items-center space-x-2">
-                            <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                            <span className="text-blue-300 text-sm">
-                                {t("nebula.verification.permissionStatus.checking").replace("{type}", typeName)}
-                            </span>
-                        </div>
-                    </div>
-                );
-            case "granted":
-                return (
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 mb-4">
-                        <div className="flex items-center space-x-2">
-                            <Shield className="text-green-400" size={16} />
-                            <span className="text-green-300 text-sm">
-                                {t("nebula.verification.permissionStatus.granted").replace("{type}", typeName)}
-                            </span>
-                        </div>
-                    </div>
-                );
-            case "prompt":
-                return (
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-4">
-                        <div className="flex items-center space-x-2">
-                            <AlertTriangle className="text-yellow-400" size={16} />
-                            <span className="text-yellow-300 text-sm">
-                                {t("nebula.verification.permissionStatus.prompt").replace("{type}", typeName)}
-                            </span>
-                        </div>
-                    </div>
-                );
-            case "denied":
-                return (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
-                        <div className="flex items-center space-x-2">
-                            <AlertTriangle className="text-red-400" size={16} />
-                            <span className="text-red-300 text-sm">
-                                {t("nebula.verification.permissionStatus.denied").replace("{type}", typeName)}
-                            </span>
-                        </div>
-                    </div>
-                );
-            case "unavailable":
-                return (
-                    <div className="bg-gray-500/10 border border-gray-500/30 rounded-lg p-3 mb-4">
-                        <div className="flex items-center space-x-2">
-                            <AlertTriangle className="text-gray-400" size={16} />
-                            <span className="text-gray-300 text-sm">
-                                {t("nebula.verification.permissionStatus.unavailable").replace("{type}", typeName)}
-                            </span>
-                        </div>
-                    </div>
-                );
-            default:
-                return null;
-        }
-    };
-
     // Loading state
     if (pageState.isLoading) {
         return (
@@ -597,9 +572,6 @@ export default function NebulaPage(): JSX.Element {
                     </p>
                 </div>
 
-                {/* Permission Status Display */}
-                {getPermissionStatusDisplay()}
-
                 {/* Trust Score Display */}
                 <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6">
                     <div className="flex items-center justify-between mb-2">
@@ -627,24 +599,16 @@ export default function NebulaPage(): JSX.Element {
                 {pageState.verificationType && (
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
                         <h3 className="text-blue-300 font-semibold mb-2 capitalize">
-                            {pageState.verificationType === 'captcha'
-                                ? t("nebula.verification.types.captcha.name")
-                                : pageState.verificationType === 'biometric'
-                                    ? t("nebula.verification.types.biometric.name")
-                                    : t("nebula.verification.types.gyroscope.name")}
+                            {t(`nebula.verification.types.${pageState.verificationType}.name` as any)}
                         </h3>
                         <p className="text-blue-200 text-sm">
-                            {pageState.verificationType === 'captcha'
-                                ? t("nebula.verification.types.captcha.description")
-                                : pageState.verificationType === 'biometric'
-                                    ? t("nebula.verification.types.biometric.description")
-                                    : t("nebula.verification.types.gyroscope.description")}
+                            {t(`nebula.verification.types.${pageState.verificationType}.description` as any)}
                         </p>
                     </div>
                 )}
 
-                {/* Enhanced Warning for Biometric */}
-                {pageState.verificationType === "biometric" ? (
+                {/* Enhanced Warning for Biometric/Gyroscope */}
+                {pageState.verificationType === "biometric" || pageState.verificationType === "gyroscope" ? (
                     <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-6">
                         <div className="flex items-start space-x-2">
                             <Shield
@@ -731,7 +695,7 @@ export default function NebulaPage(): JSX.Element {
                 </button>
             </div>
 
-            {/* Verification Modals with Phase Tracking */}
+            {/* Verification Modals with Enhanced Phase Tracking */}
             {pageState.verificationType === "captcha" && (
                 <NebulaCaptchaModal
                     attemptId={pageState.attemptId}

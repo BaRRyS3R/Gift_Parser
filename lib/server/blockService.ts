@@ -1,14 +1,18 @@
-// src/lib/server/blockService.ts - Simplified version without grace period logic
+// src/lib/server/blockService.ts - Updated with new permission-related block reasons
 
 import { supabaseServer } from "@/lib/supabase_server";
 
-// Block reason enum to match database
+// Updated block reason enum to match database with new permission-related reasons
 export type BlockReason =
     | "failed_captcha"
     | "failed_biometric"
     | "failed_gyroscope"
     | "device_unsupported_biometric"
     | "device_unsupported_gyroscope"
+    | "biometric_unavailable"
+    | "gyroscope_unavailable"
+    | "biometric_permission_denied"
+    | "gyroscope_permission_denied"
     | "manual_block"
     | "suspicious_activity"
     | "abandoned_verification";
@@ -23,13 +27,17 @@ export const TRUST_THRESHOLDS = {
     GYROSCOPE: 10,
 } as const;
 
-// Block durations in hours
+// Updated block durations in hours with new permission-related blocks
 export const BLOCK_DURATIONS = {
     FAILED_CAPTCHA: 2, // 2 hours
     FAILED_BIOMETRIC: 48, // 2 days
     FAILED_GYROSCOPE: 720, // 1 month (30 days)
     DEVICE_UNSUPPORTED_BIOMETRIC: 48, // 2 days
     DEVICE_UNSUPPORTED_GYROSCOPE: 720, // 1 month (30 days)
+    BIOMETRIC_UNAVAILABLE: 48, // 2 days - biometric not available on device
+    GYROSCOPE_UNAVAILABLE: 720, // 1 month - gyroscope not available on device
+    BIOMETRIC_PERMISSION_DENIED: 48, // 2 days - permission denied for biometric
+    GYROSCOPE_PERMISSION_DENIED: 720, // 1 month - permission denied for gyroscope
     MANUAL_BLOCK: 24, // 1 day (default)
     SUSPICIOUS_ACTIVITY: 168, // 1 week
     ABANDONED_VERIFICATION: 2, // 2 hours for abandoned attempts
@@ -60,7 +68,7 @@ export interface VerificationRequirement {
     threshold: number;
 }
 
-// Verification attempt interface (simplified)
+// Enhanced verification attempt interface with permission states
 export interface VerificationAttempt {
     id: string;
     userId: string;
@@ -69,6 +77,8 @@ export interface VerificationAttempt {
     startedAt: string;
     expiresAt: string;
     deviceSupported: boolean;
+    permissionRequested?: boolean;
+    permissionGranted?: boolean;
 }
 
 // Service response interfaces
@@ -85,7 +95,7 @@ export interface UnblockServiceResponse extends BlockServiceResponse {
 
 /**
  * Nebula Security System Block Service
- * Manages user blocks, verifications, and trust score enforcement
+ * Enhanced with permission-related blocking and device availability checks
  */
 export const serverBlockService = {
     /**
@@ -143,17 +153,19 @@ export const serverBlockService = {
     },
 
     /**
-     * Create verification attempt (simplified)
+     * Create verification attempt with enhanced permission tracking
      */
     async createVerificationAttempt(
         userId: string,
         telegramId: number,
         verificationType: VerificationType,
         deviceSupported: boolean = true,
+        permissionRequested: boolean = false,
+        permissionGranted: boolean = false,
     ): Promise<string> {
         try {
             const startedAt = new Date().toISOString();
-            const expiresAt = new Date(Date.now() + 15000).toISOString(); // 15 seconds
+            const expiresAt = new Date(Date.now() + 300000).toISOString(); // 5 minutes for permission workflow
 
             const { data, error } = await supabaseServer
                 .from("verification_attempts")
@@ -164,6 +176,8 @@ export const serverBlockService = {
                     started_at: startedAt,
                     expires_at: expiresAt,
                     device_supported: deviceSupported,
+                    permission_requested: permissionRequested,
+                    permission_granted: permissionGranted,
                 })
                 .select("id")
                 .single();
@@ -182,6 +196,35 @@ export const serverBlockService = {
         } catch (error) {
             console.error("Error creating verification attempt:", error);
             throw new Error("Failed to create verification attempt");
+        }
+    },
+
+    /**
+     * Update verification attempt permission status
+     */
+    async updateVerificationAttemptPermission(
+        attemptId: string,
+        permissionRequested: boolean,
+        permissionGranted: boolean,
+    ): Promise<void> {
+        try {
+            const { error } = await supabaseServer
+                .from("verification_attempts")
+                .update({
+                    permission_requested: permissionRequested,
+                    permission_granted: permissionGranted,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq("id", attemptId);
+
+            if (error) {
+                throw new Error(`Failed to update verification attempt: ${error.message}`);
+            }
+
+            console.log(`Updated verification attempt ${attemptId} permission status`);
+        } catch (error) {
+            console.error("Error updating verification attempt permission:", error);
+            throw new Error("Failed to update verification attempt permission");
         }
     },
 
@@ -213,6 +256,8 @@ export const serverBlockService = {
                 startedAt: data.started_at,
                 expiresAt: data.expires_at,
                 deviceSupported: data.device_supported,
+                permissionRequested: data.permission_requested,
+                permissionGranted: data.permission_granted,
             };
 
             const isExpired = new Date(data.expires_at) < new Date();
@@ -334,6 +379,18 @@ export const serverBlockService = {
                     break;
                 case "device_unsupported_gyroscope":
                     durationHours = BLOCK_DURATIONS.DEVICE_UNSUPPORTED_GYROSCOPE;
+                    break;
+                case "biometric_unavailable":
+                    durationHours = BLOCK_DURATIONS.BIOMETRIC_UNAVAILABLE;
+                    break;
+                case "gyroscope_unavailable":
+                    durationHours = BLOCK_DURATIONS.GYROSCOPE_UNAVAILABLE;
+                    break;
+                case "biometric_permission_denied":
+                    durationHours = BLOCK_DURATIONS.BIOMETRIC_PERMISSION_DENIED;
+                    break;
+                case "gyroscope_permission_denied":
+                    durationHours = BLOCK_DURATIONS.GYROSCOPE_PERMISSION_DENIED;
                     break;
                 case "manual_block":
                     durationHours = BLOCK_DURATIONS.MANUAL_BLOCK;
@@ -505,52 +562,23 @@ export const serverBlockService = {
     },
 
     /**
-     * Handle verification failure
+     * Enhanced verification failure handler with new permission-related reasons
      */
     async handleVerificationFailure(
         userId: string,
         telegramId: number,
         verificationType: VerificationType,
-        isDeviceSupported: boolean = true,
+        blockReason: BlockReason,
     ): Promise<BlockServiceResponse> {
-        let blockReason: BlockReason;
-
-        if (!isDeviceSupported) {
-            switch (verificationType) {
-                case "biometric":
-                    blockReason = "device_unsupported_biometric";
-                    break;
-                case "gyroscope":
-                    blockReason = "device_unsupported_gyroscope";
-                    break;
-                default:
-                    blockReason = "failed_captcha";
-            }
-        } else {
-            switch (verificationType) {
-                case "captcha":
-                    blockReason = "failed_captcha";
-                    break;
-                case "biometric":
-                    blockReason = "failed_biometric";
-                    break;
-                case "gyroscope":
-                    blockReason = "failed_gyroscope";
-                    break;
-                default:
-                    blockReason = "failed_captcha";
-            }
-        }
-
         return await this.blockUser(
             userId,
             telegramId,
             blockReason,
             verificationType,
             {
-                deviceSupported: isDeviceSupported,
                 failedAt: new Date().toISOString(),
                 verificationType,
+                reason: blockReason,
             },
         );
     },
@@ -621,6 +649,8 @@ export const serverBlockService = {
                     originalStartTime: attempt.startedAt,
                     originalExpireTime: attempt.expiresAt,
                     deviceSupported: attempt.deviceSupported,
+                    permissionRequested: attempt.permissionRequested,
+                    permissionGranted: attempt.permissionGranted,
                 },
             );
 
