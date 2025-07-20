@@ -1,10 +1,10 @@
-// src/app/nebula/page.tsx - Fixed with proper device checking and permission logic
+// src/app/nebula/page.tsx - Обновленная система с проверкой поддержки устройства на странице
 
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, AlertTriangle, Clock, Zap, Smartphone, Settings, Eye, Fingerprint } from "lucide-react";
+import { Shield, AlertTriangle, Clock, Zap, Fingerprint, Compass, Eye, Settings, CheckCircle2, XCircle } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -12,7 +12,7 @@ import NebulaCaptchaModal from "@/components/Security/NebulaCaptchaModal";
 import NebulaBiometricModal from "@/components/Security/NebulaBiometricModal";
 import NebulaGyroscopeModal from "@/components/Security/NebulaGyroscopeModal";
 
-// Interface definitions
+// Интерфейсы типов данных
 interface NebulaCheckResponse {
     success: boolean;
     blocked?: {
@@ -34,76 +34,95 @@ interface NebulaCheckResponse {
 }
 
 type VerificationType = "captcha" | "biometric" | "gyroscope";
-type PageFlow =
+
+// Расширенные состояния страницы
+type PagePhase = 
     | "loading"
-    | "checking_device"
+    | "error"
+    | "device_checking"
     | "device_unsupported"
-    | "permission_instructions"
-    | "permission_expired"
-    | "ready_for_verification"
-    | "verification_modal"
+    | "permission_required"
+    | "permission_waiting"
+    | "ready_to_verify"
+    | "verifying"
     | "success"
-    | "error";
+    | "failure";
+
+interface DeviceCapability {
+    isSupported: boolean;
+    isAvailable: boolean;
+    permissionGranted: boolean;
+    permissionRequested: boolean;
+    checkComplete: boolean;
+    error?: string;
+}
 
 interface PageState {
-    flow: PageFlow;
+    phase: PagePhase;
+    error: string | null;
     verificationType: VerificationType | null;
     trustScore: number;
     threshold: number;
     attemptId: string | null;
-    error: string | null;
-
-    // Device support state
-    deviceSupported: boolean | null;
-    permissionGranted: boolean | null;
-
-    // Permission flow state
-    permissionExpiryTime: number | null;
-    timeRemaining: number;
-    canSafelyLeave: boolean;
-
-    // Modal state
-    isModalOpen: boolean;
-    verificationResult: "success" | "failure" | null;
+    
+    // Новые поля для управления устройством
+    deviceCapability: DeviceCapability;
+    permissionTimer: number; // оставшееся время в секундах
+    permissionStartTime: number | null; // время начала ожидания разрешений
+    autoCheckPermissions: boolean; // автоматическая проверка разрешений
 }
 
-// Permission flow timing configuration (5 minutes total)
-const PERMISSION_CONFIG = {
-    TOTAL_TIME: 300000, // 5 minutes total
-    WARNING_TIME: 180000, // 3 minutes - start warning
-    CHECK_INTERVAL: 1000, // Check every second
-    PERMISSION_CHECK_DELAY: 2000, // 2 seconds delay between permission checks
-} as const;
+// Константы времени
+const PERMISSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 минут
+const PERMISSION_CHECK_INTERVAL_MS = 2000; // проверка каждые 2 секунды
 
 export default function NebulaPage(): JSX.Element {
     const router = useRouter();
     const { makeAuthenticatedRequest, authState } = useUser();
     const t = useT();
 
-    const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const permissionCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    // Рефы для таймеров
+    const permissionTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const permissionCheckRef = useRef<NodeJS.Timeout | null>(null);
 
     const [pageState, setPageState] = useState<PageState>({
-        flow: "loading",
+        phase: "loading",
+        error: null,
         verificationType: null,
         trustScore: 50,
         threshold: 40,
         attemptId: null,
-        error: null,
-        deviceSupported: null,
-        permissionGranted: null,
-        permissionExpiryTime: null,
-        timeRemaining: 0,
-        canSafelyLeave: false,
-        isModalOpen: false,
-        verificationResult: null,
+        deviceCapability: {
+            isSupported: false,
+            isAvailable: false,
+            permissionGranted: false,
+            permissionRequested: false,
+            checkComplete: false,
+        },
+        permissionTimer: PERMISSION_TIMEOUT_MS / 1000,
+        permissionStartTime: null,
+        autoCheckPermissions: false,
     });
 
     /**
-     * Initial check of Nebula status
+     * Очистка всех таймеров
+     */
+    const cleanupTimers = useCallback(() => {
+        if (permissionTimerRef.current) {
+            clearInterval(permissionTimerRef.current);
+            permissionTimerRef.current = null;
+        }
+        if (permissionCheckRef.current) {
+            clearInterval(permissionCheckRef.current);
+            permissionCheckRef.current = null;
+        }
+    }, []);
+
+    /**
+     * Проверка статуса Nebula верификации
      */
     const checkNebulaStatus = useCallback(async () => {
-        setPageState(prev => ({ ...prev, flow: "loading", error: null }));
+        setPageState((prev) => ({ ...prev, phase: "loading", error: null }));
 
         try {
             const response = await makeAuthenticatedRequest("/api/nebula/check");
@@ -118,267 +137,387 @@ export default function NebulaPage(): JSX.Element {
                 throw new Error(result.error || "Failed to check verification status");
             }
 
-            // Handle blocked user
+            // Проверка блокировки пользователя
             if (result.blocked) {
                 console.log("User is blocked, redirecting to blocked page");
                 router.push("/blocked");
                 return;
             }
 
-            // Handle allowed user
+            // Проверка разрешения на продолжение
             if (result.allowed) {
                 console.log("User passed Nebula checks, redirecting to main");
                 router.push("/main");
                 return;
             }
 
-            // Handle verification required
+            // Пользователь требует верификации
             if (result.verification) {
-                const verification = result.verification;
-
-                setPageState(prev => ({
+                console.log(`User requires ${result.verification.type} verification`);
+                setPageState((prev) => ({
                     ...prev,
-                    verificationType: verification.type,
-                    trustScore: verification.trustScore,
-                    threshold: verification.threshold,
-                    attemptId: verification.attemptId,
+                    phase: result.verification!.type === "captcha" ? "ready_to_verify" : "device_checking",
+                    verificationType: result.verification!.type,
+                    trustScore: result.verification!.trustScore,
+                    threshold: result.verification!.threshold,
+                    attemptId: result.verification!.attemptId,
                 }));
 
-                // Handle different verification types
-                if (verification.type === "captcha") {
-                    // For captcha, immediately open modal
-                    console.log("Captcha verification required - opening modal");
-                    setPageState(prev => ({
-                        ...prev,
-                        flow: "verification_modal",
-                        isModalOpen: true,
-                        canSafelyLeave: false,
-                    }));
+                // Для капчи сразу открываем модальное окно
+                if (result.verification.type === "captcha") {
+                    setTimeout(() => openVerificationModal(), 500);
                 } else {
-                    // For biometric/gyroscope, check device support first
-                    console.log(`${verification.type} verification - checking device support`);
-                    setPageState(prev => ({ ...prev, flow: "checking_device" }));
-                    await checkDeviceSupport(verification.type, verification.attemptId);
+                    // Для биометрии и гироскопа проверяем поддержку устройства
+                    checkDeviceSupport(result.verification.type);
                 }
+            } else {
+                throw new Error("Unknown verification status");
             }
-
         } catch (error) {
             console.error("Error checking Nebula status:", error);
-            setPageState(prev => ({
+            setPageState((prev) => ({
                 ...prev,
-                flow: "error",
+                phase: "error",
                 error: error instanceof Error ? error.message : "Failed to check verification status",
             }));
         }
     }, [makeAuthenticatedRequest, router]);
 
     /**
-     * Check device support for biometric/gyroscope - 1:1 from original modals
+     * Проверка поддержки устройства для биометрии или гироскопа
      */
-    const checkDeviceSupport = useCallback(async (
-        verificationType: "biometric" | "gyroscope",
-        attemptId: string
-    ) => {
+    const checkDeviceSupport = useCallback(async (type: VerificationType) => {
+        if (type === "captcha") return;
+
+        console.log(`Checking device support for ${type}`);
+        setPageState((prev) => ({ ...prev, phase: "device_checking" }));
+
         try {
-            let deviceSupported = false;
-
-            if (verificationType === "biometric") {
-                // Exact logic from NebulaBiometricModal.tsx
-                console.log("Checking biometric device support");
-
-                if (typeof window === "undefined") {
-                    console.log("Window not available");
-                    await handleDeviceUnavailable("Device environment not supported", attemptId);
-                    return;
-                }
-
-                const tg = window.Telegram?.WebApp;
-
-                if (!tg?.BiometricManager) {
-                    console.log("BiometricManager not available - device/platform not supported");
-                    await handleDeviceUnavailable("Biometric authentication unavailable on this device", attemptId);
-                    return;
-                }
-
-                const manager = tg.BiometricManager;
-
-                // Initialize and check availability
-                await new Promise<void>((resolve) => {
-                    manager.init(() => {
-                        console.log("BiometricManager initialized");
-
-                        if (!manager.isBiometricAvailable) {
-                            console.log("Biometric not available on device");
-                            deviceSupported = false;
-                        } else {
-                            console.log("Biometric available on device");
-                            deviceSupported = true;
-                        }
-                        resolve();
-                    });
-                });
-
-                if (!deviceSupported) {
-                    await handleDeviceUnavailable("Biometric authentication unavailable on this device", attemptId);
-                    return;
-                }
-
-                // Device supported, now check permissions
-                const permissionGranted = manager.isAccessGranted;
-                console.log("Biometric permission status:", permissionGranted);
-
-                setPageState(prev => ({
-                    ...prev,
-                    deviceSupported: true,
-                    permissionGranted,
-                }));
-
-                if (permissionGranted) {
-                    // Permission already granted - open modal directly
-                    console.log("Biometric permission already granted, opening modal");
-                    setPageState(prev => ({
-                        ...prev,
-                        flow: "verification_modal",
-                        isModalOpen: true,
-                        canSafelyLeave: false,
-                    }));
-                } else {
-                    // Permission needed - show instructions
-                    console.log("Biometric permission required, showing instructions");
-                    const expiryTime = Date.now() + PERMISSION_CONFIG.TOTAL_TIME;
-
-                    setPageState(prev => ({
-                        ...prev,
-                        flow: "permission_instructions",
-                        permissionExpiryTime: expiryTime,
-                        canSafelyLeave: true,
-                    }));
-
-                    startPermissionTimer(expiryTime, attemptId);
-                }
-
-            } else if (verificationType === "gyroscope") {
-                // Exact logic from NebulaGyroscopeModal.tsx
-                console.log("Checking gyroscope device support");
-
-                if (typeof window === "undefined") {
-                    console.log("Window not available");
-                    await handleDeviceUnavailable("Device environment not supported", attemptId);
-                    return;
-                }
-
-                // Check DeviceOrientationEvent support
-                if (!window.DeviceOrientationEvent) {
-                    console.log("DeviceOrientationEvent not supported");
-                    await handleDeviceUnavailable("Gyroscope verification unavailable on this device", attemptId);
-                    return;
-                }
-
-                // Test actual data availability
-                console.log("Testing gyroscope data availability");
-                await new Promise<void>((resolve) => {
-                    let dataReceived = false;
-
-                    const testListener = (event: DeviceOrientationEvent) => {
-                        if (event.alpha !== null || event.beta !== null || event.gamma !== null) {
-                            dataReceived = true;
-                            window.removeEventListener("deviceorientation", testListener);
-                            console.log("Gyroscope data available");
-                            resolve();
-                        }
-                    };
-
-                    window.addEventListener("deviceorientation", testListener);
-
-                    setTimeout(() => {
-                        window.removeEventListener("deviceorientation", testListener);
-                        deviceSupported = dataReceived;
-                        if (!dataReceived) {
-                            console.log("No gyroscope data received - device likely doesn't support it");
-                        }
-                        resolve();
-                    }, 4000); // 4 second timeout like in original
-                });
-
-                if (!deviceSupported) {
-                    await handleDeviceUnavailable("Gyroscope verification unavailable on this device", attemptId);
-                    return;
-                }
-
-                // Device supported, now check permissions
-                const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
-                let permissionGranted = true; // Default for most devices
-
-                if (typeof DeviceOrientationEvent.requestPermission === "function") {
-                    // iOS 13+ requires permission
-                    console.log("iOS permission model detected");
-                    permissionGranted = false; // Will be checked below
-                } else {
-                    console.log("No permission required for gyroscope");
-                }
-
-                setPageState(prev => ({
-                    ...prev,
-                    deviceSupported: true,
-                    permissionGranted,
-                }));
-
-                if (permissionGranted) {
-                    // Permission already granted or not required - open modal directly
-                    console.log("Gyroscope permission already granted/not required, opening modal");
-                    setPageState(prev => ({
-                        ...prev,
-                        flow: "verification_modal",
-                        isModalOpen: true,
-                        canSafelyLeave: false,
-                    }));
-                } else {
-                    // Permission needed (iOS) - show instructions
-                    console.log("Gyroscope permission required (iOS), showing instructions");
-                    const expiryTime = Date.now() + PERMISSION_CONFIG.TOTAL_TIME;
-
-                    setPageState(prev => ({
-                        ...prev,
-                        flow: "permission_instructions",
-                        permissionExpiryTime: expiryTime,
-                        canSafelyLeave: true,
-                    }));
-
-                    startPermissionTimer(expiryTime, attemptId);
-                }
+            if (type === "biometric") {
+                await checkBiometricSupport();
+            } else if (type === "gyroscope") {
+                await checkGyroscopeSupport();
             }
-
         } catch (error) {
-            console.error("Error checking device support:", error);
-            setPageState(prev => ({
+            console.error(`Error checking ${type} support:`, error);
+            setPageState((prev) => ({
                 ...prev,
-                flow: "error",
-                error: error instanceof Error ? error.message : "Failed to check device support",
+                phase: "device_unsupported",
+                error: error instanceof Error ? error.message : `${type} not supported`,
             }));
+            
+            // Блокируем пользователя за неподдерживаемое устройство
+            setTimeout(() => blockForUnsupportedDevice(type), 3000);
         }
     }, []);
 
     /**
-     * Handle device unavailability with blocking
+     * Проверка поддержки биометрии
      */
-    const handleDeviceUnavailable = useCallback(async (reason: string, attemptId: string) => {
-        console.log("Device unavailable:", reason);
+    const checkBiometricSupport = useCallback(async () => {
+        return new Promise<void>((resolve, reject) => {
+            if (typeof window === "undefined") {
+                reject(new Error("Window environment not available"));
+                return;
+            }
 
-        setPageState(prev => ({
+            const tg = window.Telegram?.WebApp;
+            if (!tg) {
+                reject(new Error("Telegram WebApp not available"));
+                return;
+            }
+
+            if (!tg.BiometricManager) {
+                reject(new Error("BiometricManager not available - device/platform not supported"));
+                return;
+            }
+
+            const manager = tg.BiometricManager;
+            manager.init(() => {
+                console.log("BiometricManager initialized");
+                
+                if (!manager.isBiometricAvailable) {
+                    reject(new Error("Biometric authentication not available on this device"));
+                    return;
+                }
+
+                // Проверяем разрешения
+                const permissionGranted = manager.isAccessGranted;
+                console.log("Biometric permission status:", permissionGranted);
+
+                setPageState((prev) => ({
+                    ...prev,
+                    deviceCapability: {
+                        isSupported: true,
+                        isAvailable: true,
+                        permissionGranted,
+                        permissionRequested: false,
+                        checkComplete: true,
+                    },
+                    phase: permissionGranted ? "ready_to_verify" : "permission_required",
+                }));
+
+                if (permissionGranted) {
+                    // Разрешение уже есть, можем сразу открыть модальное окно
+                    setTimeout(() => openVerificationModal(), 500);
+                } else {
+                    // Нужно запросить разрешение
+                    startPermissionTimer();
+                }
+
+                resolve();
+            });
+        });
+    }, []);
+
+    /**
+     * Проверка поддержки гироскопа
+     */
+    const checkGyroscopeSupport = useCallback(async () => {
+        return new Promise<void>((resolve, reject) => {
+            if (typeof window === "undefined") {
+                reject(new Error("Window environment not available"));
+                return;
+            }
+
+            if (!window.DeviceOrientationEvent) {
+                reject(new Error("DeviceOrientationEvent not supported"));
+                return;
+            }
+
+            // Проверяем требование разрешения (iOS 13+)
+            const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
+            const requiresPermission = typeof DeviceOrientationEvent.requestPermission === "function";
+
+            if (requiresPermission) {
+                console.log("Gyroscope requires permission");
+                setPageState((prev) => ({
+                    ...prev,
+                    deviceCapability: {
+                        isSupported: true,
+                        isAvailable: true,
+                        permissionGranted: false,
+                        permissionRequested: false,
+                        checkComplete: true,
+                    },
+                    phase: "permission_required",
+                }));
+                startPermissionTimer();
+                resolve();
+            } else {
+                // Проверяем доступность данных
+                checkGyroscopeData()
+                    .then(() => {
+                        setPageState((prev) => ({
+                            ...prev,
+                            deviceCapability: {
+                                isSupported: true,
+                                isAvailable: true,
+                                permissionGranted: true,
+                                permissionRequested: false,
+                                checkComplete: true,
+                            },
+                            phase: "ready_to_verify",
+                        }));
+                        setTimeout(() => openVerificationModal(), 500);
+                        resolve();
+                    })
+                    .catch(reject);
+            }
+        });
+    }, []);
+
+    /**
+     * Проверка фактической доступности данных гироскопа
+     */
+    const checkGyroscopeData = useCallback(async () => {
+        return new Promise<void>((resolve, reject) => {
+            let dataReceived = false;
+
+            const testListener = (event: DeviceOrientationEvent) => {
+                if (event.alpha !== null || event.beta !== null || event.gamma !== null) {
+                    dataReceived = true;
+                    window.removeEventListener("deviceorientation", testListener);
+                    resolve();
+                }
+            };
+
+            window.addEventListener("deviceorientation", testListener);
+
+            setTimeout(() => {
+                if (!dataReceived) {
+                    window.removeEventListener("deviceorientation", testListener);
+                    reject(new Error("No gyroscope data detected"));
+                }
+            }, 3000);
+        });
+    }, []);
+
+    /**
+     * Запуск таймера ожидания разрешений
+     */
+    const startPermissionTimer = useCallback(() => {
+        const startTime = Date.now();
+        setPageState((prev) => ({
             ...prev,
-            flow: "device_unsupported",
-            deviceSupported: false,
-            error: reason,
-            canSafelyLeave: true,
+            permissionStartTime: startTime,
+            permissionTimer: PERMISSION_TIMEOUT_MS / 1000,
         }));
 
-        // Block user through API
-        try {
-            const blockReason = pageState.verificationType === "biometric"
-                ? "biometric_unavailable"
-                : "gyroscope_unavailable";
+        // Таймер обратного отсчета
+        permissionTimerRef.current = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const remaining = Math.max(0, PERMISSION_TIMEOUT_MS - elapsed);
+            const remainingSeconds = Math.ceil(remaining / 1000);
 
-            const response = await makeAuthenticatedRequest(`/api/nebula/${pageState.verificationType}`, {
+            setPageState((prev) => ({
+                ...prev,
+                permissionTimer: remainingSeconds,
+            }));
+
+            if (remaining <= 0) {
+                cleanupTimers();
+                console.log("Permission timeout - blocking user");
+                blockForPermissionTimeout();
+            }
+        }, 1000);
+
+        console.log("Permission timer started - 5 minutes countdown");
+    }, [cleanupTimers]);
+
+    /**
+     * Запрос разрешения для биометрии или гироскопа
+     */
+    const requestPermission = useCallback(async () => {
+        if (!pageState.verificationType || pageState.deviceCapability.permissionRequested) return;
+
+        console.log(`Requesting permission for ${pageState.verificationType}`);
+        setPageState((prev) => ({
+            ...prev,
+            deviceCapability: {
+                ...prev.deviceCapability,
+                permissionRequested: true,
+            },
+            autoCheckPermissions: true,
+        }));
+
+        try {
+            if (pageState.verificationType === "biometric") {
+                const tg = window.Telegram?.WebApp;
+                if (tg && tg.BiometricManager) {
+                    tg.BiometricManager.requestAccess(
+                        { reason: "Security verification required for continued access" },
+                        (granted: boolean) => {
+                            console.log("Biometric permission result:", granted);
+                            if (granted) {
+                                handlePermissionGranted();
+                            }
+                        }
+                    );
+
+                    // Также пытаемся открыть настройки
+                    setTimeout(() => {
+                        if (tg.BiometricManager && tg.BiometricManager.openSettings) {
+                            tg.BiometricManager.openSettings();
+                        }
+                    }, 1000);
+                }
+            } else if (pageState.verificationType === "gyroscope") {
+                const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
+                if (typeof DeviceOrientationEvent.requestPermission === "function") {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === "granted") {
+                        handlePermissionGranted();
+                    }
+                }
+            }
+
+            // Запускаем автоматическую проверку разрешений
+            startAutoPermissionCheck();
+        } catch (error) {
+            console.error("Error requesting permission:", error);
+        }
+    }, [pageState.verificationType, pageState.deviceCapability.permissionRequested]);
+
+    /**
+     * Автоматическая проверка разрешений
+     */
+    const startAutoPermissionCheck = useCallback(() => {
+        if (permissionCheckRef.current) return;
+
+        permissionCheckRef.current = setInterval(async () => {
+            if (!pageState.autoCheckPermissions) return;
+
+            try {
+                let permissionGranted = false;
+
+                if (pageState.verificationType === "biometric") {
+                    const tg = window.Telegram?.WebApp;
+                    if (tg && tg.BiometricManager) {
+                        permissionGranted = tg.BiometricManager.isAccessGranted;
+                    }
+                } else if (pageState.verificationType === "gyroscope") {
+                    // Проверяем через данные
+                    permissionGranted = await new Promise<boolean>((resolve) => {
+                        let dataReceived = false;
+                        const testListener = (event: DeviceOrientationEvent) => {
+                            if (event.alpha !== null || event.beta !== null || event.gamma !== null) {
+                                dataReceived = true;
+                                window.removeEventListener("deviceorientation", testListener);
+                                resolve(true);
+                            }
+                        };
+
+                        window.addEventListener("deviceorientation", testListener);
+                        setTimeout(() => {
+                            if (!dataReceived) {
+                                window.removeEventListener("deviceorientation", testListener);
+                                resolve(false);
+                            }
+                        }, 1000);
+                    });
+                }
+
+                if (permissionGranted) {
+                    console.log("Permission detected during auto-check");
+                    handlePermissionGranted();
+                }
+            } catch (error) {
+                console.error("Error during auto permission check:", error);
+            }
+        }, PERMISSION_CHECK_INTERVAL_MS);
+    }, [pageState.autoCheckPermissions, pageState.verificationType]);
+
+    /**
+     * Обработка получения разрешения
+     */
+    const handlePermissionGranted = useCallback(() => {
+        console.log("Permission granted - switching to verification");
+        cleanupTimers();
+        
+        setPageState((prev) => ({
+            ...prev,
+            deviceCapability: {
+                ...prev.deviceCapability,
+                permissionGranted: true,
+            },
+            phase: "ready_to_verify",
+            autoCheckPermissions: false,
+        }));
+
+        // Открываем модальное окно через небольшую задержку
+        setTimeout(() => openVerificationModal(), 1000);
+    }, [cleanupTimers]);
+
+    /**
+     * Блокировка за неподдерживаемое устройство
+     */
+    const blockForUnsupportedDevice = useCallback(async (type: VerificationType) => {
+        if (!pageState.attemptId) return;
+
+        try {
+            const endpoint = type === "biometric" ? "/api/nebula/biometric" : "/api/nebula/gyroscope";
+            await makeAuthenticatedRequest(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -386,227 +525,26 @@ export default function NebulaPage(): JSX.Element {
                     completedInTime: false,
                     deviceSupported: false,
                     unavailable: true,
-                    attemptId,
+                    attemptId: pageState.attemptId,
                 }),
             });
 
-            if (response.ok) {
-                setTimeout(() => {
-                    router.push("/blocked");
-                }, 3000);
-            } else {
-                setTimeout(() => {
-                    router.push("/blocked");
-                }, 1000);
-            }
+            router.push("/blocked");
         } catch (error) {
-            console.error("Error blocking for device unavailability:", error);
-            setTimeout(() => {
-                router.push("/blocked");
-            }, 1000);
+            console.error("Error blocking for unsupported device:", error);
+            router.push("/blocked");
         }
-    }, [pageState.verificationType, makeAuthenticatedRequest, router]);
+    }, [pageState.attemptId, makeAuthenticatedRequest, router]);
 
     /**
-     * Start permission timer countdown with automatic checking
+     * Блокировка за истечение времени на получение разрешения
      */
-    const startPermissionTimer = useCallback((expiryTime: number, attemptId: string) => {
-        console.log("Starting permission timer");
-
-        // Clear existing timers
-        if (checkIntervalRef.current) {
-            clearInterval(checkIntervalRef.current);
-        }
-        if (permissionCheckTimeoutRef.current) {
-            clearTimeout(permissionCheckTimeoutRef.current);
-        }
-
-        // Start automatic permission checking
-        startAutomaticPermissionCheck(attemptId);
-
-        const updateTimer = () => {
-            const now = Date.now();
-            const remaining = Math.max(0, expiryTime - now);
-
-            setPageState(prev => ({
-                ...prev,
-                timeRemaining: remaining,
-            }));
-
-            if (remaining <= 0) {
-                // Timer expired - block user
-                console.log("Permission timer expired");
-
-                if (checkIntervalRef.current) {
-                    clearInterval(checkIntervalRef.current);
-                    checkIntervalRef.current = null;
-                }
-                if (permissionCheckTimeoutRef.current) {
-                    clearTimeout(permissionCheckTimeoutRef.current);
-                    permissionCheckTimeoutRef.current = null;
-                }
-
-                handlePermissionExpired(attemptId);
-            }
-        };
-
-        // Initial update
-        updateTimer();
-
-        // Start interval
-        checkIntervalRef.current = setInterval(updateTimer, PERMISSION_CONFIG.CHECK_INTERVAL);
-    }, []);
-
-    /**
-     * Automatic permission checking (runs every 2 seconds)
-     */
-    const startAutomaticPermissionCheck = useCallback((attemptId: string) => {
-        const checkPermissions = async () => {
-            if (!pageState.verificationType || pageState.permissionGranted) {
-                return; // Stop checking if already granted
-            }
-
-            try {
-                let permissionGranted = false;
-
-                if (pageState.verificationType === "biometric") {
-                    const tg = window.Telegram?.WebApp;
-                    const manager = tg?.BiometricManager;
-                    if (manager) {
-                        permissionGranted = manager.isAccessGranted;
-                    }
-                } else if (pageState.verificationType === "gyroscope") {
-                    // For gyroscope, test data availability (indicates permission granted)
-                    await new Promise<void>((resolve) => {
-                        let dataReceived = false;
-
-                        const testListener = (event: DeviceOrientationEvent) => {
-                            if (event.alpha !== null || event.beta !== null || event.gamma !== null) {
-                                dataReceived = true;
-                                window.removeEventListener("deviceorientation", testListener);
-                                resolve();
-                            }
-                        };
-
-                        window.addEventListener("deviceorientation", testListener);
-
-                        setTimeout(() => {
-                            window.removeEventListener("deviceorientation", testListener);
-                            permissionGranted = dataReceived;
-                            resolve();
-                        }, 1000);
-                    });
-                }
-
-                if (permissionGranted && !pageState.permissionGranted) {
-                    console.log(`${pageState.verificationType} permission detected automatically`);
-                    handlePermissionGranted();
-                } else {
-                    // Schedule next check
-                    permissionCheckTimeoutRef.current = setTimeout(() => {
-                        startAutomaticPermissionCheck(attemptId);
-                    }, PERMISSION_CONFIG.PERMISSION_CHECK_DELAY);
-                }
-            } catch (error) {
-                console.error("Error in automatic permission check:", error);
-                // Continue checking despite errors
-                permissionCheckTimeoutRef.current = setTimeout(() => {
-                    startAutomaticPermissionCheck(attemptId);
-                }, PERMISSION_CONFIG.PERMISSION_CHECK_DELAY);
-            }
-        };
-
-        // Start first check with small delay
-        permissionCheckTimeoutRef.current = setTimeout(checkPermissions, 500);
-    }, [pageState.verificationType, pageState.permissionGranted]);
-
-    /**
-     * Handle permission request button click
-     */
-    const handleRequestPermission = useCallback(async () => {
-        if (!pageState.verificationType || !pageState.attemptId) return;
+    const blockForPermissionTimeout = useCallback(async () => {
+        if (!pageState.attemptId || !pageState.verificationType) return;
 
         try {
-            if (pageState.verificationType === "biometric") {
-                const tg = window.Telegram?.WebApp;
-                const manager = tg?.BiometricManager;
-
-                if (manager) {
-                    manager.requestAccess(
-                        { reason: "Security verification required for continued access" },
-                        (granted: boolean) => {
-                            console.log("Biometric permission request result:", granted);
-                            if (granted) {
-                                handlePermissionGranted();
-                            }
-                        }
-                    );
-
-                    // Also try to open settings
-                    if (manager.openSettings) {
-                        setTimeout(() => {
-                            manager.openSettings();
-                        }, 1000);
-                    }
-                }
-            } else if (pageState.verificationType === "gyroscope") {
-                const DeviceOrientationEvent = window.DeviceOrientationEvent as any;
-
-                if (DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
-                    const permission = await DeviceOrientationEvent.requestPermission();
-                    const granted = permission === "granted";
-
-                    console.log("Gyroscope permission request result:", granted);
-                    if (granted) {
-                        handlePermissionGranted();
-                    }
-                }
-            }
-        } catch (error) {
-            console.error("Error requesting permission:", error);
-        }
-    }, [pageState.verificationType, pageState.attemptId]);
-
-    /**
-     * Handle permission granted
-     */
-    const handlePermissionGranted = useCallback(() => {
-        console.log("Permission granted, opening verification modal");
-
-        // Clear timers
-        if (checkIntervalRef.current) {
-            clearInterval(checkIntervalRef.current);
-            checkIntervalRef.current = null;
-        }
-        if (permissionCheckTimeoutRef.current) {
-            clearTimeout(permissionCheckTimeoutRef.current);
-            permissionCheckTimeoutRef.current = null;
-        }
-
-        setPageState(prev => ({
-            ...prev,
-            flow: "verification_modal",
-            isModalOpen: true,
-            permissionGranted: true,
-            canSafelyLeave: false, // No longer safe to leave during actual verification
-        }));
-    }, []);
-
-    /**
-     * Handle permission timer expired
-     */
-    const handlePermissionExpired = useCallback(async (attemptId: string) => {
-        console.log("Permission timer expired, blocking user");
-
-        setPageState(prev => ({
-            ...prev,
-            flow: "permission_expired",
-            canSafelyLeave: false,
-        }));
-
-        // Block user through API
-        try {
-            const response = await makeAuthenticatedRequest(`/api/nebula/${pageState.verificationType}`, {
+            const endpoint = pageState.verificationType === "biometric" ? "/api/nebula/biometric" : "/api/nebula/gyroscope";
+            await makeAuthenticatedRequest(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -614,80 +552,59 @@ export default function NebulaPage(): JSX.Element {
                     completedInTime: false,
                     deviceSupported: true,
                     permissionDenied: true,
-                    attemptId,
+                    attemptId: pageState.attemptId,
                 }),
             });
 
-            setTimeout(() => {
-                router.push("/blocked");
-            }, 2000);
+            setPageState((prev) => ({ ...prev, phase: "failure" }));
+            setTimeout(() => router.push("/blocked"), 2000);
         } catch (error) {
             console.error("Error blocking for permission timeout:", error);
-            setTimeout(() => {
-                router.push("/blocked");
-            }, 1000);
+            router.push("/blocked");
         }
-    }, [pageState.verificationType, makeAuthenticatedRequest, router]);
+    }, [pageState.attemptId, pageState.verificationType, makeAuthenticatedRequest, router]);
 
     /**
-     * Handle verification success
+     * Открытие модального окна верификации
+     */
+    const openVerificationModal = useCallback(() => {
+        if (!pageState.verificationType || !pageState.attemptId) return;
+
+        console.log("Opening verification modal");
+        setPageState((prev) => ({ ...prev, phase: "verifying" }));
+    }, [pageState.verificationType, pageState.attemptId]);
+
+    /**
+     * Обработка успешной верификации
      */
     const handleVerificationSuccess = useCallback(() => {
-        console.log("Verification completed successfully");
-
-        // Clear any timers
-        if (checkIntervalRef.current) {
-            clearInterval(checkIntervalRef.current);
-            checkIntervalRef.current = null;
-        }
-        if (permissionCheckTimeoutRef.current) {
-            clearTimeout(permissionCheckTimeoutRef.current);
-            permissionCheckTimeoutRef.current = null;
-        }
-
-        setPageState(prev => ({
-            ...prev,
-            flow: "success",
-            isModalOpen: false,
-            verificationResult: "success",
-            canSafelyLeave: true,
-        }));
-
-        setTimeout(() => {
-            router.push("/main");
-        }, 2000);
-    }, [router]);
+        cleanupTimers();
+        setPageState((prev) => ({ ...prev, phase: "success" }));
+        setTimeout(() => router.push("/main"), 2000);
+    }, [cleanupTimers, router]);
 
     /**
-     * Handle verification failure
+     * Обработка неудачной верификации
      */
     const handleVerificationFailure = useCallback(() => {
-        console.log("Verification failed");
+        cleanupTimers();
+        setPageState((prev) => ({ ...prev, phase: "failure" }));
+        setTimeout(() => router.push("/blocked"), 2000);
+    }, [cleanupTimers, router]);
 
-        // Clear any timers
-        if (checkIntervalRef.current) {
-            clearInterval(checkIntervalRef.current);
-            checkIntervalRef.current = null;
-        }
-        if (permissionCheckTimeoutRef.current) {
-            clearTimeout(permissionCheckTimeoutRef.current);
-            permissionCheckTimeoutRef.current = null;
-        }
-
-        setPageState(prev => ({
-            ...prev,
-            flow: "error",
-            isModalOpen: false,
-            verificationResult: "failure",
-            canSafelyLeave: true,
+    /**
+     * Закрытие модального окна
+     */
+    const handleCloseModal = useCallback(() => {
+        if (pageState.phase !== "verifying") return;
+        
+        setPageState((prev) => ({ 
+            ...prev, 
+            phase: pageState.deviceCapability.permissionGranted ? "ready_to_verify" : "permission_required"
         }));
+    }, [pageState.phase, pageState.deviceCapability.permissionGranted]);
 
-        setTimeout(() => {
-            router.push("/blocked");
-        }, 2000);
-    }, [router]);
-
-    // Initialize page
+    // Инициализация при загрузке страницы
     useEffect(() => {
         if (!authState.isAuthenticated) {
             router.push("/");
@@ -696,30 +613,20 @@ export default function NebulaPage(): JSX.Element {
 
         checkNebulaStatus();
 
-        // Cleanup on unmount
-        return () => {
-            if (checkIntervalRef.current) {
-                clearInterval(checkIntervalRef.current);
-                checkIntervalRef.current = null;
-            }
-            if (permissionCheckTimeoutRef.current) {
-                clearTimeout(permissionCheckTimeoutRef.current);
-                permissionCheckTimeoutRef.current = null;
-            }
-        };
-    }, [authState.isAuthenticated, checkNebulaStatus, router]);
+        return cleanupTimers;
+    }, [authState.isAuthenticated, checkNebulaStatus, router, cleanupTimers]);
 
     /**
-     * Format time remaining
+     * Форматирование времени
      */
-    const formatTimeRemaining = (ms: number): string => {
-        const minutes = Math.floor(ms / 60000);
-        const seconds = Math.floor((ms % 60000) / 1000);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const formatTime = (seconds: number): string => {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     };
 
     /**
-     * Get verification type icon
+     * Получение иконки верификации
      */
     const getVerificationIcon = (type: VerificationType) => {
         switch (type) {
@@ -728,14 +635,14 @@ export default function NebulaPage(): JSX.Element {
             case "biometric":
                 return <Fingerprint className="text-blue-400" size={64} />;
             case "gyroscope":
-                return <Smartphone className="text-purple-400" size={64} />;
+                return <Compass className="text-purple-400" size={64} />;
             default:
                 return <Shield className="text-gray-400" size={64} />;
         }
     };
 
     /**
-     * Get trust score color
+     * Получение цвета рейтинга доверия
      */
     const getTrustScoreColor = (score: number): string => {
         if (score >= 40) return "text-green-400";
@@ -744,8 +651,8 @@ export default function NebulaPage(): JSX.Element {
         return "text-red-400";
     };
 
-    // Loading state
-    if (pageState.flow === "loading") {
+    // Рендер различных состояний
+    if (pageState.phase === "loading") {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center">
@@ -756,263 +663,231 @@ export default function NebulaPage(): JSX.Element {
         );
     }
 
-    // Device checking state
-    if (pageState.flow === "checking_device") {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center p-6">
-                <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6 text-center">
-                    <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Smartphone className="text-blue-400 animate-pulse" size={32} />
-                    </div>
-                    <h2 className="text-xl font-bold text-white mb-2">
-                        Checking Device Compatibility
-                    </h2>
-                    <p className="text-gray-400 text-sm">
-                        Verifying {pageState.verificationType} support on your device...
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    // Device unsupported state
-    if (pageState.flow === "device_unsupported") {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center p-6">
-                <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-xl p-6 text-center">
-                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <AlertTriangle className="text-red-400" size={32} />
-                    </div>
-                    <h2 className="text-xl font-bold text-white mb-2">
-                        Device Not Supported
-                    </h2>
-                    <p className="text-red-300 text-sm mb-4">
-                        Your device does not support {pageState.verificationType} verification.
-                    </p>
-                    <p className="text-red-200 text-xs">
-                        {pageState.error}
-                    </p>
-                    <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                        <p className="text-yellow-300 text-xs">
-                            Your account will be temporarily blocked. Redirecting...
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // Permission instructions state
-    if (pageState.flow === "permission_instructions") {
-        const timeWarning = pageState.timeRemaining < PERMISSION_CONFIG.WARNING_TIME;
-
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center p-6">
-                <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6">
-                    {/* Header */}
-                    <div className="text-center mb-6">
-                        <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                            {pageState.verificationType === "biometric" ? (
-                                <Fingerprint className="text-blue-400" size={32} />
-                            ) : (
-                                <Smartphone className="text-purple-400" size={32} />
-                            )}
-                        </div>
-                        <h2 className="text-xl font-bold text-white mb-2">
-                            {pageState.verificationType === "biometric" ? "Biometric" : "Gyroscope"} Permission Required
-                        </h2>
-                        <p className="text-gray-400 text-sm">
-                            Grant access to continue with verification
-                        </p>
-                    </div>
-
-                    {/* Timer */}
-                    <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-300 text-sm">Time Remaining</span>
-                            <div className="flex items-center space-x-2">
-                                <Clock className={timeWarning ? "text-red-400" : "text-orange-400"} size={16} />
-                                <span className={`font-bold ${timeWarning ? "text-red-400" : "text-orange-400"}`}>
-                                    {formatTimeRemaining(pageState.timeRemaining)}
-                                </span>
-                            </div>
-                        </div>
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                            <div
-                                className={`h-2 rounded-full transition-all duration-1000 ${timeWarning ? "bg-red-500" : "bg-orange-500"
-                                    }`}
-                                style={{
-                                    width: `${Math.max(0, (pageState.timeRemaining / PERMISSION_CONFIG.TOTAL_TIME) * 100)}%`
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Instructions */}
-                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
-                        <h3 className="text-blue-300 font-semibold mb-2 text-sm">
-                            Quick Setup Instructions:
-                        </h3>
-                        <div className="text-blue-200 text-sm space-y-1">
-                            <p>1. Tap &quot;Grant Permission&quot; below</p>
-                            <p>2. Allow access when prompted</p>
-                            <p>3. Return here (verification will start automatically)</p>
-                        </div>
-                    </div>
-
-                    {/* Safe leave notice */}
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-6">
-                        <div className="flex items-start space-x-2">
-                            <Shield className="text-green-400 flex-shrink-0 mt-0.5" size={16} />
-                            <div>
-                                <h4 className="text-green-300 font-semibold mb-1 text-sm">
-                                    Safe to Leave App
-                                </h4>
-                                <p className="text-green-200 text-xs">
-                                    You may safely switch to settings and return within the time limit. Verification will start automatically when permission is granted.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Warning if time running low */}
-                    {timeWarning && (
-                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
-                            <div className="flex items-start space-x-2">
-                                <AlertTriangle className="text-red-400 flex-shrink-0 mt-0.5" size={16} />
-                                <div>
-                                    <h4 className="text-red-300 font-semibold mb-1 text-sm">
-                                        Time Running Out!
-                                    </h4>
-                                    <p className="text-red-200 text-xs">
-                                        Grant permission quickly or your account will be blocked automatically.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Permission button */}
-                    <button
-                        className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 text-lg font-semibold"
-                        onClick={handleRequestPermission}
-                    >
-                        <Settings size={20} />
-                        <span>Grant Permission</span>
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    // Permission expired state
-    if (pageState.flow === "permission_expired") {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center p-6">
-                <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-xl p-6 text-center">
-                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Clock className="text-red-400" size={32} />
-                    </div>
-                    <h2 className="text-xl font-bold text-white mb-2">
-                        Permission Time Expired
-                    </h2>
-                    <p className="text-red-300 text-sm mb-4">
-                        You did not grant {pageState.verificationType} permission within the allowed time.
-                    </p>
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-                        <p className="text-yellow-300 text-xs">
-                            Your account will be temporarily blocked. Redirecting...
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // Success state
-    if (pageState.flow === "success") {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center p-6">
-                <div className="max-w-md w-full bg-gray-900 border border-green-500/30 rounded-xl p-6 text-center">
-                    <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Shield className="text-green-400" size={32} />
-                    </div>
-                    <h2 className="text-xl font-bold text-white mb-2">
-                        Verification Successful
-                    </h2>
-                    <p className="text-green-300 text-sm mb-4">
-                        Your identity has been verified. Redirecting to main application...
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
-    // Error state
-    if (pageState.flow === "error") {
+    if (pageState.phase === "error") {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center p-6">
                 <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-xl p-6 text-center">
                     <AlertTriangle className="text-red-400 mx-auto mb-4" size={48} />
                     <h2 className="text-xl font-bold text-white mb-2">
-                        Verification Failed
+                        {t("nebula.verification.error")}
                     </h2>
                     <p className="text-red-300 text-sm mb-6">{pageState.error}</p>
                     <button
                         className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
                         onClick={checkNebulaStatus}
                     >
-                        Try Again
+                        {t("nebula.verification.tryAgain")}
                     </button>
                 </div>
             </div>
         );
     }
 
-    // Verification modal state - show original verification page with modal
-    return (
-        <div className="min-h-screen bg-black flex items-center justify-center p-6">
-            <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6">
-                {/* Header */}
-                <div className="text-center mb-8">
-                    <div className="flex items-center justify-center mb-4">
-                        <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center">
-                            {pageState.verificationType && getVerificationIcon(pageState.verificationType)}
-                        </div>
+    if (pageState.phase === "device_checking") {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6 text-center">
+                    <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        {pageState.verificationType && getVerificationIcon(pageState.verificationType)}
                     </div>
-                    <h1 className="text-2xl font-bold text-white mb-2">
-                        Security Verification
-                    </h1>
-                    <p className="text-gray-400 text-sm">
-                        Complete {pageState.verificationType} verification to continue
+                    <h2 className="text-xl font-bold text-white mb-2">
+                        Проверка поддержки устройства
+                    </h2>
+                    <p className="text-gray-400 text-sm mb-4">
+                        Проверяем, поддерживает ли ваше устройство требуемый тип аутентификации...
                     </p>
-                </div>
-
-                {/* Trust score display */}
-                <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-300 text-sm">Current Trust Level</span>
-                        <span className={`font-bold text-lg ${getTrustScoreColor(pageState.trustScore)}`}>
-                            {pageState.trustScore}
-                        </span>
-                    </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
-                        <div
-                            className="h-2 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
-                            style={{
-                                width: `${Math.min(100, (pageState.trustScore / 100) * 100)}%`,
-                            }}
-                        />
-                    </div>
+                    <div className="w-8 h-8 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin mx-auto" />
                 </div>
             </div>
+        );
+    }
 
-            {/* Modals - simplified versions without permission logic */}
+    if (pageState.phase === "device_unsupported") {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-xl p-6 text-center">
+                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <XCircle className="text-red-400" size={48} />
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">
+                        Устройство не поддерживается
+                    </h2>
+                    <p className="text-red-300 text-sm mb-4">
+                        Ваше устройство не поддерживает требуемый тип аутентификации.
+                    </p>
+                    <p className="text-red-200 text-xs mb-6">
+                        {pageState.error}
+                    </p>
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4">
+                        <p className="text-yellow-300 text-xs">
+                            Ваш аккаунт будет заблокирован из-за несовместимости устройства.
+                        </p>
+                    </div>
+                    <p className="text-gray-400 text-xs">Перенаправление на страницу блокировки...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (pageState.phase === "permission_required") {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6">
+                    {/* Заголовок */}
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Settings className="text-blue-400" size={48} />
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-2">
+                            Требуется разрешение
+                        </h2>
+                        <p className="text-gray-400 text-sm">
+                            Для продолжения необходимо предоставить разрешение на использование {
+                                pageState.verificationType === "biometric" ? "биометрической аутентификации" : "гироскопа"
+                            }
+                        </p>
+                    </div>
+
+                    {/* Таймер */}
+                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mb-6">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-orange-300 font-semibold">Время на получение разрешения:</span>
+                            <span className="text-orange-400 font-bold text-lg">
+                                {formatTime(pageState.permissionTimer)}
+                            </span>
+                        </div>
+                        <div className="w-full bg-orange-900/30 rounded-full h-2">
+                            <div
+                                className="h-2 rounded-full bg-orange-500 transition-all duration-1000"
+                                style={{ 
+                                    width: `${(pageState.permissionTimer / (PERMISSION_TIMEOUT_MS / 1000)) * 100}%` 
+                                }}
+                            />
+                        </div>
+                        <p className="text-orange-200 text-xs mt-2">
+                            Вы можете безопасно покинуть приложение для настройки разрешений
+                        </p>
+                    </div>
+
+                    {/* Инструкция */}
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+                        <h3 className="text-blue-300 font-semibold mb-2">Инструкция:</h3>
+                        <div className="text-blue-200 text-sm space-y-1">
+                            <p>1. Нажмите кнопку Предоставить разрешение</p>
+                            <p>2. Согласитесь в системном диалоге или настройках</p>
+                            <p>3. Перезапустите приложение</p>
+                        </div>
+                    </div>
+
+                    {/* Предупреждение */}
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
+                        <div className="flex items-start space-x-2">
+                            <AlertTriangle className="text-red-400 flex-shrink-0 mt-0.5" size={16} />
+                            <div>
+                                <h4 className="text-red-300 font-semibold mb-1 text-sm">Внимание!</h4>
+                                <p className="text-red-200 text-xs">
+                                    Если вы не предоставите разрешение в течение {formatTime(pageState.permissionTimer)}, 
+                                    ваш аккаунт будет автоматически заблокирован.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Кнопка запроса разрешения */}
+                    <button
+                        className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 text-lg font-semibold disabled:opacity-50"
+                        onClick={requestPermission}
+                        disabled={pageState.deviceCapability.permissionRequested}
+                    >
+                        <Shield size={20} />
+                        <span>
+                            {pageState.deviceCapability.permissionRequested 
+                                ? "Разрешение запрошено" 
+                                : "Предоставить разрешение"
+                            }
+                        </span>
+                    </button>
+
+                    {pageState.deviceCapability.permissionRequested && (
+                        <p className="text-gray-400 text-xs text-center mt-3">
+                            Ожидаем предоставления разрешения... Проверка каждые {PERMISSION_CHECK_INTERVAL_MS / 1000} секунд
+                        </p>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    if (pageState.phase === "ready_to_verify") {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6">
+                    <div className="text-center mb-6">
+                        <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 className="text-green-400" size={48} />
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-2">
+                            Готов к верификации
+                        </h2>
+                        <p className="text-gray-400 text-sm">
+                            Устройство поддерживает требуемый тип аутентификации. Начинаем верификацию...
+                        </p>
+                    </div>
+                    <div className="w-8 h-8 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin mx-auto" />
+                </div>
+            </div>
+        );
+    }
+
+    if (pageState.phase === "success") {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-900 border border-green-500/30 rounded-xl p-6 text-center">
+                    <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle2 className="text-green-400" size={48} />
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">
+                        {t("nebula.verification.success.title")}
+                    </h2>
+                    <p className="text-green-300 text-sm mb-4">
+                        {t("nebula.verification.success.message")}
+                    </p>
+                    <p className="text-gray-400 text-xs">{t("nebula.verification.success.redirecting")}</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (pageState.phase === "failure") {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-xl p-6 text-center">
+                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <XCircle className="text-red-400" size={48} />
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">
+                        {t("nebula.verification.failure.title")}
+                    </h2>
+                    <p className="text-red-300 text-sm mb-4">
+                        {t("nebula.verification.failure.message")}
+                    </p>
+                    <p className="text-gray-400 text-xs">
+                        {t("nebula.verification.failure.redirecting")}
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    // Фаза верификации - отображаем модальные окна
+    return (
+        <div className="min-h-screen bg-black flex items-center justify-center">
+            {/* Модальные окна верификации */}
             {pageState.verificationType === "captcha" && (
                 <NebulaCaptchaModal
                     attemptId={pageState.attemptId}
-                    isOpen={pageState.isModalOpen}
-                    onClose={() => { }}
+                    isOpen={pageState.phase === "verifying"}
+                    onClose={handleCloseModal}
                     onFailure={handleVerificationFailure}
                     onSuccess={handleVerificationSuccess}
                 />
@@ -1021,22 +896,22 @@ export default function NebulaPage(): JSX.Element {
             {pageState.verificationType === "biometric" && (
                 <NebulaBiometricModal
                     attemptId={pageState.attemptId}
-                    isOpen={pageState.isModalOpen}
-                    onClose={() => { }}
+                    isOpen={pageState.phase === "verifying"}
+                    onClose={handleCloseModal}
                     onFailure={handleVerificationFailure}
                     onSuccess={handleVerificationSuccess}
-                    onPhaseChange={() => { }} // No phase change handling needed
+                    skipDeviceCheck={true} // Новый пропс для пропуска проверки устройства
                 />
             )}
 
             {pageState.verificationType === "gyroscope" && (
                 <NebulaGyroscopeModal
                     attemptId={pageState.attemptId}
-                    isOpen={pageState.isModalOpen}
-                    onClose={() => { }}
+                    isOpen={pageState.phase === "verifying"}
+                    onClose={handleCloseModal}
                     onFailure={handleVerificationFailure}
                     onSuccess={handleVerificationSuccess}
-                    onPhaseChange={() => { }} // No phase change handling needed
+                    skipDeviceCheck={true} // Новый пропс для пропуска проверки устройства
                 />
             )}
         </div>

@@ -1,4 +1,4 @@
-// src/components/Security/NebulaGyroscopeModal.tsx - Simplified version for authentication only
+// src/components/Security/NebulaGyroscopeModal.tsx - Обновленная версия без проверки поддержки устройства
 
 "use client";
 
@@ -21,7 +21,7 @@ interface NebulaGyroscopeModalProps {
     onFailure: () => void;
     onClose?: () => void;
     attemptId: string | null;
-    onPhaseChange?: (phase: GyroscopePhase, canAbandon: boolean) => void;
+    skipDeviceCheck?: boolean; // Новый пропс для пропуска проверки устройства
 }
 
 type GyroscopePhase =
@@ -32,9 +32,9 @@ type GyroscopePhase =
     | "error";
 
 interface GyroscopeData {
-    alpha: number | null;
-    beta: number | null;
-    gamma: number | null;
+    alpha: number | null; // Z-axis rotation
+    beta: number | null; // X-axis rotation
+    gamma: number | null; // Y-axis rotation
 }
 
 interface GyroscopeState {
@@ -48,12 +48,13 @@ interface GyroscopeState {
     requiredMovements: number;
 }
 
-// Configuration
+// Конфигурация временных интервалов
 const TIMING_CONFIG = {
-    VERIFICATION_TIMEOUT: 20000, // 20 seconds
-    MOVEMENT_THRESHOLD: 12, // 12 degrees
-    MOVEMENT_COOLDOWN: 800, // 800ms between movements
-    REQUIRED_MOVEMENTS: 3, // 3 movements required
+    VERIFICATION_TIMEOUT: 20000, // 20 секунд
+    MOVEMENT_THRESHOLD: 12, // 12 градусов для движения
+    MOVEMENT_COOLDOWN: 800, // 800мс между движениями
+    REQUIRED_MOVEMENTS: 3, // 3 движения
+    DATA_AVAILABILITY_TIMEOUT: 4000, // 4 секунды для проверки данных
 } as const;
 
 const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
@@ -62,12 +63,12 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     onFailure,
     onClose,
     attemptId,
-    onPhaseChange,
+    skipDeviceCheck = false,
 }) => {
     const { makeAuthenticatedRequest } = useUser();
     const t = useT();
 
-    // Refs for gyroscope data
+    // Рефы для данных гироскопа и детекции движений
     const gyroscopeDataRef = useRef<GyroscopeData>({
         alpha: null,
         beta: null,
@@ -94,13 +95,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
         requiredMovements: TIMING_CONFIG.REQUIRED_MOVEMENTS,
     });
 
-    useEffect(() => {
-        if (onPhaseChange) {
-            onPhaseChange(state.currentPhase, false); // Never safe to abandon during verification
-        }
-    }, [state.currentPhase, onPhaseChange]);
-
-    // Reset state when modal opens/closes
+    // Сброс состояния при открытии/закрытии модального окна
     useEffect(() => {
         if (!isOpen) {
             setState({
@@ -118,9 +113,12 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             lastMovementTimeRef.current = 0;
             initialDataRef.current = { alpha: null, beta: null, gamma: null };
 
-            // Clean up event listeners
+            // Очистка обработчиков событий
             if (eventListenerRef.current) {
-                window.removeEventListener("deviceorientation", eventListenerRef.current);
+                window.removeEventListener(
+                    "deviceorientation",
+                    eventListenerRef.current,
+                );
                 eventListenerRef.current = null;
             }
 
@@ -128,7 +126,19 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
         }
 
         if (attemptId) {
-            initializeGyroscope();
+            if (skipDeviceCheck) {
+                // Пропускаем проверку устройства и сразу показываем инструкции
+                setState((prev) => ({
+                    ...prev,
+                    currentPhase: "instructions",
+                }));
+            } else {
+                // Оставляем старую логику для совместимости
+                setState((prev) => ({
+                    ...prev,
+                    currentPhase: "instructions",
+                }));
+            }
         } else {
             setState((prev) => ({
                 ...prev,
@@ -136,9 +146,9 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                 currentPhase: "error",
             }));
         }
-    }, [isOpen, attemptId, t]);
+    }, [isOpen, attemptId, skipDeviceCheck, t]);
 
-    // Verification timer
+    // Таймер для фазы верификации
     useEffect(() => {
         if (!state.verificationTimerActive || state.currentPhase !== "verification")
             return;
@@ -160,17 +170,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     }, [state.verificationTimerActive, state.currentPhase]);
 
     /**
-     * Initialize gyroscope - assumes device support and permissions already confirmed
-     */
-    const initializeGyroscope = async () => {
-        console.log("Initializing gyroscope verification");
-
-        // Since device support and permissions are handled on main page, go directly to instructions
-        setState((prev) => ({ ...prev, currentPhase: "instructions" }));
-    };
-
-    /**
-     * Handle verification timeout
+     * Обработка тайм-аута верификации
      */
     const handleVerificationTimeout = useCallback(() => {
         console.log("Gyroscope verification timeout");
@@ -179,7 +179,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     }, [t]);
 
     /**
-     * Handle verification failure
+     * Обработка неудачи верификации
      */
     const handleVerificationFailure = useCallback(
         async (reason: string) => {
@@ -191,9 +191,12 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                 verificationTimerActive: false,
             }));
 
-            // Clean up event listener
+            // Очистка обработчика событий
             if (eventListenerRef.current) {
-                window.removeEventListener("deviceorientation", eventListenerRef.current);
+                window.removeEventListener(
+                    "deviceorientation",
+                    eventListenerRef.current,
+                );
                 eventListenerRef.current = null;
             }
 
@@ -205,7 +208,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                         body: JSON.stringify({
                             success: false,
                             completedInTime: false,
-                            deviceSupported: true, // Already confirmed on main page
+                            deviceSupported: true, // Устройство уже проверено на странице
                             attemptId,
                         }),
                     });
@@ -220,7 +223,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     );
 
     /**
-     * Handle verification success
+     * Обработка успешной верификации с фактическим количеством движений
      */
     const handleVerificationSuccess = useCallback(
         async (actualMovements?: number) => {
@@ -231,30 +234,36 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                 currentPhase: "success",
             }));
 
-            // Clean up event listener
+            // Очистка обработчика событий
             if (eventListenerRef.current) {
-                window.removeEventListener("deviceorientation", eventListenerRef.current);
+                window.removeEventListener(
+                    "deviceorientation",
+                    eventListenerRef.current,
+                );
                 eventListenerRef.current = null;
             }
 
             if (attemptId) {
                 try {
-                    const response = await makeAuthenticatedRequest("/api/nebula/gyroscope", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            success: true,
-                            completedInTime: true,
-                            deviceSupported: true,
-                            attemptId,
-                            movementData: {
-                                totalMovements: actualMovements ?? state.detectedMovements,
-                                requiredMovements: TIMING_CONFIG.REQUIRED_MOVEMENTS,
-                                timeSpent: TIMING_CONFIG.VERIFICATION_TIMEOUT - state.verificationTimeRemaining,
-                                significantMovements: true,
-                            },
-                        }),
-                    });
+                    const response = await makeAuthenticatedRequest(
+                        "/api/nebula/gyroscope",
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                success: true,
+                                completedInTime: true,
+                                deviceSupported: true, // Устройство уже проверено на странице
+                                attemptId,
+                                movementData: {
+                                    totalMovements: actualMovements ?? state.detectedMovements,
+                                    requiredMovements: TIMING_CONFIG.REQUIRED_MOVEMENTS,
+                                    timeSpent: TIMING_CONFIG.VERIFICATION_TIMEOUT - state.verificationTimeRemaining,
+                                    significantMovements: true,
+                                },
+                            }),
+                        },
+                    );
 
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -296,7 +305,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     );
 
     /**
-     * Start verification process
+     * Начало процесса верификации
      */
     const handleStartVerification = () => {
         if (state.isVerifying || state.attemptMade) return;
@@ -313,39 +322,51 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             error: null,
         }));
 
-        // Set up orientation event handler
+        // Настройка обработчика событий ориентации устройства
         const handleOrientationChange = (event: DeviceOrientationEvent) => {
             const currentData: GyroscopeData = {
-                alpha: event.alpha,
-                beta: event.beta,
-                gamma: event.gamma,
+                alpha: event.alpha, // Z-axis (compass heading)
+                beta: event.beta, // X-axis (front-to-back tilt)
+                gamma: event.gamma, // Y-axis (left-to-right tilt)
             };
 
-            // Save initial values for comparison
+            // Сохранение начальных значений для сравнения
             if (initialDataRef.current.alpha === null && currentData.alpha !== null) {
                 initialDataRef.current = { ...currentData };
                 console.log("Initial gyroscope data captured:", initialDataRef.current);
                 return;
             }
 
-            // Detect movement
+            // Детекция значимых движений
             detectMovement(currentData);
 
-            // Update current data
+            // Обновление текущих данных
             gyroscopeDataRef.current = currentData;
         };
 
         eventListenerRef.current = handleOrientationChange;
         window.addEventListener("deviceorientation", handleOrientationChange);
+
+        // Автоматическая неудача если данные гироскопа не получены в течение времени
+        setTimeout(() => {
+            if (
+                gyroscopeDataRef.current.alpha === null &&
+                gyroscopeDataRef.current.beta === null &&
+                gyroscopeDataRef.current.gamma === null
+            ) {
+                console.log("No gyroscope data received - device likely doesn't support it");
+                handleVerificationFailure(t("nebula.gyroscope.errors.noData"));
+            }
+        }, TIMING_CONFIG.DATA_AVAILABILITY_TIMEOUT);
     };
 
     /**
-     * Detect significant movements
+     * Детекция значимых движений в данных гироскопа
      */
     const detectMovement = (currentData: GyroscopeData) => {
         const now = Date.now();
 
-        // Prevent rapid repeated detections
+        // Предотвращение быстрых повторных детекций движения
         if (now - lastMovementTimeRef.current < TIMING_CONFIG.MOVEMENT_COOLDOWN) {
             return;
         }
@@ -363,15 +384,15 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             return;
         }
 
-        // Calculate differences from initial position
+        // Вычисление различий от начального положения
         const alphaDiff = Math.abs((currentData.alpha || 0) - (initial.alpha || 0));
         const betaDiff = Math.abs((currentData.beta || 0) - (initial.beta || 0));
         const gammaDiff = Math.abs((currentData.gamma || 0) - (initial.gamma || 0));
 
-        // Normalize alpha difference for 0-360 wrap
+        // Нормализация различия alpha для обработки перехода 0-360
         const normalizedAlphaDiff = Math.min(alphaDiff, 360 - alphaDiff);
 
-        // Check for significant movement on any axis
+        // Проверка значимого движения по любой оси
         const significantMovement =
             normalizedAlphaDiff > TIMING_CONFIG.MOVEMENT_THRESHOLD ||
             betaDiff > TIMING_CONFIG.MOVEMENT_THRESHOLD ||
@@ -388,7 +409,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             setState((prev) => {
                 const newCount = prev.detectedMovements + 1;
 
-                // Check if verification is complete
+                // Проверка завершения верификации
                 if (newCount >= TIMING_CONFIG.REQUIRED_MOVEMENTS) {
                     handleVerificationSuccess(newCount);
                 }
@@ -402,7 +423,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     };
 
     /**
-     * Format time remaining
+     * Форматирование оставшегося времени
      */
     const formatTime = (ms: number): string => {
         const seconds = Math.ceil(ms / 1000);
@@ -410,7 +431,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     };
 
     /**
-     * Get progress percentage
+     * Получение процента прогресса
      */
     const getProgressPercentage = (): number => {
         return Math.min(100, (state.detectedMovements / TIMING_CONFIG.REQUIRED_MOVEMENTS) * 100);
@@ -421,7 +442,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
             <div className="relative w-full max-w-md mx-4 bg-gray-900 border border-gray-700 rounded-xl p-6 shadow-2xl">
-                {/* Header */}
+                {/* Заголовок */}
                 <div className="text-center mb-6">
                     <div className="flex items-center justify-center mb-4">
                         <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center">
@@ -446,7 +467,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                     </p>
                 </div>
 
-                {/* Main content */}
+                {/* Основной контент */}
                 {!attemptId ? (
                     <div className="text-center py-4">
                         <p className="text-red-400">{t("nebula.captcha.noAttemptId")}</p>
@@ -477,6 +498,12 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                                 <p className="text-red-200 text-xs">{state.error}</p>
                             </div>
                         </div>
+
+                        <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                            <p className="text-yellow-300 text-xs text-center">
+                                {t("nebula.gyroscope.blockWarningFailed")}
+                            </p>
+                        </div>
                     </div>
                 ) : state.currentPhase === "instructions" ? (
                     <div className="space-y-6">
@@ -506,12 +533,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                            <p className="text-yellow-300 text-xs text-center">
-                                {t("nebula.gyroscope.oneAttempt")}
-                            </p>
-                        </div>
-
                         <button
                             className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 text-lg font-semibold"
                             onClick={handleStartVerification}
@@ -522,7 +543,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                     </div>
                 ) : state.currentPhase === "verification" ? (
                     <div className="space-y-6">
-                        {/* Timer */}
+                        {/* Таймер */}
                         <div className="flex items-center justify-center space-x-2 text-sm">
                             <Clock className="text-orange-400" size={16} />
                             <span
@@ -533,7 +554,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                             <span className="text-gray-500">{t("nebula.common.timeRemaining")}</span>
                         </div>
 
-                        {/* Progress */}
+                        {/* Прогресс движений */}
                         <div className="bg-gray-800 border border-gray-600 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-white font-semibold">
@@ -554,7 +575,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                             </p>
                         </div>
 
-                        {/* Current instruction */}
+                        {/* Текущая инструкция */}
                         <div className="text-center">
                             <div className="mb-3">
                                 <RotateCcw
