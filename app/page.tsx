@@ -1,4 +1,4 @@
-// src/app/page.tsx - Fixed new user handling
+// src/app/page.tsx - Fixed new user handling and video completion
 
 "use client";
 
@@ -309,7 +309,7 @@ export default function IntroPage(): JSX.Element {
   ]);
 
   /**
-   * Handle video completion and trigger registration
+   * FIXED: Handle video completion and trigger registration
    */
   const handleVideoCompletion = useCallback(async () => {
     console.log("Video completed");
@@ -334,12 +334,15 @@ export default function IntroPage(): JSX.Element {
         pageState.referralInfo?.code
       );
 
+      // FIXED: registerNewUser уже содержит редирект при успешной регистрации
+      // Здесь обрабатываем только ошибки
       if (!registrationResult.success) {
         console.error("Registration failed after video:", registrationResult.error);
         setTimeout(() => {
           router.push("/main");
         }, 2000);
       }
+      // При успешной регистрации редирект происходит в registerNewUser
     } else if (currentAuthState.isAuthenticated) {
       console.log("User already authenticated, redirecting to main");
       router.push("/main");
@@ -471,11 +474,12 @@ export default function IntroPage(): JSX.Element {
   }, [handleVideoCompletion]);
 
   // FIXED: Initialize authentication flow with proper error handling
+  // Предотвращаем повторную инициализацию после успешной регистрации
   useEffect(() => {
-    if (!authInitializedRef.current) {
+    if (!authInitializedRef.current && !authState.isAuthenticated) {
       initializeAuthentication();
     }
-  }, [initializeAuthentication]);
+  }, [initializeAuthentication, authState.isAuthenticated]);
 
   // Determine loading state
   const isInitialLoading = pageState.isInitializing ||

@@ -221,5 +221,6 @@ export const game = {
         duration: "Длительность",
         startPlaying: "НАЧАТЬ ИГРАТЬ",
         checkingAttempts: "ПРОВЕРКА ПОПЫТОК...",
+        lock: "Блок"
     },
 } as const;

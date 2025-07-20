@@ -220,6 +220,7 @@ export const game = {
         difficulty: "Difficulty",
         duration: "Duration",
         startPlaying: "START PLAYING",
-        checkingAttempts: "CHECKING ATTEMPTS..."
+        checkingAttempts: "CHECKING ATTEMPTS...",
+        lock: "Lock"
     }
 } as const;

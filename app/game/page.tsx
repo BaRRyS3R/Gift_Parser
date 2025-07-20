@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Исправленная страница игр с корректным потреблением попыток
+// src/app/game/page.tsx - Исправленная страница игр с корректным отображением состояний кнопок
 
 "use client";
 
@@ -291,11 +291,19 @@ const CompactGameModeCard = ({
           `}
         >
           {isCurrentModeLoading ? (
+            // Показываем загрузку только для текущего режима
             <>
               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
               <span>{t("common.loading")}</span>
             </>
+          ) : isAnyModeLoading && !isCurrentModeLoading ? (
+            // Показываем заблокированное состояние когда загружается другой режим
+            <>
+              <Shield size={16} />
+              <span>{t("game.general.lock")}</span>
+            </>
           ) : (
+            // Обычное состояние
             <>
               <Play size={16} />
               <span>
