@@ -68,7 +68,7 @@ export interface VerificationRequirement {
     threshold: number;
 }
 
-// Enhanced verification attempt interface with permission states
+// Enhanced verification attempt interface (backwards compatible)
 export interface VerificationAttempt {
     id: string;
     userId: string;
@@ -77,8 +77,6 @@ export interface VerificationAttempt {
     startedAt: string;
     expiresAt: string;
     deviceSupported: boolean;
-    permissionRequested?: boolean;
-    permissionGranted?: boolean;
 }
 
 // Service response interfaces
@@ -153,19 +151,17 @@ export const serverBlockService = {
     },
 
     /**
-     * Create verification attempt with enhanced permission tracking
+     * Create verification attempt (compatible with existing database schema)
      */
     async createVerificationAttempt(
         userId: string,
         telegramId: number,
         verificationType: VerificationType,
         deviceSupported: boolean = true,
-        permissionRequested: boolean = false,
-        permissionGranted: boolean = false,
     ): Promise<string> {
         try {
             const startedAt = new Date().toISOString();
-            const expiresAt = new Date(Date.now() + 300000).toISOString(); // 5 minutes for permission workflow
+            const expiresAt = new Date(Date.now() + 15000).toISOString(); // 15 seconds
 
             const { data, error } = await supabaseServer
                 .from("verification_attempts")
@@ -176,8 +172,6 @@ export const serverBlockService = {
                     started_at: startedAt,
                     expires_at: expiresAt,
                     device_supported: deviceSupported,
-                    permission_requested: permissionRequested,
-                    permission_granted: permissionGranted,
                 })
                 .select("id")
                 .single();
@@ -200,36 +194,7 @@ export const serverBlockService = {
     },
 
     /**
-     * Update verification attempt permission status
-     */
-    async updateVerificationAttemptPermission(
-        attemptId: string,
-        permissionRequested: boolean,
-        permissionGranted: boolean,
-    ): Promise<void> {
-        try {
-            const { error } = await supabaseServer
-                .from("verification_attempts")
-                .update({
-                    permission_requested: permissionRequested,
-                    permission_granted: permissionGranted,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq("id", attemptId);
-
-            if (error) {
-                throw new Error(`Failed to update verification attempt: ${error.message}`);
-            }
-
-            console.log(`Updated verification attempt ${attemptId} permission status`);
-        } catch (error) {
-            console.error("Error updating verification attempt permission:", error);
-            throw new Error("Failed to update verification attempt permission");
-        }
-    },
-
-    /**
-     * Check for active or expired verification attempt
+     * Check for active or expired verification attempt (compatible with existing schema)
      */
     async checkVerificationAttempt(telegramId: number): Promise<{
         attempt: VerificationAttempt | null;
@@ -256,8 +221,6 @@ export const serverBlockService = {
                 startedAt: data.started_at,
                 expiresAt: data.expires_at,
                 deviceSupported: data.device_supported,
-                permissionRequested: data.permission_requested,
-                permissionGranted: data.permission_granted,
             };
 
             const isExpired = new Date(data.expires_at) < new Date();
@@ -649,8 +612,6 @@ export const serverBlockService = {
                     originalStartTime: attempt.startedAt,
                     originalExpireTime: attempt.expiresAt,
                     deviceSupported: attempt.deviceSupported,
-                    permissionRequested: attempt.permissionRequested,
-                    permissionGranted: attempt.permissionGranted,
                 },
             );
 

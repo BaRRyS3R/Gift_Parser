@@ -868,8 +868,8 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                             ) : (
                                 <button
                                     className={`w-full px-6 py-3 text-white rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 ${state.permissionGranted
-                                        ? "bg-green-600 hover:bg-green-700"
-                                        : "bg-orange-600 hover:bg-orange-700"
+                                            ? "bg-green-600 hover:bg-green-700"
+                                            : "bg-orange-600 hover:bg-orange-700"
                                         }`}
                                     onClick={handleCheckPermission}
                                 >
@@ -998,6 +998,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
                         <p className="text-green-300 text-sm mb-4">
                             {t("nebula.gyroscope.success.restoring")}
                         </p>
+                        <div className="w-8 h-8 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin mx-auto" />
                     </div>
                 ) : null}
             </div>

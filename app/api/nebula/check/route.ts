@@ -1,4 +1,4 @@
-// src/app/api/nebula/check/route.ts - Simplified without grace period logic
+// src/app/api/nebula/check/route.ts - Fixed to work with existing database schema
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -28,7 +28,7 @@ interface NebulaCheckResponse {
 /**
  * GET /api/nebula/check
  * Check if user is blocked, has abandoned verification, or requires verification
- * Simplified without grace period support
+ * Fixed to work with existing database schema
  */
 export async function GET(
     request: NextRequest,
@@ -146,7 +146,7 @@ export async function GET(
                 `User ${telegramIdNumber} requires ${verificationReq.type} verification. Trust score: ${verificationReq.trustScore}`,
             );
 
-            // Create new verification attempt
+            // Create new verification attempt with basic parameters
             const attemptId = await serverBlockService.createVerificationAttempt(
                 userId,
                 telegramIdNumber,
