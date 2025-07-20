@@ -628,7 +628,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                                 Instructions:
                             </h4>
                             <div className="text-blue-200 text-sm space-y-1">
-                                <p>1. Tap "Grant Permission" below</p>
+                                <p>1. Tap &quot;Grant Permission&quot; below</p>
                                 <p>2. You may need to temporarily leave the app to enable biometric access in settings</p>
                                 <p>3. Return to this app and authentication will begin automatically</p>
                                 <p>4. Complete the biometric authentication when prompted</p>
