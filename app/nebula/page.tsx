@@ -1,4 +1,4 @@
-// src/app/nebula/page.tsx - Fixed with intelligent abandonment detection
+// src/app/nebula/page.tsx - Fixed with intelligent abandonment detection and localization
 
 "use client";
 
@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Shield, AlertTriangle, Clock, Zap } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useT } from "@/contexts/LocalizationContext";
 import NebulaCaptchaModal from "@/components/Security/NebulaCaptchaModal";
 import NebulaBiometricModal from "@/components/Security/NebulaBiometricModal";
 import NebulaGyroscopeModal from "@/components/Security/NebulaGyroscopeModal";
@@ -59,6 +60,7 @@ interface AbandonmentState {
 export default function NebulaPage(): JSX.Element {
     const router = useRouter();
     const { makeAuthenticatedRequest, authState } = useUser();
+    const t = useT();
 
     // Refs for state management
     const abandonmentStateRef = useRef<AbandonmentState>({
@@ -386,22 +388,6 @@ export default function NebulaPage(): JSX.Element {
     }, [pageState.verificationInProgress]);
 
     /**
-     * Get verification type description
-     */
-    const getVerificationDescription = (type: VerificationType): string => {
-        switch (type) {
-            case "captcha":
-                return "Complete a security challenge to verify your identity";
-            case "biometric":
-                return "Use biometric authentication to verify your identity";
-            case "gyroscope":
-                return "Complete device movement verification to confirm authenticity";
-            default:
-                return "Complete security verification";
-        }
-    };
-
-    /**
      * Get verification icon
      */
     const getVerificationIcon = (type: VerificationType) => {
@@ -433,7 +419,7 @@ export default function NebulaPage(): JSX.Element {
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-white text-lg">Checking security status...</p>
+                    <p className="text-white text-lg">{t("nebula.verification.loading")}</p>
                 </div>
             </div>
         );
@@ -446,14 +432,14 @@ export default function NebulaPage(): JSX.Element {
                 <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-xl p-6 text-center">
                     <AlertTriangle className="text-red-400 mx-auto mb-4" size={48} />
                     <h2 className="text-xl font-bold text-white mb-2">
-                        Security Check Failed
+                        {t("nebula.verification.error")}
                     </h2>
                     <p className="text-red-300 text-sm mb-6">{pageState.error}</p>
                     <button
                         className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
                         onClick={checkNebulaStatus}
                     >
-                        Try Again
+                        {t("nebula.verification.tryAgain")}
                     </button>
                 </div>
             </div>
@@ -469,13 +455,12 @@ export default function NebulaPage(): JSX.Element {
                         <Shield className="text-green-400" size={32} />
                     </div>
                     <h2 className="text-xl font-bold text-white mb-2">
-                        Verification Successful
+                        {t("nebula.verification.success.title")}
                     </h2>
                     <p className="text-green-300 text-sm mb-4">
-                        Your identity has been verified successfully. Your trust score has
-                        been restored.
+                        {t("nebula.verification.success.message")}
                     </p>
-                    <p className="text-gray-400 text-xs">Redirecting to main page...</p>
+                    <p className="text-gray-400 text-xs">{t("nebula.verification.success.redirecting")}</p>
                 </div>
             </div>
         );
@@ -490,14 +475,13 @@ export default function NebulaPage(): JSX.Element {
                         <AlertTriangle className="text-red-400" size={32} />
                     </div>
                     <h2 className="text-xl font-bold text-white mb-2">
-                        Verification Failed
+                        {t("nebula.verification.failure.title")}
                     </h2>
                     <p className="text-red-300 text-sm mb-4">
-                        Identity verification was unsuccessful. Your account will be
-                        temporarily blocked.
+                        {t("nebula.verification.failure.message")}
                     </p>
                     <p className="text-gray-400 text-xs">
-                        Redirecting to blocked page...
+                        {t("nebula.verification.failure.redirecting")}
                     </p>
                 </div>
             </div>
@@ -517,17 +501,17 @@ export default function NebulaPage(): JSX.Element {
                         </div>
                     </div>
                     <h1 className="text-2xl font-bold text-white mb-2">
-                        Security Verification Required
+                        {t("nebula.verification.title")}
                     </h1>
                     <p className="text-gray-400 text-sm">
-                        Your account requires additional security verification to continue
+                        {t("nebula.verification.subtitle")}
                     </p>
                 </div>
 
                 {/* Trust Score Display */}
                 <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-300 text-sm">Current Trust Score</span>
+                        <span className="text-gray-300 text-sm">{t("nebula.verification.trustScore")}</span>
                         <span
                             className={`font-bold text-lg ${getTrustScoreColor(pageState.trustScore)}`}
                         >
@@ -543,7 +527,7 @@ export default function NebulaPage(): JSX.Element {
                         />
                     </div>
                     <p className="text-gray-400 text-xs">
-                        Required threshold: {pageState.threshold}
+                        {t("nebula.verification.requiredThreshold", { threshold: pageState.threshold })}
                     </p>
                 </div>
 
@@ -551,10 +535,10 @@ export default function NebulaPage(): JSX.Element {
                 {pageState.verificationType && (
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
                         <h3 className="text-blue-300 font-semibold mb-2 capitalize">
-                            {pageState.verificationType} Verification
+                            {t(`nebula.verification.types.${pageState.verificationType}.name` as any)}
                         </h3>
                         <p className="text-blue-200 text-sm">
-                            {getVerificationDescription(pageState.verificationType)}
+                            {t(`nebula.verification.types.${pageState.verificationType}.description` as any)}
                         </p>
                     </div>
                 )}
@@ -569,36 +553,59 @@ export default function NebulaPage(): JSX.Element {
                             />
                             <div>
                                 <h4 className="text-green-300 font-semibold mb-1 text-sm">
-                                    Safe Navigation During Setup
+                                    {t("nebula.verification.warningBiometricSafe")}
                                 </h4>
                                 <p className="text-green-200 text-xs">
-                                    You may safely leave this application while granting biometric permissions.
-                                    Your verification session will remain active and you can return at any time
-                                    during the permission setup process.
+                                    {t("nebula.verification.warningBiometricText")}
                                 </p>
                             </div>
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
                         <div className="flex items-start space-x-2">
                             <AlertTriangle
-                                className="text-yellow-400 flex-shrink-0 mt-0.5"
+                                className="text-red-400 flex-shrink-0 mt-0.5"
                                 size={16}
                             />
                             <div>
-                                <h4 className="text-yellow-300 font-semibold mb-1 text-sm">
-                                    Important
+                                <h4 className="text-red-300 font-semibold mb-1 text-sm">
+                                    {t("nebula.verification.warningCritical")}
                                 </h4>
-                                <p className="text-yellow-200 text-xs">
-                                    You have one attempt to complete verification. Closing this page
-                                    or navigating away will result in account blocking. Complete the
-                                    verification within 15 seconds.
+                                <p className="text-red-200 text-xs font-bold mb-2">
+                                    {t("nebula.verification.warningLeaving")}
+                                </p>
+                                <p className="text-red-200 text-xs">
+                                    {t("nebula.verification.warningBan")}
                                 </p>
                             </div>
                         </div>
                     </div>
                 )}
+
+                {/* Appeal Contact Information */}
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
+                    <h4 className="text-yellow-300 font-semibold mb-2 text-sm">
+                        {t("nebula.blocked.appeal.title")}
+                    </h4>
+                    <p className="text-yellow-200 text-xs mb-2">
+                        {t("nebula.blocked.appeal.subtitle")}
+                    </p>
+                    <div className="flex items-center space-x-2">
+                        <span className="text-yellow-200 text-xs">{t("nebula.blocked.appeal.contact")}</span>
+                        <a
+                            href={t("nebula.blocked.appeal.contactLink")}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-yellow-300 text-xs font-bold hover:text-yellow-100 transition-colors"
+                        >
+                            {t("nebula.blocked.appeal.contactText")}
+                        </a>
+                    </div>
+                    <p className="text-yellow-200 text-xs mt-2 opacity-80">
+                        {t("nebula.blocked.appeal.note")}
+                    </p>
+                </div>
 
                 {/* Start Verification Button */}
                 <button
@@ -613,12 +620,12 @@ export default function NebulaPage(): JSX.Element {
                     {pageState.verificationInProgress ? (
                         <>
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Verification in Progress...</span>
+                            <span>{t("nebula.verification.verificationInProgress")}</span>
                         </>
                     ) : (
                         <>
                             <Shield size={20} />
-                            <span>Start Verification</span>
+                            <span>{t("nebula.verification.startVerification")}</span>
                         </>
                     )}
                 </button>

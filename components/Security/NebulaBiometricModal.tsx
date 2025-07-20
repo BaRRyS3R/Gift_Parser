@@ -1,4 +1,4 @@
-// src/components/Security/NebulaBiometricModal.tsx - Fixed abandonment tracking logic
+// src/components/Security/NebulaBiometricModal.tsx - Updated with localization
 
 "use client";
 
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useT } from "@/contexts/LocalizationContext";
 
 interface NebulaBiometricModalProps {
     isOpen: boolean;
@@ -44,7 +45,7 @@ interface BiometricState {
     attemptMade: boolean;
     authTimerActive: boolean;
     isBiometricSupported: boolean;
-    canAbandon: boolean; // New field to control abandonment tracking
+    canAbandon: boolean;
 }
 
 const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
@@ -56,6 +57,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     onPhaseChange,
 }) => {
     const { makeAuthenticatedRequest } = useUser();
+    const t = useT();
     const authTimeout = 15000; // 15 seconds for authentication
 
     const [state, setState] = useState<BiometricState>({
@@ -68,7 +70,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         attemptMade: false,
         authTimerActive: false,
         isBiometricSupported: true,
-        canAbandon: false, // Initially safe from abandonment
+        canAbandon: false,
     });
 
     // Notify parent component about phase changes and abandonment safety
@@ -109,17 +111,17 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         }
 
         if (attemptId) {
-            updatePhase("initializing", false); // Safe during initialization
+            updatePhase("initializing", false);
             initBiometric();
         } else {
             setState((prev) => ({
                 ...prev,
-                error: "No verification attempt ID provided",
+                error: t("nebula.captcha.noAttemptId"),
                 currentPhase: "error",
-                canAbandon: true, // Can abandon on error
+                canAbandon: true,
             }));
         }
-    }, [isOpen, attemptId, updatePhase]);
+    }, [isOpen, attemptId, updatePhase, t]);
 
     // Authentication phase timer
     useEffect(() => {
@@ -150,7 +152,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         if (typeof window === "undefined") {
             console.log("Window not available");
             await handleUnsupportedDevice(
-                "Biometric authentication is not available in this environment",
+                t("nebula.biometric.errors.deviceNotSupported"),
             );
             return;
         }
@@ -162,7 +164,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 "BiometricManager not available - device/platform not supported",
             );
             await handleUnsupportedDevice(
-                "Biometric authentication is not supported on this device or platform",
+                t("nebula.biometric.errors.deviceNotSupported"),
             );
             return;
         }
@@ -181,7 +183,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
             if (!manager.isBiometricAvailable) {
                 console.log("Biometric not available on device");
                 handleUnsupportedDevice(
-                    "Biometric authentication is not available on this device",
+                    t("nebula.biometric.errors.deviceNotSupported"),
                 );
                 return;
             }
@@ -189,7 +191,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
             // Check if permission is already granted
             if (manager.isAccessGranted) {
                 console.log("Permission already granted, proceeding to authentication");
-                updatePhase("auth", true); // Can abandon during auth phase
+                updatePhase("auth", true);
                 setState((prev) => ({
                     ...prev,
                     authTimeRemaining: authTimeout,
@@ -197,7 +199,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 }));
             } else {
                 console.log("Permission not granted, showing permission required screen");
-                updatePhase("permission_required", false); // SAFE: Cannot abandon during permission request
+                updatePhase("permission_required", false);
             }
         });
     };
@@ -210,10 +212,10 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         setState((prev) => ({ ...prev, authTimerActive: false }));
 
         if (!state.attemptMade) {
-            updatePhase("error", true); // Can abandon on error
+            updatePhase("error", true);
             setState((prev) => ({
                 ...prev,
-                error: "Authentication timeout",
+                error: t("nebula.biometric.errors.timeout"),
                 attemptMade: true,
             }));
 
@@ -221,7 +223,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 handleBiometricFailure();
             }, 1000);
         }
-    }, [state.attemptMade, updatePhase]);
+    }, [state.attemptMade, updatePhase, t]);
 
     /**
      * Handle biometric authentication
@@ -291,7 +293,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
                         if (result.verified && result.trustRestored) {
                             console.log("Biometric authentication successful");
-                            updatePhase("success", false); // Safe during success
+                            updatePhase("success", false);
                             setState((prev) => ({
                                 ...prev,
                                 isAuthenticating: false,
@@ -303,10 +305,10 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             }, 1500);
                         } else if (result.blocked) {
                             console.log("Biometric authentication failed, user blocked");
-                            updatePhase("error", true); // Can abandon on error
+                            updatePhase("error", true);
                             setState((prev) => ({
                                 ...prev,
-                                error: result.blockReason || "Biometric verification failed",
+                                error: result.blockReason || t("nebula.biometric.errors.verificationFailed"),
                                 isAuthenticating: false,
                                 authTimerActive: false,
                             }));
@@ -338,6 +340,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         onFailure,
         attemptId,
         updatePhase,
+        t,
     ]);
 
     /**
@@ -349,7 +352,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
             state.isBiometricSupported,
         );
 
-        updatePhase("error", true); // Can abandon on error
+        updatePhase("error", true);
         setState((prev) => ({
             ...prev,
             isAuthenticating: false,
@@ -387,7 +390,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         async (reason: string) => {
             console.log("Auto-blocking for unsupported device:", reason);
 
-            updatePhase("error", true); // Can abandon on error
+            updatePhase("error", true);
             setState((prev) => ({
                 ...prev,
                 error: reason,
@@ -437,7 +440,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     }, [state.biometricManager]);
 
     /**
-     * Handle request permission - with proper abandonment tracking
+     * Handle request permission
      */
     const handleRequestPermission = useCallback(async () => {
         if (!state.biometricManager || !attemptId) return;
@@ -450,30 +453,30 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
                     if (granted) {
                         console.log("Permission granted, proceeding to authentication");
-                        updatePhase("auth", true); // NOW can abandon during auth phase
+                        updatePhase("auth", true);
                         setState((prev) => ({
                             ...prev,
                             authTimeRemaining: authTimeout,
                             authTimerActive: true,
                         }));
                     } else {
-                        updatePhase("error", true); // Can abandon on error
+                        updatePhase("error", true);
                         setState((prev) => ({
                             ...prev,
-                            error: "Permission was not granted",
+                            error: t("nebula.biometric.errors.permissionDenied"),
                         }));
                     }
                 },
             );
         } catch (error) {
             console.error("Error requesting biometric permission:", error);
-            updatePhase("error", true); // Can abandon on error
+            updatePhase("error", true);
             setState((prev) => ({
                 ...prev,
-                error: "Failed to request permission",
+                error: t("nebula.biometric.errors.permissionDenied"),
             }));
         }
-    }, [state.biometricManager, attemptId, authTimeout, updatePhase]);
+    }, [state.biometricManager, attemptId, authTimeout, updatePhase, t]);
 
     /**
      * Get biometric icon
@@ -495,11 +498,11 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     const getBiometricTypeName = () => {
         switch (state.biometricType) {
             case "finger":
-                return "Fingerprint";
+                return t("nebula.biometric.types.fingerprint");
             case "face":
-                return "Face ID";
+                return t("nebula.biometric.types.faceId");
             default:
-                return "Biometric";
+                return t("nebula.biometric.types.biometric");
         }
     };
 
@@ -532,27 +535,27 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                     </div>
                     <h2 className="text-xl font-bold text-white mb-2">
                         {state.currentPhase === "success"
-                            ? "Verification Successful"
-                            : "Biometric Authentication Required"}
+                            ? t("nebula.biometric.success.title")
+                            : t("nebula.biometric.title")}
                     </h2>
                     <p className="text-gray-400 text-sm">
                         {state.currentPhase === "success"
-                            ? "Your identity has been verified successfully"
+                            ? t("nebula.biometric.success.message")
                             : state.currentPhase === "permission_required"
-                                ? "Please grant biometric access to continue verification"
-                                : "Your trust score is low. Please authenticate using biometrics to continue."}
+                                ? t("nebula.biometric.permissionInstructions")
+                                : t("nebula.biometric.subtitle")}
                     </p>
                 </div>
 
                 {/* Content */}
                 {!attemptId ? (
                     <div className="text-center py-4">
-                        <p className="text-red-400">No verification attempt found</p>
+                        <p className="text-red-400">{t("nebula.captcha.noAttemptId")}</p>
                         <button
                             className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
                             onClick={onFailure}
                         >
-                            Close
+                            {t("nebula.common.close")}
                         </button>
                     </div>
                 ) : state.currentPhase === "initializing" ? (
@@ -561,7 +564,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             <Fingerprint className="text-blue-400 mx-auto mb-4" size={32} />
                         </div>
                         <p className="text-gray-400">
-                            Initializing biometric authentication...
+                            {t("nebula.biometric.initializing")}
                         </p>
                     </div>
                 ) : state.currentPhase === "unsupported" ||
@@ -572,8 +575,8 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             <div className="text-left">
                                 <p className="text-red-300 text-sm font-semibold">
                                     {state.currentPhase === "unsupported"
-                                        ? "Device Not Supported"
-                                        : "Verification Failed"}
+                                        ? t("nebula.biometric.errors.deviceNotSupported")
+                                        : t("nebula.biometric.errors.verificationFailed")}
                                 </p>
                                 <p className="text-red-200 text-xs">{state.error}</p>
                             </div>
@@ -588,13 +591,10 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                                     />
                                     <div>
                                         <h4 className="text-orange-300 font-semibold mb-1 text-sm">
-                                            Security Policy
+                                            {t("nebula.biometric.securityPolicy")}
                                         </h4>
                                         <p className="text-orange-200 text-xs">
-                                            Due to security requirements, accounts with very low trust
-                                            scores require biometric authentication. Since your device
-                                            does not support this feature, your account will be
-                                            blocked for security reasons.
+                                            {t("nebula.biometric.securityPolicyText")}
                                         </p>
                                     </div>
                                 </div>
@@ -607,14 +607,13 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                                 onClick={handleOpenSettings}
                             >
                                 <Settings size={16} />
-                                <span>Open Biometric Settings</span>
+                                <span>{t("nebula.biometric.openSettings")}</span>
                             </button>
                         )}
 
                         <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                             <p className="text-yellow-300 text-xs text-center">
-                                Your account will be temporarily blocked due to biometric
-                                authentication failure.
+                                {t("nebula.biometric.blockWarning")}
                             </p>
                         </div>
                     </div>
@@ -625,22 +624,21 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                                 <Shield className="text-yellow-400 mx-auto" size={48} />
                             </div>
                             <h3 className="text-white font-semibold mb-2">
-                                Biometric Permission Required
+                                {t("nebula.biometric.permissionRequired")}
                             </h3>
                             <p className="text-gray-400 text-sm mb-4">
-                                You need to grant biometric authentication permission to
-                                continue
+                                {t("nebula.biometric.permissionInstructions")}
                             </p>
                         </div>
 
                         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                             <h4 className="text-blue-300 font-semibold mb-2 text-sm">
-                                Instructions:
+                                {t("nebula.biometric.instructions.title")}
                             </h4>
                             <div className="text-blue-200 text-sm space-y-1">
-                                <p>1. Tap &quot;Grant Permission&quot; below</p>
-                                <p>2. You may need to temporarily leave the app to enable biometric access in settings</p>
-                                <p>3. Return to this app and authentication will begin automatically</p>
+                                <p>{t("nebula.biometric.instructions.step1")}</p>
+                                <p>{t("nebula.biometric.instructions.step2")}</p>
+                                <p>{t("nebula.biometric.instructions.step3")}</p>
                             </div>
                         </div>
 
@@ -652,11 +650,10 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                                 />
                                 <div>
                                     <h4 className="text-green-300 font-semibold mb-1 text-sm">
-                                        Safe to Leave App
+                                        {t("nebula.biometric.leaveAppSafe")}
                                     </h4>
                                     <p className="text-green-200 text-xs">
-                                        You can safely minimize or switch away from this app while granting biometric permission.
-                                        Your verification session will remain active.
+                                        {t("nebula.biometric.leaveAppSafeText")}
                                     </p>
                                 </div>
                             </div>
@@ -668,7 +665,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                                 onClick={handleRequestPermission}
                             >
                                 <Shield size={20} />
-                                <span>Grant Permission</span>
+                                <span>{t("nebula.biometric.grantPermission")}</span>
                             </button>
 
                             {state.biometricManager?.openSettings && (
@@ -677,7 +674,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                                     onClick={handleOpenSettings}
                                 >
                                     <Settings size={16} />
-                                    <span>Open Biometric Settings</span>
+                                    <span>{t("nebula.biometric.openSettings")}</span>
                                 </button>
                             )}
                         </div>
@@ -692,24 +689,24 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             >
                                 {formatTime(state.authTimeRemaining)}
                             </span>
-                            <span className="text-gray-500">remaining</span>
+                            <span className="text-gray-500">{t("nebula.common.timeRemaining")}</span>
                         </div>
 
                         {/* Biometric Authentication Info */}
                         <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 text-center">
                             <div className="mb-3">{getBiometricIcon()}</div>
                             <h3 className="text-white font-semibold mb-1">
-                                {getBiometricTypeName()} Authentication
+                                {t("nebula.biometric.authentication.title", { type: getBiometricTypeName() })}
                             </h3>
                             <p className="text-gray-400 text-sm">
-                                Touch the sensor or look at the camera to authenticate
+                                {t("nebula.biometric.authentication.touchSensor")}
                             </p>
                         </div>
 
                         {/* Single Attempt Warning */}
                         <div className="text-center">
                             <p className="text-gray-500 text-xs">
-                                Single attempt only - be careful!
+                                {t("nebula.biometric.authentication.singleAttempt")}
                             </p>
                         </div>
 
@@ -726,12 +723,12 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             {state.isAuthenticating ? (
                                 <>
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    <span>Authenticating...</span>
+                                    <span>{t("nebula.biometric.authentication.authenticating")}</span>
                                 </>
                             ) : (
                                 <>
                                     <Fingerprint size={20} />
-                                    <span>Authenticate</span>
+                                    <span>{t("nebula.biometric.authentication.authenticate")}</span>
                                 </>
                             )}
                         </button>
@@ -741,7 +738,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                             <div className="flex items-center justify-center space-x-2 p-3 bg-blue-500/20 border border-blue-500/40 rounded-lg">
                                 <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
                                 <p className="text-blue-300 text-sm">
-                                    Please complete biometric authentication on your device
+                                    {t("nebula.biometric.authentication.pleaseComplete")}
                                 </p>
                             </div>
                         )}
@@ -749,8 +746,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 ) : state.currentPhase === "success" ? (
                     <div className="text-center py-4">
                         <p className="text-green-300 text-sm mb-4">
-                            Your trust score has been restored. Redirecting to the
-                            application...
+                            {t("nebula.biometric.success.restoring")}
                         </p>
                         <div className="w-8 h-8 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin mx-auto" />
                     </div>
@@ -763,8 +759,8 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                         <div className="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                             <p className="text-red-300 text-xs text-center">
                                 {state.currentPhase === "unsupported"
-                                    ? "Your account will be blocked for 2 days due to device incompatibility."
-                                    : "Biometric verification required due to low trust score. Your account will be blocked for 2 days if verification fails."}
+                                    ? t("nebula.biometric.blockWarning")
+                                    : t("nebula.biometric.blockWarningFailed")}
                             </p>
                         </div>
                     )}

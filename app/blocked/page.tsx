@@ -1,506 +1,512 @@
-// src/app/blocked/page.tsx - User Block Information Page
+// src/app/blocked/page.tsx - User Block Information Page with localization
 
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Shield,
-  Clock,
-  AlertTriangle,
-  CheckCircle2,
-  RotateCcw,
+    Shield,
+    Clock,
+    AlertTriangle,
+    CheckCircle2,
+    RotateCcw,
+    ExternalLink,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
+import { useT } from "@/contexts/LocalizationContext";
 
 // Types for block information
 interface UserBlock {
-  blockId: string;
-  telegramId: number;
-  blockReason: string;
-  blockedAt: string;
-  unblockedAt: string;
-  timeRemainingSeconds: number;
-  verificationType?: string;
-  trustScoreAtBlock?: number;
-  isActive: boolean;
+    blockId: string;
+    telegramId: number;
+    blockReason: string;
+    blockedAt: string;
+    unblockedAt: string;
+    timeRemainingSeconds: number;
+    verificationType?: string;
+    trustScoreAtBlock?: number;
+    isActive: boolean;
 }
 
 interface UnblockResponse {
-  success: boolean;
-  unblocked?: boolean;
-  blockInfo?: UserBlock | null;
-  timeRemaining?: number;
-  error?: string;
+    success: boolean;
+    unblocked?: boolean;
+    blockInfo?: UserBlock | null;
+    timeRemaining?: number;
+    error?: string;
 }
 
 interface PageState {
-  isLoading: boolean;
-  error: string | null;
-  blockInfo: UserBlock | null;
-  timeRemaining: number;
-  isUnblocked: boolean;
-  isCheckingUnblock: boolean;
+    isLoading: boolean;
+    error: string | null;
+    blockInfo: UserBlock | null;
+    timeRemaining: number;
+    isUnblocked: boolean;
+    isCheckingUnblock: boolean;
 }
 
 export default function BlockedPage(): JSX.Element {
-  const router = useRouter();
-  const { makeAuthenticatedRequest, authState } = useUser();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const unblockCheckRef = useRef<boolean>(false);
+    const router = useRouter();
+    const { makeAuthenticatedRequest, authState } = useUser();
+    const t = useT();
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const unblockCheckRef = useRef<boolean>(false);
 
-  const [pageState, setPageState] = useState<PageState>({
-    isLoading: true,
-    error: null,
-    blockInfo: null,
-    timeRemaining: 0,
-    isUnblocked: false,
-    isCheckingUnblock: false,
-  });
-
-  /**
-   * Check unblock status
-   */
-  const checkUnblockStatus = useCallback(
-    async (isInitialCheck: boolean = false) => {
-      if (unblockCheckRef.current && !isInitialCheck) {
-        return; // Prevent concurrent requests
-      }
-
-      unblockCheckRef.current = true;
-
-      try {
-        if (isInitialCheck) {
-          setPageState((prev) => ({ ...prev, isLoading: true, error: null }));
-        } else {
-          setPageState((prev) => ({ ...prev, isCheckingUnblock: true }));
-        }
-
-        const response = await makeAuthenticatedRequest("/api/nebula/unblock", {
-          method: "POST",
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const result: UnblockResponse = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to check unblock status");
-        }
-
-        if (result.unblocked) {
-          console.log("User has been unblocked");
-          setPageState((prev) => ({
-            ...prev,
-            isLoading: false,
-            isCheckingUnblock: false,
-            isUnblocked: true,
-            blockInfo: null,
-            timeRemaining: 0,
-          }));
-
-          // Clear interval
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
-
-          // Redirect to login page after short delay
-          setTimeout(() => {
-            router.push("/");
-          }, 3000);
-        } else if (result.blockInfo) {
-          console.log("User is still blocked:", result.blockInfo);
-          setPageState((prev) => ({
-            ...prev,
-            isLoading: false,
-            isCheckingUnblock: false,
-            blockInfo: result.blockInfo!,
-            timeRemaining: result.timeRemaining || 0,
-          }));
-        } else {
-          throw new Error("Invalid response from unblock check");
-        }
-      } catch (error) {
-        console.error("Error checking unblock status:", error);
-        setPageState((prev) => ({
-          ...prev,
-          isLoading: false,
-          isCheckingUnblock: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to check unblock status",
-        }));
-      } finally {
-        unblockCheckRef.current = false;
-      }
-    },
-    [makeAuthenticatedRequest, router],
-  );
-
-  /**
-   * Update countdown timer
-   */
-  const updateCountdown = useCallback(() => {
-    setPageState((prev) => {
-      if (prev.timeRemaining <= 0) {
-        return prev;
-      }
-
-      const newTimeRemaining = prev.timeRemaining - 1;
-
-      // If time has reached zero, trigger unblock check
-      if (newTimeRemaining <= 0) {
-        checkUnblockStatus();
-
-        return {
-          ...prev,
-          timeRemaining: 0,
-        };
-      }
-
-      return {
-        ...prev,
-        timeRemaining: newTimeRemaining,
-      };
+    const [pageState, setPageState] = useState<PageState>({
+        isLoading: true,
+        error: null,
+        blockInfo: null,
+        timeRemaining: 0,
+        isUnblocked: false,
+        isCheckingUnblock: false,
     });
-  }, [checkUnblockStatus]);
 
-  // Initialize page and start countdown
-  useEffect(() => {
-    if (!authState.isAuthenticated) {
-      router.push("/");
+    /**
+     * Check unblock status
+     */
+    const checkUnblockStatus = useCallback(
+        async (isInitialCheck: boolean = false) => {
+            if (unblockCheckRef.current && !isInitialCheck) {
+                return; // Prevent concurrent requests
+            }
 
-      return;
-    }
+            unblockCheckRef.current = true;
 
-    // Initial check
-    checkUnblockStatus(true);
+            try {
+                if (isInitialCheck) {
+                    setPageState((prev) => ({ ...prev, isLoading: true, error: null }));
+                } else {
+                    setPageState((prev) => ({ ...prev, isCheckingUnblock: true }));
+                }
 
-    // Cleanup function
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [authState.isAuthenticated, checkUnblockStatus, router]);
+                const response = await makeAuthenticatedRequest("/api/nebula/unblock", {
+                    method: "POST",
+                });
 
-  // Start countdown timer when block info is available
-  useEffect(() => {
-    if (
-      pageState.blockInfo &&
-      pageState.timeRemaining > 0 &&
-      !pageState.isUnblocked
-    ) {
-      intervalRef.current = setInterval(updateCountdown, 1000);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
 
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
+                const result: UnblockResponse = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || "Failed to check unblock status");
+                }
+
+                if (result.unblocked) {
+                    console.log("User has been unblocked");
+                    setPageState((prev) => ({
+                        ...prev,
+                        isLoading: false,
+                        isCheckingUnblock: false,
+                        isUnblocked: true,
+                        blockInfo: null,
+                        timeRemaining: 0,
+                    }));
+
+                    // Clear interval
+                    if (intervalRef.current) {
+                        clearInterval(intervalRef.current);
+                        intervalRef.current = null;
+                    }
+
+                    // Redirect to login page after short delay
+                    setTimeout(() => {
+                        router.push("/");
+                    }, 3000);
+                } else if (result.blockInfo) {
+                    console.log("User is still blocked:", result.blockInfo);
+                    setPageState((prev) => ({
+                        ...prev,
+                        isLoading: false,
+                        isCheckingUnblock: false,
+                        blockInfo: result.blockInfo!,
+                        timeRemaining: result.timeRemaining || 0,
+                    }));
+                } else {
+                    throw new Error("Invalid response from unblock check");
+                }
+            } catch (error) {
+                console.error("Error checking unblock status:", error);
+                setPageState((prev) => ({
+                    ...prev,
+                    isLoading: false,
+                    isCheckingUnblock: false,
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "Failed to check unblock status",
+                }));
+            } finally {
+                unblockCheckRef.current = false;
+            }
+        },
+        [makeAuthenticatedRequest, router],
+    );
+
+    /**
+     * Update countdown timer
+     */
+    const updateCountdown = useCallback(() => {
+        setPageState((prev) => {
+            if (prev.timeRemaining <= 0) {
+                return prev;
+            }
+
+            const newTimeRemaining = prev.timeRemaining - 1;
+
+            // If time has reached zero, trigger unblock check
+            if (newTimeRemaining <= 0) {
+                checkUnblockStatus();
+
+                return {
+                    ...prev,
+                    timeRemaining: 0,
+                };
+            }
+
+            return {
+                ...prev,
+                timeRemaining: newTimeRemaining,
+            };
+        });
+    }, [checkUnblockStatus]);
+
+    // Initialize page and start countdown
+    useEffect(() => {
+        if (!authState.isAuthenticated) {
+            router.push("/");
+
+            return;
         }
-      };
-    }
-  }, [
-    pageState.blockInfo,
-    pageState.timeRemaining,
-    pageState.isUnblocked,
-    updateCountdown,
-  ]);
 
-  /**
-   * Format time remaining
-   */
-  const formatTimeRemaining = (seconds: number): string => {
-    if (seconds <= 0) {
-      return "Expired";
-    }
+        // Initial check
+        checkUnblockStatus(true);
 
-    const days = Math.floor(seconds / (24 * 60 * 60));
-    const hours = Math.floor((seconds % (24 * 60 * 60)) / (60 * 60));
-    const minutes = Math.floor((seconds % (60 * 60)) / 60);
-    const secs = seconds % 60;
+        // Cleanup function
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
+        };
+    }, [authState.isAuthenticated, checkUnblockStatus, router]);
 
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m ${secs}s`;
-    } else if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
-    }
-  };
+    // Start countdown timer when block info is available
+    useEffect(() => {
+        if (
+            pageState.blockInfo &&
+            pageState.timeRemaining > 0 &&
+            !pageState.isUnblocked
+        ) {
+            intervalRef.current = setInterval(updateCountdown, 1000);
 
-  /**
-   * Get block reason description
-   */
-  const getBlockReasonDescription = (reason: string): string => {
-    switch (reason) {
-      case "failed_captcha":
-        return "Failed to complete security challenge verification";
-      case "failed_biometric":
-        return "Failed biometric authentication verification";
-      case "failed_gyroscope":
-        return "Failed device movement verification";
-      case "device_unsupported_biometric":
-        return "Device does not support biometric authentication";
-      case "device_unsupported_gyroscope":
-        return "Device does not support gyroscope verification";
-      case "manual_block":
-        return "Account manually blocked by administrator";
-      case "suspicious_activity":
-        return "Suspicious activity detected on account";
-      default:
-        return "Security verification required";
-    }
-  };
+            return () => {
+                if (intervalRef.current) {
+                    clearInterval(intervalRef.current);
+                    intervalRef.current = null;
+                }
+            };
+        }
+    }, [
+        pageState.blockInfo,
+        pageState.timeRemaining,
+        pageState.isUnblocked,
+        updateCountdown,
+    ]);
 
-  /**
-   * Get block severity level
-   */
-  const getBlockSeverity = (reason: string): "low" | "medium" | "high" => {
-    switch (reason) {
-      case "failed_captcha":
-        return "low";
-      case "failed_biometric":
-      case "device_unsupported_biometric":
-        return "medium";
-      case "failed_gyroscope":
-      case "device_unsupported_gyroscope":
-      case "manual_block":
-      case "suspicious_activity":
-        return "high";
-      default:
-        return "medium";
-    }
-  };
+    /**
+     * Format time remaining
+     */
+    const formatTimeRemaining = (seconds: number): string => {
+        if (seconds <= 0) {
+            return t("nebula.blocked.timeFormat.expired");
+        }
 
-  /**
-   * Get severity color
-   */
-  const getSeverityColor = (severity: "low" | "medium" | "high"): string => {
-    switch (severity) {
-      case "low":
-        return "text-yellow-400 border-yellow-500/30 bg-yellow-500/10";
-      case "medium":
-        return "text-orange-400 border-orange-500/30 bg-orange-500/10";
-      case "high":
-        return "text-red-400 border-red-500/30 bg-red-500/10";
-      default:
-        return "text-gray-400 border-gray-500/30 bg-gray-500/10";
-    }
-  };
+        const days = Math.floor(seconds / (24 * 60 * 60));
+        const hours = Math.floor((seconds % (24 * 60 * 60)) / (60 * 60));
+        const minutes = Math.floor((seconds % (60 * 60)) / 60);
+        const secs = seconds % 60;
 
-  /**
-   * Manual refresh
-   */
-  const handleManualRefresh = useCallback(() => {
-    checkUnblockStatus();
-  }, [checkUnblockStatus]);
+        if (days > 0) {
+            return `${t("nebula.blocked.timeFormat.days", { count: days })} ${t("nebula.blocked.timeFormat.hours", { count: hours })} ${t("nebula.blocked.timeFormat.minutes", { count: minutes })} ${t("nebula.blocked.timeFormat.seconds", { count: secs })}`;
+        } else if (hours > 0) {
+            return `${t("nebula.blocked.timeFormat.hours", { count: hours })} ${t("nebula.blocked.timeFormat.minutes", { count: minutes })} ${t("nebula.blocked.timeFormat.seconds", { count: secs })}`;
+        } else if (minutes > 0) {
+            return `${t("nebula.blocked.timeFormat.minutes", { count: minutes })} ${t("nebula.blocked.timeFormat.seconds", { count: secs })}`;
+        } else {
+            return t("nebula.blocked.timeFormat.seconds", { count: secs });
+        }
+    };
 
-  // Loading state
-  if (pageState.isLoading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white text-lg">Checking account status...</p>
-        </div>
-      </div>
-    );
-  }
+    /**
+     * Get block reason description
+     */
+    const getBlockReasonDescription = (reason: string): string => {
+        const reasonKey = `nebula.blocked.reasons.${reason}` as any;
+        return t(reasonKey) || t("nebula.blocked.reasons.default");
+    };
 
-  // Error state
-  if (pageState.error) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-xl p-6 text-center">
-          <AlertTriangle className="text-red-400 mx-auto mb-4" size={48} />
-          <h2 className="text-xl font-bold text-white mb-2">Error</h2>
-          <p className="text-red-300 text-sm mb-6">{pageState.error}</p>
-          <button
-            className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
-            onClick={handleManualRefresh}
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+    /**
+     * Get block severity level
+     */
+    const getBlockSeverity = (reason: string): "low" | "medium" | "high" => {
+        switch (reason) {
+            case "failed_captcha":
+                return "low";
+            case "failed_biometric":
+            case "device_unsupported_biometric":
+                return "medium";
+            case "failed_gyroscope":
+            case "device_unsupported_gyroscope":
+            case "manual_block":
+            case "suspicious_activity":
+            case "verification_abandonment":
+                return "high";
+            default:
+                return "medium";
+        }
+    };
 
-  // Unblocked state
-  if (pageState.isUnblocked) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-gray-900 border border-green-500/30 rounded-xl p-6 text-center">
-          <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="text-green-400" size={32} />
-          </div>
-          <h2 className="text-xl font-bold text-white mb-2">
-            Account Unblocked
-          </h2>
-          <p className="text-green-300 text-sm mb-4">
-            Your account has been successfully unblocked. You can now access the
-            application.
-          </p>
-          <p className="text-gray-400 text-xs">Redirecting to login page...</p>
-        </div>
-      </div>
-    );
-  }
+    /**
+     * Get severity color
+     */
+    const getSeverityColor = (severity: "low" | "medium" | "high"): string => {
+        switch (severity) {
+            case "low":
+                return "text-yellow-400 border-yellow-500/30 bg-yellow-500/10";
+            case "medium":
+                return "text-orange-400 border-orange-500/30 bg-orange-500/10";
+            case "high":
+                return "text-red-400 border-red-500/30 bg-red-500/10";
+            default:
+                return "text-gray-400 border-gray-500/30 bg-gray-500/10";
+        }
+    };
 
-  // Main blocked page
-  if (!pageState.blockInfo) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6 text-center">
-          <Shield className="text-gray-400 mx-auto mb-4" size={48} />
-          <h2 className="text-xl font-bold text-white mb-2">
-            Account Status Unknown
-          </h2>
-          <p className="text-gray-400 text-sm mb-6">
-            Unable to determine account block status.
-          </p>
-          <button
-            className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
-            onClick={handleManualRefresh}
-          >
-            Check Status
-          </button>
-        </div>
-      </div>
-    );
-  }
+    /**
+     * Manual refresh
+     */
+    const handleManualRefresh = useCallback(() => {
+        checkUnblockStatus();
+    }, [checkUnblockStatus]);
 
-  const blockInfo = pageState.blockInfo;
-  const severity = getBlockSeverity(blockInfo.blockReason);
-  const severityColors = getSeverityColor(severity);
-
-  return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="text-red-400" size={32} />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">
-            Account Blocked
-          </h1>
-          <p className="text-gray-400 text-sm">
-            Your account has been temporarily blocked for security reasons
-          </p>
-        </div>
-
-        {/* Block Information */}
-        <div className={`border rounded-lg p-4 mb-6 ${severityColors}`}>
-          <h3 className="font-semibold mb-2 capitalize">Block Reason</h3>
-          <p className="text-sm opacity-90">
-            {getBlockReasonDescription(blockInfo.blockReason)}
-          </p>
-          {blockInfo.verificationType && (
-            <p className="text-xs opacity-70 mt-2">
-              Verification type: {blockInfo.verificationType}
-            </p>
-          )}
-        </div>
-
-        {/* Time Remaining */}
-        <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-300 text-sm flex items-center space-x-2">
-              <Clock size={16} />
-              <span>Time Remaining</span>
-            </span>
-            {pageState.isCheckingUnblock && (
-              <RotateCcw className="text-blue-400 animate-spin" size={16} />
-            )}
-          </div>
-          <div className="text-center">
-            <p
-              className={`text-2xl font-bold ${pageState.timeRemaining <= 60 ? "text-red-400" : "text-white"}`}
-            >
-              {formatTimeRemaining(pageState.timeRemaining)}
-            </p>
-            {pageState.timeRemaining <= 60 && pageState.timeRemaining > 0 && (
-              <p className="text-red-300 text-xs mt-1">
-                Checking for automatic unblock...
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Block Details */}
-        <div className="space-y-3 mb-6">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Blocked At:</span>
-            <span className="text-white">
-              {new Date(blockInfo.blockedAt).toLocaleString()}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Unblock At:</span>
-            <span className="text-white">
-              {new Date(blockInfo.unblockedAt).toLocaleString()}
-            </span>
-          </div>
-          {blockInfo.trustScoreAtBlock && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Trust Score at Block:</span>
-              <span className="text-white">{blockInfo.trustScoreAtBlock}</span>
+    // Loading state
+    if (pageState.isLoading) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-white text-lg">{t("nebula.blocked.loading")}</p>
+                </div>
             </div>
-          )}
+        );
+    }
+
+    // Error state
+    if (pageState.error) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-xl p-6 text-center">
+                    <AlertTriangle className="text-red-400 mx-auto mb-4" size={48} />
+                    <h2 className="text-xl font-bold text-white mb-2">{t("nebula.blocked.error")}</h2>
+                    <p className="text-red-300 text-sm mb-6">{pageState.error}</p>
+                    <button
+                        className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
+                        onClick={handleManualRefresh}
+                    >
+                        {t("nebula.common.tryAgain")}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Unblocked state
+    if (pageState.isUnblocked) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-900 border border-green-500/30 rounded-xl p-6 text-center">
+                    <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle2 className="text-green-400" size={32} />
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-2">
+                        {t("nebula.blocked.unblocked.title")}
+                    </h2>
+                    <p className="text-green-300 text-sm mb-4">
+                        {t("nebula.blocked.unblocked.message")}
+                    </p>
+                    <p className="text-gray-400 text-xs">{t("nebula.blocked.unblocked.redirecting")}</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Main blocked page
+    if (!pageState.blockInfo) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center p-6">
+                <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6 text-center">
+                    <Shield className="text-gray-400 mx-auto mb-4" size={48} />
+                    <h2 className="text-xl font-bold text-white mb-2">
+                        {t("nebula.blocked.statusUnknown")}
+                    </h2>
+                    <p className="text-gray-400 text-sm mb-6">
+                        {t("nebula.blocked.unableToCheck")}
+                    </p>
+                    <button
+                        className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
+                        onClick={handleManualRefresh}
+                    >
+                        {t("nebula.blocked.checkStatus")}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const blockInfo = pageState.blockInfo;
+    const severity = getBlockSeverity(blockInfo.blockReason);
+    const severityColors = getSeverityColor(severity);
+
+    return (
+        <div className="min-h-screen bg-black flex items-center justify-center p-6">
+            <div className="max-w-md w-full bg-gray-900 border border-gray-700 rounded-xl p-6">
+                {/* Header */}
+                <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Shield className="text-red-400" size={32} />
+                    </div>
+                    <h1 className="text-2xl font-bold text-white mb-2">
+                        {t("nebula.blocked.title")}
+                    </h1>
+                    <p className="text-gray-400 text-sm">
+                        {t("nebula.blocked.subtitle")}
+                    </p>
+                </div>
+
+                {/* Block Information */}
+                <div className={`border rounded-lg p-4 mb-6 ${severityColors}`}>
+                    <h3 className="font-semibold mb-2 capitalize">{t("nebula.blocked.blockReason")}</h3>
+                    <p className="text-sm opacity-90">
+                        {getBlockReasonDescription(blockInfo.blockReason)}
+                    </p>
+                    {blockInfo.verificationType && (
+                        <p className="text-xs opacity-70 mt-2">
+                            {t("nebula.blocked.verificationType", { type: blockInfo.verificationType })}
+                        </p>
+                    )}
+                </div>
+
+                {/* Time Remaining */}
+                <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-300 text-sm flex items-center space-x-2">
+                            <Clock size={16} />
+                            <span>{t("nebula.blocked.timeRemaining")}</span>
+                        </span>
+                        {pageState.isCheckingUnblock && (
+                            <RotateCcw className="text-blue-400 animate-spin" size={16} />
+                        )}
+                    </div>
+                    <div className="text-center">
+                        <p
+                            className={`text-2xl font-bold ${pageState.timeRemaining <= 60 ? "text-red-400" : "text-white"}`}
+                        >
+                            {formatTimeRemaining(pageState.timeRemaining)}
+                        </p>
+                        {pageState.timeRemaining <= 60 && pageState.timeRemaining > 0 && (
+                            <p className="text-red-300 text-xs mt-1">
+                                {t("nebula.blocked.checkingForUnblock")}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Block Details */}
+                <div className="space-y-3 mb-6">
+                    <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">{t("nebula.blocked.blockedAt")}</span>
+                        <span className="text-white">
+                            {new Date(blockInfo.blockedAt).toLocaleString()}
+                        </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">{t("nebula.blocked.unblockAt")}</span>
+                        <span className="text-white">
+                            {new Date(blockInfo.unblockedAt).toLocaleString()}
+                        </span>
+                    </div>
+                    {blockInfo.trustScoreAtBlock && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-400">{t("nebula.blocked.trustScoreAtBlock")}</span>
+                            <span className="text-white">{blockInfo.trustScoreAtBlock}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* What happens next */}
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+                    <h4 className="text-blue-300 font-semibold mb-2 text-sm">
+                        {t("nebula.blocked.whatNext")}
+                    </h4>
+                    <div className="text-blue-200 text-xs space-y-1">
+                        <p>• {t("nebula.blocked.whatNextSteps.0")}</p>
+                        <p>• {t("nebula.blocked.whatNextSteps.1")}</p>
+                        <p>• {t("nebula.blocked.whatNextSteps.2")}</p>
+                    </div>
+                </div>
+
+                {/* Appeal Contact Information */}
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
+                    <h4 className="text-yellow-300 font-semibold mb-2 text-sm">
+                        {t("nebula.blocked.appeal.title")}
+                    </h4>
+                    <p className="text-yellow-200 text-xs mb-2">
+                        {t("nebula.blocked.appeal.subtitle")}
+                    </p>
+                    <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-yellow-200 text-xs">{t("nebula.blocked.appeal.contact")}</span>
+                        <a
+                            href={t("nebula.blocked.appeal.contactLink")}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-yellow-300 text-xs font-bold hover:text-yellow-100 transition-colors flex items-center space-x-1"
+                        >
+                            <span>{t("nebula.blocked.appeal.contactText")}</span>
+                            <ExternalLink size={12} />
+                        </a>
+                    </div>
+                    <p className="text-yellow-200 text-xs opacity-80">
+                        {t("nebula.blocked.appeal.note")}
+                    </p>
+                </div>
+
+                {/* Manual Refresh Button */}
+                <button
+                    className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 mb-4"
+                    disabled={pageState.isCheckingUnblock}
+                    onClick={handleManualRefresh}
+                >
+                    {pageState.isCheckingUnblock ? (
+                        <>
+                            <RotateCcw className="animate-spin" size={16} />
+                            <span>{t("nebula.blocked.checking")}</span>
+                        </>
+                    ) : (
+                        <>
+                            <RotateCcw size={16} />
+                            <span>{t("nebula.blocked.checkStatus")}</span>
+                        </>
+                    )}
+                </button>
+
+                {/* Auto-refresh notice */}
+                <p className="text-gray-500 text-xs text-center">
+                    {t("nebula.blocked.autoRefresh")}
+                </p>
+            </div>
         </div>
-
-        {/* Information */}
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
-          <h4 className="text-blue-300 font-semibold mb-2 text-sm">
-            What happens next?
-          </h4>
-          <div className="text-blue-200 text-xs space-y-1">
-            <p>
-              • Your account will be automatically unblocked when the time
-              expires
-            </p>
-            <p>• You will be redirected to the login page</p>
-            <p>
-              • Your trust score may be adjusted based on the security
-              verification
-            </p>
-          </div>
-        </div>
-
-        {/* Manual Refresh Button */}
-        <button
-          className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-          disabled={pageState.isCheckingUnblock}
-          onClick={handleManualRefresh}
-        >
-          {pageState.isCheckingUnblock ? (
-            <>
-              <RotateCcw className="animate-spin" size={16} />
-              <span>Checking...</span>
-            </>
-          ) : (
-            <>
-              <RotateCcw size={16} />
-              <span>Check Status</span>
-            </>
-          )}
-        </button>
-
-        {/* Auto-refresh notice */}
-        <p className="text-gray-500 text-xs text-center mt-4">
-          This page will automatically check for unblock when the timer expires
-        </p>
-      </div>
-    </div>
-  );
+    );
 }

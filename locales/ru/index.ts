@@ -16,6 +16,7 @@ import { errors } from "./errors";
 import { time } from "./time";
 import { about } from "./about";
 import { leagues } from "./leagues";
+import { nebula } from "./nebula";
 
 export const ru = {
   // Common UI elements
@@ -26,6 +27,9 @@ export const ru = {
 
   // Tasks
   tasks,
+
+  // Nebula
+  nebula,
 
   // Main page
   main,
