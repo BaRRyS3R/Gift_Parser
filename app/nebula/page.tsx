@@ -119,6 +119,32 @@ export default function NebulaPage(): JSX.Element {
     }, []);
 
     /**
+     * Открытие модального окна верификации
+     */
+    const openVerificationModal = useCallback((verificationType?: VerificationType, attemptId?: string) => {
+        const vType = verificationType || pageState.verificationType;
+        const aId = attemptId || pageState.attemptId;
+
+        if (!vType || !aId) {
+            console.error("Cannot open verification modal: missing verification type or attempt ID", {
+                verificationType: vType,
+                attemptId: aId,
+                pageStateVerificationType: pageState.verificationType,
+                pageStateAttemptId: pageState.attemptId
+            });
+            return;
+        }
+
+        console.log(`Opening ${vType} verification modal with attempt ID: ${aId}`);
+        setPageState((prev) => ({
+            ...prev,
+            phase: "verifying",
+            verificationType: vType,
+            attemptId: aId
+        }));
+    }, [pageState.verificationType, pageState.attemptId]);
+
+    /**
      * Проверка статуса Nebula верификации
      */
     const checkNebulaStatus = useCallback(async () => {
@@ -586,32 +612,6 @@ export default function NebulaPage(): JSX.Element {
             router.push("/blocked");
         }
     }, [pageState.attemptId, pageState.verificationType, makeAuthenticatedRequest, router]);
-
-    /**
-     * Открытие модального окна верификации
-     */
-    const openVerificationModal = useCallback((verificationType?: VerificationType, attemptId?: string) => {
-        const vType = verificationType || pageState.verificationType;
-        const aId = attemptId || pageState.attemptId;
-
-        if (!vType || !aId) {
-            console.error("Cannot open verification modal: missing verification type or attempt ID", {
-                verificationType: vType,
-                attemptId: aId,
-                pageStateVerificationType: pageState.verificationType,
-                pageStateAttemptId: pageState.attemptId
-            });
-            return;
-        }
-
-        console.log(`Opening ${vType} verification modal with attempt ID: ${aId}`);
-        setPageState((prev) => ({
-            ...prev,
-            phase: "verifying",
-            verificationType: vType,
-            attemptId: aId
-        }));
-    }, [pageState.verificationType, pageState.attemptId]);
 
     /**
      * Обработка успешной верификации
