@@ -854,7 +854,7 @@ export default function NebulaPage(): JSX.Element {
                             Quick Setup Instructions:
                         </h3>
                         <div className="text-blue-200 text-sm space-y-1">
-                            <p>1. Tap "Grant Permission" below</p>
+                            <p>1. Tap &quot;Grant Permission&quot; below</p>
                             <p>2. Allow access when prompted</p>
                             <p>3. Return here (verification will start automatically)</p>
                         </div>
