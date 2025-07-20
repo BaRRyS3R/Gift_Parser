@@ -2,6 +2,13 @@
 
 "use client";
 
+import type {
+  SafeReactionLeaderboard,
+  SafeSurvivalLeaderboard,
+  SafePhysicsLeaderboard,
+  SafeRotationLeaderboard,
+} from "@/hooks/modules/useLeaderboard";
+
 import { useState, useEffect } from "react";
 import {
   Crown,
@@ -22,17 +29,14 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useLeaderboard } from "@/hooks/modules/useLeaderboard";
-import { formatSurvivalTime, formatPhysicsTime, formatRotationTime } from "@/utils/timeFormatter";
+import {
+  formatSurvivalTime,
+  formatPhysicsTime,
+  formatRotationTime,
+} from "@/utils/timeFormatter";
 import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
-
-import type {
-  SafeReactionLeaderboard,
-  SafeSurvivalLeaderboard,
-  SafePhysicsLeaderboard,
-  SafeRotationLeaderboard,
-} from "@/hooks/modules/useLeaderboard";
 
 type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
@@ -100,6 +104,7 @@ function LeaderboardPageContent() {
       if (time <= 200) return "EXCELLENT";
       if (time <= 300) return "GOOD";
       if (time <= 500) return "AVERAGE";
+
       return "SLOW";
     };
 
@@ -119,7 +124,7 @@ function LeaderboardPageContent() {
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <Zap size={120} className="text-white" />
+            <Zap className="text-white" size={120} />
           </div>
         </div>
 
@@ -131,12 +136,16 @@ function LeaderboardPageContent() {
                   {entry.position <= 3 ? (
                     getRankIcon(entry.position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{entry.position}</span>
+                    <span className="text-white/80 text-sm font-bold">
+                      #{entry.position}
+                    </span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
+                    <h3
+                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
+                    >
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
                     {entry.isCurrentUser && (
@@ -146,14 +155,18 @@ function LeaderboardPageContent() {
                     )}
                   </div>
                   {entry.username && (
-                    <p className="text-xs text-white/60 truncate">@{entry.username}</p>
+                    <p className="text-xs text-white/60 truncate">
+                      @{entry.username}
+                    </p>
                   )}
                 </div>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <div className={`text-xs font-bold ${getReactionRatingColor(rating as any)}`}>
+                  <div
+                    className={`text-xs font-bold ${getReactionRatingColor(rating as any)}`}
+                  >
                     {rating}
                   </div>
                   <div className="flex items-center space-x-1 text-xs text-white/80">
@@ -190,7 +203,7 @@ function LeaderboardPageContent() {
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <Crosshair size={120} className="text-red-400" />
+            <Crosshair className="text-red-400" size={120} />
           </div>
         </div>
 
@@ -202,12 +215,16 @@ function LeaderboardPageContent() {
                   {entry.position <= 3 ? (
                     getRankIcon(entry.position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{entry.position}</span>
+                    <span className="text-white/80 text-sm font-bold">
+                      #{entry.position}
+                    </span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
+                    <h3
+                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
+                    >
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
                     {entry.isCurrentUser && (
@@ -217,7 +234,9 @@ function LeaderboardPageContent() {
                     )}
                   </div>
                   {entry.username && (
-                    <p className="text-xs text-white/60 truncate">@{entry.username}</p>
+                    <p className="text-xs text-white/60 truncate">
+                      @{entry.username}
+                    </p>
                   )}
                 </div>
               </div>
@@ -266,7 +285,7 @@ function LeaderboardPageContent() {
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <Atom size={120} className="text-purple-400" />
+            <Atom className="text-purple-400" size={120} />
           </div>
         </div>
 
@@ -278,12 +297,16 @@ function LeaderboardPageContent() {
                   {entry.position <= 3 ? (
                     getRankIcon(entry.position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{entry.position}</span>
+                    <span className="text-white/80 text-sm font-bold">
+                      #{entry.position}
+                    </span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
+                    <h3
+                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
+                    >
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
                     {entry.isCurrentUser && (
@@ -293,7 +316,9 @@ function LeaderboardPageContent() {
                     )}
                   </div>
                   {entry.username && (
-                    <p className="text-xs text-white/60 truncate">@{entry.username}</p>
+                    <p className="text-xs text-white/60 truncate">
+                      @{entry.username}
+                    </p>
                   )}
                 </div>
               </div>
@@ -342,7 +367,7 @@ function LeaderboardPageContent() {
       >
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <RotateCw size={120} className="text-orange-400" />
+            <RotateCw className="text-orange-400" size={120} />
           </div>
         </div>
 
@@ -354,12 +379,16 @@ function LeaderboardPageContent() {
                   {entry.position <= 3 ? (
                     getRankIcon(entry.position)
                   ) : (
-                    <span className="text-white/80 text-sm font-bold">#{entry.position}</span>
+                    <span className="text-white/80 text-sm font-bold">
+                      #{entry.position}
+                    </span>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
+                    <h3
+                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
+                    >
                       {entry.first_name} {entry.last_name || ""}
                     </h3>
                     {entry.isCurrentUser && (
@@ -369,7 +398,9 @@ function LeaderboardPageContent() {
                     )}
                   </div>
                   {entry.username && (
-                    <p className="text-xs text-white/60 truncate">@{entry.username}</p>
+                    <p className="text-xs text-white/60 truncate">
+                      @{entry.username}
+                    </p>
                   )}
                 </div>
               </div>
@@ -480,7 +511,9 @@ function LeaderboardPageContent() {
       };
     } else {
       return {
-        icon: <RotateCw className="text-orange-400/60 mx-auto mb-3" size={32} />,
+        icon: (
+          <RotateCw className="text-orange-400/60 mx-auto mb-3" size={32} />
+        ),
         title: t("leaderboard.noSpinners"),
         subtitle: t("leaderboard.tryRotation"),
       };
@@ -524,7 +557,9 @@ function LeaderboardPageContent() {
               <span className="text-blue-300 font-bold">Your Position</span>
             </div>
             <div className="text-center">
-              <span className="text-2xl font-bold text-white">#{userPosition}</span>
+              <span className="text-2xl font-bold text-white">
+                #{userPosition}
+              </span>
               <p className="text-blue-300/80 text-sm mt-1">
                 Keep playing to reach the top 100!
               </p>
@@ -537,23 +572,25 @@ function LeaderboardPageContent() {
       <div className="mb-6">
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1">
           <div className="flex space-x-1">
-            {(["reaction", "survival", "physics", "rotation"] as const).map((tab) => (
-              <button
-                key={tab}
-                className={`
+            {(["reaction", "survival", "physics", "rotation"] as const).map(
+              (tab) => (
+                <button
+                  key={tab}
+                  className={`
                   flex-1 px-3 py-2 rounded-lg text-sm font-bold
                   ${getTabColors(tab, activeTab === tab)}
                 `}
-                onClick={() => setActiveTab(tab)}
-              >
-                <div className="flex items-center justify-center space-x-1">
-                  {tab === "reaction" && <Zap size={12} />}
-                  {tab === "survival" && <Crosshair size={12} />}
-                  {tab === "physics" && <Atom size={12} />}
-                  {tab === "rotation" && <RotateCw size={12} />}
-                </div>
-              </button>
-            ))}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  <div className="flex items-center justify-center space-x-1">
+                    {tab === "reaction" && <Zap size={12} />}
+                    {tab === "survival" && <Crosshair size={12} />}
+                    {tab === "physics" && <Atom size={12} />}
+                    {tab === "rotation" && <RotateCw size={12} />}
+                  </div>
+                </button>
+              ),
+            )}
           </div>
         </div>
       </div>
@@ -564,11 +601,14 @@ function LeaderboardPageContent() {
           <div className="text-center py-12 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg">
             {(() => {
               const emptyState = getEmptyStateMessage();
+
               return (
                 <>
                   {emptyState.icon}
                   <p className="font-bold text-white/80">{emptyState.title}</p>
-                  <p className="text-sm mt-1 text-white/60">{emptyState.subtitle}</p>
+                  <p className="text-sm mt-1 text-white/60">
+                    {emptyState.subtitle}
+                  </p>
                 </>
               );
             })()}
@@ -578,13 +618,21 @@ function LeaderboardPageContent() {
             {currentLeaderboard.map((entry) => {
               switch (activeTab) {
                 case "reaction":
-                  return renderReactionLeaderboardEntry(entry as SafeReactionLeaderboard);
+                  return renderReactionLeaderboardEntry(
+                    entry as SafeReactionLeaderboard,
+                  );
                 case "survival":
-                  return renderSurvivalLeaderboardEntry(entry as SafeSurvivalLeaderboard);
+                  return renderSurvivalLeaderboardEntry(
+                    entry as SafeSurvivalLeaderboard,
+                  );
                 case "physics":
-                  return renderPhysicsLeaderboardEntry(entry as SafePhysicsLeaderboard);
+                  return renderPhysicsLeaderboardEntry(
+                    entry as SafePhysicsLeaderboard,
+                  );
                 case "rotation":
-                  return renderRotationLeaderboardEntry(entry as SafeRotationLeaderboard);
+                  return renderRotationLeaderboardEntry(
+                    entry as SafeRotationLeaderboard,
+                  );
                 default:
                   return null;
               }

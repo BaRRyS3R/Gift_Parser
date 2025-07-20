@@ -98,13 +98,20 @@ export const userService = {
   async getServerTime(): Promise<Date> {
     try {
       const { data, error } = await supabase.rpc("get_current_timestamp");
+
       if (error) {
         console.warn("Failed to get server time, using client time:", error);
+
         return new Date();
       }
+
       return new Date(data);
     } catch (error) {
-      console.warn("Error getting server time, falling back to client time:", error);
+      console.warn(
+        "Error getting server time, falling back to client time:",
+        error,
+      );
+
       return new Date();
     }
   },
@@ -128,30 +135,47 @@ export const userService = {
   // REMOVED: findByReferralCode - moved to server service
   // REMOVED: generateUniqueReferralCode - moved to server service
 
-  async create(telegramUser: TelegramUser, referralCode?: string): Promise<User> {
+  async create(
+    telegramUser: TelegramUser,
+    referralCode?: string,
+  ): Promise<User> {
     // This method should primarily be used for client-side data creation
     // Most creation logic should go through the registration API
-    throw new Error("User creation should go through /api/auth/register endpoint");
+    throw new Error(
+      "User creation should go through /api/auth/register endpoint",
+    );
   },
 
   // REMOVED: getReferralInfo - moved to profile module/API
   // REMOVED: getReferrerInfo - moved to profile module/API
 
-  async checkAndUpdateAttemptsWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
+  async checkAndUpdateAttemptsWithServerValidation(
+    telegramId: number,
+  ): Promise<AttemptsStatus> {
     // These should now go through the attempts API
-    throw new Error("Attempts management should go through /api/user/attempts endpoints");
+    throw new Error(
+      "Attempts management should go through /api/user/attempts endpoints",
+    );
   },
 
-  async consumeAttemptWithServerValidation(telegramId: number): Promise<AttemptsStatus> {
-    throw new Error("Attempts management should go through /api/user/attempts endpoints");
+  async consumeAttemptWithServerValidation(
+    telegramId: number,
+  ): Promise<AttemptsStatus> {
+    throw new Error(
+      "Attempts management should go through /api/user/attempts endpoints",
+    );
   },
 
   async resetAttempts(telegramId: number): Promise<void> {
-    throw new Error("Attempts management should go through /api/user/attempts endpoints");
+    throw new Error(
+      "Attempts management should go through /api/user/attempts endpoints",
+    );
   },
 
   async instantResetAttempts(telegramId: number): Promise<void> {
-    throw new Error("Attempts management should go through /api/user/attempts endpoints");
+    throw new Error(
+      "Attempts management should go through /api/user/attempts endpoints",
+    );
   },
 
   // Convenience methods for backwards compatibility
@@ -166,7 +190,7 @@ export const userService = {
   // REMOVED: All leaderboard methods - moved to leaderboard module/API
   // These include:
   // - getLeaderboard
-  // - getReactionLeaderboard  
+  // - getReactionLeaderboard
   // - getSurvivalLeaderboard
   // - getPhysicsLeaderboard
   // - getRotationLeaderboard

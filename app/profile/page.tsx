@@ -3,6 +3,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -24,8 +25,10 @@ export default function ProfilePage() {
   const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
 
   // Track total games to detect changes
-  const [lastKnownTotalGames, setLastKnownTotalGames] = useState<number | null>(null);
-  
+  const [lastKnownTotalGames, setLastKnownTotalGames] = useState<number | null>(
+    null,
+  );
+
   // Track if initial league data load has been triggered for this page session
   const leagueDataLoadedRef = useRef<boolean>(false);
 
@@ -39,29 +42,43 @@ export default function ProfilePage() {
 
   // ALWAYS load fresh league data when user is authenticated (regardless of cached data)
   useEffect(() => {
-    if (authState.isAuthenticated && authState.user && telegramUser && !leagues.isLoading && !leagueDataLoadedRef.current) {
+    if (
+      authState.isAuthenticated &&
+      authState.user &&
+      telegramUser &&
+      !leagues.isLoading &&
+      !leagueDataLoadedRef.current
+    ) {
       console.log("Loading fresh league data on profile page entry...");
       leagueDataLoadedRef.current = true;
       leagues.fetchLeagueData();
     }
-  }, [authState.isAuthenticated, authState.user, telegramUser, leagues.isLoading]);
+  }, [
+    authState.isAuthenticated,
+    authState.user,
+    telegramUser,
+    leagues.isLoading,
+  ]);
 
   // Update league data when total games changes (for immediate updates after playing)
   useEffect(() => {
     const currentTotalGames = profile.profileData?.user?.total_games;
-    
+
     if (currentTotalGames !== undefined && currentTotalGames !== null) {
       // If this is the first time we see the total games, just store it
       if (lastKnownTotalGames === null) {
         setLastKnownTotalGames(currentTotalGames);
+
         return;
       }
-      
+
       // If total games changed, update league data immediately
       if (currentTotalGames !== lastKnownTotalGames) {
-        console.log(`Total games changed from ${lastKnownTotalGames} to ${currentTotalGames}, updating league data...`);
+        console.log(
+          `Total games changed from ${lastKnownTotalGames} to ${currentTotalGames}, updating league data...`,
+        );
         setLastKnownTotalGames(currentTotalGames);
-        
+
         // Force refresh league data
         leagues.fetchLeagueData();
       }
@@ -71,7 +88,9 @@ export default function ProfilePage() {
   // Reset data when leaving the page (cleanup)
   useEffect(() => {
     return () => {
-      console.log("ProfilePage unmounting, resetting league data for fresh load next time");
+      console.log(
+        "ProfilePage unmounting, resetting league data for fresh load next time",
+      );
       leagues.resetLeagueData();
     };
   }, []);
@@ -95,7 +114,10 @@ export default function ProfilePage() {
   };
 
   // Show loading while user data is being authenticated or profile data is loading
-  if (authState.isLoading || (authState.isAuthenticated && !profile.profileData && profile.isLoading)) {
+  if (
+    authState.isLoading ||
+    (authState.isAuthenticated && !profile.profileData && profile.isLoading)
+  ) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -130,11 +152,11 @@ export default function ProfilePage() {
           </div>
           <p className="text-white">{profile.error}</p>
           <button
+            className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 transition-colors"
             onClick={() => {
               profile.fetchProfileData();
               leagues.fetchLeagueData();
             }}
-            className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 transition-colors"
           >
             {t("common.retry")}
           </button>
@@ -180,19 +202,16 @@ export default function ProfilePage() {
 
         {/* Action Buttons */}
         <MinimalistActionButtons
-          onOpenReferrals={handleOpenReferrals}
           onOpenAchievements={handleOpenAchievements}
           onOpenLeagues={handleOpenLeagues}
+          onOpenReferrals={handleOpenReferrals}
         />
 
         {/* Divider */}
         <MinimalistDivider />
 
         {/* Game Statistics with Level Progress */}
-        <MinimalistGameStats 
-          user={profileUser}
-          isLoading={profile.isLoading}
-        />
+        <MinimalistGameStats isLoading={profile.isLoading} user={profileUser} />
 
         {/* Bottom spacing for safe area */}
         <div className="h-20" />
@@ -202,17 +221,17 @@ export default function ProfilePage() {
       {profileData?.referrals && (
         <ReferralModal
           isOpen={isReferralModalOpen}
-          onClose={() => setIsReferralModalOpen(false)}
           referralInfo={profileData.referrals}
+          onClose={() => setIsReferralModalOpen(false)}
         />
       )}
 
       {profileUser && (
         <AchievementsModal
           isOpen={isAchievementsModalOpen}
-          onClose={() => setIsAchievementsModalOpen(false)}
-          user={profileUser}
           rankings={rankings}
+          user={profileUser}
+          onClose={() => setIsAchievementsModalOpen(false)}
         />
       )}
 

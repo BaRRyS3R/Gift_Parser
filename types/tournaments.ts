@@ -117,6 +117,7 @@ export const parseTournamentTime = (timeString: string): number => {
 export const getTournamentTimeRemaining = (endDate: string): number => {
   const now = new Date();
   const end = new Date(endDate);
+
   return Math.max(0, end.getTime() - now.getTime());
 };
 
@@ -140,12 +141,15 @@ export const formatTimeRemaining = (milliseconds: number): string => {
 
   if (days > 0) {
     const hours = totalHours % 24;
+
     return `${days}d ${hours}h`;
   } else if (totalHours > 0) {
     const minutes = totalMinutes % 60;
+
     return `${totalHours}h ${minutes}m`;
   } else if (totalMinutes > 0) {
     const seconds = totalSeconds % 60;
+
     return `${totalMinutes}m ${seconds}s`;
   } else {
     return `${totalSeconds}s`;

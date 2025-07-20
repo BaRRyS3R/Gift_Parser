@@ -193,7 +193,7 @@ const CompactGameModeCard = ({
           className="text-white/5"
           size={120}
           style={{
-            transform: 'rotate(15deg)'
+            transform: "rotate(15deg)",
           }}
         />
       </div>
@@ -216,14 +216,15 @@ const CompactGameModeCard = ({
                 </span>
                 <div className="w-1 h-1 rounded-full bg-white/40" />
                 <span
-                  className={`${mode.difficulty === "💋😈"
-                    ? "text-red-400"
-                    : mode.difficulty === "👉👌"
-                      ? "text-purple-400"
-                      : mode.difficulty === "🌀"
-                        ? "text-orange-400"
-                        : mode.color.accent
-                    }`}
+                  className={`${
+                    mode.difficulty === "💋😈"
+                      ? "text-red-400"
+                      : mode.difficulty === "👉👌"
+                        ? "text-purple-400"
+                        : mode.difficulty === "🌀"
+                          ? "text-orange-400"
+                          : mode.color.accent
+                  }`}
                 >
                   {mode.difficulty}
                 </span>
@@ -232,9 +233,9 @@ const CompactGameModeCard = ({
           </div>
 
           <button
-            onClick={onToggleExpand}
-            disabled={isAnyModeLoading}
             className={`p-2 rounded-lg transition-all duration-300 ${mode.color.background} hover:bg-white/10 relative z-20 disabled:opacity-50 disabled:cursor-not-allowed`}
+            disabled={isAnyModeLoading}
+            onClick={onToggleExpand}
           >
             {isExpanded ? (
               <ChevronUp className={mode.color.accent} size={16} />
@@ -258,14 +259,15 @@ const CompactGameModeCard = ({
                 {mode.featuresKeys.map((featureKey, index) => (
                   <div key={index} className="flex items-center space-x-2">
                     <div
-                      className={`w-1 h-1 rounded-full ${mode.id === "reaction"
-                        ? "bg-white/60"
-                        : mode.id === "survival"
-                          ? "bg-red-400/60"
-                          : mode.id === "physics"
-                            ? "bg-purple-400/60"
-                            : "bg-orange-400/60"
-                        }`}
+                      className={`w-1 h-1 rounded-full ${
+                        mode.id === "reaction"
+                          ? "bg-white/60"
+                          : mode.id === "survival"
+                            ? "bg-red-400/60"
+                            : mode.id === "physics"
+                              ? "bg-purple-400/60"
+                              : "bg-orange-400/60"
+                      }`}
                     />
                     <span className={`text-xs ${mode.color.secondary}`}>
                       {t(featureKey as any)}
@@ -278,17 +280,18 @@ const CompactGameModeCard = ({
         )}
 
         <button
-          onClick={onStart}
-          disabled={isAnyModeLoading || isDisabled}
           className={`
             w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg relative z-20
             text-sm font-bold transition-all duration-300
             ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-            ${isDisabled || isAnyModeLoading
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
+            ${
+              isDisabled || isAnyModeLoading
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
             }
           `}
+          disabled={isAnyModeLoading || isDisabled}
+          onClick={onStart}
         >
           {isCurrentModeLoading ? (
             // Показываем загрузку только для текущего режима
@@ -307,9 +310,7 @@ const CompactGameModeCard = ({
             <>
               <Play size={16} />
               <span>
-                {isDisabled
-                  ? t("game.general.noAttempts")
-                  : t("common.play")}
+                {isDisabled ? t("game.general.noAttempts") : t("common.play")}
               </span>
             </>
           )}
@@ -341,7 +342,7 @@ function GamePageContent() {
     attemptsRemaining,
     fetchAttemptsStatus,
     consumeAttempt,
-    clearError
+    clearError,
   } = useAttempts();
   const t = useT();
 
@@ -349,54 +350,64 @@ function GamePageContent() {
   const [expandedModes, setExpandedModes] = useState<string[]>([]);
   const [consumeError, setConsumeError] = useState<string | null>(null);
 
-  const handleModeStart = useCallback(async (mode: GameMode) => {
-    if (loadingModeId || !canPlay) {
-      console.log('Cannot start game:', { loadingModeId, canPlay });
-      return;
-    }
+  const handleModeStart = useCallback(
+    async (mode: GameMode) => {
+      if (loadingModeId || !canPlay) {
+        console.log("Cannot start game:", { loadingModeId, canPlay });
 
-    setLoadingModeId(mode.id);
-    setConsumeError(null);
-
-    try {
-      console.log(`Starting ${mode.id} game - consuming attempt first...`);
-
-      // Потребляем попытку перед началом игры
-      const updatedStatus = await consumeAttempt();
-
-      if (!updatedStatus) {
-        throw new Error('Failed to consume attempt');
+        return;
       }
 
-      console.log(`Attempt consumed successfully. Remaining: ${updatedStatus.attemptsRemaining}`);
+      setLoadingModeId(mode.id);
+      setConsumeError(null);
 
-      // Небольшая задержка для показа анимации загрузки
-      setTimeout(() => {
-        router.push(mode.route);
-      }, 600);
+      try {
+        console.log(`Starting ${mode.id} game - consuming attempt first...`);
 
-    } catch (error) {
-      console.error('Error consuming attempt:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to start game';
-      setConsumeError(errorMessage);
-      setLoadingModeId(null);
+        // Потребляем попытку перед началом игры
+        const updatedStatus = await consumeAttempt();
 
-      // Обновляем статус попыток после ошибки
-      setTimeout(() => {
-        fetchAttemptsStatus(true);
-      }, 1000);
-    }
-  }, [loadingModeId, canPlay, consumeAttempt, router, fetchAttemptsStatus]);
+        if (!updatedStatus) {
+          throw new Error("Failed to consume attempt");
+        }
 
-  const handleToggleExpand = useCallback((modeId: string) => {
-    if (loadingModeId) return;
+        console.log(
+          `Attempt consumed successfully. Remaining: ${updatedStatus.attemptsRemaining}`,
+        );
 
-    setExpandedModes((prev) =>
-      prev.includes(modeId)
-        ? prev.filter((id) => id !== modeId)
-        : [...prev, modeId]
-    );
-  }, [loadingModeId]);
+        // Небольшая задержка для показа анимации загрузки
+        setTimeout(() => {
+          router.push(mode.route);
+        }, 600);
+      } catch (error) {
+        console.error("Error consuming attempt:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to start game";
+
+        setConsumeError(errorMessage);
+        setLoadingModeId(null);
+
+        // Обновляем статус попыток после ошибки
+        setTimeout(() => {
+          fetchAttemptsStatus(true);
+        }, 1000);
+      }
+    },
+    [loadingModeId, canPlay, consumeAttempt, router, fetchAttemptsStatus],
+  );
+
+  const handleToggleExpand = useCallback(
+    (modeId: string) => {
+      if (loadingModeId) return;
+
+      setExpandedModes((prev) =>
+        prev.includes(modeId)
+          ? prev.filter((id) => id !== modeId)
+          : [...prev, modeId],
+      );
+    },
+    [loadingModeId],
+  );
 
   const handleAttemptsRetry = useCallback(() => {
     clearError();
@@ -415,6 +426,7 @@ function GamePageContent() {
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
+
       tg.BackButton.show();
       tg.BackButton.onClick(() => {
         router.push("/main");
@@ -422,17 +434,18 @@ function GamePageContent() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${
+        loadingModeId
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : "opacity-100 transition-opacity duration-1000 ease-out"
+      }`}
     >
       <div className="text-center space-y-4 mb-8">
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
@@ -452,12 +465,10 @@ function GamePageContent() {
               {t("common.error")}
             </span>
           </div>
-          <p className="text-red-300 text-xs">
-            {consumeError}
-          </p>
+          <p className="text-red-300 text-xs">{consumeError}</p>
           <button
-            onClick={handleAttemptsRetry}
             className="mt-2 text-xs text-red-300 hover:text-red-200 transition-colors underline"
+            onClick={handleAttemptsRetry}
           >
             {t("common.retry")}
           </button>
@@ -467,13 +478,13 @@ function GamePageContent() {
       {/* Централизованное отображение попыток */}
       <div className="mb-8 animate-fade-in">
         <AttemptsDisplay
-          attemptsStatus={attemptsStatus}
-          isLoading={attemptsLoading}
-          error={attemptsError}
-          canPlay={canPlay}
           attemptsRemaining={attemptsRemaining}
-          onRetry={handleAttemptsRetry}
+          attemptsStatus={attemptsStatus}
+          canPlay={canPlay}
+          error={attemptsError}
+          isLoading={attemptsLoading}
           showShopButton={true}
+          onRetry={handleAttemptsRetry}
         />
       </div>
 
@@ -485,13 +496,13 @@ function GamePageContent() {
         {GAME_MODES.map((mode) => (
           <CompactGameModeCard
             key={mode.id}
-            mode={mode}
-            isExpanded={expandedModes.includes(mode.id)}
-            onToggleExpand={() => handleToggleExpand(mode.id)}
-            onStart={() => handleModeStart(mode)}
-            isDisabled={!canPlay}
-            isCurrentModeLoading={loadingModeId === mode.id}
             isAnyModeLoading={loadingModeId !== null}
+            isCurrentModeLoading={loadingModeId === mode.id}
+            isDisabled={!canPlay}
+            isExpanded={expandedModes.includes(mode.id)}
+            mode={mode}
+            onStart={() => handleModeStart(mode)}
+            onToggleExpand={() => handleToggleExpand(mode.id)}
           />
         ))}
       </div>

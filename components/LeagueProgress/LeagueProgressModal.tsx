@@ -4,293 +4,343 @@
 
 import React, { useEffect } from "react";
 import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    Card,
-    CardBody
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  Card,
+  CardBody,
 } from "@nextui-org/react";
 import {
-    Trophy,
-    Star,
-    Medal,
-    Award,
-    Crown,
-    ArrowUp,
-    Target,
-    X
+  Trophy,
+  Star,
+  Medal,
+  Award,
+  Crown,
+  ArrowUp,
+  Target,
+  X,
 } from "lucide-react";
+
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 
 interface LeagueProgressModalProps {
-    isOpen: boolean;
-    onClose: () => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const LeagueProgressModal: React.FC<LeagueProgressModalProps> = ({
-    isOpen,
-    onClose
+  isOpen,
+  onClose,
 }) => {
-    const { user, telegramUser, leagues } = useUser();
-    const t = useT();
+  const { user, telegramUser, leagues } = useUser();
+  const t = useT();
 
-    // Load league data when modal opens
-    useEffect(() => {
-        if (isOpen && user && telegramUser && !leagues.leagueData && !leagues.isLoading) {
-            console.log("Loading league data for progress modal...");
-            leagues.fetchLeagueData();
-        }
-    }, [isOpen, user, telegramUser, leagues.leagueData, leagues.isLoading, leagues.fetchLeagueData]);
-
-    // Helper functions
-    const getLeagueIcon = (leagueName: string) => {
-        switch (leagueName) {
-            case 'bronze': return Trophy;
-            case 'silver': return Medal;
-            case 'gold': return Award;
-            case 'platinum': return Crown;
-            case 'diamond': return Star;
-            default: return Trophy;
-        }
-    };
-
-    const getLeagueColors = (leagueName: string) => {
-        switch (leagueName) {
-            case 'bronze':
-                return {
-                    text: 'text-orange-400',
-                    bg: 'bg-orange-500/10',
-                    border: 'border-orange-400/30',
-                    progressBg: 'bg-orange-400'
-                };
-            case 'silver':
-                return {
-                    text: 'text-gray-300',
-                    bg: 'bg-gray-500/10',
-                    border: 'border-gray-400/30',
-                    progressBg: 'bg-gray-300'
-                };
-            case 'gold':
-                return {
-                    text: 'text-yellow-400',
-                    bg: 'bg-yellow-500/10',
-                    border: 'border-yellow-400/30',
-                    progressBg: 'bg-yellow-400'
-                };
-            case 'platinum':
-                return {
-                    text: 'text-purple-300',
-                    bg: 'bg-purple-500/10',
-                    border: 'border-purple-400/30',
-                    progressBg: 'bg-purple-300'
-                };
-            case 'diamond':
-                return {
-                    text: 'text-cyan-300',
-                    bg: 'bg-cyan-500/10',
-                    border: 'border-cyan-400/30',
-                    progressBg: 'bg-cyan-300'
-                };
-            default:
-                return {
-                    text: 'text-white',
-                    bg: 'bg-white/10',
-                    border: 'border-white/30',
-                    progressBg: 'bg-white'
-                };
-        }
-    };
-
-    if (!leagues.progressInfo && !leagues.isLoading) {
-        return null;
+  // Load league data when modal opens
+  useEffect(() => {
+    if (
+      isOpen &&
+      user &&
+      telegramUser &&
+      !leagues.leagueData &&
+      !leagues.isLoading
+    ) {
+      console.log("Loading league data for progress modal...");
+      leagues.fetchLeagueData();
     }
+  }, [
+    isOpen,
+    user,
+    telegramUser,
+    leagues.leagueData,
+    leagues.isLoading,
+    leagues.fetchLeagueData,
+  ]);
 
-    // Calculate level progress using client-side utilities
-    const currentLevel = leagues.progressInfo?.currentLevel || 1;
-    const totalGames = leagues.progressInfo?.totalGames || 0;
-    const gamesInCurrentLevel = totalGames % leagues.leagueUtils.GAMES_PER_LEVEL;
-    const gamesToNextLevel = leagues.leagueUtils.GAMES_PER_LEVEL - gamesInCurrentLevel;
-    const levelProgressPercent = (gamesInCurrentLevel / leagues.leagueUtils.GAMES_PER_LEVEL) * 100;
-    const isMaxLevel = currentLevel >= leagues.leagueUtils.MAX_LEVEL;
+  // Helper functions
+  const getLeagueIcon = (leagueName: string) => {
+    switch (leagueName) {
+      case "bronze":
+        return Trophy;
+      case "silver":
+        return Medal;
+      case "gold":
+        return Award;
+      case "platinum":
+        return Crown;
+      case "diamond":
+        return Star;
+      default:
+        return Trophy;
+    }
+  };
 
-    const currentColors = leagues.progressInfo ? getLeagueColors(leagues.progressInfo.currentLeague.name) : getLeagueColors('bronze');
-    const CurrentIcon = leagues.progressInfo ? getLeagueIcon(leagues.progressInfo.currentLeague.name) : Trophy;
-    const isMaxLeague = !leagues.progressInfo?.nextLeague;
+  const getLeagueColors = (leagueName: string) => {
+    switch (leagueName) {
+      case "bronze":
+        return {
+          text: "text-orange-400",
+          bg: "bg-orange-500/10",
+          border: "border-orange-400/30",
+          progressBg: "bg-orange-400",
+        };
+      case "silver":
+        return {
+          text: "text-gray-300",
+          bg: "bg-gray-500/10",
+          border: "border-gray-400/30",
+          progressBg: "bg-gray-300",
+        };
+      case "gold":
+        return {
+          text: "text-yellow-400",
+          bg: "bg-yellow-500/10",
+          border: "border-yellow-400/30",
+          progressBg: "bg-yellow-400",
+        };
+      case "platinum":
+        return {
+          text: "text-purple-300",
+          bg: "bg-purple-500/10",
+          border: "border-purple-400/30",
+          progressBg: "bg-purple-300",
+        };
+      case "diamond":
+        return {
+          text: "text-cyan-300",
+          bg: "bg-cyan-500/10",
+          border: "border-cyan-400/30",
+          progressBg: "bg-cyan-300",
+        };
+      default:
+        return {
+          text: "text-white",
+          bg: "bg-white/10",
+          border: "border-white/30",
+          progressBg: "bg-white",
+        };
+    }
+  };
 
-    // Calculate league progress correctly
-    const leagueProgressPercent = leagues.progressInfo ? Math.min(100, leagues.progressInfo.progressPercent) : 0;
+  if (!leagues.progressInfo && !leagues.isLoading) {
+    return null;
+  }
 
-    return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            size="sm"
-            backdrop="blur"
-            hideCloseButton={true}
-            classNames={{
-                backdrop: "bg-black/80",
-                base: "bg-black border border-white/20 max-w-sm mx-4",
-                header: "border-b border-white/10 px-4 py-3",
-                body: "px-4 py-4"
-            }}
-        >
-            <ModalContent>
-                <ModalHeader className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                        <div className={`w-8 h-8 rounded-lg ${currentColors.bg} border ${currentColors.border} flex items-center justify-center`}>
-                            <CurrentIcon className={currentColors.text} size={18} />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-white">
-                                {t("leagues.progress")}
-                            </h3>
-                        </div>
+  // Calculate level progress using client-side utilities
+  const currentLevel = leagues.progressInfo?.currentLevel || 1;
+  const totalGames = leagues.progressInfo?.totalGames || 0;
+  const gamesInCurrentLevel = totalGames % leagues.leagueUtils.GAMES_PER_LEVEL;
+  const gamesToNextLevel =
+    leagues.leagueUtils.GAMES_PER_LEVEL - gamesInCurrentLevel;
+  const levelProgressPercent =
+    (gamesInCurrentLevel / leagues.leagueUtils.GAMES_PER_LEVEL) * 100;
+  const isMaxLevel = currentLevel >= leagues.leagueUtils.MAX_LEVEL;
+
+  const currentColors = leagues.progressInfo
+    ? getLeagueColors(leagues.progressInfo.currentLeague.name)
+    : getLeagueColors("bronze");
+  const CurrentIcon = leagues.progressInfo
+    ? getLeagueIcon(leagues.progressInfo.currentLeague.name)
+    : Trophy;
+  const isMaxLeague = !leagues.progressInfo?.nextLeague;
+
+  // Calculate league progress correctly
+  const leagueProgressPercent = leagues.progressInfo
+    ? Math.min(100, leagues.progressInfo.progressPercent)
+    : 0;
+
+  return (
+    <Modal
+      backdrop="blur"
+      classNames={{
+        backdrop: "bg-black/80",
+        base: "bg-black border border-white/20 max-w-sm mx-4",
+        header: "border-b border-white/10 px-4 py-3",
+        body: "px-4 py-4",
+      }}
+      hideCloseButton={true}
+      isOpen={isOpen}
+      size="sm"
+      onClose={onClose}
+    >
+      <ModalContent>
+        <ModalHeader className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div
+              className={`w-8 h-8 rounded-lg ${currentColors.bg} border ${currentColors.border} flex items-center justify-center`}
+            >
+              <CurrentIcon className={currentColors.text} size={18} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">
+                {t("leagues.progress")}
+              </h3>
+            </div>
+          </div>
+          <button
+            className="p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300"
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
+        </ModalHeader>
+
+        <ModalBody>
+          {leagues.isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center space-y-4">
+                <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
+                <p className="text-white/60 text-sm">
+                  {t("leagues.status.loading")}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Current Status */}
+              <Card
+                className={`${currentColors.bg} border ${currentColors.border}`}
+              >
+                <CardBody className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div
+                        className={`text-base font-bold ${currentColors.text}`}
+                      >
+                        {t("profile.levelDisplay", { level: currentLevel })}
+                      </div>
+                      <div
+                        className={`text-sm ${currentColors.text} opacity-80`}
+                      >
+                        {leagues.progressInfo &&
+                          t(
+                            `leagues.names.${leagues.progressInfo.currentLeague.name}` as any,
+                          )}
+                      </div>
                     </div>
-                    <button
-                        className="p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300"
-                        onClick={onClose}
-                    >
-                        <X size={18} />
-                    </button>
-                </ModalHeader>
+                    <div className="text-right">
+                      <div className="text-xl font-bold text-white">
+                        {totalGames}
+                      </div>
+                      <div className="text-xs text-white/60">
+                        {t("leagues.progressDisplay.gamesPlayed")}
+                      </div>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
 
-                <ModalBody>
-                    {leagues.isLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                            <div className="text-center space-y-4">
-                                <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-                                <p className="text-white/60 text-sm">{t("leagues.status.loading")}</p>
-                            </div>
+              {/* Level Progress */}
+              {!isMaxLevel && (
+                <Card className="bg-white/5 border border-white/20">
+                  <CardBody className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Star className="text-white/70" size={16} />
+                          <span className="text-sm font-medium text-white">
+                            {t("profile.levelProgress.gamesToNext")}
+                          </span>
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {/* Current Status */}
-                            <Card className={`${currentColors.bg} border ${currentColors.border}`}>
-                                <CardBody className="p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className={`text-base font-bold ${currentColors.text}`}>
-                                                {t("profile.levelDisplay", { level: currentLevel })}
-                                            </div>
-                                            <div className={`text-sm ${currentColors.text} opacity-80`}>
-                                                {leagues.progressInfo && t(`leagues.names.${leagues.progressInfo.currentLeague.name}` as any)}
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-xl font-bold text-white">
-                                                {totalGames}
-                                            </div>
-                                            <div className="text-xs text-white/60">
-                                                {t("leagues.progressDisplay.gamesPlayed")}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
-
-                            {/* Level Progress */}
-                            {!isMaxLevel && (
-                                <Card className="bg-white/5 border border-white/20">
-                                    <CardBody className="p-4">
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-2">
-                                                    <Star className="text-white/70" size={16} />
-                                                    <span className="text-sm font-medium text-white">
-                                                        {t("profile.levelProgress.gamesToNext")}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center space-x-1">
-                                                    <ArrowUp className="text-white/60" size={14} />
-                                                    <span className="text-sm font-bold text-white">
-                                                        {gamesToNextLevel}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Level Progress Bar */}
-                                            <div className="w-full bg-white/20 rounded-full h-2">
-                                                <div
-                                                    className="h-2 rounded-full bg-white/70 transition-all duration-500"
-                                                    style={{ width: `${levelProgressPercent}%` }}
-                                                />
-                                            </div>
-
-                                            <div className="text-center">
-                                                <span className="text-white/60 text-xs">
-                                                    {t("profile.levelProgress.nextLevel", { level: currentLevel + 1 })}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </CardBody>
-                                </Card>
-                            )}
-
-                            {/* League Progress */}
-                            {!isMaxLeague && leagues.progressInfo?.nextLeague && (
-                                <Card className="bg-white/5 border border-white/20">
-                                    <CardBody className="p-4">
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-2">
-                                                    <Target className="text-white/70" size={16} />
-                                                    <span className="text-sm font-medium text-white">
-                                                        {t("leagues.progressDisplay.gamesToNext")}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center space-x-1">
-                                                    <ArrowUp className="text-white/60" size={14} />
-                                                    <span className="text-sm font-bold text-white">
-                                                        {leagues.progressInfo.gamesToNextLeague}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* League Progress Bar */}
-                                            <div className="w-full bg-white/20 rounded-full h-2">
-                                                <div
-                                                    className={`h-2 rounded-full transition-all duration-500 ${currentColors.progressBg}`}
-                                                    style={{ width: `${leagueProgressPercent}%` }}
-                                                />
-                                            </div>
-
-                                            <div className="text-center">
-                                                <span className="text-white/60 text-xs">
-                                                    {t("profile.levelProgress.nextLeague")}: {' '}
-                                                    <span className={getLeagueColors(leagues.progressInfo.nextLeague.name).text}>
-                                                        {t(`leagues.names.${leagues.progressInfo.nextLeague.name}` as any)}
-                                                    </span>
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </CardBody>
-                                </Card>
-                            )}
-
-                            {/* Max Level/League Indicators */}
-                            {(isMaxLevel || isMaxLeague) && (
-                                <Card className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-400/30">
-                                    <CardBody className="p-4 text-center">
-                                        <Star className="text-yellow-400 mx-auto mb-2" size={24} />
-                                        <p className="text-sm font-bold text-yellow-400">
-                                            {isMaxLevel && isMaxLeague
-                                                ? t("leagues.progressDisplay.maxAchieved")
-                                                : isMaxLevel
-                                                    ? t("leagues.progressDisplay.maxLevel")
-                                                    : t("leagues.progressDisplay.inTopLeague")
-                                            }
-                                        </p>
-                                    </CardBody>
-                                </Card>
-                            )}
+                        <div className="flex items-center space-x-1">
+                          <ArrowUp className="text-white/60" size={14} />
+                          <span className="text-sm font-bold text-white">
+                            {gamesToNextLevel}
+                          </span>
                         </div>
-                    )}
-                </ModalBody>
-            </ModalContent>
-        </Modal>
-    );
+                      </div>
+
+                      {/* Level Progress Bar */}
+                      <div className="w-full bg-white/20 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full bg-white/70 transition-all duration-500"
+                          style={{ width: `${levelProgressPercent}%` }}
+                        />
+                      </div>
+
+                      <div className="text-center">
+                        <span className="text-white/60 text-xs">
+                          {t("profile.levelProgress.nextLevel", {
+                            level: currentLevel + 1,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </CardBody>
+                </Card>
+              )}
+
+              {/* League Progress */}
+              {!isMaxLeague && leagues.progressInfo?.nextLeague && (
+                <Card className="bg-white/5 border border-white/20">
+                  <CardBody className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Target className="text-white/70" size={16} />
+                          <span className="text-sm font-medium text-white">
+                            {t("leagues.progressDisplay.gamesToNext")}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <ArrowUp className="text-white/60" size={14} />
+                          <span className="text-sm font-bold text-white">
+                            {leagues.progressInfo.gamesToNextLeague}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* League Progress Bar */}
+                      <div className="w-full bg-white/20 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-500 ${currentColors.progressBg}`}
+                          style={{ width: `${leagueProgressPercent}%` }}
+                        />
+                      </div>
+
+                      <div className="text-center">
+                        <span className="text-white/60 text-xs">
+                          {t("profile.levelProgress.nextLeague")}:{" "}
+                          <span
+                            className={
+                              getLeagueColors(
+                                leagues.progressInfo.nextLeague.name,
+                              ).text
+                            }
+                          >
+                            {t(
+                              `leagues.names.${leagues.progressInfo.nextLeague.name}` as any,
+                            )}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  </CardBody>
+                </Card>
+              )}
+
+              {/* Max Level/League Indicators */}
+              {(isMaxLevel || isMaxLeague) && (
+                <Card className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-400/30">
+                  <CardBody className="p-4 text-center">
+                    <Star className="text-yellow-400 mx-auto mb-2" size={24} />
+                    <p className="text-sm font-bold text-yellow-400">
+                      {isMaxLevel && isMaxLeague
+                        ? t("leagues.progressDisplay.maxAchieved")
+                        : isMaxLevel
+                          ? t("leagues.progressDisplay.maxLevel")
+                          : t("leagues.progressDisplay.inTopLeague")}
+                    </p>
+                  </CardBody>
+                </Card>
+              )}
+            </div>
+          )}
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
 };
 
 export default LeagueProgressModal;

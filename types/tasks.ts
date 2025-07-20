@@ -1,257 +1,265 @@
 // src/types/tasks.ts - TypeScript types for tasks system
 
 // Task types enum
-import { SiX, SiTelegram } from "react-icons/si";
 
 export enum TaskType {
-    TELEGRAM_CHANNEL = 'telegram_channel',
-    TELEGRAM_CHAT = 'telegram_chat',
-    WEBSITE_VISIT = 'website_visit',
-    TWITTER_FOLLOW = 'twitter_follow',
-    TWITTER_REPOST = 'twitter_repost',
+  TELEGRAM_CHANNEL = "telegram_channel",
+  TELEGRAM_CHAT = "telegram_chat",
+  WEBSITE_VISIT = "website_visit",
+  TWITTER_FOLLOW = "twitter_follow",
+  TWITTER_REPOST = "twitter_repost",
 }
 
 // Task status enum
 export enum TaskStatus {
-    NOT_STARTED = 'not_started',
-    STARTED = 'started',
-    COMPLETED = 'completed',
-    REWARDED = 'rewarded',
+  NOT_STARTED = "not_started",
+  STARTED = "started",
+  COMPLETED = "completed",
+  REWARDED = "rewarded",
 }
 
 // Base task interface
 export interface Task {
-    id: string;
-    title: string;
-    description?: string;
-    task_type: TaskType;
-    url: string;
-    telegram_id?: number;
-    attempts_reward: number;
-    image_url?: string;
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
+  id: string;
+  title: string;
+  description?: string;
+  task_type: TaskType;
+  url: string;
+  telegram_id?: number;
+  attempts_reward: number;
+  image_url?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 // User task completion interface
 export interface UserTask {
-    id: string;
-    user_id: string;
-    task_id: string;
-    status: TaskStatus;
-    started_at?: string;
-    completed_at?: string;
-    rewarded_at?: string;
-    verification_data?: Record<string, any>;
-    created_at: string;
-    updated_at: string;
+  id: string;
+  user_id: string;
+  task_id: string;
+  status: TaskStatus;
+  started_at?: string;
+  completed_at?: string;
+  rewarded_at?: string;
+  verification_data?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
 }
 
 // Combined task with user status
 export interface TaskWithStatus {
-    task_id: string;
-    title: string;
-    description?: string;
-    task_type: TaskType;
-    url: string;
-    telegram_id?: number;
-    attempts_reward: number;
-    image_url?: string;
-    user_status: TaskStatus;
-    started_at?: string;
-    completed_at?: string;
-    rewarded_at?: string;
+  task_id: string;
+  title: string;
+  description?: string;
+  task_type: TaskType;
+  url: string;
+  telegram_id?: number;
+  attempts_reward: number;
+  image_url?: string;
+  user_status: TaskStatus;
+  started_at?: string;
+  completed_at?: string;
+  rewarded_at?: string;
 }
 
 // API Request/Response interfaces
 export interface StartTaskRequest {
-    taskId: string;
+  taskId: string;
 }
 
 export interface StartTaskResponse {
-    success: boolean;
-    task?: TaskWithStatus;
-    error?: string;
+  success: boolean;
+  task?: TaskWithStatus;
+  error?: string;
 }
 
 export interface VerifyTaskRequest {
-    taskId: string;
-    verificationData?: Record<string, any>;
+  taskId: string;
+  verificationData?: Record<string, any>;
 }
 
 export interface VerifyTaskResponse {
-    success: boolean;
-    verified: boolean;
-    task?: TaskWithStatus;
-    error?: string;
+  success: boolean;
+  verified: boolean;
+  task?: TaskWithStatus;
+  error?: string;
 }
 
 export interface ClaimRewardRequest {
-    taskId: string;
+  taskId: string;
 }
 
 export interface ClaimRewardResponse {
-    success: boolean;
-    attemptsAdded: number;
-    newAttemptsTotal: number;
-    task?: TaskWithStatus;
-    error?: string;
+  success: boolean;
+  attemptsAdded: number;
+  newAttemptsTotal: number;
+  task?: TaskWithStatus;
+  error?: string;
 }
 
 export interface GetTasksResponse {
-    success: boolean;
-    tasks: TaskWithStatus[];
-    categorized?: {
-        notStarted: TaskWithStatus[];
-        started: TaskWithStatus[];
-        completed: TaskWithStatus[];
-        rewarded: TaskWithStatus[];
-    };
-    error?: string;
+  success: boolean;
+  tasks: TaskWithStatus[];
+  categorized?: {
+    notStarted: TaskWithStatus[];
+    started: TaskWithStatus[];
+    completed: TaskWithStatus[];
+    rewarded: TaskWithStatus[];
+  };
+  error?: string;
 }
 
 // Telegram verification interfaces
 export interface TelegramMembershipCheck {
-    taskId: string;
-    userId: number;
-    chatId: number;
+  taskId: string;
+  userId: number;
+  chatId: number;
 }
 
 export interface TelegramMembershipResponse {
-    success: boolean;
-    isMember: boolean;
-    memberStatus?: 'creator' | 'administrator' | 'member' | 'restricted' | 'left' | 'kicked';
-    error?: string;
+  success: boolean;
+  isMember: boolean;
+  memberStatus?:
+    | "creator"
+    | "administrator"
+    | "member"
+    | "restricted"
+    | "left"
+    | "kicked";
+  error?: string;
 }
 
 // Task verification data interfaces
 export interface TelegramVerificationData {
-    chatId: number;
-    userId: number;
-    memberStatus: string;
-    verifiedAt: string;
+  chatId: number;
+  userId: number;
+  memberStatus: string;
+  verifiedAt: string;
 }
 
 export interface WebsiteVerificationData {
-    visitedAt: string;
-    userAgent?: string;
-    referrer?: string;
+  visitedAt: string;
+  userAgent?: string;
+  referrer?: string;
 }
 
 export interface TwitterVerificationData {
-    verifiedAt: string;
-    action: 'follow' | 'repost';
-    username?: string;
-    tweetId?: string;
+  verifiedAt: string;
+  action: "follow" | "repost";
+  username?: string;
+  tweetId?: string;
 }
 
 // Task category for UI organization
 export interface TaskCategory {
-    key: 'not_started' | 'started' | 'completed' | 'rewarded';
-    title: string;
-    tasks: TaskWithStatus[];
-    count: number;
+  key: "not_started" | "started" | "completed" | "rewarded";
+  title: string;
+  tasks: TaskWithStatus[];
+  count: number;
 }
 
 // Task button state interface
 export interface TaskButtonState {
-    text: string;
-    variant: 'default' | 'secondary' | 'success' | 'warning';
-    disabled: boolean;
-    loading: boolean;
-    icon?: React.ComponentType<any>;
+  text: string;
+  variant: "default" | "secondary" | "success" | "warning";
+  disabled: boolean;
+  loading: boolean;
+  icon?: React.ComponentType<any>;
 }
 
 // Task completion statistics
 export interface TaskStats {
-    totalTasks: number;
-    completedTasks: number;
-    pendingTasks: number;
-    totalRewardsEarned: number;
-    completionRate: number;
+  totalTasks: number;
+  completedTasks: number;
+  pendingTasks: number;
+  totalRewardsEarned: number;
+  completionRate: number;
 }
 
 // Utility type for task filtering
 export type TaskFilter = {
-    type?: TaskType;
-    status?: TaskStatus;
-    hasReward?: boolean;
-    isActive?: boolean;
+  type?: TaskType;
+  status?: TaskStatus;
+  hasReward?: boolean;
+  isActive?: boolean;
 };
 
 // Constants for task configuration
 export const TASK_CONFIG = {
-    VERIFICATION_TIMEOUT: 30000, // 30 seconds
-    MAX_VERIFICATION_ATTEMPTS: 3,
-    COOLDOWN_PERIODS: {
-        [TaskType.TELEGRAM_CHANNEL]: 0,
-        [TaskType.TELEGRAM_CHAT]: 0,
-        [TaskType.WEBSITE_VISIT]: 5000, // 5 seconds
-        [TaskType.TWITTER_FOLLOW]: 10000, // 10 seconds
-        [TaskType.TWITTER_REPOST]: 10000, // 10 seconds
-    },
+  VERIFICATION_TIMEOUT: 30000, // 30 seconds
+  MAX_VERIFICATION_ATTEMPTS: 3,
+  COOLDOWN_PERIODS: {
+    [TaskType.TELEGRAM_CHANNEL]: 0,
+    [TaskType.TELEGRAM_CHAT]: 0,
+    [TaskType.WEBSITE_VISIT]: 5000, // 5 seconds
+    [TaskType.TWITTER_FOLLOW]: 10000, // 10 seconds
+    [TaskType.TWITTER_REPOST]: 10000, // 10 seconds
+  },
 } as const;
 
 // Task action types for UI
-export type TaskAction = 'start' | 'verify' | 'claim' | 'visit';
+export type TaskAction = "start" | "verify" | "claim" | "visit";
 
 // Helper type guards
 export const isTaskCompleted = (task: TaskWithStatus): boolean => {
-    return task.user_status === TaskStatus.COMPLETED || task.user_status === TaskStatus.REWARDED;
+  return (
+    task.user_status === TaskStatus.COMPLETED ||
+    task.user_status === TaskStatus.REWARDED
+  );
 };
 
 export const isTaskRewarded = (task: TaskWithStatus): boolean => {
-    return task.user_status === TaskStatus.REWARDED;
+  return task.user_status === TaskStatus.REWARDED;
 };
 
 export const canStartTask = (task: TaskWithStatus): boolean => {
-    return task.user_status === TaskStatus.NOT_STARTED;
+  return task.user_status === TaskStatus.NOT_STARTED;
 };
 
 export const canVerifyTask = (task: TaskWithStatus): boolean => {
-    return task.user_status === TaskStatus.STARTED;
+  return task.user_status === TaskStatus.STARTED;
 };
 
 export const canClaimReward = (task: TaskWithStatus): boolean => {
-    return task.user_status === TaskStatus.COMPLETED;
+  return task.user_status === TaskStatus.COMPLETED;
 };
 
 // Task type display configuration
 export const TASK_TYPE_CONFIG = {
-    [TaskType.TELEGRAM_CHANNEL]: {
-        name: 'Telegram Channel',
-        icon: '📢',
-        color: 'blue',
-        requiresVerification: true,
-        actionText: 'Subscribe',
-    },
-    [TaskType.TELEGRAM_CHAT]: {
-        name: 'Telegram Chat',
-        icon: '💬',
-        color: 'blue',
-        requiresVerification: true,
-        actionText: 'Join',
-    },
-    [TaskType.WEBSITE_VISIT]: {
-        name: 'Website Visit',
-        icon: '🌐',
-        color: 'green',
-        requiresVerification: false,
-        actionText: 'Visit',
-    },
-    [TaskType.TWITTER_FOLLOW]: {
-        name: 'Twitter Follow',
-        icon: '🐦',
-        color: 'sky',
-        requiresVerification: false,
-        actionText: 'Follow',
-    },
-    [TaskType.TWITTER_REPOST]: {
-        name: 'Twitter Repost',
-        icon: '🔄',
-        color: 'sky',
-        requiresVerification: false,
-        actionText: 'Repost',
-    },
+  [TaskType.TELEGRAM_CHANNEL]: {
+    name: "Telegram Channel",
+    icon: "📢",
+    color: "blue",
+    requiresVerification: true,
+    actionText: "Subscribe",
+  },
+  [TaskType.TELEGRAM_CHAT]: {
+    name: "Telegram Chat",
+    icon: "💬",
+    color: "blue",
+    requiresVerification: true,
+    actionText: "Join",
+  },
+  [TaskType.WEBSITE_VISIT]: {
+    name: "Website Visit",
+    icon: "🌐",
+    color: "green",
+    requiresVerification: false,
+    actionText: "Visit",
+  },
+  [TaskType.TWITTER_FOLLOW]: {
+    name: "Twitter Follow",
+    icon: "🐦",
+    color: "sky",
+    requiresVerification: false,
+    actionText: "Follow",
+  },
+  [TaskType.TWITTER_REPOST]: {
+    name: "Twitter Repost",
+    icon: "🔄",
+    color: "sky",
+    requiresVerification: false,
+    actionText: "Repost",
+  },
 } as const;

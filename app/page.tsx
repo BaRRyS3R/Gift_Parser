@@ -719,13 +719,22 @@ export default function IntroPage(): JSX.Element {
         className={`video-container ${videoState.isPlaying ? "opacity-100" : "opacity-0"
           } transition-opacity duration-500`}
       >
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
           ref={videoRef}
           playsInline
+          muted
           className="video-player"
           preload="auto"
+          aria-label="Application introduction video"
         >
           <source src="/videos/intro.mp4" type="video/mp4" />
+          <track
+            kind="captions"
+            srcLang="en"
+            label="English captions"
+            default
+          />
           Your browser does not support the video tag.
         </video>
       </div>

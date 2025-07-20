@@ -4,7 +4,13 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Settings as SettingsIcon, Info, Trophy, Clock } from "lucide-react";
+import {
+  Play,
+  Settings as SettingsIcon,
+  Info,
+  Trophy,
+  Clock,
+} from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
@@ -46,12 +52,15 @@ const formatTimeRemaining = (milliseconds: number): string => {
 
   if (days > 0) {
     const hours = totalHours % 24;
+
     return `${days}d ${hours}h`;
   } else if (totalHours > 0) {
     const minutes = totalMinutes % 60;
+
     return `${totalHours}h ${minutes}m`;
   } else if (totalMinutes > 0) {
     const seconds = totalSeconds % 60;
+
     return `${totalMinutes}m ${seconds}s`;
   } else {
     return `${totalSeconds}s`;
@@ -60,7 +69,13 @@ const formatTimeRemaining = (milliseconds: number): string => {
 
 function MainPageContent() {
   const router = useRouter();
-  const { user, isLoading: userLoading, telegramUser, setTelegramUser, makeAuthenticatedRequest } = useUser();
+  const {
+    user,
+    isLoading: userLoading,
+    telegramUser,
+    setTelegramUser,
+    makeAuthenticatedRequest,
+  } = useUser();
   const {
     attemptsStatus,
     isLoading: attemptsLoading,
@@ -68,7 +83,7 @@ function MainPageContent() {
     canPlay,
     attemptsRemaining,
     fetchAttemptsStatus,
-    clearError
+    clearError,
   } = useAttempts();
   const { settings } = useSettings();
   const t = useT();
@@ -78,6 +93,7 @@ function MainPageContent() {
    * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
+
     return !sessionStorage.getItem("mainPageVisited");
   };
 
@@ -104,7 +120,8 @@ function MainPageContent() {
     isActive: false,
     activeTournament: null,
   });
-  const [tournamentTimeRemaining, setTournamentTimeRemaining] = useState<string>("");
+  const [tournamentTimeRemaining, setTournamentTimeRemaining] =
+    useState<string>("");
   const [showTournamentButton, setShowTournamentButton] = useState(false);
   const [tournamentLoading, setTournamentLoading] = useState(false);
   const [tournamentError, setTournamentError] = useState<string | null>(null);
@@ -120,6 +137,7 @@ function MainPageContent() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
+
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
@@ -136,13 +154,18 @@ function MainPageContent() {
   useEffect(() => {
     if (!isFirstVisit && user?.first_name) {
       const fullGreeting = t("main.greeting", { name: user.first_name });
+
       setGreetingText(fullGreeting);
     }
   }, [isFirstVisit, user?.first_name, t]);
 
   // Initialize telegramUser if not set
   useEffect(() => {
-    if (!telegramUser && typeof window !== "undefined" && window.Telegram?.WebApp) {
+    if (
+      !telegramUser &&
+      typeof window !== "undefined" &&
+      window.Telegram?.WebApp
+    ) {
       const tg = window.Telegram.WebApp;
       const user = tg.initDataUnsafe?.user;
 
@@ -155,6 +178,7 @@ function MainPageContent() {
           language_code: user.language_code,
           is_premium: user.is_premium,
         };
+
         setTelegramUser(telegramUserData);
       }
     }
@@ -171,41 +195,48 @@ function MainPageContent() {
         setTournamentLoading(true);
         setTournamentError(null);
 
-        console.log('Loading tournament status using API...');
+        console.log("Loading tournament status using API...");
 
-        const response = await makeAuthenticatedRequest('/api/tournament/active');
+        const response = await makeAuthenticatedRequest(
+          "/api/tournament/active",
+        );
 
         if (!response.ok) {
           // Silently handle errors for main page
-          console.log('Tournament API not available or no active tournament');
+          console.log("Tournament API not available or no active tournament");
           setTournamentStatus({
             isActive: false,
             activeTournament: null,
           });
           setShowTournamentButton(false);
+
           return;
         }
 
         const result = await response.json();
 
         if (!result.success) {
-          console.log('No active tournament available');
+          console.log("No active tournament available");
           setTournamentStatus({
             isActive: false,
             activeTournament: null,
           });
           setShowTournamentButton(false);
+
           return;
         }
 
         const status: TournamentStatus = result.data;
+
         setTournamentStatus(status);
 
         if (status.isActive && status.activeTournament) {
           setShowTournamentButton(true);
 
           if (status.timeRemaining) {
-            setTournamentTimeRemaining(formatTimeRemaining(status.timeRemaining));
+            setTournamentTimeRemaining(
+              formatTimeRemaining(status.timeRemaining),
+            );
 
             // Set up countdown timer
             const interval = setInterval(() => {
@@ -232,11 +263,10 @@ function MainPageContent() {
           setShowTournamentButton(false);
         }
 
-        console.log('Tournament status loaded:', {
+        console.log("Tournament status loaded:", {
           isActive: status.isActive,
-          tournamentName: status.activeTournament?.name
+          tournamentName: status.activeTournament?.name,
         });
-
       } catch (error) {
         console.log("Tournament loading failed (silently handled):", error);
         setTournamentStatus({
@@ -380,12 +410,13 @@ function MainPageContent() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
-        }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : pageLoaded
+            ? "opacity-100 transition-opacity duration-1000 ease-out"
+            : "opacity-0"
+      }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -410,13 +441,15 @@ function MainPageContent() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed left-0 right-0 z-30 px-6 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -493,10 +526,11 @@ function MainPageContent() {
 
         {/* Action Button */}
         <div
-          className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
@@ -521,13 +555,15 @@ function MainPageContent() {
 
         {/* User Greeting */}
         <div
-          className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showGreeting
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showGreeting
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -566,45 +602,49 @@ function MainPageContent() {
 
       {/* Централизованное отображение попыток */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed bottom-0 left-0 right-0 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay
-          attemptsStatus={attemptsStatus}
-          isLoading={attemptsLoading}
-          error={attemptsError}
-          canPlay={canPlay}
           attemptsRemaining={attemptsRemaining}
-          onRetry={handleAttemptsRetry}
+          attemptsStatus={attemptsStatus}
+          canPlay={canPlay}
+          error={attemptsError}
+          isLoading={attemptsLoading}
           showShopButton={false}
+          onRetry={handleAttemptsRetry}
         />
       </div>
 
       {/* Level and League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showLeagueDisplay
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-4"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showLeagueDisplay
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-4"
+                }`
+              : "opacity-100 translate-y-0"
+          }`}
           style={{
             bottom: "96px",
-            zIndex: 50
+            zIndex: 50,
           }}
         >
           <div className="pointer-events-auto">
             <CompactLeagueDisplay
-              onClick={handleOpenLeagueProgress}
               className="cursor-pointer"
+              onClick={handleOpenLeagueProgress}
             />
           </div>
         </div>

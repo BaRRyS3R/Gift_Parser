@@ -58,18 +58,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
           viewportStableHeight: tg.viewportStableHeight,
           isExpanded: tg.isExpanded,
           platform: tg.platform,
-          version: tg.version
+          version: tg.version,
         });
 
         // Listen for viewport changes
-        tg.onEvent('viewportChanged', () => {
+        tg.onEvent("viewportChanged", () => {
           console.log("Viewport changed:", {
             viewportHeight: tg.viewportHeight,
             viewportStableHeight: tg.viewportStableHeight,
-            isExpanded: tg.isExpanded
+            isExpanded: tg.isExpanded,
           });
         });
-
       } catch (error) {
         console.error("Error initializing Telegram WebApp:", error);
       }
@@ -77,10 +76,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     // Enhanced viewport meta tag configuration for fullscreen
     const viewport = document.querySelector('meta[name="viewport"]');
+
     if (viewport) {
       viewport.setAttribute(
-        'content',
-        'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content'
+        "content",
+        "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content",
       );
     }
 
@@ -88,17 +88,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
     let lastTouchEnd = 0;
     const preventZoom = (e: TouchEvent) => {
       const now = new Date().getTime();
+
       if (now - lastTouchEnd <= 300) {
         e.preventDefault();
       }
       lastTouchEnd = now;
     };
 
-    document.addEventListener('touchend', preventZoom, { passive: false });
+    document.addEventListener("touchend", preventZoom, { passive: false });
 
     // Cleanup function
     return () => {
-      document.removeEventListener('touchend', preventZoom);
+      document.removeEventListener("touchend", preventZoom);
 
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;

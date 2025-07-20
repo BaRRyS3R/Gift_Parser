@@ -12,117 +12,130 @@ import { useT } from "@/contexts/LocalizationContext";
 
 // Tournament interface (from new API)
 interface Tournament {
-    id: string;
-    name: string;
-    start_date: string;
-    end_date: string;
-    prizes: string[];
-    created_at: string;
-    updated_at: string;
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  prizes: string[];
+  created_at: string;
+  updated_at: string;
 }
 
 interface TournamentStatus {
-    isActive: boolean;
-    activeTournament: Tournament | null;
-    timeRemaining?: number;
-    hasStarted?: boolean;
+  isActive: boolean;
+  activeTournament: Tournament | null;
+  timeRemaining?: number;
+  hasStarted?: boolean;
 }
 
 export default function TournamentPlayPage() {
-    const router = useRouter();
-    const { makeAuthenticatedRequest } = useUser();
-    const t = useT();
+  const router = useRouter();
+  const { makeAuthenticatedRequest } = useUser();
+  const t = useT();
 
-    const [tournament, setTournament] = useState<Tournament | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-            const tg = window.Telegram.WebApp;
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
 
-            tg.BackButton.show();
-            tg.BackButton.onClick(() => {
-                router.push("/tournament");
-            });
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
+        router.push("/tournament");
+      });
 
-            return () => {
-                tg.BackButton.hide();
-                tg.BackButton.offClick(() => { });
-            };
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => {});
+      };
+    }
+  }, [router]);
+
+  useEffect(() => {
+    const loadTournament = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        console.log("Loading tournament for play...");
+
+        const response = await makeAuthenticatedRequest(
+          "/api/tournament/active",
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+
+          throw new Error(errorData.error || "Failed to load tournament");
         }
-    }, [router]);
 
-    useEffect(() => {
-        const loadTournament = async () => {
-            try {
-                setIsLoading(true);
-                setError(null);
+        const result = await response.json();
 
-                console.log('Loading tournament for play...');
+        if (!result.success) {
+          throw new Error(result.error || "Failed to load tournament");
+        }
 
-                const response = await makeAuthenticatedRequest('/api/tournament/active');
+        const tournamentStatus: TournamentStatus = result.data;
 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || 'Failed to load tournament');
-                }
+        if (!tournamentStatus.isActive || !tournamentStatus.activeTournament) {
+          setError("No active tournament found");
+          setTimeout(() => {
+            router.push("/tournament");
+          }, 2000);
 
-                const result = await response.json();
+          return;
+        }
 
-                if (!result.success) {
-                    throw new Error(result.error || 'Failed to load tournament');
-                }
-
-                const tournamentStatus: TournamentStatus = result.data;
-
-                if (!tournamentStatus.isActive || !tournamentStatus.activeTournament) {
-                    setError("No active tournament found");
-                    setTimeout(() => {
-                        router.push("/tournament");
-                    }, 2000);
-                    return;
-                }
-
-                console.log('Active tournament loaded:', tournamentStatus.activeTournament.name);
-                setTournament(tournamentStatus.activeTournament);
-            } catch (err) {
-                console.error("Error loading tournament:", err);
-                const errorMessage = err instanceof Error ? err.message : "Failed to load tournament";
-                setError(errorMessage);
-                setTimeout(() => {
-                    router.push("/tournament");
-                }, 2000);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadTournament();
-    }, [router, makeAuthenticatedRequest]);
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <div className="w-8 h-8 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin mx-auto" />
-                    <p className="text-yellow-300">{t("tournament.loadingTournament")}</p>
-                </div>
-            </div>
+        console.log(
+          "Active tournament loaded:",
+          tournamentStatus.activeTournament.name,
         );
-    }
+        setTournament(tournamentStatus.activeTournament);
+      } catch (err) {
+        console.error("Error loading tournament:", err);
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to load tournament";
 
-    if (error || !tournament) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <Trophy className="text-yellow-400/60 mx-auto" size={32} />
-                    <p className="text-yellow-300/80">{error || "Tournament not found"}</p>
-                    <p className="text-yellow-400/60 text-sm">{t("tournament.redirectingToTournament")}.</p>
-                </div>
-            </div>
-        );
-    }
+        setError(errorMessage);
+        setTimeout(() => {
+          router.push("/tournament");
+        }, 2000);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    return <TournamentGameManager tournament={tournament} />;
+    loadTournament();
+  }, [router, makeAuthenticatedRequest]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-yellow-400/20 border-t-yellow-400 rounded-full animate-spin mx-auto" />
+          <p className="text-yellow-300">{t("tournament.loadingTournament")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !tournament) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Trophy className="text-yellow-400/60 mx-auto" size={32} />
+          <p className="text-yellow-300/80">
+            {error || "Tournament not found"}
+          </p>
+          <p className="text-yellow-400/60 text-sm">
+            {t("tournament.redirectingToTournament")}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return <TournamentGameManager tournament={tournament} />;
 }

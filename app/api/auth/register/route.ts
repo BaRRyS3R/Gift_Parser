@@ -1,11 +1,17 @@
 // src/app/api/auth/register/route.ts - Updated to use server league service
 
-import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer, serverUserService } from '@/lib/supabase_server';
-import { serverLeagueService } from '@/lib/server/leagueServerService';
-import { validateTelegramData, extractReferralCode, createInitDataHash } from '@/lib/telegram-auth';
-import { createJWT, createRefreshToken } from '@/lib/jwt';
-import type { TelegramUser } from '@/lib/supabase';
+import type { TelegramUser } from "@/lib/supabase";
+
+import { NextRequest, NextResponse } from "next/server";
+
+import { serverUserService } from "@/lib/supabase_server";
+import { serverLeagueService } from "@/lib/server/leagueServerService";
+import {
+  validateTelegramData,
+  extractReferralCode,
+  createInitDataHash,
+} from "@/lib/telegram-auth";
+import { createJWT, createRefreshToken } from "@/lib/jwt";
 
 // Request body interface
 interface RegisterRequest {
@@ -48,7 +54,9 @@ interface RegisterResponse {
  * POST /api/auth/register
  * Registers a new user with Telegram WebApp data validation
  */
-export async function POST(request: NextRequest): Promise<NextResponse<RegisterResponse>> {
+export async function POST(
+  request: NextRequest,
+): Promise<NextResponse<RegisterResponse>> {
   try {
     // Parse request body
     const body: RegisterRequest = await request.json();
@@ -58,9 +66,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing initData parameter'
+          error: "Missing initData parameter",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -71,40 +79,48 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
       return NextResponse.json(
         {
           success: false,
-          error: validation.error || 'Invalid Telegram data'
+          error: validation.error || "Invalid Telegram data",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const telegramUser: TelegramUser = validation.user;
 
     // Check if user already exists
-    const existingUser = await serverUserService.findByTelegramId(telegramUser.id);
+    const existingUser = await serverUserService.findByTelegramId(
+      telegramUser.id,
+    );
 
     if (existingUser) {
       return NextResponse.json(
         {
           success: false,
-          error: 'User already exists'
+          error: "User already exists",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     // Extract referral code from initData if not provided
     const extractedReferralCode = extractReferralCode(initData);
-    const finalReferralCode = referralCode || (extractedReferralCode || undefined);
+    const finalReferralCode =
+      referralCode || extractedReferralCode || undefined;
 
     // Validate referral code and get referrer info
-    let referralBonusInfo: {
-      received: number;
-      referrerName?: string;
-      referrerUsername?: string;
-    } | undefined;
+    let referralBonusInfo:
+      | {
+          received: number;
+          referrerName?: string;
+          referrerUsername?: string;
+        }
+      | undefined;
 
     if (finalReferralCode) {
-      const referralValidation = await serverUserService.validateReferralCodeAndGetReferrer(finalReferralCode);
+      const referralValidation =
+        await serverUserService.validateReferralCodeAndGetReferrer(
+          finalReferralCode,
+        );
 
       if (referralValidation.isValid) {
         referralBonusInfo = {
@@ -116,14 +132,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
     }
 
     // Create new user
-    const newUser = await serverUserService.create(telegramUser, finalReferralCode);
+    const newUser = await serverUserService.create(
+      telegramUser,
+      finalReferralCode,
+    );
 
     // Initialize user league using server league service
     try {
       await serverLeagueService.initializeUserLeague(newUser.id, 0);
       console.log(`League initialized for new user ${newUser.telegram_id}`);
     } catch (leagueError) {
-      console.error('Error initializing user league:', leagueError);
+      console.error("Error initializing user league:", leagueError);
       // Continue with registration even if league initialization fails
     }
 
@@ -177,7 +196,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
     };
 
     // Log successful registration
-    console.log(`User registered successfully: ${newUser.telegram_id} (${newUser.first_name})`);
+    console.log(
+      `User registered successfully: ${newUser.telegram_id} (${newUser.first_name})`,
+    );
 
     return NextResponse.json({
       success: true,
@@ -188,29 +209,28 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
       },
       referralBonus: referralBonusInfo,
     });
-
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error("Registration error:", error);
 
     // Handle specific error types
     if (error instanceof Error) {
-      if (error.message.includes('duplicate key')) {
+      if (error.message.includes("duplicate key")) {
         return NextResponse.json(
           {
             success: false,
-            error: 'User already exists'
+            error: "User already exists",
           },
-          { status: 409 }
+          { status: 409 },
         );
       }
 
-      if (error.message.includes('referral')) {
+      if (error.message.includes("referral")) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Invalid referral code'
+            error: "Invalid referral code",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -218,9 +238,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<RegisterR
     return NextResponse.json(
       {
         success: false,
-        error: 'Registration failed. Please try again.'
+        error: "Registration failed. Please try again.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -233,10 +253,10 @@ export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Max-Age': '86400',
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
     },
   });
 }

@@ -1,119 +1,125 @@
 // src/app/api/purchase/status/route.ts - Проверка статуса покупок пользователя
 
-import { NextRequest, NextResponse } from 'next/server';
-import { serverUserService } from '@/lib/supabase_server';
+import { NextRequest, NextResponse } from "next/server";
+
+import { serverUserService } from "@/lib/supabase_server";
 
 // Response interface
 interface PurchaseStatusResponse {
-    success: boolean;
-    data?: {
-        user_id: string;
-        attempts_remaining: number;
-        last_updated: string;
-        status: 'synced';
-    };
-    error?: string;
+  success: boolean;
+  data?: {
+    user_id: string;
+    attempts_remaining: number;
+    last_updated: string;
+    status: "synced";
+  };
+  error?: string;
 }
 
 /**
  * GET /api/purchase/status
  * Checks purchase status and synchronizes user attempts with backend
  */
-export async function GET(request: NextRequest): Promise<NextResponse<PurchaseStatusResponse>> {
-    try {
-        // Extract user info from middleware headers
-        const userId = request.headers.get('X-User-ID');
-        const telegramId = request.headers.get('X-Telegram-ID');
+export async function GET(
+  request: NextRequest,
+): Promise<NextResponse<PurchaseStatusResponse>> {
+  try {
+    // Extract user info from middleware headers
+    const userId = request.headers.get("X-User-ID");
+    const telegramId = request.headers.get("X-Telegram-ID");
 
-        if (!userId || !telegramId) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'User authentication required'
-                },
-                { status: 401 }
-            );
-        }
-
-        const telegramIdNumber = parseInt(telegramId);
-        if (isNaN(telegramIdNumber)) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'Invalid telegram ID'
-                },
-                { status: 400 }
-            );
-        }
-
-        console.log(`Checking purchase status for user: ${telegramIdNumber}`);
-
-        // Get current user data to check for updates
-        const user = await serverUserService.findByTelegramId(telegramIdNumber);
-
-        if (!user) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: 'User not found'
-                },
-                { status: 404 }
-            );
-        }
-
-        // For purchase status check, we primarily ensure the user data is current
-        // The PHP backend handles the actual purchase processing and attempt updates
-        // This endpoint serves as a way to refresh user state after potential purchases
-
-        console.log(`Purchase status check completed for user ${telegramIdNumber}:`, {
-            attemptsRemaining: user.attempts_remaining,
-            lastUpdated: user.updated_at
-        });
-
-        return NextResponse.json({
-            success: true,
-            data: {
-                user_id: user.id,
-                attempts_remaining: user.attempts_remaining,
-                last_updated: user.updated_at,
-                status: 'synced'
-            },
-        });
-
-    } catch (error) {
-        console.error('Error checking purchase status:', error);
-
-        // Handle specific error types
-        if (error instanceof Error) {
-            if (error.message.includes('not found')) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'User not found'
-                    },
-                    { status: 404 }
-                );
-            }
-
-            if (error.message.includes('database')) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'Database synchronization error'
-                    },
-                    { status: 500 }
-                );
-            }
-        }
-
-        return NextResponse.json(
-            {
-                success: false,
-                error: 'Failed to check purchase status'
-            },
-            { status: 500 }
-        );
+    if (!userId || !telegramId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User authentication required",
+        },
+        { status: 401 },
+      );
     }
+
+    const telegramIdNumber = parseInt(telegramId);
+
+    if (isNaN(telegramIdNumber)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid telegram ID",
+        },
+        { status: 400 },
+      );
+    }
+
+    console.log(`Checking purchase status for user: ${telegramIdNumber}`);
+
+    // Get current user data to check for updates
+    const user = await serverUserService.findByTelegramId(telegramIdNumber);
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User not found",
+        },
+        { status: 404 },
+      );
+    }
+
+    // For purchase status check, we primarily ensure the user data is current
+    // The PHP backend handles the actual purchase processing and attempt updates
+    // This endpoint serves as a way to refresh user state after potential purchases
+
+    console.log(
+      `Purchase status check completed for user ${telegramIdNumber}:`,
+      {
+        attemptsRemaining: user.attempts_remaining,
+        lastUpdated: user.updated_at,
+      },
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        user_id: user.id,
+        attempts_remaining: user.attempts_remaining,
+        last_updated: user.updated_at,
+        status: "synced",
+      },
+    });
+  } catch (error) {
+    console.error("Error checking purchase status:", error);
+
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.message.includes("not found")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "User not found",
+          },
+          { status: 404 },
+        );
+      }
+
+      if (error.message.includes("database")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Database synchronization error",
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to check purchase status",
+      },
+      { status: 500 },
+    );
+  }
 }
 
 /**
@@ -121,13 +127,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<PurchaseSt
  * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
-    return new NextResponse(null, {
-        status: 200,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Max-Age': '86400',
-        },
-    });
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
 }
