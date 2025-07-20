@@ -293,11 +293,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
             return;
         }
 
-        // Проверяем, что верификация еще активна
-        if (state.attemptMade || !state.isVerifying) {
-            return;
-        }
-
         const initial = initialDataRef.current;
 
         if (
@@ -334,17 +329,11 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
 
             lastMovementTimeRef.current = now;
             setState((prev) => {
-                // Проверяем еще раз внутри setState
-                if (prev.attemptMade) {
-                    return prev;
-                }
-
                 const newCount = prev.detectedMovements + 1;
 
                 // Check if verification is complete
                 if (newCount >= requiredMovements) {
-                    // Вызываем handleVerificationSuccess асинхронно, чтобы избежать проблем с setState
-                    setTimeout(() => handleVerificationSuccess(), 0);
+                    handleVerificationSuccess();
                 }
 
                 return {
@@ -359,16 +348,11 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
      * Handle successful verification
      */
     const handleVerificationSuccess = useCallback(async () => {
-        if (state.attemptMade || !state.isVerifying) {
-            return; // Предотвращаем повторные вызовы
-        }
-
         console.log("Gyroscope verification successful");
         setState((prev) => ({
             ...prev,
             verificationTimerActive: false,
             currentPhase: "success",
-            attemptMade: true, // Устанавливаем флаг сразу
         }));
 
         // Clean up event listener
@@ -425,8 +409,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
         state.isGyroscopeSupported,
         state.detectedMovements,
         state.verificationTimeRemaining,
-        state.attemptMade,
-        state.isVerifying,
         makeAuthenticatedRequest,
         onSuccess,
     ]);
@@ -435,14 +417,10 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
      * Handle verification timeout
      */
     const handleVerificationTimeout = useCallback(() => {
-        if (state.attemptMade) {
-            return; // Если попытка уже была сделана, не обрабатываем таймаут
-        }
-
         console.log("Gyroscope verification timeout");
         setState((prev) => ({ ...prev, verificationTimerActive: false }));
         handleVerificationFailure("Verification timeout");
-    }, [state.attemptMade]);
+    }, []);
 
     /**
      * Handle verification failure

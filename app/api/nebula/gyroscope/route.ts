@@ -1,4 +1,4 @@
-// src/app/api/nebula/gyroscope/route.ts - Восстановленный исходный код с минимальными исправлениями
+// src/app/api/nebula/gyroscope/route.ts - Nebula Gyroscope Verification API
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -60,19 +60,6 @@ export async function POST(
                 },
                 { status: 400 },
             );
-        }
-
-        // МИНИМАЛЬНОЕ ИСПРАВЛЕНИЕ: Проверяем, не заблокирован ли пользователь уже
-        const existingBlock = await serverBlockService.checkUserBlock(telegramIdNumber);
-        if (existingBlock && existingBlock.isActive && existingBlock.timeRemainingSeconds > 0) {
-            console.log(`User ${telegramIdNumber} is already blocked, rejecting verification attempt`);
-            return NextResponse.json({
-                success: true,
-                verified: false,
-                blocked: true,
-                blockReason: "User is already blocked",
-                blockDuration: "existing block",
-            });
         }
 
         // Parse request body
