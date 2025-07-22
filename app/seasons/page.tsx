@@ -140,7 +140,7 @@ function SeasonsPageContent() {
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
       {/* Light Rays Background */}
-      <LightRays className="z-0" opacity={0.15} />
+      <LightRays className="z-0"/>
       
       <div className="relative z-10 px-4 safe-area-inset">
         {/* Header with Season Name */}
