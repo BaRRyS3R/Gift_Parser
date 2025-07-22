@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameLogic.ts - Updated with info panel boundary positioning
+// src/game-modes/physics/PhysicsGameLogic.ts - Optimized with caching and improved algorithms
 
 import * as Matter from "matter-js";
 
@@ -79,13 +79,20 @@ export const PHYSICS_LEVELS: PhysicsLevelConfig[] = [
   },
 ];
 
+// Cache for level configuration to avoid repeated calculations
+const levelConfigCache = new Map<number, PhysicsLevelConfig>();
+
 export const getPhysicsLevelConfig = (gameTime: number): PhysicsLevelConfig => {
   const levelIndex = Math.min(
     Math.floor(gameTime / 5000),
     PHYSICS_LEVELS.length - 1,
   );
 
-  return PHYSICS_LEVELS[levelIndex];
+  if (!levelConfigCache.has(levelIndex)) {
+    levelConfigCache.set(levelIndex, PHYSICS_LEVELS[levelIndex]);
+  }
+
+  return levelConfigCache.get(levelIndex)!;
 };
 
 export const createAdaptivePhysicsConfig = (): PhysicsGameConfig => {
@@ -139,6 +146,7 @@ export const createPhysicsEngine = (): Matter.Engine => {
   return engine;
 };
 
+// Improved circle placement algorithm with better spatial distribution
 export const createPhysicsCircles = (
   count: number,
   containerWidth: number,
@@ -148,7 +156,16 @@ export const createPhysicsCircles = (
 ): PhysicsCircle[] => {
   const circles: PhysicsCircle[] = [];
   const margin = radius + 15;
-  const maxAttempts = 100;
+  const maxAttempts = 50; // Reduced from 100 for better performance
+
+  // Pre-calculate grid for faster collision detection during placement
+  const gridSize = radius * 2.5;
+  const gridWidth = Math.ceil(containerWidth / gridSize);
+  const gridHeight = Math.ceil(containerHeight / gridSize);
+  const occupiedGrid = new Set<string>();
+
+  // Cache body references for faster lookup
+  const bodyCache = new Map<number, Matter.Body>();
 
   for (let i = 0; i < count; i++) {
     let x: number, y: number;
@@ -159,17 +176,31 @@ export const createPhysicsCircles = (
       x = margin + Math.random() * (containerWidth - 2 * margin);
       y = margin + Math.random() * (containerHeight - 2 * margin);
 
-      validPosition = true;
+      // Quick grid-based collision check
+      const gridX = Math.floor(x / gridSize);
+      const gridY = Math.floor(y / gridSize);
+      const gridKey = `${gridX},${gridY}`;
 
-      for (const existingCircle of circles) {
-        const distance = Math.sqrt(
-          Math.pow(x - existingCircle.x, 2) + Math.pow(y - existingCircle.y, 2),
-        );
+      if (!occupiedGrid.has(gridKey)) {
+        // Detailed collision check only if grid cell is free
+        validPosition = true;
 
-        if (distance < radius * 2.2) {
-          validPosition = false;
-          break;
+        for (const existingCircle of circles) {
+          const distance = Math.sqrt(
+            Math.pow(x - existingCircle.x, 2) + Math.pow(y - existingCircle.y, 2),
+          );
+
+          if (distance < radius * 2.2) {
+            validPosition = false;
+            break;
+          }
         }
+
+        if (validPosition) {
+          occupiedGrid.add(gridKey);
+        }
+      } else {
+        validPosition = false;
       }
 
       attempts++;
@@ -184,6 +215,9 @@ export const createPhysicsCircles = (
     });
 
     Matter.World.add(engine.world, body);
+
+    // Cache body reference for faster lookup
+    bodyCache.set(i, body);
 
     const circle: PhysicsCircle = {
       id: i,
@@ -320,46 +354,106 @@ export const initializePhysicsGameState = (): PhysicsGameState => {
   };
 };
 
+// Optimized physics position update with body caching
+let bodyLookupCache = new Map<number, Matter.Body>();
+let cacheBuilt = false;
+
+const buildBodyCache = (engine: Matter.Engine) => {
+  if (cacheBuilt) return;
+
+  bodyLookupCache.clear();
+  engine.world.bodies.forEach(body => {
+    if (body.label.startsWith('circle_')) {
+      const circleId = parseInt(body.label.split('_')[1]);
+      bodyLookupCache.set(circleId, body);
+    }
+  });
+  cacheBuilt = true;
+};
+
 export const updatePhysicsPositions = (
   state: PhysicsGameState,
 ): PhysicsGameState => {
+  // Build cache on first run
+  buildBodyCache(state.engine);
+
+  let hasChanges = false;
   const updatedCircles = state.circles.map((circle) => {
-    const body = state.engine.world.bodies.find(
-      (b) => b.id === circle.matterBodyId,
-    );
+    const body = bodyLookupCache.get(circle.id);
 
     if (body) {
-      return {
-        ...circle,
-        x: body.position.x,
-        y: body.position.y,
-        vx: body.velocity.x,
-        vy: body.velocity.y,
-      };
+      const currentVx = circle.vx ?? 0;
+      const currentVy = circle.vy ?? 0;
+
+      const positionChanged = Math.abs(body.position.x - circle.x) > 0.1 ||
+        Math.abs(body.position.y - circle.y) > 0.1;
+      const velocityChanged = Math.abs(body.velocity.x - currentVx) > 0.1 ||
+        Math.abs(body.velocity.y - currentVy) > 0.1;
+
+      if (positionChanged || velocityChanged) {
+        hasChanges = true;
+        return {
+          ...circle,
+          x: body.position.x,
+          y: body.position.y,
+          vx: body.velocity.x,
+          vy: body.velocity.y,
+        };
+      }
     }
 
     return circle;
   });
 
-  return {
-    ...state,
-    circles: updatedCircles,
-  };
+  // Only return new state if there are actual changes
+  if (hasChanges) {
+    return {
+      ...state,
+      circles: updatedCircles,
+    };
+  }
+
+  return state;
 };
+
+// Cached level update to avoid unnecessary calculations
+let lastLevelUpdate = 0;
+let cachedLevelConfig: PhysicsLevelConfig | null = null;
 
 export const updatePhysicsLevel = (
   state: PhysicsGameState,
 ): PhysicsGameState => {
   const currentTime = Date.now();
+
+  // Update level only every 500ms to reduce calculations
+  if (currentTime - lastLevelUpdate < 500) {
+    return state;
+  }
+
   const gameTime = currentTime - (state.gameStartTime || currentTime);
   const levelConfig = getPhysicsLevelConfig(gameTime);
 
+  // Only update state if level actually changed
+  if (!cachedLevelConfig || cachedLevelConfig.level !== levelConfig.level) {
+    cachedLevelConfig = levelConfig;
+    lastLevelUpdate = currentTime;
+
+    return {
+      ...state,
+      stats: {
+        ...state.stats,
+        gameTime,
+        currentLevel: levelConfig.level,
+      },
+    };
+  }
+
+  // Just update game time without creating new state
   return {
     ...state,
     stats: {
       ...state.stats,
       gameTime,
-      currentLevel: levelConfig.level,
     },
   };
 };
@@ -393,11 +487,15 @@ export const activateRandomCircles = (
   const circleCount = Math.min(availableSlots, visibleCircles.length);
   const selectedCircles = [];
 
-  for (let i = 0; i < circleCount; i++) {
-    const randomIndex = Math.floor(Math.random() * visibleCircles.length);
-    const selectedCircle = visibleCircles.splice(randomIndex, 1)[0];
+  // Use Fisher-Yates shuffle for better randomization
+  const shuffledCircles = [...visibleCircles];
+  for (let i = shuffledCircles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledCircles[i], shuffledCircles[j]] = [shuffledCircles[j], shuffledCircles[i]];
+  }
 
-    selectedCircles.push(selectedCircle);
+  for (let i = 0; i < circleCount; i++) {
+    selectedCircles.push(shuffledCircles[i]);
   }
 
   // 25% chance for decoy circles
@@ -443,37 +541,26 @@ export const applyImpulse = (
   state: PhysicsGameState,
   clickedCircleId: number,
 ): PhysicsGameState => {
-  const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
-
-  if (!clickedCircle) return state;
-
-  const clickedBody = state.engine.world.bodies.find(
-    (b) => b.id === clickedCircle.matterBodyId,
-  );
-
+  const clickedBody = bodyLookupCache.get(clickedCircleId);
   if (!clickedBody) return state;
 
-  console.log(
-    `Applying impulse from circle ${clickedCircleId} at position:`,
-    clickedBody.position,
-  );
+  let affectedCount = 0;
 
-  let affectedCircles = 0;
-
+  // Use cached body references for better performance
   state.circles.forEach((circle) => {
     if (circle.id === clickedCircleId) return;
 
-    const body = state.engine.world.bodies.find(
-      (b) => b.id === circle.matterBodyId,
-    );
-
+    const body = bodyLookupCache.get(circle.id);
     if (!body) return;
 
     const dx = body.position.x - clickedBody.position.x;
     const dy = body.position.y - clickedBody.position.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const distanceSquared = dx * dx + dy * dy; // Avoid Math.sqrt for performance
 
-    if (distance <= IMPULSE_CONFIG.radius && distance > 0) {
+    const radiusSquared = IMPULSE_CONFIG.radius * IMPULSE_CONFIG.radius;
+
+    if (distanceSquared <= radiusSquared && distanceSquared > 0) {
+      const distance = Math.sqrt(distanceSquared);
       const normalizedX = dx / distance;
       const normalizedY = dy / distance;
 
@@ -486,11 +573,9 @@ export const applyImpulse = (
         y: normalizedY * forceMagnitude,
       });
 
-      affectedCircles++;
+      affectedCount++;
     }
   });
-
-  console.log(`Impulse affected ${affectedCircles} circles`);
 
   return updatePhysicsPositions(state);
 };
@@ -602,30 +687,6 @@ export const deactivatePhysicsCircle = (
   };
 };
 
-// Check if game should end based on escaped circles
-export const checkCirclesEscaped = (state: PhysicsGameState): boolean => {
-  const containerWidth = state.config.containerWidth;
-  const containerHeight = state.config.containerHeight;
-  const margin = 50; // Margin for escaped detection
-
-  let escapedCount = 0;
-
-  state.circles.forEach((circle) => {
-    // Check if circle is outside game boundaries
-    if (
-      circle.x < -margin ||
-      circle.x > containerWidth + margin ||
-      circle.y < -margin ||
-      circle.y > containerHeight + margin
-    ) {
-      escapedCount++;
-    }
-  });
-
-  // Game ends when 80% of circles have escaped
-  return escapedCount >= Math.floor(state.circles.length * 0.8);
-};
-
 export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {
   const baseScore = stats.correctHits * 100;
   const timeBonus = Math.max(0, Math.floor(stats.gameTime / 1000)) * 5;
@@ -667,6 +728,13 @@ export const cleanupPhysicsGame = (state: PhysicsGameState): void => {
       Matter.Render.stop(state.render);
     }
   }
+
+  // Clear caches
+  bodyLookupCache.clear();
+  levelConfigCache.clear();
+  cacheBuilt = false;
+  cachedLevelConfig = null;
+  lastLevelUpdate = 0;
 };
 
 export const formatPhysicsTime = (milliseconds: number): string => {

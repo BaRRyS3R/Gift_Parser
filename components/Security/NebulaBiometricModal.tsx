@@ -791,7 +791,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                         {/* Authentication Progress */}
                         {state.isAuthenticating && (
                             <div className="flex items-center justify-center space-x-2 p-3 bg-blue-500/20 border border-blue-500/40 rounded-lg">
-                                <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                                <div className="w-4 h-4 border-2 border-blue-400/30 border-t-blue-400 rounded-full" />
                                 <p className="text-blue-300 text-sm">
                                     {t("nebula.biometric.authentication.pleaseComplete")}
                                 </p>

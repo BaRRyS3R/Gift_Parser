@@ -24,6 +24,7 @@ export const game = {
         ready: "Приготовьтесь",
         waiting: "Ждите...",
         clickNow: "Гоу гоу!",
+        missed: "Мда..",
         targetWillAppear: "Цель появится через 3-5 секунд",
         lightningFast: "Молниеносные рефлексы н-нада?",
         preparing: "Подготовка",
