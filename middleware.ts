@@ -20,7 +20,7 @@ export const config = {
     "/api/leaderboard/:path*",
     "/api/check-telegram-membership",
     "/api/nebula/:path*",
-    "/api/seasons/:path*"
+    "/api/seasons/:path*",
   ],
 };
 

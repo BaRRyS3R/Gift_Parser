@@ -116,12 +116,16 @@ export default function SurvivalGameManager() {
     }
   }, []);
 
-  const checkForNewBestScore = useCallback((newScore: number) => {
-    if (user && user.survival_best_score !== undefined) {
-      const previousBest = user.survival_best_score || 0;
-      setIsNewBestScore(newScore > previousBest);
-    }
-  }, [user]);
+  const checkForNewBestScore = useCallback(
+    (newScore: number) => {
+      if (user && user.survival_best_score !== undefined) {
+        const previousBest = user.survival_best_score || 0;
+
+        setIsNewBestScore(newScore > previousBest);
+      }
+    },
+    [user],
+  );
 
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {

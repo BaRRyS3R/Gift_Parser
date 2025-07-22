@@ -1,23 +1,24 @@
 // src/app/api/nebula/device-support/route.ts - New API for updating device support status
 
 import { NextRequest, NextResponse } from "next/server";
+
 import { serverBlockService } from "@/lib/server/blockService";
 
 // Request interface
 interface DeviceSupportRequest {
-    attemptId: string;
-    verificationType: "biometric" | "gyroscope";
-    deviceSupported: boolean;
-    permissionGranted?: boolean; // Optional for permission status updates
+  attemptId: string;
+  verificationType: "biometric" | "gyroscope";
+  deviceSupported: boolean;
+  permissionGranted?: boolean; // Optional for permission status updates
 }
 
 // Response interface
 interface DeviceSupportResponse {
-    success: boolean;
-    blocked?: boolean;
-    blockReason?: string;
-    permissionRequired?: boolean;
-    error?: string;
+  success: boolean;
+  blocked?: boolean;
+  blockReason?: string;
+  permissionRequired?: boolean;
+  error?: string;
 }
 
 /**
@@ -25,151 +26,163 @@ interface DeviceSupportResponse {
  * Update device support status and handle unsupported devices
  */
 export async function POST(
-    request: NextRequest,
+  request: NextRequest,
 ): Promise<NextResponse<DeviceSupportResponse>> {
-    try {
-        // Extract user info from middleware headers
-        const telegramId = request.headers.get("X-Telegram-ID");
-        const userId = request.headers.get("X-User-ID");
+  try {
+    // Extract user info from middleware headers
+    const telegramId = request.headers.get("X-Telegram-ID");
+    const userId = request.headers.get("X-User-ID");
 
-        if (!telegramId || !userId) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "User authentication required",
-                },
-                { status: 401 },
-            );
-        }
+    if (!telegramId || !userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User authentication required",
+        },
+        { status: 401 },
+      );
+    }
 
-        const telegramIdNumber = parseInt(telegramId);
+    const telegramIdNumber = parseInt(telegramId);
 
-        if (isNaN(telegramIdNumber)) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "Invalid user ID",
-                },
-                { status: 400 },
-            );
-        }
+    if (isNaN(telegramIdNumber)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid user ID",
+        },
+        { status: 400 },
+      );
+    }
 
-        // Parse request body
-        const body: DeviceSupportRequest = await request.json();
-        const { attemptId, verificationType, deviceSupported, permissionGranted } = body;
+    // Parse request body
+    const body: DeviceSupportRequest = await request.json();
+    const { attemptId, verificationType, deviceSupported, permissionGranted } =
+      body;
 
-        if (!attemptId || !verificationType) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "Missing required fields",
-                },
-                { status: 400 },
-            );
-        }
+    if (!attemptId || !verificationType) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields",
+        },
+        { status: 400 },
+      );
+    }
 
-        console.log(
-            `Device support update for user ${telegramIdNumber}: ${verificationType}, supported: ${deviceSupported}, permission: ${permissionGranted}`,
-        );
+    console.log(
+      `Device support update for user ${telegramIdNumber}: ${verificationType}, supported: ${deviceSupported}, permission: ${permissionGranted}`,
+    );
 
-        // Verify attempt belongs to user
-        const { attempt } = await serverBlockService.checkVerificationAttempt(telegramIdNumber);
+    // Verify attempt belongs to user
+    const { attempt } =
+      await serverBlockService.checkVerificationAttempt(telegramIdNumber);
 
-        if (!attempt || attempt.id !== attemptId) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error: "Invalid verification attempt",
-                },
-                { status: 400 },
-            );
-        }
+    if (!attempt || attempt.id !== attemptId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid verification attempt",
+        },
+        { status: 400 },
+      );
+    }
 
-        // Handle unsupported device - immediate blocking
-        if (!deviceSupported) {
-            console.log(
-                `Device does not support ${verificationType} for user ${telegramIdNumber} - blocking`,
-            );
+    // Handle unsupported device - immediate blocking
+    if (!deviceSupported) {
+      console.log(
+        `Device does not support ${verificationType} for user ${telegramIdNumber} - blocking`,
+      );
 
-            const blockReason = verificationType === "biometric"
-                ? "device_unsupported_biometric"
-                : "device_unsupported_gyroscope";
+      const blockReason =
+        verificationType === "biometric"
+          ? "device_unsupported_biometric"
+          : "device_unsupported_gyroscope";
 
-            const blockResult = await serverBlockService.handleVerificationFailure(
-                userId,
-                telegramIdNumber,
-                verificationType,
-                blockReason,
-            );
+      const blockResult = await serverBlockService.handleVerificationFailure(
+        userId,
+        telegramIdNumber,
+        verificationType,
+        blockReason,
+      );
 
-            // Remove verification attempt record
-            await serverBlockService.removeVerificationAttempt(attemptId);
+      // Remove verification attempt record
+      await serverBlockService.removeVerificationAttempt(attemptId);
 
-            if (blockResult.success) {
-                return NextResponse.json({
-                    success: true,
-                    blocked: true,
-                    blockReason: `Device does not support ${verificationType} verification`,
-                });
-            } else {
-                console.error("Failed to block user for unsupported device:", blockResult.error);
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: "Failed to process device compatibility",
-                    },
-                    { status: 500 },
-                );
-            }
-        }
-
-        // Device is supported - update attempt record with supported status
-        // Note: In a full implementation, you would update the verification_attempts table
-        // For now, we'll assume the attempt record is updated via the existing database structure
-
-        console.log(`Device supports ${verificationType} for user ${telegramIdNumber}`);
-
-        // Check if permission status is provided
-        if (permissionGranted !== undefined) {
-            if (permissionGranted) {
-                // Permission granted - verification can proceed
-                console.log(`${verificationType} permission granted for user ${telegramIdNumber}`);
-
-                return NextResponse.json({
-                    success: true,
-                    blocked: false,
-                    permissionRequired: false,
-                });
-            } else {
-                // Permission check - still in permission flow
-                console.log(`${verificationType} permission not yet granted for user ${telegramIdNumber}`);
-
-                return NextResponse.json({
-                    success: true,
-                    blocked: false,
-                    permissionRequired: true,
-                });
-            }
-        }
-
-        // Device supported, but we need to check permissions
+      if (blockResult.success) {
         return NextResponse.json({
-            success: true,
-            blocked: false,
-            permissionRequired: true,
+          success: true,
+          blocked: true,
+          blockReason: `Device does not support ${verificationType} verification`,
         });
-
-    } catch (error) {
-        console.error("Error in device support API:", error);
+      } else {
+        console.error(
+          "Failed to block user for unsupported device:",
+          blockResult.error,
+        );
 
         return NextResponse.json(
-            {
-                success: false,
-                error: "Internal server error",
-            },
-            { status: 500 },
+          {
+            success: false,
+            error: "Failed to process device compatibility",
+          },
+          { status: 500 },
         );
+      }
     }
+
+    // Device is supported - update attempt record with supported status
+    // Note: In a full implementation, you would update the verification_attempts table
+    // For now, we'll assume the attempt record is updated via the existing database structure
+
+    console.log(
+      `Device supports ${verificationType} for user ${telegramIdNumber}`,
+    );
+
+    // Check if permission status is provided
+    if (permissionGranted !== undefined) {
+      if (permissionGranted) {
+        // Permission granted - verification can proceed
+        console.log(
+          `${verificationType} permission granted for user ${telegramIdNumber}`,
+        );
+
+        return NextResponse.json({
+          success: true,
+          blocked: false,
+          permissionRequired: false,
+        });
+      } else {
+        // Permission check - still in permission flow
+        console.log(
+          `${verificationType} permission not yet granted for user ${telegramIdNumber}`,
+        );
+
+        return NextResponse.json({
+          success: true,
+          blocked: false,
+          permissionRequired: true,
+        });
+      }
+    }
+
+    // Device supported, but we need to check permissions
+    return NextResponse.json({
+      success: true,
+      blocked: false,
+      permissionRequired: true,
+    });
+  } catch (error) {
+    console.error("Error in device support API:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+      },
+      { status: 500 },
+    );
+  }
 }
 
 /**
@@ -177,13 +190,13 @@ export async function POST(
  * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
-    return new NextResponse(null, {
-        status: 200,
-        headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-            "Access-Control-Max-Age": "86400",
-        },
-    });
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
 }

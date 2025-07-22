@@ -225,7 +225,14 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     seasonsModule.resetSeasonData(); // NEW: Reset season data
 
     console.log("User logged out");
-  }, [authLogout, leaderboardModule, profileModule, leaguesModule, gameModule, seasonsModule]);
+  }, [
+    authLogout,
+    leaderboardModule,
+    profileModule,
+    leaguesModule,
+    gameModule,
+    seasonsModule,
+  ]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {

@@ -418,12 +418,13 @@ function MainPageContent() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
-        }`}
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : pageLoaded
+            ? "opacity-100 transition-opacity duration-1000 ease-out"
+            : "opacity-0"
+      }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -448,13 +449,15 @@ function MainPageContent() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed left-0 right-0 z-30 px-6 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -520,41 +523,42 @@ function MainPageContent() {
         </div>
       </div>
 
-
       {/* Seasons Button */}
-        <div
-          className={`fixed left-1/2 transform -translate-x-1/2 z-30 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
+      <div
+        className={`fixed left-1/2 transform -translate-x-1/2 z-30 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
             : "opacity-100 translate-y-0"
-            }`}
-          style={{ top: headerOffset + 60 }}
+        }`}
+        style={{ top: headerOffset + 60 }}
+      >
+        <button
+          aria-label="Current Season"
+          className="group relative px-6 py-3 bg-gradient-to-br from-purple-400/20 to-blue-500/20 backdrop-blur-sm border-2 border-purple-400/40 text-purple-300 rounded-full hover:border-purple-400 hover:from-purple-400/30 hover:to-blue-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isTransitioning}
+          onClick={handleOpenSeasons}
         >
-          <button
-            aria-label="Current Season"
-            className="group relative px-6 py-3 bg-gradient-to-br from-purple-400/20 to-blue-500/20 backdrop-blur-sm border-2 border-purple-400/40 text-purple-300 rounded-full hover:border-purple-400 hover:from-purple-400/30 hover:to-blue-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isTransitioning}
-            onClick={handleOpenSeasons}
-          >
-            <div className="flex items-center space-x-2">
-              <Calendar
-                className="text-purple-300 group-hover:scale-110 transition-transform duration-300"
-                size={16}
-              />
-              <div className="text-sm">
-                <div className="font-bold text-purple-300">SEASON</div>
-                  <div className="text-purple-400/80 flex items-center space-x-1">
-                    <Clock size={10} />
-                    <span>Active</span>
-                  </div>
+          <div className="flex items-center space-x-2">
+            <Calendar
+              className="text-purple-300 group-hover:scale-110 transition-transform duration-300"
+              size={16}
+            />
+            <div className="text-sm">
+              <div className="font-bold text-purple-300">SEASON</div>
+              <div className="text-purple-400/80 flex items-center space-x-1">
+                <Clock size={10} />
+                <span>Active</span>
               </div>
             </div>
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-400/30 via-blue-500/20 to-purple-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-            <div className="absolute inset-0 rounded-full bg-purple-400/10 animate-pulse opacity-50" />
-          </button>
-        </div>
+          </div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-purple-400/30 via-blue-500/20 to-purple-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+          <div className="absolute inset-0 rounded-full bg-purple-400/10 animate-pulse opacity-50" />
+        </button>
+      </div>
 
       {/* Main Content */}
       <div className="text-center z-20 space-y-8 flex flex-col items-center justify-center">
@@ -567,10 +571,11 @@ function MainPageContent() {
 
         {/* Action Button */}
         <div
-          className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
@@ -595,13 +600,15 @@ function MainPageContent() {
 
         {/* User Greeting */}
         <div
-          className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showGreeting
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showGreeting
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`
+              : "opacity-100 translate-y-0"
+          }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -640,13 +647,15 @@ function MainPageContent() {
 
       {/* Централизованное отображение попыток */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
-          }`}
+        className={`fixed bottom-0 left-0 right-0 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
+            : "opacity-100 translate-y-0"
+        }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay
@@ -663,13 +672,15 @@ function MainPageContent() {
       {/* Level and League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showLeagueDisplay
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-4"
-            }`
-            : "opacity-100 translate-y-0"
-            }`}
+          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showLeagueDisplay
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-4"
+                }`
+              : "opacity-100 translate-y-0"
+          }`}
           style={{
             bottom: "96px",
             zIndex: 50,

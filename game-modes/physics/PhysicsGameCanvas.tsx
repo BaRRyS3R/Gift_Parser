@@ -152,8 +152,8 @@ export default function PhysicsGameCanvas({
 
           // Immediately process the touch
           const syntheticEvent = {
-            preventDefault: () => { },
-            stopPropagation: () => { },
+            preventDefault: () => {},
+            stopPropagation: () => {},
           } as React.MouseEvent;
 
           onCircleClick(clickedCircle.id, syntheticEvent);

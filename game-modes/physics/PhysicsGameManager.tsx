@@ -207,9 +207,7 @@ export default function PhysicsGameManager() {
         levelUpdatedState.config.levelDuration * 1000;
 
       if (tooManyMistakes || timeUp) {
-        const deathCause = tooManyMistakes
-          ? "mistakes"
-          : "timeout";
+        const deathCause = tooManyMistakes ? "mistakes" : "timeout";
 
         endGame(deathCause);
 
@@ -416,12 +414,12 @@ export default function PhysicsGameManager() {
   const getDeathCauseMessage = (deathCause: string) => {
     const causeKeyMapping = {
       mistakes: "game.modes.physics.deathCauses.mistakes",
-      escaped_circles: "game.modes.physics.deathCauses.escapedCircles", 
+      escaped_circles: "game.modes.physics.deathCauses.escapedCircles",
       timeout: "game.modes.physics.deathCauses.timeout",
     };
 
     const key = causeKeyMapping[deathCause as keyof typeof causeKeyMapping];
-    
+
     return key ? t(key as any) : t("game.modes.physics.deathCauses.default");
   };
 
@@ -655,7 +653,8 @@ export default function PhysicsGameManager() {
               <div className="flex items-center space-x-2">
                 <Activity className="text-red-400" size={12} />
                 <span className="text-red-300">
-                  {t("game.modes.physics.results.mistakesMade")}: {gameState.stats.currentMistakes}/
+                  {t("game.modes.physics.results.mistakesMade")}:{" "}
+                  {gameState.stats.currentMistakes}/
                   {gameState.config.maxMistakes}
                 </span>
               </div>
