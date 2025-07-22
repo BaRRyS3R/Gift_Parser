@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Исправленная страница игр с корректным отображением состояний кнопок
+// src/app/game/page.tsx - Страница игр с галереей режимов
 
 "use client";
 
@@ -9,12 +9,12 @@ import {
   Play,
   Shield,
   Atom,
-  ChevronDown,
-  ChevronUp,
   Gamepad2,
   RotateCw,
   Zap,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -23,6 +23,7 @@ import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
 import TournamentCard from "@/components/TournamentCard/TournamentCard";
+import CircularGallery from "@/components/CircularGallery"; // Предполагаем, что компонент будет помещен сюда
 
 interface GameMode {
   id: string;
@@ -32,6 +33,7 @@ interface GameMode {
   route: string;
   difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
   durationKey: string;
+  image: string;
   color: {
     primary: string;
     secondary: string;
@@ -40,8 +42,6 @@ interface GameMode {
     border: string;
     hover: string;
   };
-  featuresKeys: string[];
-  basicRules: string[];
 }
 
 const GAME_MODES: GameMode[] = [
@@ -53,6 +53,7 @@ const GAME_MODES: GameMode[] = [
     route: "/game/reaction",
     difficulty: "🤡",
     durationKey: "game.modes.reaction.duration",
+    image: "https://notfren.com/circusle/reaction.jpg",
     color: {
       primary: "text-white",
       secondary: "text-white/90",
@@ -61,17 +62,6 @@ const GAME_MODES: GameMode[] = [
       border: "border-white/20",
       hover: "hover:bg-white/10 hover:border-white/30",
     },
-    featuresKeys: [
-      "game.modes.reaction.features.0",
-      "game.modes.reaction.features.1",
-      "game.modes.reaction.features.2",
-      "game.modes.reaction.features.3",
-    ],
-    basicRules: [
-      "game.modes.reaction.rules.0",
-      "game.modes.reaction.rules.1",
-      "game.modes.reaction.rules.2",
-    ],
   },
   {
     id: "survival",
@@ -81,6 +71,7 @@ const GAME_MODES: GameMode[] = [
     route: "/game/survival",
     difficulty: "💋😈",
     durationKey: "game.modes.survival.duration",
+    image: "https://notfren.com/circusle/survival.jpg",
     color: {
       primary: "text-red-400",
       secondary: "text-red-300",
@@ -89,17 +80,6 @@ const GAME_MODES: GameMode[] = [
       border: "border-red-400/20",
       hover: "hover:bg-red-500/10 hover:border-red-400/30",
     },
-    featuresKeys: [
-      "game.modes.survival.features.0",
-      "game.modes.survival.features.1",
-      "game.modes.survival.features.2",
-      "game.modes.survival.features.3",
-    ],
-    basicRules: [
-      "game.modes.survival.rules.0",
-      "game.modes.survival.rules.1",
-      "game.modes.survival.rules.2",
-    ],
   },
   {
     id: "physics",
@@ -109,6 +89,7 @@ const GAME_MODES: GameMode[] = [
     route: "/game/physics",
     difficulty: "👉👌",
     durationKey: "game.modes.physics.duration",
+    image: "https://notfren.com/circusle/physics.jpg",
     color: {
       primary: "text-purple-400",
       secondary: "text-purple-300",
@@ -117,17 +98,6 @@ const GAME_MODES: GameMode[] = [
       border: "border-purple-400/20",
       hover: "hover:bg-purple-500/10 hover:border-purple-400/30",
     },
-    featuresKeys: [
-      "game.modes.physics.features.0",
-      "game.modes.physics.features.1",
-      "game.modes.physics.features.2",
-      "game.modes.physics.features.3",
-    ],
-    basicRules: [
-      "game.modes.physics.rules.0",
-      "game.modes.physics.rules.1",
-      "game.modes.physics.rules.2",
-    ],
   },
   {
     id: "rotation",
@@ -137,6 +107,7 @@ const GAME_MODES: GameMode[] = [
     route: "/game/rotation",
     difficulty: "🌀",
     durationKey: "game.modes.rotation.duration",
+    image: "https://notfren.com/circusle/rotation.jpg",
     color: {
       primary: "text-orange-400",
       secondary: "text-orange-300",
@@ -145,32 +116,17 @@ const GAME_MODES: GameMode[] = [
       border: "border-orange-400/20",
       hover: "hover:bg-orange-500/10 hover:border-orange-400/30",
     },
-    featuresKeys: [
-      "game.modes.rotation.features.0",
-      "game.modes.rotation.features.1",
-      "game.modes.rotation.features.2",
-      "game.modes.rotation.features.3",
-    ],
-    basicRules: [
-      "game.modes.rotation.rules.0",
-      "game.modes.rotation.rules.1",
-      "game.modes.rotation.rules.2",
-    ],
   },
 ];
 
-const CompactGameModeCard = ({
+const GameModeOverlay = ({
   mode,
-  isExpanded,
-  onToggleExpand,
   onStart,
   isDisabled,
   isCurrentModeLoading,
   isAnyModeLoading,
 }: {
   mode: GameMode;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
   onStart: () => void;
   isDisabled: boolean;
   isCurrentModeLoading: boolean;
@@ -180,133 +136,63 @@ const CompactGameModeCard = ({
   const Icon = mode.icon;
 
   return (
-    <div
-      className={`
-        relative backdrop-blur-sm border rounded-xl transition-all duration-300 overflow-hidden
-        ${mode.color.background} ${mode.color.border}
-        ${isDisabled || isAnyModeLoading ? "opacity-50" : mode.color.hover}
-        ${isExpanded ? "ring-1 ring-white/20" : ""}
-      `}
-    >
-      <div className="absolute right-0 top-1/2 transform translate-x-1/3 -translate-y-1/2 pointer-events-none">
-        <Gamepad2
-          className="text-white/5"
-          size={120}
-          style={{
-            transform: "rotate(15deg)",
-          }}
-        />
-      </div>
-
-      <div className="p-4 relative z-10">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-3">
-            <div
-              className={`w-10 h-10 rounded-lg flex items-center justify-center ${mode.color.background} border ${mode.color.border}`}
-            >
-              <Icon className={mode.color.primary} size={20} />
-            </div>
-            <div>
-              <h3 className={`text-lg font-bold ${mode.color.primary}`}>
-                {t(mode.nameKey as any)}
-              </h3>
-              <div className="flex items-center space-x-2 text-xs">
-                <span className={mode.color.accent}>
-                  {t(mode.durationKey as any)}
-                </span>
-                <div className="w-1 h-1 rounded-full bg-white/40" />
-                <span
-                  className={`${
-                    mode.difficulty === "💋😈"
-                      ? "text-red-400"
-                      : mode.difficulty === "👉👌"
-                        ? "text-purple-400"
-                        : mode.difficulty === "🌀"
-                          ? "text-orange-400"
-                          : mode.color.accent
-                  }`}
-                >
-                  {mode.difficulty}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            className={`p-2 rounded-lg transition-all duration-300 ${mode.color.background} hover:bg-white/10 relative z-20 disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={isAnyModeLoading}
-            onClick={onToggleExpand}
+    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 rounded-b-xl">
+      <div className="text-center space-y-4">
+        <div className="flex items-center justify-center space-x-3">
+          <div
+            className={`w-10 h-10 rounded-lg flex items-center justify-center ${mode.color.background} border ${mode.color.border}`}
           >
-            {isExpanded ? (
-              <ChevronUp className={mode.color.accent} size={16} />
-            ) : (
-              <ChevronDown className={mode.color.accent} size={16} />
-            )}
-          </button>
-        </div>
-
-        <p className={`text-sm ${mode.color.secondary} mb-4 leading-relaxed`}>
-          {t(mode.descriptionKey as any)}
-        </p>
-
-        {isExpanded && !isAnyModeLoading && (
-          <div className="space-y-4 mb-4 animate-fade-in">
-            <div>
-              <h4 className={`text-sm font-bold ${mode.color.primary} mb-2`}>
-                Features:
-              </h4>
-              <div className="space-y-1">
-                {mode.featuresKeys.map((featureKey, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <div
-                      className={`w-1 h-1 rounded-full ${
-                        mode.id === "reaction"
-                          ? "bg-white/60"
-                          : mode.id === "survival"
-                            ? "bg-red-400/60"
-                            : mode.id === "physics"
-                              ? "bg-purple-400/60"
-                              : "bg-orange-400/60"
-                      }`}
-                    />
-                    <span className={`text-xs ${mode.color.secondary}`}>
-                      {t(featureKey as any)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+            <Icon className={mode.color.primary} size={20} />
+          </div>
+          <div>
+            <h3 className={`text-xl font-bold ${mode.color.primary}`}>
+              {t(mode.nameKey as any)}
+            </h3>
+            <div className="flex items-center justify-center space-x-2 text-sm">
+              <span className={mode.color.accent}>
+                {t(mode.durationKey as any)}
+              </span>
+              <div className="w-1 h-1 rounded-full bg-white/40" />
+              <span
+                className={`${mode.difficulty === "💋😈"
+                    ? "text-red-400"
+                    : mode.difficulty === "👉👌"
+                      ? "text-purple-400"
+                      : mode.difficulty === "🌀"
+                        ? "text-orange-400"
+                        : mode.color.accent
+                  }`}
+              >
+                {mode.difficulty}
+              </span>
             </div>
           </div>
-        )}
+        </div>
 
         <button
           className={`
-            w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-lg relative z-20
+            w-full max-w-sm mx-auto flex items-center justify-center space-x-2 py-3 px-6 rounded-lg
             text-sm font-bold transition-all duration-300
             ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-            ${
-              isDisabled || isAnyModeLoading
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80"
+            ${isDisabled || isAnyModeLoading
+              ? "opacity-50 cursor-not-allowed"
+              : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80 hover:bg-white/10"
             }
           `}
           disabled={isAnyModeLoading || isDisabled}
           onClick={onStart}
         >
           {isCurrentModeLoading ? (
-            // Показываем загрузку только для текущего режима
             <>
               <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
               <span>{t("common.loading")}</span>
             </>
           ) : isAnyModeLoading && !isCurrentModeLoading ? (
-            // Показываем заблокированное состояние когда загружается другой режим
             <>
               <Shield size={16} />
               <span>{t("game.general.lock")}</span>
             </>
           ) : (
-            // Обычное состояние
             <>
               <Play size={16} />
               <span>
@@ -318,7 +204,7 @@ const CompactGameModeCard = ({
       </div>
 
       {isDisabled && !isAnyModeLoading && (
-        <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
+        <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
           <div className="text-center space-y-2">
             <Shield className="text-white/60 mx-auto" size={24} />
             <p className="text-white/80 text-sm font-bold">
@@ -327,6 +213,91 @@ const CompactGameModeCard = ({
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const GameModeGallery = ({
+  modes,
+  currentModeIndex,
+  onModeChange,
+  onModeStart,
+  isDisabled,
+  loadingModeId,
+}: {
+  modes: GameMode[];
+  currentModeIndex: number;
+  onModeChange: (index: number) => void;
+  onModeStart: (mode: GameMode) => void;
+  isDisabled: boolean;
+  loadingModeId: string | null;
+}) => {
+  const galleryItems = modes.map((mode) => ({
+    image: mode.image,
+    text: mode.id,
+  }));
+
+  const currentMode = modes[currentModeIndex];
+  const isAnyModeLoading = loadingModeId !== null;
+  const isCurrentModeLoading = loadingModeId === currentMode.id;
+
+  return (
+    <div className="relative w-full h-[500px] rounded-xl overflow-hidden bg-black/20 backdrop-blur-sm border border-white/10">
+      {/* Галерея */}
+      <div className="absolute inset-0">
+        <CircularGallery
+          items={galleryItems}
+          bend={3}
+          borderRadius={0.02}
+          scrollSpeed={2}
+          scrollEase={0.1}
+        />
+      </div>
+
+      {/* Overlay с информацией о режиме */}
+      <GameModeOverlay
+        mode={currentMode}
+        onStart={() => onModeStart(currentMode)}
+        isDisabled={isDisabled}
+        isCurrentModeLoading={isCurrentModeLoading}
+        isAnyModeLoading={isAnyModeLoading}
+      />
+
+      {/* Навигационные кнопки */}
+      <div className="absolute top-1/2 left-4 transform -translate-y-1/2">
+        <button
+          className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-white/10 transition-all duration-300 disabled:opacity-50"
+          disabled={isAnyModeLoading}
+          onClick={() => onModeChange((currentModeIndex - 1 + modes.length) % modes.length)}
+        >
+          <ChevronLeft size={20} />
+        </button>
+      </div>
+
+      <div className="absolute top-1/2 right-4 transform -translate-y-1/2">
+        <button
+          className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-white/10 transition-all duration-300 disabled:opacity-50"
+          disabled={isAnyModeLoading}
+          onClick={() => onModeChange((currentModeIndex + 1) % modes.length)}
+        >
+          <ChevronRight size={20} />
+        </button>
+      </div>
+
+      {/* Индикаторы */}
+      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
+        {modes.map((_, index) => (
+          <button
+            key={index}
+            className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentModeIndex
+                ? "bg-white"
+                : "bg-white/30 hover:bg-white/50"
+              }`}
+            disabled={isAnyModeLoading}
+            onClick={() => onModeChange(index)}
+          />
+        ))}
+      </div>
     </div>
   );
 };
@@ -347,14 +318,13 @@ function GamePageContent() {
   const t = useT();
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
-  const [expandedModes, setExpandedModes] = useState<string[]>([]);
+  const [currentModeIndex, setCurrentModeIndex] = useState(0);
   const [consumeError, setConsumeError] = useState<string | null>(null);
 
   const handleModeStart = useCallback(
     async (mode: GameMode) => {
       if (loadingModeId || !canPlay) {
         console.log("Cannot start game:", { loadingModeId, canPlay });
-
         return;
       }
 
@@ -364,7 +334,6 @@ function GamePageContent() {
       try {
         console.log(`Starting ${mode.id} game - consuming attempt first...`);
 
-        // Потребляем попытку перед началом игры
         const updatedStatus = await consumeAttempt();
 
         if (!updatedStatus) {
@@ -375,7 +344,6 @@ function GamePageContent() {
           `Attempt consumed successfully. Remaining: ${updatedStatus.attemptsRemaining}`,
         );
 
-        // Небольшая задержка для показа анимации загрузки
         setTimeout(() => {
           router.push(mode.route);
         }, 600);
@@ -387,7 +355,6 @@ function GamePageContent() {
         setConsumeError(errorMessage);
         setLoadingModeId(null);
 
-        // Обновляем статус попыток после ошибки
         setTimeout(() => {
           fetchAttemptsStatus(true);
         }, 1000);
@@ -396,18 +363,10 @@ function GamePageContent() {
     [loadingModeId, canPlay, consumeAttempt, router, fetchAttemptsStatus],
   );
 
-  const handleToggleExpand = useCallback(
-    (modeId: string) => {
-      if (loadingModeId) return;
-
-      setExpandedModes((prev) =>
-        prev.includes(modeId)
-          ? prev.filter((id) => id !== modeId)
-          : [...prev, modeId],
-      );
-    },
-    [loadingModeId],
-  );
+  const handleModeChange = useCallback((index: number) => {
+    if (loadingModeId) return;
+    setCurrentModeIndex(index);
+  }, [loadingModeId]);
 
   const handleAttemptsRetry = useCallback(() => {
     clearError();
@@ -415,7 +374,6 @@ function GamePageContent() {
     fetchAttemptsStatus(true);
   }, [clearError, fetchAttemptsStatus]);
 
-  // Clear consume error when attempts change
   useEffect(() => {
     if (consumeError && attemptsStatus) {
       setConsumeError(null);
@@ -434,18 +392,17 @@ function GamePageContent() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${
-        loadingModeId
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
-      }`}
+        }`}
     >
       <div className="text-center space-y-4 mb-8">
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
@@ -492,19 +449,16 @@ function GamePageContent() {
         <TournamentCard />
       </div>
 
-      <div className="space-y-4 mb-8">
-        {GAME_MODES.map((mode) => (
-          <CompactGameModeCard
-            key={mode.id}
-            isAnyModeLoading={loadingModeId !== null}
-            isCurrentModeLoading={loadingModeId === mode.id}
-            isDisabled={!canPlay}
-            isExpanded={expandedModes.includes(mode.id)}
-            mode={mode}
-            onStart={() => handleModeStart(mode)}
-            onToggleExpand={() => handleToggleExpand(mode.id)}
-          />
-        ))}
+      {/* Галерея режимов игры */}
+      <div className="mb-8">
+        <GameModeGallery
+          modes={GAME_MODES}
+          currentModeIndex={currentModeIndex}
+          onModeChange={handleModeChange}
+          onModeStart={handleModeStart}
+          isDisabled={!canPlay}
+          loadingModeId={loadingModeId}
+        />
       </div>
 
       <div className="text-center space-y-2 animate-fade-in pb-8">
