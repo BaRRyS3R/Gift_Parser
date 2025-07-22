@@ -18,6 +18,7 @@ const hiddenPaths = [
   "/game/rotation",
   "/nebula",
   "/blocked",
+  "/seasons",
 ];
 
 export default function NavigationWrapper() {
