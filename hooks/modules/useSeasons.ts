@@ -74,7 +74,11 @@ export function useSeasons(
             return new Promise((resolve) => {
                 const checkCompletion = () => {
                     if (!fetchingRef.current) {
-                        resolve(state.data);
+                        // Return current data from state without causing re-renders
+                        setState(currentState => {
+                            resolve(currentState.data);
+                            return currentState;
+                        });
                     } else {
                         setTimeout(checkCompletion, 100);
                     }
@@ -151,7 +155,7 @@ export function useSeasons(
         } finally {
             fetchingRef.current = false;
         }
-    }, [makeAuthenticatedRequest, state.data]);
+    }, [makeAuthenticatedRequest]);
 
     /**
      * Clear error state
