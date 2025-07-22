@@ -1,8 +1,8 @@
-// src/game-modes/physics/PhysicsGameCanvas.tsx - Optimized implementation with dirty checking
+// src/game-modes/physics/PhysicsGameCanvas.tsx - Updated implementation without visible boundaries and proper screen positioning
 
 "use client";
 
-import React, { useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 
 import { PhysicsGameState } from "@/types/game-modes/physics";
 import { PhysicsCircle } from "@/types/game-modes/common";
@@ -14,16 +14,6 @@ interface PhysicsGameCanvasProps {
   showCanvas: boolean;
 }
 
-interface CircleRenderState {
-  id: number;
-  x: number;
-  y: number;
-  radius: number;
-  isActive: boolean;
-  isDecoy: boolean;
-  isAnimating: boolean;
-}
-
 export default function PhysicsGameCanvas({
   gameState,
   onCircleClick,
@@ -32,8 +22,6 @@ export default function PhysicsGameCanvas({
 }: PhysicsGameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
-  const lastRenderStateRef = useRef<CircleRenderState[]>([]);
-  const needsRedrawRef = useRef<boolean>(true);
 
   // Touch handling refs for preventing multiple touches
   const activeTouchesRef = useRef<
@@ -49,31 +37,11 @@ export default function PhysicsGameCanvas({
     >
   >(new Map());
 
-  // Spatial indexing for efficient circle lookup
-  const spatialGridRef = useRef<Map<string, PhysicsCircle[]>>(new Map());
-  const gridSizeRef = useRef<number>(100);
-
-  // Build spatial grid for efficient circle lookup
-  const buildSpatialGrid = useCallback((circles: PhysicsCircle[]) => {
-    spatialGridRef.current.clear();
-    const gridSize = gridSizeRef.current;
-
-    circles.forEach((circle) => {
-      const gridX = Math.floor(circle.x / gridSize);
-      const gridY = Math.floor(circle.y / gridSize);
-      const key = `${gridX},${gridY}`;
-
-      if (!spatialGridRef.current.has(key)) {
-        spatialGridRef.current.set(key, []);
-      }
-      spatialGridRef.current.get(key)!.push(circle);
-    });
-  }, []);
-
   // Function to get click position relative to canvas
   const getClickPosition = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
+
       if (!canvas) return null;
 
       const rect = canvas.getBoundingClientRect();
@@ -88,29 +56,20 @@ export default function PhysicsGameCanvas({
     [],
   );
 
-  // Optimized function to check if click hit a circle using spatial indexing
+  // Function to check if click hit a circle
   const getClickedCircle = useCallback(
-    (clickX: number, clickY: number, circles: PhysicsCircle[]): PhysicsCircle | null => {
-      const gridSize = gridSizeRef.current;
-      const gridX = Math.floor(clickX / gridSize);
-      const gridY = Math.floor(clickY / gridSize);
+    (
+      clickX: number,
+      clickY: number,
+      circles: PhysicsCircle[],
+    ): PhysicsCircle | null => {
+      for (const circle of circles) {
+        const distance = Math.sqrt(
+          Math.pow(clickX - circle.x, 2) + Math.pow(clickY - circle.y, 2),
+        );
 
-      // Check current grid cell and surrounding cells
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          const key = `${gridX + dx},${gridY + dy}`;
-          const cellCircles = spatialGridRef.current.get(key);
-
-          if (cellCircles) {
-            for (const circle of cellCircles) {
-              const distance = Math.sqrt(
-                Math.pow(clickX - circle.x, 2) + Math.pow(clickY - circle.y, 2),
-              );
-              if (distance <= circle.radius) {
-                return circle;
-              }
-            }
-          }
+        if (distance <= circle.radius) {
+          return circle;
         }
       }
 
@@ -125,6 +84,7 @@ export default function PhysicsGameCanvas({
       if (!isGameActive) return;
 
       const clickPos = getClickPosition(event);
+
       if (!clickPos) return;
 
       const clickedCircle = getClickedCircle(
@@ -146,30 +106,20 @@ export default function PhysicsGameCanvas({
     ],
   );
 
-  // Enhanced touch handler with optimized lookup
+  // Enhanced touch handler with debouncing
   const handleTouchStart = useCallback(
     (event: React.TouchEvent<HTMLCanvasElement>) => {
       event.preventDefault();
       if (!isGameActive) return;
 
       const canvas = canvasRef.current;
+
       if (!canvas) return;
 
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
       const currentTime = Date.now();
-
-      // Clean up old touches (prevent memory leaks)
-      const touchesToRemove: number[] = [];
-      activeTouchesRef.current.forEach((touchData, touchId) => {
-        if (currentTime - touchData.startTime > 5000) {
-          touchesToRemove.push(touchId);
-        }
-      });
-      touchesToRemove.forEach(touchId => {
-        activeTouchesRef.current.delete(touchId);
-      });
 
       // Process each new touch
       for (let i = 0; i < event.changedTouches.length; i++) {
@@ -210,6 +160,7 @@ export default function PhysicsGameCanvas({
 
           // Mark as processed
           const touchData = activeTouchesRef.current.get(touchId);
+
           if (touchData) {
             touchData.processed = true;
           }
@@ -225,6 +176,7 @@ export default function PhysicsGameCanvas({
       if (!isGameActive) return;
 
       const canvas = canvasRef.current;
+
       if (!canvas) return;
 
       const rect = canvas.getBoundingClientRect();
@@ -256,6 +208,7 @@ export default function PhysicsGameCanvas({
       for (let i = 0; i < event.changedTouches.length; i++) {
         const touch = event.changedTouches[i];
         const touchId = touch.identifier;
+
         activeTouchesRef.current.delete(touchId);
       }
     },
@@ -270,69 +223,29 @@ export default function PhysicsGameCanvas({
       for (let i = 0; i < event.changedTouches.length; i++) {
         const touch = event.changedTouches[i];
         const touchId = touch.identifier;
+
         activeTouchesRef.current.delete(touchId);
       }
     },
     [],
   );
 
-  // Memoized render state to detect changes
-  const currentRenderState = useMemo<CircleRenderState[]>(() => {
-    return gameState.circles.map((circle) => ({
-      id: circle.id,
-      x: Math.round(circle.x * 10) / 10, // Round to reduce unnecessary redraws
-      y: Math.round(circle.y * 10) / 10,
-      radius: circle.radius,
-      isActive: circle.isActive,
-      isDecoy: circle.isDecoy,
-      isAnimating: circle.isAnimating,
-    }));
-  }, [gameState.circles]);
-
-  // Check if redraw is needed (dirty checking)
-  const checkNeedsRedraw = useCallback(() => {
-    const lastState = lastRenderStateRef.current;
-    const currentState = currentRenderState;
-
-    if (lastState.length !== currentState.length) {
-      return true;
-    }
-
-    for (let i = 0; i < currentState.length; i++) {
-      const current = currentState[i];
-      const last = lastState[i];
-
-      if (
-        current.x !== last?.x ||
-        current.y !== last?.y ||
-        current.isActive !== last?.isActive ||
-        current.isDecoy !== last?.isDecoy ||
-        current.isAnimating !== last?.isAnimating
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }, [currentRenderState]);
-
-  // Optimized drawing function with dirty checking
+  // Main drawing function - no boundary drawing, just circles
+  // Main drawing function - no boundary drawing, just circles
   const draw = useCallback(() => {
-    if (!needsRedrawRef.current && !checkNeedsRedraw()) {
-      return;
-    }
-
     const canvas = canvasRef.current;
+
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
+
     if (!ctx) return;
 
     // Clear canvas with transparent background
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw circles only - no boundaries
-    currentRenderState.forEach((circle) => {
+    gameState.circles.forEach((circle) => {
       // Skip circles that are being deactivated immediately
       if (circle.isAnimating) return;
 
@@ -380,25 +293,15 @@ export default function PhysicsGameCanvas({
 
       ctx.restore();
     });
+  }, [gameState]);
 
-    // Update last render state
-    lastRenderStateRef.current = [...currentRenderState];
-    needsRedrawRef.current = false;
-  }, [currentRenderState, checkNeedsRedraw]);
-
-  // Animation loop with optimized redraw logic
+  // Animation loop
   const animate = useCallback(() => {
     draw();
     if (showCanvas && isGameActive) {
       animationFrameRef.current = requestAnimationFrame(animate);
     }
   }, [draw, showCanvas, isGameActive]);
-
-  // Force redraw when game state changes significantly
-  useEffect(() => {
-    needsRedrawRef.current = true;
-    buildSpatialGrid(gameState.circles);
-  }, [gameState.circles, buildSpatialGrid]);
 
   useEffect(() => {
     // Clear all active touches when game becomes inactive
@@ -411,14 +314,12 @@ export default function PhysicsGameCanvas({
     return () => {
       // Cleanup on component unmount
       activeTouchesRef.current.clear();
-      spatialGridRef.current.clear();
     };
   }, []);
 
   // Start/stop animation based on game state
   useEffect(() => {
     if (showCanvas && isGameActive) {
-      needsRedrawRef.current = true;
       animate();
     } else {
       if (animationFrameRef.current) {
@@ -436,11 +337,11 @@ export default function PhysicsGameCanvas({
   // Update canvas dimensions when configuration changes
   useEffect(() => {
     const canvas = canvasRef.current;
+
     if (!canvas) return;
 
     canvas.width = gameState.config.containerWidth;
     canvas.height = gameState.config.containerHeight;
-    needsRedrawRef.current = true;
   }, [gameState.config.containerWidth, gameState.config.containerHeight]);
 
   return (

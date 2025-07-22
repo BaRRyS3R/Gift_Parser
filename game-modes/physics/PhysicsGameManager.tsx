@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Optimized version with debounced updates
+// src/game-modes/physics/PhysicsGameManager.tsx - Refactored version without attempts logic
 
 "use client";
 
@@ -60,37 +60,6 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
-// Debounced state update function
-const createDebouncedStateUpdate = () => {
-  let pendingUpdate: PhysicsGameState | null = null;
-  let timeoutId: NodeJS.Timeout | null = null;
-
-  return (
-    setState: React.Dispatch<React.SetStateAction<PhysicsGameState>>,
-    newState: PhysicsGameState,
-    immediate = false
-  ) => {
-    pendingUpdate = newState;
-
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-
-    if (immediate) {
-      setState(pendingUpdate);
-      pendingUpdate = null;
-      return;
-    }
-
-    timeoutId = setTimeout(() => {
-      if (pendingUpdate) {
-        setState(pendingUpdate);
-        pendingUpdate = null;
-      }
-    }, 16); // ~60fps debounce
-  };
-};
-
 export default function PhysicsGameManager() {
   const { makeAuthenticatedRequest } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
@@ -106,15 +75,6 @@ export default function PhysicsGameManager() {
 
   const gameStateRef = useRef<PhysicsGameState>(gameState);
   const engineUpdateRef = useRef<number>();
-  const lastUpdateTime = useRef<number>(0);
-  const debouncedUpdateRef = useRef(createDebouncedStateUpdate());
-
-  // Performance monitoring
-  const performanceMetrics = useRef({
-    frameCount: 0,
-    lastFpsCheck: Date.now(),
-    currentFps: 60,
-  });
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -132,7 +92,7 @@ export default function PhysicsGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -152,6 +112,7 @@ export default function PhysicsGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
+
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -190,6 +151,7 @@ export default function PhysicsGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
+
             return attemptSave();
           } else {
             throw error;
@@ -212,10 +174,9 @@ export default function PhysicsGameManager() {
     [saveGameResult, t],
   );
 
-  // Optimized physics engine update loop with performance monitoring
+  // Physics engine update loop with level progression
   const updatePhysicsEngine = useCallback(() => {
     const currentState = gameStateRef.current;
-    const currentTime = Date.now();
 
     if (
       !currentState.isActive ||
@@ -225,71 +186,53 @@ export default function PhysicsGameManager() {
         cancelAnimationFrame(engineUpdateRef.current);
         engineUpdateRef.current = undefined;
       }
+
       return;
     }
 
-    // Throttle updates to maintain performance
-    const deltaTime = currentTime - lastUpdateTime.current;
-    if (deltaTime < 16) { // ~60fps limit
-      engineUpdateRef.current = requestAnimationFrame(updatePhysicsEngine);
-      return;
-    }
+    // Update Matter.js engine
+    Matter.Engine.update(currentState.engine, 16.67);
 
-    lastUpdateTime.current = currentTime;
+    // Update game state with physics and level progression
+    setGameState((prev) => {
+      const updatedState = updatePhysicsPositions(prev);
+      const levelUpdatedState = updatePhysicsLevel(updatedState);
 
-    // Performance monitoring
-    performanceMetrics.current.frameCount++;
-    if (currentTime - performanceMetrics.current.lastFpsCheck > 1000) {
-      performanceMetrics.current.currentFps = performanceMetrics.current.frameCount;
-      performanceMetrics.current.frameCount = 0;
-      performanceMetrics.current.lastFpsCheck = currentTime;
-    }
+      // Check win/loss conditions - mistakes first priority
+      const tooManyMistakes =
+        levelUpdatedState.stats.currentMistakes >=
+        levelUpdatedState.config.maxMistakes;
+      const timeUp =
+        levelUpdatedState.stats.gameTime >=
+        levelUpdatedState.config.levelDuration * 1000;
 
-    // Update Matter.js engine with variable time step for consistency
-    const targetDelta = 16.67; // 60fps target
-    const adjustedDelta = Math.min(deltaTime, targetDelta * 2); // Cap delta to prevent large jumps
-    Matter.Engine.update(currentState.engine, adjustedDelta);
+      if (tooManyMistakes || timeUp) {
+        const deathCause = tooManyMistakes
+          ? "mistakes"
+          : "timeout";
 
-    // Batch state updates for better performance
-    const updatedState = updatePhysicsPositions(currentState);
-    const levelUpdatedState = updatePhysicsLevel(updatedState);
+        endGame(deathCause);
 
-    // Check win/loss conditions - mistakes first priority
-    const tooManyMistakes =
-      levelUpdatedState.stats.currentMistakes >=
-      levelUpdatedState.config.maxMistakes;
-    const timeUp =
-      levelUpdatedState.stats.gameTime >=
-      levelUpdatedState.config.levelDuration * 1000;
-
-    if (tooManyMistakes || timeUp) {
-      const deathCause = tooManyMistakes ? "mistakes" : "timeout";
-      endGame(deathCause);
-
-      debouncedUpdateRef.current(
-        setGameState,
-        {
+        return {
           ...levelUpdatedState,
           gameState: GameState.FINISHED,
           isActive: false,
-        },
-        true // immediate update for game end
-      );
-      return;
-    }
+        };
+      }
 
-    // Use debounced update for regular state changes
-    debouncedUpdateRef.current(setGameState, levelUpdatedState);
+      return levelUpdatedState;
+    });
 
     engineUpdateRef.current = requestAnimationFrame(updatePhysicsEngine);
   }, []);
 
   const endGame = useCallback(
-    (cause: "mistakes" | "timeout") => {
+    (cause: "mistakes" | "escaped_circles" | "timeout") => {
       console.log("Physics game ended:", cause);
 
       setGameState((prev) => {
         const finalState = updatePhysicsPositions(prev);
+
         const result = createPhysicsGameResult(finalState, cause);
 
         setGameResult(result);
@@ -318,7 +261,7 @@ export default function PhysicsGameManager() {
     const delay =
       levelConfig.activationTimeMin +
       Math.random() *
-      (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
 
     const timeout = setTimeout(() => {
       if (
@@ -404,16 +347,14 @@ export default function PhysicsGameManager() {
           circleId,
         );
 
-        // Use immediate update for user interactions
-        debouncedUpdateRef.current(setGameState, finalState, true);
+        setGameState(finalState);
       } else if (result === "decoy" || result === "wrong") {
         triggerHapticFeedback("error");
 
         // Update state with mistake count and immediately deactivate
         const finalState = deactivatePhysicsCircle(newState, circleId);
 
-        // Use immediate update for user interactions
-        debouncedUpdateRef.current(setGameState, finalState, true);
+        setGameState(finalState);
       }
     },
     [triggerHapticFeedback],
@@ -422,15 +363,7 @@ export default function PhysicsGameManager() {
   const startGame = useCallback(() => {
     console.log("Starting Physics Game...");
 
-    // Reset performance metrics
-    performanceMetrics.current = {
-      frameCount: 0,
-      lastFpsCheck: Date.now(),
-      currentFps: 60,
-    };
-
-    const initialState = initializePhysicsGameState();
-    setGameState(initialState);
+    setGameState(initializePhysicsGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
 
@@ -471,6 +404,8 @@ export default function PhysicsGameManager() {
     switch (deathCause) {
       case "mistakes":
         return <AlertTriangle className="text-red-400" size={20} />;
+      case "escaped_circles":
+        return <TrendingDown className="text-orange-400" size={20} />;
       case "timeout":
         return <Clock className="text-yellow-400" size={20} />;
       default:
@@ -481,6 +416,7 @@ export default function PhysicsGameManager() {
   const getDeathCauseMessage = (deathCause: string) => {
     const messages = {
       mistakes: "Слишком много ошибок - лимит превышен",
+      escaped_circles: "Круги сбежали из игровой области",
       timeout: "Время вышло",
       default: "Физический эксперимент завершён",
     };
@@ -575,80 +511,80 @@ export default function PhysicsGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-              <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
-                      <span className="text-sm text-purple-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
+            <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                    <span className="text-sm text-purple-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("save.recordingPhysics")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-purple-400/60" size={14} />
-                          <span className="text-xs text-purple-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-purple-400/20 rounded-full h-1">
-                          <div
-                            className="bg-purple-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                        : t("save.recordingPhysics")}
+                    </span>
                   </div>
-                )}
 
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.physicsRecordedSuccessfully")}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-purple-400/60" size={14} />
+                        <span className="text-xs text-purple-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-purple-400/20 rounded-full h-1">
+                        <div
+                          className="bg-purple-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.physicsRecordedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                      : t("save.synchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        Не удалось сохранить после {saveStatus.maxAttempts}{" "}
-                        попыток
-                      </span>
-                    </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      Результат записан локально
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() => handleSaveGameResult(gameResult)}
-                    >
-                      Повторить сохранение
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      Не удалось сохранить после {saveStatus.maxAttempts}{" "}
+                      попыток
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="text-red-400/60 text-xs mb-3">
+                    Результат записан локально
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    Повторить сохранение
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-4">
             <button
@@ -729,13 +665,6 @@ export default function PhysicsGameManager() {
               </span>
             </div>
           </div>
-
-          {/* Performance indicator for debugging (remove in production) */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="text-xs text-gray-500 text-right mt-1">
-              FPS: {performanceMetrics.current.currentFps}
-            </div>
-          )}
         </div>
       </div>
     </div>
