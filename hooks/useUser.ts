@@ -1,4 +1,4 @@
-// src/hooks/useUser.ts - Updated with enhanced game module integration
+// src/hooks/useUser.ts - Updated with seasons module integration
 
 "use client";
 
@@ -22,9 +22,8 @@ import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
 import { useProfile } from "./modules/useProfile";
 import { useLeagues } from "./modules/useLeagues";
-import { useGame } from "./modules/useGame"; // Enhanced with tournament support
-
-// Import achievement notification types
+import { useGame } from "./modules/useGame";
+import { useSeasons } from "./modules/useSeasons"; // NEW: Import seasons module
 
 // Main user context interface
 interface UserContextType {
@@ -57,17 +56,12 @@ interface UserContextType {
   showAchievement: (achievement: AchievementNotificationData) => void;
   hideAchievement: () => void;
 
-  // Leaderboard module
+  // Module integrations
   leaderboard: ReturnType<typeof useLeaderboard>;
-
-  // Profile module
   profile: ReturnType<typeof useProfile>;
-
-  // Leagues module
   leagues: ReturnType<typeof useLeagues>;
-
-  // Enhanced game module (with tournament support)
   game: ReturnType<typeof useGame>;
+  seasons: ReturnType<typeof useSeasons>; // NEW: Seasons module
 
   // Utility methods
   makeAuthenticatedRequest: (
@@ -94,17 +88,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     clearError,
   } = useAuth();
 
-  // Use leaderboard module
+  // Use specialized modules
   const leaderboardModule = useLeaderboard(makeAuthenticatedRequest);
-
-  // Use profile module
   const profileModule = useProfile(makeAuthenticatedRequest);
-
-  // Use leagues module
   const leaguesModule = useLeagues(makeAuthenticatedRequest);
-
-  // Use enhanced game module (with tournament support)
   const gameModule = useGame(makeAuthenticatedRequest);
+  const seasonsModule = useSeasons(makeAuthenticatedRequest); // NEW: Initialize seasons module
 
   // Local state for user data and UI
   const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(
@@ -233,9 +222,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     profileModule.resetProfileData();
     leaguesModule.resetLeagueData();
     gameModule.resetTournamentState();
+    seasonsModule.resetSeasonData(); // NEW: Reset season data
 
     console.log("User logged out");
-  }, [authLogout, leaderboardModule, profileModule, leaguesModule, gameModule]);
+  }, [authLogout, leaderboardModule, profileModule, leaguesModule, gameModule, seasonsModule]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -312,17 +302,12 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     showAchievement,
     hideAchievement,
 
-    // Leaderboard module
+    // Module integrations
     leaderboard: leaderboardModule,
-
-    // Profile module
     profile: profileModule,
-
-    // Leagues module
     leagues: leaguesModule,
-
-    // Enhanced game module (with tournament support)
     game: gameModule,
+    seasons: seasonsModule, // NEW: Include seasons module
 
     // Utility methods
     makeAuthenticatedRequest,

@@ -19,7 +19,8 @@ export const config = {
     "/api/referral/:path*",
     "/api/leaderboard/:path*",
     "/api/check-telegram-membership",
-    "/api/nebula/:path",
+    "/api/nebula/:path*",
+    "/api/seasons/:path*"
   ],
 };
 

@@ -1,4 +1,4 @@
-// src/lib/supabase_server.ts - Updated with league service integration
+// src/lib/supabase_server.ts - Updated with seasons service integration
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -20,6 +20,10 @@ import {
   serverLeagueService,
   type CompleteLeagueData,
 } from "./server/leagueServerService";
+import {
+  serverSeasonService,
+  type CompleteSeasonData,
+} from "./server/seasonService";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -36,7 +40,7 @@ export const supabaseServer = createClient(supabaseUrl, supabaseServiceKey, {
   },
 });
 
-// Types for server operations
+// Types for server operations (existing interfaces remain the same)
 export interface ServerUser {
   id: string;
   telegram_id: number;
@@ -47,10 +51,8 @@ export interface ServerUser {
   is_premium: boolean;
   created_at: string;
   updated_at: string;
-  // Trust and moderation system
-  trust_score: number; // Default: 50, Premium: 60
-  blocked_until?: string; // ISO timestamp when user is blocked until (null if not blocked)
-
+  trust_score: number;
+  blocked_until?: string;
   attempts_remaining: number;
   last_attempt_at?: string;
   attempts_reset_at?: string;
@@ -101,8 +103,10 @@ export interface ServerTelegramUser {
   is_premium?: boolean;
 }
 
-// Server-side user service
+// Server-side user service (existing implementation remains the same)
 export const serverUserService = {
+  // ... existing methods remain unchanged ...
+
   async findByTelegramId(telegramId: number): Promise<ServerUser | null> {
     const { data, error } = await supabaseServer
       .from("users")
@@ -229,11 +233,8 @@ export const serverUserService = {
       username: telegramUser.username || null,
       language_code: telegramUser.language_code || null,
       is_premium: telegramUser.is_premium || false,
-
-      // Trust and moderation system
       trust_score: trustScore,
-      blocked_until: null, // User is not blocked by default
-
+      blocked_until: null,
       attempts_remaining: additionalAttempts,
       referral_code: referralCodeToUse,
       referred_by: referredBy,
@@ -341,6 +342,14 @@ export const serverUserService = {
   ): Promise<CompleteLeagueData> {
     return serverLeagueService.getCompleteLeagueData(userId, totalGames);
   },
+
+  // NEW: Delegate season operations to season service
+  async getCurrentSeasonData(
+    userId: string,
+    telegramId: number,
+  ): Promise<CompleteSeasonData | null> {
+    return serverSeasonService.getCompleteSeasonData(userId, telegramId);
+  },
 };
 
 // Export specialized services
@@ -349,3 +358,4 @@ export { serverGameService };
 export { serverLeaderboardService };
 export { serverUserProfileService };
 export { serverLeagueService };
+export { serverSeasonService }; // NEW: Export season service
