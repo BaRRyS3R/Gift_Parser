@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -176,9 +176,6 @@ function GamePageContent() {
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [consumeError, setConsumeError] = useState<string | null>(null);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
 
   const handleModeStart = useCallback(
     async (mode: GameMode) => {
@@ -225,85 +222,6 @@ function GamePageContent() {
     [loadingModeId, canPlay, consumeAttempt, router, fetchAttemptsStatus],
   );
 
-  // Функция для определения ближайшей к центру карточки
-  const findClosestCardToCenter = useCallback(() => {
-    if (!scrollContainerRef.current) return 0;
-
-    const container = scrollContainerRef.current;
-    const containerRect = container.getBoundingClientRect();
-    const containerCenter = containerRect.left + containerRect.width / 2;
-
-    let closestIndex = 0;
-    let closestDistance = Infinity;
-
-    const cards = container.querySelectorAll('[data-card-index]');
-    cards.forEach((card, index) => {
-      const cardRect = card.getBoundingClientRect();
-      const cardCenter = cardRect.left + cardRect.width / 2;
-      const distance = Math.abs(cardCenter - containerCenter);
-
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestIndex = index;
-      }
-    });
-
-    return closestIndex;
-  }, []);
-
-  // Функция для плавного центрирования карточки
-  const centerCard = useCallback((cardIndex: number) => {
-    if (!scrollContainerRef.current) return;
-
-    const container = scrollContainerRef.current;
-    const cardWidth = 280;
-    const cardSpacing = -20; // Учитываем отрицательный margin
-    const containerWidth = container.clientWidth;
-    const totalCardWidth = cardWidth + cardSpacing;
-
-    // Вычисляем позицию для центрирования карточки
-    const targetScrollLeft = (cardIndex * totalCardWidth) + (cardWidth / 2) - (containerWidth / 2) + 60; // +60 для начального paddingLeft
-
-    container.scrollTo({
-      left: Math.max(0, targetScrollLeft),
-      behavior: 'smooth'
-    });
-  }, []);
-
-  // Обработчик события прокрутки
-  const handleScroll = useCallback(() => {
-    setIsScrolling(true);
-
-    // Очищаем предыдущий таймаут
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-
-    // Устанавливаем новый таймаут для центрирования
-    scrollTimeoutRef.current = setTimeout(() => {
-      setIsScrolling(false);
-      const closestIndex = findClosestCardToCenter();
-      centerCard(closestIndex);
-    }, 150); // Задержка после окончания прокрутки
-  }, [findClosestCardToCenter, centerCard]);
-
-  // Обработчики touch событий для более точного контроля
-  const handleTouchStart = useCallback(() => {
-    setIsScrolling(true);
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    // Небольшая задержка перед центрированием для окончания инерциальной прокрутки
-    scrollTimeoutRef.current = setTimeout(() => {
-      setIsScrolling(false);
-      const closestIndex = findClosestCardToCenter();
-      centerCard(closestIndex);
-    }, 100);
-  }, [findClosestCardToCenter, centerCard]);
-
   const handleAttemptsRetry = useCallback(() => {
     clearError();
     setConsumeError(null);
@@ -316,15 +234,6 @@ function GamePageContent() {
       setConsumeError(null);
     }
   }, [attemptsStatus, consumeError]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, []);
 
   // Telegram WebApp back button
   useEffect(() => {
@@ -346,8 +255,8 @@ function GamePageContent() {
   return (
     <div
       className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : "opacity-100 transition-opacity duration-1000 ease-out"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
     >
       <div className="px-4">
@@ -397,49 +306,22 @@ function GamePageContent() {
         </div>
       </div>
 
-      {/* Горизонтальная прокрутка карточек в виде веера с автоматическим центрированием */}
+      {/* Горизонтальная прокрутка карточек без padding */}
       <div className="mb-8 animate-fade-in">
-        <div
-          ref={scrollContainerRef}
-          className="overflow-x-auto scrollbar-hide"
-          onScroll={handleScroll}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div className="flex px-4" style={{ width: "max-content", paddingLeft: "60px" }}>
-            {GAME_MODES.map((mode, index) => {
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex space-x-4 px-4" style={{ width: "max-content" }}>
+            {GAME_MODES.map((mode) => {
               const Icon = mode.icon;
               const isCurrentModeLoading = loadingModeId === mode.id;
               const isAnyModeLoading = loadingModeId !== null;
               const isDisabled = !canPlay;
 
-              // Вычисляем трансформации для эффекта веера
-              const rotation = (index - 1.5) * 8; // Поворот от -12° до +12°
-              const translateY = Math.abs(index - 1.5) * 15; // Вертикальное смещение
-              const translateX = index * -40; // Горизонтальное перекрытие
-              const scale = 1 - Math.abs(index - 1.5) * 0.05; // Легкое масштабирование
-              const zIndex = 4 - Math.abs(index - 1.5); // Z-index для правильного наложения
-
               return (
-                <div
-                  key={mode.id}
-                  data-card-index={index}
-                  className={`relative transition-all duration-500 hover:z-50 ${isScrolling ? 'transition-none' : ''
-                    }`}
-                  style={{
-                    transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotation}deg) scale(${scale})`,
-                    transformOrigin: "center bottom",
-                    zIndex: zIndex,
-                    marginRight: index < GAME_MODES.length - 1 ? "20px" : "0px"
-                  }}
-                >
+                <div key={mode.id} className="relative">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] transition-all duration-300 hover:scale-110 hover:rotate-0 hover:translate-y-0 cursor-pointer ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
-                      } ${isScrolling ? 'transition-none' : ''}`}
-                    style={{
-                      transformOrigin: "center bottom"
-                    }}
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                      }`}
                   >
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
                       <div className="flex items-center space-x-3 mb-2">
