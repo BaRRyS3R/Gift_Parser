@@ -1,9 +1,16 @@
-// src/app/game/page.tsx - Страница игр с галереей режимов
+// src/app/game/page.tsx - Обновленная страница игр с NextUI карточками
 
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardHeader,
+  CardFooter,
+  Image,
+  Button,
+} from "@nextui-org/react";
 import {
   Crosshair,
   Play,
@@ -13,8 +20,6 @@ import {
   RotateCw,
   Zap,
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -23,7 +28,6 @@ import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
 import TournamentCard from "@/components/TournamentCard/TournamentCard";
-import CircularGallery from "@/components/CircularGallery"; // Предполагаем, что компонент будет помещен сюда
 
 interface GameMode {
   id: string;
@@ -33,15 +37,15 @@ interface GameMode {
   route: string;
   difficulty: "🤡" | "💋😈" | "👉👌" | "🌀";
   durationKey: string;
-  image: string;
+  imageUrl: string;
   color: {
     primary: string;
     secondary: string;
     accent: string;
-    background: string;
-    border: string;
-    hover: string;
+    buttonColor: "primary" | "danger" | "secondary" | "warning";
   };
+  featuresKeys: string[];
+  basicRules: string[];
 }
 
 const GAME_MODES: GameMode[] = [
@@ -53,15 +57,24 @@ const GAME_MODES: GameMode[] = [
     route: "/game/reaction",
     difficulty: "🤡",
     durationKey: "game.modes.reaction.duration",
-    image: "https://notfren.com/circusle/reaction.jpg",
+    imageUrl: "https://notfren.com/circusle/reaction.jpg",
     color: {
       primary: "text-white",
       secondary: "text-white/90",
       accent: "text-white/80",
-      background: "bg-white/5",
-      border: "border-white/20",
-      hover: "hover:bg-white/10 hover:border-white/30",
+      buttonColor: "primary",
     },
+    featuresKeys: [
+      "game.modes.reaction.features.0",
+      "game.modes.reaction.features.1",
+      "game.modes.reaction.features.2",
+      "game.modes.reaction.features.3",
+    ],
+    basicRules: [
+      "game.modes.reaction.rules.0",
+      "game.modes.reaction.rules.1",
+      "game.modes.reaction.rules.2",
+    ],
   },
   {
     id: "survival",
@@ -71,15 +84,24 @@ const GAME_MODES: GameMode[] = [
     route: "/game/survival",
     difficulty: "💋😈",
     durationKey: "game.modes.survival.duration",
-    image: "https://notfren.com/circusle/survival.jpg",
+    imageUrl: "https://notfren.com/circusle/survival.jpg",
     color: {
-      primary: "text-red-400",
-      secondary: "text-red-300",
-      accent: "text-red-200",
-      background: "bg-red-500/5",
-      border: "border-red-400/20",
-      hover: "hover:bg-red-500/10 hover:border-red-400/30",
+      primary: "text-red-100",
+      secondary: "text-red-200",
+      accent: "text-red-300",
+      buttonColor: "danger",
     },
+    featuresKeys: [
+      "game.modes.survival.features.0",
+      "game.modes.survival.features.1",
+      "game.modes.survival.features.2",
+      "game.modes.survival.features.3",
+    ],
+    basicRules: [
+      "game.modes.survival.rules.0",
+      "game.modes.survival.rules.1",
+      "game.modes.survival.rules.2",
+    ],
   },
   {
     id: "physics",
@@ -89,15 +111,24 @@ const GAME_MODES: GameMode[] = [
     route: "/game/physics",
     difficulty: "👉👌",
     durationKey: "game.modes.physics.duration",
-    image: "https://notfren.com/circusle/physics.jpg",
+    imageUrl: "https://notfren.com/circusle/physics.jpg",
     color: {
-      primary: "text-purple-400",
-      secondary: "text-purple-300",
-      accent: "text-purple-200",
-      background: "bg-purple-500/5",
-      border: "border-purple-400/20",
-      hover: "hover:bg-purple-500/10 hover:border-purple-400/30",
+      primary: "text-purple-100",
+      secondary: "text-purple-200",
+      accent: "text-purple-300",
+      buttonColor: "secondary",
     },
+    featuresKeys: [
+      "game.modes.physics.features.0",
+      "game.modes.physics.features.1",
+      "game.modes.physics.features.2",
+      "game.modes.physics.features.3",
+    ],
+    basicRules: [
+      "game.modes.physics.rules.0",
+      "game.modes.physics.rules.1",
+      "game.modes.physics.rules.2",
+    ],
   },
   {
     id: "rotation",
@@ -107,200 +138,26 @@ const GAME_MODES: GameMode[] = [
     route: "/game/rotation",
     difficulty: "🌀",
     durationKey: "game.modes.rotation.duration",
-    image: "https://notfren.com/circusle/rotation.jpg",
+    imageUrl: "https://notfren.com/circusle/rotation.jpg",
     color: {
-      primary: "text-orange-400",
-      secondary: "text-orange-300",
-      accent: "text-orange-200",
-      background: "bg-orange-500/5",
-      border: "border-orange-400/20",
-      hover: "hover:bg-orange-500/10 hover:border-orange-400/30",
+      primary: "text-orange-100",
+      secondary: "text-orange-200",
+      accent: "text-orange-300",
+      buttonColor: "warning",
     },
+    featuresKeys: [
+      "game.modes.rotation.features.0",
+      "game.modes.rotation.features.1",
+      "game.modes.rotation.features.2",
+      "game.modes.rotation.features.3",
+    ],
+    basicRules: [
+      "game.modes.rotation.rules.0",
+      "game.modes.rotation.rules.1",
+      "game.modes.rotation.rules.2",
+    ],
   },
 ];
-
-const GameModeOverlay = ({
-  mode,
-  onStart,
-  isDisabled,
-  isCurrentModeLoading,
-  isAnyModeLoading,
-}: {
-  mode: GameMode;
-  onStart: () => void;
-  isDisabled: boolean;
-  isCurrentModeLoading: boolean;
-  isAnyModeLoading: boolean;
-}) => {
-  const t = useT();
-  const Icon = mode.icon;
-
-  return (
-    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 rounded-b-xl">
-      <div className="text-center space-y-4">
-        <div className="flex items-center justify-center space-x-3">
-          <div
-            className={`w-10 h-10 rounded-lg flex items-center justify-center ${mode.color.background} border ${mode.color.border}`}
-          >
-            <Icon className={mode.color.primary} size={20} />
-          </div>
-          <div>
-            <h3 className={`text-xl font-bold ${mode.color.primary}`}>
-              {t(mode.nameKey as any)}
-            </h3>
-            <div className="flex items-center justify-center space-x-2 text-sm">
-              <span className={mode.color.accent}>
-                {t(mode.durationKey as any)}
-              </span>
-              <div className="w-1 h-1 rounded-full bg-white/40" />
-              <span
-                className={`${mode.difficulty === "💋😈"
-                    ? "text-red-400"
-                    : mode.difficulty === "👉👌"
-                      ? "text-purple-400"
-                      : mode.difficulty === "🌀"
-                        ? "text-orange-400"
-                        : mode.color.accent
-                  }`}
-              >
-                {mode.difficulty}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <button
-          className={`
-            w-full max-w-sm mx-auto flex items-center justify-center space-x-2 py-3 px-6 rounded-lg
-            text-sm font-bold transition-all duration-300
-            ${mode.color.background} ${mode.color.primary} ${mode.color.border} border
-            ${isDisabled || isAnyModeLoading
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:scale-105 active:scale-95 hover:shadow-lg hover:border-opacity-80 hover:bg-white/10"
-            }
-          `}
-          disabled={isAnyModeLoading || isDisabled}
-          onClick={onStart}
-        >
-          {isCurrentModeLoading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              <span>{t("common.loading")}</span>
-            </>
-          ) : isAnyModeLoading && !isCurrentModeLoading ? (
-            <>
-              <Shield size={16} />
-              <span>{t("game.general.lock")}</span>
-            </>
-          ) : (
-            <>
-              <Play size={16} />
-              <span>
-                {isDisabled ? t("game.general.noAttempts") : t("common.play")}
-              </span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {isDisabled && !isAnyModeLoading && (
-        <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
-          <div className="text-center space-y-2">
-            <Shield className="text-white/60 mx-auto" size={24} />
-            <p className="text-white/80 text-sm font-bold">
-              {t("game.general.noAttemptsLeft")}
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const GameModeGallery = ({
-  modes,
-  currentModeIndex,
-  onModeChange,
-  onModeStart,
-  isDisabled,
-  loadingModeId,
-}: {
-  modes: GameMode[];
-  currentModeIndex: number;
-  onModeChange: (index: number) => void;
-  onModeStart: (mode: GameMode) => void;
-  isDisabled: boolean;
-  loadingModeId: string | null;
-}) => {
-  const galleryItems = modes.map((mode) => ({
-    image: mode.image,
-    text: mode.id,
-  }));
-
-  const currentMode = modes[currentModeIndex];
-  const isAnyModeLoading = loadingModeId !== null;
-  const isCurrentModeLoading = loadingModeId === currentMode.id;
-
-  return (
-    <div className="relative w-full h-[500px] rounded-xl overflow-hidden bg-black/20 backdrop-blur-sm border border-white/10">
-      {/* Галерея */}
-      <div className="absolute inset-0">
-        <CircularGallery
-          items={galleryItems}
-          bend={3}
-          borderRadius={0.02}
-          scrollSpeed={2}
-          scrollEase={0.1}
-        />
-      </div>
-
-      {/* Overlay с информацией о режиме */}
-      <GameModeOverlay
-        mode={currentMode}
-        onStart={() => onModeStart(currentMode)}
-        isDisabled={isDisabled}
-        isCurrentModeLoading={isCurrentModeLoading}
-        isAnyModeLoading={isAnyModeLoading}
-      />
-
-      {/* Навигационные кнопки */}
-      <div className="absolute top-1/2 left-4 transform -translate-y-1/2">
-        <button
-          className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-white/10 transition-all duration-300 disabled:opacity-50"
-          disabled={isAnyModeLoading}
-          onClick={() => onModeChange((currentModeIndex - 1 + modes.length) % modes.length)}
-        >
-          <ChevronLeft size={20} />
-        </button>
-      </div>
-
-      <div className="absolute top-1/2 right-4 transform -translate-y-1/2">
-        <button
-          className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-white/10 transition-all duration-300 disabled:opacity-50"
-          disabled={isAnyModeLoading}
-          onClick={() => onModeChange((currentModeIndex + 1) % modes.length)}
-        >
-          <ChevronRight size={20} />
-        </button>
-      </div>
-
-      {/* Индикаторы */}
-      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
-        {modes.map((_, index) => (
-          <button
-            key={index}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentModeIndex
-                ? "bg-white"
-                : "bg-white/30 hover:bg-white/50"
-              }`}
-            disabled={isAnyModeLoading}
-            onClick={() => onModeChange(index)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
 
 function GamePageContent() {
   const router = useRouter();
@@ -318,7 +175,6 @@ function GamePageContent() {
   const t = useT();
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
-  const [currentModeIndex, setCurrentModeIndex] = useState(0);
   const [consumeError, setConsumeError] = useState<string | null>(null);
 
   const handleModeStart = useCallback(
@@ -334,6 +190,7 @@ function GamePageContent() {
       try {
         console.log(`Starting ${mode.id} game - consuming attempt first...`);
 
+        // Потребляем попытку перед началом игры
         const updatedStatus = await consumeAttempt();
 
         if (!updatedStatus) {
@@ -344,6 +201,7 @@ function GamePageContent() {
           `Attempt consumed successfully. Remaining: ${updatedStatus.attemptsRemaining}`,
         );
 
+        // Небольшая задержка для показа анимации загрузки
         setTimeout(() => {
           router.push(mode.route);
         }, 600);
@@ -355,6 +213,7 @@ function GamePageContent() {
         setConsumeError(errorMessage);
         setLoadingModeId(null);
 
+        // Обновляем статус попыток после ошибки
         setTimeout(() => {
           fetchAttemptsStatus(true);
         }, 1000);
@@ -363,17 +222,13 @@ function GamePageContent() {
     [loadingModeId, canPlay, consumeAttempt, router, fetchAttemptsStatus],
   );
 
-  const handleModeChange = useCallback((index: number) => {
-    if (loadingModeId) return;
-    setCurrentModeIndex(index);
-  }, [loadingModeId]);
-
   const handleAttemptsRetry = useCallback(() => {
     clearError();
     setConsumeError(null);
     fetchAttemptsStatus(true);
   }, [clearError, fetchAttemptsStatus]);
 
+  // Clear consume error when attempts change
   useEffect(() => {
     if (consumeError && attemptsStatus) {
       setConsumeError(null);
@@ -399,70 +254,167 @@ function GamePageContent() {
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset ${loadingModeId
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
         }`}
     >
-      <div className="text-center space-y-4 mb-8">
-        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-          {t("game.modes.title")}
-        </h1>
-        <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-          {t("game.modes.subtitle")}
-        </p>
-      </div>
-
-      {/* Отображение ошибки потребления попыток */}
-      {consumeError && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-400/30 rounded-xl animate-fade-in">
-          <div className="flex items-center space-x-2 mb-2">
-            <AlertTriangle className="text-red-400" size={16} />
-            <span className="text-red-400 text-sm font-bold">
-              {t("common.error")}
-            </span>
-          </div>
-          <p className="text-red-300 text-xs">{consumeError}</p>
-          <button
-            className="mt-2 text-xs text-red-300 hover:text-red-200 transition-colors underline"
-            onClick={handleAttemptsRetry}
-          >
-            {t("common.retry")}
-          </button>
+      <div className="px-4">
+        <div className="text-center space-y-4 mb-8">
+          <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+            {t("game.modes.title")}
+          </h1>
+          <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
+            {t("game.modes.subtitle")}
+          </p>
         </div>
-      )}
 
-      {/* Централизованное отображение попыток */}
+        {/* Отображение ошибки потребления попыток */}
+        {consumeError && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-400/30 rounded-xl animate-fade-in">
+            <div className="flex items-center space-x-2 mb-2">
+              <AlertTriangle className="text-red-400" size={16} />
+              <span className="text-red-400 text-sm font-bold">
+                {t("common.error")}
+              </span>
+            </div>
+            <p className="text-red-300 text-xs">{consumeError}</p>
+            <button
+              className="mt-2 text-xs text-red-300 hover:text-red-200 transition-colors underline"
+              onClick={handleAttemptsRetry}
+            >
+              {t("common.retry")}
+            </button>
+          </div>
+        )}
+
+        {/* Централизованное отображение попыток */}
+        <div className="mb-8 animate-fade-in">
+          <AttemptsDisplay
+            attemptsRemaining={attemptsRemaining}
+            attemptsStatus={attemptsStatus}
+            canPlay={canPlay}
+            error={attemptsError}
+            isLoading={attemptsLoading}
+            showShopButton={true}
+            onRetry={handleAttemptsRetry}
+          />
+        </div>
+
+        <div className="mb-8">
+          <TournamentCard />
+        </div>
+      </div>
+
+      {/* Горизонтальная прокрутка карточек без padding */}
       <div className="mb-8 animate-fade-in">
-        <AttemptsDisplay
-          attemptsRemaining={attemptsRemaining}
-          attemptsStatus={attemptsStatus}
-          canPlay={canPlay}
-          error={attemptsError}
-          isLoading={attemptsLoading}
-          showShopButton={true}
-          onRetry={handleAttemptsRetry}
-        />
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex space-x-4 px-4" style={{ width: "max-content" }}>
+            {GAME_MODES.map((mode) => {
+              const Icon = mode.icon;
+              const isCurrentModeLoading = loadingModeId === mode.id;
+              const isAnyModeLoading = loadingModeId !== null;
+              const isDisabled = !canPlay;
+
+              return (
+                <div key={mode.id} className="relative">
+                  <Card
+                    isFooterBlurred
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                      }`}
+                  >
+                    <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                          <Icon className={mode.color.primary} size={20} />
+                        </div>
+                        <div>
+                          <h4 className={`font-bold text-xl ${mode.color.primary}`}>
+                            {t(mode.nameKey as any)}
+                          </h4>
+                          <div className="flex items-center space-x-2 text-xs">
+                            <span className={mode.color.accent}>
+                              {t(mode.durationKey as any)}
+                            </span>
+                            <div className="w-1 h-1 rounded-full bg-white/40" />
+                            <span className={mode.color.accent}>
+                              {mode.difficulty}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className={`text-sm ${mode.color.secondary} leading-relaxed`}>
+                        {t(mode.descriptionKey as any)}
+                      </p>
+                    </CardHeader>
+
+                    <Image
+                      removeWrapper
+                      alt={`${mode.id}_game_card`}
+                      className="z-0 w-full h-full object-cover"
+                      src={mode.imageUrl}
+                      fallbackSrc="/game-placeholder.jpg"
+                    />
+
+                    <CardFooter className="absolute bg-black/40 backdrop-blur-sm bottom-0 border-t-1 border-white/20 z-10 justify-between">
+                      <div>
+                        <p className="text-white text-tiny font-semibold">
+                          {isDisabled ? t("game.general.noAttemptsLeft") : t("game.general.readyToPlay")}
+                        </p>
+                        <p className="text-white/70 text-tiny">
+                          {isDisabled ? t("game.general.buyMoreAttempts") : t("game.general.testYourSkills")}
+                        </p>
+                      </div>
+
+                      <Button
+                        className="text-tiny min-w-[80px]"
+                        color={mode.color.buttonColor}
+                        radius="full"
+                        size="sm"
+                        isDisabled={isAnyModeLoading || isDisabled}
+                        isLoading={isCurrentModeLoading}
+                        startContent={
+                          !isCurrentModeLoading && !isAnyModeLoading ? (
+                            isDisabled ? <Shield size={14} /> : <Play size={14} />
+                          ) : null
+                        }
+                        onClick={() => handleModeStart(mode)}
+                      >
+                        {isCurrentModeLoading
+                          ? t("common.loading")
+                          : isAnyModeLoading && !isCurrentModeLoading
+                            ? t("game.general.lock")
+                            : isDisabled
+                              ? t("game.general.lock")
+                              : t("common.play")
+                        }
+                      </Button>
+                    </CardFooter>
+                  </Card>
+
+                  {/* Overlay для заблокированного состояния */}
+                  {isDisabled && !isAnyModeLoading && (
+                    <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
+                      <div className="text-center space-y-2">
+                        <Shield className="text-white/60 mx-auto" size={32} />
+                        <p className="text-white/80 text-sm font-bold">
+                          {t("game.general.noAttemptsLeft")}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div className="mb-8">
-        <TournamentCard />
-      </div>
-
-      {/* Галерея режимов игры */}
-      <div className="mb-8">
-        <GameModeGallery
-          modes={GAME_MODES}
-          currentModeIndex={currentModeIndex}
-          onModeChange={handleModeChange}
-          onModeStart={handleModeStart}
-          isDisabled={!canPlay}
-          loadingModeId={loadingModeId}
-        />
-      </div>
-
-      <div className="text-center space-y-2 animate-fade-in pb-8">
-        <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
+      <div className="px-4">
+        <div className="text-center space-y-2 animate-fade-in pb-8">
+          <p className="text-white/30 text-xs">{t("game.general.useWisely")}</p>
+        </div>
       </div>
     </div>
   );

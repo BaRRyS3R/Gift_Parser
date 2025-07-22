@@ -212,6 +212,9 @@ export const game = {
     },
   },
   general: {
+    readyToPlay: "Ready to play",
+    buyMoreAttempts: "Buy more attempts",
+    testYourSkills: "Test yout skills",
     initializingGame: "INITIALIZING GAME...",
     noAttempts: "NO ATTEMPTS",
     noAttemptsLeft: "NO ATTEMPTS LEFT",

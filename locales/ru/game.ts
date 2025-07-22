@@ -213,6 +213,9 @@ export const game = {
     },
   },
   general: {
+    readyToPlay: "Готово к игре",
+    buyMoreAttempts: "Купите больше попыток",
+    testYourSkills: "Протестируйте свою реакцию",
     initializingGame: "ИНИЦИАЛИЗАЦИЯ ИГРЫ...",
     noAttempts: "НЕТ ПОПЫТОК",
     noAttemptsLeft: "НЕТ ПОПЫТОК",
