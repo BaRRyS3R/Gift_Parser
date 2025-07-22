@@ -1,4 +1,4 @@
-// src/app/seasons/page.tsx - Fully consolidated seasons page with inline components
+// src/app/seasons/page.tsx - Complete seasons page with consolidated components
 
 "use client";
 
@@ -13,7 +13,6 @@ import {
   Calendar,
   Clock,
   Star,
-  Crown,
   Trophy,
   X,
 } from "lucide-react";
@@ -37,6 +36,72 @@ interface PlayerModalProps {
     isCurrentUser?: boolean;
   } | null;
   prize?: string;
+}
+
+// Date Info Modal Component
+interface DateInfoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity duration-300"
+        onClick={onClose}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            onClose();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="Close modal"
+      />
+      
+      {/* Modal */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up">
+        <div className="bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-xl border-t border-white/20 rounded-t-3xl p-6 mx-4 mb-4">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-white flex items-center space-x-2">
+              <Calendar size={20} />
+              <span>Season Timeline</span>
+            </h3>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+            >
+              <X className="text-white" size={16} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 rounded-lg p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <Clock className="text-blue-400" size={16} />
+                <span className="text-blue-300 font-bold text-sm">IMPORTANT NOTICE</span>
+              </div>
+              <div className="text-white/90 leading-relaxed">
+                At the moment the season ends, a final snapshot of the leaderboard will be taken. After this point, no further changes to player rankings or scores will be counted for this season.
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-white/70 text-sm">
+                Make sure to play your best games before the season deadline!
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
 
 function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
@@ -506,6 +571,7 @@ function SeasonsPageContent() {
     player: SeasonLeaderboardEntry;
     prize: string;
   } | null>(null);
+  const [showDateInfo, setShowDateInfo] = useState(false);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -636,17 +702,12 @@ function SeasonsPageContent() {
       <div className="relative z-10 px-4 safe-area-inset">
         
         {/* Champion Display */}
-        <div className="text-center py-12 pt-16">
+        <div className="text-center py-6 pt-16">
           {topPlayer ? (
             <button
               onClick={() => handlePlayerClick(topPlayer)}
-              className="group relative transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none"
+              className="focus:outline-none"
             >
-              {/* Crown Icon */}
-              <div className="mb-4">
-                <Crown className="text-yellow-400 drop-shadow-lg mx-auto group-hover:scale-110 transition-transform duration-300" size={32} />
-              </div>
-
               {/* Player Name */}
               <div className="mb-3">
                 <div className="flex items-center justify-center space-x-2">
@@ -666,21 +727,15 @@ function SeasonsPageContent() {
               </div>
 
               {/* Score Display */}
-              <div className="inline-block bg-gradient-to-r from-yellow-400/10 to-orange-500/10 border border-yellow-400/30 rounded-xl px-6 py-3 group-hover:border-yellow-400/50 group-hover:from-yellow-400/20 group-hover:to-orange-500/20 transition-all duration-300">
-                <div className="text-2xl font-bold text-white drop-shadow-lg">
-                  {topPlayer.survival_best_score}
-                </div>
-                <div className="text-xs text-white/70 drop-shadow-sm">
-                  points
-                </div>
+              <div className="text-2xl font-bold text-white drop-shadow-lg">
+                {topPlayer.survival_best_score}
               </div>
-
-              {/* Subtle glow effect */}
-              <div className="absolute -inset-4 bg-gradient-to-br from-yellow-400/5 to-orange-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10" />
+              <div className="text-xs text-white/70 drop-shadow-sm">
+                points
+              </div>
             </button>
           ) : (
             <div>
-              <Crown className="text-yellow-400/50 drop-shadow-lg mx-auto mb-4" size={32} />
               <p className="text-white/60 drop-shadow-sm text-lg">
                 No champion yet
               </p>
@@ -700,12 +755,15 @@ function SeasonsPageContent() {
 
         {/* Season Dates */}
         <div className="flex items-center justify-center space-x-4 text-sm text-white/70 mb-8">
-          <div className="flex items-center space-x-1">
+          <button 
+            onClick={() => setShowDateInfo(true)}
+            className="flex items-center space-x-1 hover:text-white/90 transition-colors"
+          >
             <Calendar size={14} />
             <span>
               {new Date(season.start_date).toLocaleDateString()} - {new Date(season.end_date).toLocaleDateString()}
             </span>
-          </div>
+          </button>
           {!isActive && new Date() < new Date(season.start_date) && (
             <div className="flex items-center space-x-1 text-yellow-400">
               <Clock size={14} />
@@ -760,11 +818,7 @@ function SeasonsPageContent() {
                     <div className="flex items-center justify-between">
                       {/* Position and Name */}
                       <div className="flex items-center space-x-4 flex-1 min-w-0">
-                        <div className={`
-                          w-8 text-center font-bold text-lg
-                          ${entry.position === 2 ? "text-gray-300" :
-                            entry.position === 3 ? "text-amber-600" : "text-white/80"}
-                        `}>
+                        <div className="w-8 text-center font-bold text-lg text-white/80">
                           #{entry.position}
                         </div>
                         
@@ -819,6 +873,12 @@ function SeasonsPageContent() {
         onClose={handleCloseModal}
         player={selectedPlayer?.player || null}
         prize={selectedPlayer?.prize}
+      />
+
+      {/* Date Info Modal */}
+      <DateInfoModal
+        isOpen={showDateInfo}
+        onClose={() => setShowDateInfo(false)}
       />
     </div>
   );
