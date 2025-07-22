@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Refactored version without attempts logic
+// src/game-modes/physics/PhysicsGameManager.tsx - Localized version
 
 "use client";
 
@@ -414,14 +414,15 @@ export default function PhysicsGameManager() {
   };
 
   const getDeathCauseMessage = (deathCause: string) => {
-    const messages = {
-      mistakes: "Слишком много ошибок - лимит превышен",
-      escaped_circles: "Круги сбежали из игровой области",
-      timeout: "Время вышло",
-      default: "Физический эксперимент завершён",
+    const causeKeyMapping = {
+      mistakes: "game.modes.physics.deathCauses.mistakes",
+      escaped_circles: "game.modes.physics.deathCauses.escapedCircles", 
+      timeout: "game.modes.physics.deathCauses.timeout",
     };
 
-    return messages[deathCause as keyof typeof messages] || messages.default;
+    const key = causeKeyMapping[deathCause as keyof typeof causeKeyMapping];
+    
+    return key ? t(key as any) : t("game.modes.physics.deathCauses.default");
   };
 
   const getCurrentLevelInfo = () => {
@@ -498,7 +499,7 @@ export default function PhysicsGameManager() {
               </div>
               <div className="text-center space-y-1">
                 <div className="text-xs text-purple-400/60">
-                  Время выживания
+                  {t("game.modes.physics.results.survivalTime")}
                 </div>
                 <div className="text-xl font-bold text-purple-400">
                   {formatPhysicsTime(gameResult.survivalTime)}
@@ -522,7 +523,7 @@ export default function PhysicsGameManager() {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recordingPhysics")}
+                        : t("save.recording")}
                     </span>
                   </div>
 
@@ -551,7 +552,7 @@ export default function PhysicsGameManager() {
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-2">
                     <span className="text-sm text-green-400">
-                      {t("save.physicsRecordedSuccessfully")}
+                      {t("save.recordedSuccessfully")}
                     </span>
                   </div>
                   <div className="text-green-400/60 text-xs">
@@ -568,18 +569,19 @@ export default function PhysicsGameManager() {
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-2">
                     <span className="text-red-400 text-sm">
-                      Не удалось сохранить после {saveStatus.maxAttempts}{" "}
-                      попыток
+                      {t("save.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
                     </span>
                   </div>
                   <div className="text-red-400/60 text-xs mb-3">
-                    Результат записан локально
+                    {t("save.recordedLocally")}
                   </div>
                   <button
                     className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
                     onClick={() => handleSaveGameResult(gameResult)}
                   >
-                    Повторить сохранение
+                    {t("save.retrySave")}
                   </button>
                 </div>
               )}
@@ -592,7 +594,7 @@ export default function PhysicsGameManager() {
               onClick={handleBackToGames}
             >
               <ArrowLeft size={20} />
-              <span>BACK НАЗАД</span>
+              <span>{t("game.modes.physics.results.backToMenu")}</span>
             </button>
           </div>
         </div>
@@ -644,25 +646,19 @@ export default function PhysicsGameManager() {
               <div className="flex items-center space-x-2">
                 <TrendingUp className="text-purple-400" size={12} />
                 <span className="text-purple-400/80">
-                  Lv.{levelInfo.level} {levelInfo.description}
+                  {t("common.level")} {levelInfo.level} {levelInfo.description}
                 </span>
               </div>
-              <span className="text-purple-400/60">
-                Активно: {levelInfo.activeCircles}/{levelInfo.maxCircles}
-              </span>
             </div>
 
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center space-x-2">
                 <Activity className="text-red-400" size={12} />
                 <span className="text-red-300">
-                  Ошибки: {gameState.stats.currentMistakes}/
+                  {t("game.modes.physics.results.mistakesMade")}: {gameState.stats.currentMistakes}/
                   {gameState.config.maxMistakes}
                 </span>
               </div>
-              <span className="text-red-300 uppercase tracking-wider text-xs">
-                5 ОШИБОК = КОНЕЦ
-              </span>
             </div>
           </div>
         </div>

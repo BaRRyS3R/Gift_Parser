@@ -12,4 +12,9 @@ export const save = {
   recordedSuccessfully: "✓ Survival record saved successfully",
   physicsRecordedSuccessfully: "✓ Physics experiment saved successfully",
   rotationRecordedSuccessfully: "✓ Rotation experiment saved successfully", // NEW
+  attemptNotRecorded: "⚠ Attempt not recorded",
+  onlySuccessful: "Only successful reaction times are saved to leaderboard",
+  saveFailed: "✗ Save failed after {attempts} attempts",
+  recordedLocally: "Your time recorded locally but not synchronized",
+  retrySave: "RETRY SAVE",
 } as const;

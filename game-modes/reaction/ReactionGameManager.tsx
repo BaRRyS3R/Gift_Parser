@@ -504,11 +504,11 @@ export default function ReactionGameManager() {
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-2">
                     <span className="text-orange-400 text-sm">
-                      {t("shop.attemptNotRecorded")}
+                      {t("save.attemptNotRecorded")}
                     </span>
                   </div>
                   <div className="text-orange-400/60 text-xs">
-                    {t("shop.onlySuccessful")}
+                    {t("save.onlySuccessful")}
                   </div>
                 </div>
               )}
@@ -517,19 +517,19 @@ export default function ReactionGameManager() {
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-2">
                     <span className="text-red-400 text-sm">
-                      {t("shop.saveFailed", {
+                      {t("save.saveFailed", {
                         attempts: saveStatus.maxAttempts,
                       })}
                     </span>
                   </div>
                   <div className="text-red-400/60 text-xs mb-3">
-                    {t("shop.recordedLocally")}
+                    {t("save.recordedLocally")}
                   </div>
                   <button
                     className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
                     onClick={() => handleSaveGameResult(gameResult)}
                   >
-                    {t("shop.retrySave")}
+                    {t("save.retrySave")}
                   </button>
                 </div>
               )}

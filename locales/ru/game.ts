@@ -173,7 +173,7 @@ export const game = {
         "Чем выше уровень, тем быстрее вращение",
       ],
       instructions: {
-        oneMistakeDeath: "ОДНА ОШИБКА = СМЕРТЬ",
+        oneMistakeDeath: "5 = ПРОИГРЫШ",
         followTheCircles: "СЛЕДИТЕ ЗА КРУГАМИ",
       },
       results: {

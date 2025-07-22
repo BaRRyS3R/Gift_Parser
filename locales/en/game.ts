@@ -171,7 +171,7 @@ export const game = {
         "Higher level = faster rotation",
       ],
       instructions: {
-        oneMistakeDeath: "ONE MISTAKE = DEATH",
+        oneMistakeDeath: "5 MISTAKES = LOSE",
         followTheCircles: "FOLLOW THE CIRCLES",
       },
       results: {

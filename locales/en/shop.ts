@@ -51,11 +51,6 @@ export const shop = {
       description: "Instantly restore 10 attempts and reset cooldown",
     },
   },
-  attemptNotRecorded: "⚠ Attempt not recorded",
-  onlySuccessful: "Only successful reaction times are saved to leaderboard",
-  saveFailed: "✗ Save failed after {attempts} attempts",
-  recordedLocally: "Your time recorded locally but not synchronized",
-  retrySave: "RETRY SAVE",
   badges: {
     test: "Test",
     popular: "Popular",
