@@ -5,7 +5,7 @@ export const game = {
     subtitle: "Выберите испытание",
     buttonBack: "Назад",
     newBestScore: "НОВЫЙ ЛУЧШИЙ СЧЁТ!",
-    recordUpdated: "Счёт обновлён!",
+    recordUpdated: "Рекорд обновлён!",
     reaction: {
       name: "РЕАКЦИЯ",
       description: "Надеюсь, хоть тут попадёшь.",
