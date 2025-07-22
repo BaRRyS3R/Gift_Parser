@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Refactored version without attempts logic
+// src/game-modes/survival/SurvivalGameManager.tsx - Полная версия с обновленными результатами
 
 "use client";
 
@@ -56,7 +56,7 @@ const initialSaveStatus: SaveStatus = {
 const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
 
 export default function SurvivalGameManager() {
-  const { makeAuthenticatedRequest } = useUser();
+  const { makeAuthenticatedRequest, user } = useUser();
   const router = useRouter();
   const t = useT();
 
@@ -66,6 +66,7 @@ export default function SurvivalGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
+  const [isNewBestScore, setIsNewBestScore] = useState(false);
 
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -114,6 +115,13 @@ export default function SurvivalGameManager() {
       haptic.notificationOccurred(type);
     }
   }, []);
+
+  const checkForNewBestScore = useCallback((newScore: number) => {
+    if (user && user.survival_best_score !== undefined) {
+      const previousBest = user.survival_best_score || 0;
+      setIsNewBestScore(newScore > previousBest);
+    }
+  }, [user]);
 
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
@@ -216,6 +224,8 @@ export default function SurvivalGameManager() {
 
         const result = createSurvivalGameResult(finalGameState);
 
+        checkForNewBestScore(result.score);
+
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -223,7 +233,7 @@ export default function SurvivalGameManager() {
         return finalGameState;
       });
     },
-    [handleSaveGameResult],
+    [handleSaveGameResult, checkForNewBestScore],
   );
 
   const scheduleNextActivation = useCallback(() => {
@@ -327,6 +337,7 @@ export default function SurvivalGameManager() {
     setSaveStatus(initialSaveStatus);
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
+    setIsNewBestScore(false);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -415,66 +426,63 @@ export default function SurvivalGameManager() {
                 </span>
               </div>
             </div>
+
+            {isNewBestScore && (
+              <div className="bg-green-500/20 border border-green-400/30 rounded-lg p-3 animate-pulse">
+                <div className="flex items-center justify-center space-x-2">
+                  <span className="text-lg">🏆</span>
+                  <span className="text-sm text-green-300 font-bold">
+                    {t("game.modes.newBestScore")}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6 space-y-6">
             <div className="text-center space-y-2">
               <div className="text-sm text-red-400/60">
-                {t("game.modes.survival.results.survivalTime")}
+                {t("game.modes.survival.results.finalScore")}
               </div>
-              <div className="text-4xl font-bold text-red-400">
-                {formatSurvivalTime(gameResult.survivalTime)}
+              <div className="text-5xl font-bold text-red-400">
+                {gameResult.score}
               </div>
-              <div className="text-lg text-red-300">
-                {t("common.level")} {gameResult.maxLevelReached}
-              </div>
+              {isNewBestScore && (
+                <div className="text-xs text-green-400 font-medium">
+                  {t("game.modes.recordUpdated")}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center space-y-1">
                 <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.finalScore")}
-                </div>
-                <div className="text-xl font-bold text-red-300">
-                  {gameResult.score}
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.perfectStreak")}
-                </div>
-                <div className="text-xl font-bold text-green-400">
-                  {gameResult.perfectStreak}
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-red-400/60">
                   {t("game.modes.survival.results.correctHits")}
                 </div>
-                <div className="text-xl font-bold text-green-400">
+                <div className="text-2xl font-bold text-green-400">
                   {gameResult.correctHits}
                 </div>
               </div>
               <div className="text-center space-y-1">
                 <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.levelsCompleted")}
+                  {t("game.modes.survival.results.survivalTime")}
                 </div>
-                <div className="text-xl font-bold text-green-400">
-                  {gameResult.maxLevelReached}/15
+                <div className="text-2xl font-bold text-red-400">
+                  {formatSurvivalTime(gameResult.survivalTime)}
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-red-400/30 pt-4">
-              <div className="text-center space-y-2">
-                <div className="text-xs text-red-400/60 uppercase">
-                  {t("game.modes.survival.results.levelProgress")}
-                </div>
+            <div className="text-center space-y-1 border-t border-red-400/30 pt-4">
+              <div className="text-xs text-red-400/60">
+                {t("game.modes.survival.results.levelsCompleted")}
+              </div>
+              <div className="text-xl font-bold text-yellow-400">
+                {gameResult.maxLevelReached}/15
               </div>
             </div>
           </div>
 
-          {/* Save Status Display */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
@@ -535,19 +543,19 @@ export default function SurvivalGameManager() {
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-2 mb-2">
                     <span className="text-red-400 text-sm">
-                      {t("save.saveFailed", {
+                      {t("shop.saveFailed", {
                         attempts: saveStatus.maxAttempts,
                       })}
                     </span>
                   </div>
                   <div className="text-red-400/60 text-xs mb-3">
-                    {t("save.recordedLocally")}
+                    {t("shop.recordedLocally")}
                   </div>
                   <button
                     className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
                     onClick={() => handleSaveGameResult(gameResult)}
                   >
-                    {t("save.retrySave")}
+                    {t("shop.retrySave")}
                   </button>
                 </div>
               )}
@@ -560,7 +568,7 @@ export default function SurvivalGameManager() {
               onClick={handleBackToGames}
             >
               <ArrowLeft size={20} />
-              <span>BACK НАЗАД</span>
+              <span>{t("game.modes.buttonBack")}</span>
             </button>
           </div>
         </div>

@@ -3,6 +3,9 @@ export const game = {
   modes: {
     title: "MODE",
     subtitle: "Choose your challenge",
+    buttonBack: "Back",
+    newBestScore: "NEW BEST SCORE!",
+    recordUpdated: "The record has been updated!",
     reaction: {
       name: "REACTION",
       description: "Hopefully you'll hit at least here.",

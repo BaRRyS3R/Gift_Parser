@@ -3,6 +3,9 @@ export const game = {
   modes: {
     title: "МОД",
     subtitle: "Выберите испытание",
+    buttonBack: "Назад",
+    newBestScore: "НОВЫЙ ЛУЧШИЙ СЧЁТ!",
+    recordUpdated: "Счёт обновлён!",
     reaction: {
       name: "РЕАКЦИЯ",
       description: "Надеюсь, хоть тут попадёшь.",

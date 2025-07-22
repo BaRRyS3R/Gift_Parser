@@ -440,11 +440,11 @@ export const calculateSurvivalScore = (
   stats: SurvivalGameStats,
   level: number,
 ): number => {
-  const baseScore = Math.floor(stats.survivalTime / 1000);
-  const streakBonus = stats.perfectStreak * 3;
-  const levelBonus = Math.floor(level * 15);
+  const timeScore = Math.floor(stats.survivalTime / 1000);
+  const levelScore = level;
+  const clickScore = stats.correctHits;
 
-  return baseScore + streakBonus + levelBonus;
+  return timeScore + levelScore + clickScore;
 };
 
 export const getSurvivalDeathCause = (
