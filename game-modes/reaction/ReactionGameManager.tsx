@@ -430,9 +430,6 @@ export default function ReactionGameManager() {
                 <div className={`text-xl font-bold ${ratingColor}`}>
                   {rating}
                 </div>
-                <div className="text-xs text-white/60">
-                  {t("game.modes.reaction.results.rating")}
-                </div>
               </div>
             </div>
 
