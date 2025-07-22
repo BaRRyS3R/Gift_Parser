@@ -723,7 +723,6 @@ export default function IntroPage(): JSX.Element {
         <video
           ref={videoRef}
           playsInline
-          muted
           className="video-player"
           preload="auto"
           aria-label="Application introduction video"
