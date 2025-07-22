@@ -3,7 +3,7 @@
 export const nebula = {
     // Main verification page
     verification: {
-        title: "SECURITY VERIFICATION",
+        title: "NEBULA",
         subtitle: "Your account requires additional security verification",
         trustScore: "Current Trust Level",
         requiredThreshold: "Required threshold: {threshold}",
@@ -18,8 +18,7 @@ export const nebula = {
         warningLeaving: "DO NOT LEAVE THIS PAGE!",
         warningBan: "Closing this page or navigating away will result in account blocking. Complete verification within the allotted time.",
         warningBiometricSafe: "Safe Navigation During Permission Setup",
-        warningBiometricText: "You may safely leave this application while granting biometric or gyroscope permissions. Your verification session will remain active and you can return at any time during the permission setup process. Only avoid leaving during the actual authentication phase.",
-
+                warningBiometricText: "You can safely exit this app when granting biometric permissions or gyroscope permissions. Your verification session is active for 5 minutes. Avoid exiting only during actual authentication.",
         // Verification types
         types: {
             captcha: {
@@ -52,7 +51,7 @@ export const nebula = {
 
     // Captcha modal
     captcha: {
-        title: "SECURITY CHALLENGE",
+        title: "NEBULA CAPTCHA",
         subtitle: "Complete the challenge to verify your identity",
         generating: "Generating challenge...",
         enterResult: "Enter the result of this calculation",
@@ -69,7 +68,7 @@ export const nebula = {
 
     // Enhanced biometric modal  
     biometric: {
-        title: "BIOMETRIC AUTHENTICATION REQUIRED",
+        title: "NEBULA BIOMETRIC",
         subtitle: "Your trust score is low. Please authenticate using biometrics to continue.",
 
         // Enhanced phases with better descriptions
@@ -90,7 +89,7 @@ export const nebula = {
             step2: "2. If prompted, allow biometric access in the system dialog",
             step3: "3. If redirected to settings, enable biometric access for this app",
             step4: "4. Return here and tap \"Check Permission Status\" to verify",
-            step5: "5. You may need to repeat steps 3-4 up to 3 times if the system doesn't update immediately",
+            step5: "5. You may need to restart the application if the system does not update immediately.",
         },
 
         // Authentication
@@ -129,8 +128,7 @@ export const nebula = {
         unavailableWarning: "Biometric authentication is unavailable on your device. Your account will be blocked in accordance with security policy.",
 
         // Updated permission warning with attempt tracking
-        permissionWarning: "Biometric authentication permission is required to continue. You have multiple attempts to grant permission. Denying permission after all attempts will result in account blocking.",
-
+        permissionWarning: "To continue, you must grant permission for biometric authentication. Refusal to grant permission will result in your account being blocked.",
         leaveAppSafe: "Safe to Leave App During Permission Setup",
         leaveAppSafeText: "You can safely minimize or switch away from this app while granting biometric permission. Your verification session will remain active. Only stay on this page during the actual authentication phase.",
 
@@ -138,7 +136,7 @@ export const nebula = {
         blockWarning: "Your account will be blocked for 2 days due to device incompatibility.",
         blockWarningFailed: "Biometric verification required due to low trust score. Your account will be blocked for 2 days if verification fails.",
         blockWarningUnavailable: "Your account will be blocked for 2 days as biometrics are unavailable on the device.",
-        blockWarningPermissionDenied: "Your account will be blocked for 2 days due to biometric permission denial after multiple attempts.",
+        blockWarningPermissionDenied: "Your account will be blocked for 2 days due to biometric permission denial.",
 
         success: {
             title: "VERIFICATION SUCCESSFUL",
@@ -156,7 +154,7 @@ export const nebula = {
 
     // Enhanced gyroscope modal
     gyroscope: {
-        title: "GYROSCOPE AUTHENTICATION REQUIRED",
+        title: "NEBULA GYROSCOPE",
         subtitle: "Your trust score is extremely low. Please complete gyroscope verification to continue.",
 
         // Enhanced phases
@@ -185,7 +183,7 @@ export const nebula = {
             step2: "2. If prompted, allow motion access in the system dialog",
             step3: "3. If redirected to settings, enable motion & orientation access",
             step4: "4. Return here and tap \"Check Permission Status\" to verify",
-            step5: "5. You may need to repeat steps 3-4 up to 3 times if the system doesn't update immediately",
+            step5: "5. You may need to restart the application if the system does not update immediately.",
         },
 
         // Verification
@@ -218,16 +216,16 @@ export const nebula = {
         unavailableWarning: "Gyroscope verification is unavailable on your device. Your account will be blocked in accordance with security policy.",
 
         // Updated permission warning
-        permissionWarning: "Gyroscope access permission is required to continue. You have multiple attempts to grant permission. Denying permission after all attempts will result in account blocking.",
+        permissionWarning: "Gyroscope access permission is required to continue. Denying permission will result in account blocking.",
 
         // Enhanced block warnings
         blockWarning: "Your account will be blocked for 1 month due to device incompatibility.",
         blockWarningFailed: "Gyroscope verification required due to extremely low trust score. Your account will be blocked for 1 month if verification fails.",
         blockWarningUnavailable: "Your account will be blocked for 1 month as gyroscope is unavailable on the device.",
-        blockWarningPermissionDenied: "Your account will be blocked for 1 month due to gyroscope permission denial after multiple attempts.",
+        blockWarningPermissionDenied: "Your account will be blocked for 1 month due to gyroscope permission denial.",
 
         success: {
-            title: "ROTATION STOPPED",
+            title: "SUCCESS",
             message: "Your identity has been verified successfully",
             restoring: "Your trust score has been restored. Redirecting to the application...",
         },
@@ -263,7 +261,7 @@ export const nebula = {
 
         // Enhanced block reasons with better explanations
         reasons: {
-            failed_captcha: "Failed to complete security challenge verification",
+            failed_captcha: "Failed to complete security captcha verification",
             failed_biometric: "Failed biometric authentication verification",
             failed_gyroscope: "Failed device movement verification",
             device_unsupported_biometric: "Device does not support biometric authentication",
@@ -369,7 +367,6 @@ export const nebula = {
         },
         general: {
             title: "General Issues",
-            browserCompatibility: "Use latest version of supported browsers (Chrome, Safari, Firefox)",
             connectionIssues: "Ensure stable internet connection during verification",
             appRestart: "Try closing and reopening the application if issues persist",
             deviceRestart: "Restart your device if permission issues continue",
