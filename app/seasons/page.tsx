@@ -15,6 +15,7 @@ import {
   Star,
   Trophy,
   X,
+  Crown,
 } from "lucide-react";
 import { Renderer, Program, Triangle, Mesh } from "ogl";
 
@@ -50,7 +51,7 @@ function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity duration-300"
         onClick={onClose}
         onKeyDown={(e) => {
@@ -62,7 +63,7 @@ function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
         tabIndex={0}
         aria-label="Close modal"
       />
-      
+
       {/* Modal */}
       <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up">
         <div className="bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-xl border-t border-white/20 rounded-t-3xl p-6 mx-4 mb-4">
@@ -91,7 +92,7 @@ function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
                 At the moment the season ends, a final snapshot of the leaderboard will be taken. After this point, no further changes to player rankings or scores will be counted for this season.
               </div>
             </div>
-            
+
             <div className="text-center">
               <div className="text-white/70 text-sm">
                 Make sure to play your best games before the season deadline!
@@ -112,7 +113,7 @@ function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity duration-300"
         onClick={onClose}
         onKeyDown={(e) => {
@@ -124,7 +125,7 @@ function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
         tabIndex={0}
         aria-label="Close modal"
       />
-      
+
       {/* Modal */}
       <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up">
         <div className="bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-xl border-t border-white/20 rounded-t-3xl p-6 mx-4 mb-4">
@@ -132,12 +133,12 @@ function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
               {player.position <= 3 && (
-                <Trophy 
+                <Trophy
                   className={
                     player.position === 1 ? "text-yellow-400" :
-                    player.position === 2 ? "text-gray-300" : "text-amber-600"
-                  } 
-                  size={24} 
+                      player.position === 2 ? "text-gray-300" : "text-amber-600"
+                  }
+                  size={24}
                 />
               )}
               <h3 className="text-xl font-bold text-white">
@@ -228,10 +229,10 @@ function LightRays({
     const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return m
       ? [
-          parseInt(m[1], 16) / 255,
-          parseInt(m[2], 16) / 255,
-          parseInt(m[3], 16) / 255,
-        ]
+        parseInt(m[1], 16) / 255,
+        parseInt(m[2], 16) / 255,
+        parseInt(m[3], 16) / 255,
+      ]
       : [1, 1, 1];
   };
 
@@ -577,18 +578,18 @@ function SeasonsPageContent() {
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
-      
+
       // Show back button
       if (tg.BackButton) {
         tg.BackButton.show();
-        
+
         // Handle back button click
         const handleBackClick = () => {
           router.push("/main");
         };
-        
+
         tg.BackButton.onClick(handleBackClick);
-        
+
         // Cleanup on unmount
         return () => {
           tg.BackButton.offClick(handleBackClick);
@@ -606,7 +607,7 @@ function SeasonsPageContent() {
   const handlePlayerClick = (player: SeasonLeaderboardEntry) => {
     // Get prize for this position (prizes are 0-indexed in array)
     const prize = seasonData?.season.prizes[player.position - 1] || `Prize ${player.position}`;
-    
+
     setSelectedPlayer({
       player,
       prize,
@@ -681,10 +682,10 @@ function SeasonsPageContent() {
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
-      
+
       {/* Light Rays Background */}
       <div className="absolute inset-0 z-0 h-96">
-        <LightRays 
+        <LightRays
           raysColor="#ffffff"
           raysSpeed={0.8}
           lightSpread={1.2}
@@ -700,9 +701,9 @@ function SeasonsPageContent() {
       </div>
 
       <div className="relative z-10 px-4 safe-area-inset">
-        
-        {/* Champion Display */}
-        <div className="text-center py-6 pt-16">
+
+        {/* Champion Display - Moved higher up */}
+        <div className="text-center py-4 pt-8">
           {topPlayer ? (
             <button
               onClick={() => handlePlayerClick(topPlayer)}
@@ -718,7 +719,7 @@ function SeasonsPageContent() {
                     <Star className="text-blue-400 drop-shadow-lg" size={20} />
                   )}
                 </div>
-                
+
                 {topPlayer.username && (
                   <div className="text-yellow-300/80 text-sm mt-1 drop-shadow-sm">
                     @{topPlayer.username}
@@ -746,16 +747,16 @@ function SeasonsPageContent() {
           )}
         </div>
 
-        {/* Season Name */}
-        <div className="text-center mb-6">
+        {/* Season Name - Reduced margin */}
+        <div className="text-center mb-2">
           <h1 className="text-4xl font-bold tracking-widest text-white drop-shadow-lg">
             {season.name}
           </h1>
         </div>
 
-        {/* Season Dates */}
-        <div className="flex items-center justify-center space-x-4 text-sm text-white/70 mb-8">
-          <button 
+        {/* Season Dates - Reduced margin */}
+        <div className="flex items-center justify-center space-x-4 text-sm text-white/70 mb-4">
+          <button
             onClick={() => setShowDateInfo(true)}
             className="flex items-center space-x-1 hover:text-white/90 transition-colors"
           >
@@ -778,17 +779,35 @@ function SeasonsPageContent() {
           )}
         </div>
 
-        {/* User Position (if not in top 10) */}
+        {/* User Position - Redesigned and better integrated */}
         {userPosition && !isUserInTop && user && (
-          <div className="mb-8 text-center">
-            <div className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-500/20 border border-blue-400/30 rounded-full">
-              <Star className="text-blue-400" size={16} />
-              <span className="text-blue-300 font-bold">Your Position: #{userPosition}</span>
+          <div className="mb-4 px-4">
+            <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-gray-800/40 via-gray-700/30 to-gray-800/40 border border-white/10 backdrop-blur-sm">
+              {/* Subtle animated background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 animate-shimmer" />
+
+              <div className="relative px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-400/30 flex items-center justify-center">
+                      <Crown className="text-blue-400" size={14} />
+                    </div>
+                    <div>
+                      <div className="text-white font-medium text-sm">Your Position</div>
+                      <div className="text-white/60 text-xs">Current ranking</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-white">#{userPosition}</div>
+                    <div className="text-white/50 text-xs">of {leaderboard.length}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Leaderboard (Starting from #2) */}
+        {/* Leaderboard (Starting from #2) - Reduced margin */}
         <div className="space-y-0 max-w-2xl mx-auto">
           {restOfLeaderboard.length === 0 && !topPlayer ? (
             <div className="text-center py-12">
@@ -821,12 +840,11 @@ function SeasonsPageContent() {
                         <div className="w-8 text-center font-bold text-lg text-white/80">
                           #{entry.position}
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
-                            <span className={`font-medium truncate ${
-                              entry.isCurrentUser ? "text-white" : "text-white/90"
-                            }`}>
+                            <span className={`font-medium truncate ${entry.isCurrentUser ? "text-white" : "text-white/90"
+                              }`}>
                               {entry.first_name} {entry.last_name || ""}
                             </span>
                             {entry.isCurrentUser && (
@@ -852,7 +870,7 @@ function SeasonsPageContent() {
                       </div>
                     </div>
                   </button>
-                  
+
                   {/* Divider */}
                   {index < restOfLeaderboard.length - 1 && (
                     <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mx-6" />
