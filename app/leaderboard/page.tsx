@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Обновленная страница лидерборда с исправлениями
+// src/app/leaderboard/page.tsx - Redesigned leaderboard page with seasons-like design
 
 "use client";
 
@@ -9,23 +9,17 @@ import type {
   SafeRotationLeaderboard,
 } from "@/hooks/modules/useLeaderboard";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Crown,
-  Medal,
-  Award,
   Star,
-  TrendingUp,
-  Users,
+  Crown,
   Zap,
-  Target,
-  Activity,
-  Clock,
   Crosshair,
   Atom,
   RotateCw,
-  Eye,
 } from "lucide-react";
+import { Renderer, Program, Mesh, Color, Triangle } from "ogl";
 
 import { useUser } from "@/hooks/useUser";
 import { useLeaderboard } from "@/hooks/modules/useLeaderboard";
@@ -34,13 +28,248 @@ import {
   formatPhysicsTime,
   formatRotationTime,
 } from "@/utils/timeFormatter";
-import { getReactionRatingColor } from "@/game-modes/reaction/ReactionGameLogic";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 
 type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
+// Aurora Background Component
+const VERT = `#version 300 es
+in vec2 position;
+void main() {
+  gl_Position = vec4(position, 0.0, 1.0);
+}
+`;
+
+const FRAG = `#version 300 es
+precision highp float;
+
+uniform float uTime;
+uniform float uAmplitude;
+uniform vec3 uColorStops[3];
+uniform vec2 uResolution;
+uniform float uBlend;
+
+out vec4 fragColor;
+
+vec3 permute(vec3 x) {
+  return mod(((x * 34.0) + 1.0) * x, 289.0);
+}
+
+float snoise(vec2 v){
+  const vec4 C = vec4(
+      0.211324865405187, 0.366025403784439,
+      -0.577350269189626, 0.024390243902439
+  );
+  vec2 i  = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod(i, 289.0);
+
+  vec3 p = permute(
+      permute(i.y + vec3(0.0, i1.y, 1.0))
+    + i.x + vec3(0.0, i1.x, 1.0)
+  );
+
+  vec3 m = max(
+      0.5 - vec3(
+          dot(x0, x0),
+          dot(x12.xy, x12.xy),
+          dot(x12.zw, x12.zw)
+      ), 
+      0.0
+  );
+  m = m * m;
+  m = m * m;
+
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+
+  vec3 g;
+  g.x  = a0.x  * x0.x  + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+struct ColorStop {
+  vec3 color;
+  float position;
+};
+
+#define COLOR_RAMP(colors, factor, finalColor) {              \
+  int index = 0;                                            \
+  for (int i = 0; i < 2; i++) {                               \
+     ColorStop currentColor = colors[i];                    \
+     bool isInBetween = currentColor.position <= factor;    \
+     index = int(mix(float(index), float(i), float(isInBetween))); \
+  }                                                         \
+  ColorStop currentColor = colors[index];                   \
+  ColorStop nextColor = colors[index + 1];                  \
+  float range = nextColor.position - currentColor.position; \
+  float lerpFactor = (factor - currentColor.position) / range; \
+  finalColor = mix(currentColor.color, nextColor.color, lerpFactor); \
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uResolution;
+  
+  ColorStop colors[3];
+  colors[0] = ColorStop(uColorStops[0], 0.0);
+  colors[1] = ColorStop(uColorStops[1], 0.5);
+  colors[2] = ColorStop(uColorStops[2], 1.0);
+  
+  vec3 rampColor;
+  COLOR_RAMP(colors, uv.x, rampColor);
+  
+  float height = snoise(vec2(uv.x * 2.0 + uTime * 0.1, uTime * 0.25)) * 0.5 * uAmplitude;
+  height = exp(height);
+  height = (uv.y * 2.0 - height + 0.2);
+  float intensity = 0.6 * height;
+  
+  float midPoint = 0.20;
+  float auroraAlpha = smoothstep(midPoint - uBlend * 0.5, midPoint + uBlend * 0.5, intensity);
+  
+  vec3 auroraColor = intensity * rampColor;
+  
+  fragColor = vec4(auroraColor * auroraAlpha, auroraAlpha);
+}
+`;
+
+interface AuroraProps {
+  colorStops?: string[];
+  amplitude?: number;
+  blend?: number;
+  time?: number;
+  speed?: number;
+  className?: string;
+}
+
+function Aurora({
+  colorStops = ["#1a1a2e", "#16213e", "#0f1419"],
+  amplitude = 1.0,
+  blend = 0.5,
+  speed = 1.0,
+  className = "",
+}: AuroraProps) {
+  const propsRef = useRef<AuroraProps>({ colorStops, amplitude, blend, speed });
+  const ctnDom = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  propsRef.current = { colorStops, amplitude, blend, speed };
+
+  useEffect(() => {
+    if (!ctnDom.current) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        setIsVisible(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+
+    observerRef.current.observe(ctnDom.current);
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible || !ctnDom.current) return;
+
+    const ctn = ctnDom.current;
+    const renderer = new Renderer({
+      alpha: true,
+      premultipliedAlpha: true,
+      antialias: true,
+    });
+
+    const gl = renderer.gl;
+    gl.clearColor(0, 0, 0, 0);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.canvas.style.backgroundColor = "transparent";
+
+    let program: Program | undefined;
+
+    function resize() {
+      if (!ctn) return;
+      const width = ctn.offsetWidth;
+      const height = ctn.offsetHeight;
+      renderer.setSize(width, height);
+      if (program) {
+        program.uniforms.uResolution.value = [width, height];
+      }
+    }
+    window.addEventListener("resize", resize);
+
+    const geometry = new Triangle(gl);
+
+    const colorStopsArray = colorStops.map((hex) => {
+      const c = new Color(hex);
+      return [c.r, c.g, c.b];
+    });
+
+    program = new Program(gl, {
+      vertex: VERT,
+      fragment: FRAG,
+      uniforms: {
+        uTime: { value: 0 },
+        uAmplitude: { value: amplitude },
+        uColorStops: { value: colorStopsArray },
+        uResolution: { value: [ctn.offsetWidth, ctn.offsetHeight] },
+        uBlend: { value: blend },
+      },
+    });
+
+    const mesh = new Mesh(gl, { geometry, program });
+    ctn.appendChild(gl.canvas);
+
+    let animateId = 0;
+    const update = (t: number) => {
+      animateId = requestAnimationFrame(update);
+      const currentProps = propsRef.current;
+      if (program) {
+        program.uniforms.uTime.value = t * 0.01 * (currentProps.speed || 1.0) * 0.1;
+        program.uniforms.uAmplitude.value = currentProps.amplitude ?? 1.0;
+        program.uniforms.uBlend.value = currentProps.blend ?? 0.5;
+        const stops = currentProps.colorStops ?? colorStops;
+        program.uniforms.uColorStops.value = stops.map((hex: string) => {
+          const c = new Color(hex);
+          return [c.r, c.g, c.b];
+        });
+        renderer.render({ scene: mesh });
+      }
+    };
+    animateId = requestAnimationFrame(update);
+
+    resize();
+
+    return () => {
+      cancelAnimationFrame(animateId);
+      window.removeEventListener("resize", resize);
+      if (ctn && gl.canvas.parentNode === ctn) {
+        ctn.removeChild(gl.canvas);
+      }
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+    };
+  }, [isVisible, colorStops, amplitude, blend, speed]);
+
+  return <div ref={ctnDom} className={`w-full h-full ${className}`} />;
+}
+
 function LeaderboardPageContent() {
+  const router = useRouter();
   const { makeAuthenticatedRequest } = useUser();
   const {
     leaderboardData,
@@ -54,384 +283,153 @@ function LeaderboardPageContent() {
 
   const t = useT();
   const [activeTab, setActiveTab] = useState<LeaderboardType>("reaction");
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Setup Telegram WebApp back button
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+
+      if (tg.BackButton) {
+        tg.BackButton.show();
+
+        const handleBackClick = () => {
+          router.push("/main");
+        };
+
+        tg.BackButton.onClick(handleBackClick);
+
+        return () => {
+          tg.BackButton.offClick(handleBackClick);
+          tg.BackButton.hide();
+        };
+      }
+    }
+  }, [router]);
 
   // Load leaderboards on mount
   useEffect(() => {
     fetchLeaderboards();
   }, [fetchLeaderboards]);
 
-  const getRankIcon = (position: number) => {
-    switch (position) {
-      case 1:
-        return <Crown className="text-yellow-400" size={18} />;
-      case 2:
-        return <Medal className="text-gray-300" size={18} />;
-      case 3:
-        return <Award className="text-amber-600" size={18} />;
-      default:
-        return (
-          <span className="text-white/60 text-sm font-bold">#{position}</span>
-        );
+  const handleTabChange = async (tab: LeaderboardType) => {
+    if (tab === activeTab || isTransitioning) return;
+
+    setIsTransitioning(true);
+
+    // Small delay for smooth transition
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    setActiveTab(tab);
+    setIsTransitioning(false);
+  };
+
+  const getCurrentLeaderboard = () => {
+    if (!leaderboardData) return [];
+
+    switch (activeTab) {
+      case "reaction":
+        return leaderboardData.reaction.slice(0, 10);
+      case "survival":
+        return leaderboardData.survival.slice(0, 10);
+      case "physics":
+        return leaderboardData.physics.slice(0, 10);
+      case "rotation":
+        return leaderboardData.rotation.slice(0, 10);
     }
   };
 
-  const getTabColors = (tab: LeaderboardType, isActive: boolean) => {
-    const colors = {
-      reaction: {
-        active: "bg-white/20 text-white border border-white/30",
-        inactive: "text-white/60 hover:text-white/80",
-      },
-      survival: {
-        active: "bg-red-500/20 text-red-300 border border-red-400/30",
-        inactive: "text-red-400/60 hover:text-red-400/80",
-      },
-      physics: {
-        active: "bg-purple-500/20 text-purple-300 border border-purple-400/30",
-        inactive: "text-purple-400/60 hover:text-purple-400/80",
-      },
-      rotation: {
-        active: "bg-orange-500/20 text-orange-300 border border-orange-400/30",
-        inactive: "text-orange-400/60 hover:text-orange-400/80",
-      },
-    };
-
-    return isActive ? colors[tab].active : colors[tab].inactive;
+  const getChampion = () => {
+    const currentLeaderboard = getCurrentLeaderboard();
+    return currentLeaderboard.length > 0 ? currentLeaderboard[0] : null;
   };
 
-  const renderReactionLeaderboardEntry = (entry: SafeReactionLeaderboard) => {
-    const getRatingFromTime = (time: number): string => {
-      if (time <= 100) return "LIGHTNING";
-      if (time <= 200) return "EXCELLENT";
-      if (time <= 300) return "GOOD";
-      if (time <= 500) return "AVERAGE";
-
-      return "SLOW";
-    };
-
-    const rating = getRatingFromTime(entry.best_reaction_time);
-
-    return (
-      <div
-        key={`reaction-${entry.position}`}
-        className={`
-          relative overflow-hidden
-          bg-gradient-to-r from-white/10 to-white/5 border border-white/20
-          hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
-          transition-all duration-200
-          ${entry.isCurrentUser ? "ring-1 ring-white/60 bg-white/25" : ""}
-          rounded-lg
-        `}
-      >
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <Zap className="text-white" size={120} />
-          </div>
-        </div>
-
-        <div className="p-4 relative z-10">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="flex items-center justify-center w-8">
-                  {entry.position <= 3 ? (
-                    getRankIcon(entry.position)
-                  ) : (
-                    <span className="text-white/80 text-sm font-bold">
-                      #{entry.position}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <h3
-                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
-                    >
-                      {entry.first_name} {entry.last_name || ""}
-                    </h3>
-                    {entry.isCurrentUser && (
-                      <span className="text-xs bg-white/30 text-white px-2 py-0.5 rounded border border-white/30">
-                        {t("leaderboard.you")}
-                      </span>
-                    )}
-                  </div>
-                  {entry.username && (
-                    <p className="text-xs text-white/60 truncate">
-                      @{entry.username}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div
-                    className={`text-xs font-bold ${getReactionRatingColor(rating as any)}`}
-                  >
-                    {rating}
-                  </div>
-                  <div className="flex items-center space-x-1 text-xs text-white/80">
-                    <Activity size={10} />
-                    <span>{entry.reaction_games}</span>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-lg font-bold text-white">
-                    {entry.best_reaction_time}ms
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const getRestOfLeaderboard = () => {
+    const currentLeaderboard = getCurrentLeaderboard();
+    return currentLeaderboard.slice(1);
   };
 
-  const renderSurvivalLeaderboardEntry = (entry: SafeSurvivalLeaderboard) => {
-    return (
-      <div
-        key={`survival-${entry.position}`}
-        className={`
-          relative overflow-hidden
-          bg-gradient-to-r from-white/10 to-white/5 border border-white/20
-          hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
-          transition-all duration-200
-          ${entry.isCurrentUser ? "ring-1 ring-red-400/60 bg-red-500/25" : ""}
-          rounded-lg
-        `}
-      >
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <Crosshair className="text-red-400" size={120} />
-          </div>
-        </div>
-
-        <div className="p-4 relative z-10">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="flex items-center justify-center w-8">
-                  {entry.position <= 3 ? (
-                    getRankIcon(entry.position)
-                  ) : (
-                    <span className="text-white/80 text-sm font-bold">
-                      #{entry.position}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <h3
-                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
-                    >
-                      {entry.first_name} {entry.last_name || ""}
-                    </h3>
-                    {entry.isCurrentUser && (
-                      <span className="text-xs bg-red-500/30 text-red-200 px-2 py-0.5 rounded border border-red-400/30">
-                        {t("leaderboard.you")}
-                      </span>
-                    )}
-                  </div>
-                  {entry.username && (
-                    <p className="text-xs text-white/60 truncate">
-                      @{entry.username}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-xs text-white/80">
-                  <div className="flex items-center space-x-1">
-                    <TrendingUp size={10} />
-                    <span>L{entry.max_level}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Target size={10} />
-                    <span>{entry.best_streak}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Activity size={10} />
-                    <span>{entry.survival_games}</span>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-lg font-bold text-white">
-                    {formatSurvivalTime(entry.best_survival_time)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const getTabIcon = (tab: LeaderboardType) => {
+    switch (tab) {
+      case "reaction":
+        return <Zap size={16} />;
+      case "survival":
+        return <Crosshair size={16} />;
+      case "physics":
+        return <Atom size={16} />;
+      case "rotation":
+        return <RotateCw size={16} />;
+    }
   };
 
-  const renderPhysicsLeaderboardEntry = (entry: SafePhysicsLeaderboard) => {
-    return (
-      <div
-        key={`physics-${entry.position}`}
-        className={`
-          relative overflow-hidden
-          bg-gradient-to-r from-white/10 to-white/5 border border-white/20
-          hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
-          transition-all duration-200
-          ${entry.isCurrentUser ? "ring-1 ring-purple-400/60 bg-purple-500/25" : ""}
-          rounded-lg
-        `}
-      >
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <Atom className="text-purple-400" size={120} />
-          </div>
-        </div>
-
-        <div className="p-4 relative z-10">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="flex items-center justify-center w-8">
-                  {entry.position <= 3 ? (
-                    getRankIcon(entry.position)
-                  ) : (
-                    <span className="text-white/80 text-sm font-bold">
-                      #{entry.position}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <h3
-                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
-                    >
-                      {entry.first_name} {entry.last_name || ""}
-                    </h3>
-                    {entry.isCurrentUser && (
-                      <span className="text-xs bg-purple-500/30 text-purple-200 px-2 py-0.5 rounded border border-purple-400/30">
-                        {t("leaderboard.you")}
-                      </span>
-                    )}
-                  </div>
-                  {entry.username && (
-                    <p className="text-xs text-white/60 truncate">
-                      @{entry.username}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-xs text-white/80">
-                  <div className="flex items-center space-x-1">
-                    <Clock size={10} />
-                    <span>{formatPhysicsTime(entry.best_physics_time)}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Target size={10} />
-                    <span>{entry.best_hits}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Activity size={10} />
-                    <span>{entry.physics_games}</span>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-lg font-bold text-white">
-                    {entry.best_physics_score}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const getTabName = (tab: LeaderboardType) => {
+    switch (tab) {
+      case "reaction":
+        return "REACTION";
+      case "survival":
+        return "SURVIVAL";
+      case "physics":
+        return "PHYSICS";
+      case "rotation":
+        return "ROTATION";
+    }
   };
 
-  const renderRotationLeaderboardEntry = (entry: SafeRotationLeaderboard) => {
-    return (
-      <div
-        key={`rotation-${entry.position}`}
-        className={`
-          relative overflow-hidden
-          bg-gradient-to-r from-white/10 to-white/5 border border-white/20
-          hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
-          transition-all duration-200
-          ${entry.isCurrentUser ? "ring-1 ring-orange-400/60 bg-orange-500/25" : ""}
-          rounded-lg
-        `}
-      >
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -right-8 top-1/2 transform -translate-y-1/2 opacity-5">
-            <RotateCw className="text-orange-400" size={120} />
-          </div>
-        </div>
+  const getChampionValue = (champion: any) => {
+    switch (activeTab) {
+      case "reaction":
+        return `${champion.best_reaction_time}ms`;
+      case "survival":
+        return `${champion.survival_best_score}`;
+      case "physics":
+        return `${champion.best_physics_score}`;
+      case "rotation":
+        return formatRotationTime(champion.best_rotation_time);
+    }
+  };
 
-        <div className="p-4 relative z-10">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="flex items-center justify-center w-8">
-                  {entry.position <= 3 ? (
-                    getRankIcon(entry.position)
-                  ) : (
-                    <span className="text-white/80 text-sm font-bold">
-                      #{entry.position}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <h3
-                      className={`font-bold truncate text-sm ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
-                    >
-                      {entry.first_name} {entry.last_name || ""}
-                    </h3>
-                    {entry.isCurrentUser && (
-                      <span className="text-xs bg-orange-500/30 text-orange-200 px-2 py-0.5 rounded border border-orange-400/30">
-                        {t("leaderboard.you")}
-                      </span>
-                    )}
-                  </div>
-                  {entry.username && (
-                    <p className="text-xs text-white/60 truncate">
-                      @{entry.username}
-                    </p>
-                  )}
-                </div>
-              </div>
+  const getPlayerValue = (player: any) => {
+    switch (activeTab) {
+      case "reaction":
+        return `${player.best_reaction_time}ms`;
+      case "survival":
+        return `${player.survival_best_score}`;
+      case "physics":
+        return `${player.best_physics_score}`;
+      case "rotation":
+        return formatRotationTime(player.best_rotation_time);
+    }
+  };
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-xs text-white/80">
-                  <div className="flex items-center space-x-1">
-                    <TrendingUp size={10} />
-                    <span>L{entry.max_level}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Target size={10} />
-                    <span>{entry.best_streak}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Activity size={10} />
-                    <span>{entry.rotation_games}</span>
-                  </div>
-                </div>
+  const getUserPositionValue = () => {
+    if (!leaderboardData) return null;
 
-                <div className="text-right">
-                  <div className="text-lg font-bold text-white">
-                    {formatRotationTime(entry.best_rotation_time)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    const userPosition = getUserPosition(activeTab);
+    if (!userPosition) return null;
+
+    // Get user data from leaderboard
+    const allData = leaderboardData[activeTab];
+    const userData = allData.find(entry => entry.isCurrentUser);
+
+    if (!userData) return null;
+
+    let value: string;
+    switch (activeTab) {
+      case "reaction":
+        value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
+        break;
+      case "survival":
+        value = `${(userData as SafeSurvivalLeaderboard).survival_best_score}`;
+        break;
+      case "physics":
+        value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
+        break;
+      case "rotation":
+        value = formatRotationTime((userData as SafeRotationLeaderboard).best_rotation_time);
+        break;
+    }
+
+    return { position: userPosition, value };
   };
 
   const handleRefresh = async () => {
@@ -444,7 +442,7 @@ function LeaderboardPageContent() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">{t("leaderboard.loadingRanking")}</p>
+          <p className="text-white">Loading leaderboards...</p>
         </div>
       </div>
     );
@@ -454,195 +452,243 @@ function LeaderboardPageContent() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
-          <TrendingUp className="text-white/60 mx-auto" size={32} />
+          <Crown className="text-white/60 mx-auto" size={32} />
           <p className="text-white/80">{error}</p>
           <button
             className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
             onClick={handleRefresh}
           >
-            {t("common.retry")}
+            Retry
           </button>
         </div>
       </div>
     );
   }
 
-  const getCurrentLeaderboard = () => {
-    if (!leaderboardData) return [];
-
-    switch (activeTab) {
-      case "reaction":
-        return leaderboardData.reaction;
-      case "survival":
-        return leaderboardData.survival;
-      case "physics":
-        return leaderboardData.physics;
-      case "rotation":
-        return leaderboardData.rotation;
-    }
-  };
-
-  const currentLeaderboard = getCurrentLeaderboard();
-  const userPosition = getUserPosition(activeTab);
+  const champion = getChampion();
+  const restOfLeaderboard = getRestOfLeaderboard();
+  const userPositionData = getUserPositionValue();
   const isUserInTop = isUserInTopLeaderboard(activeTab);
 
-  const getEmptyStateMessage = () => {
-    const isReactionTab = activeTab === "reaction";
-    const isSurvivalTab = activeTab === "survival";
-    const isPhysicsTab = activeTab === "physics";
-
-    if (isReactionTab) {
-      return {
-        icon: <Zap className="text-white/60 mx-auto mb-3" size={32} />,
-        title: t("leaderboard.noSpeedDemons"),
-        subtitle: t("leaderboard.testReflexes"),
-      };
-    } else if (isSurvivalTab) {
-      return {
-        icon: <Crosshair className="text-red-400/60 mx-auto mb-3" size={32} />,
-        title: t("leaderboard.noSurvivors"),
-        subtitle: t("leaderboard.enterChallenge"),
-      };
-    } else if (isPhysicsTab) {
-      return {
-        icon: <Atom className="text-purple-400/60 mx-auto mb-3" size={32} />,
-        title: t("leaderboard.noPhysicists"),
-        subtitle: t("leaderboard.tryPhysics"),
-      };
-    } else {
-      return {
-        icon: (
-          <RotateCw className="text-orange-400/60 mx-auto mb-3" size={32} />
-        ),
-        title: t("leaderboard.noSpinners"),
-        subtitle: t("leaderboard.tryRotation"),
-      };
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-      {/* Header */}
-      <div className="text-center space-y-4 mb-6 pt-6">
-        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-          {t("leaderboard.title")}
-        </h1>
+    <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
+      {/* Aurora Background */}
+      <div className="absolute inset-0 z-0 h-96">
+        <Aurora
+          colorStops={["#1a1a2e", "#16213e", "#0f1419"]}
+          amplitude={0.8}
+          blend={0.6}
+          speed={0.5}
+        />
+        {/* Gradient Overlay for smooth bottom transition */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black pointer-events-none" />
       </div>
 
-      {/* Current Leaderboard Stats */}
-      {currentLeaderboard.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-center space-x-4 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg p-3 text-sm">
-            <div className="flex items-center space-x-1">
-              <Users className="text-white/80" size={14} />
-              <span className="font-bold text-white">
-                {currentLeaderboard.length}
-              </span>
-            </div>
-            <div className="w-px h-4 bg-white/30" />
-            <div className="flex items-center space-x-1">
-              <Eye className="text-white/80" size={14} />
-              <span className="text-white/70 text-xs">Top 100</span>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="relative z-10 px-4 safe-area-inset">
+        {/* Champion Display */}
+        <div className="text-center py-4 pt-8">
+          {champion ? (
+            <div className="animate-fade-in">
+              {/* Player Name */}
+              <div className="mb-3">
+                <div className="flex items-center justify-center space-x-2">
+                  <span className="text-3xl font-bold text-white drop-shadow-lg">
+                    {champion.first_name} {champion.last_name || ''}
+                  </span>
+                  {champion.isCurrentUser && (
+                    <Star className="text-blue-400 drop-shadow-lg" size={20} />
+                  )}
+                </div>
 
-      {/* User Position (if not in top 100) */}
-      {userPosition && !isUserInTop && (
-        <div className="mb-6">
-          <div className="bg-blue-500/20 border border-blue-400/30 rounded-lg p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <Star className="text-blue-400" size={16} />
-              <span className="text-blue-300 font-bold">Your Position</span>
+                {champion.username && (
+                  <div className="text-white/60 text-sm mt-1 drop-shadow-sm">
+                    @{champion.username}
+                  </div>
+                )}
+              </div>
+
+              {/* Score Display */}
+              <div className="text-2xl font-bold text-white drop-shadow-lg">
+                {getChampionValue(champion)}
+              </div>
+              <div className="text-xs text-white/70 drop-shadow-sm">
+                {activeTab === "reaction" ? "reaction time" : activeTab === "survival" ? "points" : activeTab === "physics" ? "points" : "rotation time"}
+              </div>
             </div>
-            <div className="text-center">
-              <span className="text-2xl font-bold text-white">
-                #{userPosition}
-              </span>
-              <p className="text-blue-300/80 text-sm mt-1">
-                Keep playing to reach the top 100!
+          ) : (
+            <div className="animate-fade-in">
+              <p className="text-white/60 drop-shadow-sm text-lg">
+                No champion yet
+              </p>
+              <p className="text-white/40 text-sm mt-1">
+                Be the first to claim the throne!
               </p>
             </div>
-          </div>
+          )}
         </div>
-      )}
 
-      {/* Tabs */}
-      <div className="mb-6">
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1">
-          <div className="flex space-x-1">
-            {(["reaction", "survival", "physics", "rotation"] as const).map(
-              (tab) => (
+        {/* Mode Tabs */}
+        <div className="text-center mb-4">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1 inline-block">
+            <div className="flex space-x-1">
+              {(["reaction", "survival", "physics", "rotation"] as const).map((tab) => (
                 <button
                   key={tab}
                   className={`
-                  flex-1 px-3 py-2 rounded-lg text-sm font-bold
-                  ${getTabColors(tab, activeTab === tab)}
-                `}
-                  onClick={() => setActiveTab(tab)}
+                    px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200
+                    ${activeTab === tab
+                      ? "bg-white/20 text-white border border-white/30"
+                      : "text-white/60 hover:text-white/80"
+                    }
+                  `}
+                  onClick={() => handleTabChange(tab)}
+                  disabled={isTransitioning}
                 >
-                  <div className="flex items-center justify-center space-x-1">
-                    {tab === "reaction" && <Zap size={12} />}
-                    {tab === "survival" && <Crosshair size={12} />}
-                    {tab === "physics" && <Atom size={12} />}
-                    {tab === "rotation" && <RotateCw size={12} />}
+                  <div className="flex items-center justify-center space-x-2">
+                    {getTabIcon(tab)}
+                    <span>{getTabName(tab)}</span>
                   </div>
                 </button>
-              ),
-            )}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Leaderboard Content */}
-      <div className="space-y-4">
-        {currentLeaderboard.length === 0 ? (
-          <div className="text-center py-12 bg-white/10 backdrop-blur-xl border border-white/30 rounded-lg">
-            {(() => {
-              const emptyState = getEmptyStateMessage();
-
-              return (
-                <>
-                  {emptyState.icon}
-                  <p className="font-bold text-white/80">{emptyState.title}</p>
-                  <p className="text-sm mt-1 text-white/60">
-                    {emptyState.subtitle}
-                  </p>
-                </>
-              );
-            })()}
-          </div>
-        ) : (
-          <div className="animate-fade-in space-y-3 max-h-[70vh] overflow-y-auto">
-            {currentLeaderboard.map((entry) => {
-              switch (activeTab) {
-                case "reaction":
-                  return renderReactionLeaderboardEntry(
-                    entry as SafeReactionLeaderboard,
-                  );
-                case "survival":
-                  return renderSurvivalLeaderboardEntry(
-                    entry as SafeSurvivalLeaderboard,
-                  );
-                case "physics":
-                  return renderPhysicsLeaderboardEntry(
-                    entry as SafePhysicsLeaderboard,
-                  );
-                case "rotation":
-                  return renderRotationLeaderboardEntry(
-                    entry as SafeRotationLeaderboard,
-                  );
-                default:
-                  return null;
-              }
-            })}
+        {/* User Position */}
+        {userPositionData && !isUserInTop && (
+          <div className="mb-4 px-4 animate-fade-in">
+            <div className="rounded-lg bg-white/5 border border-white/10 backdrop-blur-sm">
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                      <Crown className="text-white/70" size={14} />
+                    </div>
+                    <div>
+                      <div className="text-white font-medium text-sm">Your Position</div>
+                      <div className="text-white/60 text-xs">Current ranking</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-white">#{userPositionData.position}</div>
+                    <div className="text-white/50 text-xs">{userPositionData.value}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
+
+        {/* Leaderboard */}
+        <div className="space-y-0 max-w-2xl mx-auto">
+          {restOfLeaderboard.length === 0 && !champion ? (
+            <div className="text-center py-12 animate-fade-in">
+              <p className="font-bold text-white/80 text-xl mb-2">No Players Yet</p>
+              <p className="text-white/60">
+                Be the first to compete in {getTabName(activeTab).toLowerCase()} mode!
+              </p>
+            </div>
+          ) : restOfLeaderboard.length === 0 ? (
+            <div className="text-center py-12 animate-fade-in">
+              <p className="font-bold text-white/80 text-xl mb-2">Only One Champion</p>
+              <p className="text-white/60">
+                Challenge the current leader!
+              </p>
+            </div>
+          ) : (
+            <div className={`transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100 animate-fade-in'}`}>
+              {restOfLeaderboard.map((entry, index) => (
+                <div key={`${activeTab}-${entry.position}`}>
+                  <div
+                    className={`
+                      w-full px-6 py-4 text-left hover:bg-white/5 transition-all duration-200
+                      ${entry.isCurrentUser ? "bg-blue-500/10" : ""}
+                      animate-slide-in
+                    `}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="flex items-center justify-between">
+                      {/* Position and Name */}
+                      <div className="flex items-center space-x-4 flex-1 min-w-0">
+                        <div className="w-8 text-center font-bold text-lg text-white/80">
+                          #{entry.position}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className={`font-medium truncate ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
+                              {entry.first_name} {entry.last_name || ""}
+                            </span>
+                            {entry.isCurrentUser && (
+                              <Star className="text-blue-400 flex-shrink-0" size={14} />
+                            )}
+                          </div>
+                          {entry.username && (
+                            <div className="text-xs text-white/50 truncate">
+                              @{entry.username}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Value */}
+                      <div className="text-right flex-shrink-0">
+                        <div className="font-bold text-white text-lg">
+                          {getPlayerValue(entry)}
+                        </div>
+                        <div className="text-xs text-white/50">
+                          {activeTab === "reaction" ? "time" : activeTab === "survival" ? "points" : activeTab === "physics" ? "points" : "time"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  {index < restOfLeaderboard.length - 1 && (
+                    <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mx-6" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom spacing for safe area */}
+        <div className="h-24" />
       </div>
 
-      {/* Bottom spacing for safe area */}
-      <div className="h-24" />
+      {/* Add CSS animations */}
+      <style jsx>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slide-in {
+          from {
+            opacity: 0;
+            transform: translateX(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out;
+        }
+
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

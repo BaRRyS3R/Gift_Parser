@@ -19,7 +19,7 @@ export interface SafeSurvivalLeaderboard {
   first_name: string;
   last_name?: string;
   username?: string;
-  best_survival_time: number;
+  best_survival_score: number;
   max_level: number;
   best_streak: number;
   survival_games: number;
@@ -148,7 +148,7 @@ export const serverLeaderboardService = {
       first_name: user.first_name,
       last_name: user.last_name,
       username: user.username,
-      best_survival_time: user.survival_best_time,
+      best_survival_score: user.survival_best_score,
       max_level: user.survival_max_level,
       best_streak: user.survival_best_streak,
       survival_games: user.survival_games,
