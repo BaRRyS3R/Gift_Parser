@@ -14,6 +14,7 @@ import {
   Users,
   Gamepad2,
   Zap,
+  X,
 } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
@@ -56,7 +57,7 @@ export default function AchievementsModal({
         color: "text-blue-400",
         bgColor: "bg-blue-500/20",
         isUnlocked: user.total_games >= 1,
-        progress: user.total_games >= 1 ? 1 : 0,
+        progress: Math.min(user.total_games, 1),
         maxProgress: 1,
       },
 
@@ -87,7 +88,7 @@ export default function AchievementsModal({
         titleKey: "profile.achievements.superRecruiter",
         descriptionKey: "profile.achievements.descriptions.superRecruiter",
         icon: Users,
-        color: "text-gold-400",
+        color: "text-yellow-400",
         bgColor: "bg-yellow-500/20",
         isUnlocked: user.referral_count >= 100,
         progress: user.referral_count,
@@ -118,22 +119,84 @@ export default function AchievementsModal({
   ) => {
     const params: Record<string, any> = {};
 
-    if (descriptionKey.includes("{count}")) {
-      params.count = achievement.maxProgress || achievement.progress || 1;
+    // Set appropriate parameter values based on achievement type
+    if (achievement.id === 'super_recruiter') {
+      params.count = achievement.maxProgress || 100;
     }
-    if (descriptionKey.includes("{time}")) {
-      params.time = 10; // For the 10ms achievement
+    if (achievement.id === 'lightning_reflexes') {
+      params.time = 10;
     }
 
     return t(descriptionKey as any, params);
   };
 
+  // Helper function to get proper progress bar color
+  const getProgressBarColor = (achievement: Achievement) => {
+    if (!achievement.isUnlocked) return "bg-white/20";
+
+    switch (achievement.color) {
+      case "text-blue-400":
+        return "bg-blue-400";
+      case "text-purple-400":
+        return "bg-purple-400";
+      case "text-yellow-400":
+        return "bg-yellow-400";
+      default:
+        return "bg-white/60";
+    }
+  };
+
   return (
-    <Modal isOpen={isOpen} scrollBehavior="inside" size="2xl" onClose={onClose}>
+    <Modal
+      isOpen={isOpen}
+      scrollBehavior="inside"
+      size="2xl"
+      onClose={onClose}
+      backdrop="blur"
+      closeButton={false}
+      hideCloseButton={true}
+      isDismissable={true}
+      isKeyboardDismissDisabled={false}
+      motionProps={{
+        variants: {
+          enter: {
+            y: 0,
+            opacity: 1,
+            transition: {
+              duration: 0.3,
+              ease: "easeOut",
+            },
+          },
+          exit: {
+            y: -20,
+            opacity: 0,
+            transition: {
+              duration: 0.2,
+              ease: "easeIn",
+            },
+          },
+        }
+      }}
+      classNames={{
+        backdrop: "bg-black/80",
+        base: "bg-black border border-white/20 m-4",
+        header: "border-b border-white/10",
+        body: "px-0",
+        closeButton: "hidden",
+      }}
+    >
       <ModalContent>
         {(onClose) => (
           <>
-            <ModalHeader className="flex flex-col gap-1 bg-black text-white">
+            <ModalHeader className="flex flex-col gap-1 bg-black text-white relative px-6 py-4">
+              {/* Close button */}
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300 z-10"
+              >
+                <X size={20} />
+              </button>
+
               <div className="flex items-center space-x-2">
                 <Trophy className="text-yellow-400" size={20} />
                 <span>{t("profile.achievements.title")}</span>
@@ -142,7 +205,7 @@ export default function AchievementsModal({
                 {unlockedCount} / {achievements.length} разблокировано
               </p>
             </ModalHeader>
-            <ModalBody className="bg-black text-white">
+            <ModalBody className="bg-black text-white px-6 pb-6">
               {achievements.length === 0 ? (
                 <div className="text-center py-8">
                   <Trophy className="text-white/40 mx-auto mb-4" size={48} />
@@ -230,7 +293,7 @@ export default function AchievementsModal({
                                     <div
                                       className={`
                                         h-1.5 rounded-full transition-all duration-500
-                                        ${achievement.isUnlocked ? achievement.color.replace("text-", "bg-") : "bg-white/20"}
+                                        ${getProgressBarColor(achievement)}
                                       `}
                                       style={{
                                         width: `${Math.min(
