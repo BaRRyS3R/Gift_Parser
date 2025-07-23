@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Fixed version with background stability and user position
+// src/app/leaderboard/page.tsx - Final fixed version with stable Aurora and correct user position
 
 "use client";
 
@@ -24,6 +24,8 @@ import { Renderer, Program, Mesh, Color, Triangle } from "ogl";
 import { useUser } from "@/hooks/useUser";
 import { useLeaderboard } from "@/hooks/modules/useLeaderboard";
 import {
+  formatSurvivalTime,
+  formatPhysicsTime,
   formatRotationTime,
 } from "@/utils/timeFormatter";
 import { useT } from "@/contexts/LocalizationContext";
@@ -31,7 +33,7 @@ import AuthGuard from "@/components/Auth/AuthGuard";
 
 type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
-// Aurora Background Component - optimized to prevent flashing
+// Static Aurora Background Component - completely isolated from tab changes
 const VERT = `#version 300 es
 in vec2 position;
 void main() {
@@ -138,61 +140,19 @@ void main() {
 }
 `;
 
-interface AuroraProps {
-  colorStops?: string[];
-  amplitude?: number;
-  blend?: number;
-  time?: number;
-  speed?: number;
-  className?: string;
-}
-
-// Memoized Aurora component to prevent re-initialization
-const Aurora = React.memo(function Aurora({
-  colorStops = ["#1a1a2e", "#16213e", "#0f1419"],
-  amplitude = 1.0,
-  blend = 0.5,
-  speed = 1.0,
-  className = "",
-}: AuroraProps) {
-  const propsRef = useRef<AuroraProps>({ colorStops, amplitude, blend, speed });
+// Static Aurora component that renders once and never re-renders
+const StaticAurora: React.FC = React.memo(() => {
   const ctnDom = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-
-  propsRef.current = { colorStops, amplitude, blend, speed };
+  const initializedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!ctnDom.current) return;
+    if (!ctnDom.current || initializedRef.current) return;
 
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        setIsVisible(entry.isIntersecting);
-      },
-      { threshold: 0.1 }
-    );
-
-    observerRef.current.observe(ctnDom.current);
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-        observerRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isVisible || !ctnDom.current) return;
-
+    initializedRef.current = true;
     const ctn = ctnDom.current;
 
-    // Prevent white flash by setting initial background
-    if (!isInitialized) {
-      ctn.style.background = 'linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f1419 100%)';
-    }
+    // Set fallback background immediately
+    ctn.style.background = 'linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f1419 100%)';
 
     const renderer = new Renderer({
       alpha: true,
@@ -206,91 +166,70 @@ const Aurora = React.memo(function Aurora({
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.canvas.style.backgroundColor = "transparent";
 
-    let program: Program | undefined;
+    const geometry = new Triangle(gl);
+    const colorStops = ["#1a1a2e", "#16213e", "#0f1419"];
+    const colorStopsArray = colorStops.map((hex) => {
+      const c = new Color(hex);
+      return [c.r, c.g, c.b];
+    });
+
+    const program = new Program(gl, {
+      vertex: VERT,
+      fragment: FRAG,
+      uniforms: {
+        uTime: { value: 0 },
+        uAmplitude: { value: 0.8 },
+        uColorStops: { value: colorStopsArray },
+        uResolution: { value: [ctn.offsetWidth, ctn.offsetHeight] },
+        uBlend: { value: 0.6 },
+      },
+    });
+
+    const mesh = new Mesh(gl, { geometry, program });
 
     function resize() {
       if (!ctn) return;
       const width = ctn.offsetWidth;
       const height = ctn.offsetHeight;
       renderer.setSize(width, height);
-      if (program) {
-        program.uniforms.uResolution.value = [width, height];
-      }
+      program.uniforms.uResolution.value = [width, height];
     }
+
     window.addEventListener("resize", resize);
-
-    const geometry = new Triangle(gl);
-
-    const colorStopsArray = colorStops.map((hex) => {
-      const c = new Color(hex);
-      return [c.r, c.g, c.b];
-    });
-
-    program = new Program(gl, {
-      vertex: VERT,
-      fragment: FRAG,
-      uniforms: {
-        uTime: { value: 0 },
-        uAmplitude: { value: amplitude },
-        uColorStops: { value: colorStopsArray },
-        uResolution: { value: [ctn.offsetWidth, ctn.offsetHeight] },
-        uBlend: { value: blend },
-      },
-    });
-
-    const mesh = new Mesh(gl, { geometry, program });
+    resize();
 
     // Smooth canvas insertion
-    if (ctn && !ctn.contains(gl.canvas)) {
-      gl.canvas.style.opacity = '0';
-      gl.canvas.style.transition = 'opacity 0.3s ease-in-out';
-      ctn.appendChild(gl.canvas);
+    gl.canvas.style.opacity = '0';
+    gl.canvas.style.transition = 'opacity 0.5s ease-in-out';
+    ctn.appendChild(gl.canvas);
 
-      // Fade in canvas and remove fallback background
-      setTimeout(() => {
-        gl.canvas.style.opacity = '1';
-        ctn.style.background = '';
-        setIsInitialized(true);
-      }, 100);
-    }
+    setTimeout(() => {
+      gl.canvas.style.opacity = '1';
+      ctn.style.background = '';
+    }, 100);
 
     let animateId = 0;
     const update = (t: number) => {
       animateId = requestAnimationFrame(update);
-      const currentProps = propsRef.current;
-      if (program) {
-        program.uniforms.uTime.value = t * 0.01 * (currentProps.speed || 1.0) * 0.1;
-        program.uniforms.uAmplitude.value = currentProps.amplitude ?? 1.0;
-        program.uniforms.uBlend.value = currentProps.blend ?? 0.5;
-        const stops = currentProps.colorStops ?? colorStops;
-        program.uniforms.uColorStops.value = stops.map((hex: string) => {
-          const c = new Color(hex);
-          return [c.r, c.g, c.b];
-        });
-        renderer.render({ scene: mesh });
-      }
+      program.uniforms.uTime.value = t * 0.01 * 0.5 * 0.1;
+      renderer.render({ scene: mesh });
     };
     animateId = requestAnimationFrame(update);
-
-    resize();
 
     return () => {
       cancelAnimationFrame(animateId);
       window.removeEventListener("resize", resize);
       if (ctn && gl.canvas.parentNode === ctn) {
-        gl.canvas.style.opacity = '0';
-        setTimeout(() => {
-          if (ctn && gl.canvas.parentNode === ctn) {
-            ctn.removeChild(gl.canvas);
-          }
-        }, 300);
+        ctn.removeChild(gl.canvas);
       }
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
-  }, [isVisible, colorStops, amplitude, blend, speed]);
+  }, []);
 
-  return <div ref={ctnDom} className={`w-full h-full ${className}`} />;
+  return <div ref={ctnDom} className="w-full h-full" />;
 });
+
+StaticAurora.displayName = 'StaticAurora';
 
 function LeaderboardPageContent() {
   const router = useRouter();
@@ -301,7 +240,6 @@ function LeaderboardPageContent() {
     error,
     fetchLeaderboards,
     clearError,
-    isUserInTopLeaderboard,
     getUserPosition,
   } = useLeaderboard(makeAuthenticatedRequest);
 
@@ -340,10 +278,7 @@ function LeaderboardPageContent() {
     if (tab === activeTab || isTransitioning) return;
 
     setIsTransitioning(true);
-
-    // Small delay for smooth transition
     await new Promise(resolve => setTimeout(resolve, 150));
-
     setActiveTab(tab);
     setIsTransitioning(false);
   };
@@ -410,19 +345,22 @@ function LeaderboardPageContent() {
     }
   };
 
-  // FIXED: Get user position from userRankings instead of searching in leaderboard
+  // Check if user is in visible top 10
+  const isUserInVisibleTop10 = useMemo(() => {
+    return getCurrentLeaderboard.some(entry => entry.isCurrentUser);
+  }, [getCurrentLeaderboard]);
+
+  // Get user position and data for display outside top 10
   const getUserPositionData = useMemo(() => {
     if (!leaderboardData || !leaderboardData.userRankings) return null;
 
     const userPosition = leaderboardData.userRankings[activeTab];
     if (!userPosition) return null;
 
-    // Try to find user in full leaderboard data to get their value
+    // Find user data in the full leaderboard (not just top 10)
     const fullLeaderboard = leaderboardData[activeTab];
     const userData = fullLeaderboard.find(entry => entry.isCurrentUser);
 
-    // If user not found in leaderboard data, we still show their position
-    // but without the specific value (since we don't have their score)
     let value = "N/A";
 
     if (userData) {
@@ -449,8 +387,6 @@ function LeaderboardPageContent() {
     clearError();
     await fetchLeaderboards();
   };
-
-  const isUserInTop = isUserInTopLeaderboard(activeTab);
 
   if (isLoading) {
     return (
@@ -485,15 +421,9 @@ function LeaderboardPageContent() {
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
-      {/* Stable Aurora Background - memoized to prevent re-renders */}
+      {/* Static Aurora Background - never re-renders */}
       <div className="absolute inset-0 z-0 h-96">
-        <Aurora
-          colorStops={["#1a1a2e", "#16213e", "#0f1419"]}
-          amplitude={0.8}
-          blend={0.6}
-          speed={0.5}
-        />
-        {/* Gradient Overlay for smooth bottom transition */}
+        <StaticAurora />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black pointer-events-none" />
       </div>
 
@@ -502,7 +432,6 @@ function LeaderboardPageContent() {
         <div className="text-center py-4 pt-8">
           {champion ? (
             <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              {/* Player Name */}
               <div className="mb-3">
                 <div className="flex items-center justify-center space-x-2">
                   <span className="text-3xl font-bold text-white drop-shadow-lg">
@@ -520,7 +449,6 @@ function LeaderboardPageContent() {
                 )}
               </div>
 
-              {/* Score Display */}
               <div className="text-2xl font-bold text-white drop-shadow-lg">
                 {getChampionValue(champion)}
               </div>
@@ -540,7 +468,7 @@ function LeaderboardPageContent() {
           )}
         </div>
 
-        {/* Mode Tabs - Made more transparent */}
+        {/* Mode Tabs */}
         <div className="text-center mb-4">
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1 inline-block">
             <div className="flex space-x-1">
@@ -566,8 +494,8 @@ function LeaderboardPageContent() {
           </div>
         </div>
 
-        {/* User Position - FIXED: Now shows for users outside top 10 */}
-        {getUserPositionData && !isUserInTop && (
+        {/* User Position - Fixed: Show when user has position but not in visible top 10 */}
+        {getUserPositionData && !isUserInVisibleTop10 && (
           <div className="mb-4 px-4 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
             <div className="rounded-lg bg-white/5 border border-white/10 backdrop-blur-sm">
               <div className="px-4 py-3">
@@ -620,7 +548,6 @@ function LeaderboardPageContent() {
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <div className="flex items-center justify-between">
-                      {/* Position and Name */}
                       <div className="flex items-center space-x-4 flex-1 min-w-0">
                         <div className="w-8 text-center font-bold text-lg text-white/80">
                           #{entry.position}
@@ -643,7 +570,6 @@ function LeaderboardPageContent() {
                         </div>
                       </div>
 
-                      {/* Value */}
                       <div className="text-right flex-shrink-0">
                         <div className="font-bold text-white text-lg">
                           {getPlayerValue(entry)}
@@ -655,7 +581,6 @@ function LeaderboardPageContent() {
                     </div>
                   </div>
 
-                  {/* Divider */}
                   {index < restOfLeaderboard.length - 1 && (
                     <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mx-6" />
                   )}
@@ -665,7 +590,6 @@ function LeaderboardPageContent() {
           )}
         </div>
 
-        {/* Bottom spacing for safe area */}
         <div className="h-24" />
       </div>
     </div>
