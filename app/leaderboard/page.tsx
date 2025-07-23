@@ -193,7 +193,7 @@ function Aurora({
       premultipliedAlpha: true,
       antialias: true,
     });
-
+    
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 0);
     gl.enable(gl.BLEND);
@@ -314,12 +314,12 @@ function LeaderboardPageContent() {
 
   const handleTabChange = async (tab: LeaderboardType) => {
     if (tab === activeTab || isTransitioning) return;
-
+    
     setIsTransitioning(true);
-
+    
     // Small delay for smooth transition
     await new Promise(resolve => setTimeout(resolve, 150));
-
+    
     setActiveTab(tab);
     setIsTransitioning(false);
   };
@@ -380,7 +380,7 @@ function LeaderboardPageContent() {
       case "reaction":
         return `${champion.best_reaction_time}ms`;
       case "survival":
-        return `${champion.survival_best_score}`;
+        return `${champion.best_survival_score}`;
       case "physics":
         return `${champion.best_physics_score}`;
       case "rotation":
@@ -393,7 +393,7 @@ function LeaderboardPageContent() {
       case "reaction":
         return `${player.best_reaction_time}ms`;
       case "survival":
-        return `${player.survival_best_score}`;
+        return `${player.best_survival_score}`;
       case "physics":
         return `${player.best_physics_score}`;
       case "rotation":
@@ -403,14 +403,14 @@ function LeaderboardPageContent() {
 
   const getUserPositionValue = () => {
     if (!leaderboardData) return null;
-
+    
     const userPosition = getUserPosition(activeTab);
     if (!userPosition) return null;
 
     // Get user data from leaderboard
     const allData = leaderboardData[activeTab];
     const userData = allData.find(entry => entry.isCurrentUser);
-
+    
     if (!userData) return null;
 
     let value: string;
@@ -419,7 +419,7 @@ function LeaderboardPageContent() {
         value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
         break;
       case "survival":
-        value = `${(userData as SafeSurvivalLeaderboard).survival_best_score}`;
+        value = `${(userData as SafeSurvivalLeaderboard).best_survival_score}`;
         break;
       case "physics":
         value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
@@ -488,7 +488,7 @@ function LeaderboardPageContent() {
         {/* Champion Display */}
         <div className="text-center py-4 pt-8">
           {champion ? (
-            <div className="animate-fade-in">
+            <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               {/* Player Name */}
               <div className="mb-3">
                 <div className="flex items-center justify-center space-x-2">
@@ -516,7 +516,7 @@ function LeaderboardPageContent() {
               </div>
             </div>
           ) : (
-            <div className="animate-fade-in">
+            <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <p className="text-white/60 drop-shadow-sm text-lg">
                 No champion yet
               </p>
@@ -556,7 +556,7 @@ function LeaderboardPageContent() {
 
         {/* User Position */}
         {userPositionData && !isUserInTop && (
-          <div className="mb-4 px-4 animate-fade-in">
+          <div className="mb-4 px-4 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
             <div className="rounded-lg bg-white/5 border border-white/10 backdrop-blur-sm">
               <div className="px-4 py-3">
                 <div className="flex items-center justify-between">
@@ -582,28 +582,28 @@ function LeaderboardPageContent() {
         {/* Leaderboard */}
         <div className="space-y-0 max-w-2xl mx-auto">
           {restOfLeaderboard.length === 0 && !champion ? (
-            <div className="text-center py-12 animate-fade-in">
+            <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <p className="font-bold text-white/80 text-xl mb-2">No Players Yet</p>
               <p className="text-white/60">
                 Be the first to compete in {getTabName(activeTab).toLowerCase()} mode!
               </p>
             </div>
           ) : restOfLeaderboard.length === 0 ? (
-            <div className="text-center py-12 animate-fade-in">
+            <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <p className="font-bold text-white/80 text-xl mb-2">Only One Champion</p>
               <p className="text-white/60">
                 Challenge the current leader!
               </p>
             </div>
           ) : (
-            <div className={`transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100 animate-fade-in'}`}>
+            <div className={`transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
               {restOfLeaderboard.map((entry, index) => (
                 <div key={`${activeTab}-${entry.position}`}>
                   <div
                     className={`
                       w-full px-6 py-4 text-left hover:bg-white/5 transition-all duration-200
                       ${entry.isCurrentUser ? "bg-blue-500/10" : ""}
-                      animate-slide-in
+                      opacity-0 animate-[slideIn_0.3s_ease-out_forwards]
                     `}
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
@@ -656,10 +656,15 @@ function LeaderboardPageContent() {
         {/* Bottom spacing for safe area */}
         <div className="h-24" />
       </div>
+    </div>
+  );
+}
 
-      {/* Add CSS animations */}
-      <style jsx>{`
-        @keyframes fade-in {
+export default function LeaderboardPage() {
+  return (
+    <>
+      <style>{`
+        @keyframes fadeIn {
           from {
             opacity: 0;
             transform: translateY(10px);
@@ -670,7 +675,7 @@ function LeaderboardPageContent() {
           }
         }
 
-        @keyframes slide-in {
+        @keyframes slideIn {
           from {
             opacity: 0;
             transform: translateX(-10px);
@@ -680,23 +685,10 @@ function LeaderboardPageContent() {
             transform: translateX(0);
           }
         }
-
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
-
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
       `}</style>
-    </div>
-  );
-}
-
-export default function LeaderboardPage() {
-  return (
-    <AuthGuard requireCompleteAuth={true} showError={true}>
-      <LeaderboardPageContent />
-    </AuthGuard>
+      <AuthGuard requireCompleteAuth={true} showError={true}>
+        <LeaderboardPageContent />
+      </AuthGuard>
+    </>
   );
 }

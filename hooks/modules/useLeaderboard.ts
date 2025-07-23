@@ -20,6 +20,7 @@ export interface SafeSurvivalLeaderboard {
   last_name?: string;
   username?: string;
   best_survival_time: number;
+  best_survival_score: number;
   max_level: number;
   best_streak: number;
   survival_games: number;
