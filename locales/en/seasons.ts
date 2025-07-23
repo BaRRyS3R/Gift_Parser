@@ -12,7 +12,7 @@ export const seasons = {
     // Champion section
     noChampionYet: "No champion yet",
     claimThrone: "Be the first to claim the throne!",
-    points: "points",
+    points: "best score",
 
     // Season states
     starts: "Starts",
@@ -20,7 +20,7 @@ export const seasons = {
 
     // User position
     yourPosition: "Your Position",
-    currentRanking: "Current ranking",
+    currentRanking: "Best score",
 
     // Empty states
     noPlayersYet: "No Players Yet",

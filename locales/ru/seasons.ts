@@ -12,7 +12,7 @@ export const seasons = {
   // Champion section
   noChampionYet: "Пока нет чемпиона",
   claimThrone: "Станьте первым, кто завоюет трон!",
-  points: "очков",
+  points: "бест скор",
   
   // Season states
   starts: "Начинается",
@@ -20,7 +20,7 @@ export const seasons = {
   
   // User position
   yourPosition: "Ваша позиция",
-  currentRanking: "Текущий рейтинг",
+  currentRanking: "Бест скор",
   
   // Empty states
   noPlayersYet: "Пока нет игроков",
