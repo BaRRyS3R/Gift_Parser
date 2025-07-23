@@ -782,15 +782,12 @@ function SeasonsPageContent() {
         {/* User Position - Redesigned and better integrated */}
         {userPosition && !isUserInTop && user && (
           <div className="mb-4 px-4">
-            <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-gray-800/40 via-gray-700/30 to-gray-800/40 border border-white/10 backdrop-blur-sm">
-              {/* Subtle animated background */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 animate-shimmer" />
-
-              <div className="relative px-4 py-3">
+            <div className="rounded-lg bg-white/5 border border-white/10 backdrop-blur-sm">
+              <div className="px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-400/30 flex items-center justify-center">
-                      <Crown className="text-blue-400" size={14} />
+                    <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                      <Crown className="text-white/70" size={14} />
                     </div>
                     <div>
                       <div className="text-white font-medium text-sm">Your Position</div>
@@ -799,7 +796,7 @@ function SeasonsPageContent() {
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold text-white">#{userPosition}</div>
-                    <div className="text-white/50 text-xs">of {leaderboard.length}</div>
+                    <div className="text-white/50 text-xs">{user.survival_best_score || 0} points</div>
                   </div>
                 </div>
               </div>
