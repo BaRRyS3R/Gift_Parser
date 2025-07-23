@@ -1,35 +1,49 @@
-// src/locales/en/leaderboard.ts - Leaderboard and rankings (Updated with Rotation)
+// src/locales/en/leaderboard.ts - Leaderboard and rankings (Updated with all missing strings)
 export const leaderboard = {
   title: "TOP",
   loadingRanking: "LOADING RANKING DATA...",
   failedToLoad: "FAILED TO LOAD RANKING DATA",
+  loadingLeaderboards: "Loading leaderboards...",
+  retry: "Retry",
   overall: "OVERALL",
   reaction: "REACTION",
   survival: "SURVIVAL",
   physics: "PHYSICS",
-  rotation: "ROTATION", // NEW
+  rotation: "ROTATION",
   players: "PLAYERS",
   fastest: "FASTEST",
   longest: "LONGEST",
   experimental: "EXPERIMENTAL",
-  spinning: "SPINNING", // NEW
+  spinning: "SPINNING",
   top: "TOP",
   tournamentStats: "Tournament Statistics",
   you: "YOU",
   noSpeedDemons: "NO SPEED DEMONS YET",
   noSurvivors: "NO SURVIVORS YET",
   noPhysicists: "NO PHYSICISTS YET",
-  noSpinners: "NO SPINNERS YET", // NEW
+  noSpinners: "NO SPINNERS YET",
   noPlayers: "NO PLAYERS YET",
   testReflexes: "TEST YOUR REFLEXES!",
   enterChallenge: "ENTER THE SURVIVAL CHALLENGE!",
   tryPhysics: "TRY PHYSICS EXPERIMENT!",
-  tryRotation: "TRY ROTATION CHALLENGE!", // NEW
+  tryRotation: "TRY ROTATION CHALLENGE!",
   beFirst: "BE THE FIRST TO PLAY!",
   speedElite: "SPEED ELITE",
   survivalElite: "SURVIVAL ELITE",
   physicsElite: "PHYSICS ELITE",
-  rotationElite: "ROTATION ELITE", // NEW
+  rotationElite: "ROTATION ELITE",
   topPlayers: "TOP PLAYERS",
   allPlayers: "ALL PLAYERS",
+  // New strings for the leaderboard page
+  reactionTime: "reaction time",
+  points: "points",
+  time: "time",
+  noChampionYet: "No champion yet",
+  claimThrone: "Be the first to claim the throne!",
+  yourPosition: "Your Position",
+  currentRanking: "Current ranking",
+  noPlayersYet: "No Players Yet",
+  beFirstToPlay: "Be the first!",
+  onlyOneChampion: "Only One Champion",
+  challengeLeader: "Challenge the current leader!",
 } as const;

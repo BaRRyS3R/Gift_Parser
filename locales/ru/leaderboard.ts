@@ -1,35 +1,49 @@
-// src/locales/ru/leaderboard.ts - Leaderboard and rankings (Updated with Rotation)
+// src/locales/ru/leaderboard.ts - Leaderboard and rankings (Updated with all missing strings)
 export const leaderboard = {
   title: "ТОП",
   loadingRanking: "ЗАГРУЗКА РЕЙТИНГОВЫХ ДАННЫХ...",
   failedToLoad: "НЕ УДАЛОСЬ ЗАГРУЗИТЬ РЕЙТИНГОВЫЕ ДАННЫЕ",
+  loadingLeaderboards: "Загрузка таблицы лидеров...",
+  retry: "Повторить",
   overall: "ОБЩИЙ",
   reaction: "РЕАКЦИЯ",
   survival: "ВЫЖИВАНИЕ",
   physics: "ФИЗИКА",
-  rotation: "ВРАЩЕНИЕ", // NEW
+  rotation: "ВРАЩЕНИЕ",
   players: "ИГРОКОВ",
   fastest: "БЫСТРЕЙШИЙ",
   longest: "ДЛИТЕЛЬНЫЙ",
   experimental: "ЭКСПЕРИМЕНТАЛЬНЫЙ",
-  spinning: "ВРАЩАЮЩИЙСЯ", // NEW
+  spinning: "ВРАЩАЮЩИЙСЯ",
   top: "ТОП",
   tournamentStats: "Статистика Турнира",
   you: "ВЫ",
   noSpeedDemons: "ЕЩЁ НЕТ ДЕМОНОВ СКОРОСТИ",
   noSurvivors: "ЕЩЁ НЕТ ВЫЖИВШИХ",
   noPhysicists: "ЕЩЁ НЕТ ФИЗИКОВ",
-  noSpinners: "ЕЩЁ НЕТ ВЕРТУНОВ", // NEW
+  noSpinners: "ЕЩЁ НЕТ ВЕРТУНОВ",
   noPlayers: "ЕЩЁ НЕТ ИГРОКОВ",
   testReflexes: "ПРОВЕРЬТЕ СВОИ РЕФЛЕКСЫ!",
   enterChallenge: "ВОЙДИТЕ В ИСПЫТАНИЕ ВЫЖИВАНИЯ!",
   tryPhysics: "ПОПРОБУЙТЕ ФИЗИЧЕСКИЙ ЭКСПЕРИМЕНТ!",
-  tryRotation: "ПОПРОБУЙТЕ ВРАЩАЮЩЕЕСЯ ИСПЫТАНИЕ!", // NEW
+  tryRotation: "ПОПРОБУЙТЕ ВРАЩАЮЩЕЕСЯ ИСПЫТАНИЕ!",
   beFirst: "БУДЬТЕ ПЕРВЫМ КТО СЫГРАЕТ!",
   speedElite: "ЭЛИТА СКОРОСТИ",
   survivalElite: "ЭЛИТА ВЫЖИВАНИЯ",
   physicsElite: "ЭЛИТА ФИЗИКИ",
-  rotationElite: "ЭЛИТА ВРАЩЕНИЯ", // NEW
+  rotationElite: "ЭЛИТА ВРАЩЕНИЯ",
   topPlayers: "ТОП ИГРОКИ",
   allPlayers: "ВСЕ ИГРОКИ",
+  // New strings for the leaderboard page
+  reactionTime: "время реакции",
+  points: "очков",
+  time: "время",
+  noChampionYet: "Пока нет чемпиона",
+  claimThrone: "Станьте первым, кто завоюет трон!",
+  yourPosition: "Ваша позиция",
+  currentRanking: "Текущий рейтинг",
+  noPlayersYet: "Пока нет игроков",
+  beFirstToPlay: "Будьте первым!",
+  onlyOneChampion: "Только один чемпион",
+  challengeLeader: "Бросьте вызов лидеру!",
 } as const;

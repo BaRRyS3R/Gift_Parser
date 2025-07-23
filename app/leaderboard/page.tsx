@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Final fixed version with stable Aurora and correct user position
+// src/app/leaderboard/page.tsx - Final fixed version with stable Aurora and correct user position + localization
 
 "use client";
 
@@ -393,7 +393,7 @@ function LeaderboardPageContent() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">Loading leaderboards...</p>
+          <p className="text-white">{t('leaderboard.loadingLeaderboards')}</p>
         </div>
       </div>
     );
@@ -409,7 +409,7 @@ function LeaderboardPageContent() {
             className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
             onClick={handleRefresh}
           >
-            Retry
+            {t('leaderboard.retry')}
           </button>
         </div>
       </div>
@@ -453,16 +453,23 @@ function LeaderboardPageContent() {
                 {getChampionValue(champion)}
               </div>
               <div className="text-xs text-white/70 drop-shadow-sm">
-                {activeTab === "reaction" ? "reaction time" : activeTab === "survival" ? "points" : activeTab === "physics" ? "points" : "rotation time"}
+                {activeTab === "reaction"
+                  ? t('leaderboard.reactionTime')
+                  : activeTab === "survival"
+                    ? t('leaderboard.points')
+                    : activeTab === "physics"
+                      ? t('leaderboard.points')
+                      : t('leaderboard.time')
+                }
               </div>
             </div>
           ) : (
             <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <p className="text-white/60 drop-shadow-sm text-lg">
-                No champion yet
+                {t('leaderboard.noChampionYet')}
               </p>
               <p className="text-white/40 text-sm mt-1">
-                Be the first to claim the throne!
+                {t('leaderboard.claimThrone')}
               </p>
             </div>
           )}
@@ -505,8 +512,8 @@ function LeaderboardPageContent() {
                       <Crown className="text-white/70" size={14} />
                     </div>
                     <div>
-                      <div className="text-white font-medium text-sm">Your Position</div>
-                      <div className="text-white/60 text-xs">Current ranking</div>
+                      <div className="text-white font-medium text-sm">{t('leaderboard.yourPosition')}</div>
+                      <div className="text-white/60 text-xs">{t('leaderboard.currentRanking')}</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -523,16 +530,16 @@ function LeaderboardPageContent() {
         <div className="space-y-0 max-w-2xl mx-auto">
           {restOfLeaderboard.length === 0 && !champion ? (
             <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              <p className="font-bold text-white/80 text-xl mb-2">No Players Yet</p>
+              <p className="font-bold text-white/80 text-xl mb-2">{t('leaderboard.noPlayersYet')}</p>
               <p className="text-white/60">
-                Be the first!
+                {t('leaderboard.beFirstToPlay')}
               </p>
             </div>
           ) : restOfLeaderboard.length === 0 ? (
             <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              <p className="font-bold text-white/80 text-xl mb-2">Only One Champion</p>
+              <p className="font-bold text-white/80 text-xl mb-2">{t('leaderboard.onlyOneChampion')}</p>
               <p className="text-white/60">
-                Challenge the current leader!
+                {t('leaderboard.challengeLeader')}
               </p>
             </div>
           ) : (
@@ -575,7 +582,14 @@ function LeaderboardPageContent() {
                           {getPlayerValue(entry)}
                         </div>
                         <div className="text-xs text-white/50">
-                          {activeTab === "reaction" ? "time" : activeTab === "survival" ? "points" : activeTab === "physics" ? "points" : "time"}
+                          {activeTab === "reaction"
+                            ? t('leaderboard.time')
+                            : activeTab === "survival"
+                              ? t('leaderboard.points')
+                              : activeTab === "physics"
+                                ? t('leaderboard.points')
+                                : t('leaderboard.time')
+                          }
                         </div>
                       </div>
                     </div>

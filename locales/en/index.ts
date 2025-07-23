@@ -17,6 +17,7 @@ import { time } from "./time";
 import { about } from "./about";
 import { leagues } from "./leagues";
 import { nebula } from "./nebula";
+import { seasons } from "./seasons";
 
 export const en = {
   // Common UI elements
@@ -34,6 +35,9 @@ export const en = {
   // Main page
   main,
 
+  // Seasons
+  seasons,
+  
   // Auth/Registration
   auth,
 

@@ -1,4 +1,4 @@
-// src/app/seasons/page.tsx - Complete seasons page with consolidated components
+// src/app/seasons/page.tsx - Complete seasons page with consolidated components + localization
 
 "use client";
 
@@ -46,6 +46,8 @@ interface DateInfoModalProps {
 }
 
 function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
+  const t = useT();
+
   if (!isOpen) return null;
 
   return (
@@ -71,7 +73,7 @@ function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-white flex items-center space-x-2">
               <Calendar size={20} />
-              <span>Season Timeline</span>
+              <span>{t('seasons.seasonTimeline')}</span>
             </h3>
             <button
               onClick={onClose}
@@ -86,16 +88,16 @@ function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
             <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-3">
                 <Clock className="text-blue-400" size={16} />
-                <span className="text-blue-300 font-bold text-sm">IMPORTANT NOTICE</span>
+                <span className="text-blue-300 font-bold text-sm">{t('seasons.importantNotice')}</span>
               </div>
               <div className="text-white/90 leading-relaxed">
-                At the moment the season ends, a final snapshot of the leaderboard will be taken. After this point, no further changes to player rankings or scores will be counted for this season.
+                {t('seasons.seasonEndNotice')}
               </div>
             </div>
 
             <div className="text-center">
               <div className="text-white/70 text-sm">
-                Make sure to play your best games before the season deadline!
+                {t('seasons.playBeforeDeadline')}
               </div>
             </div>
           </div>
@@ -106,6 +108,8 @@ function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
 }
 
 function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
+  const t = useT();
+
   if (!isOpen || !player) return null;
 
   const displayName = `${player.first_name} ${player.last_name || ''}`.trim();
@@ -142,7 +146,7 @@ function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
                 />
               )}
               <h3 className="text-xl font-bold text-white">
-                #{player.position} Place
+                #{player.position} {t('seasons.place')}
               </h3>
             </div>
             <button
@@ -171,14 +175,14 @@ function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
               <div className="text-3xl font-bold text-white mb-1">
                 {player.survival_best_score}
               </div>
-              <div className="text-white/60 text-sm">Points</div>
+              <div className="text-white/60 text-sm">{t('seasons.points')}</div>
             </div>
 
             {prize && (
               <div className="bg-gradient-to-r from-yellow-400/20 to-orange-500/20 border border-yellow-400/30 rounded-lg p-4 text-center">
                 <div className="flex items-center justify-center space-x-2 mb-2">
                   <Trophy className="text-yellow-400" size={16} />
-                  <span className="text-yellow-300 font-bold text-sm">PRIZE</span>
+                  <span className="text-yellow-300 font-bold text-sm">{t('seasons.prize')}</span>
                 </div>
                 <div className="text-white font-medium">{prize}</div>
               </div>
@@ -628,7 +632,7 @@ function SeasonsPageContent() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">Loading season data...</p>
+          <p className="text-white">{t('seasons.loadingSeason')}</p>
         </div>
       </div>
     );
@@ -644,7 +648,7 @@ function SeasonsPageContent() {
             className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
             onClick={handleRefresh}
           >
-            Retry
+            {t('seasons.retry')}
           </button>
         </div>
       </div>
@@ -656,15 +660,15 @@ function SeasonsPageContent() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4 px-6">
           <Calendar className="text-white/60 mx-auto" size={48} />
-          <h2 className="text-2xl font-bold text-white">No Active Season</h2>
+          <h2 className="text-2xl font-bold text-white">{t('seasons.noActiveSeason')}</h2>
           <p className="text-white/70 max-w-md">
-            There is currently no active season running. Check back later for upcoming seasonal competitions.
+            {t('seasons.noActiveSeasonDescription')}
           </p>
           <button
             className="px-6 py-3 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
             onClick={handleRefresh}
           >
-            Check Again
+            {t('seasons.checkAgain')}
           </button>
         </div>
       </div>
@@ -732,16 +736,16 @@ function SeasonsPageContent() {
                 {topPlayer.survival_best_score}
               </div>
               <div className="text-xs text-white/70 drop-shadow-sm">
-                points
+                {t('seasons.points')}
               </div>
             </button>
           ) : (
             <div>
               <p className="text-white/60 drop-shadow-sm text-lg">
-                No champion yet
+                {t('seasons.noChampionYet')}
               </p>
               <p className="text-white/40 text-sm mt-1">
-                Be the first to claim the throne!
+                {t('seasons.claimThrone')}
               </p>
             </div>
           )}
@@ -768,13 +772,13 @@ function SeasonsPageContent() {
           {!isActive && new Date() < new Date(season.start_date) && (
             <div className="flex items-center space-x-1 text-yellow-400">
               <Clock size={14} />
-              <span>Starts {new Date(season.start_date).toLocaleDateString()}</span>
+              <span>{t('seasons.starts')} {new Date(season.start_date).toLocaleDateString()}</span>
             </div>
           )}
           {!isActive && new Date() > new Date(season.end_date) && (
             <div className="flex items-center space-x-1 text-red-400">
               <Clock size={14} />
-              <span>Ended</span>
+              <span>{t('seasons.ended')}</span>
             </div>
           )}
         </div>
@@ -790,13 +794,13 @@ function SeasonsPageContent() {
                       <Crown className="text-white/70" size={14} />
                     </div>
                     <div>
-                      <div className="text-white font-medium text-sm">Your Position</div>
-                      <div className="text-white/60 text-xs">Current ranking</div>
+                      <div className="text-white font-medium text-sm">{t('seasons.yourPosition')}</div>
+                      <div className="text-white/60 text-xs">{t('seasons.currentRanking')}</div>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold text-white">#{userPosition}</div>
-                    <div className="text-white/50 text-xs">{seasonData.userStats.survival_best_score || 0} points</div>
+                    <div className="text-white/50 text-xs">{seasonData.userStats.survival_best_score || 0} {t('seasons.points')}</div>
                   </div>
                 </div>
               </div>
@@ -808,16 +812,16 @@ function SeasonsPageContent() {
         <div className="space-y-0 max-w-2xl mx-auto">
           {restOfLeaderboard.length === 0 && !topPlayer ? (
             <div className="text-center py-12">
-              <p className="font-bold text-white/80 text-xl mb-2">No Players Yet</p>
+              <p className="font-bold text-white/80 text-xl mb-2">{t('seasons.noPlayersYet')}</p>
               <p className="text-white/60">
-                Be the first to compete in this season!
+                {t('seasons.beFirstToCompete')}
               </p>
             </div>
           ) : restOfLeaderboard.length === 0 ? (
             <div className="text-center py-12">
-              <p className="font-bold text-white/80 text-xl mb-2">Only One Champion</p>
+              <p className="font-bold text-white/80 text-xl mb-2">{t('seasons.onlyOneChampion')}</p>
               <p className="text-white/60">
-                Challenge the current leader!
+                {t('seasons.challengeLeader')}
               </p>
             </div>
           ) : (
@@ -862,7 +866,7 @@ function SeasonsPageContent() {
                           {entry.survival_best_score}
                         </div>
                         <div className="text-xs text-white/50">
-                          points
+                          {t('seasons.points')}
                         </div>
                       </div>
                     </div>
