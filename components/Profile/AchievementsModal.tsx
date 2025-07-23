@@ -1,4 +1,4 @@
-// src/components/Profile/AchievementsModal.tsx - Обновленный для работы с UserProfileGameStats
+// src/components/Profile/AchievementsModal.tsx - Simplified achievements modal with 4 core achievements
 
 "use client";
 
@@ -11,17 +11,9 @@ import React from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@nextui-org/react";
 import {
   Trophy,
-  Award,
-  Zap,
-  Crosshair,
-  Atom,
-  RotateCw,
   Users,
-  Star,
-  Target,
-  Clock,
-  Activity,
-  Crown,
+  Gamepad2,
+  Zap,
 } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
@@ -55,284 +47,62 @@ export default function AchievementsModal({
 
   const getAchievements = (): Achievement[] => {
     const achievements: Achievement[] = [
-      // General achievements
+      // First game achievement
       {
-        id: "active_player",
-        titleKey: "profile.achievements.activePlayer",
-        descriptionKey: "profile.achievements.descriptions.gamesPlayed",
-        icon: Activity,
+        id: "first_game",
+        titleKey: "profile.achievements.firstGame",
+        descriptionKey: "profile.achievements.descriptions.firstGame",
+        icon: Trophy,
         color: "text-blue-400",
         bgColor: "bg-blue-500/20",
         isUnlocked: user.total_games >= 1,
-        progress: user.total_games,
+        progress: user.total_games >= 1 ? 1 : 0,
         maxProgress: 1,
       },
+
+      // All modes played achievement
       {
-        id: "dedicated_gamer",
-        titleKey: "profile.achievements.dedicatedGamer",
-        descriptionKey: "profile.achievements.descriptions.gamesPlayed",
-        icon: Trophy,
-        color: "text-blue-400",
-        bgColor: "bg-blue-500/20",
-        isUnlocked: user.total_games >= 10,
-        progress: user.total_games,
-        maxProgress: 10,
-      },
-      {
-        id: "game_master",
-        titleKey: "profile.achievements.gameMaster",
-        descriptionKey: "profile.achievements.descriptions.gamesPlayed",
-        icon: Award,
+        id: "all_modes_player",
+        titleKey: "profile.achievements.allModesPlayer",
+        descriptionKey: "profile.achievements.descriptions.allModesPlayer",
+        icon: Gamepad2,
         color: "text-purple-400",
         bgColor: "bg-purple-500/20",
-        isUnlocked: user.total_games >= 50,
-        progress: user.total_games,
-        maxProgress: 50,
+        isUnlocked: user.reaction_games >= 1 &&
+          user.survival_games >= 1 &&
+          user.physics_games >= 1 &&
+          user.rotation_games >= 1,
+        progress: [
+          user.reaction_games >= 1 ? 1 : 0,
+          user.survival_games >= 1 ? 1 : 0,
+          user.physics_games >= 1 ? 1 : 0,
+          user.rotation_games >= 1 ? 1 : 0,
+        ].reduce((sum, val) => sum + val, 0),
+        maxProgress: 4,
       },
 
-      // Referral achievements
+      // Super recruiter achievement (100+ friends)
       {
-        id: "recruiter",
-        titleKey: "profile.achievements.recruiter",
-        descriptionKey: "profile.achievements.descriptions.invitedFriend",
+        id: "super_recruiter",
+        titleKey: "profile.achievements.superRecruiter",
+        descriptionKey: "profile.achievements.descriptions.superRecruiter",
         icon: Users,
-        color: "text-green-400",
-        bgColor: "bg-green-500/20",
-        isUnlocked: user.referral_count >= 1,
-        progress: user.referral_count,
-        maxProgress: 1,
-      },
-      {
-        id: "influencer",
-        titleKey: "profile.achievements.influencer",
-        descriptionKey: "profile.achievements.descriptions.invitedFriends",
-        icon: Star,
-        color: "text-yellow-400",
+        color: "text-gold-400",
         bgColor: "bg-yellow-500/20",
-        isUnlocked: user.referral_count >= 5,
+        isUnlocked: user.referral_count >= 100,
         progress: user.referral_count,
-        maxProgress: 5,
-      },
-      {
-        id: "ambassador",
-        titleKey: "profile.achievements.ambassador",
-        descriptionKey: "profile.achievements.descriptions.invitedFriends",
-        icon: Award,
-        color: "text-orange-400",
-        bgColor: "bg-orange-500/20",
-        isUnlocked: user.referral_count >= 20,
-        progress: user.referral_count,
-        maxProgress: 20,
-      },
-
-      // Reaction mode achievements
-      {
-        id: "speed_tester",
-        titleKey: "profile.achievements.speedTester",
-        descriptionKey: "profile.achievements.descriptions.testedReaction",
-        icon: Zap,
-        color: "text-white",
-        bgColor: "bg-white/20",
-        isUnlocked: user.reaction_games >= 1,
-      },
-      {
-        id: "quick_reflexes",
-        titleKey: "profile.achievements.quickReflexes",
-        descriptionKey: "profile.achievements.descriptions.reactionTests",
-        icon: Zap,
-        color: "text-white",
-        bgColor: "bg-white/20",
-        isUnlocked: user.reaction_games >= 10,
-        progress: user.reaction_games,
-        maxProgress: 10,
-      },
-      {
-        id: "lightning_fast",
-        titleKey: "profile.achievements.lightningFast",
-        descriptionKey: "profile.achievements.descriptions.subReaction",
-        icon: Zap,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked:
-          user.reaction_best_time > 0 && user.reaction_best_time <= 200,
-      },
-      {
-        id: "superhuman_speed",
-        titleKey: "profile.achievements.superhumanSpeed",
-        descriptionKey: "profile.achievements.descriptions.subReaction",
-        icon: Zap,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked:
-          user.reaction_best_time > 0 && user.reaction_best_time <= 150,
-      },
-      {
-        id: "speed_demon",
-        titleKey: "profile.achievements.speedDemon",
-        descriptionKey: "profile.achievements.descriptions.topReaction",
-        icon: Zap,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked: rankings.reaction !== null && rankings.reaction <= 10,
-      },
-
-      // Survival mode achievements
-      {
-        id: "survivor",
-        titleKey: "profile.achievements.survivor",
-        descriptionKey: "profile.achievements.descriptions.enteredSurvival",
-        icon: Crosshair,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked: user.survival_games >= 1,
-      },
-      {
-        id: "persistent_survivor",
-        titleKey: "profile.achievements.persistentSurvivor",
-        descriptionKey: "profile.achievements.descriptions.survivalAttempts",
-        icon: Crosshair,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked: user.survival_games >= 10,
-        progress: user.survival_games,
-        maxProgress: 10,
-      },
-      {
-        id: "endurance_master",
-        titleKey: "profile.achievements.enduranceMaster",
-        descriptionKey: "profile.achievements.descriptions.secondsSurvival",
-        icon: Clock,
-        color: "text-orange-400",
-        bgColor: "bg-orange-500/20",
-        isUnlocked: user.survival_best_time >= 30000,
-      },
-      {
-        id: "survival_legend",
-        titleKey: "profile.achievements.survivalLegend",
-        descriptionKey: "profile.achievements.descriptions.minuteSurvival",
-        icon: Trophy,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked: user.survival_best_time >= 60000,
-      },
-      {
-        id: "level_climber",
-        titleKey: "profile.achievements.levelClimber",
-        descriptionKey: "profile.achievements.descriptions.reachedLevel",
-        icon: Target,
-        color: "text-green-400",
-        bgColor: "bg-green-500/20",
-        isUnlocked: user.survival_max_level >= 5,
-        progress: user.survival_max_level,
-        maxProgress: 5,
-      },
-      {
-        id: "elite_survivor",
-        titleKey: "profile.achievements.eliteSurvivor",
-        descriptionKey: "profile.achievements.descriptions.reachedLevel",
-        icon: Award,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked: user.survival_max_level >= 10,
-        progress: user.survival_max_level,
-        maxProgress: 10,
-      },
-      {
-        id: "streak_master",
-        titleKey: "profile.achievements.streakMaster",
-        descriptionKey: "profile.achievements.descriptions.perfectHits",
-        icon: Target,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked: user.survival_best_streak >= 50,
-        progress: user.survival_best_streak,
-        maxProgress: 50,
-      },
-      {
-        id: "survival_elite",
-        titleKey: "profile.achievements.survivalElite",
-        descriptionKey: "profile.achievements.descriptions.topSurvivor",
-        icon: Crown,
-        color: "text-red-400",
-        bgColor: "bg-red-500/20",
-        isUnlocked: rankings.survival !== null && rankings.survival <= 10,
-      },
-
-      // Physics mode achievements
-      {
-        id: "physics_experimenter",
-        titleKey: "profile.achievements.physicsExperimenter",
-        descriptionKey: "profile.achievements.descriptions.enteredPhysics",
-        icon: Atom,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked: user.physics_games >= 1,
-      },
-      {
-        id: "impulse_master",
-        titleKey: "profile.achievements.impulseMaster",
-        descriptionKey: "profile.achievements.descriptions.physicsAttempts",
-        icon: Atom,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked: user.physics_games >= 10,
-        progress: user.physics_games,
-        maxProgress: 10,
-      },
-      {
-        id: "wall_breaker",
-        titleKey: "profile.achievements.wallBreaker",
-        descriptionKey: "profile.achievements.descriptions.physicsScore",
-        icon: Target,
-        color: "text-indigo-400",
-        bgColor: "bg-indigo-500/20",
-        isUnlocked: user.physics_best_score >= 100,
-        progress: user.physics_best_score,
         maxProgress: 100,
       },
 
-      // Rotation mode achievements
+      // Lightning reflexes achievement (<10ms reaction)
       {
-        id: "rotation_tester",
-        titleKey: "profile.achievements.rotationTester",
-        descriptionKey: "profile.achievements.descriptions.enteredRotation",
-        icon: RotateCw,
-        color: "text-orange-400",
-        bgColor: "bg-orange-500/20",
-        isUnlocked: user.rotation_games >= 1,
-      },
-      {
-        id: "spin_master",
-        titleKey: "profile.achievements.spinMaster",
-        descriptionKey: "profile.achievements.descriptions.rotationAttempts",
-        icon: RotateCw,
-        color: "text-orange-400",
-        bgColor: "bg-orange-500/20",
-        isUnlocked: user.rotation_games >= 10,
-        progress: user.rotation_games,
-        maxProgress: 10,
-      },
-      {
-        id: "dizziness_resistant",
-        titleKey: "profile.achievements.dizzinessResistant",
-        descriptionKey: "profile.achievements.descriptions.rotationTime",
-        icon: Clock,
+        id: "lightning_reflexes",
+        titleKey: "profile.achievements.lightningReflexes",
+        descriptionKey: "profile.achievements.descriptions.lightningReflexes",
+        icon: Zap,
         color: "text-yellow-400",
         bgColor: "bg-yellow-500/20",
-        isUnlocked: user.rotation_best_time >= 60000,
-        progress: Math.floor(user.rotation_best_time / 1000),
-        maxProgress: 60,
-      },
-
-      // Top player achievements
-      {
-        id: "top_player",
-        titleKey: "profile.achievements.topPlayer",
-        descriptionKey: "profile.achievements.descriptions.topOverall",
-        icon: Trophy,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked: rankings.overall !== null && rankings.overall <= 10,
+        isUnlocked: user.reaction_best_time > 0 && user.reaction_best_time < 10,
       },
     ];
 
@@ -352,16 +122,7 @@ export default function AchievementsModal({
       params.count = achievement.maxProgress || achievement.progress || 1;
     }
     if (descriptionKey.includes("{time}")) {
-      params.time = achievement.maxProgress || 200;
-    }
-    if (descriptionKey.includes("{level}")) {
-      params.level = achievement.maxProgress || 5;
-    }
-    if (descriptionKey.includes("{score}")) {
-      params.score = achievement.maxProgress || 100;
-    }
-    if (descriptionKey.includes("{rank}")) {
-      params.rank = 10;
+      params.time = 10; // For the 10ms achievement
     }
 
     return t(descriptionKey as any, params);
@@ -402,10 +163,9 @@ export default function AchievementsModal({
                         key={achievement.id}
                         className={`
                           relative p-4 rounded-lg border transition-all duration-200
-                          ${
-                            achievement.isUnlocked
-                              ? `${achievement.bgColor} border-current/30`
-                              : "bg-white/5 border-white/10"
+                          ${achievement.isUnlocked
+                            ? `${achievement.bgColor} border-current/30`
+                            : "bg-white/5 border-white/10"
                           }
                         `}
                       >
@@ -430,10 +190,9 @@ export default function AchievementsModal({
                             <h3
                               className={`
                                 font-bold text-sm mb-1
-                                ${
-                                  achievement.isUnlocked
-                                    ? "text-white"
-                                    : "text-white/60"
+                                ${achievement.isUnlocked
+                                  ? "text-white"
+                                  : "text-white/60"
                                 }
                               `}
                             >
@@ -443,10 +202,9 @@ export default function AchievementsModal({
                             <p
                               className={`
                                 text-xs mb-2
-                                ${
-                                  achievement.isUnlocked
-                                    ? "text-white/80"
-                                    : "text-white/40"
+                                ${achievement.isUnlocked
+                                  ? "text-white/80"
+                                  : "text-white/40"
                                 }
                               `}
                             >
@@ -479,7 +237,7 @@ export default function AchievementsModal({
                                           100,
                                           (achievement.progress /
                                             achievement.maxProgress) *
-                                            100,
+                                          100,
                                         )}%`,
                                       }}
                                     />
