@@ -796,7 +796,7 @@ function SeasonsPageContent() {
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold text-white">#{userPosition}</div>
-                    <div className="text-white/50 text-xs">{user.survival_best_score || 0} points</div>
+                    <div className="text-white/50 text-xs">{seasonData.userStats.survival_best_score || 0} points</div>
                   </div>
                 </div>
               </div>
