@@ -362,19 +362,6 @@ function LeaderboardPageContent() {
     }
   };
 
-  const getTabName = (tab: LeaderboardType) => {
-    switch (tab) {
-      case "reaction":
-        return "REACTION";
-      case "survival":
-        return "SURVIVAL";
-      case "physics":
-        return "PHYSICS";
-      case "rotation":
-        return "ROTATION";
-    }
-  };
-
   const getChampionValue = (champion: any) => {
     switch (activeTab) {
       case "reaction":
@@ -546,7 +533,6 @@ function LeaderboardPageContent() {
                 >
                   <div className="flex items-center justify-center space-x-2">
                     {getTabIcon(tab)}
-                    <span>{getTabName(tab)}</span>
                   </div>
                 </button>
               ))}
@@ -585,7 +571,7 @@ function LeaderboardPageContent() {
             <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <p className="font-bold text-white/80 text-xl mb-2">No Players Yet</p>
               <p className="text-white/60">
-                Be the first to compete in {getTabName(activeTab).toLowerCase()} mode!
+                Be the first!
               </p>
             </div>
           ) : restOfLeaderboard.length === 0 ? (
