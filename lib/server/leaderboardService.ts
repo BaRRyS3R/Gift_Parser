@@ -1,8 +1,8 @@
-// src/lib/server/leaderboardService.ts - Dedicated leaderboard service module (without caching)
+// src/lib/server/leaderboardService.ts - Fixed ranking logic to match leaderboard sorting
 
 import { supabaseServer } from "@/lib/supabase_server";
 
-// Leaderboard interfaces (without sensitive data)
+// Existing interfaces remain the same...
 export interface SafeReactionLeaderboard {
   position: number;
   first_name: string;
@@ -68,7 +68,6 @@ export interface AllLeaderboardsResponse {
   userRankings: UserRankings;
 }
 
-// Server-side leaderboard service
 export const serverLeaderboardService = {
   /**
    * Get reaction mode leaderboard with safe data
@@ -253,10 +252,9 @@ export const serverLeaderboardService = {
   },
 
   /**
-   * Get user rankings across all leaderboards
+   * FIXED: Get user rankings with correct sorting logic matching leaderboards
    */
   async getUserRankings(telegramId: number): Promise<UserRankings> {
-    // Get user data
     const { data: user, error: userError } = await supabaseServer
       .from("users")
       .select("*")
@@ -269,7 +267,7 @@ export const serverLeaderboardService = {
 
     const rankings: UserRankings = {};
 
-    // Reaction ranking
+    // Reaction ranking (by best time ASC - lower time is better)
     if (user.reaction_games > 0 && user.reaction_best_time > 0) {
       const { count, error: reactionError } = await supabaseServer
         .from("users")
@@ -283,14 +281,14 @@ export const serverLeaderboardService = {
       }
     }
 
-    // Survival ranking
+    // FIXED: Survival ranking (by score DESC, then time DESC, then level DESC)
     if (user.survival_games > 0) {
       const { count, error: survivalError } = await supabaseServer
         .from("users")
         .select("id", { count: "exact" })
         .gt("survival_games", 0)
         .or(
-          `survival_best_time.gt.${user.survival_best_time},and(survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`,
+          `survival_best_score.gt.${user.survival_best_score},and(survival_best_score.eq.${user.survival_best_score},survival_best_time.gt.${user.survival_best_time}),and(survival_best_score.eq.${user.survival_best_score},survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`
         );
 
       if (!survivalError) {
@@ -298,14 +296,14 @@ export const serverLeaderboardService = {
       }
     }
 
-    // Physics ranking
+    // FIXED: Physics ranking (by score DESC, then time DESC)
     if (user.physics_games > 0) {
       const { count, error: physicsError } = await supabaseServer
         .from("users")
         .select("id", { count: "exact" })
         .gt("physics_games", 0)
         .or(
-          `physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`,
+          `physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`
         );
 
       if (!physicsError) {
@@ -313,14 +311,14 @@ export const serverLeaderboardService = {
       }
     }
 
-    // Rotation ranking
+    // FIXED: Rotation ranking (by time DESC, then level DESC)
     if (user.rotation_games > 0) {
       const { count, error: rotationError } = await supabaseServer
         .from("users")
         .select("id", { count: "exact" })
         .gt("rotation_games", 0)
         .or(
-          `rotation_best_time.gt.${user.rotation_best_time},and(rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`,
+          `rotation_best_time.gt.${user.rotation_best_time},and(rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`
         );
 
       if (!rotationError) {
