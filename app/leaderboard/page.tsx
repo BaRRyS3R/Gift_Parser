@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Redesigned leaderboard page with seasons-like design
+// src/app/leaderboard/page.tsx - Fixed version with background stability and user position
 
 "use client";
 
@@ -9,7 +9,7 @@ import type {
   SafeRotationLeaderboard,
 } from "@/hooks/modules/useLeaderboard";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Star,
@@ -24,8 +24,6 @@ import { Renderer, Program, Mesh, Color, Triangle } from "ogl";
 import { useUser } from "@/hooks/useUser";
 import { useLeaderboard } from "@/hooks/modules/useLeaderboard";
 import {
-  formatSurvivalTime,
-  formatPhysicsTime,
   formatRotationTime,
 } from "@/utils/timeFormatter";
 import { useT } from "@/contexts/LocalizationContext";
@@ -33,7 +31,7 @@ import AuthGuard from "@/components/Auth/AuthGuard";
 
 type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
 
-// Aurora Background Component
+// Aurora Background Component - optimized to prevent flashing
 const VERT = `#version 300 es
 in vec2 position;
 void main() {
@@ -149,7 +147,8 @@ interface AuroraProps {
   className?: string;
 }
 
-function Aurora({
+// Memoized Aurora component to prevent re-initialization
+const Aurora = React.memo(function Aurora({
   colorStops = ["#1a1a2e", "#16213e", "#0f1419"],
   amplitude = 1.0,
   blend = 0.5,
@@ -159,6 +158,7 @@ function Aurora({
   const propsRef = useRef<AuroraProps>({ colorStops, amplitude, blend, speed });
   const ctnDom = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   propsRef.current = { colorStops, amplitude, blend, speed };
@@ -188,12 +188,18 @@ function Aurora({
     if (!isVisible || !ctnDom.current) return;
 
     const ctn = ctnDom.current;
+
+    // Prevent white flash by setting initial background
+    if (!isInitialized) {
+      ctn.style.background = 'linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f1419 100%)';
+    }
+
     const renderer = new Renderer({
       alpha: true,
       premultipliedAlpha: true,
       antialias: true,
     });
-    
+
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 0);
     gl.enable(gl.BLEND);
@@ -233,7 +239,20 @@ function Aurora({
     });
 
     const mesh = new Mesh(gl, { geometry, program });
-    ctn.appendChild(gl.canvas);
+
+    // Smooth canvas insertion
+    if (ctn && !ctn.contains(gl.canvas)) {
+      gl.canvas.style.opacity = '0';
+      gl.canvas.style.transition = 'opacity 0.3s ease-in-out';
+      ctn.appendChild(gl.canvas);
+
+      // Fade in canvas and remove fallback background
+      setTimeout(() => {
+        gl.canvas.style.opacity = '1';
+        ctn.style.background = '';
+        setIsInitialized(true);
+      }, 100);
+    }
 
     let animateId = 0;
     const update = (t: number) => {
@@ -259,14 +278,19 @@ function Aurora({
       cancelAnimationFrame(animateId);
       window.removeEventListener("resize", resize);
       if (ctn && gl.canvas.parentNode === ctn) {
-        ctn.removeChild(gl.canvas);
+        gl.canvas.style.opacity = '0';
+        setTimeout(() => {
+          if (ctn && gl.canvas.parentNode === ctn) {
+            ctn.removeChild(gl.canvas);
+          }
+        }, 300);
       }
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, [isVisible, colorStops, amplitude, blend, speed]);
 
   return <div ref={ctnDom} className={`w-full h-full ${className}`} />;
-}
+});
 
 function LeaderboardPageContent() {
   const router = useRouter();
@@ -314,17 +338,17 @@ function LeaderboardPageContent() {
 
   const handleTabChange = async (tab: LeaderboardType) => {
     if (tab === activeTab || isTransitioning) return;
-    
+
     setIsTransitioning(true);
-    
+
     // Small delay for smooth transition
     await new Promise(resolve => setTimeout(resolve, 150));
-    
+
     setActiveTab(tab);
     setIsTransitioning(false);
   };
 
-  const getCurrentLeaderboard = () => {
+  const getCurrentLeaderboard = useMemo(() => {
     if (!leaderboardData) return [];
 
     switch (activeTab) {
@@ -337,16 +361,14 @@ function LeaderboardPageContent() {
       case "rotation":
         return leaderboardData.rotation.slice(0, 10);
     }
-  };
+  }, [leaderboardData, activeTab]);
 
   const getChampion = () => {
-    const currentLeaderboard = getCurrentLeaderboard();
-    return currentLeaderboard.length > 0 ? currentLeaderboard[0] : null;
+    return getCurrentLeaderboard.length > 0 ? getCurrentLeaderboard[0] : null;
   };
 
   const getRestOfLeaderboard = () => {
-    const currentLeaderboard = getCurrentLeaderboard();
-    return currentLeaderboard.slice(1);
+    return getCurrentLeaderboard.slice(1);
   };
 
   const getTabIcon = (tab: LeaderboardType) => {
@@ -388,41 +410,47 @@ function LeaderboardPageContent() {
     }
   };
 
-  const getUserPositionValue = () => {
-    if (!leaderboardData) return null;
-    
-    const userPosition = getUserPosition(activeTab);
+  // FIXED: Get user position from userRankings instead of searching in leaderboard
+  const getUserPositionData = useMemo(() => {
+    if (!leaderboardData || !leaderboardData.userRankings) return null;
+
+    const userPosition = leaderboardData.userRankings[activeTab];
     if (!userPosition) return null;
 
-    // Get user data from leaderboard
-    const allData = leaderboardData[activeTab];
-    const userData = allData.find(entry => entry.isCurrentUser);
-    
-    if (!userData) return null;
+    // Try to find user in full leaderboard data to get their value
+    const fullLeaderboard = leaderboardData[activeTab];
+    const userData = fullLeaderboard.find(entry => entry.isCurrentUser);
 
-    let value: string;
-    switch (activeTab) {
-      case "reaction":
-        value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
-        break;
-      case "survival":
-        value = `${(userData as SafeSurvivalLeaderboard).best_survival_score}`;
-        break;
-      case "physics":
-        value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
-        break;
-      case "rotation":
-        value = formatRotationTime((userData as SafeRotationLeaderboard).best_rotation_time);
-        break;
+    // If user not found in leaderboard data, we still show their position
+    // but without the specific value (since we don't have their score)
+    let value = "N/A";
+
+    if (userData) {
+      switch (activeTab) {
+        case "reaction":
+          value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
+          break;
+        case "survival":
+          value = `${(userData as SafeSurvivalLeaderboard).best_survival_score}`;
+          break;
+        case "physics":
+          value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
+          break;
+        case "rotation":
+          value = formatRotationTime((userData as SafeRotationLeaderboard).best_rotation_time);
+          break;
+      }
     }
 
     return { position: userPosition, value };
-  };
+  }, [leaderboardData, activeTab]);
 
   const handleRefresh = async () => {
     clearError();
     await fetchLeaderboards();
   };
+
+  const isUserInTop = isUserInTopLeaderboard(activeTab);
 
   if (isLoading) {
     return (
@@ -454,12 +482,10 @@ function LeaderboardPageContent() {
 
   const champion = getChampion();
   const restOfLeaderboard = getRestOfLeaderboard();
-  const userPositionData = getUserPositionValue();
-  const isUserInTop = isUserInTopLeaderboard(activeTab);
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
-      {/* Aurora Background */}
+      {/* Stable Aurora Background - memoized to prevent re-renders */}
       <div className="absolute inset-0 z-0 h-96">
         <Aurora
           colorStops={["#1a1a2e", "#16213e", "#0f1419"]}
@@ -514,9 +540,9 @@ function LeaderboardPageContent() {
           )}
         </div>
 
-        {/* Mode Tabs */}
+        {/* Mode Tabs - Made more transparent */}
         <div className="text-center mb-4">
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-lg p-1 inline-block">
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1 inline-block">
             <div className="flex space-x-1">
               {(["reaction", "survival", "physics", "rotation"] as const).map((tab) => (
                 <button
@@ -524,8 +550,8 @@ function LeaderboardPageContent() {
                   className={`
                     px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200
                     ${activeTab === tab
-                      ? "bg-white/20 text-white border border-white/30"
-                      : "text-white/60 hover:text-white/80"
+                      ? "bg-white/10 text-white border border-white/20"
+                      : "text-white/60 hover:text-white/80 hover:bg-white/5"
                     }
                   `}
                   onClick={() => handleTabChange(tab)}
@@ -540,8 +566,8 @@ function LeaderboardPageContent() {
           </div>
         </div>
 
-        {/* User Position */}
-        {userPositionData && !isUserInTop && (
+        {/* User Position - FIXED: Now shows for users outside top 10 */}
+        {getUserPositionData && !isUserInTop && (
           <div className="mb-4 px-4 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
             <div className="rounded-lg bg-white/5 border border-white/10 backdrop-blur-sm">
               <div className="px-4 py-3">
@@ -556,8 +582,8 @@ function LeaderboardPageContent() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xl font-bold text-white">#{userPositionData.position}</div>
-                    <div className="text-white/50 text-xs">{userPositionData.value}</div>
+                    <div className="text-xl font-bold text-white">#{getUserPositionData.position}</div>
+                    <div className="text-white/50 text-xs">{getUserPositionData.value}</div>
                   </div>
                 </div>
               </div>
