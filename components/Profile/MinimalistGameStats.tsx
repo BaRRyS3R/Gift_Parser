@@ -202,11 +202,6 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
               label={t("profile.totalGames")}
               value={user.total_games}
             />
-            <StatItem
-              icon={Trophy}
-              label={t("profile.stats.bestScore")}
-              value={user.best_score}
-            />
           </StatsSection>
 
           {/* Reaction Mode Statistics Section */}
