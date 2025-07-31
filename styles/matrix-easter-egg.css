@@ -1,24 +1,14 @@
 /* src/styles/matrix-easter-egg.css */
-/* Matrix Easter Egg Animation Styles */
+/* Matrix Easter Egg Animation Styles - Mobile Only */
 
-/* Core Matrix glitch animation for peak phase overlay effects */
-@keyframes matrix-glitch {
+/* Core Matrix glitch animation for mobile devices */
+@keyframes matrix-glitch-mobile {
     0% {
         transform: translateX(0);
-        opacity: 0.8;
-    }
-
-    10% {
-        transform: translateX(-2px);
         opacity: 0.9;
     }
 
     20% {
-        transform: translateX(2px);
-        opacity: 0.7;
-    }
-
-    30% {
         transform: translateX(-1px);
         opacity: 0.8;
     }
@@ -28,214 +18,125 @@
         opacity: 0.9;
     }
 
-    50% {
+    60% {
         transform: translateX(0);
-        opacity: 0.6;
+        opacity: 0.7;
     }
 
-    60% {
+    80% {
         transform: translateX(-1px);
         opacity: 0.8;
     }
 
-    70% {
-        transform: translateX(1px);
-        opacity: 0.9;
-    }
-
-    80% {
-        transform: translateX(-2px);
-        opacity: 0.7;
-    }
-
-    90% {
-        transform: translateX(2px);
-        opacity: 0.8;
-    }
-
     100% {
         transform: translateX(0);
-        opacity: 0.8;
+        opacity: 0.9;
     }
 }
 
-/* Matrix scanline effect for enhanced visual depth */
-@keyframes matrix-scanline {
+/* Mobile fade in/out animation */
+@keyframes matrix-mobile-fade {
     0% {
-        transform: translateY(-100vh);
         opacity: 0;
-    }
-
-    10% {
-        opacity: 0.3;
-    }
-
-    90% {
-        opacity: 0.3;
-    }
-
-    100% {
-        transform: translateY(100vh);
-        opacity: 0;
-    }
-}
-
-/* Text corruption effect for transformation phase */
-@keyframes matrix-text-corruption {
-    0% {
-        text-shadow: 0 0 0 transparent;
-        color: inherit;
-    }
-
-    25% {
-        text-shadow: 2px 0 0 #00ff00, -2px 0 0 #ff0040;
-        color: #00ff00;
     }
 
     50% {
-        text-shadow: -2px 0 0 #00ff00, 2px 0 0 #ff0040;
-        color: #ffffff;
-    }
-
-    75% {
-        text-shadow: 2px 0 0 #ff0040, -2px 0 0 #00ff00;
-        color: #00ff00;
+        opacity: 0.6;
     }
 
     100% {
-        text-shadow: 0 0 10px #00ff00;
-        color: #00ff00;
+        opacity: 0.3;
     }
 }
 
-/* Matrix overlay fade effect for smooth transitions */
-@keyframes matrix-overlay-fade {
-    0% {
-        opacity: 0;
-        background-position: 0% 0%;
-    }
+/* CSS classes for Matrix Easter Egg mobile usage */
 
-    50% {
-        opacity: 0.1;
-        background-position: 100% 100%;
-    }
-
-    100% {
-        opacity: 0.05;
-        background-position: 0% 0%;
-    }
-}
-
-/* CSS classes for Matrix Easter Egg component usage */
-
-/* Main glitch overlay effect applied during peak phase */
+/* Main glitch overlay effect for mobile */
 .matrix-glitch-overlay {
-    animation: matrix-glitch 0.1s infinite;
+    animation: matrix-glitch-mobile 0.15s infinite;
     will-change: transform, opacity;
     backface-visibility: hidden;
     transform: translateZ(0);
+    -webkit-transform: translateZ(0);
 }
 
-/* Scanline effect for additional Matrix atmosphere */
-.matrix-scanline-effect {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg,
-            transparent 0%,
-            rgba(0, 255, 0, 0.6) 50%,
-            transparent 100%);
-    animation: matrix-scanline 3s linear infinite;
-    pointer-events: none;
-    z-index: 10000;
-}
-
-/* Text corruption class for DOM element transformation */
-.matrix-text-corrupted {
-    animation: matrix-text-corruption 0.5s ease-in-out infinite alternate;
-    font-family: 'Courier New', monospace;
-    letter-spacing: 0.1em;
-}
-
-/* Canvas container optimizations for smooth rendering */
+/* Mobile canvas container optimizations */
 .matrix-canvas-container {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     pointer-events: none;
     z-index: 9999;
     will-change: opacity;
     backface-visibility: hidden;
     transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    contain: strict;
 }
 
-/* Matrix background pattern for enhanced depth perception */
+/* Mobile background pattern */
 .matrix-background-pattern {
     background-image:
-        linear-gradient(90deg, rgba(0, 255, 0, 0.02) 1px, transparent 1px),
-        linear-gradient(0deg, rgba(0, 255, 0, 0.02) 1px, transparent 1px);
-    background-size: 20px 20px;
-    animation: matrix-overlay-fade 4s ease-in-out infinite;
+        linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+    background-size: 16px 16px;
+    animation: matrix-mobile-fade 3s ease-in-out infinite;
 }
 
-/* Performance optimizations for mobile devices */
-@media (max-width: 768px) {
-    .matrix-glitch-overlay {
-        animation-duration: 0.15s;
-    }
-
-    .matrix-scanline-effect {
-        animation-duration: 4s;
-    }
-
-    .matrix-text-corrupted {
-        animation-duration: 0.7s;
-    }
+/* Touch optimization for mobile devices */
+.matrix-touch-optimized {
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    tap-highlight-color: transparent;
 }
 
-/* High refresh rate display optimizations */
-@media (min-resolution: 120dpi) {
-    .matrix-glitch-overlay {
-        animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
+/* Mobile performance optimizations */
+.matrix-mobile-optimized {
+    transform: translate3d(0, 0, 0);
+    -webkit-transform: translate3d(0, 0, 0);
+    will-change: transform, opacity;
+    contain: layout style paint;
+    isolation: isolate;
 }
 
-/* Reduced motion accessibility support */
+/* Reduced motion support for mobile */
 @media (prefers-reduced-motion: reduce) {
     .matrix-glitch-overlay {
-        animation-duration: 0.3s;
-        animation-iteration-count: 3;
+        animation-duration: 0.5s;
+        animation-iteration-count: 2;
     }
 
-    .matrix-scanline-effect {
+    .matrix-background-pattern {
         animation: none;
         opacity: 0.1;
     }
+}
 
-    .matrix-text-corrupted {
-        animation: none;
-        color: #00ff00;
-        text-shadow: 0 0 5px #00ff00;
+/* Very small screen optimization */
+@media (max-width: 320px) {
+    .matrix-glitch-overlay {
+        animation-duration: 0.2s;
     }
 }
 
-/* Print media optimization to hide effects */
-@media print {
-
-    .matrix-glitch-overlay,
-    .matrix-scanline-effect,
+/* Portrait orientation optimization */
+@media (orientation: portrait) {
     .matrix-canvas-container {
-        display: none !important;
+        height: 100vh;
+        height: 100dvh;
+        /* Dynamic viewport height for mobile */
     }
+}
 
-    .matrix-text-corrupted {
-        animation: none;
-        color: inherit;
-        text-shadow: none;
-        font-family: inherit;
+/* Landscape orientation optimization */
+@media (orientation: landscape) and (max-height: 500px) {
+    .matrix-canvas-container {
+        height: 100vh;
+        height: 100dvh;
     }
 }

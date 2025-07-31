@@ -20,16 +20,17 @@ interface MatrixEasterEggProps {
     onComplete: () => void;
 }
 
-const MATRIX_CHARS = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+-=[]{}|;:,.<>?";
-const ANIMATION_DURATION = 7000; // 7 seconds total
-const CLICK_TIMEOUT = 2000; // 2 seconds timeout for triple click
+const MATRIX_CHARS = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const ANIMATION_DURATION = 6000; // 6 seconds total for mobile
+const CLICK_TIMEOUT = 2000;
+const MOBILE_COLUMN_WIDTH = 16;
+const MOBILE_FONT_SIZE = 12;
 
 enum AnimationPhase {
     INACTIVE = "inactive",
-    ACTIVATION = "activation",     // 0.5s
-    TRANSFORMATION = "transformation", // 2s
-    PEAK = "peak",                // 3s
-    RESTORATION = "restoration"    // 1.5s
+    ACTIVATION = "activation",     // 1s
+    PEAK = "peak",                // 4s
+    RESTORATION = "restoration"    // 1s
 }
 
 export default function MatrixEasterEgg({
@@ -42,167 +43,119 @@ export default function MatrixEasterEgg({
     const animationRef = useRef<number>();
     const columnsRef = useRef<MatrixColumn[]>([]);
     const startTimeRef = useRef<number>(0);
-    const originalTextsRef = useRef<Map<Element, string>>(new Map());
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const [currentPhase, setCurrentPhase] = useState<AnimationPhase>(AnimationPhase.INACTIVE);
     const [clickCount, setClickCount] = useState(0);
     const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
 
-    // Initialize Matrix columns
+    // Initialize Matrix columns for mobile
     const initializeColumns = useCallback((canvasWidth: number, canvasHeight: number) => {
         const columns: MatrixColumn[] = [];
-        const columnWidth = 20;
-        const numColumns = Math.floor(canvasWidth / columnWidth);
+        const numColumns = Math.floor(canvasWidth / MOBILE_COLUMN_WIDTH);
 
         for (let i = 0; i < numColumns; i++) {
             columns.push({
-                x: i * columnWidth,
-                y: Math.random() * canvasHeight,
-                speed: Math.random() * 3 + 1,
+                x: i * MOBILE_COLUMN_WIDTH,
+                y: Math.random() * canvasHeight - 200,
+                speed: Math.random() * 2 + 1,
                 chars: Array.from({ length: 20 }, () =>
                     MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)]
                 ),
-                opacity: Math.random() * 0.5 + 0.5,
-                length: Math.floor(Math.random() * 15) + 5
+                opacity: Math.random() * 0.4 + 0.6,
+                length: Math.floor(Math.random() * 12) + 8
             });
         }
 
         columnsRef.current = columns;
     }, []);
 
-    // Draw Matrix effect on canvas
+    // Draw Matrix effect optimized for mobile
     const drawMatrix = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, progress: number) => {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        // Semi-transparent black overlay for trail effect
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         const columns = columnsRef.current;
-        const fontSize = 14;
-        ctx.font = `${fontSize}px 'Courier New', monospace`;
+        ctx.font = `${MOBILE_FONT_SIZE}px 'Courier New', monospace`;
 
-        columns.forEach((column, index) => {
-            // Calculate opacity based on animation phase
-            let baseOpacity = 0;
-            if (currentPhase === AnimationPhase.ACTIVATION) {
-                baseOpacity = progress * 0.7;
-            } else if (currentPhase === AnimationPhase.TRANSFORMATION) {
-                baseOpacity = 0.7 + (progress * 0.3);
-            } else if (currentPhase === AnimationPhase.PEAK) {
-                baseOpacity = 1;
-            } else if (currentPhase === AnimationPhase.RESTORATION) {
-                baseOpacity = 1 - progress;
-            }
+        // Calculate phase-based opacity
+        let baseOpacity = 0;
+        if (currentPhase === AnimationPhase.ACTIVATION) {
+            baseOpacity = progress;
+        } else if (currentPhase === AnimationPhase.PEAK) {
+            baseOpacity = 1;
+        } else if (currentPhase === AnimationPhase.RESTORATION) {
+            baseOpacity = 1 - progress;
+        }
 
-            // Draw column characters
+        columns.forEach((column) => {
             for (let i = 0; i < column.length; i++) {
-                const charIndex = Math.floor((column.y / fontSize + i) % column.chars.length);
+                const charIndex = Math.floor((column.y / MOBILE_FONT_SIZE + i) % column.chars.length);
                 const char = column.chars[charIndex];
-                const y = (column.y + (i * fontSize)) % canvas.height;
+                const y = column.y + (i * MOBILE_FONT_SIZE);
 
-                // Highlight effect for leading character
-                if (i === 0) {
-                    ctx.fillStyle = `rgba(255, 255, 255, ${baseOpacity * column.opacity})`;
-                } else {
-                    const fade = Math.max(0, 1 - (i / column.length));
-                    ctx.fillStyle = `rgba(0, 255, 0, ${baseOpacity * column.opacity * fade})`;
+                if (y > 0 && y < canvas.height) {
+                    // Leading character (bright white)
+                    if (i === 0) {
+                        ctx.fillStyle = `rgba(255, 255, 255, ${baseOpacity * column.opacity})`;
+                    } else {
+                        // Trailing characters (green with fade)
+                        const fade = Math.max(0, 1 - (i / column.length));
+                        ctx.fillStyle = `rgba(0, 255, 0, ${baseOpacity * column.opacity * fade * 0.8})`;
+                    }
+
+                    ctx.fillText(char, column.x, y);
                 }
-
-                ctx.fillText(char, column.x, y);
             }
 
             // Update column position
             column.y += column.speed;
-            if (column.y > canvas.height) {
-                column.y = -fontSize * column.length;
-                // Randomize column properties
-                column.speed = Math.random() * 3 + 1;
-                column.opacity = Math.random() * 0.5 + 0.5;
-                column.chars = Array.from({ length: 20 }, () =>
-                    MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)]
-                );
-            }
 
-            // Random character changes during peak phase
-            if (currentPhase === AnimationPhase.PEAK && Math.random() < 0.1) {
-                const randomIndex = Math.floor(Math.random() * column.chars.length);
-                column.chars[randomIndex] = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
-            }
-        });
-    }, [currentPhase]);
+            // Reset column when it goes off screen
+            if (column.y > canvas.height + MOBILE_FONT_SIZE * column.length) {
+                column.y = -MOBILE_FONT_SIZE * column.length;
+                column.speed = Math.random() * 2 + 1;
+                column.opacity = Math.random() * 0.4 + 0.6;
 
-    // Transform text elements on the page
-    const transformTextElements = useCallback((progress: number) => {
-        const elements = document.querySelectorAll('h1, h2, h3, h4, p, span, button, div');
-
-        elements.forEach((element) => {
-            const textContent = element.textContent;
-            if (!textContent || textContent.trim().length === 0) return;
-
-            // Store original text if not already stored
-            if (!originalTextsRef.current.has(element)) {
-                originalTextsRef.current.set(element, textContent);
-            }
-
-            const originalText = originalTextsRef.current.get(element) || textContent;
-
-            if (currentPhase === AnimationPhase.TRANSFORMATION) {
-                // Gradually transform text to Matrix characters
-                const transformedText = originalText
-                    .split('')
-                    .map((char, index) => {
-                        const shouldTransform = (index / originalText.length) < progress;
-                        if (shouldTransform && char !== ' ') {
-                            return MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
-                        }
-                        return char;
-                    })
-                    .join('');
-
-                element.textContent = transformedText;
-                (element as HTMLElement).style.color = progress > 0.5 ? '#00ff00' : '#ffffff';
-                (element as HTMLElement).style.textShadow = `0 0 ${progress * 10}px #00ff00`;
-            } else if (currentPhase === AnimationPhase.PEAK) {
-                // Full Matrix characters with flickering
-                if (Math.random() < 0.3) {
-                    const matrixText = originalText
-                        .split('')
-                        .map(char => char === ' ' ? ' ' : MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)])
-                        .join('');
-                    element.textContent = matrixText;
+                // Randomize some characters
+                for (let i = 0; i < 3; i++) {
+                    const randomIndex = Math.floor(Math.random() * column.chars.length);
+                    column.chars[randomIndex] = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
                 }
-                (element as HTMLElement).style.color = '#00ff00';
-                (element as HTMLElement).style.textShadow = '0 0 10px #00ff00';
-            } else if (currentPhase === AnimationPhase.RESTORATION) {
-                // Gradually restore original text
-                const restoredText = originalText
-                    .split('')
-                    .map((char, index) => {
-                        const shouldRestore = (index / originalText.length) < progress;
-                        if (shouldRestore) {
-                            return char;
-                        }
-                        return MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
-                    })
-                    .join('');
-
-                element.textContent = restoredText;
-                const greenIntensity = 1 - progress;
-                (element as HTMLElement).style.color = `rgb(${progress * 255}, 255, ${progress * 255})`;
-                (element as HTMLElement).style.textShadow = `0 0 ${greenIntensity * 10}px #00ff00`;
             }
         });
     }, [currentPhase]);
 
-    // Restore all text elements to original state
-    const restoreTextElements = useCallback(() => {
-        originalTextsRef.current.forEach((originalText, element) => {
-            element.textContent = originalText;
-            (element as HTMLElement).style.color = '';
-            (element as HTMLElement).style.textShadow = '';
+    // Hide original page content during effect
+    const hidePageContent = useCallback(() => {
+        const body = document.body;
+        const allElements = body.querySelectorAll('*:not(canvas):not([data-matrix-overlay])');
+
+        allElements.forEach((element) => {
+            const htmlElement = element as HTMLElement;
+            if (htmlElement && htmlElement !== containerRef.current && !containerRef.current?.contains(htmlElement)) {
+                htmlElement.style.opacity = '0';
+                htmlElement.style.transition = 'opacity 0.3s ease';
+            }
         });
-        originalTextsRef.current.clear();
     }, []);
 
-    // Animation loop
+    // Restore page content visibility
+    const showPageContent = useCallback(() => {
+        const body = document.body;
+        const allElements = body.querySelectorAll('*:not(canvas):not([data-matrix-overlay])');
+
+        allElements.forEach((element) => {
+            const htmlElement = element as HTMLElement;
+            if (htmlElement && htmlElement !== containerRef.current && !containerRef.current?.contains(htmlElement)) {
+                htmlElement.style.opacity = '1';
+                htmlElement.style.transition = 'opacity 0.5s ease';
+            }
+        });
+    }, []);
+
+    // Main animation loop with proper completion
     const animate = useCallback((timestamp: number) => {
         if (!startTimeRef.current) {
             startTimeRef.current = timestamp;
@@ -211,22 +164,19 @@ export default function MatrixEasterEgg({
         const elapsed = timestamp - startTimeRef.current;
         const totalProgress = Math.min(elapsed / ANIMATION_DURATION, 1);
 
-        // Determine current phase and progress within phase
+        // Determine current phase and progress
         let phase = AnimationPhase.ACTIVATION;
         let phaseProgress = 0;
 
-        if (elapsed < 500) {
+        if (elapsed < 1000) {
             phase = AnimationPhase.ACTIVATION;
-            phaseProgress = elapsed / 500;
-        } else if (elapsed < 2500) {
-            phase = AnimationPhase.TRANSFORMATION;
-            phaseProgress = (elapsed - 500) / 2000;
-        } else if (elapsed < 5500) {
+            phaseProgress = elapsed / 1000;
+        } else if (elapsed < 5000) {
             phase = AnimationPhase.PEAK;
-            phaseProgress = (elapsed - 2500) / 3000;
-        } else if (elapsed < 7000) {
+            phaseProgress = (elapsed - 1000) / 4000;
+        } else if (elapsed < 6000) {
             phase = AnimationPhase.RESTORATION;
-            phaseProgress = (elapsed - 5500) / 1500;
+            phaseProgress = (elapsed - 5000) / 1000;
         }
 
         setCurrentPhase(phase);
@@ -238,20 +188,16 @@ export default function MatrixEasterEgg({
             drawMatrix(ctx, canvas, phaseProgress);
         }
 
-        // Transform text elements
-        if (phase !== AnimationPhase.ACTIVATION) {
-            transformTextElements(phaseProgress);
-        }
-
         // Continue animation or complete
         if (totalProgress < 1) {
             animationRef.current = requestAnimationFrame(animate);
         } else {
-            restoreTextElements();
+            // Animation completed - clean up and restore
             setCurrentPhase(AnimationPhase.INACTIVE);
+            showPageContent();
             onComplete();
         }
-    }, [drawMatrix, transformTextElements, restoreTextElements, onComplete]);
+    }, [drawMatrix, showPageContent, onComplete]);
 
     // Handle triple click detection
     const handleTriggerClick = useCallback(() => {
@@ -259,12 +205,10 @@ export default function MatrixEasterEgg({
 
         setClickCount(prev => prev + 1);
 
-        // Clear existing timeout
         if (clickTimeout) {
             clearTimeout(clickTimeout);
         }
 
-        // Set new timeout to reset click count
         const newTimeout = setTimeout(() => {
             setClickCount(0);
         }, CLICK_TIMEOUT);
@@ -281,48 +225,65 @@ export default function MatrixEasterEgg({
         }
     }, [isActive, clickCount, clickTimeout, onActivate]);
 
-    // Set up canvas and start animation when activated
+    // Setup canvas and start animation when activated
     useEffect(() => {
         if (!isActive) return;
 
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Set canvas size
+        // Setup canvas for mobile viewport
+        const rect = document.body.getBoundingClientRect();
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
+        // Set canvas style for mobile
+        canvas.style.width = '100vw';
+        canvas.style.height = '100vh';
+
         // Initialize Matrix columns
         initializeColumns(canvas.width, canvas.height);
+
+        // Hide page content
+        hidePageContent();
 
         // Start animation
         startTimeRef.current = 0;
         animationRef.current = requestAnimationFrame(animate);
 
-        // Handle ESC key and click to skip
-        const handleSkip = (e: KeyboardEvent | MouseEvent) => {
-            if (e instanceof KeyboardEvent && e.key === 'Escape') {
+        // Handle touch events to skip animation
+        const handleTouch = () => {
+            if (currentPhase === AnimationPhase.PEAK) {
                 if (animationRef.current) {
                     cancelAnimationFrame(animationRef.current);
                 }
-                restoreTextElements();
                 setCurrentPhase(AnimationPhase.INACTIVE);
+                showPageContent();
                 onComplete();
             }
         };
 
-        document.addEventListener('keydown', handleSkip);
+        // Handle escape key
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                handleTouch();
+            }
+        };
+
+        document.addEventListener('touchstart', handleTouch, { passive: true });
+        document.addEventListener('keydown', handleKeyDown);
 
         return () => {
             if (animationRef.current) {
                 cancelAnimationFrame(animationRef.current);
             }
-            document.removeEventListener('keydown', handleSkip);
-            restoreTextElements();
+            document.removeEventListener('touchstart', handleTouch);
+            document.removeEventListener('keydown', handleKeyDown);
+            showPageContent();
         };
-    }, [isActive, initializeColumns, animate, restoreTextElements, onComplete]);
+    }, [isActive, initializeColumns, animate, hidePageContent, showPageContent, onComplete, currentPhase]);
 
-    // Set up trigger element click listener
+    // Setup trigger element click listener
     useEffect(() => {
         const element = triggerElementRef.current;
         if (!element) return;
@@ -343,42 +304,46 @@ export default function MatrixEasterEgg({
             if (animationRef.current) {
                 cancelAnimationFrame(animationRef.current);
             }
+            showPageContent();
         };
-    }, [clickTimeout]);
+    }, [clickTimeout, showPageContent]);
 
     if (!isActive) return null;
 
     return createPortal(
         <div
-            className="matrix-canvas-container"
+            ref={containerRef}
+            data-matrix-overlay="true"
+            className="fixed inset-0 z-[9999]"
             style={{
-                background: currentPhase === AnimationPhase.PEAK ? 'rgba(0, 0, 0, 0.3)' : 'transparent',
-                transition: 'background 0.5s ease-in-out'
+                width: '100vw',
+                height: '100vh',
+                background: '#000000',
+                touchAction: 'none',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                WebkitTouchCallout: 'none'
             }}
         >
             <canvas
                 ref={canvasRef}
-                className="absolute inset-0 w-full h-full"
+                className="absolute inset-0"
                 style={{
-                    mixBlendMode: currentPhase === AnimationPhase.PEAK ? 'screen' : 'normal',
-                    opacity: currentPhase === AnimationPhase.INACTIVE ? 0 : 1,
-                    transition: 'opacity 0.5s ease-in-out'
+                    width: '100%',
+                    height: '100%',
+                    display: 'block',
+                    touchAction: 'none'
                 }}
             />
 
-            {/* Matrix background pattern for enhanced depth */}
+            {/* Touch hint for mobile users */}
             {currentPhase === AnimationPhase.PEAK && (
-                <div className="absolute inset-0 w-full h-full matrix-background-pattern" />
-            )}
-
-            {/* Glitch effect overlay during peak phase */}
-            {currentPhase === AnimationPhase.PEAK && (
-                <div className="absolute inset-0 w-full h-full animate-pulse matrix-glitch-overlay" />
-            )}
-
-            {/* Scanline effect for additional atmosphere */}
-            {(currentPhase === AnimationPhase.TRANSFORMATION || currentPhase === AnimationPhase.PEAK) && (
-                <div className="matrix-scanline-effect" />
+                <div
+                    className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-green-400 text-sm opacity-60 animate-pulse"
+                    style={{ fontFamily: 'Courier New, monospace' }}
+                >
+                    Touch to exit
+                </div>
             )}
         </div>,
         document.body
