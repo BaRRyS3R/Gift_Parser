@@ -530,7 +530,7 @@ function MainPageContent() {
             }`
             : "opacity-100 translate-y-0"
           }`}
-        style={{ top: "16px" }} // Moved to very top
+        style={{ top: "24px" }} // Moved to very top
       >
         <SeasonButton
           isTransitioning={isTransitioning}
