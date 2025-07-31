@@ -51,6 +51,7 @@ function handleCORSPreflight(request: NextRequest): NextResponse | null {
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_ALLOWED_ORIGIN,
     "https://web.telegram.org",
+    "https://notfren.com",
     "https://telegram.org",
     "http://localhost:3000", // For development
   ].filter(Boolean);
@@ -87,6 +88,7 @@ function addCORSHeaders(response: NextResponse, request: NextRequest): void {
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_ALLOWED_ORIGIN,
     "https://web.telegram.org",
+    "https://notfren.com",
     "https://telegram.org",
     "http://localhost:3000", // For development
   ].filter(Boolean);
