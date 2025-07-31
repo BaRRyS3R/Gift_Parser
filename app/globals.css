@@ -1,10 +1,8 @@
-/* src/app/globals.css - Complete file with rotation mode fixes */
+/* src/app/globals.css - Complete file with Cat Easter Egg animations added */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('/styles/cat-easter-egg.css');
 
 @font-face {
   font-family: "BPDots Diamond";
@@ -124,6 +122,53 @@ body {
     transform: scale(2.5);
     opacity: 0;
   }
+}
+
+/* Cat Easter Egg Animations */
+@keyframes catSlideAnimation {
+  0% {
+    transform: translateY(100%);
+  }
+  16.67% {
+    transform: translateY(0%);
+  }
+  83.33% {
+    transform: translateY(0%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes catPulseAnimation {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.9);
+  }
+  16.67% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  83.33% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.8;
+    transform: scale(0.9);
+  }
+}
+
+.cat-easter-egg-container {
+  animation: catSlideAnimation 9s ease-in-out forwards;
+}
+
+.cat-image-container {
+  animation: catPulseAnimation 9s ease-in-out forwards;
 }
 
 /* Enhanced Premium Animations for Tournaments */
@@ -409,6 +454,15 @@ body {
   .animate-pulse-gentle {
     animation-duration: 1.5s;
   }
+  
+  /* Enhanced mobile performance for cat easter egg */
+  .cat-easter-egg-container {
+    animation-duration: 8s;
+  }
+  
+  .cat-image-container {
+    animation-duration: 8s;
+  }
 }
 
 @keyframes fade-out-down {
@@ -620,6 +674,16 @@ body {
   .activation-pulse,
   .activation-pulse-red {
     animation-duration: 0.3s;
+  }
+  
+  .cat-easter-egg-container {
+    animation-duration: 3s;
+  }
+  
+  .cat-image-container {
+    animation: none;
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
