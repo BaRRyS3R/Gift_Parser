@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('../styles/matrix-easter-egg.css');
+@import './styles/stonks.css';
 
 @font-face {
   font-family: "BPDots Diamond";
