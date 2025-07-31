@@ -326,9 +326,9 @@ function LeaderboardPageContent() {
       case "survival":
         return `${champion.best_survival_score}`;
       case "physics":
-        return `${champion.best_physics_score}`;
+        return `${champion.best_physics_score}`; // Изменено
       case "rotation":
-        return formatRotationTime(champion.best_rotation_time);
+        return `${champion.best_rotation_score}`; // Изменено
     }
   };
 
@@ -337,11 +337,11 @@ function LeaderboardPageContent() {
       case "reaction":
         return `${player.best_reaction_time}ms`;
       case "survival":
-        return `${player.best_survival_score}`;
+        return `${player.best_survival_score}`; // Очки
       case "physics":
-        return `${player.best_physics_score}`;
+        return `${player.best_physics_score}`; // Изменено: теперь показываем очки вместо времени
       case "rotation":
-        return formatRotationTime(player.best_rotation_time);
+        return `${player.best_rotation_score}`; // Изменено: теперь показываем очки вместо времени
     }
   };
 

@@ -455,23 +455,24 @@ export const getRotationDeathCause = (
 };
 
 export const createRotationGameResult = (
-  state: RotationGameState,
+  state: RotationGameState
 ): RotationGameResult => {
-  const finalState = updateRotationLevel(state, Date.now());
-  const finalScore = calculateRotationScore(
-    finalState.stats,
-    finalState.currentLevel,
-  );
-  const deathCause = getRotationDeathCause(finalState.stats);
+  // Унифицированная формула расчёта очков
+  const timeScore = Math.floor(state.stats.survivalTime / 1000); // Время в секундах
+  const levelScore = state.currentLevel; // Достигнутый уровень
+  const hitsScore = state.stats.correctHits; // Количество попаданий
+
+  const finalScore = timeScore + levelScore + hitsScore;
+  const deathCause = getRotationDeathCause(state.stats);
 
   return {
     mode: GameMode.ROTATION,
-    score: finalScore,
-    duration: Math.floor(finalState.stats.survivalTime / 1000),
-    survivalTime: finalState.stats.survivalTime,
-    maxLevelReached: finalState.currentLevel,
-    perfectStreak: finalState.stats.perfectStreak,
-    correctHits: finalState.stats.correctHits,
+    score: finalScore, // Единая система очков
+    duration: Math.floor(state.stats.survivalTime / 1000),
+    survivalTime: state.stats.survivalTime,
+    maxLevelReached: state.currentLevel,
+    perfectStreak: state.stats.perfectStreak,
+    correctHits: state.stats.correctHits,
     deathCause,
     createdAt: new Date().toISOString(),
   };

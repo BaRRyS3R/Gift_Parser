@@ -610,22 +610,27 @@ export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {
   return Math.max(0, Math.round(baseScore + timeBonus - mistakePenalty));
 };
 
+// Заменить существующую формулу подсчёта на унифицированную
 export const createPhysicsGameResult = (
   state: PhysicsGameState,
-  deathCause: PhysicsGameResult["deathCause"],
+  deathCause: PhysicsGameResult["deathCause"]
 ): PhysicsGameResult => {
-  const finalState = updatePhysicsPositions(state);
-  const finalScore = calculatePhysicsScore(finalState.stats);
+  // Унифицированная формула расчёта очков (аналогично режиму Выживания)
+  const timeScore = Math.floor(state.stats.gameTime / 1000); // Время в секундах
+  const levelScore = state.stats.currentLevel || 1; // Текущий уровень
+  const hitsScore = state.stats.correctHits; // Количество попаданий
+
+  const finalScore = timeScore + levelScore + hitsScore;
 
   return {
     mode: GameMode.PHYSICS,
-    score: Math.round(finalScore),
-    duration: Math.floor(finalState.stats.gameTime / 1000),
-    gameTime: Math.round(finalState.stats.gameTime),
-    totalHits: finalState.stats.correctHits,
-    mistakesMade: finalState.stats.currentMistakes,
-    finalScore: Math.round(finalScore),
-    survivalTime: Math.round(finalState.stats.gameTime),
+    score: finalScore, // Единая система очков
+    duration: Math.floor(state.stats.gameTime / 1000),
+    gameTime: state.stats.gameTime,
+    totalHits: state.stats.correctHits,
+    mistakesMade: state.stats.currentMistakes,
+    finalScore: finalScore, // Дублируем для обратной совместимости
+    survivalTime: state.stats.gameTime, // Время игры как время выживания
     deathCause,
     createdAt: new Date().toISOString(),
   };

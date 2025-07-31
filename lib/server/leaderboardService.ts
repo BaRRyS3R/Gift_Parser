@@ -170,20 +170,21 @@ export const serverLeaderboardService = {
       .from("users")
       .select(
         `
-                id,
-                first_name,
-                last_name,
-                username,
-                physics_best_score,
-                physics_best_time,
-                physics_best_hits,
-                physics_least_mistakes,
-                physics_games
-            `,
+        id,
+        first_name,
+        last_name,
+        username,
+        physics_best_score,
+        physics_best_time,
+        physics_best_hits,
+        physics_least_mistakes,
+        physics_games
+      `,
       )
       .gt("physics_games", 0)
-      .order("physics_best_score", { ascending: false })
-      .order("physics_best_time", { ascending: false })
+      .order("physics_best_score", { ascending: false }) // Основной критерий: счёт по убыванию
+      .order("physics_best_time", { ascending: false })   // Тай-брейк: время по убыванию
+      .order("physics_best_hits", { ascending: false })   // Дополнительный тай-брейк: попадания
       .limit(limit);
 
     if (error) {
@@ -216,20 +217,22 @@ export const serverLeaderboardService = {
       .from("users")
       .select(
         `
-                id,
-                first_name,
-                last_name,
-                username,
-                rotation_best_time,
-                rotation_max_level,
-                rotation_best_streak,
-                rotation_total_hits,
-                rotation_games
-            `,
+        id,
+        first_name,
+        last_name,
+        username,
+        rotation_best_score,  // Изменено: теперь сортируем по счёту
+        rotation_best_time,
+        rotation_max_level,
+        rotation_best_streak,
+        rotation_total_hits,
+        rotation_games
+      `,
       )
       .gt("rotation_games", 0)
-      .order("rotation_best_time", { ascending: false })
-      .order("rotation_max_level", { ascending: false })
+      .order("rotation_best_score", { ascending: false }) // Основной критерий: счёт по убыванию
+      .order("rotation_best_time", { ascending: false })  // Тай-брейк: время по убыванию
+      .order("rotation_max_level", { ascending: false })  // Дополнительный тай-брейк: уровень
       .limit(limit);
 
     if (error) {
@@ -303,7 +306,7 @@ export const serverLeaderboardService = {
         .select("id", { count: "exact" })
         .gt("physics_games", 0)
         .or(
-          `physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time})`
+          `physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time}),and(physics_best_score.eq.${user.physics_best_score},physics_best_time.eq.${user.physics_best_time},physics_best_hits.gt.${user.physics_best_hits})`
         );
 
       if (!physicsError) {
@@ -318,7 +321,7 @@ export const serverLeaderboardService = {
         .select("id", { count: "exact" })
         .gt("rotation_games", 0)
         .or(
-          `rotation_best_time.gt.${user.rotation_best_time},and(rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`
+          `rotation_best_score.gt.${user.rotation_best_score},and(rotation_best_score.eq.${user.rotation_best_score},rotation_best_time.gt.${user.rotation_best_time}),and(rotation_best_score.eq.${user.rotation_best_score},rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`
         );
 
       if (!rotationError) {

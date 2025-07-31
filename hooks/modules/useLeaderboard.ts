@@ -32,7 +32,7 @@ export interface SafePhysicsLeaderboard {
   first_name: string;
   last_name?: string;
   username?: string;
-  best_physics_score: number;
+  best_physics_score: number; // Основной критерий сортировки
   best_physics_time: number;
   best_hits: number;
   least_mistakes: number;
@@ -45,6 +45,7 @@ export interface SafeRotationLeaderboard {
   first_name: string;
   last_name?: string;
   username?: string;
+  best_rotation_score: number; // Основной критерий сортировки
   best_rotation_time: number;
   max_level: number;
   best_streak: number;
