@@ -20,7 +20,7 @@ export const seasons = {
   
   // User position
   yourPosition: "Ваша позиция",
-  currentRanking: "Бест скор",
+  currentRanking: "скор",
   
   // Empty states
   noPlayersYet: "Пока нет игроков",

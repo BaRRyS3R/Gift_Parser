@@ -92,7 +92,7 @@ export default function PhysicsGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -259,7 +259,7 @@ export default function PhysicsGameManager() {
     const delay =
       levelConfig.activationTimeMin +
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
 
     const timeout = setTimeout(() => {
       if (
@@ -459,13 +459,9 @@ export default function PhysicsGameManager() {
           <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-6 space-y-6">
             <div className="text-center space-y-2">
               <div className="text-sm text-purple-400/60">
-                {t("game.modes.physics.results.gameTime")}
+                {t("game.modes.physics.results.finalScore")}
               </div>
-              <div className="text-4xl font-bold text-purple-400">
-                {formatPhysicsTime(gameResult.gameTime)}
-              </div>
-              <div className="text-lg text-purple-300">
-                {t("game.modes.physics.results.finalScore")}:{" "}
+              <div className="text-6xl font-bold text-green-400">
                 {Math.round(gameResult.finalScore)}
               </div>
             </div>
@@ -475,33 +471,26 @@ export default function PhysicsGameManager() {
                 <div className="text-xs text-purple-400/60">
                   {t("game.modes.physics.results.totalHits")}
                 </div>
-                <div className="text-xl font-bold text-green-400">
+                <div className="text-2xl font-bold text-white">
                   {gameResult.totalHits}
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-purple-400/60">
-                  {t("game.modes.physics.results.mistakesMade")}
-                </div>
-                <div className="text-xl font-bold text-red-400">
-                  {gameResult.mistakesMade}/5
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-purple-400/60">
-                  {t("common.score")}
-                </div>
-                <div className="text-xl font-bold text-purple-400">
-                  {Math.round(gameResult.finalScore)}
                 </div>
               </div>
               <div className="text-center space-y-1">
                 <div className="text-xs text-purple-400/60">
                   {t("game.modes.physics.results.survivalTime")}
                 </div>
-                <div className="text-xl font-bold text-purple-400">
+                <div className="text-2xl font-bold text-white">
                   {formatPhysicsTime(gameResult.survivalTime)}
                 </div>
+              </div>
+            </div>
+
+            <div className="text-center space-y-1 border-t border-purple-400/30 pt-4">
+              <div className="text-xs text-purple-400/60">
+                {t("game.modes.physics.results.levelsCompleted")}
+              </div>
+              <div className="text-xl font-bold text-yellow-400">
+                {gameResult.duration < 180 ? Math.floor(gameResult.duration / 60) + 1 : 8}/8
               </div>
             </div>
           </div>
@@ -510,81 +499,81 @@ export default function PhysicsGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-            <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
-                    <span className="text-sm text-purple-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                      <span className="text-sm text-purple-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recording")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-purple-400/60" size={14} />
-                        <span className="text-xs text-purple-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-purple-400/20 rounded-full h-1">
-                        <div
-                          className="bg-purple-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recording")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.recordedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-purple-400/60" size={14} />
+                          <span className="text-xs text-purple-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-purple-400/20 rounded-full h-1">
+                          <div
+                            className="bg-purple-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.recordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 text-sm">
-                      {t("save.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 text-sm">
+                        {t("save.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 text-xs mb-3">
+                      {t("save.recordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("save.retrySave")}
+                    </button>
                   </div>
-                  <div className="text-red-400/60 text-xs mb-3">
-                    {t("save.recordedLocally")}
-                  </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("save.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           <div className="space-y-4">
             <button
@@ -627,37 +616,15 @@ export default function PhysicsGameManager() {
             <div className="flex items-center space-x-2">
               <Zap className="text-purple-400" size={18} />
               <span className="text-lg font-bold text-purple-400">
-                {formatPhysicsTime(gameState.stats.gameTime)}
+                {t("common.level")} {levelInfo.level}/8
               </span>
             </div>
 
             <div className="flex items-center space-x-2">
-              <Target className="text-white" size={18} />
+              <Clock className="text-white" size={18} />
               <span className="text-lg font-bold text-white">
-                {Math.round(gameState.stats.totalScore)}
+                {formatPhysicsTime(gameState.stats.gameTime)}
               </span>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="text-purple-400" size={12} />
-                <span className="text-purple-400/80">
-                  {t("common.level")} {levelInfo.level} {levelInfo.description}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center space-x-2">
-                <Activity className="text-red-400" size={12} />
-                <span className="text-red-300">
-                  {t("game.modes.physics.results.mistakesMade")}:{" "}
-                  {gameState.stats.currentMistakes}/
-                  {gameState.config.maxMistakes}
-                </span>
-              </div>
             </div>
           </div>
         </div>

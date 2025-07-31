@@ -800,7 +800,7 @@ function SeasonsPageContent() {
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold text-white">#{userPosition}</div>
-                    <div className="text-white/50 text-xs">{seasonData.userStats.total_score || 0} {t('seasons.points')}</div>
+                    <div className="text-white/50 text-xs">{seasonData.userStats.total_score || 0}</div>
                   </div>
                 </div>
               </div>

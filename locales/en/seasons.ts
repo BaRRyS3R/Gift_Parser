@@ -20,7 +20,7 @@ export const seasons = {
 
     // User position
     yourPosition: "Your Position",
-    currentRanking: "Best score",
+    currentRanking: "score",
 
     // Empty states
     noPlayersYet: "No Players Yet",

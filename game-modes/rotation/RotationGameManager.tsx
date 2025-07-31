@@ -89,7 +89,7 @@ export default function RotationGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -234,7 +234,7 @@ export default function RotationGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -422,48 +422,38 @@ export default function RotationGameManager() {
           <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-6 space-y-6">
             <div className="text-center space-y-2">
               <div className="text-sm text-orange-400/60">
-                {t("game.modes.rotation.results.survivalTime")}
+                {t("game.modes.rotation.results.finalScore")}
               </div>
-              <div className="text-4xl font-bold text-orange-400">
-                {formatRotationTime(gameResult.survivalTime)}
-              </div>
-              <div className="text-lg text-orange-300">
-                {t("common.level")} {gameResult.maxLevelReached}
+              <div className="text-6xl font-bold text-green-400">
+                {gameResult.score}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center space-y-1">
                 <div className="text-xs text-orange-400/60">
-                  {t("game.modes.rotation.results.finalScore")}
-                </div>
-                <div className="text-xl font-bold text-orange-300">
-                  {gameResult.score}
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-orange-400/60">
-                  {t("game.modes.rotation.results.perfectStreak")}
-                </div>
-                <div className="text-xl font-bold text-green-400">
-                  {gameResult.perfectStreak}
-                </div>
-              </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-orange-400/60">
                   {t("game.modes.rotation.results.correctHits")}
                 </div>
-                <div className="text-xl font-bold text-green-400">
+                <div className="text-2xl font-bold text-white">
                   {gameResult.correctHits}
                 </div>
               </div>
               <div className="text-center space-y-1">
                 <div className="text-xs text-orange-400/60">
-                  {t("game.modes.rotation.results.levelsCompleted")}
+                  {t("game.modes.rotation.results.survivalTime")}
                 </div>
-                <div className="text-xl font-bold text-green-400">
-                  {gameResult.maxLevelReached}/10
+                <div className="text-2xl font-bold text-white">
+                  {formatRotationTime(gameResult.survivalTime)}
                 </div>
+              </div>
+            </div>
+
+            <div className="text-center space-y-1 border-t border-orange-400/30 pt-4">
+              <div className="text-xs text-orange-400/60">
+                {t("game.modes.rotation.results.levelsCompleted")}
+              </div>
+              <div className="text-xl font-bold text-yellow-400">
+                {gameResult.maxLevelReached}/10
               </div>
             </div>
           </div>
@@ -472,76 +462,76 @@ export default function RotationGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-            <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
-                    <span className="text-sm text-orange-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                      <span className="text-sm text-orange-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recordingRotation")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-orange-400/60" size={14} />
-                        <span className="text-xs text-orange-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-orange-400/20 rounded-full h-1">
-                        <div
-                          className="bg-orange-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recordingRotation")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.rotationRecordedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-orange-400/60" size={14} />
+                          <span className="text-xs text-orange-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-orange-400/20 rounded-full h-1">
+                          <div
+                            className="bg-orange-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.rotationRecordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-orange-400 text-sm">
-                      Save failed after {saveStatus.maxAttempts} attempts
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-orange-400 text-sm">
+                        Save failed after {saveStatus.maxAttempts} attempts
+                      </span>
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      Retry Save
+                    </button>
                   </div>
-                  <button
-                    className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    Retry Save
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           <div className="space-y-4">
             <button
@@ -578,7 +568,7 @@ export default function RotationGameManager() {
             <div className="flex items-center space-x-2">
               <RotateCw className="text-orange-400" size={18} />
               <span className="text-lg font-bold text-orange-400">
-                {t("common.level")} {gameState.currentLevel}
+                {t("common.level")} {gameState.currentLevel}/10
               </span>
             </div>
 
