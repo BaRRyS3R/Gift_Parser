@@ -73,14 +73,20 @@ export const serverGameService = {
     const newLevel = serverLeagueService.calculateLevel(newTotalGames);
 
     const updates: any = {
-      total_games: newTotalGames, // Only incremented for competitive modes
-      total_score: user.total_score + gameResult.score,
-      best_score: Math.max(user.best_score, gameResult.score),
+      total_games: newTotalGames,
+      // ИЗМЕНЕНИЕ: total_score обновляется только от режима выживания
+      total_score: gameResult.mode === GameMode.SURVIVAL
+        ? user.total_score + gameResult.score
+        : user.total_score,
+      // ИЗМЕНЕНИЕ: best_score обновляется только от режима выживания
+      best_score: gameResult.mode === GameMode.SURVIVAL
+        ? Math.max(user.best_score, gameResult.score)
+        : user.best_score,
       current_level: newLevel,
       last_played_at: new Date().toISOString(),
     };
 
-    // Mode-specific stats updates
+    // Режимо-специфичные обновления статистики остаются без изменений
     if (gameResult.mode === GameMode.REACTION) {
       const reactionResult = gameResult as ReactionGameResult;
 
@@ -101,8 +107,8 @@ export const serverGameService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
-              (totalReactionGames + 1)
+              reactionResult.reactionTime) /
+            (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);

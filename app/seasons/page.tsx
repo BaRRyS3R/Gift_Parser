@@ -33,7 +33,7 @@ interface PlayerModalProps {
     first_name: string;
     last_name?: string;
     username?: string;
-    survival_best_score: number;
+    total_score: number;
     isCurrentUser?: boolean;
   } | null;
   prize?: string;
@@ -173,7 +173,7 @@ function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
 
             <div className="text-center py-4">
               <div className="text-3xl font-bold text-white mb-1">
-                {player.survival_best_score}
+                {player.total_score}
               </div>
               <div className="text-white/60 text-sm">{t('seasons.points')}</div>
             </div>
@@ -733,7 +733,7 @@ function SeasonsPageContent() {
 
               {/* Score Display */}
               <div className="text-2xl font-bold text-white drop-shadow-lg">
-                {topPlayer.survival_best_score}
+                {topPlayer.total_score}
               </div>
               <div className="text-xs text-white/70 drop-shadow-sm">
                 {t('seasons.points')}
@@ -800,7 +800,7 @@ function SeasonsPageContent() {
                   </div>
                   <div className="text-right">
                     <div className="text-xl font-bold text-white">#{userPosition}</div>
-                    <div className="text-white/50 text-xs">{seasonData.userStats.survival_best_score || 0} {t('seasons.points')}</div>
+                    <div className="text-white/50 text-xs">{seasonData.userStats.total_score || 0} {t('seasons.points')}</div>
                   </div>
                 </div>
               </div>
@@ -863,7 +863,7 @@ function SeasonsPageContent() {
                       {/* Points */}
                       <div className="text-right flex-shrink-0">
                         <div className="font-bold text-white text-lg">
-                          {entry.survival_best_score}
+                          {entry.total_score}
                         </div>
                         <div className="text-xs text-white/50">
                           {t('seasons.points')}

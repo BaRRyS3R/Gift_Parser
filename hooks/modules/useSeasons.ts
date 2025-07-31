@@ -18,7 +18,7 @@ export interface SeasonLeaderboardEntry {
   first_name: string;
   last_name?: string;
   username?: string;
-  survival_best_score: number;
+  total_score: number;
   survival_best_time: number;
   survival_games: number;
   isCurrentUser?: boolean;
@@ -26,7 +26,7 @@ export interface SeasonLeaderboardEntry {
 
 export interface SeasonUserStats {
   position: number | null;
-  survival_best_score: number;
+  total_score: number;
   survival_best_time: number;
   survival_games: number;
 }

@@ -36,7 +36,7 @@ export const leaderboard = {
   allPlayers: "ВСЕ ИГРОКИ",
   // New strings for the leaderboard page
   reactionTime: "время реакции",
-  points: "очков",
+  points: "скор",
   time: "время",
   noChampionYet: "Пока нет чемпиона",
   claimThrone: "Станьте первым, кто завоюет трон!",

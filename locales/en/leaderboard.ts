@@ -36,7 +36,7 @@ export const leaderboard = {
   allPlayers: "ALL PLAYERS",
   // New strings for the leaderboard page
   reactionTime: "reaction time",
-  points: "points",
+  points: "score",
   time: "time",
   noChampionYet: "No champion yet",
   claimThrone: "Be the first to claim the throne!",
