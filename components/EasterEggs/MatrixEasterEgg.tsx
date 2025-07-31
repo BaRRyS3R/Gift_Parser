@@ -350,10 +350,10 @@ export default function MatrixEasterEgg({
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[9999] pointer-events-none"
+            className="matrix-canvas-container"
             style={{
                 background: currentPhase === AnimationPhase.PEAK ? 'rgba(0, 0, 0, 0.3)' : 'transparent',
-                transition: 'background 0.5s ease-inout'
+                transition: 'background 0.5s ease-in-out'
             }}
         >
             <canvas
@@ -366,35 +366,20 @@ export default function MatrixEasterEgg({
                 }}
             />
 
-            {/* Glitch effect overlay during peak phase */}
+            {/* Matrix background pattern for enhanced depth */}
             {currentPhase === AnimationPhase.PEAK && (
-                <div
-                    className="absolute inset-0 w-full h-full animate-pulse"
-                    style={{
-                        background: `
-              linear-gradient(90deg, transparent 98%, rgba(0, 255, 0, 0.1) 100%),
-              linear-gradient(0deg, transparent 98%, rgba(0, 255, 0, 0.1) 100%)
-            `,
-                        animation: 'matrix-glitch 0.1s infinite'
-                    }}
-                />
+                <div className="absolute inset-0 w-full h-full matrix-background-pattern" />
             )}
 
-            <style jsx>{`
-        @keyframes matrix-glitch {
-          0% { transform: translateX(0); }
-          10% { transform: translateX(-2px); }
-          20% { transform: translateX(2px); }
-          30% { transform: translateX(-1px); }
-          40% { transform: translateX(1px); }
-          50% { transform: translateX(0); }
-          60% { transform: translateX(-1px); }
-          70% { transform: translateX(1px); }
-          80% { transform: translateX(-2px); }
-          90% { transform: translateX(2px); }
-          100% { transform: translateX(0); }
-        }
-      `}</style>
+            {/* Glitch effect overlay during peak phase */}
+            {currentPhase === AnimationPhase.PEAK && (
+                <div className="absolute inset-0 w-full h-full animate-pulse matrix-glitch-overlay" />
+            )}
+
+            {/* Scanline effect for additional atmosphere */}
+            {(currentPhase === AnimationPhase.TRANSFORMATION || currentPhase === AnimationPhase.PEAK) && (
+                <div className="matrix-scanline-effect" />
+            )}
         </div>,
         document.body
     );
