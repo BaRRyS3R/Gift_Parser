@@ -18,7 +18,7 @@ export interface SeasonLeaderboardEntry {
   first_name: string;
   last_name?: string;
   username?: string;
-  survival_best_score: number;
+  total_score: number;
   survival_best_time: number;
   survival_games: number;
   isCurrentUser?: boolean;
@@ -26,7 +26,7 @@ export interface SeasonLeaderboardEntry {
 
 export interface SeasonUserStats {
   position: number | null;
-  survival_best_score: number;
+  total_score: number;
   survival_best_time: number;
   survival_games: number;
 }
@@ -98,14 +98,14 @@ export const serverSeasonService = {
         first_name,
         last_name,
         username,
-        survival_best_score,
+        total_score,
         survival_best_time,
         survival_games
       `,
       )
       .gt("survival_games", 0)
-      .gt("survival_best_score", 0)
-      .order("survival_best_score", { ascending: false })
+      .gt("total_score", 0)
+      .order("total_score", { ascending: false })
       .order("survival_best_time", { ascending: false })
       .limit(limit);
 
@@ -119,7 +119,7 @@ export const serverSeasonService = {
       first_name: user.first_name,
       last_name: user.last_name,
       username: user.username,
-      survival_best_score: user.survival_best_score,
+      total_score: user.total_score,
       survival_best_time: user.survival_best_time,
       survival_games: user.survival_games,
       isCurrentUser: user.id === currentUserId,
@@ -133,7 +133,7 @@ export const serverSeasonService = {
     // Get user data
     const { data: user, error: userError } = await supabaseServer
       .from("users")
-      .select("survival_best_score, survival_best_time, survival_games")
+      .select("total_score, survival_best_time, survival_games")
       .eq("telegram_id", telegramId)
       .single();
 
@@ -144,14 +144,14 @@ export const serverSeasonService = {
     let position: number | null = null;
 
     // Get user position if they have played survival games
-    if (user.survival_games > 0 && user.survival_best_score > 0) {
+    if (user.survival_games > 0 && user.total_score > 0) {
       const { count, error: positionError } = await supabaseServer
         .from("users")
         .select("id", { count: "exact" })
         .gt("survival_games", 0)
-        .gt("survival_best_score", 0)
+        .gt("total_score", 0)
         .or(
-          `survival_best_score.gt.${user.survival_best_score},and(survival_best_score.eq.${user.survival_best_score},survival_best_time.gt.${user.survival_best_time})`,
+          `total_score.gt.${user.total_score},and(total_score.eq.${user.total_score},survival_best_time.gt.${user.survival_best_time})`,
         );
 
       if (!positionError) {
@@ -161,7 +161,7 @@ export const serverSeasonService = {
 
     return {
       position,
-      survival_best_score: user.survival_best_score || 0,
+      total_score: user.total_score || 0,
       survival_best_time: user.survival_best_time || 0,
       survival_games: user.survival_games || 0,
     };
