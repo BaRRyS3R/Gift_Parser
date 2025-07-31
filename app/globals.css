@@ -4,6 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('/styles/cat-easter-egg.css');
 
 @font-face {
   font-family: "BPDots Diamond";
