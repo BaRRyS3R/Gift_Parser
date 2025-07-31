@@ -10,137 +10,137 @@ interface CatEasterEggProps {
 }
 
 export default function CatEasterEgg({ isVisible, onComplete }: CatEasterEggProps) {
-  const [showComponent, setShowComponent] = useState(false);
-  const [animationPhase, setAnimationPhase] = useState<'start' | 'slideUp' | 'visible' | 'slideDown' | 'complete'>('start');
+  const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    if (isVisible && !showComponent) {
-      console.log("CatEasterEgg: Starting full animation sequence");
-      setShowComponent(true);
-      setAnimationPhase('start');
+    if (isVisible && !isActive) {
+      console.log("CatEasterEgg: Activating animation");
+      setIsActive(true);
       
-      // Фаза 1: Показать компонент в исходной позиции (внизу экрана)
-      const startSlide = setTimeout(() => {
-        console.log("CatEasterEgg: Starting slide up animation");
-        setAnimationPhase('slideUp');
-      }, 50);
-      
-      // Фаза 2: Показать полностью (3 секунды спустя)
-      const showComplete = setTimeout(() => {
-        console.log("CatEasterEgg: Animation complete, showing cat");
-        setAnimationPhase('visible');
-      }, 3050);
-
-      // Фаза 3: Начать скрытие (6 секунд спустя)
-      const startHide = setTimeout(() => {
-        console.log("CatEasterEgg: Starting slide down animation");
-        setAnimationPhase('slideDown');
-      }, 6050);
-
-      // Фаза 4: Полностью скрыть (9 секунд спустя)
-      const hideComplete = setTimeout(() => {
-        console.log("CatEasterEgg: Hiding component completely");
-        setAnimationPhase('complete');
-        setShowComponent(false);
+      // Complete animation after 9 seconds
+      const completeTimeout = setTimeout(() => {
+        console.log("CatEasterEgg: Animation completed");
+        setIsActive(false);
         onComplete();
-      }, 9050);
+      }, 9000);
 
       return () => {
-        clearTimeout(startSlide);
-        clearTimeout(showComplete);
-        clearTimeout(startHide);
-        clearTimeout(hideComplete);
+        clearTimeout(completeTimeout);
       };
     }
-  }, [isVisible, showComponent, onComplete]);
+  }, [isVisible, isActive, onComplete]);
 
-  if (!showComponent) {
+  if (!isActive) {
     return null;
   }
 
-  const getContainerTransform = () => {
-    switch (animationPhase) {
-      case 'start':
-        return 'translateY(100%)'; // Полностью скрыт снизу
-      case 'slideUp':
-        return 'translateY(0%)'; // Плавно поднимается
-      case 'visible':
-        return 'translateY(0%)'; // Полностью видим
-      case 'slideDown':
-        return 'translateY(100%)'; // Плавно опускается
-      case 'complete':
-        return 'translateY(100%)'; // Полностью скрыт
-      default:
-        return 'translateY(100%)';
-    }
-  };
-
-  const getTransitionDuration = () => {
-    if (animationPhase === 'slideUp' || animationPhase === 'slideDown') {
-      return '3s';
-    }
-    return '0s';
-  };
-
-  console.log("CatEasterEgg: Current phase:", animationPhase, "Transform:", getContainerTransform());
+  console.log("CatEasterEgg: Rendering active animation");
 
   return (
     <>
       {/* Debug indicator */}
       <div 
-        className="fixed top-4 right-4 z-50 bg-green-500 text-white p-2 text-xs rounded"
+        className="fixed top-4 right-4 z-50 bg-blue-500 text-white p-2 text-xs rounded"
         style={{ pointerEvents: 'none' }}
       >
-        Cat Phase: {animationPhase}
+        Cat Animation: ACTIVE
       </div>
       
-      {/* Main container */}
+      {/* Animation container */}
       <div 
-        className="fixed inset-x-0 bottom-0 z-50 pointer-events-none"
+        className="fixed inset-x-0 bottom-0 z-50 pointer-events-none cat-easter-egg-container"
         style={{
           height: '100vh',
-          transform: getContainerTransform(),
-          transition: `transform ${getTransitionDuration()} ease-out`,
-          backgroundColor: 'rgba(0,255,0,0.1)', // Зеленый фон для отладки
+          backgroundColor: 'rgba(0,0,255,0.1)', // Blue debug background
         }}
       >
-        <div className="flex items-end justify-center h-full pb-20">
-          <div className="relative">
+        <div className="flex items-end justify-center h-full pb-16">
+          <div className="relative cat-image-container">
             {/* Cat image */}
             <img
               src="https://notfren.com/circusle/ee/cat.png"
               alt=""
+              className="cat-image"
               style={{
-                width: '250px',
-                height: '250px',
+                width: '280px',
+                height: '280px',
                 objectFit: 'contain',
                 display: 'block',
-                border: '3px solid lime', // Яркая граница для видимости
+                border: '4px solid cyan', // Bright border for visibility
               }}
               onLoad={() => console.log("CatEasterEgg: Image loaded successfully")}
               onError={(e) => {
                 console.error("CatEasterEgg: Image failed to load");
-                // Fallback to colored rectangle
                 const target = e.target as HTMLImageElement;
-                target.style.backgroundColor = 'magenta';
-                target.style.minWidth = '250px';
-                target.style.minHeight = '250px';
+                target.style.backgroundColor = 'orange';
+                target.style.minWidth = '280px';
+                target.style.minHeight = '280px';
+                target.style.borderRadius = '10px';
               }}
             />
             
-            {/* Shadow */}
+            {/* Shadow effect */}
             <div 
               className="absolute bottom-0 left-1/2 transform -translate-x-1/2"
               style={{
-                width: '200px',
-                height: '50px',
-                background: 'radial-gradient(ellipse, rgba(0,0,0,0.6) 0%, transparent 70%)',
-                filter: 'blur(10px)',
+                width: '240px',
+                height: '60px',
+                background: 'radial-gradient(ellipse, rgba(0,0,0,0.7) 0%, transparent 70%)',
+                filter: 'blur(15px)',
+                zIndex: -1,
               }}
             />
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .cat-easter-egg-container {
+          animation: catSlideAnimation 9s ease-in-out forwards;
+        }
+        
+        .cat-image-container {
+          animation: catPulseAnimation 9s ease-in-out forwards;
+        }
+
+        @keyframes catSlideAnimation {
+          0% {
+            transform: translateY(100%);
+          }
+          16.67% {
+            transform: translateY(0%);
+          }
+          83.33% {
+            transform: translateY(0%);
+          }
+          100% {
+            transform: translateY(100%);
+          }
+        }
+
+        @keyframes catPulseAnimation {
+          0% {
+            opacity: 0.8;
+            transform: scale(0.9);
+          }
+          16.67% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.05);
+          }
+          83.33% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          100% {
+            opacity: 0.8;
+            transform: scale(0.9);
+          }
+        }
+      `}</style>
     </>
   );
 }
