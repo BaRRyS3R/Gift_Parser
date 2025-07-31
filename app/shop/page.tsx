@@ -1,8 +1,8 @@
-// src/app/shop/page.tsx - Обновленная страница покупок с использованием новых API роутов
+// src/app/shop/page.tsx - Updated with Matrix Easter Egg
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
@@ -19,6 +19,9 @@ import { usePurchase } from "@/hooks/modules/usePurchase";
 import { PRODUCTS, ProductType } from "@/types/purchases";
 import { useT } from "@/contexts/LocalizationContext";
 
+// Lazy import for Matrix Easter Egg
+const MatrixEasterEgg = React.lazy(() => import("@/components/EasterEggs/MatrixEasterEgg"));
+
 interface SuccessNotification {
   show: boolean;
   title: string;
@@ -30,6 +33,10 @@ export default function ShopPage() {
   const router = useRouter();
   const { user, refreshUser, makeAuthenticatedRequest } = useUser();
   const t = useT();
+
+  // Easter egg state
+  const shopTitleRef = useRef<HTMLHeadingElement>(null);
+  const [isMatrixActive, setIsMatrixActive] = useState(false);
 
   // Use new purchase hook
   const purchaseModule = usePurchase(makeAuthenticatedRequest);
@@ -66,7 +73,7 @@ export default function ShopPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -91,9 +98,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-          attempts: attemptsText,
-          plural: plural,
-        });
+        attempts: attemptsText,
+        plural: plural,
+      });
 
     setSuccessNotification({
       show: true,
@@ -166,6 +173,15 @@ export default function ShopPage() {
     return t("shop.buy");
   };
 
+  // Matrix Easter Egg handlers
+  const handleMatrixActivate = () => {
+    setIsMatrixActive(true);
+  };
+
+  const handleMatrixComplete = () => {
+    setIsMatrixActive(false);
+  };
+
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {isExploding && (
@@ -180,9 +196,13 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header with Easter Egg trigger */}
       <div className="text-center space-y-4 mb-8 pt-6">
-        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+        <h1
+          ref={shopTitleRef}
+          className="text-4xl font-bold tracking-widest text-white animate-fade-in cursor-default select-none"
+          style={{ userSelect: 'none' }}
+        >
           {t("shop.title")}
         </h1>
         <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
@@ -254,6 +274,16 @@ export default function ShopPage() {
           </Card>
         </div>
       )}
+
+      {/* Matrix Easter Egg */}
+      <Suspense fallback={null}>
+        <MatrixEasterEgg
+          triggerElementRef={shopTitleRef}
+          isActive={isMatrixActive}
+          onActivate={handleMatrixActivate}
+          onComplete={handleMatrixComplete}
+        />
+      </Suspense>
 
       {/* Bottom spacing for safe area */}
       <div className="h-24" />
