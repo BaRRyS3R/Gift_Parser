@@ -48,6 +48,7 @@ export const leagues = {
     title: "Лидерборд Лиги",
     topPlayers: "Топ Игроки",
     yourPosition: "Ваша Позиция: #{position}",
+    noPlayersInThisLeague: "Никого нет(((((",
     notInLeague: "Не в этой лиге",
     gamesNeeded: "Игр необходимо",
     nextReward: "Следующая награда при {games} играх",

@@ -525,7 +525,7 @@ const LeaguesModal: React.FC<LeaguesModalProps> = ({ isOpen, onClose }) => {
                     ))
                   ) : (
                     <div className="text-center py-4 text-white/60 text-sm">
-                      No players in this league yet
+                      {t("leagues.leaderboardSection.noPlayersInThisLeague")}
                     </div>
                   )}
                 </div>
