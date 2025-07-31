@@ -182,9 +182,9 @@ export const serverLeaderboardService = {
       `,
       )
       .gt("physics_games", 0)
-      .order("physics_best_score", { ascending: false }) // Основной критерий: счёт по убыванию
-      .order("physics_best_time", { ascending: false })   // Тай-брейк: время по убыванию
-      .order("physics_best_hits", { ascending: false })   // Дополнительный тай-брейк: попадания
+      .order("physics_best_score", { ascending: false })  // Основной критерий: счёт
+      .order("physics_best_time", { ascending: false })   // Вторичный: время
+      .order("physics_best_hits", { ascending: false })   // Третичный: попадания
       .limit(limit);
 
     if (error) {
@@ -207,8 +207,8 @@ export const serverLeaderboardService = {
   },
 
   /**
-   * Get rotation mode leaderboard with safe data
-   */
+ * Get rotation mode leaderboard with score-based sorting
+ */
   async getRotationLeaderboard(
     currentUserId: string,
     limit: number = 100,
@@ -221,7 +221,7 @@ export const serverLeaderboardService = {
         first_name,
         last_name,
         username,
-        rotation_best_score,  // Изменено: теперь сортируем по счёту
+        rotation_best_score,
         rotation_best_time,
         rotation_max_level,
         rotation_best_streak,
@@ -230,9 +230,9 @@ export const serverLeaderboardService = {
       `,
       )
       .gt("rotation_games", 0)
-      .order("rotation_best_score", { ascending: false }) // Основной критерий: счёт по убыванию
-      .order("rotation_best_time", { ascending: false })  // Тай-брейк: время по убыванию
-      .order("rotation_max_level", { ascending: false })  // Дополнительный тай-брейк: уровень
+      .order("rotation_best_score", { ascending: false })  // Основной критерий: счёт
+      .order("rotation_best_time", { ascending: false })   // Вторичный: время
+      .order("rotation_max_level", { ascending: false })   // Третичный: уровень
       .limit(limit);
 
     if (error) {
@@ -245,6 +245,7 @@ export const serverLeaderboardService = {
       first_name: user.first_name,
       last_name: user.last_name,
       username: user.username,
+      best_rotation_score: user.rotation_best_score,
       best_rotation_time: user.rotation_best_time,
       max_level: user.rotation_max_level,
       best_streak: user.rotation_best_streak,
@@ -255,8 +256,8 @@ export const serverLeaderboardService = {
   },
 
   /**
-   * FIXED: Get user rankings with correct sorting logic matching leaderboards
-   */
+ * Get user rankings with simplified logic to avoid SQL errors
+ */
   async getUserRankings(telegramId: number): Promise<UserRankings> {
     const { data: user, error: userError } = await supabaseServer
       .from("users")
@@ -270,7 +271,7 @@ export const serverLeaderboardService = {
 
     const rankings: UserRankings = {};
 
-    // Reaction ranking (by best time ASC - lower time is better)
+    // Reaction ranking - сортировка по времени (меньше = лучше)
     if (user.reaction_games > 0 && user.reaction_best_time > 0) {
       const { count, error: reactionError } = await supabaseServer
         .from("users")
@@ -284,45 +285,39 @@ export const serverLeaderboardService = {
       }
     }
 
-    // FIXED: Survival ranking (by score DESC, then time DESC, then level DESC)
+    // Survival ranking - сортировка по счёту (больше = лучше)
     if (user.survival_games > 0) {
       const { count, error: survivalError } = await supabaseServer
         .from("users")
         .select("id", { count: "exact" })
         .gt("survival_games", 0)
-        .or(
-          `survival_best_score.gt.${user.survival_best_score},and(survival_best_score.eq.${user.survival_best_score},survival_best_time.gt.${user.survival_best_time}),and(survival_best_score.eq.${user.survival_best_score},survival_best_time.eq.${user.survival_best_time},survival_max_level.gt.${user.survival_max_level})`
-        );
+        .gt("survival_best_score", user.survival_best_score);
 
       if (!survivalError) {
         rankings.survival = (count || 0) + 1;
       }
     }
 
-    // FIXED: Physics ranking (by score DESC, then time DESC)
+    // Physics ranking - сортировка по счёту (больше = лучше)
     if (user.physics_games > 0) {
       const { count, error: physicsError } = await supabaseServer
         .from("users")
         .select("id", { count: "exact" })
         .gt("physics_games", 0)
-        .or(
-          `physics_best_score.gt.${user.physics_best_score},and(physics_best_score.eq.${user.physics_best_score},physics_best_time.gt.${user.physics_best_time}),and(physics_best_score.eq.${user.physics_best_score},physics_best_time.eq.${user.physics_best_time},physics_best_hits.gt.${user.physics_best_hits})`
-        );
+        .gt("physics_best_score", user.physics_best_score);
 
       if (!physicsError) {
         rankings.physics = (count || 0) + 1;
       }
     }
 
-    // FIXED: Rotation ranking (by time DESC, then level DESC)
+    // Rotation ranking - сортировка по счёту (больше = лучше)
     if (user.rotation_games > 0) {
       const { count, error: rotationError } = await supabaseServer
         .from("users")
         .select("id", { count: "exact" })
         .gt("rotation_games", 0)
-        .or(
-          `rotation_best_score.gt.${user.rotation_best_score},and(rotation_best_score.eq.${user.rotation_best_score},rotation_best_time.gt.${user.rotation_best_time}),and(rotation_best_score.eq.${user.rotation_best_score},rotation_best_time.eq.${user.rotation_best_time},rotation_max_level.gt.${user.rotation_max_level})`
-        );
+        .gt("rotation_best_score", user.rotation_best_score);
 
       if (!rotationError) {
         rankings.rotation = (count || 0) + 1;
