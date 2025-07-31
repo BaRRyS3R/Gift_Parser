@@ -4,7 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import '/styles/stonks.css';
 
 @font-face {
   font-family: "BPDots Diamond";

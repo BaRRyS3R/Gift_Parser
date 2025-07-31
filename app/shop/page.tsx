@@ -1,8 +1,8 @@
-// src/app/shop/page.tsx - Updated with Stonks Easter Egg
+// src/app/shop/page.tsx - Обновленная страница покупок с пасхалкой
 
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
@@ -18,7 +18,7 @@ import { useUser } from "@/hooks/useUser";
 import { usePurchase } from "@/hooks/modules/usePurchase";
 import { PRODUCTS, ProductType } from "@/types/purchases";
 import { useT } from "@/contexts/LocalizationContext";
-import StonksEasterEgg from "@/components/EasterEggs/StonksEasterEgg";
+import CatEasterEgg from "@/components/EasterEggs/CatEasterEgg";
 
 interface SuccessNotification {
   show: boolean;
@@ -27,10 +27,10 @@ interface SuccessNotification {
   icon: React.ReactNode;
 }
 
-interface TouchTracker {
-  count: number;
-  lastTouch: number;
-  timeout: NodeJS.Timeout | null;
+interface EasterEggState {
+  clickCount: number;
+  lastClickTime: number;
+  isActive: boolean;
 }
 
 export default function ShopPage() {
@@ -51,12 +51,13 @@ export default function ShopPage() {
     });
 
   // Easter egg state
-  const [stonksActive, setStonksActive] = useState(false);
-  const touchTrackerRef = useRef<TouchTracker>({
-    count: 0,
-    lastTouch: 0,
-    timeout: null,
+  const [easterEggState, setEasterEggState] = useState<EasterEggState>({
+    clickCount: 0,
+    lastClickTime: 0,
+    isActive: false,
   });
+
+  const easterEggTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Clear errors after 4 seconds
   useEffect(() => {
@@ -86,44 +87,59 @@ export default function ShopPage() {
     }
   }, [router]);
 
-  // Handle triple touch on title
-  const handleTitleTouch = useCallback(() => {
-    const now = Date.now();
-    const tracker = touchTrackerRef.current;
+  // Cleanup easter egg timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (easterEggTimeoutRef.current) {
+        clearTimeout(easterEggTimeoutRef.current);
+      }
+    };
+  }, []);
 
-    // Reset if too much time has passed (2 seconds)
-    if (now - tracker.lastTouch > 2000) {
-      tracker.count = 1;
-    } else {
-      tracker.count += 1;
-    }
+  const handleTitleClick = () => {
+    const currentTime = Date.now();
+    const timeDifference = currentTime - easterEggState.lastClickTime;
 
-    tracker.lastTouch = now;
-
-    // Clear existing timeout
-    if (tracker.timeout) {
-      clearTimeout(tracker.timeout);
-    }
-
-    // Trigger easter egg on third touch
-    if (tracker.count >= 3) {
-      console.log("🚀 STONKS MODE ACTIVATED!");
-      setStonksActive(true);
-      tracker.count = 0; // Reset counter
+    // Если прошло больше 5 секунд с последнего клика, сбрасываем счетчик
+    if (timeDifference > 5000) {
+      setEasterEggState({
+        clickCount: 1,
+        lastClickTime: currentTime,
+        isActive: false,
+      });
       return;
     }
 
-    // Reset counter after 2 seconds of inactivity
-    tracker.timeout = setTimeout(() => {
-      tracker.count = 0;
-    }, 2000);
-  }, []);
+    const newClickCount = easterEggState.clickCount + 1;
 
-  // Handle stonks easter egg completion
-  const handleStonksComplete = useCallback(() => {
-    setStonksActive(false);
-    console.log("💎 STONKS MODE COMPLETED!");
-  }, []);
+    if (newClickCount >= 3) {
+      // Активируем пасхалку
+      setEasterEggState({
+        clickCount: 0,
+        lastClickTime: 0,
+        isActive: true,
+      });
+    } else {
+      setEasterEggState({
+        clickCount: newClickCount,
+        lastClickTime: currentTime,
+        isActive: false,
+      });
+    }
+
+    // Добавляем небольшую вибрацию для тактильной обратной связи на мобильных
+    if (typeof window !== "undefined" && window.navigator?.vibrate) {
+      window.navigator.vibrate(50);
+    }
+  };
+
+  const handleEasterEggComplete = () => {
+    setEasterEggState({
+      clickCount: 0,
+      lastClickTime: 0,
+      isActive: false,
+    });
+  };
 
   const showSuccessNotification = (product: ProductType) => {
     const productInfo = PRODUCTS[product];
@@ -222,12 +238,6 @@ export default function ShopPage() {
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
-      {/* Stonks Easter Egg */}
-      <StonksEasterEgg
-        isActive={stonksActive}
-        onComplete={handleStonksComplete}
-      />
-
       {isExploding && (
         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
           <ConfettiExplosion
@@ -240,12 +250,17 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Header with Easter Egg Touch Handler */}
+      {/* Header */}
       <div className="text-center space-y-4 mb-8 pt-6">
         <h1
           className="text-4xl font-bold tracking-widest text-white animate-fade-in select-none"
-          onTouchEnd={handleTitleTouch}
-          style={{ touchAction: 'manipulation' }}
+          onClick={handleTitleClick}
+          style={{
+            WebkitTapHighlightColor: 'transparent',
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+            userSelect: 'none',
+          }}
         >
           {t("shop.title")}
         </h1>
@@ -294,7 +309,7 @@ export default function ShopPage() {
       {successNotification.show && (
         <div
           className={`
-                        fixed top-4 left-4 right-4 z-50
+                        fixed top-4 left-4 right-4 z-40
                         transform transition-all duration-500 ease-out
                         ${successNotification.show ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"}
                     `}
@@ -318,6 +333,12 @@ export default function ShopPage() {
           </Card>
         </div>
       )}
+
+      {/* Easter Egg */}
+      <CatEasterEgg
+        isVisible={easterEggState.isActive}
+        onComplete={handleEasterEggComplete}
+      />
 
       {/* Bottom spacing for safe area */}
       <div className="h-24" />
@@ -351,7 +372,6 @@ function ProductCard({
                 hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10
                 transition-all duration-200
             `}
-      data-product-card
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -right-12 top-1/2 transform -translate-y-1/2 opacity-10">
@@ -391,12 +411,7 @@ function ProductCard({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Star className="text-white" size={16} />
-                <span
-                  className="text-white font-bold"
-                  data-price
-                >
-                  {product.price}
-                </span>
+                <span className="text-white font-bold">{product.price}</span>
               </div>
 
               <Button
