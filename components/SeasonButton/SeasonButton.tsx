@@ -4,54 +4,40 @@
 import React from "react";
 
 interface SeasonButtonProps {
-  isTransitioning?: boolean;
-  onClick?: () => void;
-  className?: string;
+    isTransitioning?: boolean;
+    onClick?: () => void;
+    className?: string;
 }
 
 export default function SeasonButton({
-  isTransitioning = false,
-  onClick,
-  className = "",
+    isTransitioning = false,
+    onClick,
+    className = "",
 }: SeasonButtonProps) {
-  return (
-    <button
-      aria-label="Season X"
-      className={`
-        relative group px-5 py-3
-        rounded-xl bg-white/5 backdrop-blur-md
-        border border-cyan-400/30
-        text-white font-semibold tracking-wide text-sm
-        transition-all duration-300 ease-out
-        shadow-[0_0_10px_rgba(0,255,255,0.15)]
-        hover:shadow-[0_0_15px_3px_rgba(0,255,255,0.4)]
-        hover:border-cyan-400/60
-        hover:scale-105 active:scale-95
+    return (
+        <button
+            aria-label="Season X"
+            className={`
+        relative group px-3 py-1.5
+        rounded-md border border-gray-600
+        bg-gradient-to-br from-gray-800 to-gray-900
+        text-white text-xs font-semibold tracking-wide
+        transition-all duration-200 ease-out
+        hover:border-gray-500 hover:bg-gray-800
+        hover:scale-[1.03] active:scale-[0.97]
         disabled:opacity-50 disabled:cursor-not-allowed
-        overflow-hidden
         ${className}
       `}
-      disabled={isTransitioning}
-      onClick={onClick}
-    >
-      {/* Иконка + текст */}
-      <div className="relative z-10 flex items-center gap-2 justify-center">
-        <span className="text-cyan-300 text-lg">🔥</span>
-        <span className="text-white font-bold">SEASON 0</span>
-      </div>
+            disabled={isTransitioning}
+            onClick={onClick}
+        >
+            <div className="flex items-center gap-2 justify-center">
+                {!isTransitioning && <span>SEASON X</span>}
 
-      {/* Светящийся фон, усиливается при ховере */}
-      <div className="absolute inset-0 z-0 bg-cyan-400/10 blur-lg rounded-xl opacity-0 group-hover:opacity-100 transition duration-500 pointer-events-none" />
-
-      {/* Пульс при неактивном состоянии */}
-      {!isTransitioning && (
-        <div className="absolute inset-0 z-0 rounded-xl animate-pulse bg-cyan-400/5 pointer-events-none" />
-      )}
-
-      {/* Спиннер при переходе */}
-      {isTransitioning && (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-t-transparent border-cyan-300 rounded-full animate-spin z-10" />
-      )}
-    </button>
-  );
+                {isTransitioning && (
+                    <div className="w-3 h-3 border-2 border-t-transparent border-white rounded-full animate-spin" />
+                )}
+            </div>
+        </button>
+    );
 }
