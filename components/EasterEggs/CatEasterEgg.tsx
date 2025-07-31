@@ -13,22 +13,28 @@ export default function CatEasterEgg({ isVisible, onComplete }: CatEasterEggProp
     const [animationState, setAnimationState] = useState<'hidden' | 'entering' | 'visible' | 'exiting'>('hidden');
 
     useEffect(() => {
+        console.log("CatEasterEgg: isVisible changed to:", isVisible, "animationState:", animationState);
+
         if (isVisible && animationState === 'hidden') {
+            console.log("CatEasterEgg: Starting animation sequence");
             // Начинаем анимацию появления
             setAnimationState('entering');
 
             // Через 3 секунды показываем полностью
             const showTimer = setTimeout(() => {
+                console.log("CatEasterEgg: Setting to visible state");
                 setAnimationState('visible');
             }, 3000);
 
             // Через 6 секунд начинаем скрывать
             const hideTimer = setTimeout(() => {
+                console.log("CatEasterEgg: Starting exit animation");
                 setAnimationState('exiting');
             }, 6000);
 
             // Через 9 секунд полностью скрываем и вызываем callback
             const completeTimer = setTimeout(() => {
+                console.log("CatEasterEgg: Animation complete, hiding");
                 setAnimationState('hidden');
                 onComplete();
             }, 9000);
@@ -41,14 +47,19 @@ export default function CatEasterEgg({ isVisible, onComplete }: CatEasterEggProp
         }
     }, [isVisible, animationState, onComplete]);
 
+    useEffect(() => {
+        console.log("CatEasterEgg: Animation state changed to:", animationState);
+    }, [animationState]);
+
     if (animationState === 'hidden') {
+        console.log("CatEasterEgg: Component hidden, returning null");
         return null;
     }
 
     const getTransformStyle = () => {
         switch (animationState) {
             case 'entering':
-                return 'translateY(100%)';
+                return 'translateY(0%)';
             case 'visible':
                 return 'translateY(0%)';
             case 'exiting':
@@ -69,6 +80,12 @@ export default function CatEasterEgg({ isVisible, onComplete }: CatEasterEggProp
         }
     };
 
+    const getInitialTransform = () => {
+        return animationState === 'entering' ? 'translateY(100%)' : 'translateY(0%)';
+    };
+
+    console.log("CatEasterEgg: Rendering with state:", animationState);
+
     return (
         <div
             className="fixed inset-x-0 bottom-0 z-50 pointer-events-none"
@@ -78,7 +95,13 @@ export default function CatEasterEgg({ isVisible, onComplete }: CatEasterEggProp
             }}
         >
             <div className="relative w-full h-screen flex items-end justify-center">
-                <div className="relative">
+                <div
+                    className="relative"
+                    style={{
+                        transform: getInitialTransform(),
+                        transition: `transform ${getTransitionDuration()} cubic-bezier(0.4, 0.0, 0.2, 1)`,
+                    }}
+                >
                     {/* Основная картинка кота */}
                     <img
                         src="https://notfren.com/circusle/ee/cat.png"
@@ -92,6 +115,8 @@ export default function CatEasterEgg({ isVisible, onComplete }: CatEasterEggProp
                         }}
                         draggable={false}
                         onContextMenu={(e) => e.preventDefault()}
+                        onLoad={() => console.log("CatEasterEgg: Image loaded successfully")}
+                        onError={() => console.error("CatEasterEgg: Failed to load image")}
                     />
 
                     {/* Дополнительные эффекты для мобильных устройств */}

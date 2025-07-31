@@ -96,9 +96,18 @@ export default function ShopPage() {
     };
   }, []);
 
-  const handleTitleClick = () => {
+  const handleTitleClick = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     const currentTime = Date.now();
     const timeDifference = currentTime - easterEggState.lastClickTime;
+
+    console.log("Title clicked:", {
+      currentClickCount: easterEggState.clickCount,
+      timeDifference,
+      currentTime
+    });
 
     // Если прошло больше 5 секунд с последнего клика, сбрасываем счетчик
     if (timeDifference > 5000) {
@@ -107,29 +116,33 @@ export default function ShopPage() {
         lastClickTime: currentTime,
         isActive: false,
       });
+      console.log("Reset click count, set to 1");
       return;
     }
 
     const newClickCount = easterEggState.clickCount + 1;
+    console.log("New click count:", newClickCount);
 
     if (newClickCount >= 3) {
-      // Активируем пасхалку
+      // Активируем пасхалку и добавляем вибрацию только при успешной активации
+      console.log("Activating easter egg!");
       setEasterEggState({
         clickCount: 0,
         lastClickTime: 0,
         isActive: true,
       });
+
+      // Вибрация только при успешной активации пасхалки
+      if (typeof window !== "undefined" && window.navigator?.vibrate) {
+        window.navigator.vibrate([100, 50, 100]); // Двойная вибрация для успеха
+      }
     } else {
       setEasterEggState({
         clickCount: newClickCount,
         lastClickTime: currentTime,
         isActive: false,
       });
-    }
-
-    // Добавляем небольшую вибрацию для тактильной обратной связи на мобильных
-    if (typeof window !== "undefined" && window.navigator?.vibrate) {
-      window.navigator.vibrate(50);
+      console.log("Click count updated to:", newClickCount);
     }
   };
 
