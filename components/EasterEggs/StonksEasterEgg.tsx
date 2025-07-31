@@ -108,6 +108,9 @@ const StonksEasterEgg: React.FC<StonksEasterEggProps> = ({
 
     return (
         <>
+            {/* Background Overlay */}
+            <div className="stonks-overlay" />
+
             {/* Green Arrow */}
             {showArrow && (
                 <div className="stonks-arrow">
@@ -128,23 +131,14 @@ const StonksEasterEgg: React.FC<StonksEasterEggProps> = ({
             {/* Floating Rockets */}
             {showRockets && (
                 <div className="stonks-rockets">
-                    {[...Array(6)].map((_, i) => (
-                        <div
-                            key={i}
-                            className={`stonks-rocket stonks-rocket-${i + 1}`}
-                            style={{
-                                left: `${Math.random() * 80 + 10}%`,
-                                animationDelay: `${Math.random() * 2}s`,
-                            }}
-                        >
-                            🚀
-                        </div>
-                    ))}
+                    <div className="stonks-rocket stonks-rocket-1">🚀</div>
+                    <div className="stonks-rocket stonks-rocket-2">🚀</div>
+                    <div className="stonks-rocket stonks-rocket-3">🚀</div>
+                    <div className="stonks-rocket stonks-rocket-4">🚀</div>
+                    <div className="stonks-rocket stonks-rocket-5">🚀</div>
+                    <div className="stonks-rocket stonks-rocket-6">🚀</div>
                 </div>
             )}
-
-            {/* Background Overlay */}
-            <div className="stonks-overlay" />
         </>
     );
 };
