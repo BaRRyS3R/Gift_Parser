@@ -45,6 +45,7 @@ export interface PhysicsGameResult extends BaseGameResult {
   mistakesMade: number;
   finalScore: number;
   survivalTime: number;
+  maxLevelReached: number;
   deathCause: "mistakes" | "escaped_circles" | "timeout";
 }
 

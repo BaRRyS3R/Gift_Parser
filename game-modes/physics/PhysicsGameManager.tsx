@@ -490,7 +490,7 @@ export default function PhysicsGameManager() {
                 {t("game.modes.physics.results.levelsCompleted")}
               </div>
               <div className="text-xl font-bold text-yellow-400">
-                {gameResult.duration < 180 ? Math.floor(gameResult.duration / 60) + 1 : 8}/8
+                {gameResult.maxLevelReached}/8
               </div>
             </div>
           </div>

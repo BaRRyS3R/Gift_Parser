@@ -444,7 +444,6 @@ export default function SurvivalGameManager() {
           </div>
 
           <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6 space-y-6">
-            // Заменить существующий блок результатов
             <div className="text-center space-y-2">
               <div className="text-sm text-red-400/60">
                 {t("game.modes.survival.results.finalScore")}

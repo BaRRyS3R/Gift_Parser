@@ -631,6 +631,7 @@ export const createPhysicsGameResult = (
     mistakesMade: state.stats.currentMistakes,
     finalScore: finalScore, // Дублируем для обратной совместимости
     survivalTime: state.stats.gameTime, // Время игры как время выживания
+    maxLevelReached: state.stats.currentLevel || 1,
     deathCause,
     createdAt: new Date().toISOString(),
   };
