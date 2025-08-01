@@ -79,7 +79,6 @@ export interface LeagueLeaderboard {
   userPosition: number | null;
   userGamesToNextReward: number | null;
   topPlayers: Array<{
-    user_id: string;
     first_name: string;
     last_name?: string;
     username?: string;
@@ -94,7 +93,6 @@ export interface LeagueNeighbors {
   userPosition: number;
   userGames: number;
   playersAhead: Array<{
-    user_id: string;
     first_name: string;
     last_name?: string;
     username?: string;
@@ -103,7 +101,6 @@ export interface LeagueNeighbors {
     games_ahead: number;
   }>;
   playersBehind: Array<{
-    user_id: string;
     first_name: string;
     last_name?: string;
     username?: string;
@@ -293,7 +290,6 @@ export const serverLeagueService = {
       const playersAhead = usersInLeague
         .slice(Math.max(0, userIndex - 2), userIndex)
         .map((player, index) => ({
-          user_id: player.id,
           first_name: player.first_name,
           last_name: player.last_name,
           username: player.username,
@@ -305,7 +301,6 @@ export const serverLeagueService = {
       const playersBehind = usersInLeague
         .slice(userIndex + 1, userIndex + 3)
         .map((player, index) => ({
-          user_id: player.id,
           first_name: player.first_name,
           last_name: player.last_name,
           username: player.username,
@@ -489,13 +484,13 @@ export const serverLeagueService = {
       const topPlayers = (usersInLeague || [])
         .slice(0, 5)
         .map((user, index) => ({
-          user_id: user.id,
           first_name: user.first_name,
           last_name: user.last_name,
           username: user.username,
           games_count: user.total_games,
           position: index + 1,
           got_reward: rewardedUserIds.has(user.id),
+          is_current_user: userId ? user.id === userId : false,
         }));
 
       let nextRewardAt: number | null = null;

@@ -1,4 +1,4 @@
-// src/components/LeagueProgress/LeagueNeighborsDisplay.tsx - Updated to use leagues API
+// src/components/LeagueProgress/LeagueNeighborsDisplay.tsx - Fixed version without user_id exposure
 
 "use client";
 
@@ -133,9 +133,6 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
     }
   };
 
-  const colors = getLeagueColors(leagues.neighbors.league.name);
-  const LeagueIcon = getLeagueIcon(leagues.neighbors.league.name);
-
   const formatDisplayName = (
     firstName: string,
     lastName?: string,
@@ -144,9 +141,25 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
     if (username) {
       return `${firstName} (@${username})`;
     }
-
     return lastName ? `${firstName} ${lastName}` : firstName;
   };
+
+  // FIXED: Generate secure unique keys without exposing internal data
+  const generateSecureKey = (
+    firstName: string,
+    lastName?: string,
+    username?: string,
+    position?: number,
+    gamesCount?: number
+  ) => {
+    const nameKey = username || `${firstName}-${lastName || ''}`;
+    const positionKey = position || 0;
+    const gamesKey = gamesCount || 0;
+    return `${nameKey}-${positionKey}-${gamesKey}`;
+  };
+
+  const colors = getLeagueColors(leagues.neighbors.league.name);
+  const LeagueIcon = getLeagueIcon(leagues.neighbors.league.name);
 
   return (
     <Card className={`${colors.bg} border ${colors.border} ${className}`}>
@@ -172,10 +185,16 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
 
         {/* Players List */}
         <div className="space-y-2">
-          {/* Players Ahead */}
+          {/* FIXED: Players Ahead - using secure keys */}
           {leagues.neighbors.playersAhead.map((player) => (
             <div
-              key={player.user_id}
+              key={`ahead-${generateSecureKey(
+                player.first_name,
+                player.last_name,
+                player.username,
+                player.position,
+                player.games_count
+              )}`}
               className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-400/20"
             >
               <div className="flex items-center space-x-3">
@@ -231,10 +250,16 @@ const LeagueNeighborsDisplay: React.FC<LeagueNeighborsDisplayProps> = ({
             </div>
           </div>
 
-          {/* Players Behind */}
+          {/* FIXED: Players Behind - using secure keys */}
           {leagues.neighbors.playersBehind.map((player) => (
             <div
-              key={player.user_id}
+              key={`behind-${generateSecureKey(
+                player.first_name,
+                player.last_name,
+                player.username,
+                player.position,
+                player.games_count
+              )}`}
               className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-400/20"
             >
               <div className="flex items-center space-x-3">

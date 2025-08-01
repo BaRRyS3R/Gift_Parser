@@ -1,8 +1,8 @@
-// src/hooks/modules/useLeagues.ts - Client-side leagues management hook
+// src/hooks/modules/useLeagues.ts - Fixed interfaces without user_id exposure
 
 import { useState, useCallback, useRef } from "react";
 
-// Import types from server service
+// Import types from server service - UPDATED interfaces to match security fixes
 export interface League {
   id: number;
   name: string;
@@ -55,6 +55,7 @@ export interface LeagueProgressInfo {
   progressPercent: number;
 }
 
+// FIXED: Updated LeagueLeaderboard interface without user_id exposure
 export interface LeagueLeaderboard {
   league: League;
   totalInLeague: number;
@@ -64,22 +65,24 @@ export interface LeagueLeaderboard {
   userPosition: number | null;
   userGamesToNextReward: number | null;
   topPlayers: Array<{
-    user_id: string;
+    // REMOVED: user_id - no longer exposed to client
     first_name: string;
     last_name?: string;
     username?: string;
     games_count: number;
     position: number;
     got_reward: boolean;
+    is_current_user?: boolean; // NEW: Safe way to identify current user
   }>;
 }
 
+// FIXED: Updated LeagueNeighbors interface without user_id exposure
 export interface LeagueNeighbors {
   league: League;
   userPosition: number;
   userGames: number;
   playersAhead: Array<{
-    user_id: string;
+    // REMOVED: user_id - no longer exposed to client
     first_name: string;
     last_name?: string;
     username?: string;
@@ -88,7 +91,7 @@ export interface LeagueNeighbors {
     games_ahead: number;
   }>;
   playersBehind: Array<{
-    user_id: string;
+    // REMOVED: user_id - no longer exposed to client
     first_name: string;
     last_name?: string;
     username?: string;
@@ -126,7 +129,6 @@ export const leagueUtils = {
    */
   calculateLevel(gamesCount: number): number {
     const level = Math.floor(gamesCount / this.GAMES_PER_LEVEL) + 1;
-
     return Math.min(level, this.MAX_LEVEL);
   },
 
@@ -135,13 +137,10 @@ export const leagueUtils = {
    */
   getGamesToNextLevel(currentGames: number): number {
     const currentLevel = this.calculateLevel(currentGames);
-
     if (currentLevel >= this.MAX_LEVEL) {
       return 0; // Already at max level
     }
-
     const nextLevelGames = currentLevel * this.GAMES_PER_LEVEL;
-
     return nextLevelGames - currentGames;
   },
 
@@ -150,13 +149,10 @@ export const leagueUtils = {
    */
   getLevelProgress(currentGames: number): number {
     const currentLevel = this.calculateLevel(currentGames);
-
     if (currentLevel >= this.MAX_LEVEL) {
       return 100;
     }
-
     const gamesInCurrentLevel = currentGames % this.GAMES_PER_LEVEL;
-
     return Math.round((gamesInCurrentLevel / this.GAMES_PER_LEVEL) * 100);
   },
 
@@ -188,81 +184,74 @@ export function useLeagues(
   /**
    * Fetch complete league data from API (always fresh data)
    */
-  const fetchLeagueData =
-    useCallback(async (): Promise<CompleteLeagueData | null> => {
-      // Wait for current request to complete instead of returning cached data
-      if (fetchingRef.current) {
-        console.log("League data fetch already in progress, waiting...");
+  const fetchLeagueData = useCallback(async (): Promise<CompleteLeagueData | null> => {
+    // Wait for current request to complete instead of returning cached data
+    if (fetchingRef.current) {
+      console.log("League data fetch already in progress, waiting...");
+      // Wait for current fetch to complete
+      return new Promise((resolve) => {
+        const checkCompletion = () => {
+          if (!fetchingRef.current) {
+            resolve(state.data);
+          } else {
+            setTimeout(checkCompletion, 100);
+          }
+        };
+        checkCompletion();
+      });
+    }
 
-        // Wait for current fetch to complete
-        return new Promise((resolve) => {
-          const checkCompletion = () => {
-            if (!fetchingRef.current) {
-              resolve(state.data);
-            } else {
-              setTimeout(checkCompletion, 100);
-            }
-          };
+    fetchingRef.current = true;
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-          checkCompletion();
-        });
+    try {
+      console.log("Fetching fresh league data from API...");
+
+      const response = await makeAuthenticatedRequest("/api/leagues");
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
 
-      fetchingRef.current = true;
-      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      const result = await response.json();
 
-      try {
-        console.log("Fetching fresh league data from API...");
-
-        const response = await makeAuthenticatedRequest("/api/leagues");
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-
-          throw new Error(
-            errorData.error || `Server error: ${response.status}`,
-          );
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch league data");
-        }
-
-        const leagueData: CompleteLeagueData = result.data;
-
-        setState({
-          data: leagueData,
-          isLoading: false,
-          error: null,
-        });
-
-        console.log("Successfully fetched fresh league data:", {
-          leagues: leagueData.leagues.length,
-          hasProgressInfo: !!leagueData.progressInfo,
-          userRewards: leagueData.userRewards.length,
-          hasNeighbors: !!leagueData.neighbors,
-          leaderboards: Object.keys(leagueData.leaderboards).length,
-        });
-
-        return leagueData;
-      } catch (error) {
-        console.error("Error fetching league data:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error: errorMessage,
-        }));
-
-        return null;
-      } finally {
-        fetchingRef.current = false;
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch league data");
       }
-    }, [makeAuthenticatedRequest]);
+
+      const leagueData: CompleteLeagueData = result.data;
+
+      setState({
+        data: leagueData,
+        isLoading: false,
+        error: null,
+      });
+
+      console.log("Successfully fetched fresh league data:", {
+        leagues: leagueData.leagues.length,
+        hasProgressInfo: !!leagueData.progressInfo,
+        userRewards: leagueData.userRewards.length,
+        hasNeighbors: !!leagueData.neighbors,
+        leaderboards: Object.keys(leagueData.leaderboards).length,
+      });
+
+      return leagueData;
+    } catch (error) {
+      console.error("Error fetching league data:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+
+      return null;
+    } finally {
+      fetchingRef.current = false;
+    }
+  }, [makeAuthenticatedRequest]);
 
   /**
    * Reset league data
@@ -289,10 +278,7 @@ export function useLeagues(
   const getLeagueByName = useCallback(
     (leagueName: string): League | null => {
       if (!state.data?.leagues) return null;
-
-      return (
-        state.data.leagues.find((league) => league.name === leagueName) || null
-      );
+      return state.data.leagues.find((league) => league.name === leagueName) || null;
     },
     [state.data],
   );
@@ -304,7 +290,6 @@ export function useLeagues(
     (leagueId: number): number | null => {
       if (!state.data?.leaderboards) return null;
       const leaderboard = state.data.leaderboards[leagueId];
-
       return leaderboard?.userPosition || null;
     },
     [state.data],
@@ -316,10 +301,7 @@ export function useLeagues(
   const hasUserReceivedReward = useCallback(
     (leagueId: number): boolean => {
       if (!state.data?.userRewards) return false;
-
-      return state.data.userRewards.some(
-        (reward) => reward.league_id === leagueId,
-      );
+      return state.data.userRewards.some((reward) => reward.league_id === leagueId);
     },
     [state.data],
   );
@@ -329,31 +311,24 @@ export function useLeagues(
    */
   const getTotalRewardsEarned = useCallback((): number => {
     if (!state.data?.userRewards) return 0;
-
     return state.data.userRewards.length;
   }, [state.data]);
 
   /**
    * Check if user is in current league's top players
-   * Note: This function requires the current user's ID to be passed as parameter
-   * since the leagues data doesn't contain user identification
+   * Note: This now uses the is_current_user flag instead of user ID comparison
    */
   const isUserInTopPlayers = useCallback(
-    (currentUserId?: string, leagueId?: number): boolean => {
-      if (!state.data?.leaderboards || !currentUserId) return false;
+    (leagueId?: number): boolean => {
+      if (!state.data?.leaderboards) return false;
 
-      const targetLeagueId =
-        leagueId || state.data.progressInfo?.currentLeague.id;
-
+      const targetLeagueId = leagueId || state.data.progressInfo?.currentLeague.id;
       if (!targetLeagueId) return false;
 
       const leaderboard = state.data.leaderboards[targetLeagueId];
-
       if (!leaderboard) return false;
 
-      return leaderboard.topPlayers.some(
-        (player) => player.user_id === currentUserId,
-      );
+      return leaderboard.topPlayers.some((player) => player.is_current_user === true);
     },
     [state.data],
   );
