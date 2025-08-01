@@ -1,5 +1,5 @@
-const CACHE_NAME = "video-cache-v1";
-const VIDEOS = ["/videos/intro.mp4", "/videos/mainbg.mp4"];
+const CACHE_NAME = "video-cache-v2";
+const VIDEOS = ["https://notfren.com/circusle/videos/intro.mp4", "https://notfren.com/circusle/videos/mainbg.mp4"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

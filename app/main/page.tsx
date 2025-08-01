@@ -423,7 +423,8 @@ function MainPageContent() {
             playsInline
             className="w-full h-full object-cover"
           >
-            <source src="/videos/mainbg.mp4" type="video/mp4" />
+            {/*<source src="/videos/mainbg.mp4" type="video/mp4" /> */}
+            <source src="https://notfren.com/circusle/videos/mainbg.mp4" type="video/mp4" />
           </video>
         </div>
       )}

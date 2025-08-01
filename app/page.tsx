@@ -794,7 +794,8 @@ export default function IntroPage(): JSX.Element {
           className="video-player"
           preload="auto"
         >
-          <source src="/videos/intro.mp4" type="video/mp4" />
+          {/*<source src="/videos/intro.mp4" type="video/mp4" />*/}
+          <source src="https://notfren.com/circusle/videos/intro.mp4" type="video/mp4" />
           <track
             default
             kind="captions"
