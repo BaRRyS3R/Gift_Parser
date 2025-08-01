@@ -801,7 +801,7 @@ export default function IntroPage(): JSX.Element {
             label="English captions"
             srcLang="en"
           />
-          Your browser does not support the video tag.
+          Your browser does not support the video tag. Loh.
         </video>
       </div>
     </div>

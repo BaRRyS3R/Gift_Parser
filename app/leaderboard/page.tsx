@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Updated with current user display and top-3 highlighting
+// src/app/leaderboard/page.tsx - Optimized with proper loading states and removed inline styles
 
 "use client";
 
@@ -255,6 +255,7 @@ function LeaderboardPageContent() {
   const t = useT();
   const [activeTab, setActiveTab] = useState<LeaderboardType>("season");
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [pageInitialized, setPageInitialized] = useState(false);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -278,9 +279,17 @@ function LeaderboardPageContent() {
     }
   }, [router]);
 
-  // Load leaderboards on mount
+  // Load leaderboards on mount with proper initialization
   useEffect(() => {
-    fetchLeaderboards();
+    const initializePage = async () => {
+      try {
+        await fetchLeaderboards();
+      } finally {
+        setPageInitialized(true);
+      }
+    };
+
+    initializePage();
   }, [fetchLeaderboards]);
 
   const handleTabChange = async (tab: LeaderboardType) => {
@@ -433,7 +442,8 @@ function LeaderboardPageContent() {
     await fetchLeaderboards();
   };
 
-  if (isLoading) {
+  // Show loading state until page is fully initialized
+  if (!pageInitialized || isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -725,33 +735,6 @@ function LeaderboardPageContent() {
 
 export default function LeaderboardPage() {
   return (
-    <>
-      <style>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateX(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-      `}</style>
-      <AuthGuard requireCompleteAuth={true} showError={true}>
-        <LeaderboardPageContent />
-      </AuthGuard>
-    </>
+      <LeaderboardPageContent />
   );
 }

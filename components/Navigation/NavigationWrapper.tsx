@@ -1,4 +1,4 @@
-// src/components/Navigation/NavigationWrapper.tsx - Fixed to properly handle page refresh
+// src/components/Navigation/NavigationWrapper.tsx - Optimized with CSS transitions
 
 "use client";
 
@@ -23,63 +23,77 @@ const hiddenPaths = [
 
 export default function NavigationWrapper() {
   const pathname = usePathname();
-  const [visible, setVisible] = useState(false);
+  const [shouldShow, setShouldShow] = useState(false);
   const [rendered, setRendered] = useState(false);
-  const [animationClass, setAnimationClass] = useState("");
   const prevPathRef = useRef<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const isInitializedRef = useRef<boolean>(false);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const shouldShowNav = !hiddenPaths.includes(pathname);
+  const currentShouldShow = !hiddenPaths.includes(pathname);
 
-  // Initialize navigation visibility on mount
   useEffect(() => {
-    if (!isInitialized) {
-      setIsInitialized(true);
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
 
-      if (shouldShowNav) {
+    // First mount initialization
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true;
+
+      if (currentShouldShow) {
         setRendered(true);
-        setVisible(true);
-        setAnimationClass("animate-fade-in-up");
+        // Use setTimeout to ensure DOM is ready before showing
+        setTimeout(() => setShouldShow(true), 16);
       }
 
       prevPathRef.current = pathname;
-
       return;
     }
 
-    // Handle subsequent route changes
     const prevShouldShow = !hiddenPaths.includes(prevPathRef.current || "");
 
-    if (shouldShowNav && !prevShouldShow) {
-      // Появление
-      setRendered(true);
-      requestAnimationFrame(() => {
-        setAnimationClass("animate-fade-in-up");
-        setVisible(true);
-      });
-    } else if (!shouldShowNav && prevShouldShow) {
-      // Исчезновение
-      setAnimationClass("animate-fade-out-down");
-      setVisible(false);
-
-      // Подождать, пока анимация завершится
-      setTimeout(() => {
-        setRendered(false);
-      }, 400);
+    // Only animate if visibility state actually changes
+    if (currentShouldShow !== prevShouldShow) {
+      if (currentShouldShow) {
+        // Show navigation
+        setRendered(true);
+        // Use setTimeout to ensure DOM element is rendered before applying show class
+        setTimeout(() => setShouldShow(true), 16);
+      } else {
+        // Hide navigation
+        setShouldShow(false);
+        // Wait for CSS transition to complete before removing from DOM
+        hideTimeoutRef.current = setTimeout(() => {
+          setRendered(false);
+        }, 300); // Match CSS transition duration
+      }
     }
 
-    // Обновление маршрута
     prevPathRef.current = pathname;
-  }, [pathname, shouldShowNav, isInitialized]);
+  }, [pathname, currentShouldShow]);
 
-  if (!rendered) return null;
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Don't render if component should not be visible
+  if (!rendered) {
+    return null;
+  }
 
   return (
     <div
       className={`
         fixed bottom-0 left-0 right-0 z-50 
-        transition-transform duration-500
-        ${animationClass}
+        nav-smooth-transition
+        ${shouldShow ? "nav-show" : "nav-hide"}
       `}
     >
       <BottomNav />
