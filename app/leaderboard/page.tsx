@@ -384,15 +384,15 @@ function LeaderboardPageContent() {
     }
   };
 
-  // NEW: Get position-based styling for top-3 (without borders)
+  // NEW: Get position-based styling for top-3 (darker gradients, left-to-right)
   const getPositionStyling = (position: number) => {
     switch (position) {
       case 1:
-        return "bg-gradient-to-r from-yellow-500/20 via-yellow-400/10 to-yellow-500/20";
+        return "bg-gradient-to-r from-yellow-600/8 to-yellow-800/4";
       case 2:
-        return "bg-gradient-to-r from-gray-400/20 via-gray-300/10 to-gray-400/20";
+        return "bg-gradient-to-r from-gray-500/8 to-gray-700/4";
       case 3:
-        return "bg-gradient-to-r from-amber-600/20 via-amber-500/10 to-amber-600/20";
+        return "bg-gradient-to-r from-amber-700/8 to-amber-900/4";
       default:
         return "";
     }
