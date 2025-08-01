@@ -17,7 +17,6 @@ import {
   parseTelegramInitData,
   getTelegramInitData,
 } from "@/lib/telegram-auth";
-import DebugLanguage from "@/components/DebugLanguage";
 
 interface PageState {
   isInitializing: boolean;
@@ -598,7 +597,6 @@ export default function IntroPage(): JSX.Element {
               ? t("auth.checkingUser")
               : `${t("common.loading")} ${Math.round(videoState.loadProgress)}%`}
           </p>
-          <DebugLanguage />
         </div>
       )}
 

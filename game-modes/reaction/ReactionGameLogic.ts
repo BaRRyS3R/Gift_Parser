@@ -180,6 +180,7 @@ export const calculateReactionScore = (
   if (reactionTime <= 150) return 40;
   if (reactionTime <= 250) return 30;
   if (reactionTime <= 400) return 20;
+
   return 10;
 };
 

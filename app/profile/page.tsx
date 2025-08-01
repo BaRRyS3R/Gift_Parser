@@ -14,15 +14,13 @@ import MinimalistDivider from "@/components/Profile/MinimalistDivider";
 import MinimalistGameStats from "@/components/Profile/MinimalistGameStats";
 import ReferralModal from "@/components/Profile/ReferralModal";
 import AchievementsModal from "@/components/Profile/AchievementsModal";
-import LeaguesModal from "@/components/LeagueProgress/LeaguesModal";
 
 export default function ProfilePage() {
-  const { authState, telegramUser, profile, leagues } = useUser();
+  const { authState, telegramUser, profile } = useUser();
   const t = useT();
 
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [isAchievementsModalOpen, setIsAchievementsModalOpen] = useState(false);
-  const [isLeaguesModalOpen, setIsLeaguesModalOpen] = useState(false);
 
   // Track total games to detect changes
   const [lastKnownTotalGames, setLastKnownTotalGames] = useState<number | null>(
@@ -39,26 +37,6 @@ export default function ProfilePage() {
       profile.fetchProfileData();
     }
   }, [authState.isAuthenticated, authState.user, telegramUser]);
-
-  // ALWAYS load fresh league data when user is authenticated (regardless of cached data)
-  useEffect(() => {
-    if (
-      authState.isAuthenticated &&
-      authState.user &&
-      telegramUser &&
-      !leagues.isLoading &&
-      !leagueDataLoadedRef.current
-    ) {
-      console.log("Loading fresh league data on profile page entry...");
-      leagueDataLoadedRef.current = true;
-      leagues.fetchLeagueData();
-    }
-  }, [
-    authState.isAuthenticated,
-    authState.user,
-    telegramUser,
-    leagues.isLoading,
-  ]);
 
   // Update league data when total games changes (for immediate updates after playing)
   useEffect(() => {
@@ -78,22 +56,9 @@ export default function ProfilePage() {
           `Total games changed from ${lastKnownTotalGames} to ${currentTotalGames}, updating league data...`,
         );
         setLastKnownTotalGames(currentTotalGames);
-
-        // Force refresh league data
-        leagues.fetchLeagueData();
       }
     }
   }, [profile.profileData?.user?.total_games, lastKnownTotalGames]);
-
-  // Reset data when leaving the page (cleanup)
-  useEffect(() => {
-    return () => {
-      console.log(
-        "ProfilePage unmounting, resetting league data for fresh load next time",
-      );
-      leagues.resetLeagueData();
-    };
-  }, []);
 
   const handleOpenReferrals = () => {
     if (profile.profileData?.referrals) {
@@ -105,12 +70,6 @@ export default function ProfilePage() {
     if (profile.profileData?.user) {
       setIsAchievementsModalOpen(true);
     }
-  };
-
-  const handleOpenLeagues = () => {
-    // Simply open the modal - league data is already loaded on page entry
-    // or will be loaded by LeaguesModal component if needed
-    setIsLeaguesModalOpen(true);
   };
 
   // Show loading while user data is being authenticated or profile data is loading
@@ -155,7 +114,6 @@ export default function ProfilePage() {
             className="px-4 py-2 bg-white/10 border border-white/30 text-white rounded-lg hover:bg-white/20 transition-colors"
             onClick={() => {
               profile.fetchProfileData();
-              leagues.fetchLeagueData();
             }}
           >
             {t("common.retry")}
@@ -203,7 +161,6 @@ export default function ProfilePage() {
         {/* Action Buttons */}
         <MinimalistActionButtons
           onOpenAchievements={handleOpenAchievements}
-          onOpenLeagues={handleOpenLeagues}
           onOpenReferrals={handleOpenReferrals}
         />
 
@@ -234,12 +191,6 @@ export default function ProfilePage() {
           onClose={() => setIsAchievementsModalOpen(false)}
         />
       )}
-
-      {/* Leagues Modal */}
-      <LeaguesModal
-        isOpen={isLeaguesModalOpen}
-        onClose={() => setIsLeaguesModalOpen(false)}
-      />
     </div>
   );
 }

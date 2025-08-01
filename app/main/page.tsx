@@ -20,8 +20,6 @@ import AuthGuard from "@/components/Auth/AuthGuard";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
-import CompactLeagueDisplay from "@/components/LeagueProgress/CompactLeagueDisplay";
-import LeagueProgressModal from "@/components/LeagueProgress/LeagueProgressModal";
 import SeasonButton from "@/components/SeasonButton/SeasonButton";
 
 // Tournament types (from new API)
@@ -621,12 +619,6 @@ function MainPageContent() {
       {/* About Modal */}
       <AboutModal isOpen={isAboutOpen} onClose={handleCloseAbout} />
 
-      {/* League Progress Modal */}
-      <LeagueProgressModal
-        isOpen={isLeagueProgressOpen}
-        onClose={handleCloseLeagueProgress}
-      />
-
       {/* Централизованное отображение попыток */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${
@@ -650,32 +642,6 @@ function MainPageContent() {
           onRetry={handleAttemptsRetry}
         />
       </div>
-
-      {/* Level and League Display */}
-      {user && !userLoading && (
-        <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${
-            isFirstVisit
-              ? `transition-all duration-1000 transform ${
-                  showLeagueDisplay
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-4"
-                }`
-              : "opacity-100 translate-y-0"
-          }`}
-          style={{
-            bottom: "96px",
-            zIndex: 50,
-          }}
-        >
-          <div className="pointer-events-auto">
-            <CompactLeagueDisplay
-              className="cursor-pointer"
-              onClick={handleOpenLeagueProgress}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

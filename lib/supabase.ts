@@ -45,10 +45,6 @@ export interface User {
   total_score: number;
   best_score: number;
 
-  // League and Level system
-  current_level: number;
-  current_league_id?: number;
-
   // Game mode specific statistics
   reaction_games: number;
   reaction_best_score: number;
@@ -134,17 +130,6 @@ export const userService = {
   // REMOVED: validateReferralCodeAndGetReferrer - moved to profile module/API
   // REMOVED: findByReferralCode - moved to server service
   // REMOVED: generateUniqueReferralCode - moved to server service
-
-  async create(
-    telegramUser: TelegramUser,
-    referralCode?: string,
-  ): Promise<User> {
-    // This method should primarily be used for client-side data creation
-    // Most creation logic should go through the registration API
-    throw new Error(
-      "User creation should go through /api/auth/register endpoint",
-    );
-  },
 
   // REMOVED: getReferralInfo - moved to profile module/API
   // REMOVED: getReferrerInfo - moved to profile module/API

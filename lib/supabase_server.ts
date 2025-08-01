@@ -17,10 +17,6 @@ import {
   type UserProfileData,
 } from "./server/userProfileService";
 import {
-  serverLeagueService,
-  type CompleteLeagueData,
-} from "./server/leagueServerService";
-import {
   serverSeasonService,
   type CompleteSeasonData,
 } from "./server/seasonService";
@@ -105,8 +101,6 @@ export interface ServerTelegramUser {
 
 // Server-side user service (existing implementation remains the same)
 export const serverUserService = {
-  // ... existing methods remain unchanged ...
-
   async findByTelegramId(telegramId: number): Promise<ServerUser | null> {
     const { data, error } = await supabaseServer
       .from("users")
@@ -335,14 +329,6 @@ export const serverUserService = {
     return serverUserProfileService.getUserProfileData(telegramId);
   },
 
-  // Delegate league operations to league service
-  async getCompleteLeagueData(
-    userId: string,
-    totalGames: number,
-  ): Promise<CompleteLeagueData> {
-    return serverLeagueService.getCompleteLeagueData(userId, totalGames);
-  },
-
   // NEW: Delegate season operations to season service
   async getCurrentSeasonData(
     userId: string,
@@ -357,5 +343,4 @@ export { serverAttemptsService };
 export { serverGameService };
 export { serverLeaderboardService };
 export { serverUserProfileService };
-export { serverLeagueService };
 export { serverSeasonService }; // NEW: Export season service

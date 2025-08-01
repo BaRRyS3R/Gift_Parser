@@ -8,7 +8,6 @@ import type {
   RegistrationResult,
   LoginResult,
 } from "./modules/useAuth";
-import type { AchievementNotificationData } from "@/components/LeagueProgress/AchievementNotification";
 
 import React, {
   useState,
@@ -21,7 +20,6 @@ import React, {
 import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
 import { useProfile } from "./modules/useProfile";
-import { useLeagues } from "./modules/useLeagues";
 import { useGame } from "./modules/useGame";
 import { useSeasons } from "./modules/useSeasons"; // NEW: Import seasons module
 
@@ -51,15 +49,9 @@ interface UserContextType {
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 
-  // Achievement notifications
-  currentAchievement: AchievementNotificationData | null;
-  showAchievement: (achievement: AchievementNotificationData) => void;
-  hideAchievement: () => void;
-
   // Module integrations
   leaderboard: ReturnType<typeof useLeaderboard>;
   profile: ReturnType<typeof useProfile>;
-  leagues: ReturnType<typeof useLeagues>;
   game: ReturnType<typeof useGame>;
   seasons: ReturnType<typeof useSeasons>; // NEW: Seasons module
 
@@ -91,7 +83,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   // Use specialized modules
   const leaderboardModule = useLeaderboard(makeAuthenticatedRequest);
   const profileModule = useProfile(makeAuthenticatedRequest);
-  const leaguesModule = useLeagues(makeAuthenticatedRequest);
   const gameModule = useGame(makeAuthenticatedRequest);
   const seasonsModule = useSeasons(makeAuthenticatedRequest); // NEW: Initialize seasons module
 
@@ -101,10 +92,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Achievement notifications state
-  const [currentAchievement, setCurrentAchievement] =
-    useState<AchievementNotificationData | null>(null);
 
   // Auto-detect Telegram user on mount
   useEffect(() => {
@@ -220,19 +207,11 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     // Reset all module data on logout
     leaderboardModule.resetLeaderboard();
     profileModule.resetProfileData();
-    leaguesModule.resetLeagueData();
     gameModule.resetTournamentState();
     seasonsModule.resetSeasonData(); // NEW: Reset season data
 
     console.log("User logged out");
-  }, [
-    authLogout,
-    leaderboardModule,
-    profileModule,
-    leaguesModule,
-    gameModule,
-    seasonsModule,
-  ]);
+  }, [authLogout, leaderboardModule, profileModule, gameModule, seasonsModule]);
 
   // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
@@ -261,18 +240,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   // Set Telegram user data
   const setTelegramUser = useCallback((userData: TelegramUser) => {
     setTelegramUserState(userData);
-  }, []);
-
-  // Achievement notification methods
-  const showAchievement = useCallback(
-    (achievement: AchievementNotificationData) => {
-      setCurrentAchievement(achievement);
-    },
-    [],
-  );
-
-  const hideAchievement = useCallback(() => {
-    setCurrentAchievement(null);
   }, []);
 
   // Clear error state
@@ -304,15 +271,9 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     updateUser,
     setTelegramUser,
 
-    // Achievement notifications
-    currentAchievement,
-    showAchievement,
-    hideAchievement,
-
     // Module integrations
     leaderboard: leaderboardModule,
     profile: profileModule,
-    leagues: leaguesModule,
     game: gameModule,
     seasons: seasonsModule, // NEW: Include seasons module
 

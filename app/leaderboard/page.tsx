@@ -22,16 +22,20 @@ export interface SafeSeasonLeaderboard {
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Star, Crown, Zap, Crosshair, Atom, RotateCw } from "lucide-react";
+import { Crown, Zap, Crosshair, Atom, RotateCw } from "lucide-react";
 import { Renderer, Program, Mesh, Color, Triangle } from "ogl";
 
 import { useUser } from "@/hooks/useUser";
 import { useLeaderboard } from "@/hooks/modules/useLeaderboard";
-import { formatRotationTime } from "@/utils/timeFormatter";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 
-type LeaderboardType = "season" | "reaction" | "survival" | "physics" | "rotation";
+type LeaderboardType =
+  | "season"
+  | "reaction"
+  | "survival"
+  | "physics"
+  | "rotation";
 
 // Static Aurora Background Component - completely isolated from tab changes
 const VERT = `#version 300 es
@@ -310,14 +314,14 @@ function LeaderboardPageContent() {
     if (!leaderboardData || !user || !telegramUser) return null;
 
     const userPosition = leaderboardData.userRankings[activeTab];
-    
+
     // Find user data in the current leaderboard
     const userData = getCurrentLeaderboard.find((entry) => entry.isCurrentUser);
-    
+
     // Get user's game count for this mode
     let gamesCount = 0;
     let value = "N/A";
-    
+
     switch (activeTab) {
       case "season":
         gamesCount = user.total_games;
@@ -362,7 +366,8 @@ function LeaderboardPageContent() {
     }
 
     // Fixed: User has played if they have games OR appear in leaderboard OR have a ranking position
-    const hasPlayed = gamesCount > 0 || userData !== undefined || userPosition !== undefined;
+    const hasPlayed =
+      gamesCount > 0 || userData !== undefined || userPosition !== undefined;
 
     return {
       name: `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim(),
@@ -370,7 +375,7 @@ function LeaderboardPageContent() {
       position: userPosition,
       value,
       gamesCount,
-      hasPlayed
+      hasPlayed,
     };
   }, [leaderboardData, activeTab, user, telegramUser, getCurrentLeaderboard]);
 
@@ -505,9 +510,9 @@ function LeaderboardPageContent() {
                                 : t("leaderboard.points")}
                       </div>
                     </div>
-                    
-                    <div className="w-px h-8 bg-white/30"></div>
-                    
+
+                    <div className="w-px h-8 bg-white/30" />
+
                     <div className="text-center">
                       {currentUserData.position ? (
                         <>
@@ -530,7 +535,7 @@ function LeaderboardPageContent() {
                       )}
                     </div>
                   </div>
-                  
+
                   <button
                     className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg transition-all duration-200 hover:scale-105"
                     onClick={() => router.push("/game")}
@@ -543,7 +548,7 @@ function LeaderboardPageContent() {
                   <div className="text-xl text-white/60 drop-shadow-lg">
                     {t("leaderboard.noGamesYet")}
                   </div>
-                  
+
                   <button
                     className="px-6 py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded-lg font-medium transition-all duration-200 hover:scale-105"
                     onClick={() => router.push("/game")}
@@ -566,11 +571,18 @@ function LeaderboardPageContent() {
         <div className="text-center mb-4">
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1 inline-block">
             <div className="flex space-x-1">
-              {(["season", "reaction", "survival", "physics", "rotation"] as const).map(
-                (tab) => (
-                  <button
-                    key={tab}
-                    className={`
+              {(
+                [
+                  "season",
+                  "reaction",
+                  "survival",
+                  "physics",
+                  "rotation",
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab}
+                  className={`
                     px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200
                     ${
                       activeTab === tab
@@ -578,15 +590,14 @@ function LeaderboardPageContent() {
                         : "text-white/60 hover:text-white/80 hover:bg-white/5"
                     }
                   `}
-                    disabled={isTransitioning}
-                    onClick={() => handleTabChange(tab)}
-                  >
-                    <div className="flex items-center justify-center space-x-2">
-                      {getTabIcon(tab)}
-                    </div>
-                  </button>
-                ),
-              )}
+                  disabled={isTransitioning}
+                  onClick={() => handleTabChange(tab)}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    {getTabIcon(tab)}
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -634,20 +645,28 @@ function LeaderboardPageContent() {
                           <div className="flex items-center space-x-2">
                             <span
                               className={`font-medium truncate ${
-                                entry.isCurrentUser ? "text-white" : 
-                                entry.position === 1 ? "text-yellow-100" :
-                                entry.position === 2 ? "text-gray-100" :
-                                entry.position === 3 ? "text-amber-100" :
-                                "text-white/90"
+                                entry.isCurrentUser
+                                  ? "text-white"
+                                  : entry.position === 1
+                                    ? "text-yellow-100"
+                                    : entry.position === 2
+                                      ? "text-gray-100"
+                                      : entry.position === 3
+                                        ? "text-amber-100"
+                                        : "text-white/90"
                               }`}
                             >
                               {entry.first_name} {entry.last_name || ""}
                             </span>
                           </div>
                           {entry.username && (
-                            <div className={`text-xs truncate ${
-                              entry.position <= 3 ? "text-white/60" : "text-white/50"
-                            }`}>
+                            <div
+                              className={`text-xs truncate ${
+                                entry.position <= 3
+                                  ? "text-white/60"
+                                  : "text-white/50"
+                              }`}
+                            >
                               @{entry.username}
                             </div>
                           )}
@@ -655,17 +674,26 @@ function LeaderboardPageContent() {
                       </div>
 
                       <div className="text-right flex-shrink-0">
-                        <div className={`font-bold text-lg ${
-                          entry.position === 1 ? "text-yellow-400" :
-                          entry.position === 2 ? "text-gray-300" :
-                          entry.position === 3 ? "text-amber-500" :
-                          "text-white"
-                        }`}>
+                        <div
+                          className={`font-bold text-lg ${
+                            entry.position === 1
+                              ? "text-yellow-400"
+                              : entry.position === 2
+                                ? "text-gray-300"
+                                : entry.position === 3
+                                  ? "text-amber-500"
+                                  : "text-white"
+                          }`}
+                        >
                           {getPlayerValue(entry)}
                         </div>
-                        <div className={`text-xs ${
-                          entry.position <= 3 ? "text-white/60" : "text-white/50"
-                        }`}>
+                        <div
+                          className={`text-xs ${
+                            entry.position <= 3
+                              ? "text-white/60"
+                              : "text-white/50"
+                          }`}
+                        >
                           {activeTab === "season"
                             ? t("leaderboard.points")
                             : activeTab === "reaction"

@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated with scoring system and multipliers
+// src/lib/server/gameService.ts - Updated with scoring system and multipliers (no leagues/levels)
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -6,11 +6,6 @@ import type { PhysicsGameResult } from "@/types/game-modes/physics";
 import type { RotationGameResult } from "@/types/game-modes/rotation";
 
 import { GameMode } from "@/types/game-modes/common";
-import {
-  serverLeagueService,
-  type LeagueRewardResult,
-  type League,
-} from "@/lib/server/leagueServerService";
 import { supabaseServer } from "@/lib/supabase_server";
 
 // Game result union type
@@ -20,15 +15,9 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Game save result interface
+// Game save result interface (simplified)
 export interface GameSaveResult {
   success: boolean;
-  leagueChanged?: boolean;
-  newLeague?: League;
-  levelChanged?: boolean;
-  newLevel?: number;
-  reward?: LeagueRewardResult;
-  missedRewards?: LeagueRewardResult[];
   error?: string;
 }
 
@@ -46,11 +35,12 @@ export interface TournamentSaveResponse {
  */
 function calculateReactionScore(reactionTime: number, missed: boolean): number {
   if (missed) return 0;
-  
+
   if (reactionTime < 50) return 50;
   if (reactionTime <= 150) return 40;
   if (reactionTime <= 250) return 30;
   if (reactionTime <= 400) return 20;
+
   return 10;
 }
 
@@ -77,14 +67,19 @@ function getScoreMultiplier(mode: GameMode): number {
  */
 function calculateTotalScoreContribution(gameResult: GameResult): number {
   let baseScore = gameResult.score;
-  
+
   // For reaction mode, recalculate score based on reaction time
   if (gameResult.mode === GameMode.REACTION) {
     const reactionResult = gameResult as ReactionGameResult;
-    baseScore = calculateReactionScore(reactionResult.reactionTime, reactionResult.missed);
+
+    baseScore = calculateReactionScore(
+      reactionResult.reactionTime,
+      reactionResult.missed,
+    );
   }
-  
+
   const multiplier = getScoreMultiplier(gameResult.mode);
+
   return baseScore * multiplier;
 }
 
@@ -93,22 +88,27 @@ function calculateTotalScoreContribution(gameResult: GameResult): number {
  */
 function calculateModeSpecificScore(gameResult: GameResult): number {
   let baseScore = gameResult.score;
-  
+
   // For reaction mode, use calculated score
   if (gameResult.mode === GameMode.REACTION) {
     const reactionResult = gameResult as ReactionGameResult;
-    return calculateReactionScore(reactionResult.reactionTime, reactionResult.missed);
+
+    return calculateReactionScore(
+      reactionResult.reactionTime,
+      reactionResult.missed,
+    );
   }
-  
+
   // For other modes, apply multiplier to mode-specific best score
   const multiplier = getScoreMultiplier(gameResult.mode);
+
   return baseScore * multiplier;
 }
 
 // Server-side game service
 export const serverGameService = {
   /**
-   * Update user game statistics with league progression logic
+   * Update user game statistics (simplified without leagues/levels)
    */
   async updateGameStats(
     telegramId: number,
@@ -133,29 +133,28 @@ export const serverGameService = {
       ? previousTotalGames + 1
       : previousTotalGames;
 
-    const previousLevel = user.current_level;
-    const newLevel = serverLeagueService.calculateLevel(newTotalGames);
-
     // Calculate score contributions
     const totalScoreContribution = calculateTotalScoreContribution(gameResult);
     const modeSpecificScore = calculateModeSpecificScore(gameResult);
 
     const updates: any = {
       total_games: newTotalGames,
-      // NEW: All modes contribute to total_score with multipliers
+      // All modes contribute to total_score with multipliers
       total_score: user.total_score + totalScoreContribution,
-      // NEW: All modes can update best_score
+      // All modes can update best_score
       best_score: Math.max(user.best_score, totalScoreContribution),
-      current_level: newLevel,
       last_played_at: new Date().toISOString(),
     };
 
     // Mode-specific statistics updates
     if (gameResult.mode === GameMode.REACTION) {
       const reactionResult = gameResult as ReactionGameResult;
-      
+
       // Calculate actual score for reaction mode
-      const calculatedScore = calculateReactionScore(reactionResult.reactionTime, reactionResult.missed);
+      const calculatedScore = calculateReactionScore(
+        reactionResult.reactionTime,
+        reactionResult.missed,
+      );
 
       updates.reaction_games = user.reaction_games + 1;
       updates.reaction_best_score = Math.max(
@@ -265,42 +264,15 @@ export const serverGameService = {
       throw new Error("Failed to update user statistics");
     }
 
-    // League checking only for competitive modes
-    try {
-      if (isCompetitiveMode) {
-        const leagueResult = await serverLeagueService.checkAndUpdateLeague(
-          user.id,
-          newTotalGames,
-        );
+    console.log("Game statistics updated successfully:", {
+      mode: gameResult.mode,
+      totalGames: newTotalGames,
+      scoreContribution: totalScoreContribution,
+    });
 
-        return {
-          success: true,
-          leagueChanged: leagueResult.leagueChanged,
-          newLeague: leagueResult.newLeague,
-          levelChanged: newLevel !== previousLevel,
-          newLevel: newLevel !== previousLevel ? newLevel : undefined,
-          reward: leagueResult.reward,
-          missedRewards: leagueResult.missedRewards,
-        };
-      } else {
-        // For reaction mode, return result without league checking
-        return {
-          success: true,
-          leagueChanged: false,
-          levelChanged: false,
-        };
-      }
-    } catch (leagueError) {
-      console.error("Error checking league after game:", leagueError);
-
-      return {
-        success: true,
-        leagueChanged: false,
-        levelChanged: newLevel !== previousLevel,
-        newLevel: newLevel !== previousLevel ? newLevel : undefined,
-        error: "League check failed",
-      };
-    }
+    return {
+      success: true,
+    };
   },
 
   /**
@@ -376,7 +348,7 @@ export const serverGameService = {
 
     return saveResponse;
   },
-  
+
   // Export utility functions for use in game logic
   calculateReactionScore,
   getScoreMultiplier,
