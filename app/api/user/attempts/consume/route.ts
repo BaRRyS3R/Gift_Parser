@@ -1,8 +1,8 @@
-// src/app/api/user/attempts/consume/route.ts - Оптимизированное потребление попыток
+// src/app/api/user/attempts/consume/route.ts - Consume user attempt
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { serverAttemptsService } from "@/lib/server/attemptsService";
+import { serverUserService } from "@/lib/supabase_server";
 
 // Response interface
 interface ConsumeAttemptResponse {
@@ -16,13 +16,13 @@ interface ConsumeAttemptResponse {
 
 /**
  * POST /api/user/attempts/consume
- * Оптимизированное потребление одной попытки для аутентифицированного пользователя
+ * Consume one attempt for the authenticated user
  */
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<ConsumeAttemptResponse>> {
   try {
-    // Извлекаем информацию о пользователе из заголовков middleware
+    // Extract user info from middleware headers
     const telegramId = request.headers.get("X-Telegram-ID");
     const userId = request.headers.get("X-User-ID");
 
@@ -32,7 +32,7 @@ export async function POST(
           success: false,
           canPlay: false,
           attemptsRemaining: 0,
-          error: "Требуется аутентификация пользователя",
+          error: "User authentication required",
         },
         { status: 401 },
       );
@@ -46,18 +46,19 @@ export async function POST(
           success: false,
           canPlay: false,
           attemptsRemaining: 0,
-          error: "Неверный ID пользователя",
+          error: "Invalid user ID",
         },
         { status: 400 },
       );
     }
 
-    console.log(`Потребление попытки для пользователя ${telegramIdNumber}`);
+    // Consume attempt with server-side validation
+    const attemptsStatus =
+      await serverUserService.consumeAttemptWithServerValidation(
+        telegramIdNumber,
+      );
 
-    // Используем быстрое потребление попытки с серверной валидацией
-    const attemptsStatus = await serverAttemptsService.consumeAttemptFast(telegramIdNumber);
-
-    console.log(`Попытка потреблена для пользователя ${telegramIdNumber}:`, {
+    console.log(`Attempt consumed for user ${telegramIdNumber}:`, {
       canPlay: attemptsStatus.canPlay,
       attemptsRemaining: attemptsStatus.attemptsRemaining,
       hasResetTime: !!attemptsStatus.resetTime,
@@ -71,73 +72,33 @@ export async function POST(
       timeUntilReset: attemptsStatus.timeUntilReset,
     });
   } catch (error) {
-    console.error("Ошибка потребления попытки:", error);
+    console.error("Error consuming attempt:", error);
 
-    // Обработка специфических типов ошибок
+    // Handle specific error types
     if (error instanceof Error) {
-      if (error.message.includes("не найден")) {
+      if (error.message.includes("not found")) {
         return NextResponse.json(
           {
             success: false,
             canPlay: false,
             attemptsRemaining: 0,
-            error: "Пользователь не найден",
+            error: "User not found",
           },
           { status: 404 },
         );
       }
 
-      if (error.message.includes("Нет") && error.message.includes("попыток")) {
+      if (error.message.includes("No attempts remaining")) {
         return NextResponse.json(
           {
             success: false,
             canPlay: false,
             attemptsRemaining: 0,
-            error: "Нет оставшихся попыток",
+            error: "No attempts remaining",
           },
           { status: 400 },
         );
       }
-
-      if (error.message.includes("функции БД")) {
-        console.warn("Ошибка функции БД при потреблении, используем фоллбэк метод");
-
-        try {
-          const telegramIdNumber = parseInt(request.headers.get("X-Telegram-ID")!);
-          const fallbackStatus = await serverAttemptsService.consumeAttempt(telegramIdNumber);
-
-          return NextResponse.json({
-            success: true,
-            canPlay: fallbackStatus.canPlay,
-            attemptsRemaining: fallbackStatus.attemptsRemaining,
-            resetTime: fallbackStatus.resetTime?.toISOString(),
-            timeUntilReset: fallbackStatus.timeUntilReset,
-          });
-        } catch (fallbackError) {
-          console.error("Фоллбэк метод потребления также не сработал:", fallbackError);
-
-          return NextResponse.json(
-            {
-              success: false,
-              canPlay: false,
-              attemptsRemaining: 0,
-              error: "Критическая ошибка потребления попытки",
-            },
-            { status: 500 },
-          );
-        }
-      }
-
-      // Возвращаем конкретную ошибку от сервера
-      return NextResponse.json(
-        {
-          success: false,
-          canPlay: false,
-          attemptsRemaining: 0,
-          error: error.message,
-        },
-        { status: 400 },
-      );
     }
 
     return NextResponse.json(
@@ -145,7 +106,7 @@ export async function POST(
         success: false,
         canPlay: false,
         attemptsRemaining: 0,
-        error: "Не удалось потребить попытку",
+        error: "Failed to consume attempt",
       },
       { status: 500 },
     );
@@ -154,7 +115,7 @@ export async function POST(
 
 /**
  * OPTIONS /api/user/attempts/consume
- * Обработка CORS preflight запросов
+ * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
   return new NextResponse(null, {

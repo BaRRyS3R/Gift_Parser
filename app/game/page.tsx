@@ -1,8 +1,8 @@
-// src/app/game/page.tsx - Оптимизированная страница игр с быстрой загрузкой попыток
+// src/app/game/page.tsx - Обновленная страница игр с NextUI карточками
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardFooter, Image, Button } from "@nextui-org/react";
 import {
@@ -154,7 +154,7 @@ const GAME_MODES: GameMode[] = [
 
 function GamePageContent() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, makeAuthenticatedRequest } = useUser();
   const {
     attemptsStatus,
     isLoading: attemptsLoading,
@@ -170,37 +170,11 @@ function GamePageContent() {
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [consumeError, setConsumeError] = useState<string | null>(null);
 
-  // Мемоизированные значения для предотвращения ненужных перерендеров
-  const gameModesData = useMemo(() => GAME_MODES, []);
-
-  const isAnyModeLoading = useMemo(() => loadingModeId !== null, [loadingModeId]);
-
-  const attemptsDisplayProps = useMemo(() => ({
-    attemptsRemaining,
-    attemptsStatus,
-    canPlay,
-    error: attemptsError,
-    isLoading: attemptsLoading,
-    showShopButton: true,
-    onRetry: () => {
-      clearError();
-      setConsumeError(null);
-      fetchAttemptsStatus();
-    }
-  }), [attemptsRemaining, attemptsStatus, canPlay, attemptsError, attemptsLoading, clearError, fetchAttemptsStatus]);
-
-  /**
-   * Оптимизированная обработка запуска игрового режима
-   */
   const handleModeStart = useCallback(
     async (mode: GameMode) => {
-      // Предварительные проверки для предотвращения некорректных состояний
-      if (isAnyModeLoading || !canPlay) {
-        console.log("Невозможно запустить игру:", {
-          loadingModeId,
-          canPlay,
-          attemptsRemaining
-        });
+      if (loadingModeId || !canPlay) {
+        console.log("Cannot start game:", { loadingModeId, canPlay });
+
         return;
       }
 
@@ -208,78 +182,77 @@ function GamePageContent() {
       setConsumeError(null);
 
       try {
-        console.log(`Запуск игры ${mode.id} - потребление попытки...`);
+        console.log(`Starting ${mode.id} game - consuming attempt first...`);
 
-        // Оптимистичное потребление попытки с немедленным откликом интерфейса
+        // Потребляем попытку перед началом игры
         const updatedStatus = await consumeAttempt();
 
         if (!updatedStatus) {
-          throw new Error("Не удалось потребить попытку");
+          throw new Error("Failed to consume attempt");
         }
 
         console.log(
-          `Попытка успешно потреблена. Осталось: ${updatedStatus.attemptsRemaining}`,
+          `Attempt consumed successfully. Remaining: ${updatedStatus.attemptsRemaining}`,
         );
 
-        // Сокращенная задержка для улучшения восприятия скорости
+        // Небольшая задержка для показа анимации загрузки
         setTimeout(() => {
           router.push(mode.route);
-        }, 300);
+        }, 600);
       } catch (error) {
-        console.error("Ошибка потребления попытки:", error);
+        console.error("Error consuming attempt:", error);
         const errorMessage =
-          error instanceof Error ? error.message : "Не удалось запустить игру";
+          error instanceof Error ? error.message : "Failed to start game";
 
         setConsumeError(errorMessage);
         setLoadingModeId(null);
 
-        // Обновляем статус попыток после ошибки с минимальной задержкой
+        // Обновляем статус попыток после ошибки
         setTimeout(() => {
-          fetchAttemptsStatus();
-        }, 500);
+          fetchAttemptsStatus(true);
+        }, 1000);
       }
     },
-    [isAnyModeLoading, canPlay, consumeAttempt, router, fetchAttemptsStatus, attemptsRemaining, loadingModeId],
+    [loadingModeId, canPlay, consumeAttempt, router, fetchAttemptsStatus],
   );
 
-  /**
-   * Обработчик повторной попытки загрузки данных попыток
-   */
   const handleAttemptsRetry = useCallback(() => {
     clearError();
     setConsumeError(null);
-    fetchAttemptsStatus();
+    fetchAttemptsStatus(true);
   }, [clearError, fetchAttemptsStatus]);
 
-  // Автоматическая очистка ошибки потребления при изменении статуса попыток
+  // Clear consume error when attempts change
   useEffect(() => {
     if (consumeError && attemptsStatus) {
       setConsumeError(null);
     }
   }, [attemptsStatus, consumeError]);
 
-  // Конфигурация Telegram WebApp back button
+  // Telegram WebApp back button
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
 
       tg.BackButton.show();
-      const handleBackClick = () => router.push("/main");
-      tg.BackButton.onClick(handleBackClick);
+      tg.BackButton.onClick(() => {
+        router.push("/main");
+      });
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(handleBackClick);
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${isAnyModeLoading
-          ? "opacity-0 transition-opacity duration-300 ease-in"
-          : "opacity-100 transition-opacity duration-500 ease-out"
-        }`}
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
+        loadingModeId
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : "opacity-100 transition-opacity duration-1000 ease-out"
+      }`}
     >
       <div className="px-4">
         <div className="text-center space-y-4 mb-8">
@@ -291,7 +264,7 @@ function GamePageContent() {
           </p>
         </div>
 
-        {/* Централизованное отображение ошибок потребления попыток */}
+        {/* Отображение ошибки потребления попыток */}
         {consumeError && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-400/30 rounded-xl animate-fade-in">
             <div className="flex items-center space-x-2 mb-2">
@@ -310,10 +283,16 @@ function GamePageContent() {
           </div>
         )}
 
-        {/* Оптимизированное отображение попыток */}
+        {/* Централизованное отображение попыток */}
         <div className="mb-8 animate-fade-in">
           <AttemptsDisplay
-            {...attemptsDisplayProps}
+            attemptsRemaining={attemptsRemaining}
+            attemptsStatus={attemptsStatus}
+            canPlay={canPlay}
+            error={attemptsError}
+            isLoading={attemptsLoading}
+            showShopButton={true}
+            onRetry={handleAttemptsRetry}
           />
         </div>
 
@@ -322,21 +301,23 @@ function GamePageContent() {
         </div>
       </div>
 
-      {/* Оптимизированная горизонтальная прокрутка карточек игровых режимов */}
+      {/* Горизонтальная прокрутка карточек без padding */}
       <div className="mb-8 animate-fade-in">
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex space-x-4 px-4" style={{ width: "max-content" }}>
-            {gameModesData.map((mode) => {
+            {GAME_MODES.map((mode) => {
               const Icon = mode.icon;
               const isCurrentModeLoading = loadingModeId === mode.id;
+              const isAnyModeLoading = loadingModeId !== null;
               const isDisabled = !canPlay;
 
               return (
                 <div key={mode.id} className="relative">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] transition-all duration-300 ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
-                      }`}
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${
+                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                    }`}
                   >
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
                       <div className="flex items-center space-x-3 mb-2">
@@ -406,7 +387,7 @@ function GamePageContent() {
                     </CardFooter>
                   </Card>
 
-                  {/* Оверлей для заблокированного состояния */}
+                  {/* Overlay для заблокированного состояния */}
                   {isDisabled && !isAnyModeLoading && (
                     <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-30">
                       <div className="text-center space-y-2">

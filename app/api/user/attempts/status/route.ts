@@ -1,8 +1,8 @@
-// src/app/api/user/attempts/status/route.ts - Оптимизированное получение статуса попыток
+// src/app/api/user/attempts/status/route.ts - Get user attempts status
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { serverAttemptsService } from "@/lib/server/attemptsService";
+import { serverUserService } from "@/lib/supabase_server";
 
 // Response interface
 interface AttemptsStatusResponse {
@@ -16,16 +16,15 @@ interface AttemptsStatusResponse {
 
 /**
  * GET /api/user/attempts/status
- * Оптимизированное получение текущего статуса попыток пользователя
+ * Get current user attempts status with server-side validation
  */
 export async function GET(
   request: NextRequest,
 ): Promise<NextResponse<AttemptsStatusResponse>> {
   try {
-    // Извлекаем информацию о пользователе из заголовков middleware
+    // Extract user info from middleware headers
     const telegramId = request.headers.get("X-Telegram-ID");
     const userId = request.headers.get("X-User-ID");
-    const isFastCheck = request.headers.get("X-Fast-Check");
 
     if (!telegramId || !userId) {
       return NextResponse.json(
@@ -33,7 +32,7 @@ export async function GET(
           success: false,
           canPlay: false,
           attemptsRemaining: 0,
-          error: "Требуется аутентификация пользователя",
+          error: "User authentication required",
         },
         { status: 401 },
       );
@@ -47,20 +46,19 @@ export async function GET(
           success: false,
           canPlay: false,
           attemptsRemaining: 0,
-          error: "Неверный ID пользователя",
+          error: "Invalid user ID",
         },
         { status: 400 },
       );
     }
 
-    console.log(`Получение статуса попыток для пользователя ${telegramIdNumber} (fast: ${!!isFastCheck})`);
+    // Get attempts status from server
+    const attemptsStatus =
+      await serverUserService.checkAndUpdateAttemptsWithServerValidation(
+        telegramIdNumber,
+      );
 
-    // Используем быструю проверку для оптимизации производительности
-    const attemptsStatus = isFastCheck 
-      ? await serverAttemptsService.checkAndUpdateAttemptsFast(telegramIdNumber)
-      : await serverAttemptsService.checkAndUpdateAttempts(telegramIdNumber);
-
-    console.log(`Статус попыток для пользователя ${telegramIdNumber}:`, {
+    console.log(`Attempts status for user ${telegramIdNumber}:`, {
       canPlay: attemptsStatus.canPlay,
       attemptsRemaining: attemptsStatus.attemptsRemaining,
       hasResetTime: !!attemptsStatus.resetTime,
@@ -74,39 +72,20 @@ export async function GET(
       timeUntilReset: attemptsStatus.timeUntilReset,
     });
   } catch (error) {
-    console.error("Ошибка получения статуса попыток:", error);
+    console.error("Error getting attempts status:", error);
 
-    // Обработка специфических типов ошибок
+    // Handle specific error types
     if (error instanceof Error) {
-      if (error.message.includes("не найден")) {
+      if (error.message.includes("not found")) {
         return NextResponse.json(
           {
             success: false,
             canPlay: false,
             attemptsRemaining: 0,
-            error: "Пользователь не найден",
+            error: "User not found",
           },
           { status: 404 },
         );
-      }
-
-      if (error.message.includes("функции БД")) {
-        console.warn("Ошибка функции БД, используем фоллбэк метод");
-        
-        try {
-          const telegramIdNumber = parseInt(request.headers.get("X-Telegram-ID")!);
-          const fallbackStatus = await serverAttemptsService.checkAndUpdateAttempts(telegramIdNumber);
-          
-          return NextResponse.json({
-            success: true,
-            canPlay: fallbackStatus.canPlay,
-            attemptsRemaining: fallbackStatus.attemptsRemaining,
-            resetTime: fallbackStatus.resetTime?.toISOString(),
-            timeUntilReset: fallbackStatus.timeUntilReset,
-          });
-        } catch (fallbackError) {
-          console.error("Фоллбэк метод также не сработал:", fallbackError);
-        }
       }
     }
 
@@ -115,7 +94,7 @@ export async function GET(
         success: false,
         canPlay: false,
         attemptsRemaining: 0,
-        error: "Не удалось получить статус попыток",
+        error: "Failed to get attempts status",
       },
       { status: 500 },
     );
@@ -124,7 +103,7 @@ export async function GET(
 
 /**
  * OPTIONS /api/user/attempts/status
- * Обработка CORS preflight запросов
+ * Handle CORS preflight requests
  */
 export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
   return new NextResponse(null, {
@@ -132,7 +111,7 @@ export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Fast-Check",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Access-Control-Max-Age": "86400",
     },
   });

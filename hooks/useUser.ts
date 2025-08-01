@@ -1,4 +1,4 @@
-// src/hooks/useUser.ts - Оптимизированный с параллельной инициализацией данных
+// src/hooks/useUser.ts - Updated with seasons module integration
 
 "use client";
 
@@ -21,22 +21,22 @@ import { useAuth } from "./modules/useAuth";
 import { useLeaderboard } from "./modules/useLeaderboard";
 import { useProfile } from "./modules/useProfile";
 import { useGame } from "./modules/useGame";
-import { useSeasons } from "./modules/useSeasons";
+import { useSeasons } from "./modules/useSeasons"; // NEW: Import seasons module
 
-// Основной интерфейс контекста пользователя
+// Main user context interface
 interface UserContextType {
-  // Данные пользователя
+  // User data
   user: User | null;
   telegramUser: TelegramUser | null;
 
-  // Состояние аутентификации
+  // Authentication state
   authState: AuthState;
 
-  // Состояния загрузки
+  // Loading states
   isLoading: boolean;
   error: string | null;
 
-  // Методы аутентификации
+  // Authentication methods
   register: (
     initData: string,
     referralCode?: string,
@@ -45,24 +45,21 @@ interface UserContextType {
   logout: () => void;
   refreshUser: () => Promise<void>;
 
-  // Управление пользователем
+  // User management
   updateUser: (userData: User) => void;
   setTelegramUser: (userData: TelegramUser) => void;
 
-  // Интеграции модулей
+  // Module integrations
   leaderboard: ReturnType<typeof useLeaderboard>;
   profile: ReturnType<typeof useProfile>;
   game: ReturnType<typeof useGame>;
-  seasons: ReturnType<typeof useSeasons>;
+  seasons: ReturnType<typeof useSeasons>; // NEW: Seasons module
 
-  // Утилитарные методы
+  // Utility methods
   makeAuthenticatedRequest: (
     endpoint: string,
     options?: RequestInit,
   ) => Promise<Response>;
-
-  // НОВОЕ: Предварительная загрузка данных
-  preloadUserData: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -72,7 +69,7 @@ interface UserProviderProps {
 }
 
 export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
-  // Использование модуля аутентификации
+  // Use authentication module
   const {
     authState,
     register: authRegister,
@@ -83,20 +80,20 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     clearError,
   } = useAuth();
 
-  // Использование специализированных модулей
+  // Use specialized modules
   const leaderboardModule = useLeaderboard(makeAuthenticatedRequest);
   const profileModule = useProfile(makeAuthenticatedRequest);
   const gameModule = useGame(makeAuthenticatedRequest);
-  const seasonsModule = useSeasons(makeAuthenticatedRequest);
+  const seasonsModule = useSeasons(makeAuthenticatedRequest); // NEW: Initialize seasons module
 
-  // Локальное состояние для данных пользователя и интерфейса
+  // Local state for user data and UI
   const [telegramUser, setTelegramUserState] = useState<TelegramUser | null>(
     null,
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Автоматическое определение пользователя Telegram при монтировании
+  // Auto-detect Telegram user on mount
   useEffect(() => {
     if (
       !telegramUser &&
@@ -121,95 +118,31 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [telegramUser]);
 
-  /**
-   * НОВОЕ: Предварительная загрузка критичных данных пользователя
-   */
-  const preloadUserData = useCallback(async (): Promise<void> => {
-    if (!authState.isAuthenticated) {
-      console.log("Пользователь не аутентифицирован, пропускаем предварительную загрузку");
-      return;
-    }
-
-    try {
-      console.log("Запуск предварительной загрузки критичных данных пользователя...");
-
-      // Параллельная загрузка критичных данных для игровой страницы
-      const dataPromises = [
-        // Попытки пользователя (самые критичные для игровой страницы)
-        makeAuthenticatedRequest("/api/user/attempts/status", {
-          headers: { 'X-Fast-Check': 'true' }
-        }).catch((error: Error) => {
-          console.warn("Не удалось предварительно загрузить данные попыток:", error);
-          return null;
-        }),
-
-        // Профиль пользователя
-        profileModule.fetchProfileData().catch((error: Error) => {
-          console.warn("Не удалось предварительно загрузить профиль:", error);
-          return null;
-        }),
-
-        // Данные текущего сезона
-        seasonsModule.fetchCurrentSeason().catch((error: Error) => {
-          console.warn("Не удалось предварительно загрузить данные сезона:", error);
-          return null;
-        }),
-      ];
-
-      const results = await Promise.allSettled(dataPromises);
-
-      console.log("Предварительная загрузка завершена:", {
-        attemptsLoaded: results[0].status === 'fulfilled',
-        profileLoaded: results[1].status === 'fulfilled',
-        seasonLoaded: results[2].status === 'fulfilled',
-      });
-
-    } catch (error) {
-      console.error("Ошибка предварительной загрузки данных:", error);
-      // Не показываем ошибки предварительной загрузки пользователю
-    }
-  }, [authState.isAuthenticated, makeAuthenticatedRequest, profileModule, seasonsModule]);
-
-  /**
-   * ОПТИМИЗИРОВАННОЕ: Проверка статуса аутентификации с параллельной загрузкой
-   */
+  // Check authentication status on mount
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        console.log("Инициализация аутентификации с параллельной загрузкой...");
-
-        // Запускаем проверку аутентификации
         const isAuthenticated = await checkAuthStatus();
 
-        if (isAuthenticated) {
-          console.log("Пользователь аутентифицирован, запускаем предварительную загрузку");
-
-          // Немедленно запускаем предварительную загрузку данных без ожидания
-          preloadUserData().catch(error => {
-            console.warn("Предварительная загрузка не удалась:", error);
-          });
-        } else {
-          console.log("Действительная аутентификация не найдена");
+        if (!isAuthenticated) {
+          console.log("No valid authentication found");
         }
       } catch (error) {
-        console.error("Ошибка инициализации аутентификации:", error);
-        setError(
-          error instanceof Error ? error.message : "Ошибка инициализации аутентификации"
-        );
+        console.error("Auth initialization error:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     initializeAuth();
-  }, [checkAuthStatus, preloadUserData]);
+  }, [checkAuthStatus]);
 
-  // Обновление локального состояния ошибки при изменении ошибки аутентификации
+  // Update local error state when auth error changes
   useEffect(() => {
     setError(authState.error);
   }, [authState.error]);
 
-  // Улучшенная функция регистрации с поддержкой рефералов
+  // Enhanced register function with referral support
   const register = useCallback(
     async (
       initData: string,
@@ -220,32 +153,27 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         const result = await authRegister(initData, referralCode);
 
         if (result.success && result.user) {
-          console.log("Регистрация успешна:", result.user.first_name);
+          console.log("Registration successful:", result.user.first_name);
           if (result.referralBonus) {
-            console.log("Получен реферальный бонус:", result.referralBonus);
+            console.log("Referral bonus received:", result.referralBonus);
           }
-
-          // Запускаем предварительную загрузку для нового пользователя
-          setTimeout(() => {
-            preloadUserData().catch((error: Error) => console.error(error));
-          }, 100);
         }
 
         return result;
       } catch (error) {
-        console.error("Ошибка регистрации:", error);
+        console.error("Registration error:", error);
         const errorMessage =
-          error instanceof Error ? error.message : "Регистрация не удалась";
+          error instanceof Error ? error.message : "Registration failed";
 
         setError(errorMessage);
 
         return { success: false, error: errorMessage };
       }
     },
-    [authRegister, preloadUserData],
+    [authRegister],
   );
 
-  // Улучшенная функция входа
+  // Enhanced login function
   const login = useCallback(
     async (initData: string): Promise<LoginResult> => {
       try {
@@ -253,44 +181,39 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         const result = await authLogin(initData);
 
         if (result.success && result.user) {
-          console.log("Вход успешен:", result.user.first_name);
-
-          // Запускаем предварительную загрузку для вошедшего пользователя
-          setTimeout(() => {
-            preloadUserData().catch((error: Error) => console.error(error));
-          }, 100);
+          console.log("Login successful:", result.user.first_name);
         }
 
         return result;
       } catch (error) {
-        console.error("Ошибка входа:", error);
+        console.error("Login error:", error);
         const errorMessage =
-          error instanceof Error ? error.message : "Вход не удался";
+          error instanceof Error ? error.message : "Login failed";
 
         setError(errorMessage);
 
         return { success: false, error: errorMessage };
       }
     },
-    [authLogin, preloadUserData],
+    [authLogin],
   );
 
-  // Улучшенная функция выхода
+  // Enhanced logout function
   const logout = useCallback(() => {
     authLogout();
     setTelegramUserState(null);
     setError(null);
 
-    // Сброс всех данных модулей при выходе
+    // Reset all module data on logout
     leaderboardModule.resetLeaderboard();
     profileModule.resetProfileData();
     gameModule.resetTournamentState();
-    seasonsModule.resetSeasonData();
+    seasonsModule.resetSeasonData(); // NEW: Reset season data
 
-    console.log("Пользователь вышел из системы");
+    console.log("User logged out");
   }, [authLogout, leaderboardModule, profileModule, gameModule, seasonsModule]);
 
-  // Обновление данных пользователя
+  // Refresh user data
   const refreshUser = useCallback(async (): Promise<void> => {
     if (!authState.isAuthenticated || !authState.user) {
       return;
@@ -298,69 +221,64 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     try {
       setIsLoading(true);
-
-      // Повторно загружаем критичные данные
-      await preloadUserData();
-
-      console.log("Данные пользователя обновлены");
+      console.log("User data refreshed");
     } catch (error) {
-      console.error("Ошибка обновления пользователя:", error);
+      console.error("Error refreshing user:", error);
       setError(
-        error instanceof Error ? error.message : "Не удалось обновить данные пользователя",
+        error instanceof Error ? error.message : "Failed to refresh user data",
       );
     } finally {
       setIsLoading(false);
     }
-  }, [authState.isAuthenticated, authState.user, preloadUserData]);
+  }, [authState.isAuthenticated, authState.user]);
 
-  // Прямое обновление пользователя (для внешних обновлений)
+  // Direct user update (for external updates)
   const updateUser = useCallback((userData: User) => {
-    console.log("Данные пользователя обновлены внешне");
+    console.log("User data updated externally");
   }, []);
 
-  // Установка данных пользователя Telegram
+  // Set Telegram user data
   const setTelegramUser = useCallback((userData: TelegramUser) => {
     setTelegramUserState(userData);
   }, []);
 
-  // Очистка состояния ошибки
+  // Clear error state
   const clearErrorState = useCallback(() => {
     setError(null);
     clearError();
   }, [clearError]);
 
-  // Значение контекста
+  // Context value
   const contextValue: UserContextType = {
-    // Данные пользователя
+    // User data
     user: authState.user,
     telegramUser,
 
-    // Состояние аутентификации
+    // Authentication state
     authState,
 
-    // Состояния загрузки
+    // Loading states
     isLoading: isLoading || authState.isLoading,
     error,
 
-    // Методы аутентификации
+    // Authentication methods
     register,
     login,
     logout,
     refreshUser,
 
-    // Управление пользователем
+    // User management
     updateUser,
     setTelegramUser,
 
-    // Интеграции модулей
+    // Module integrations
     leaderboard: leaderboardModule,
     profile: profileModule,
     game: gameModule,
-    seasons: seasonsModule,
+    seasons: seasonsModule, // NEW: Include seasons module
 
-    // Утилитарные методы
+    // Utility methods
     makeAuthenticatedRequest,
-    preloadUserData,
   };
 
   return React.createElement(
@@ -374,7 +292,7 @@ export function useUser(): UserContextType {
   const context = useContext(UserContext);
 
   if (context === undefined) {
-    throw new Error("useUser должен использоваться внутри UserProvider");
+    throw new Error("useUser must be used within a UserProvider");
   }
 
   return context;

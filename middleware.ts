@@ -1,4 +1,4 @@
-// src/middleware.ts - Оптимизированный middleware с быстрой обработкой API попыток
+// src/middleware.ts - Corrected JWT validation middleware
 
 import type { NextRequest } from "next/server";
 
@@ -6,10 +6,10 @@ import { NextResponse } from "next/server";
 
 import { verifyJWT, extractTokenFromHeader } from "./lib/jwt";
 
-// Упрощенная конфигурация matcher для избежания конфликтов
+// FIXED: Simplified matcher configuration to avoid conflicts
 export const config = {
   matcher: [
-    // Только защищенные API маршруты, исключая auth маршруты
+    // Only match protected API routes, exclude auth routes
     "/api/user/:path*",
     "/api/game/:path*",
     "/api/tournament/:path*",
@@ -25,7 +25,7 @@ export const config = {
   ],
 };
 
-// Публичные эндпоинты, не требующие аутентификации
+// Public endpoints that don't require authentication
 const PUBLIC_ENDPOINTS = [
   "/api/auth/login",
   "/api/auth/register",
@@ -34,21 +34,15 @@ const PUBLIC_ENDPOINTS = [
   "/api/status",
 ];
 
-// Админские эндпоинты, требующие специальных разрешений
+// Admin endpoints that require special permissions
 const ADMIN_ENDPOINTS = [
   "/api/admin/",
   "/api/tournament/create",
   "/api/tournament/manage",
 ];
 
-// Критичные по времени эндпоинты попыток для быстрой обработки
-const ATTEMPTS_ENDPOINTS = [
-  "/api/user/attempts/status",
-  "/api/user/attempts/consume",
-];
-
 /**
- * Обработка CORS preflight запросов
+ * Handle CORS preflight requests
  */
 function handleCORSPreflight(request: NextRequest): NextResponse | null {
   if (request.method !== "OPTIONS") {
@@ -60,7 +54,7 @@ function handleCORSPreflight(request: NextRequest): NextResponse | null {
     "https://web.telegram.org",
     "https://notfren.com",
     "https://telegram.org",
-    "http://localhost:3000", // Для разработки
+    "http://localhost:3000", // For development
   ].filter(Boolean);
 
   const origin = request.headers.get("origin");
@@ -70,7 +64,7 @@ function handleCORSPreflight(request: NextRequest): NextResponse | null {
   if (origin && allowedOrigins.includes(origin)) {
     response.headers.set("Access-Control-Allow-Origin", origin);
   } else if (!origin) {
-    // Разрешаем same-origin запросы без origin заголовка
+    // Allow same-origin requests without origin header
     response.headers.set("Access-Control-Allow-Origin", "*");
   }
 
@@ -81,7 +75,7 @@ function handleCORSPreflight(request: NextRequest): NextResponse | null {
   );
   response.headers.set(
     "Access-Control-Allow-Headers",
-    "Authorization, Content-Type, X-Requested-With, X-Fast-Check",
+    "Authorization, Content-Type, X-Requested-With",
   );
   response.headers.set("Access-Control-Max-Age", "86400");
 
@@ -89,7 +83,7 @@ function handleCORSPreflight(request: NextRequest): NextResponse | null {
 }
 
 /**
- * Добавление CORS заголовков к ответу
+ * Add CORS headers to response
  */
 function addCORSHeaders(response: NextResponse, request: NextRequest): void {
   const allowedOrigins = [
@@ -97,7 +91,7 @@ function addCORSHeaders(response: NextResponse, request: NextRequest): void {
     "https://web.telegram.org",
     "https://notfren.com",
     "https://telegram.org",
-    "http://localhost:3000", // Для разработки
+    "http://localhost:3000", // For development
   ].filter(Boolean);
 
   const origin = request.headers.get("origin");
@@ -105,7 +99,7 @@ function addCORSHeaders(response: NextResponse, request: NextRequest): void {
   if (origin && allowedOrigins.includes(origin)) {
     response.headers.set("Access-Control-Allow-Origin", origin);
   } else if (!origin) {
-    // Разрешаем same-origin запросы без origin заголовка
+    // Allow same-origin requests without origin header
     response.headers.set("Access-Control-Allow-Origin", "*");
   }
 
@@ -116,129 +110,87 @@ function addCORSHeaders(response: NextResponse, request: NextRequest): void {
   );
   response.headers.set(
     "Access-Control-Allow-Headers",
-    "Authorization, Content-Type, X-Requested-With, X-Fast-Check",
+    "Authorization, Content-Type, X-Requested-With",
   );
 }
 
 /**
- * Быстрая JWT валидация только для извлечения user ID (для критичных по времени эндпоинтов)
- */
-async function fastJWTValidation(token: string): Promise<{
-  userId: string;
-  telegramId: string;
-}> {
-  try {
-    const payload = await verifyJWT(token);
-    return {
-      userId: payload.userId,
-      telegramId: payload.telegramId.toString(),
-    };
-  } catch (error) {
-    throw new Error("Неверный токен");
-  }
-}
-
-/**
- * Middleware функция для валидации JWT токенов на защищенных маршрутах
+ * Middleware function to validate JWT tokens on protected routes
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   console.log(`[Middleware] ${request.method} ${pathname}`);
 
-  // Сначала обрабатываем CORS preflight запросы
+  // Handle CORS preflight requests first
   const corsResponse = handleCORSPreflight(request);
 
   if (corsResponse) {
-    console.log(`[Middleware] CORS preflight обработан для ${pathname}`);
+    console.log(`[Middleware] CORS preflight handled for ${pathname}`);
+
     return corsResponse;
   }
 
-  // ВАЖНО: Auth эндпоинты не должны обрабатываться этим middleware
-  // благодаря конфигурации matcher, но добавляем эту проверку как защитную сеть
+  // IMPORTANT: Auth endpoints should not be processed by this middleware
+  // due to the matcher configuration, but we add this check as a safety net
   const isPublicEndpoint = PUBLIC_ENDPOINTS.some((endpoint) =>
     pathname.startsWith(endpoint),
   );
 
   if (isPublicEndpoint) {
-    console.log(`[Middleware] Публичный эндпоинт пропущен: ${pathname}`);
+    console.log(`[Middleware] Public endpoint bypassed: ${pathname}`);
     const response = NextResponse.next();
+
     addCORSHeaders(response, request);
+
     return response;
   }
 
   try {
-    // Извлекаем токен из Authorization заголовка
+    // Extract token from Authorization header
     const authHeader = request.headers.get("Authorization");
     const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
       console.log(
-        `[Middleware] Отсутствует токен для защищенного маршрута: ${pathname}`,
+        `[Middleware] Missing token for protected route: ${pathname}`,
       );
       const response = NextResponse.json(
         {
-          error: "Требуется аутентификация",
+          error: "Authentication required",
           code: "MISSING_TOKEN",
-          message: "Не предоставлен токен аутентификации",
+          message: "No authentication token provided",
         },
         { status: 401 },
       );
 
       addCORSHeaders(response, request);
+
       return response;
     }
 
-    // Определяем, нужна ли быстрая обработка для эндпоинтов попыток
-    const isAttemptsEndpoint = ATTEMPTS_ENDPOINTS.some((endpoint) =>
-      pathname.startsWith(endpoint),
-    );
-
-    if (isAttemptsEndpoint) {
-      console.log(`[Middleware] Быстрая обработка для эндпоинта попыток: ${pathname}`);
-      
-      // Быстрая валидация только для извлечения user ID
-      const { userId, telegramId } = await fastJWTValidation(token);
-      
-      const requestHeaders = new Headers(request.headers);
-      requestHeaders.set("X-User-ID", userId);
-      requestHeaders.set("X-Telegram-ID", telegramId);
-      requestHeaders.set("X-Auth-Verified", "true");
-
-      console.log(`[Middleware] Быстрая валидация токена для пользователя: ${userId}`);
-
-      const response = NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      });
-
-      addCORSHeaders(response, request);
-      return response;
-    }
-
-    // Полная верификация JWT токена для всех остальных эндпоинтов
-    console.log(`[Middleware] Полная верификация токена для: ${pathname}`);
+    // Verify JWT token
+    console.log(`[Middleware] Verifying token for: ${pathname}`);
     const payload = await verifyJWT(token);
 
-    // Проверка для админских эндпоинтов
+    // Check for admin endpoints
     if (ADMIN_ENDPOINTS.some((endpoint) => pathname.startsWith(endpoint))) {
       console.log(
-        `[Middleware] Доступ к админскому эндпоинту пользователем: ${payload.userId}`,
+        `[Middleware] Admin endpoint accessed by user: ${payload.userId}`,
       );
-      // Будущее: Добавить валидацию роли администратора здесь
+      // Future: Add admin role validation here
     }
 
-    // Добавляем данные пользователя в заголовки запроса для API маршрутов
+    // Add user data to request headers for API routes
     const requestHeaders = new Headers(request.headers);
 
     requestHeaders.set("X-User-ID", payload.userId);
     requestHeaders.set("X-Telegram-ID", payload.telegramId.toString());
     requestHeaders.set("X-Auth-Verified", "true");
 
-    console.log(`[Middleware] Токен верифицирован для пользователя: ${payload.userId}`);
+    console.log(`[Middleware] Token verified for user: ${payload.userId}`);
 
-    // Создаем ответ с модифицированными заголовками
+    // Create response with modified headers
     const response = NextResponse.next({
       request: {
         headers: requestHeaders,
@@ -249,26 +201,26 @@ export async function middleware(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error(`[Middleware] Ошибка валидации JWT для ${pathname}:`, error);
+    console.error(`[Middleware] JWT validation error for ${pathname}:`, error);
 
-    // Определяем тип ошибки и возвращаем соответствующий ответ
+    // Determine error type and return appropriate response
     const errorMessage =
-      error instanceof Error ? error.message : "Аутентификация не удалась";
+      error instanceof Error ? error.message : "Authentication failed";
 
     let statusCode = 401;
     let errorCode = "INVALID_TOKEN";
 
-    if (errorMessage.includes("истек") || errorMessage.includes("expired")) {
+    if (errorMessage.includes("expired")) {
       statusCode = 401;
       errorCode = "TOKEN_EXPIRED";
-    } else if (errorMessage.includes("неверный") || errorMessage.includes("malformed")) {
+    } else if (errorMessage.includes("malformed")) {
       statusCode = 400;
       errorCode = "MALFORMED_TOKEN";
     }
 
     const response = NextResponse.json(
       {
-        error: "Аутентификация не удалась",
+        error: "Authentication failed",
         message: errorMessage,
         code: errorCode,
       },
