@@ -319,8 +319,15 @@ export default function TasksPage() {
       <div className="text-center space-y-4 mb-8 pt-6">
         <h1
           className="text-4xl font-bold tracking-widest text-white animate-fade-in cursor-default select-none"
-          onClick={handleTitleClick}
-          style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+          onTouchEnd={handleTitleClick}
+          role="button"
+          tabIndex={-1}
+          aria-label="Tasks title - tap 5 times for easter egg"
+          style={{
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+            touchAction: 'manipulation'
+          }}
         >
           {t("tasks.title")}
         </h1>

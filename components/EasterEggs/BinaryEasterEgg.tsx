@@ -140,8 +140,11 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
             <div className="bg-white/10 border border-white/20 rounded-xl p-4 mb-6 relative">
                 {/* Close button */}
                 <button
-                    onClick={handleClose}
-                    className="absolute top-2 right-2 p-1 text-white/60 hover:text-white transition-colors"
+                    onTouchEnd={handleClose}
+                    className="absolute top-2 right-2 p-1 text-white/60 hover:text-white transition-colors touch-manipulation"
+                    aria-label="Close easter egg"
+                    type="button"
+                    style={{ touchAction: 'manipulation' }}
                 >
                     <X size={16} />
                 </button>
@@ -151,16 +154,22 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
                     {/* Binary circles */}
                     <div className="flex items-center justify-center space-x-4">
                         <button
-                            onClick={() => handleBinaryClick("0")}
+                            onTouchEnd={() => handleBinaryClick("0")}
                             disabled={isSubmitting}
+                            type="button"
+                            aria-label="Add binary 0"
                             className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black font-bold text-lg hover:bg-white/90 transition-colors disabled:opacity-50"
+                            style={{ touchAction: 'manipulation' }}
                         >
                             0
                         </button>
                         <button
-                            onClick={() => handleBinaryClick("1")}
+                            onTouchEnd={() => handleBinaryClick("1")}
                             disabled={isSubmitting}
+                            type="button"
+                            aria-label="Add binary 1"
                             className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black font-bold text-lg hover:bg-white/90 transition-colors disabled:opacity-50"
+                            style={{ touchAction: 'manipulation' }}
                         >
                             1
                         </button>
@@ -172,7 +181,10 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
                             onClick={handleCheck}
                             isLoading={isSubmitting}
                             disabled={isSubmitting}
+                            type="button"
+                            aria-label="Check binary sequence"
                             className="bg-white/20 text-white border border-white/40 hover:bg-white/30"
+                            style={{ touchAction: 'manipulation' }}
                             startContent={!isSubmitting ? <Check size={16} /> : null}
                         >
                             {isSubmitting ? "Checking..." : "Check"}
@@ -195,23 +207,24 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
                     {/* Result message */}
                     {resultMessage && (
                         <div className="text-center">
-                            <div
-                                className={`
-                  p-3 rounded-lg text-sm font-medium
-                  ${isSuccess
-                                        ? 'bg-green-500/20 text-green-400 border border-green-500/40 cursor-pointer hover:bg-green-500/30'
-                                        : 'bg-red-500/20 text-red-400 border border-red-500/40'
-                                    }
-                `}
-                                onClick={isSuccess ? handleCopyMessage : undefined}
-                            >
-                                {resultMessage}
-                                {isSuccess && (
+                            {isSuccess ? (
+                                <button
+                                    className="w-full p-3 rounded-lg text-sm font-medium bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
+                                    onTouchEnd={handleCopyMessage}
+                                    type="button"
+                                    aria-label="Copy success message"
+                                    style={{ touchAction: 'manipulation' }}
+                                >
+                                    {resultMessage}
                                     <div className="text-green-300/80 text-xs mt-1">
                                         Tap to copy
                                     </div>
-                                )}
-                            </div>
+                                </button>
+                            ) : (
+                                <div className="p-3 rounded-lg text-sm font-medium bg-red-500/20 text-red-400 border border-red-500/40">
+                                    {resultMessage}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
