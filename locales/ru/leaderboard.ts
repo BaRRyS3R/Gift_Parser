@@ -1,6 +1,6 @@
-// src/locales/ru/leaderboard.ts - Leaderboard and rankings (Updated with all missing strings)
+// src/locales/ru/leaderboard.ts - Updated leaderboard localization with new strings
 export const leaderboard = {
-  title: "ТОП",
+  title: "TOP",
   loadingRanking: "ЗАГРУЗКА РЕЙТИНГОВЫХ ДАННЫХ...",
   failedToLoad: "НЕ УДАЛОСЬ ЗАГРУЗИТЬ РЕЙТИНГОВЫЕ ДАННЫЕ",
   loadingLeaderboards: "Загрузка таблицы лидеров...",
@@ -34,7 +34,7 @@ export const leaderboard = {
   rotationElite: "ЭЛИТА ВРАЩЕНИЯ",
   topPlayers: "ТОП ИГРОКИ",
   allPlayers: "ВСЕ ИГРОКИ",
-  // New strings for the leaderboard page
+  // Existing strings for the leaderboard page
   reactionTime: "время реакции",
   points: "скор",
   time: "время",
@@ -46,4 +46,9 @@ export const leaderboard = {
   beFirstToPlay: "Будьте первым!",
   onlyOneChampion: "Только один чемпион",
   challengeLeader: "Бросьте вызов лидеру!",
+  // NEW: Additional strings for current user display
+  position: "Позиция",
+  noGamesYet: "Ещё не играли",
+  playFirstGame: "Сыграйте первую игру!",
+  loadingUserData: "Загрузка данных пользователя...",
 } as const;

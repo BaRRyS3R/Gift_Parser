@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Final fixed version with stable Aurora and correct user position + localization
+// src/app/leaderboard/page.tsx - Updated with current user display and top-3 highlighting
 
 "use client";
 
@@ -227,7 +227,7 @@ StaticAurora.displayName = "StaticAurora";
 
 function LeaderboardPageContent() {
   const router = useRouter();
-  const { makeAuthenticatedRequest } = useUser();
+  const { makeAuthenticatedRequest, user, telegramUser } = useUser();
   const {
     leaderboardData,
     isLoading,
@@ -292,13 +292,68 @@ function LeaderboardPageContent() {
     }
   }, [leaderboardData, activeTab]);
 
-  const getChampion = () => {
-    return getCurrentLeaderboard.length > 0 ? getCurrentLeaderboard[0] : null;
-  };
+  // NEW: Get current user data for display
+  const getCurrentUserData = useMemo(() => {
+    if (!leaderboardData || !user || !telegramUser) return null;
 
-  const getRestOfLeaderboard = () => {
-    return getCurrentLeaderboard.slice(1);
-  };
+    const userPosition = leaderboardData.userRankings[activeTab];
+    
+    // Find user data in the current leaderboard
+    const userData = getCurrentLeaderboard.find((entry) => entry.isCurrentUser);
+    
+    // Get user's game count for this mode
+    let gamesCount = 0;
+    let value = "N/A";
+    
+    switch (activeTab) {
+      case "reaction":
+        gamesCount = user.reaction_games;
+        if (userData) {
+          value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
+        } else if (user.reaction_best_time > 0) {
+          value = `${user.reaction_best_time}ms`;
+        }
+        break;
+      case "survival":
+        gamesCount = user.survival_games;
+        if (userData) {
+          value = `${(userData as SafeSurvivalLeaderboard).best_survival_score}`;
+        } else if (user.survival_best_score > 0) {
+          value = `${user.survival_best_score}`;
+        }
+        break;
+      case "physics":
+        gamesCount = user.physics_games;
+        if (userData) {
+          value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
+        } else if (user.physics_best_score > 0) {
+          value = `${user.physics_best_score}`;
+        }
+        break;
+      case "rotation":
+        gamesCount = user.rotation_games;
+        if (userData) {
+          value = `${(userData as SafeRotationLeaderboard).best_rotation_score}`;
+        } else if (user.rotation_best_score > 0) {
+          value = `${user.rotation_best_score}`;
+        }
+        break;
+    }
+
+    return {
+      name: `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim(),
+      username: telegramUser.username,
+      position: userPosition,
+      value,
+      gamesCount,
+      hasPlayed: gamesCount > 0
+    };
+  }, [leaderboardData, activeTab, user, telegramUser, getCurrentLeaderboard]);
+
+  // NEW: Get full leaderboard starting from position 1
+  const getFullLeaderboard = useMemo(() => {
+    return getCurrentLeaderboard; // Show all from position 1
+  }, [getCurrentLeaderboard]);
 
   const getTabIcon = (tab: LeaderboardType) => {
     switch (tab) {
@@ -313,72 +368,32 @@ function LeaderboardPageContent() {
     }
   };
 
-  const getChampionValue = (champion: any) => {
-    switch (activeTab) {
-      case "reaction":
-        return `${champion.best_reaction_time}ms`;
-      case "survival":
-        return `${champion.best_survival_score}`;
-      case "physics":
-        return `${champion.best_physics_score}`; // Изменено
-      case "rotation":
-        return `${champion.best_rotation_score}`; // Изменено
-    }
-  };
-
   const getPlayerValue = (player: any) => {
     switch (activeTab) {
       case "reaction":
         return `${player.best_reaction_time}ms`;
       case "survival":
-        return `${player.best_survival_score}`; // Очки
+        return `${player.best_survival_score}`;
       case "physics":
-        return `${player.best_physics_score}`; // Изменено: теперь показываем очки вместо времени
+        return `${player.best_physics_score}`;
       case "rotation":
-        return `${player.best_rotation_score}`; // Изменено: теперь показываем очки вместо времени
+        return `${player.best_rotation_score}`;
     }
   };
 
-  // Check if user is in visible top 10
-  const isUserInVisibleTop10 = useMemo(() => {
-    return getCurrentLeaderboard.some((entry) => entry.isCurrentUser);
-  }, [getCurrentLeaderboard]);
-
-  // Get user position and data for display outside top 10
-  const getUserPositionData = useMemo(() => {
-    if (!leaderboardData || !leaderboardData.userRankings) return null;
-
-    const userPosition = leaderboardData.userRankings[activeTab];
-
-    if (!userPosition) return null;
-
-    // Find user data in the full leaderboard (not just top 10)
-    const fullLeaderboard = leaderboardData[activeTab];
-    const userData = fullLeaderboard.find((entry) => entry.isCurrentUser);
-
-    let value = "N/A";
-
-    if (userData) {
-      switch (activeTab) {
-        case "reaction":
-          value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
-          break;
-        case "survival":
-          value = `${(userData as SafeSurvivalLeaderboard).best_survival_score}`;
-          break;
-        case "physics":
-          value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
-          break;
-        case "rotation":
-          value = formatRotationTime(
-            (userData as SafeRotationLeaderboard).best_rotation_time,
-          );
-          break;
-      }
+  // NEW: Get position-based styling for top-3
+  const getPositionStyling = (position: number) => {
+    switch (position) {
+      case 1:
+        return "bg-gradient-to-r from-yellow-500/20 via-yellow-400/10 to-yellow-500/20 border-yellow-400/30";
+      case 2:
+        return "bg-gradient-to-r from-gray-400/20 via-gray-300/10 to-gray-400/20 border-gray-300/30";
+      case 3:
+        return "bg-gradient-to-r from-amber-600/20 via-amber-500/10 to-amber-600/20 border-amber-500/30";
+      default:
+        return "";
     }
-
-    return { position: userPosition, value };
-  }, [leaderboardData, activeTab]);
+  };
 
   const handleRefresh = async () => {
     clearError();
@@ -413,8 +428,8 @@ function LeaderboardPageContent() {
     );
   }
 
-  const champion = getChampion();
-  const restOfLeaderboard = getRestOfLeaderboard();
+  const fullLeaderboard = getFullLeaderboard;
+  const currentUserData = getCurrentUserData;
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
@@ -425,47 +440,60 @@ function LeaderboardPageContent() {
       </div>
 
       <div className="relative z-10 px-4 safe-area-inset">
-        {/* Champion Display */}
+        {/* Current User Display */}
         <div className="text-center py-4 pt-8">
-          {champion ? (
+          {currentUserData ? (
             <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <div className="mb-3">
                 <div className="flex items-center justify-center space-x-2">
                   <span className="text-3xl font-bold text-white drop-shadow-lg">
-                    {champion.first_name} {champion.last_name || ""}
+                    {currentUserData.name}
                   </span>
-                  {champion.isCurrentUser && (
-                    <Star className="text-blue-400 drop-shadow-lg" size={20} />
-                  )}
+                  <Star className="text-blue-400 drop-shadow-lg" size={20} />
                 </div>
 
-                {champion.username && (
+                {currentUserData.username && (
                   <div className="text-white/60 text-sm mt-1 drop-shadow-sm">
-                    @{champion.username}
+                    @{currentUserData.username}
                   </div>
                 )}
               </div>
 
-              <div className="text-2xl font-bold text-white drop-shadow-lg">
-                {getChampionValue(champion)}
-              </div>
-              <div className="text-xs text-white/70 drop-shadow-sm">
-                {activeTab === "reaction"
-                  ? t("leaderboard.reactionTime")
-                  : activeTab === "survival"
-                    ? t("leaderboard.points")
-                    : activeTab === "physics"
-                      ? t("leaderboard.points")
-                      : t("leaderboard.time")}
-              </div>
+              {currentUserData.hasPlayed ? (
+                <>
+                  <div className="text-2xl font-bold text-white drop-shadow-lg">
+                    {currentUserData.value}
+                  </div>
+                  <div className="text-xs text-white/70 drop-shadow-sm">
+                    {activeTab === "reaction"
+                      ? t("leaderboard.reactionTime")
+                      : activeTab === "survival"
+                        ? t("leaderboard.points")
+                        : activeTab === "physics"
+                          ? t("leaderboard.points")
+                          : t("leaderboard.points")}
+                  </div>
+                  {currentUserData.position && (
+                    <div className="text-lg text-white/80 mt-2 drop-shadow-sm">
+                      {t("leaderboard.position")} #{currentUserData.position}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="text-xl text-white/60 drop-shadow-lg">
+                    {t("leaderboard.noGamesYet")}
+                  </div>
+                  <div className="text-xs text-white/50 drop-shadow-sm mt-1">
+                    {t("leaderboard.playFirstGame")}
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <p className="text-white/60 drop-shadow-sm text-lg">
-                {t("leaderboard.noChampionYet")}
-              </p>
-              <p className="text-white/40 text-sm mt-1">
-                {t("leaderboard.claimThrone")}
+                {t("leaderboard.loadingUserData")}
               </p>
             </div>
           )}
@@ -500,81 +528,59 @@ function LeaderboardPageContent() {
           </div>
         </div>
 
-        {/* User Position - Fixed: Show when user has position but not in visible top 10 */}
-        {getUserPositionData && !isUserInVisibleTop10 && (
-          <div className="mb-4 px-4 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-            <div className="rounded-lg bg-white/5 border border-white/10 backdrop-blur-sm">
-              <div className="px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                      <Crown className="text-white/70" size={14} />
-                    </div>
-                    <div>
-                      <div className="text-white font-medium text-sm">
-                        {t("leaderboard.yourPosition")}
-                      </div>
-                      <div className="text-white/60 text-xs">
-                        {t("leaderboard.currentRanking")}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xl font-bold text-white">
-                      #{getUserPositionData.position}
-                    </div>
-                    <div className="text-white/50 text-xs">
-                      {getUserPositionData.value}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Leaderboard */}
         <div className="space-y-0 max-w-2xl mx-auto">
-          {restOfLeaderboard.length === 0 && !champion ? (
+          {fullLeaderboard.length === 0 ? (
             <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <p className="font-bold text-white/80 text-xl mb-2">
                 {t("leaderboard.noPlayersYet")}
               </p>
               <p className="text-white/60">{t("leaderboard.beFirstToPlay")}</p>
             </div>
-          ) : restOfLeaderboard.length === 0 ? (
-            <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              <p className="font-bold text-white/80 text-xl mb-2">
-                {t("leaderboard.onlyOneChampion")}
-              </p>
-              <p className="text-white/60">
-                {t("leaderboard.challengeLeader")}
-              </p>
-            </div>
           ) : (
             <div
               className={`transition-opacity duration-300 ${isTransitioning ? "opacity-0" : "opacity-100"}`}
             >
-              {restOfLeaderboard.map((entry, index) => (
+              {fullLeaderboard.map((entry, index) => (
                 <div key={`${activeTab}-${entry.position}`}>
                   <div
                     className={`
                       w-full px-6 py-4 text-left hover:bg-white/5 transition-all duration-200
-                      ${entry.isCurrentUser ? "bg-blue-500/10" : ""}
+                      ${entry.isCurrentUser ? "bg-blue-500/10 border border-blue-400/20" : ""}
+                      ${entry.position <= 3 ? getPositionStyling(entry.position) : ""}
+                      ${entry.position <= 3 && !entry.isCurrentUser ? "border" : ""}
                       opacity-0 animate-[slideIn_0.3s_ease-out_forwards]
                     `}
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4 flex-1 min-w-0">
-                        <div className="w-8 text-center font-bold text-lg text-white/80">
-                          #{entry.position}
+                        <div className="w-8 text-center font-bold text-lg relative">
+                          <span
+                            className={`
+                              ${entry.position === 1 ? "text-yellow-400" : ""}
+                              ${entry.position === 2 ? "text-gray-300" : ""}
+                              ${entry.position === 3 ? "text-amber-500" : ""}
+                              ${entry.position > 3 ? "text-white/80" : ""}
+                            `}
+                          >
+                            #{entry.position}
+                          </span>
+                          {entry.position === 1 && (
+                            <Crown className="absolute -top-1 -right-1 text-yellow-400" size={14} />
+                          )}
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
                             <span
-                              className={`font-medium truncate ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
+                              className={`font-medium truncate ${
+                                entry.isCurrentUser ? "text-white" : 
+                                entry.position === 1 ? "text-yellow-100" :
+                                entry.position === 2 ? "text-gray-100" :
+                                entry.position === 3 ? "text-amber-100" :
+                                "text-white/90"
+                              }`}
                             >
                               {entry.first_name} {entry.last_name || ""}
                             </span>
@@ -586,7 +592,9 @@ function LeaderboardPageContent() {
                             )}
                           </div>
                           {entry.username && (
-                            <div className="text-xs text-white/50 truncate">
+                            <div className={`text-xs truncate ${
+                              entry.position <= 3 ? "text-white/60" : "text-white/50"
+                            }`}>
                               @{entry.username}
                             </div>
                           )}
@@ -594,23 +602,30 @@ function LeaderboardPageContent() {
                       </div>
 
                       <div className="text-right flex-shrink-0">
-                        <div className="font-bold text-white text-lg">
+                        <div className={`font-bold text-lg ${
+                          entry.position === 1 ? "text-yellow-400" :
+                          entry.position === 2 ? "text-gray-300" :
+                          entry.position === 3 ? "text-amber-500" :
+                          "text-white"
+                        }`}>
                           {getPlayerValue(entry)}
                         </div>
-                        <div className="text-xs text-white/50">
+                        <div className={`text-xs ${
+                          entry.position <= 3 ? "text-white/60" : "text-white/50"
+                        }`}>
                           {activeTab === "reaction"
                             ? t("leaderboard.time")
                             : activeTab === "survival"
                               ? t("leaderboard.points")
                               : activeTab === "physics"
                                 ? t("leaderboard.points")
-                                : t("leaderboard.time")}
+                                : t("leaderboard.points")}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {index < restOfLeaderboard.length - 1 && (
+                  {index < fullLeaderboard.length - 1 && (
                     <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mx-6" />
                   )}
                 </div>
