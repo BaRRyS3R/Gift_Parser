@@ -1,6 +1,6 @@
 // src/locales/ru/shop.ts - Shop and purchases
 export const shop = {
-  title: "МАГАЗИН",
+  title: "SHOP",
   subtitle: "Покупка дополнительных игровых попыток",
   moreAttempts: "Больше Попыток",
   description: "Получите 1 дополнительную игровую попытку",

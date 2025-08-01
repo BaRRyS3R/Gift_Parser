@@ -1,6 +1,6 @@
 // src/locales/ru/leaderboard.ts - Updated leaderboard localization with new strings
 export const leaderboard = {
-  title: "TOP",
+  title: "ТОП",
   loadingRanking: "ЗАГРУЗКА РЕЙТИНГОВЫХ ДАННЫХ...",
   failedToLoad: "НЕ УДАЛОСЬ ЗАГРУЗИТЬ РЕЙТИНГОВЫЕ ДАННЫЕ",
   loadingLeaderboards: "Загрузка таблицы лидеров...",
@@ -50,5 +50,7 @@ export const leaderboard = {
   position: "Позиция",
   noGamesYet: "Ещё не играли",
   playFirstGame: "Сыграйте первую игру!",
+  playGame: "Поигрыем?",
   loadingUserData: "Загрузка данных пользователя...",
+  letsPlay: "Давай-ка сыграем.",
 } as const;

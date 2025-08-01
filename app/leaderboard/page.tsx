@@ -472,7 +472,7 @@ function LeaderboardPageContent() {
         <div className="text-center py-4 pt-8">
           {currentUserData ? (
             <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              <div className="mb-3">
+              <div className="mb-4">
                 <div className="flex items-center justify-center space-x-2">
                   <span className="text-3xl font-bold text-white drop-shadow-lg">
                     {currentUserData.name}
@@ -487,36 +487,70 @@ function LeaderboardPageContent() {
               </div>
 
               {currentUserData.hasPlayed ? (
-                <>
-                  <div className="text-2xl font-bold text-white drop-shadow-lg">
-                    {currentUserData.value}
-                  </div>
-                  <div className="text-xs text-white/70 drop-shadow-sm">
-                    {activeTab === "season"
-                      ? t("leaderboard.points")
-                      : activeTab === "reaction"
-                        ? t("leaderboard.reactionTime")
-                        : activeTab === "survival"
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center space-x-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white drop-shadow-lg">
+                        {currentUserData.value}
+                      </div>
+                      <div className="text-xs text-white/70 drop-shadow-sm">
+                        {activeTab === "season"
                           ? t("leaderboard.points")
-                          : activeTab === "physics"
-                            ? t("leaderboard.points")
-                            : t("leaderboard.points")}
-                  </div>
-                  {currentUserData.position && (
-                    <div className="text-lg text-white/80 mt-2 drop-shadow-sm">
-                      {t("leaderboard.position")} #{currentUserData.position}
+                          : activeTab === "reaction"
+                            ? t("leaderboard.reactionTime")
+                            : activeTab === "survival"
+                              ? t("leaderboard.points")
+                              : activeTab === "physics"
+                                ? t("leaderboard.points")
+                                : t("leaderboard.points")}
+                      </div>
                     </div>
-                  )}
-                </>
+                    
+                    <div className="w-px h-8 bg-white/30"></div>
+                    
+                    <div className="text-center">
+                      {currentUserData.position ? (
+                        <>
+                          <div className="text-2xl font-bold text-white drop-shadow-lg">
+                            #{currentUserData.position}
+                          </div>
+                          <div className="text-xs text-white/70 drop-shadow-sm">
+                            {t("leaderboard.position")}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-xl text-white/60 drop-shadow-lg">
+                            -
+                          </div>
+                          <div className="text-xs text-white/50 drop-shadow-sm">
+                            {t("leaderboard.position")}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <button
+                    className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg transition-all duration-200 hover:scale-105"
+                    onClick={() => router.push("/game")}
+                  >
+                    {t("leaderboard.playGame")}
+                  </button>
+                </div>
               ) : (
-                <>
+                <div className="space-y-4">
                   <div className="text-xl text-white/60 drop-shadow-lg">
                     {t("leaderboard.noGamesYet")}
                   </div>
-                  <div className="text-xs text-white/50 drop-shadow-sm mt-1">
-                    {t("leaderboard.playFirstGame")}
-                  </div>
-                </>
+                  
+                  <button
+                    className="px-6 py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded-lg font-medium transition-all duration-200 hover:scale-105"
+                    onClick={() => router.push("/game")}
+                  >
+                    {t("leaderboard.letsPlay")}
+                  </button>
+                </div>
               )}
             </div>
           ) : (

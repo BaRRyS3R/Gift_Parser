@@ -1,7 +1,7 @@
 // src/locales/ru/profile.ts - Updated Russian profile translations with simplified achievements
 
 export const profile = {
-  title: "ПРОФИЛЬ",
+  title: "PROFILE",
   loadingProfile: "ЗАГРУЗКА ПРОФИЛЯ...",
   notFound: "ПРОФИЛЬ НЕ НАЙДЕН",
   overallStats: "Общая статистика",
