@@ -6,39 +6,112 @@ const nextConfig = {
   images: {
     remotePatterns: [],
   },
-  webpack: (config, { isServer, dev }) => {
+  webpack: (config, { dev, isServer }) => {
+    // Настройка алиасов
     config.resolve.alias = {
       ...config.resolve.alias,
       "@": require("path").resolve(__dirname),
     };
 
-    // МИНИМАЛЬНАЯ ОБФУСКАЦИЯ ДЛЯ ПРОВЕРКИ СОВМЕСТИМОСТИ
-    if (!isServer && !dev) {
-      try {
-        config.plugins.push(
-          new JavaScriptObfuscator({
-            // Только самые базовые настройки
+    // Применяемые обфускацию только в production и только для клиентского кода
+    if (!dev && !isServer) {
+      config.plugins.push(
+        new JavaScriptObfuscator(
+          {
+            // ОСНОВНЫЕ НАСТРОЙКИ ОБФУСКАЦИИ
+
+            // hexadecimal - конвертация строк в шестнадцатеричные значения
+            stringArrayEncoding: ['base64', 'rc4'],
+
+            // stringArray - помещение строк в массив и замена ссылками
+            stringArray: true,
+            stringArrayShuffle: true,
+            stringArrayWrappersCount: 2,
+            stringArrayWrappersChainedCalls: true,
+            stringArrayWrappersParametersMaxCount: 4,
+            stringArrayWrappersType: 'function',
+            stringArrayThreshold: 0.8,
+
+            // debugProtection - защита от отладки
+            debugProtection: true,
+            debugProtectionInterval: 2000,
+
+            // selfDefending - самозащита кода
+            selfDefending: true,
+
+            // ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ ДЛЯ СТАБИЛЬНОСТИ
+
+            // Средний уровень обфускации переменных
+            identifierNamesGenerator: 'hexadecimalNumericString',
+            identifiersPrefix: '_0x',
+
+            // Преобразование управляющих структур
+            controlFlowFlattening: true,
+            controlFlowFlatteningThreshold: 0.5,
+
+            // Мертвый код для усложнения анализа  
+            deadCodeInjection: true,
+            deadCodeInjectionThreshold: 0.2,
+
+            // Разделение строк
+            splitStrings: true,
+            splitStringsChunkLength: 3,
+
+            // Настройки для стабильности
             compact: true,
-            identifierNamesGenerator: 'mangled',
+            simplify: true,
+            target: 'browser',
 
-            // Минимальная защита Telegram API
-            reservedNames: [
-              'Telegram',
-              'WebApp',
-              'window',
-              'document',
-              'React',
-              'useState',
-              'useEffect',
-            ],
+            // Отключаем слишком агрессивные опции для стабильности
+            disableConsoleOutput: false, // Оставляем консоль для отладки
+            domainLock: [], // Не блокируем домены для Telegram
+            reservedNames: [], // Не резервируем имена
 
-          })
-        );
-        console.log('✅ Обфускация включена (минимальная)');
-      } catch (error) {
-        console.warn('⚠️ Ошибка обфускации:', error.message);
-        console.log('🔄 Сборка продолжается без обфускации');
-      }
+            // Исключения для критических частей
+            ignoreRequireImports: true,
+            numbersToExpressions: false, // Отключаем для стабильности с числами
+            simplifyExpressions: false, // Отключаем упрощение выражений
+
+            // Настройки трансформации
+            transformObjectKeys: true,
+            unicodeEscapeSequence: false, // Отключаем для совместимости с Telegram
+
+            // Производительность
+            optionsPreset: 'medium-obfuscation',
+          },
+          // ИСКЛЮЧЕНИЯ - НЕ ОБФУСКИРУЕМ КРИТИЧЕСКИЕ ФАЙЛЫ
+          [
+            // Исключаем Telegram Web App SDK и связанные файлы
+            /telegram-web-app/,
+            /twa-dev/,
+
+            // Исключаем внешние библиотеки которые могут сломаться
+            /node_modules/,
+
+            // Исключаем service worker
+            /sw\.js/,
+            /workbox/,
+
+            // Исключаем конфигурационные файлы
+            /\.config\./,
+            /manifest\.json/,
+
+            // Исключаем критические системные файлы Next.js
+            /_app\./,
+            /_document\./,
+            /middleware\./,
+
+            // Исключаем полифиллы
+            /polyfill/,
+            /webpack/,
+
+            // Исключаем файлы с чувствительной к обфускации логикой
+            /auth/,
+            /jwt/,
+            /crypto/
+          ]
+        )
+      );
     }
 
     return config;
@@ -59,8 +132,41 @@ const nextConfig = {
           },
         ],
       },
+      // Добавляем заголовки безопасности для обфусцированного кода
+      {
+        source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
+        headers: [
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+        ],
+      },
     ];
   },
+
+  // Оптимизация для production с учетом обфускации
+  experimental: {
+    optimizeCss: true,
+  },
+
+  // Настройки компилера для совместимости с обфускацией
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production" ? {
+      exclude: ["error", "warn"], // Оставляем критические логи
+    } : false,
+  },
+
+  // Настройки минификации
+  swcMinify: true,
 };
 
 module.exports = nextConfig;
