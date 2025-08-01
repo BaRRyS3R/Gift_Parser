@@ -5,7 +5,6 @@ import type { TelegramUser } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
 import { serverUserService } from "@/lib/supabase_server";
-import { serverLeagueService } from "@/lib/server/leagueServerService";
 import {
   validateTelegramData,
   extractReferralCode,
@@ -136,15 +135,6 @@ export async function POST(
       telegramUser,
       finalReferralCode,
     );
-
-    // Initialize user league using server league service
-    try {
-      await serverLeagueService.initializeUserLeague(newUser.id, 0);
-      console.log(`League initialized for new user ${newUser.telegram_id}`);
-    } catch (leagueError) {
-      console.error("Error initializing user league:", leagueError);
-      // Continue with registration even if league initialization fails
-    }
 
     // Create JWT tokens
     const initDataHash = createInitDataHash(initData);
