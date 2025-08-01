@@ -34,7 +34,7 @@ const nextConfig = {
             
             // selfDefending - реализация требуемого метода
             selfDefending: true,
-            
+
             // Защита критических API
             reservedNames: [
               'Telegram', 'WebApp', 'MainButton', 'BackButton',
@@ -56,7 +56,7 @@ const nextConfig = {
           })
         );
 
-        console.log('🔒 Обфускация включена (максимальный уровень)');
+        console.log('🔒 Обфускация включена (минимальный уровень)');
         
       } catch (error) {
         console.warn('⚠️ Ошибка обфускации:', error.message);
