@@ -140,16 +140,6 @@ export async function POST(
       gameResult,
     );
 
-    console.log(
-      `Game result saved successfully for user ${telegramIdNumber}:`,
-      {
-        leagueChanged: saveResult.leagueChanged,
-        levelChanged: saveResult.levelChanged,
-        hasReward: !!saveResult.reward,
-        hasMissedRewards: !!saveResult.missedRewards?.length,
-      },
-    );
-
     return NextResponse.json({
       success: true,
       data: saveResult,
