@@ -30,7 +30,7 @@ const nextConfig = {
             
             // debugProtection - реализация требуемого метода
             debugProtection: true,
-            debugProtectionInterval: 2000,
+            debugProtectionInterval: 5000,
             
             // selfDefending - реализация требуемого метода
             selfDefending: true,

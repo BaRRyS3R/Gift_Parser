@@ -118,10 +118,6 @@ export async function POST(
       updated_at: new Date().toISOString(),
     });
 
-    console.log(
-      `User login attempt: ${updatedUser.telegram_id} (${updatedUser.first_name}), Trust Score: ${updatedUser.trust_score}`,
-    );
-
     // NEBULA SECURITY CHECKS
     // Step 1: Check if user is currently blocked
     const blockInfo = await serverBlockService.checkUserBlock(
@@ -335,10 +331,6 @@ export async function POST(
       updated_at: updatedUser.updated_at,
       last_played_at: updatedUser.last_played_at,
     };
-
-    console.log(
-      `User logged in successfully: ${updatedUser.telegram_id} (${updatedUser.first_name})`,
-    );
 
     return NextResponse.json({
       success: true,
