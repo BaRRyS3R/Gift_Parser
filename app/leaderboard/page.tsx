@@ -387,7 +387,7 @@ function LeaderboardPageContent() {
   const getTabIcon = (tab: LeaderboardType) => {
     switch (tab) {
       case "season":
-        return <span className="text-xs font-bold">SEASON 1</span>;
+        return <span className="text-xs font-bold">βῆτα SEASON</span>;
       case "reaction":
         return <Zap size={16} />;
       case "survival":
