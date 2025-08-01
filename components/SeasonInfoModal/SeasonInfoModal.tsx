@@ -252,8 +252,17 @@ export default function SeasonInfoModal({
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 transition-opacity duration-300"
+                role="button"
+                tabIndex={0}
+                aria-label="Close modal"
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 transition-opacity duration-300 cursor-pointer"
                 onClick={onClose}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onClose();
+                    }
+                }}
             />
 
             {/* Modal */}
