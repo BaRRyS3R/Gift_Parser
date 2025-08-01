@@ -1,75 +1,60 @@
 /** @type {import('next').NextConfig} */
 const JavaScriptObfuscator = require('webpack-obfuscator');
 
+// УРОВНИ ОБФУСКАЦИИ - раскомментируйте нужный уровень
+
 const nextConfig = {
   transpilePackages: ["@nextui-org/react"],
   images: {
     remotePatterns: [],
   },
-  webpack: (config, { dev, isServer }) => {
-    // Настройка алиасов
+  webpack: (config, { isServer, dev }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       "@": require("path").resolve(__dirname),
     };
 
-    // Применяем обфускацию только в production и только для клиентского кода
-    if (!dev && !isServer) {
-      config.plugins.push(
-        new JavaScriptObfuscator(
-          {
-            // МИНИМАЛЬНАЯ РАБОЧАЯ КОНФИГУРАЦИЯ
-            
-            // stringArray - основной метод обфускации строк
-            stringArray: true,
-            stringArrayThreshold: 0.8,
-            
-            // debugProtection - защита от отладки
-            debugProtection: true,
-            
-            // selfDefending - самозащита кода
-            selfDefending: true,
-            
-            // hexadecimal через identifierNames
-            identifierNamesGenerator: 'hexadecimalNumericString',
-            
+    if (!isServer && !dev) {
+      try {
+        config.plugins.push(
+          new JavaScriptObfuscator({
             // Базовые настройки
             compact: true,
-            target: 'browser'
-          },
-          // ИСКЛЮЧЕНИЯ - НЕ ОБФУСКИРУЕМ КРИТИЧЕСКИЕ ФАЙЛЫ (используем glob паттерны)
-          [
-            // Исключаем Telegram Web App SDK и связанные файлы
-            '**/telegram-web-app*',
-            '**/twa-dev*',
+            identifierNamesGenerator: 'mangled',
             
-            // Исключаем внешние библиотеки которые могут сломаться
-            '**/node_modules/**',
+            // НОВОЕ: Кодирование строк
+            stringArray: true,
+            stringArrayThreshold: 0.6, // 60% строк будут закодированы
+            stringArrayEncoding: ['base64'], // простое кодирование
+            stringArrayWrappersCount: 1,
             
-            // Исключаем service worker
-            '**/sw.js',
-            '**/workbox*',
+            // Защита критических API
+            reservedNames: [
+              'Telegram', 'WebApp', 'MainButton', 'BackButton',
+              'window', 'document', 'navigator',
+              'React', 'ReactDOM', 'useState', 'useEffect', 'useCallback', 'useRef',
+              'useRouter', 'useSearchParams',
+              'Button', 'Card', 'Spinner', 'NextUIProvider',
+              'supabase', 'createClient',
+              'useUser', 'useTasks', 'useT',
+              'getTelegramInitData', 'parseTelegramInitData'
+            ],
             
-            // Исключаем конфигурационные файлы
-            '**/*.config.*',
-            '**/manifest.json',
-            
-            // Исключаем критические системные файлы Next.js
-            '**/_app.*',
-            '**/_document.*',
-            '**/middleware.*',
-            
-            // Исключаем полифиллы
-            '**/polyfill*',
-            '**/webpack*',
-            
-            // Исключаем файлы с чувствительной к обфускации логикой
-            '**/auth/**',
-            '**/jwt*',
-            '**/crypto*'
-          ]
-        )
-      );
+            reservedStrings: [
+              '/api/auth/register', '/api/auth/login', '/api/tasks/start',
+              '/main', '/tasks', '/blocked',
+              'ready', 'expand', 'viewportChanged',
+              'Content-Type', 'Authorization'
+            ],
+          })
+        );
+
+        console.log('🔒 Обфускация включена (максимальный уровень)');
+        
+      } catch (error) {
+        console.warn('⚠️ Ошибка обфускации:', error.message);
+        console.log('🔄 Сборка продолжается без обфускации');
+      }
     }
 
     return config;
@@ -78,7 +63,7 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/sw.js",
+        source: "/sw.js", 
         headers: [
           {
             key: "Cache-Control",
@@ -90,41 +75,8 @@ const nextConfig = {
           },
         ],
       },
-      // Добавляем заголовки безопасности для обфусцированного кода
-      {
-        source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
-        headers: [
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "X-Frame-Options", 
-            value: "SAMEORIGIN",
-          },
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
-        ],
-      },
     ];
   },
-  
-  // Оптимизация для production с учетом обфускации
-  experimental: {
-    optimizeCss: true,
-  },
-  
-  // Настройки компилера для совместимости с обфускацией
-  compiler: {
-    removeConsole: process.env.NODE_ENV === "production" ? {
-      exclude: ["error", "warn"], // Оставляем критические логи
-    } : false,
-  },
-  
-  // Настройки минификации
-  swcMinify: true,
 };
 
 module.exports = nextConfig;
