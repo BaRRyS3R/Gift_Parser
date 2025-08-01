@@ -19,7 +19,7 @@ export const shop = {
   attemptAdded: "+1 попытка добавлена на ваш аккаунт",
   paymentInfo: "Информация о Платеже",
   purchaseSuccess: "Покупка Успешна!",
-  purchaseSuccessMessage: "{attempts} попыт{plural} добавлено на ваш аккаунт",
+  purchaseSuccessMessage: "Оп, попыточки: +{attempts}",
   instantResetSuccess: "Попытки Восстановлены!",
   instantResetMessage: "Ваши попытки восстановлены и таймер сброшен",
   support: "Поддержка",

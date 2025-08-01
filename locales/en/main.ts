@@ -31,7 +31,7 @@ export const main = {
     survival: "Survival",
     physics: "Physics", 
     rotation: "Rotation",
-    noMultiplier: "no multiplier (Don't be so stingy!)",
+    noMultiplier: "no multiplier (multipooper lol)",
     rulesNote: "Remember: the harder the mode, the more points you get. Revolutionary concept, isn't it?",
     snapshotInfo: "A final leaderboard snapshot will be taken at the end of the season. Changes after this moment will not be counted.",
     fairPlayInfo: "If we suspect unfair play, we may conduct additional verification of the user before awarding prizes.",

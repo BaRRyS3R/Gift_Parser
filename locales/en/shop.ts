@@ -16,7 +16,7 @@ export const shop = {
   attemptAdded: "+1 attempt added to your account",
   paymentInfo: "Payment Information",
   purchaseSuccess: "Purchase Successful!",
-  purchaseSuccessMessage: "{attempts} attempt{plural} added to your account",
+  purchaseSuccessMessage: "Yay! Attempts: +{attempts}",
   instantResetSuccess: "Attempts Restored!",
   instantResetMessage: "Your attempts have been restored and timer reset",
   support: "Support",
