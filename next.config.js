@@ -19,10 +19,10 @@ const nextConfig = {
         new JavaScriptObfuscator(
           {
             // ОСНОВНЫЕ НАСТРОЙКИ ОБФУСКАЦИИ
-
+            
             // hexadecimal - конвертация строк в шестнадцатеричные значения
             stringArrayEncoding: ['base64', 'rc4'],
-
+            
             // stringArray - помещение строк в массив и замена ссылками
             stringArray: true,
             stringArrayShuffle: true,
@@ -31,84 +31,84 @@ const nextConfig = {
             stringArrayWrappersParametersMaxCount: 4,
             stringArrayWrappersType: 'function',
             stringArrayThreshold: 0.8,
-
+            
             // debugProtection - защита от отладки
             debugProtection: true,
             debugProtectionInterval: 2000,
-
+            
             // selfDefending - самозащита кода
             selfDefending: true,
-
+            
             // ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ ДЛЯ СТАБИЛЬНОСТИ
-
+            
             // Средний уровень обфускации переменных
             identifierNamesGenerator: 'hexadecimalNumericString',
             identifiersPrefix: '_0x',
-
+            
             // Преобразование управляющих структур
             controlFlowFlattening: true,
             controlFlowFlatteningThreshold: 0.5,
-
+            
             // Мертвый код для усложнения анализа  
             deadCodeInjection: true,
             deadCodeInjectionThreshold: 0.2,
-
+            
             // Разделение строк
             splitStrings: true,
             splitStringsChunkLength: 3,
-
+            
             // Настройки для стабильности
             compact: true,
             simplify: true,
             target: 'browser',
-
+            
             // Отключаем слишком агрессивные опции для стабильности
             disableConsoleOutput: false, // Оставляем консоль для отладки
             domainLock: [], // Не блокируем домены для Telegram
             reservedNames: [], // Не резервируем имена
-
+            
             // Исключения для критических частей
             ignoreRequireImports: true,
             numbersToExpressions: false, // Отключаем для стабильности с числами
             simplifyExpressions: false, // Отключаем упрощение выражений
-
+            
             // Настройки трансформации
             transformObjectKeys: true,
             unicodeEscapeSequence: false, // Отключаем для совместимости с Telegram
-
+            
             // Производительность
             optionsPreset: 'medium-obfuscation',
           },
-          // ИСКЛЮЧЕНИЯ - НЕ ОБФУСКИРУЕМ КРИТИЧЕСКИЕ ФАЙЛЫ
+          // ИСКЛЮЧЕНИЯ - НЕ ОБФУСКИРУЕМ КРИТИЧЕСКИЕ ФАЙЛЫ (используем glob паттерны)
           [
             // Исключаем Telegram Web App SDK и связанные файлы
-            /telegram-web-app/,
-            /twa-dev/,
-
+            '**/telegram-web-app*',
+            '**/twa-dev*',
+            
             // Исключаем внешние библиотеки которые могут сломаться
-            /node_modules/,
-
+            '**/node_modules/**',
+            
             // Исключаем service worker
-            /sw\.js/,
-            /workbox/,
-
+            '**/sw.js',
+            '**/workbox*',
+            
             // Исключаем конфигурационные файлы
-            /\.config\./,
-            /manifest\.json/,
-
+            '**/*.config.*',
+            '**/manifest.json',
+            
             // Исключаем критические системные файлы Next.js
-            /_app\./,
-            /_document\./,
-            /middleware\./,
-
+            '**/_app.*',
+            '**/_document.*',
+            '**/middleware.*',
+            
             // Исключаем полифиллы
-            /polyfill/,
-            /webpack/,
-
+            '**/polyfill*',
+            '**/webpack*',
+            
             // Исключаем файлы с чувствительной к обфускации логикой
-            /auth/,
-            /jwt/,
-            /crypto/
+            '**/auth/**',
+            '**/jwt*',
+            '**/crypto*'
           ]
         )
       );
@@ -116,7 +116,7 @@ const nextConfig = {
 
     return config;
   },
-
+  
   async headers() {
     return [
       {
@@ -141,7 +141,7 @@ const nextConfig = {
             value: "nosniff",
           },
           {
-            key: "X-Frame-Options",
+            key: "X-Frame-Options", 
             value: "SAMEORIGIN",
           },
           {
@@ -152,19 +152,19 @@ const nextConfig = {
       },
     ];
   },
-
+  
   // Оптимизация для production с учетом обфускации
   experimental: {
     optimizeCss: true,
   },
-
+  
   // Настройки компилера для совместимости с обфускацией
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? {
       exclude: ["error", "warn"], // Оставляем критические логи
     } : false,
   },
-
+  
   // Настройки минификации
   swcMinify: true,
 };
