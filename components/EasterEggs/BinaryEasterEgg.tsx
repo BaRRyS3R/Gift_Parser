@@ -17,16 +17,22 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [resultMessage, setResultMessage] = useState<string>("");
     const [isSuccess, setIsSuccess] = useState<boolean>(false);
+    const [debugInfo, setDebugInfo] = useState<string>(""); // DEBUG STATE
 
     // Haptic feedback helper
-    const triggerHaptic = () => {
+    const triggerHaptic = (type: "light" | "medium" | "heavy" = "light") => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             try {
-                window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
+                window.Telegram.WebApp.HapticFeedback.impactOccurred(type);
             } catch (error) {
                 // Fallback for non-Telegram environments
                 if (navigator.vibrate) {
-                    navigator.vibrate(50);
+                    const vibrationMap = {
+                        light: 50,
+                        medium: 100,
+                        heavy: 200
+                    };
+                    navigator.vibrate(vibrationMap[type]);
                 }
             }
         }
@@ -34,9 +40,10 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
 
     // Handle binary digit click (0 or 1)
     const handleBinaryClick = (digit: "0" | "1") => {
-        triggerHaptic();
+        triggerHaptic("medium"); // Enhanced haptic feedback for circle clicks
         setBinaryString(prev => prev + digit);
         setResultMessage(""); // Clear any previous messages
+        setDebugInfo(""); // Clear debug info when starting new sequence
     };
 
     // Handle check button click
@@ -47,9 +54,12 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
         }
 
         setIsSubmitting(true);
-        triggerHaptic();
+        triggerHaptic("light");
+        setDebugInfo("Starting binary check...");
 
         try {
+            setDebugInfo(prev => prev + "\nMaking API request...");
+
             const response = await makeAuthenticatedRequest('/api/easter-egg/binary-check', {
                 method: 'POST',
                 headers: {
@@ -58,18 +68,21 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
                 body: JSON.stringify({ binaryString }),
             });
 
+            setDebugInfo(prev => prev + `\nResponse: ${response.status} ${response.ok ? 'OK' : 'NOT OK'}`);
+
             if (!response.ok) {
+                setDebugInfo(prev => prev + "\nResponse not OK, parsing error...");
                 const errorData = await response.json().catch(() => ({}));
+                setDebugInfo(prev => prev + `\nError data: ${JSON.stringify(errorData)}`);
                 throw new Error(errorData.error || `Server error: ${response.status}`);
             }
 
+            setDebugInfo(prev => prev + "\nParsing response JSON...");
             const data = await response.json();
-
-            if (!data.success) {
-                throw new Error(data.error || "Binary check failed");
-            }
+            setDebugInfo(prev => prev + `\nParsed data: ${JSON.stringify(data)}`);
 
             if (data.success) {
+                setDebugInfo(prev => prev + "\nSUCCESS - correct binary!");
                 setIsSuccess(true);
                 setResultMessage(data.message);
                 // Success haptic feedback
@@ -83,8 +96,9 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
                     }
                 }
             } else {
+                setDebugInfo(prev => prev + `\nWRONG binary - API error: "${data.error}"`);
                 setIsSuccess(false);
-                setResultMessage(data.error);
+                setResultMessage(data.error || "Wrong binary sequence!");
                 // Clear the binary string for retry
                 setBinaryString("");
                 // Error haptic feedback
@@ -99,10 +113,20 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
                 }
             }
         } catch (error) {
-            console.error('Binary check error:', error);
-            setResultMessage("Network error. Try again!");
+            setDebugInfo(prev => prev + `\nCATCH BLOCK: ${error instanceof Error ? error.message : 'Unknown error'}`);
             setIsSuccess(false);
+            setResultMessage("Network error. Try again!");
             setBinaryString("");
+            // Error haptic feedback
+            if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+                try {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+                } catch (error) {
+                    if (navigator.vibrate) {
+                        navigator.vibrate([200, 100, 200]);
+                    }
+                }
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -110,10 +134,11 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
 
     // Handle close
     const handleClose = () => {
-        triggerHaptic();
+        triggerHaptic("light");
         setBinaryString("");
         setResultMessage("");
         setIsSuccess(false);
+        setDebugInfo(""); // Clear debug info
         onClose();
     };
 
@@ -122,7 +147,7 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
         if (isSuccess && resultMessage) {
             try {
                 await navigator.clipboard.writeText(resultMessage);
-                triggerHaptic();
+                triggerHaptic("medium");
                 // Could add a temporary "Copied!" indicator here
             } catch (error) {
                 console.error('Failed to copy:', error);
@@ -141,7 +166,7 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
                 {/* Close button */}
                 <button
                     onTouchEnd={handleClose}
-                    className="absolute top-2 right-2 p-1 text-white/60 hover:text-white transition-colors touch-manipulation"
+                    className="absolute top-2 right-2 p-1 text-white/60 hover:text-white transition-colors"
                     aria-label="Close easter egg"
                     type="button"
                     style={{ touchAction: 'manipulation' }}
@@ -151,27 +176,27 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
 
                 {/* Binary input area */}
                 <div className="space-y-4">
-                    {/* Binary circles */}
+                    {/* Binary circles - no numbers shown */}
                     <div className="flex items-center justify-center space-x-4">
                         <button
                             onTouchEnd={() => handleBinaryClick("0")}
                             disabled={isSubmitting}
                             type="button"
                             aria-label="Add binary 0"
-                            className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black font-bold text-lg hover:bg-white/90 transition-colors disabled:opacity-50"
+                            className="w-12 h-12 bg-white rounded-full flex items-center justify-center hover:bg-white/90 transition-colors disabled:opacity-50 active:scale-95"
                             style={{ touchAction: 'manipulation' }}
                         >
-                            0
+                            {/* Empty circle for 0 */}
                         </button>
                         <button
                             onTouchEnd={() => handleBinaryClick("1")}
                             disabled={isSubmitting}
                             type="button"
                             aria-label="Add binary 1"
-                            className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black font-bold text-lg hover:bg-white/90 transition-colors disabled:opacity-50"
+                            className="w-12 h-12 bg-white rounded-full flex items-center justify-center hover:bg-white/90 transition-colors disabled:opacity-50 active:scale-95"
                             style={{ touchAction: 'manipulation' }}
                         >
-                            1
+                            {/* Empty circle for 1 */}
                         </button>
                     </div>
 
@@ -200,6 +225,18 @@ export default function BinaryEasterEgg({ isVisible, onClose, makeAuthenticatedR
                             </div>
                             <div className="text-white/50 text-xs">
                                 Length: {binaryString.length}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Debug info - TEMPORARY */}
+                    {debugInfo && (
+                        <div className="text-center">
+                            <div className="bg-gray-800/90 text-gray-300 text-xs p-3 rounded-lg border border-gray-600">
+                                <div className="font-bold text-yellow-400 mb-2">DEBUG INFO:</div>
+                                <pre className="whitespace-pre-wrap text-left overflow-x-auto">
+                                    {debugInfo}
+                                </pre>
                             </div>
                         </div>
                     )}
