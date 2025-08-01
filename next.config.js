@@ -18,8 +18,8 @@ const nextConfig = {
           new JavaScriptObfuscator({
             // === ОСНОВНЫЕ НАСТРОЙКИ ОБФУСКАЦИИ ===
             compact: true,
-            identifierNamesGenerator: 'hexadecimalNumericString',
-            identifiersPrefix: '_0x',
+            identifierNamesGenerator: 'mangled',
+            //identifiersPrefix: '_0x',
             
             // stringArray - реализация требуемого метода
             stringArray: true,
