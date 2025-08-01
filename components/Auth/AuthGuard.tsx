@@ -47,7 +47,7 @@ const AuthErrorScreen: React.FC<AuthErrorProps> = ({
 
         <div className="space-y-4">
           <div className="p-4 bg-amber-500/10 border border-amber-400/30 rounded-lg">
-            <p className="text-amber-300 text-sm">aoth error suggestion</p>
+            <p className="text-amber-300 text-sm">auth error</p>
           </div>
 
           <div className="space-y-3">
@@ -56,7 +56,7 @@ const AuthErrorScreen: React.FC<AuthErrorProps> = ({
               onClick={onRetry}
             >
               <RefreshCw size={18} />
-              <span>auth error retry</span>
+              <span>retry</span>
             </button>
 
             <button
@@ -64,13 +64,13 @@ const AuthErrorScreen: React.FC<AuthErrorProps> = ({
               onClick={onGoHome}
             >
               <Home size={18} />
-              <span>Auth error botton go home</span>
+              <span>Go home, buddy</span>
             </button>
           </div>
         </div>
 
         <div className="text-center">
-          <p className="text-white/40 text-xs">Auth error footer</p>
+          <p className="text-white/40 text-xs">EEEE RRR OOOOO RRRR</p>
         </div>
       </div>
     </div>
