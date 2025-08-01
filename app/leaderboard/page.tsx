@@ -9,6 +9,17 @@ import type {
   SafeRotationLeaderboard,
 } from "@/hooks/modules/useLeaderboard";
 
+// NEW: Season leaderboard interface
+export interface SafeSeasonLeaderboard {
+  position: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  total_score: number;
+  total_games: number;
+  isCurrentUser?: boolean;
+}
+
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Star, Crown, Zap, Crosshair, Atom, RotateCw } from "lucide-react";
@@ -20,7 +31,7 @@ import { formatRotationTime } from "@/utils/timeFormatter";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 
-type LeaderboardType = "reaction" | "survival" | "physics" | "rotation";
+type LeaderboardType = "season" | "reaction" | "survival" | "physics" | "rotation";
 
 // Static Aurora Background Component - completely isolated from tab changes
 const VERT = `#version 300 es
@@ -238,7 +249,7 @@ function LeaderboardPageContent() {
   } = useLeaderboard(makeAuthenticatedRequest);
 
   const t = useT();
-  const [activeTab, setActiveTab] = useState<LeaderboardType>("reaction");
+  const [activeTab, setActiveTab] = useState<LeaderboardType>("season");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Setup Telegram WebApp back button
@@ -281,6 +292,8 @@ function LeaderboardPageContent() {
     if (!leaderboardData) return [];
 
     switch (activeTab) {
+      case "season":
+        return leaderboardData.season.slice(0, 10);
       case "reaction":
         return leaderboardData.reaction.slice(0, 10);
       case "survival":
@@ -306,6 +319,14 @@ function LeaderboardPageContent() {
     let value = "N/A";
     
     switch (activeTab) {
+      case "season":
+        gamesCount = user.total_games;
+        if (userData) {
+          value = `${(userData as SafeSeasonLeaderboard).total_score}`;
+        } else if (user.total_score > 0) {
+          value = `${user.total_score}`;
+        }
+        break;
       case "reaction":
         gamesCount = user.reaction_games;
         if (userData) {
@@ -360,6 +381,8 @@ function LeaderboardPageContent() {
 
   const getTabIcon = (tab: LeaderboardType) => {
     switch (tab) {
+      case "season":
+        return <span className="text-xs font-bold">SEASON 1</span>;
       case "reaction":
         return <Zap size={16} />;
       case "survival":
@@ -373,6 +396,8 @@ function LeaderboardPageContent() {
 
   const getPlayerValue = (player: any) => {
     switch (activeTab) {
+      case "season":
+        return `${player.total_score}`;
       case "reaction":
         return `${player.best_reaction_time}ms`;
       case "survival":
@@ -467,13 +492,15 @@ function LeaderboardPageContent() {
                     {currentUserData.value}
                   </div>
                   <div className="text-xs text-white/70 drop-shadow-sm">
-                    {activeTab === "reaction"
-                      ? t("leaderboard.reactionTime")
-                      : activeTab === "survival"
-                        ? t("leaderboard.points")
-                        : activeTab === "physics"
+                    {activeTab === "season"
+                      ? t("leaderboard.points")
+                      : activeTab === "reaction"
+                        ? t("leaderboard.reactionTime")
+                        : activeTab === "survival"
                           ? t("leaderboard.points")
-                          : t("leaderboard.points")}
+                          : activeTab === "physics"
+                            ? t("leaderboard.points")
+                            : t("leaderboard.points")}
                   </div>
                   {currentUserData.position && (
                     <div className="text-lg text-white/80 mt-2 drop-shadow-sm">
@@ -505,7 +532,7 @@ function LeaderboardPageContent() {
         <div className="text-center mb-4">
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1 inline-block">
             <div className="flex space-x-1">
-              {(["reaction", "survival", "physics", "rotation"] as const).map(
+              {(["season", "reaction", "survival", "physics", "rotation"] as const).map(
                 (tab) => (
                   <button
                     key={tab}
@@ -605,13 +632,15 @@ function LeaderboardPageContent() {
                         <div className={`text-xs ${
                           entry.position <= 3 ? "text-white/60" : "text-white/50"
                         }`}>
-                          {activeTab === "reaction"
-                            ? t("leaderboard.time")
-                            : activeTab === "survival"
-                              ? t("leaderboard.points")
-                              : activeTab === "physics"
+                          {activeTab === "season"
+                            ? t("leaderboard.points")
+                            : activeTab === "reaction"
+                              ? t("leaderboard.time")
+                              : activeTab === "survival"
                                 ? t("leaderboard.points")
-                                : t("leaderboard.points")}
+                                : activeTab === "physics"
+                                  ? t("leaderboard.points")
+                                  : t("leaderboard.points")}
                         </div>
                       </div>
                     </div>

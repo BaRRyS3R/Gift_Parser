@@ -54,7 +54,18 @@ export interface SafeRotationLeaderboard {
   isCurrentUser?: boolean;
 }
 
+export interface SafeSeasonLeaderboard {
+  position: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  total_score: number;
+  total_games: number;
+  isCurrentUser?: boolean;
+}
+
 export interface UserRankings {
+  season?: number;
   reaction?: number;
   survival?: number;
   physics?: number;
@@ -62,6 +73,7 @@ export interface UserRankings {
 }
 
 export interface LeaderboardData {
+  season: SafeSeasonLeaderboard[];
   reaction: SafeReactionLeaderboard[];
   survival: SafeSurvivalLeaderboard[];
   physics: SafePhysicsLeaderboard[];

@@ -53,7 +53,18 @@ export interface SafeRotationLeaderboard {
   isCurrentUser?: boolean;
 }
 
+export interface SafeSeasonLeaderboard {
+  position: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  total_score: number;
+  total_games: number;
+  isCurrentUser?: boolean;
+}
+
 export interface UserRankings {
+  season?: number;
   reaction?: number;
   survival?: number;
   physics?: number;
@@ -61,6 +72,7 @@ export interface UserRankings {
 }
 
 export interface AllLeaderboardsResponse {
+  season: SafeSeasonLeaderboard[];
   reaction: SafeReactionLeaderboard[];
   survival: SafeSurvivalLeaderboard[];
   physics: SafePhysicsLeaderboard[];
@@ -69,6 +81,46 @@ export interface AllLeaderboardsResponse {
 }
 
 export const serverLeaderboardService = {
+  /**
+   * NEW: Get season mode leaderboard with safe data (sorted by total_score, then total_games)
+   */
+  async getSeasonLeaderboard(
+    currentUserId: string,
+    limit: number = 100,
+  ): Promise<SafeSeasonLeaderboard[]> {
+    const { data, error } = await supabaseServer
+      .from("users")
+      .select(
+        `
+                id,
+                first_name,
+                last_name,
+                username,
+                total_score,
+                total_games
+            `,
+      )
+      .gt("total_games", 0)
+      .order("total_score", { ascending: false })
+      .order("total_games", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("Error fetching season leaderboard:", error);
+      throw new Error("Failed to fetch season leaderboard");
+    }
+
+    return (data || []).map((user: any, index: number) => ({
+      position: index + 1,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      username: user.username,
+      total_score: user.total_score,
+      total_games: user.total_games,
+      isCurrentUser: user.id === currentUserId,
+    }));
+  },
+
   /**
    * Get reaction mode leaderboard with safe data
    */
@@ -182,9 +234,9 @@ export const serverLeaderboardService = {
       `,
       )
       .gt("physics_games", 0)
-      .order("physics_best_score", { ascending: false }) // Основной критерий: счёт
-      .order("physics_best_time", { ascending: false }) // Вторичный: время
-      .order("physics_best_hits", { ascending: false }) // Третичный: попадания
+      .order("physics_best_score", { ascending: false })
+      .order("physics_best_time", { ascending: false })
+      .order("physics_best_hits", { ascending: false })
       .limit(limit);
 
     if (error) {
@@ -230,9 +282,9 @@ export const serverLeaderboardService = {
       `,
       )
       .gt("rotation_games", 0)
-      .order("rotation_best_score", { ascending: false }) // Основной критерий: счёт
-      .order("rotation_best_time", { ascending: false }) // Вторичный: время
-      .order("rotation_max_level", { ascending: false }) // Третичный: уровень
+      .order("rotation_best_score", { ascending: false })
+      .order("rotation_best_time", { ascending: false })
+      .order("rotation_max_level", { ascending: false })
       .limit(limit);
 
     if (error) {
@@ -256,7 +308,7 @@ export const serverLeaderboardService = {
   },
 
   /**
-   * Get user rankings with simplified logic to avoid SQL errors
+   * UPDATED: Get user rankings with season support
    */
   async getUserRankings(telegramId: number): Promise<UserRankings> {
     const { data: user, error: userError } = await supabaseServer
@@ -270,6 +322,19 @@ export const serverLeaderboardService = {
     }
 
     const rankings: UserRankings = {};
+
+    // NEW: Season ranking - сортировка по общему счёту (больше = лучше)
+    if (user.total_games > 0) {
+      const { count, error: seasonError } = await supabaseServer
+        .from("users")
+        .select("id", { count: "exact" })
+        .gt("total_games", 0)
+        .gt("total_score", user.total_score);
+
+      if (!seasonError) {
+        rankings.season = (count || 0) + 1;
+      }
+    }
 
     // Reaction ranking - сортировка по времени (меньше = лучше)
     if (user.reaction_games > 0 && user.reaction_best_time > 0) {
@@ -328,7 +393,7 @@ export const serverLeaderboardService = {
   },
 
   /**
-   * Get all leaderboards in a single request
+   * UPDATED: Get all leaderboards in a single request (with season support)
    */
   async getAllLeaderboards(
     currentUserId: string,
@@ -338,8 +403,9 @@ export const serverLeaderboardService = {
     try {
       console.log(`Fetching all leaderboards for user: ${currentUserId}`);
 
-      const [reaction, survival, physics, rotation, userRankings] =
+      const [season, reaction, survival, physics, rotation, userRankings] =
         await Promise.all([
+          this.getSeasonLeaderboard(currentUserId, limit),
           this.getReactionLeaderboard(currentUserId, limit),
           this.getSurvivalLeaderboard(currentUserId, limit),
           this.getPhysicsLeaderboard(currentUserId, limit),
@@ -348,6 +414,7 @@ export const serverLeaderboardService = {
         ]);
 
       return {
+        season,
         reaction,
         survival,
         physics,
