@@ -160,10 +160,10 @@ export const calculateReactionRating = (
     return "MISSED";
   }
 
-  if (reactionTime <= 150) return "LIGHTNING";
-  if (reactionTime <= 200) return "EXCELLENT";
-  if (reactionTime <= 300) return "GOOD";
-  if (reactionTime <= 500) return "AVERAGE";
+  if (reactionTime <= 50) return "LIGHTNING";
+  if (reactionTime <= 150) return "EXCELLENT";
+  if (reactionTime <= 250) return "GOOD";
+  if (reactionTime <= 400) return "AVERAGE";
 
   return "SLOW";
 };
@@ -176,14 +176,11 @@ export const calculateReactionScore = (
     return 0;
   }
 
-  // Score formula: higher score for faster reaction
-  const baseScore = Math.max(0, 1000 - reactionTime);
-
-  if (reactionTime <= 150) return Math.floor(baseScore * 1.5); // Lightning bonus
-  if (reactionTime <= 200) return Math.floor(baseScore * 1.3); // Excellence bonus
-  if (reactionTime <= 300) return Math.floor(baseScore * 1.1); // Good bonus
-
-  return Math.floor(baseScore);
+  if (reactionTime < 50) return 50;
+  if (reactionTime <= 150) return 40;
+  if (reactionTime <= 250) return 30;
+  if (reactionTime <= 400) return 20;
+  return 10;
 };
 
 export const createReactionGameResult = (

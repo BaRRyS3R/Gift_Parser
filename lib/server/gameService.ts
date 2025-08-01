@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated to use server league service
+// src/lib/server/gameService.ts - Updated with scoring system and multipliers
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -41,6 +41,70 @@ export interface TournamentSaveResponse {
   previous_total: number;
 }
 
+/**
+ * Calculate reaction time score based on timing
+ */
+function calculateReactionScore(reactionTime: number, missed: boolean): number {
+  if (missed) return 0;
+  
+  if (reactionTime < 50) return 50;
+  if (reactionTime <= 150) return 40;
+  if (reactionTime <= 250) return 30;
+  if (reactionTime <= 400) return 20;
+  return 10;
+}
+
+/**
+ * Get score multiplier for total_score calculation
+ */
+function getScoreMultiplier(mode: GameMode): number {
+  switch (mode) {
+    case GameMode.REACTION:
+      return 1; // No multiplier for reaction mode (already calculated)
+    case GameMode.SURVIVAL:
+      return 2;
+    case GameMode.PHYSICS:
+      return 4;
+    case GameMode.ROTATION:
+      return 3;
+    default:
+      return 1;
+  }
+}
+
+/**
+ * Calculate total score contribution based on game mode
+ */
+function calculateTotalScoreContribution(gameResult: GameResult): number {
+  let baseScore = gameResult.score;
+  
+  // For reaction mode, recalculate score based on reaction time
+  if (gameResult.mode === GameMode.REACTION) {
+    const reactionResult = gameResult as ReactionGameResult;
+    baseScore = calculateReactionScore(reactionResult.reactionTime, reactionResult.missed);
+  }
+  
+  const multiplier = getScoreMultiplier(gameResult.mode);
+  return baseScore * multiplier;
+}
+
+/**
+ * Calculate mode-specific best score with multiplier
+ */
+function calculateModeSpecificScore(gameResult: GameResult): number {
+  let baseScore = gameResult.score;
+  
+  // For reaction mode, use calculated score
+  if (gameResult.mode === GameMode.REACTION) {
+    const reactionResult = gameResult as ReactionGameResult;
+    return calculateReactionScore(reactionResult.reactionTime, reactionResult.missed);
+  }
+  
+  // For other modes, apply multiplier to mode-specific best score
+  const multiplier = getScoreMultiplier(gameResult.mode);
+  return baseScore * multiplier;
+}
+
 // Server-side game service
 export const serverGameService = {
   /**
@@ -72,30 +136,31 @@ export const serverGameService = {
     const previousLevel = user.current_level;
     const newLevel = serverLeagueService.calculateLevel(newTotalGames);
 
+    // Calculate score contributions
+    const totalScoreContribution = calculateTotalScoreContribution(gameResult);
+    const modeSpecificScore = calculateModeSpecificScore(gameResult);
+
     const updates: any = {
       total_games: newTotalGames,
-      // ИЗМЕНЕНИЕ: total_score обновляется только от режима выживания
-      total_score:
-        gameResult.mode === GameMode.SURVIVAL
-          ? user.total_score + gameResult.score
-          : user.total_score,
-      // ИЗМЕНЕНИЕ: best_score обновляется только от режима выживания
-      best_score:
-        gameResult.mode === GameMode.SURVIVAL
-          ? Math.max(user.best_score, gameResult.score)
-          : user.best_score,
+      // NEW: All modes contribute to total_score with multipliers
+      total_score: user.total_score + totalScoreContribution,
+      // NEW: All modes can update best_score
+      best_score: Math.max(user.best_score, totalScoreContribution),
       current_level: newLevel,
       last_played_at: new Date().toISOString(),
     };
 
-    // Режимо-специфичные обновления статистики остаются без изменений
+    // Mode-specific statistics updates
     if (gameResult.mode === GameMode.REACTION) {
       const reactionResult = gameResult as ReactionGameResult;
+      
+      // Calculate actual score for reaction mode
+      const calculatedScore = calculateReactionScore(reactionResult.reactionTime, reactionResult.missed);
 
       updates.reaction_games = user.reaction_games + 1;
       updates.reaction_best_score = Math.max(
         user.reaction_best_score || 0,
-        reactionResult.score,
+        calculatedScore, // Use calculated score instead of gameResult.score
       );
 
       if (!reactionResult.missed && reactionResult.reactionTime > 0) {
@@ -121,7 +186,7 @@ export const serverGameService = {
       updates.survival_games = user.survival_games + 1;
       updates.survival_best_score = Math.max(
         user.survival_best_score || 0,
-        survivalResult.score,
+        survivalResult.score * 2, // Apply multiplier to mode-specific best score
       );
       updates.survival_best_time = Math.max(
         user.survival_best_time || 0,
@@ -141,7 +206,7 @@ export const serverGameService = {
       updates.physics_games = user.physics_games + 1;
       updates.physics_best_score = Math.max(
         user.physics_best_score || 0,
-        physicsResult.score,
+        physicsResult.score * 4, // Apply multiplier to mode-specific best score
       );
       updates.physics_best_time = Math.max(
         user.physics_best_time || 0,
@@ -171,7 +236,7 @@ export const serverGameService = {
       updates.rotation_games = user.rotation_games + 1;
       updates.rotation_best_score = Math.max(
         user.rotation_best_score || 0,
-        rotationResult.score,
+        rotationResult.score * 3, // Apply multiplier to mode-specific best score
       );
       updates.rotation_best_time = Math.max(
         user.rotation_best_time || 0,
@@ -311,4 +376,10 @@ export const serverGameService = {
 
     return saveResponse;
   },
+  
+  // Export utility functions for use in game logic
+  calculateReactionScore,
+  getScoreMultiplier,
+  calculateTotalScoreContribution,
+  calculateModeSpecificScore,
 };
