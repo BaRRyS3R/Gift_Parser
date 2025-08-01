@@ -317,20 +317,21 @@ export default function TasksPage() {
 
       {/* Header with clickable title for easter egg */}
       <div className="text-center space-y-4 mb-8 pt-6">
-        <h1
-          className="text-4xl font-bold tracking-widest text-white animate-fade-in cursor-default select-none"
+        <div
+          className="text-4xl font-bold tracking-widest text-white animate-fade-in select-none cursor-default"
           onTouchEnd={handleTitleClick}
-          role="button"
-          tabIndex={-1}
-          aria-label="Tasks title - tap 5 times for easter egg"
           style={{
+            WebkitTapHighlightColor: 'transparent',
             WebkitTouchCallout: 'none',
             WebkitUserSelect: 'none',
-            touchAction: 'manipulation'
+            userSelect: 'none',
+            touchAction: 'manipulation',
           }}
         >
-          {t("tasks.title")}
-        </h1>
+          <h1 className="m-0 p-0">
+            {t("tasks.title")}
+          </h1>
+        </div>
         <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
           {t("tasks.subtitle")}
         </p>

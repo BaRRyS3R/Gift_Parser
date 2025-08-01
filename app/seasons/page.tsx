@@ -2,21 +2,11 @@
 
 "use client";
 
-import type {
-  CompleteSeasonData,
-  SeasonLeaderboardEntry,
-} from "@/hooks/modules/useSeasons";
+import type { SeasonLeaderboardEntry } from "@/hooks/modules/useSeasons";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Calendar,
-  Clock,
-  Star,
-  Trophy,
-  X,
-  Crown,
-} from "lucide-react";
+import { Calendar, Clock, Star, Trophy, X, Crown } from "lucide-react";
 import { Renderer, Program, Triangle, Mesh } from "ogl";
 
 import { useUser } from "@/hooks/useUser";
@@ -54,16 +44,16 @@ function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
     <>
       {/* Backdrop */}
       <div
+        aria-label="Close modal"
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity duration-300"
+        role="button"
+        tabIndex={0}
         onClick={onClose}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') {
+          if (e.key === "Escape") {
             onClose();
           }
         }}
-        role="button"
-        tabIndex={0}
-        aria-label="Close modal"
       />
 
       {/* Modal */}
@@ -73,11 +63,11 @@ function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-white flex items-center space-x-2">
               <Calendar size={20} />
-              <span>{t('seasons.seasonTimeline')}</span>
+              <span>{t("seasons.seasonTimeline")}</span>
             </h3>
             <button
-              onClick={onClose}
               className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+              onClick={onClose}
             >
               <X className="text-white" size={16} />
             </button>
@@ -88,16 +78,18 @@ function DateInfoModal({ isOpen, onClose }: DateInfoModalProps) {
             <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-3">
                 <Clock className="text-blue-400" size={16} />
-                <span className="text-blue-300 font-bold text-sm">{t('seasons.importantNotice')}</span>
+                <span className="text-blue-300 font-bold text-sm">
+                  {t("seasons.importantNotice")}
+                </span>
               </div>
               <div className="text-white/90 leading-relaxed">
-                {t('seasons.seasonEndNotice')}
+                {t("seasons.seasonEndNotice")}
               </div>
             </div>
 
             <div className="text-center">
               <div className="text-white/70 text-sm">
-                {t('seasons.playBeforeDeadline')}
+                {t("seasons.playBeforeDeadline")}
               </div>
             </div>
           </div>
@@ -112,22 +104,22 @@ function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
 
   if (!isOpen || !player) return null;
 
-  const displayName = `${player.first_name} ${player.last_name || ''}`.trim();
+  const displayName = `${player.first_name} ${player.last_name || ""}`.trim();
 
   return (
     <>
       {/* Backdrop */}
       <div
+        aria-label="Close modal"
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity duration-300"
+        role="button"
+        tabIndex={0}
         onClick={onClose}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') {
+          if (e.key === "Escape") {
             onClose();
           }
         }}
-        role="button"
-        tabIndex={0}
-        aria-label="Close modal"
       />
 
       {/* Modal */}
@@ -139,19 +131,22 @@ function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
               {player.position <= 3 && (
                 <Trophy
                   className={
-                    player.position === 1 ? "text-yellow-400" :
-                      player.position === 2 ? "text-gray-300" : "text-amber-600"
+                    player.position === 1
+                      ? "text-yellow-400"
+                      : player.position === 2
+                        ? "text-gray-300"
+                        : "text-amber-600"
                   }
                   size={24}
                 />
               )}
               <h3 className="text-xl font-bold text-white">
-                #{player.position} {t('seasons.place')}
+                #{player.position} {t("seasons.place")}
               </h3>
             </div>
             <button
-              onClick={onClose}
               className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+              onClick={onClose}
             >
               <X className="text-white" size={16} />
             </button>
@@ -175,14 +170,16 @@ function PlayerModal({ isOpen, onClose, player, prize }: PlayerModalProps) {
               <div className="text-3xl font-bold text-white mb-1">
                 {player.total_score}
               </div>
-              <div className="text-white/60 text-sm">{t('seasons.points')}</div>
+              <div className="text-white/60 text-sm">{t("seasons.points")}</div>
             </div>
 
             {prize && (
               <div className="bg-gradient-to-r from-yellow-400/20 to-orange-500/20 border border-yellow-400/30 rounded-lg p-4 text-center">
                 <div className="flex items-center justify-center space-x-2 mb-2">
                   <Trophy className="text-yellow-400" size={16} />
-                  <span className="text-yellow-300 font-bold text-sm">{t('seasons.prize')}</span>
+                  <span className="text-yellow-300 font-bold text-sm">
+                    {t("seasons.prize")}
+                  </span>
                 </div>
                 <div className="text-white font-medium">{prize}</div>
               </div>
@@ -231,20 +228,22 @@ function LightRays({
 
   const hexToRgb = (hex: string): [number, number, number] => {
     const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+
     return m
       ? [
-        parseInt(m[1], 16) / 255,
-        parseInt(m[2], 16) / 255,
-        parseInt(m[3], 16) / 255,
-      ]
+          parseInt(m[1], 16) / 255,
+          parseInt(m[2], 16) / 255,
+          parseInt(m[3], 16) / 255,
+        ]
       : [1, 1, 1];
   };
 
   const getAnchorAndDir = (
     w: number,
-    h: number
+    h: number,
   ): { anchor: [number, number]; dir: [number, number] } => {
     const outside = 0.2;
+
     return { anchor: [0.5 * w, -outside * h], dir: [0, 1] };
   };
 
@@ -254,9 +253,10 @@ function LightRays({
     observerRef.current = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
+
         setIsVisible(entry.isIntersecting);
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     observerRef.current.observe(containerRef.current);
@@ -288,9 +288,11 @@ function LightRays({
         dpr: Math.min(window.devicePixelRatio, 2),
         alpha: true,
       });
+
       rendererRef.current = renderer;
 
       const gl = renderer.gl;
+
       gl.canvas.style.width = "100%";
       gl.canvas.style.height = "100%";
 
@@ -412,6 +414,7 @@ void main() {
         noiseAmount: { value: noiseAmount },
         distortion: { value: distortion },
       };
+
       uniformsRef.current = uniforms;
 
       const geometry = new Triangle(gl);
@@ -421,6 +424,7 @@ void main() {
         uniforms,
       });
       const mesh = new Mesh(gl, { geometry, program });
+
       meshRef.current = mesh;
 
       const updatePlacement = () => {
@@ -429,6 +433,7 @@ void main() {
         renderer.dpr = Math.min(window.devicePixelRatio, 2);
 
         const { clientWidth: wCSS, clientHeight: hCSS } = containerRef.current;
+
         renderer.setSize(wCSS, hCSS);
 
         const dpr = renderer.dpr;
@@ -438,6 +443,7 @@ void main() {
         uniforms.iResolution.value = [w, h];
 
         const { anchor, dir } = getAnchorAndDir(w, h);
+
         uniforms.rayPos.value = anchor;
         uniforms.rayDir.value = dir;
       };
@@ -454,6 +460,7 @@ void main() {
           animationIdRef.current = requestAnimationFrame(loop);
         } catch (error) {
           console.warn("WebGL rendering error:", error);
+
           return;
         }
       };
@@ -475,6 +482,7 @@ void main() {
             const canvas = renderer.gl.canvas;
             const loseContextExt =
               renderer.gl.getExtension("WEBGL_lose_context");
+
             if (loseContextExt) {
               loseContextExt.loseContext();
             }
@@ -534,6 +542,7 @@ void main() {
     const { clientWidth: wCSS, clientHeight: hCSS } = containerRef.current;
     const dpr = renderer.dpr;
     const { anchor, dir } = getAnchorAndDir(wCSS * dpr, hCSS * dpr);
+
     u.rayPos.value = anchor;
     u.rayDir.value = dir;
   }, [
@@ -610,7 +619,9 @@ function SeasonsPageContent() {
 
   const handlePlayerClick = (player: SeasonLeaderboardEntry) => {
     // Get prize for this position (prizes are 0-indexed in array)
-    const prize = seasonData?.season.prizes[player.position - 1] || `Prize ${player.position}`;
+    const prize =
+      seasonData?.season.prizes[player.position - 1] ||
+      `Prize ${player.position}`;
 
     setSelectedPlayer({
       player,
@@ -632,7 +643,7 @@ function SeasonsPageContent() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">{t('seasons.loadingSeason')}</p>
+          <p className="text-white">{t("seasons.loadingSeason")}</p>
         </div>
       </div>
     );
@@ -648,7 +659,7 @@ function SeasonsPageContent() {
             className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
             onClick={handleRefresh}
           >
-            {t('seasons.retry')}
+            {t("seasons.retry")}
           </button>
         </div>
       </div>
@@ -660,15 +671,17 @@ function SeasonsPageContent() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4 px-6">
           <Calendar className="text-white/60 mx-auto" size={48} />
-          <h2 className="text-2xl font-bold text-white">{t('seasons.noActiveSeason')}</h2>
+          <h2 className="text-2xl font-bold text-white">
+            {t("seasons.noActiveSeason")}
+          </h2>
           <p className="text-white/70 max-w-md">
-            {t('seasons.noActiveSeasonDescription')}
+            {t("seasons.noActiveSeasonDescription")}
           </p>
           <button
             className="px-6 py-3 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
             onClick={handleRefresh}
           >
-            {t('seasons.checkAgain')}
+            {t("seasons.checkAgain")}
           </button>
         </div>
       </div>
@@ -686,38 +699,36 @@ function SeasonsPageContent() {
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
-
       {/* Light Rays Background */}
       <div className="absolute inset-0 z-0 h-96">
         <LightRays
+          distortion={0.15}
+          fadeDistance={1.2}
+          lightSpread={1.2}
+          noiseAmount={0.05}
+          pulsating={false}
+          rayLength={1.8}
           raysColor="#ffffff"
           raysSpeed={0.8}
-          lightSpread={1.2}
-          rayLength={1.8}
-          pulsating={false}
-          fadeDistance={1.2}
           saturation={0.8}
-          noiseAmount={0.05}
-          distortion={0.15}
         />
         {/* Gradient Overlay for smooth bottom transition */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black pointer-events-none" />
       </div>
 
       <div className="relative z-10 px-4 safe-area-inset">
-
         {/* Champion Display - Moved higher up */}
         <div className="text-center py-4 pt-8">
           {topPlayer ? (
             <button
-              onClick={() => handlePlayerClick(topPlayer)}
               className="focus:outline-none"
+              onClick={() => handlePlayerClick(topPlayer)}
             >
               {/* Player Name */}
               <div className="mb-3">
                 <div className="flex items-center justify-center space-x-2">
                   <span className="text-3xl font-bold text-white drop-shadow-lg">
-                    {topPlayer.first_name} {topPlayer.last_name || ''}
+                    {topPlayer.first_name} {topPlayer.last_name || ""}
                   </span>
                   {topPlayer.isCurrentUser && (
                     <Star className="text-blue-400 drop-shadow-lg" size={20} />
@@ -736,16 +747,16 @@ function SeasonsPageContent() {
                 {topPlayer.total_score}
               </div>
               <div className="text-xs text-white/70 drop-shadow-sm">
-                {t('seasons.points')}
+                {t("seasons.points")}
               </div>
             </button>
           ) : (
             <div>
               <p className="text-white/60 drop-shadow-sm text-lg">
-                {t('seasons.noChampionYet')}
+                {t("seasons.noChampionYet")}
               </p>
               <p className="text-white/40 text-sm mt-1">
-                {t('seasons.claimThrone')}
+                {t("seasons.claimThrone")}
               </p>
             </div>
           )}
@@ -761,24 +772,28 @@ function SeasonsPageContent() {
         {/* Season Dates - Reduced margin */}
         <div className="flex items-center justify-center space-x-4 text-sm text-white/70 mb-4">
           <button
-            onClick={() => setShowDateInfo(true)}
             className="flex items-center space-x-1 hover:text-white/90 transition-colors"
+            onClick={() => setShowDateInfo(true)}
           >
             <Calendar size={14} />
             <span>
-              {new Date(season.start_date).toLocaleDateString()} - {new Date(season.end_date).toLocaleDateString()}
+              {new Date(season.start_date).toLocaleDateString()} -{" "}
+              {new Date(season.end_date).toLocaleDateString()}
             </span>
           </button>
           {!isActive && new Date() < new Date(season.start_date) && (
             <div className="flex items-center space-x-1 text-yellow-400">
               <Clock size={14} />
-              <span>{t('seasons.starts')} {new Date(season.start_date).toLocaleDateString()}</span>
+              <span>
+                {t("seasons.starts")}{" "}
+                {new Date(season.start_date).toLocaleDateString()}
+              </span>
             </div>
           )}
           {!isActive && new Date() > new Date(season.end_date) && (
             <div className="flex items-center space-x-1 text-red-400">
               <Clock size={14} />
-              <span>{t('seasons.ended')}</span>
+              <span>{t("seasons.ended")}</span>
             </div>
           )}
         </div>
@@ -794,13 +809,21 @@ function SeasonsPageContent() {
                       <Crown className="text-white/70" size={14} />
                     </div>
                     <div>
-                      <div className="text-white font-medium text-sm">{t('seasons.yourPosition')}</div>
-                      <div className="text-white/60 text-xs">{t('seasons.currentRanking')}</div>
+                      <div className="text-white font-medium text-sm">
+                        {t("seasons.yourPosition")}
+                      </div>
+                      <div className="text-white/60 text-xs">
+                        {t("seasons.currentRanking")}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xl font-bold text-white">#{userPosition}</div>
-                    <div className="text-white/50 text-xs">{seasonData.userStats.total_score || 0}</div>
+                    <div className="text-xl font-bold text-white">
+                      #{userPosition}
+                    </div>
+                    <div className="text-white/50 text-xs">
+                      {seasonData.userStats.total_score || 0}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -812,28 +835,28 @@ function SeasonsPageContent() {
         <div className="space-y-0 max-w-2xl mx-auto">
           {restOfLeaderboard.length === 0 && !topPlayer ? (
             <div className="text-center py-12">
-              <p className="font-bold text-white/80 text-xl mb-2">{t('seasons.noPlayersYet')}</p>
-              <p className="text-white/60">
-                {t('seasons.beFirstToCompete')}
+              <p className="font-bold text-white/80 text-xl mb-2">
+                {t("seasons.noPlayersYet")}
               </p>
+              <p className="text-white/60">{t("seasons.beFirstToCompete")}</p>
             </div>
           ) : restOfLeaderboard.length === 0 ? (
             <div className="text-center py-12">
-              <p className="font-bold text-white/80 text-xl mb-2">{t('seasons.onlyOneChampion')}</p>
-              <p className="text-white/60">
-                {t('seasons.challengeLeader')}
+              <p className="font-bold text-white/80 text-xl mb-2">
+                {t("seasons.onlyOneChampion")}
               </p>
+              <p className="text-white/60">{t("seasons.challengeLeader")}</p>
             </div>
           ) : (
             <div className="animate-fade-in">
               {restOfLeaderboard.map((entry, index) => (
                 <div key={`season-${entry.position}`}>
                   <button
-                    onClick={() => handlePlayerClick(entry)}
                     className={`
                       w-full px-6 py-4 text-left hover:bg-white/5 transition-colors duration-200
                       ${entry.isCurrentUser ? "bg-blue-500/10" : ""}
                     `}
+                    onClick={() => handlePlayerClick(entry)}
                   >
                     <div className="flex items-center justify-between">
                       {/* Position and Name */}
@@ -844,12 +867,20 @@ function SeasonsPageContent() {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
-                            <span className={`font-medium truncate ${entry.isCurrentUser ? "text-white" : "text-white/90"
-                              }`}>
+                            <span
+                              className={`font-medium truncate ${
+                                entry.isCurrentUser
+                                  ? "text-white"
+                                  : "text-white/90"
+                              }`}
+                            >
                               {entry.first_name} {entry.last_name || ""}
                             </span>
                             {entry.isCurrentUser && (
-                              <Star className="text-blue-400 flex-shrink-0" size={14} />
+                              <Star
+                                className="text-blue-400 flex-shrink-0"
+                                size={14}
+                              />
                             )}
                           </div>
                           {entry.username && (
@@ -866,7 +897,7 @@ function SeasonsPageContent() {
                           {entry.total_score}
                         </div>
                         <div className="text-xs text-white/50">
-                          {t('seasons.points')}
+                          {t("seasons.points")}
                         </div>
                       </div>
                     </div>
@@ -889,9 +920,9 @@ function SeasonsPageContent() {
       {/* Player Details Modal */}
       <PlayerModal
         isOpen={!!selectedPlayer}
-        onClose={handleCloseModal}
         player={selectedPlayer?.player || null}
         prize={selectedPlayer?.prize}
+        onClose={handleCloseModal}
       />
 
       {/* Date Info Modal */}

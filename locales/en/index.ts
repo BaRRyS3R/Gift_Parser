@@ -37,7 +37,7 @@ export const en = {
 
   // Seasons
   seasons,
-  
+
   // Auth/Registration
   auth,
 

@@ -613,7 +613,7 @@ export const calculatePhysicsScore = (stats: PhysicsGameStats): number => {
 // Заменить существующую формулу подсчёта на унифицированную
 export const createPhysicsGameResult = (
   state: PhysicsGameState,
-  deathCause: PhysicsGameResult["deathCause"]
+  deathCause: PhysicsGameResult["deathCause"],
 ): PhysicsGameResult => {
   // Унифицированная формула расчёта очков (аналогично режиму Выживания)
   const timeScore = Math.floor(state.stats.gameTime / 1000); // Время в секундах

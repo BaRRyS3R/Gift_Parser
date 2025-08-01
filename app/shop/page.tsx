@@ -82,7 +82,7 @@ export default function ShopPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -106,7 +106,7 @@ export default function ShopPage() {
     console.log("Title clicked:", {
       currentClickCount: easterEggState.clickCount,
       timeDifference,
-      currentTime
+      currentTime,
     });
 
     // Если прошло больше 5 секунд с последнего клика, сбрасываем счетчик
@@ -117,10 +117,12 @@ export default function ShopPage() {
         isActive: false,
       });
       console.log("Reset click count, set to 1");
+
       return;
     }
 
     const newClickCount = easterEggState.clickCount + 1;
+
     console.log("New click count:", newClickCount);
 
     if (newClickCount >= 3) {
@@ -174,9 +176,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-        attempts: attemptsText,
-        plural: plural,
-      });
+          attempts: attemptsText,
+          plural: plural,
+        });
 
     setSuccessNotification({
       show: true,
@@ -267,18 +269,16 @@ export default function ShopPage() {
       <div className="text-center space-y-4 mb-8 pt-6">
         <div
           className="text-4xl font-bold tracking-widest text-white animate-fade-in select-none cursor-default"
-          onTouchEnd={handleTitleClick}
           style={{
-            WebkitTapHighlightColor: 'transparent',
-            WebkitTouchCallout: 'none',
-            WebkitUserSelect: 'none',
-            userSelect: 'none',
-            touchAction: 'manipulation',
+            WebkitTapHighlightColor: "transparent",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            touchAction: "manipulation",
           }}
+          onTouchEnd={handleTitleClick}
         >
-          <h1 className="m-0 p-0">
-            {t("shop.title")}
-          </h1>
+          <h1 className="m-0 p-0">{t("shop.title")}</h1>
         </div>
         <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
           {t("shop.subtitle")}

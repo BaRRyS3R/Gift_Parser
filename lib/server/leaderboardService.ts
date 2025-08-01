@@ -182,9 +182,9 @@ export const serverLeaderboardService = {
       `,
       )
       .gt("physics_games", 0)
-      .order("physics_best_score", { ascending: false })  // Основной критерий: счёт
-      .order("physics_best_time", { ascending: false })   // Вторичный: время
-      .order("physics_best_hits", { ascending: false })   // Третичный: попадания
+      .order("physics_best_score", { ascending: false }) // Основной критерий: счёт
+      .order("physics_best_time", { ascending: false }) // Вторичный: время
+      .order("physics_best_hits", { ascending: false }) // Третичный: попадания
       .limit(limit);
 
     if (error) {
@@ -207,8 +207,8 @@ export const serverLeaderboardService = {
   },
 
   /**
- * Get rotation mode leaderboard with score-based sorting
- */
+   * Get rotation mode leaderboard with score-based sorting
+   */
   async getRotationLeaderboard(
     currentUserId: string,
     limit: number = 100,
@@ -230,9 +230,9 @@ export const serverLeaderboardService = {
       `,
       )
       .gt("rotation_games", 0)
-      .order("rotation_best_score", { ascending: false })  // Основной критерий: счёт
-      .order("rotation_best_time", { ascending: false })   // Вторичный: время
-      .order("rotation_max_level", { ascending: false })   // Третичный: уровень
+      .order("rotation_best_score", { ascending: false }) // Основной критерий: счёт
+      .order("rotation_best_time", { ascending: false }) // Вторичный: время
+      .order("rotation_max_level", { ascending: false }) // Третичный: уровень
       .limit(limit);
 
     if (error) {
@@ -256,8 +256,8 @@ export const serverLeaderboardService = {
   },
 
   /**
- * Get user rankings with simplified logic to avoid SQL errors
- */
+   * Get user rankings with simplified logic to avoid SQL errors
+   */
   async getUserRankings(telegramId: number): Promise<UserRankings> {
     const { data: user, error: userError } = await supabaseServer
       .from("users")

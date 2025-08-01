@@ -4,19 +4,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardHeader,
-  CardFooter,
-  Image,
-  Button,
-} from "@nextui-org/react";
+import { Card, CardHeader, CardFooter, Image, Button } from "@nextui-org/react";
 import {
   Crosshair,
   Play,
   Shield,
   Atom,
-  Gamepad2,
   RotateCw,
   Zap,
   AlertTriangle,
@@ -181,6 +174,7 @@ function GamePageContent() {
     async (mode: GameMode) => {
       if (loadingModeId || !canPlay) {
         console.log("Cannot start game:", { loadingModeId, canPlay });
+
         return;
       }
 
@@ -247,17 +241,18 @@ function GamePageContent() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
+        loadingModeId
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : "opacity-100 transition-opacity duration-1000 ease-out"
+      }`}
     >
       <div className="px-4">
         <div className="text-center space-y-4 mb-8">
@@ -320,8 +315,9 @@ function GamePageContent() {
                 <div key={mode.id} className="relative">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] transition-all duration-300 ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
-                      }`}
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${
+                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                    }`}
                   >
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
                       <div className="flex items-center space-x-3 mb-2">
@@ -329,7 +325,9 @@ function GamePageContent() {
                           <Icon className={mode.color.primary} size={20} />
                         </div>
                         <div>
-                          <h4 className={`font-bold text-xl ${mode.color.primary}`}>
+                          <h4
+                            className={`font-bold text-xl ${mode.color.primary}`}
+                          >
                             {t(mode.nameKey as any)}
                           </h4>
                           <div className="flex items-center space-x-2 text-xs">
@@ -344,7 +342,9 @@ function GamePageContent() {
                         </div>
                       </div>
 
-                      <p className={`text-sm ${mode.color.secondary} leading-relaxed`}>
+                      <p
+                        className={`text-sm ${mode.color.secondary} leading-relaxed`}
+                      >
                         {t(mode.descriptionKey as any)}
                       </p>
                     </CardHeader>
@@ -353,21 +353,25 @@ function GamePageContent() {
                       removeWrapper
                       alt={`${mode.id}_game_card`}
                       className="z-0 w-full h-full object-cover"
-                      src={mode.imageUrl}
                       fallbackSrc="/game-placeholder.jpg"
+                      src={mode.imageUrl}
                     />
 
                     <CardFooter className="absolute bg-black/40 backdrop-blur-sm bottom-0 border-t-1 border-white/20 z-10 justify-between">
                       <Button
                         className="text-tiny min-w-[80px]"
                         color={mode.color.buttonColor}
-                        radius="full"
-                        size="sm"
                         isDisabled={isAnyModeLoading || isDisabled}
                         isLoading={isCurrentModeLoading}
+                        radius="full"
+                        size="sm"
                         startContent={
                           !isCurrentModeLoading && !isAnyModeLoading ? (
-                            isDisabled ? <Shield size={14} /> : <Play size={14} />
+                            isDisabled ? (
+                              <Shield size={14} />
+                            ) : (
+                              <Play size={14} />
+                            )
                           ) : null
                         }
                         onClick={() => handleModeStart(mode)}
@@ -378,8 +382,7 @@ function GamePageContent() {
                             ? t("game.general.lock")
                             : isDisabled
                               ? t("game.general.lock")
-                              : t("common.play")
-                        }
+                              : t("common.play")}
                       </Button>
                     </CardFooter>
                   </Card>

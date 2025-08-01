@@ -9,13 +9,7 @@ import type {
 
 import React from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@nextui-org/react";
-import {
-  Trophy,
-  Users,
-  Gamepad2,
-  Zap,
-  X,
-} from "lucide-react";
+import { Trophy, Users, Gamepad2, Zap, X } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -69,7 +63,8 @@ export default function AchievementsModal({
         icon: Gamepad2,
         color: "text-purple-400",
         bgColor: "bg-purple-500/20",
-        isUnlocked: user.reaction_games >= 1 &&
+        isUnlocked:
+          user.reaction_games >= 1 &&
           user.survival_games >= 1 &&
           user.physics_games >= 1 &&
           user.rotation_games >= 1,
@@ -120,10 +115,10 @@ export default function AchievementsModal({
     const params: Record<string, any> = {};
 
     // Set appropriate parameter values based on achievement type
-    if (achievement.id === 'super_recruiter') {
+    if (achievement.id === "super_recruiter") {
       params.count = achievement.maxProgress || 100;
     }
-    if (achievement.id === 'lightning_reflexes') {
+    if (achievement.id === "lightning_reflexes") {
       params.time = 10;
     }
 
@@ -148,15 +143,19 @@ export default function AchievementsModal({
 
   return (
     <Modal
-      isOpen={isOpen}
-      scrollBehavior="inside"
-      size="2xl"
-      onClose={onClose}
       backdrop="blur"
+      classNames={{
+        backdrop: "bg-black/80",
+        base: "bg-black border border-white/20 m-4",
+        header: "border-b border-white/10",
+        body: "px-0",
+        closeButton: "hidden",
+      }}
       closeButton={false}
       hideCloseButton={true}
       isDismissable={true}
       isKeyboardDismissDisabled={false}
+      isOpen={isOpen}
       motionProps={{
         variants: {
           enter: {
@@ -175,15 +174,11 @@ export default function AchievementsModal({
               ease: "easeIn",
             },
           },
-        }
+        },
       }}
-      classNames={{
-        backdrop: "bg-black/80",
-        base: "bg-black border border-white/20 m-4",
-        header: "border-b border-white/10",
-        body: "px-0",
-        closeButton: "hidden",
-      }}
+      scrollBehavior="inside"
+      size="2xl"
+      onClose={onClose}
     >
       <ModalContent>
         {(onClose) => (
@@ -191,8 +186,8 @@ export default function AchievementsModal({
             <ModalHeader className="flex flex-col gap-1 bg-black text-white relative px-6 py-4">
               {/* Close button */}
               <button
-                onClick={onClose}
                 className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300 z-10"
+                onClick={onClose}
               >
                 <X size={20} />
               </button>
@@ -226,9 +221,10 @@ export default function AchievementsModal({
                         key={achievement.id}
                         className={`
                           relative p-4 rounded-lg border transition-all duration-200
-                          ${achievement.isUnlocked
-                            ? `${achievement.bgColor} border-current/30`
-                            : "bg-white/5 border-white/10"
+                          ${
+                            achievement.isUnlocked
+                              ? `${achievement.bgColor} border-current/30`
+                              : "bg-white/5 border-white/10"
                           }
                         `}
                       >
@@ -253,9 +249,10 @@ export default function AchievementsModal({
                             <h3
                               className={`
                                 font-bold text-sm mb-1
-                                ${achievement.isUnlocked
-                                  ? "text-white"
-                                  : "text-white/60"
+                                ${
+                                  achievement.isUnlocked
+                                    ? "text-white"
+                                    : "text-white/60"
                                 }
                               `}
                             >
@@ -265,9 +262,10 @@ export default function AchievementsModal({
                             <p
                               className={`
                                 text-xs mb-2
-                                ${achievement.isUnlocked
-                                  ? "text-white/80"
-                                  : "text-white/40"
+                                ${
+                                  achievement.isUnlocked
+                                    ? "text-white/80"
+                                    : "text-white/40"
                                 }
                               `}
                             >
@@ -300,7 +298,7 @@ export default function AchievementsModal({
                                           100,
                                           (achievement.progress /
                                             achievement.maxProgress) *
-                                          100,
+                                            100,
                                         )}%`,
                                       }}
                                     />

@@ -10,7 +10,6 @@ import {
   Info,
   Trophy,
   Clock,
-  Calendar,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -419,12 +418,13 @@ function MainPageContent() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
+        isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : pageLoaded
             ? "opacity-100 transition-opacity duration-1000 ease-out"
             : "opacity-0"
-        }`}
+      }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -449,13 +449,15 @@ function MainPageContent() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
+        className={`fixed left-0 right-0 z-30 px-6 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
             : "opacity-100 translate-y-0"
-          }`}
+        }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -523,13 +525,15 @@ function MainPageContent() {
 
       {/* Season Button - Moved to top */}
       <div
-        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
+        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-8"
+              }`
             : "opacity-100 translate-y-0"
-          }`}
+        }`}
         style={{ top: "50px" }} // Moved to very top
       >
         <SeasonButton
@@ -549,10 +553,11 @@ function MainPageContent() {
 
         {/* Action Button */}
         <div
-          className={`${isFirstVisit
+          className={`${
+            isFirstVisit
               ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
               : "opacity-100 translate-y-0"
-            }`}
+          }`}
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
@@ -577,13 +582,15 @@ function MainPageContent() {
 
         {/* User Greeting */}
         <div
-          className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showGreeting
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-8"
-              }`
+          className={`${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showGreeting
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`
               : "opacity-100 translate-y-0"
-            }`}
+          }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -622,13 +629,15 @@ function MainPageContent() {
 
       {/* Централизованное отображение попыток */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
+        className={`fixed bottom-0 left-0 right-0 z-40 ${
+          isFirstVisit
+            ? `transition-all duration-1000 transform ${
+                showTopButtons
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-8"
+              }`
             : "opacity-100 translate-y-0"
-          }`}
+        }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay
@@ -645,13 +654,15 @@ function MainPageContent() {
       {/* Level and League Display */}
       {user && !userLoading && (
         <div
-          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${isFirstVisit
-              ? `transition-all duration-1000 transform ${showLeagueDisplay
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-4"
-              }`
+          className={`fixed left-0 right-0 flex justify-center pointer-events-auto ${
+            isFirstVisit
+              ? `transition-all duration-1000 transform ${
+                  showLeagueDisplay
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-4"
+                }`
               : "opacity-100 translate-y-0"
-            }`}
+          }`}
           style={{
             bottom: "96px",
             zIndex: 50,

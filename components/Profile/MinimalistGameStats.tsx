@@ -164,7 +164,8 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
                 <>
                   <div className="flex justify-between items-center">
                     <span className="text-white/60 text-xs">
-                      {t("profile.levelProgress.gamesToNext")} {currentLevel + 1}
+                      {t("profile.levelProgress.gamesToNext")}{" "}
+                      {currentLevel + 1}
                     </span>
                     <div className="flex items-center space-x-1">
                       <ArrowUp className="text-white/60" size={10} />

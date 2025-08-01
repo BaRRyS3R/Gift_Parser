@@ -455,7 +455,7 @@ export const getRotationDeathCause = (
 };
 
 export const createRotationGameResult = (
-  state: RotationGameState
+  state: RotationGameState,
 ): RotationGameResult => {
   // Унифицированная формула расчёта очков
   const timeScore = Math.floor(state.stats.survivalTime / 1000); // Время в секундах

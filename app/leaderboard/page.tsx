@@ -11,23 +11,12 @@ import type {
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Star,
-  Crown,
-  Zap,
-  Crosshair,
-  Atom,
-  RotateCw,
-} from "lucide-react";
+import { Star, Crown, Zap, Crosshair, Atom, RotateCw } from "lucide-react";
 import { Renderer, Program, Mesh, Color, Triangle } from "ogl";
 
 import { useUser } from "@/hooks/useUser";
 import { useLeaderboard } from "@/hooks/modules/useLeaderboard";
-import {
-  formatSurvivalTime,
-  formatPhysicsTime,
-  formatRotationTime,
-} from "@/utils/timeFormatter";
+import { formatRotationTime } from "@/utils/timeFormatter";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 
@@ -152,7 +141,8 @@ const StaticAurora: React.FC = React.memo(() => {
     const ctn = ctnDom.current;
 
     // Set fallback background immediately
-    ctn.style.background = 'linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f1419 100%)';
+    ctn.style.background =
+      "linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f1419 100%)";
 
     const renderer = new Renderer({
       alpha: true,
@@ -161,6 +151,7 @@ const StaticAurora: React.FC = React.memo(() => {
     });
 
     const gl = renderer.gl;
+
     gl.clearColor(0, 0, 0, 0);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -170,6 +161,7 @@ const StaticAurora: React.FC = React.memo(() => {
     const colorStops = ["#1a1a2e", "#16213e", "#0f1419"];
     const colorStopsArray = colorStops.map((hex) => {
       const c = new Color(hex);
+
       return [c.r, c.g, c.b];
     });
 
@@ -191,6 +183,7 @@ const StaticAurora: React.FC = React.memo(() => {
       if (!ctn) return;
       const width = ctn.offsetWidth;
       const height = ctn.offsetHeight;
+
       renderer.setSize(width, height);
       program.uniforms.uResolution.value = [width, height];
     }
@@ -199,13 +192,13 @@ const StaticAurora: React.FC = React.memo(() => {
     resize();
 
     // Smooth canvas insertion
-    gl.canvas.style.opacity = '0';
-    gl.canvas.style.transition = 'opacity 0.5s ease-in-out';
+    gl.canvas.style.opacity = "0";
+    gl.canvas.style.transition = "opacity 0.5s ease-in-out";
     ctn.appendChild(gl.canvas);
 
     setTimeout(() => {
-      gl.canvas.style.opacity = '1';
-      ctn.style.background = '';
+      gl.canvas.style.opacity = "1";
+      ctn.style.background = "";
     }, 100);
 
     let animateId = 0;
@@ -214,6 +207,7 @@ const StaticAurora: React.FC = React.memo(() => {
       program.uniforms.uTime.value = t * 0.01 * 0.5 * 0.1;
       renderer.render({ scene: mesh });
     };
+
     animateId = requestAnimationFrame(update);
 
     return () => {
@@ -229,7 +223,7 @@ const StaticAurora: React.FC = React.memo(() => {
   return <div ref={ctnDom} className="w-full h-full" />;
 });
 
-StaticAurora.displayName = 'StaticAurora';
+StaticAurora.displayName = "StaticAurora";
 
 function LeaderboardPageContent() {
   const router = useRouter();
@@ -278,7 +272,7 @@ function LeaderboardPageContent() {
     if (tab === activeTab || isTransitioning) return;
 
     setIsTransitioning(true);
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     setActiveTab(tab);
     setIsTransitioning(false);
   };
@@ -347,7 +341,7 @@ function LeaderboardPageContent() {
 
   // Check if user is in visible top 10
   const isUserInVisibleTop10 = useMemo(() => {
-    return getCurrentLeaderboard.some(entry => entry.isCurrentUser);
+    return getCurrentLeaderboard.some((entry) => entry.isCurrentUser);
   }, [getCurrentLeaderboard]);
 
   // Get user position and data for display outside top 10
@@ -355,11 +349,12 @@ function LeaderboardPageContent() {
     if (!leaderboardData || !leaderboardData.userRankings) return null;
 
     const userPosition = leaderboardData.userRankings[activeTab];
+
     if (!userPosition) return null;
 
     // Find user data in the full leaderboard (not just top 10)
     const fullLeaderboard = leaderboardData[activeTab];
-    const userData = fullLeaderboard.find(entry => entry.isCurrentUser);
+    const userData = fullLeaderboard.find((entry) => entry.isCurrentUser);
 
     let value = "N/A";
 
@@ -375,7 +370,9 @@ function LeaderboardPageContent() {
           value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
           break;
         case "rotation":
-          value = formatRotationTime((userData as SafeRotationLeaderboard).best_rotation_time);
+          value = formatRotationTime(
+            (userData as SafeRotationLeaderboard).best_rotation_time,
+          );
           break;
       }
     }
@@ -393,7 +390,7 @@ function LeaderboardPageContent() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white">{t('leaderboard.loadingLeaderboards')}</p>
+          <p className="text-white">{t("leaderboard.loadingLeaderboards")}</p>
         </div>
       </div>
     );
@@ -409,7 +406,7 @@ function LeaderboardPageContent() {
             className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
             onClick={handleRefresh}
           >
-            {t('leaderboard.retry')}
+            {t("leaderboard.retry")}
           </button>
         </div>
       </div>
@@ -435,7 +432,7 @@ function LeaderboardPageContent() {
               <div className="mb-3">
                 <div className="flex items-center justify-center space-x-2">
                   <span className="text-3xl font-bold text-white drop-shadow-lg">
-                    {champion.first_name} {champion.last_name || ''}
+                    {champion.first_name} {champion.last_name || ""}
                   </span>
                   {champion.isCurrentUser && (
                     <Star className="text-blue-400 drop-shadow-lg" size={20} />
@@ -454,22 +451,21 @@ function LeaderboardPageContent() {
               </div>
               <div className="text-xs text-white/70 drop-shadow-sm">
                 {activeTab === "reaction"
-                  ? t('leaderboard.reactionTime')
+                  ? t("leaderboard.reactionTime")
                   : activeTab === "survival"
-                    ? t('leaderboard.points')
+                    ? t("leaderboard.points")
                     : activeTab === "physics"
-                      ? t('leaderboard.points')
-                      : t('leaderboard.time')
-                }
+                      ? t("leaderboard.points")
+                      : t("leaderboard.time")}
               </div>
             </div>
           ) : (
             <div className="opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
               <p className="text-white/60 drop-shadow-sm text-lg">
-                {t('leaderboard.noChampionYet')}
+                {t("leaderboard.noChampionYet")}
               </p>
               <p className="text-white/40 text-sm mt-1">
-                {t('leaderboard.claimThrone')}
+                {t("leaderboard.claimThrone")}
               </p>
             </div>
           )}
@@ -479,24 +475,27 @@ function LeaderboardPageContent() {
         <div className="text-center mb-4">
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1 inline-block">
             <div className="flex space-x-1">
-              {(["reaction", "survival", "physics", "rotation"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  className={`
+              {(["reaction", "survival", "physics", "rotation"] as const).map(
+                (tab) => (
+                  <button
+                    key={tab}
+                    className={`
                     px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200
-                    ${activeTab === tab
-                      ? "bg-white/10 text-white border border-white/20"
-                      : "text-white/60 hover:text-white/80 hover:bg-white/5"
+                    ${
+                      activeTab === tab
+                        ? "bg-white/10 text-white border border-white/20"
+                        : "text-white/60 hover:text-white/80 hover:bg-white/5"
                     }
                   `}
-                  onClick={() => handleTabChange(tab)}
-                  disabled={isTransitioning}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    {getTabIcon(tab)}
-                  </div>
-                </button>
-              ))}
+                    disabled={isTransitioning}
+                    onClick={() => handleTabChange(tab)}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      {getTabIcon(tab)}
+                    </div>
+                  </button>
+                ),
+              )}
             </div>
           </div>
         </div>
@@ -512,13 +511,21 @@ function LeaderboardPageContent() {
                       <Crown className="text-white/70" size={14} />
                     </div>
                     <div>
-                      <div className="text-white font-medium text-sm">{t('leaderboard.yourPosition')}</div>
-                      <div className="text-white/60 text-xs">{t('leaderboard.currentRanking')}</div>
+                      <div className="text-white font-medium text-sm">
+                        {t("leaderboard.yourPosition")}
+                      </div>
+                      <div className="text-white/60 text-xs">
+                        {t("leaderboard.currentRanking")}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xl font-bold text-white">#{getUserPositionData.position}</div>
-                    <div className="text-white/50 text-xs">{getUserPositionData.value}</div>
+                    <div className="text-xl font-bold text-white">
+                      #{getUserPositionData.position}
+                    </div>
+                    <div className="text-white/50 text-xs">
+                      {getUserPositionData.value}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -530,20 +537,24 @@ function LeaderboardPageContent() {
         <div className="space-y-0 max-w-2xl mx-auto">
           {restOfLeaderboard.length === 0 && !champion ? (
             <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              <p className="font-bold text-white/80 text-xl mb-2">{t('leaderboard.noPlayersYet')}</p>
-              <p className="text-white/60">
-                {t('leaderboard.beFirstToPlay')}
+              <p className="font-bold text-white/80 text-xl mb-2">
+                {t("leaderboard.noPlayersYet")}
               </p>
+              <p className="text-white/60">{t("leaderboard.beFirstToPlay")}</p>
             </div>
           ) : restOfLeaderboard.length === 0 ? (
             <div className="text-center py-12 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
-              <p className="font-bold text-white/80 text-xl mb-2">{t('leaderboard.onlyOneChampion')}</p>
+              <p className="font-bold text-white/80 text-xl mb-2">
+                {t("leaderboard.onlyOneChampion")}
+              </p>
               <p className="text-white/60">
-                {t('leaderboard.challengeLeader')}
+                {t("leaderboard.challengeLeader")}
               </p>
             </div>
           ) : (
-            <div className={`transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+            <div
+              className={`transition-opacity duration-300 ${isTransitioning ? "opacity-0" : "opacity-100"}`}
+            >
               {restOfLeaderboard.map((entry, index) => (
                 <div key={`${activeTab}-${entry.position}`}>
                   <div
@@ -562,11 +573,16 @@ function LeaderboardPageContent() {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
-                            <span className={`font-medium truncate ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}>
+                            <span
+                              className={`font-medium truncate ${entry.isCurrentUser ? "text-white" : "text-white/90"}`}
+                            >
                               {entry.first_name} {entry.last_name || ""}
                             </span>
                             {entry.isCurrentUser && (
-                              <Star className="text-blue-400 flex-shrink-0" size={14} />
+                              <Star
+                                className="text-blue-400 flex-shrink-0"
+                                size={14}
+                              />
                             )}
                           </div>
                           {entry.username && (
@@ -583,13 +599,12 @@ function LeaderboardPageContent() {
                         </div>
                         <div className="text-xs text-white/50">
                           {activeTab === "reaction"
-                            ? t('leaderboard.time')
+                            ? t("leaderboard.time")
                             : activeTab === "survival"
-                              ? t('leaderboard.points')
+                              ? t("leaderboard.points")
                               : activeTab === "physics"
-                                ? t('leaderboard.points')
-                                : t('leaderboard.time')
-                          }
+                                ? t("leaderboard.points")
+                                : t("leaderboard.time")}
                         </div>
                       </div>
                     </div>
