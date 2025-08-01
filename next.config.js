@@ -18,19 +18,17 @@ const nextConfig = {
       config.plugins.push(
         new JavaScriptObfuscator(
           {
-            // ОСНОВНЫЕ НАСТРОЙКИ ОБФУСКАЦИИ
+            // ОСНОВНЫЕ ТРЕБУЕМЫЕ МЕТОДЫ ОБФУСКАЦИИ
             
-            // hexadecimal - конвертация строк в шестнадцатеричные значения
-            stringArrayEncoding: ['base64', 'rc4'],
+            // hexadecimal - используем через identifierNamesGenerator
+            identifierNamesGenerator: 'hexadecimalNumericString',
+            identifiersPrefix: '_0x',
             
             // stringArray - помещение строк в массив и замена ссылками
             stringArray: true,
             stringArrayShuffle: true,
-            stringArrayWrappersCount: 2,
-            stringArrayWrappersChainedCalls: true,
-            stringArrayWrappersParametersMaxCount: 4,
-            stringArrayWrappersType: 'function',
-            stringArrayThreshold: 0.8,
+            stringArrayThreshold: 0.75,
+            stringArrayEncoding: ['base64'],
             
             // debugProtection - защита от отладки
             debugProtection: true,
@@ -39,45 +37,22 @@ const nextConfig = {
             // selfDefending - самозащита кода
             selfDefending: true,
             
-            // ДОПОЛНИТЕЛЬНЫЕ НАСТРОЙКИ ДЛЯ СТАБИЛЬНОСТИ
-            
-            // Средний уровень обфускации переменных
-            identifierNamesGenerator: 'hexadecimalNumericString',
-            identifiersPrefix: '_0x',
-            
-            // Преобразование управляющих структур
-            controlFlowFlattening: true,
-            controlFlowFlatteningThreshold: 0.5,
-            
-            // Мертвый код для усложнения анализа  
-            deadCodeInjection: true,
-            deadCodeInjectionThreshold: 0.2,
-            
-            // Разделение строк
-            splitStrings: true,
-            splitStringsChunkLength: 3,
-            
-            // Настройки для стабильности
+            // БАЗОВЫЕ НАСТРОЙКИ ДЛЯ СТАБИЛЬНОСТИ
             compact: true,
-            simplify: true,
             target: 'browser',
             
-            // Отключаем слишком агрессивные опции для стабильности
-            disableConsoleOutput: false, // Оставляем консоль для отладки
-            domainLock: [], // Не блокируем домены для Telegram
-            reservedNames: [], // Не резервируем имена
+            // Умеренные дополнительные настройки
+            controlFlowFlattening: true,
+            controlFlowFlatteningThreshold: 0.3,
             
-            // Исключения для критических частей
+            deadCodeInjection: true,
+            deadCodeInjectionThreshold: 0.1,
+            
+            // Настройки совместимости
+            disableConsoleOutput: false,
             ignoreRequireImports: true,
-            numbersToExpressions: false, // Отключаем для стабильности с числами
-            simplifyExpressions: false, // Отключаем упрощение выражений
-            
-            // Настройки трансформации
-            transformObjectKeys: true,
-            unicodeEscapeSequence: false, // Отключаем для совместимости с Telegram
-            
-            // Производительность
-            optionsPreset: 'medium-obfuscation',
+            transformObjectKeys: false,
+            unicodeEscapeSequence: false,
           },
           // ИСКЛЮЧЕНИЯ - НЕ ОБФУСКИРУЕМ КРИТИЧЕСКИЕ ФАЙЛЫ (используем glob паттерны)
           [
