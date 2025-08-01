@@ -1,8 +1,8 @@
-// src/app/tasks/page.tsx - Updated with timer-based logic and no task reordering
+// src/app/tasks/page.tsx - Updated with Binary Easter Egg Integration
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Button, Chip } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
@@ -29,6 +29,7 @@ import {
   isTaskRewarded,
 } from "@/types/tasks";
 import { useT } from "@/contexts/LocalizationContext";
+import BinaryEasterEgg from "@/components/EasterEggs/BinaryEasterEgg";
 
 export default function TasksPage() {
   const router = useRouter();
@@ -39,6 +40,52 @@ export default function TasksPage() {
   const tasksModule = useTasks(makeAuthenticatedRequest);
 
   const [isExploding, setIsExploding] = useState(false);
+
+  // Easter egg state
+  const [titleClickCount, setTitleClickCount] = useState(0);
+  const [showBinaryEasterEgg, setShowBinaryEasterEgg] = useState(false);
+  const titleClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle title clicks for easter egg activation
+  const handleTitleClick = () => {
+    setTitleClickCount(prev => {
+      const newCount = prev + 1;
+
+      // Clear previous timeout
+      if (titleClickTimeoutRef.current) {
+        clearTimeout(titleClickTimeoutRef.current);
+      }
+
+      // Reset counter after 2 seconds of no clicks
+      titleClickTimeoutRef.current = setTimeout(() => {
+        setTitleClickCount(0);
+      }, 2000);
+
+      // Activate easter egg on 5th click
+      if (newCount === 5) {
+        setShowBinaryEasterEgg(true);
+        setTitleClickCount(0); // Reset counter
+
+        // Haptic feedback for activation
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+          try {
+            window.Telegram.WebApp.HapticFeedback.impactOccurred("medium");
+          } catch (error) {
+            if (navigator.vibrate) {
+              navigator.vibrate(100);
+            }
+          }
+        }
+      }
+
+      return newCount;
+    });
+  };
+
+  // Close easter egg
+  const handleCloseEasterEgg = () => {
+    setShowBinaryEasterEgg(false);
+  };
 
   // Fetch tasks on mount
   useEffect(() => {
@@ -70,10 +117,19 @@ export default function TasksPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (titleClickTimeoutRef.current) {
+        clearTimeout(titleClickTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleTaskAction = async (
     task: TaskWithStatus,
@@ -259,14 +315,27 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header with clickable title for easter egg */}
       <div className="text-center space-y-4 mb-8 pt-6">
-        <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
+        <h1
+          className="text-4xl font-bold tracking-widest text-white animate-fade-in cursor-default select-none"
+          onClick={handleTitleClick}
+          style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+        >
           {t("tasks.title")}
         </h1>
         <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
           {t("tasks.subtitle")}
         </p>
+      </div>
+
+      {/* Binary Easter Egg - positioned between header and content */}
+      <div className="max-w-2xl mx-auto">
+        <BinaryEasterEgg
+          isVisible={showBinaryEasterEgg}
+          onClose={handleCloseEasterEgg}
+          makeAuthenticatedRequest={makeAuthenticatedRequest}
+        />
       </div>
 
       {/* Error message */}
@@ -369,10 +438,10 @@ function TaskCard({
       style={
         task.image_url
           ? {
-              backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), url(${task.image_url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }
           : undefined
       }
     >
@@ -425,13 +494,12 @@ function TaskCard({
               <Button
                 className={`
                                     relative z-20 
-                                    ${
-                                      button.variant === "success"
-                                        ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
-                                        : button.variant === "secondary"
-                                          ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
-                                          : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
-                                    }
+                                    ${button.variant === "success"
+                    ? "bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30"
+                    : button.variant === "secondary"
+                      ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-blue-500/30"
+                      : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
+                  }
                                     disabled:opacity-50 disabled:cursor-not-allowed
                                 `}
                 isDisabled={button.disabled}

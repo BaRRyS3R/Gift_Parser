@@ -21,6 +21,7 @@ export const config = {
     "/api/check-telegram-membership",
     "/api/nebula/:path*",
     "/api/seasons/:path*",
+    "/api/easter-egg/:path*",
   ],
 };
 
