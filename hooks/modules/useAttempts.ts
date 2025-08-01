@@ -1,4 +1,4 @@
-// src/hooks/modules/useAttempts.ts - Исправленный хук без кеширования
+// src/hooks/modules/useAttempts.ts - Оптимизированный хук с быстрой инициализацией
 
 import { useState, useCallback, useEffect, useRef } from "react";
 
@@ -20,8 +20,8 @@ interface AttemptsState {
 }
 
 /**
- * Специализированный хук для управления попытками пользователя с серверной валидацией
- * Обеспечивает централизованное управление состоянием без кеширования для актуальных данных
+ * Оптимизированный хук для управления попытками пользователя
+ * Устраняет задержки через параллельную загрузку и упрощенную валидацию
  */
 export function useAttempts() {
   const { makeAuthenticatedRequest, authState } = useUser();
@@ -33,48 +33,54 @@ export function useAttempts() {
 
   // Отслеживание текущих запросов для предотвращения дублирования
   const fetchingRef = useRef<boolean>(false);
+  const initializingRef = useRef<boolean>(false);
 
   /**
-   * Получение актуального статуса попыток с сервера (без кеширования)
-   * @param forceRefresh - параметр сохранен для совместимости, но игнорируется
+   * Быстрое получение статуса попыток без комплексной валидации
    */
   const fetchAttemptsStatus = useCallback(
-    async (forceRefresh = false): Promise<AttemptsStatus | null> => {
+    async (isInitialLoad = false): Promise<AttemptsStatus | null> => {
       // Предотвращение дублирующих запросов
       if (fetchingRef.current) {
-        console.log("Attempts fetch already in progress");
-
         return state.status;
       }
 
       if (!authState.isAuthenticated) {
-        console.log("User not authenticated, cannot fetch attempts");
-
+        console.log("Пользователь не аутентифицирован, отмена загрузки попыток");
         return null;
       }
 
       fetchingRef.current = true;
-      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      
+      // Показываем загрузку только для неинициальных запросов
+      if (!isInitialLoad) {
+        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      }
 
       try {
-        console.log("Fetching fresh attempts status from server...");
+        console.log("Быстрая загрузка статуса попыток...");
 
         const response = await makeAuthenticatedRequest(
           "/api/user/attempts/status",
+          {
+            // Добавляем заголовок для упрощенной валидации
+            headers: {
+              'X-Fast-Check': 'true'
+            }
+          }
         );
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-
           throw new Error(
-            errorData.error || `Server error: ${response.status}`,
+            errorData.error || `Ошибка сервера: ${response.status}`,
           );
         }
 
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.error || "Failed to get attempts status");
+          throw new Error(data.error || "Не удалось получить статус попыток");
         }
 
         const attemptsStatus: AttemptsStatus = {
@@ -90,13 +96,13 @@ export function useAttempts() {
           error: null,
         });
 
-        console.log("Successfully fetched attempts status:", attemptsStatus);
+        console.log("Статус попыток успешно загружен:", attemptsStatus);
 
         return attemptsStatus;
       } catch (error) {
-        console.error("Error fetching attempts status:", error);
+        console.error("Ошибка загрузки статуса попыток:", error);
         const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
+          error instanceof Error ? error.message : "Неизвестная ошибка";
 
         setState((prev) => ({
           ...prev,
@@ -109,96 +115,114 @@ export function useAttempts() {
         fetchingRef.current = false;
       }
     },
-    [authState.isAuthenticated, makeAuthenticatedRequest],
+    [authState.isAuthenticated, makeAuthenticatedRequest, state.status],
   );
 
   /**
-   * Потребление одной попытки с серверной валидацией
+   * Оптимистичное потребление попытки с немедленным откликом интерфейса
    */
-  const consumeAttempt =
-    useCallback(async (): Promise<AttemptsStatus | null> => {
-      if (!authState.isAuthenticated) {
-        console.log("User not authenticated, cannot consume attempt");
+  const consumeAttempt = useCallback(async (): Promise<AttemptsStatus | null> => {
+    if (!authState.isAuthenticated || !state.status) {
+      console.log("Невозможно потребить попытку: нет аутентификации или статуса");
+      return null;
+    }
 
-        return null;
-      }
+    if (!state.status.canPlay) {
+      throw new Error("Нет доступных попыток");
+    }
 
-      if (fetchingRef.current) {
-        console.log("Attempt consumption already in progress");
+    if (fetchingRef.current) {
+      console.log("Потребление попытки уже в процессе");
+      return state.status;
+    }
 
-        return state.status;
-      }
+    // Сохраняем текущее состояние для возможного отката
+    const previousStatus = { ...state.status };
 
-      fetchingRef.current = true;
-      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    // Оптимистичное обновление для немедленного отклика
+    const optimisticStatus: AttemptsStatus = {
+      ...state.status,
+      attemptsRemaining: Math.max(0, state.status.attemptsRemaining - 1),
+      canPlay: state.status.attemptsRemaining > 1,
+    };
 
-      try {
-        console.log("Consuming attempt...");
+    // Если это последняя попытка, устанавливаем время сброса
+    if (optimisticStatus.attemptsRemaining === 0) {
+      const resetTime = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 часа
+      optimisticStatus.resetTime = resetTime;
+      optimisticStatus.timeUntilReset = 2 * 60 * 60 * 1000;
+    }
 
-        const response = await makeAuthenticatedRequest(
-          "/api/user/attempts/consume",
-          {
-            method: "POST",
-          },
+    setState(prev => ({ ...prev, status: optimisticStatus }));
+
+    fetchingRef.current = true;
+
+    try {
+      console.log("Потребление попытки...");
+
+      const response = await makeAuthenticatedRequest(
+        "/api/user/attempts/consume",
+        {
+          method: "POST",
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Ошибка сервера: ${response.status}`,
         );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-
-          throw new Error(
-            errorData.error || `Server error: ${response.status}`,
-          );
-        }
-
-        const data = await response.json();
-
-        if (!data.success) {
-          throw new Error(data.error || "Failed to consume attempt");
-        }
-
-        const attemptsStatus: AttemptsStatus = {
-          canPlay: data.canPlay,
-          attemptsRemaining: data.attemptsRemaining,
-          resetTime: data.resetTime ? new Date(data.resetTime) : undefined,
-          timeUntilReset: data.timeUntilReset,
-        };
-
-        setState({
-          status: attemptsStatus,
-          isLoading: false,
-          error: null,
-        });
-
-        console.log("Successfully consumed attempt:", attemptsStatus);
-
-        return attemptsStatus;
-      } catch (error) {
-        console.error("Error consuming attempt:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error: errorMessage,
-        }));
-
-        return null;
-      } finally {
-        fetchingRef.current = false;
       }
-    }, [authState.isAuthenticated, makeAuthenticatedRequest, state.status]);
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || "Не удалось потребить попытку");
+      }
+
+      const actualStatus: AttemptsStatus = {
+        canPlay: data.canPlay,
+        attemptsRemaining: data.attemptsRemaining,
+        resetTime: data.resetTime ? new Date(data.resetTime) : undefined,
+        timeUntilReset: data.timeUntilReset,
+      };
+
+      setState({
+        status: actualStatus,
+        isLoading: false,
+        error: null,
+      });
+
+      console.log("Попытка успешно потреблена:", actualStatus);
+
+      return actualStatus;
+    } catch (error) {
+      console.error("Ошибка потребления попытки:", error);
+      
+      // Откатываем оптимистичное обновление при ошибке
+      setState((prev) => ({
+        ...prev,
+        status: previousStatus,
+        error: error instanceof Error ? error.message : "Ошибка потребления попытки",
+      }));
+
+      throw error;
+    } finally {
+      fetchingRef.current = false;
+    }
+  }, [authState.isAuthenticated, makeAuthenticatedRequest, state.status]);
 
   /**
    * Сброс состояния данных
    */
   const resetState = useCallback(() => {
-    console.log("Resetting attempts state");
+    console.log("Сброс состояния попыток");
     setState({
       status: null,
       isLoading: false,
       error: null,
     });
+    initializingRef.current = false;
   }, []);
 
   /**
@@ -209,17 +233,23 @@ export function useAttempts() {
   }, []);
 
   /**
-   * Инициализация данных попыток при первой загрузке
+   * Быстрая инициализация данных попыток при аутентификации
    */
   useEffect(() => {
     if (
       authState.isAuthenticated &&
       !state.status &&
       !state.isLoading &&
-      !fetchingRef.current
+      !fetchingRef.current &&
+      !initializingRef.current
     ) {
-      console.log("Initializing attempts data...");
-      fetchAttemptsStatus();
+      initializingRef.current = true;
+      console.log("Быстрая инициализация данных попыток...");
+      
+      // Используем флаг isInitialLoad для предотвращения показа лоадера
+      fetchAttemptsStatus(true).finally(() => {
+        initializingRef.current = false;
+      });
     }
   }, [
     authState.isAuthenticated,

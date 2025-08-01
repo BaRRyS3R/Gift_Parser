@@ -1,4 +1,4 @@
-// src/lib/server/attemptsService.ts - Server-side attempts management service
+// src/lib/server/attemptsService.ts - Оптимизированный серверный сервис попыток
 
 import { supabaseServer } from "@/lib/supabase_server";
 
@@ -6,9 +6,9 @@ import { supabaseServer } from "@/lib/supabase_server";
 const ATTEMPTS_CONFIG = {
   BASE_ATTEMPTS: 10,
   RESET_ATTEMPTS: 10,
-  RESET_INTERVAL_MS: 2 * 60 * 60 * 1000, // 2 hours
+  RESET_INTERVAL_MS: 2 * 60 * 60 * 1000, // 2 часа
   REFERRAL_BONUS: 5,
-  INSTANT_RESET_COST: 100, // Example: cost in some currency
+  INSTANT_RESET_COST: 100,
 } as const;
 
 // Attempts status interface
@@ -19,37 +19,70 @@ export interface AttemptsStatus {
   timeUntilReset?: number;
 }
 
-// Server-side attempts service
+// Оптимизированный серверный сервис попыток
 export const serverAttemptsService = {
   /**
-   * Get current server time for consistent validation
+   * Получение текущего серверного времени для консистентной валидации
    */
   async getServerTime(): Promise<Date> {
     try {
       const { data, error } = await supabaseServer.rpc("get_current_timestamp");
 
       if (error) {
-        console.warn("Failed to get server time, using current time:", error);
-
+        console.warn("Не удалось получить серверное время, используем текущее:", error);
         return new Date();
       }
 
       return new Date(data);
     } catch (error) {
       console.warn(
-        "Error getting server time, falling back to current time:",
+        "Ошибка получения серверного времени, используем локальное:",
         error,
       );
-
       return new Date();
     }
   },
 
   /**
-   * Check and update user attempts with comprehensive server validation
+   * Быстрая проверка статуса попыток с использованием функции БД
+   */
+  async checkAndUpdateAttemptsFast(telegramId: number): Promise<AttemptsStatus> {
+    try {
+      // Используем оптимизированную функцию PostgreSQL
+      const { data, error } = await supabaseServer.rpc('check_and_update_attempts', {
+        user_telegram_id: telegramId
+      });
+
+      if (error) {
+        console.error("Ошибка выполнения функции БД:", error);
+        throw new Error("Не удалось проверить статус попыток");
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error("Пользователь не найден");
+      }
+
+      const result = data[0];
+
+      return {
+        canPlay: result.can_play,
+        attemptsRemaining: result.attempts_remaining,
+        resetTime: result.reset_time ? new Date(result.reset_time) : undefined,
+        timeUntilReset: result.time_until_reset || undefined,
+      };
+    } catch (error) {
+      console.error("Ошибка быстрой проверки попыток:", error);
+      
+      // Фоллбэк на стандартную проверку при ошибке функции БД
+      return this.checkAndUpdateAttempts(telegramId);
+    }
+  },
+
+  /**
+   * Стандартная проверка и обновление попыток (фоллбэк)
    */
   async checkAndUpdateAttempts(telegramId: number): Promise<AttemptsStatus> {
-    // Get user data
+    // Получаем данные пользователя
     const { data: user, error: userError } = await supabaseServer
       .from("users")
       .select("*")
@@ -57,7 +90,7 @@ export const serverAttemptsService = {
       .single();
 
     if (userError || !user) {
-      throw new Error("User not found");
+      throw new Error("Пользователь не найден");
     }
 
     const serverTime = await this.getServerTime();
@@ -65,10 +98,10 @@ export const serverAttemptsService = {
       ? new Date(user.attempts_reset_at)
       : null;
 
-    // Check if reset time has passed
+    // Проверяем, нужен ли сброс попыток
     if (resetTime && serverTime >= resetTime) {
       console.log(
-        `Reset time reached for user ${telegramId}, resetting attempts`,
+        `Время сброса достигнуто для пользователя ${telegramId}, сбрасываем попытки`,
       );
       await this.resetAttempts(telegramId);
 
@@ -83,21 +116,7 @@ export const serverAttemptsService = {
       };
     }
 
-    // Validate against potential time manipulation
-    if (user.last_attempt_at) {
-      const lastAttemptTime = new Date(user.last_attempt_at);
-      const timeSinceLastAttempt =
-        serverTime.getTime() - lastAttemptTime.getTime();
-
-      if (timeSinceLastAttempt < 0) {
-        console.warn(
-          `Potential time manipulation detected for user ${telegramId}`,
-        );
-        // Could implement additional security measures here
-      }
-    }
-
-    // Calculate time until reset if user has no attempts
+    // Рассчитываем время до сброса если у пользователя нет попыток
     let timeUntilReset: number | undefined;
 
     if (resetTime && user.attempts_remaining === 0) {
@@ -113,14 +132,53 @@ export const serverAttemptsService = {
   },
 
   /**
-   * Consume one attempt with server validation
+   * Оптимизированное потребление попытки
+   */
+  async consumeAttemptFast(telegramId: number): Promise<AttemptsStatus> {
+    try {
+      // Используем специализированную функцию для потребления попытки
+      const { data, error } = await supabaseServer.rpc('consume_user_attempt', {
+        user_telegram_id: telegramId
+      });
+
+      if (error) {
+        console.error("Ошибка потребления попытки через функцию БД:", error);
+        throw new Error(error.message);
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error("Пользователь не найден");
+      }
+
+      const result = data[0];
+
+      if (!result.success) {
+        throw new Error(result.error_message || "Нет доступных попыток");
+      }
+
+      return {
+        canPlay: result.can_play,
+        attemptsRemaining: result.attempts_remaining,
+        resetTime: result.reset_time ? new Date(result.reset_time) : undefined,
+        timeUntilReset: result.time_until_reset || undefined,
+      };
+    } catch (error) {
+      console.error("Ошибка быстрого потребления попытки:", error);
+      
+      // Фоллбэк на стандартное потребление
+      return this.consumeAttempt(telegramId);
+    }
+  },
+
+  /**
+   * Стандартное потребление попытки (фоллбэк)
    */
   async consumeAttempt(telegramId: number): Promise<AttemptsStatus> {
-    // First, check current status
+    // Сначала проверяем текущий статус
     const currentStatus = await this.checkAndUpdateAttempts(telegramId);
 
     if (!currentStatus.canPlay) {
-      throw new Error("No attempts remaining");
+      throw new Error("Нет оставшихся попыток");
     }
 
     const serverTime = await this.getServerTime();
@@ -135,7 +193,7 @@ export const serverAttemptsService = {
       updated_at: serverTime.toISOString(),
     };
 
-    // If this was the last attempt, set reset time
+    // Если это была последняя попытка, устанавливаем время сброса
     if (newAttemptsRemaining === 0) {
       const resetTime = new Date(
         serverTime.getTime() + ATTEMPTS_CONFIG.RESET_INTERVAL_MS,
@@ -144,19 +202,19 @@ export const serverAttemptsService = {
       updates.attempts_reset_at = resetTime.toISOString();
     }
 
-    // Update database
+    // Обновляем базу данных
     const { error } = await supabaseServer
       .from("users")
       .update(updates)
       .eq("telegram_id", telegramId);
 
     if (error) {
-      console.error("Error consuming attempt:", error);
-      throw new Error("Failed to consume attempt");
+      console.error("Ошибка потребления попытки:", error);
+      throw new Error("Не удалось потребить попытку");
     }
 
     console.log(
-      `Attempt consumed for user ${telegramId}. Remaining: ${newAttemptsRemaining}`,
+      `Попытка потреблена для пользователя ${telegramId}. Осталось: ${newAttemptsRemaining}`,
     );
 
     const timeUntilReset =
@@ -176,7 +234,7 @@ export const serverAttemptsService = {
   },
 
   /**
-   * Reset user attempts to default value
+   * Сброс попыток пользователя до значения по умолчанию
    */
   async resetAttempts(telegramId: number): Promise<void> {
     const serverTime = await this.getServerTime();
@@ -188,7 +246,7 @@ export const serverAttemptsService = {
       .single();
 
     if (userError || !user) {
-      throw new Error("User not found");
+      throw new Error("Пользователь не найден");
     }
 
     const newAttempts = Math.max(
@@ -206,15 +264,15 @@ export const serverAttemptsService = {
       .eq("telegram_id", telegramId);
 
     if (error) {
-      console.error("Error resetting attempts:", error);
-      throw new Error("Failed to reset attempts");
+      console.error("Ошибка сброса попыток:", error);
+      throw new Error("Не удалось сбросить попытки");
     }
 
-    console.log(`Attempts reset for user ${telegramId} to ${newAttempts}`);
+    console.log(`Попытки сброшены для пользователя ${telegramId} до ${newAttempts}`);
   },
 
   /**
-   * Instantly reset attempts (e.g., through purchase)
+   * Мгновенный сброс попыток (например, через покупку)
    */
   async instantResetAttempts(telegramId: number): Promise<AttemptsStatus> {
     const serverTime = await this.getServerTime();
@@ -229,11 +287,11 @@ export const serverAttemptsService = {
       .eq("telegram_id", telegramId);
 
     if (error) {
-      console.error("Error performing instant reset:", error);
-      throw new Error("Failed to perform instant reset");
+      console.error("Ошибка мгновенного сброса:", error);
+      throw new Error("Не удалось выполнить мгновенный сброс");
     }
 
-    console.log(`Instant reset performed for user ${telegramId}`);
+    console.log(`Мгновенный сброс выполнен для пользователя ${telegramId}`);
 
     return {
       canPlay: true,
@@ -244,7 +302,7 @@ export const serverAttemptsService = {
   },
 
   /**
-   * Add bonus attempts (e.g., from referrals or purchases)
+   * Добавление бонусных попыток (например, от рефералов или покупок)
    */
   async addBonusAttempts(
     telegramId: number,
@@ -260,7 +318,7 @@ export const serverAttemptsService = {
       .single();
 
     if (userError || !user) {
-      throw new Error("User not found");
+      throw new Error("Пользователь не найден");
     }
 
     const newAttempts = user.attempts_remaining + bonusAmount;
@@ -274,12 +332,12 @@ export const serverAttemptsService = {
       .eq("telegram_id", telegramId);
 
     if (error) {
-      console.error("Error adding bonus attempts:", error);
-      throw new Error("Failed to add bonus attempts");
+      console.error("Ошибка добавления бонусных попыток:", error);
+      throw new Error("Не удалось добавить бонусные попытки");
     }
 
     console.log(
-      `Added ${bonusAmount} bonus attempts for user ${telegramId}. Reason: ${reason}`,
+      `Добавлено ${bonusAmount} бонусных попыток для пользователя ${telegramId}. Причина: ${reason}`,
     );
 
     return {
@@ -291,23 +349,21 @@ export const serverAttemptsService = {
   },
 
   /**
-   * Get attempts configuration
+   * Получение конфигурации попыток
    */
   getAttemptsConfig() {
     return ATTEMPTS_CONFIG;
   },
 
   /**
-   * Validate if user can play based on attempts
+   * Валидация возможности игры пользователя
    */
   async canUserPlay(telegramId: number): Promise<boolean> {
     try {
-      const status = await this.checkAndUpdateAttempts(telegramId);
-
+      const status = await this.checkAndUpdateAttemptsFast(telegramId);
       return status.canPlay;
     } catch (error) {
-      console.error("Error checking if user can play:", error);
-
+      console.error("Ошибка проверки возможности игры:", error);
       return false;
     }
   },
