@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const JavaScriptObfuscator = require('webpack-obfuscator');
 
+// УРОВНИ ОБФУСКАЦИИ - раскомментируйте нужный уровень
+
 const nextConfig = {
   transpilePackages: ["@nextui-org/react"],
   images: {
@@ -16,33 +18,17 @@ const nextConfig = {
       try {
         config.plugins.push(
           new JavaScriptObfuscator({
-            // === ОСНОВНЫЕ НАСТРОЙКИ ОБФУСКАЦИИ ===
+            // Базовые настройки
             compact: true,
             identifierNamesGenerator: 'mangled',
-            //identifiersPrefix: '_0x',
             
-            // stringArray - реализация требуемого метода
+            // НОВОЕ: Кодирование строк
             stringArray: true,
-            stringArrayThreshold: 0.7,
-            stringArrayEncoding: ['base64'],
-            stringArrayShuffle: true,
-            stringArrayWrappersCount: 2,
-            stringArrayWrappersChainedCalls: true,
+            stringArrayThreshold: 0.6, // 60% строк будут закодированы
+            stringArrayEncoding: ['base64'], // простое кодирование
+            stringArrayWrappersCount: 1,
             
-            // debugProtection - реализация требуемого метода
-            debugProtection: true,
-            debugProtectionInterval: 2000,
-            
-            // selfDefending - реализация требуемого метода
-            selfDefending: true,
-            
-            // Дополнительные средние настройки обфускации
-            controlFlowFlattening: true,
-            controlFlowFlatteningThreshold: 0.4,
-            deadCodeInjection: true,
-            deadCodeInjectionThreshold: 0.15,
-            
-            // === ЗАРЕЗЕРВИРОВАННЫЕ ИМЕНА ФУНКЦИЙ И КОМПОНЕНТОВ ===
+            // Защита критических API
             reservedNames: [
               // ========== TELEGRAM WEB APP API ==========
               'Telegram', 'WebApp', 'MainButton', 'BackButton', 'HapticFeedback',
@@ -200,7 +186,7 @@ const nextConfig = {
           })
         );
 
-        console.log('🔒 Обфускация включена со всеми методами: hexadecimal, stringArray, debugProtection, selfDefending');
+        console.log('🔒 Обфускация включена (максимальный уровень)');
         
       } catch (error) {
         console.warn('⚠️ Ошибка обфускации:', error.message);
@@ -210,11 +196,11 @@ const nextConfig = {
 
     return config;
   },
-
+  
   async headers() {
     return [
       {
-        source: "/sw.js",
+        source: "/sw.js", 
         headers: [
           {
             key: "Cache-Control",
@@ -223,28 +209,6 @@ const nextConfig = {
           {
             key: "Service-Worker-Allowed",
             value: "/",
-          },
-        ],
-      },
-      // Дополнительные заголовки безопасности для обфусцированного кода
-      {
-        source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
-        headers: [
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "X-Frame-Options", 
-            value: "SAMEORIGIN",
-          },
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
-          {
-            key: "X-XSS-Protection",
-            value: "1; mode=block",
           },
         ],
       },
