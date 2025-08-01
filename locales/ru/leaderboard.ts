@@ -50,7 +50,7 @@ export const leaderboard = {
   position: "Позиция",
   noGamesYet: "Ещё не играли",
   playFirstGame: "Сыграйте первую игру!",
-  playGame: "Поигрыем?",
+  playGame: "Поиграем? 😏",
   loadingUserData: "Загрузка данных пользователя...",
-  letsPlay: "Давай-ка сыграем.",
+  letsPlay: "Ткни меня 😏",
 } as const;
