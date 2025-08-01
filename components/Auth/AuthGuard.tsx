@@ -38,7 +38,7 @@ const AuthErrorScreen: React.FC<AuthErrorProps> = ({
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-white">auth error title</h1>
+            <h1 className="text-2xl font-bold text-white">Auth ErrOoooOoooR</h1>
             <p className="text-white/70 text-sm leading-relaxed">
               {error || "auth error message"}
             </p>
