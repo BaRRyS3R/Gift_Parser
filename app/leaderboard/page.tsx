@@ -340,13 +340,16 @@ function LeaderboardPageContent() {
         break;
     }
 
+    // Fixed: User has played if they have games OR appear in leaderboard OR have a ranking position
+    const hasPlayed = gamesCount > 0 || userData !== undefined || userPosition !== undefined;
+
     return {
       name: `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim(),
       username: telegramUser.username,
       position: userPosition,
       value,
       gamesCount,
-      hasPlayed: gamesCount > 0
+      hasPlayed
     };
   }, [leaderboardData, activeTab, user, telegramUser, getCurrentLeaderboard]);
 
@@ -381,15 +384,15 @@ function LeaderboardPageContent() {
     }
   };
 
-  // NEW: Get position-based styling for top-3
+  // NEW: Get position-based styling for top-3 (without borders)
   const getPositionStyling = (position: number) => {
     switch (position) {
       case 1:
-        return "bg-gradient-to-r from-yellow-500/20 via-yellow-400/10 to-yellow-500/20 border-yellow-400/30";
+        return "bg-gradient-to-r from-yellow-500/20 via-yellow-400/10 to-yellow-500/20";
       case 2:
-        return "bg-gradient-to-r from-gray-400/20 via-gray-300/10 to-gray-400/20 border-gray-300/30";
+        return "bg-gradient-to-r from-gray-400/20 via-gray-300/10 to-gray-400/20";
       case 3:
-        return "bg-gradient-to-r from-amber-600/20 via-amber-500/10 to-amber-600/20 border-amber-500/30";
+        return "bg-gradient-to-r from-amber-600/20 via-amber-500/10 to-amber-600/20";
       default:
         return "";
     }
@@ -449,7 +452,6 @@ function LeaderboardPageContent() {
                   <span className="text-3xl font-bold text-white drop-shadow-lg">
                     {currentUserData.name}
                   </span>
-                  <Star className="text-blue-400 drop-shadow-lg" size={20} />
                 </div>
 
                 {currentUserData.username && (
@@ -546,9 +548,8 @@ function LeaderboardPageContent() {
                   <div
                     className={`
                       w-full px-6 py-4 text-left hover:bg-white/5 transition-all duration-200
-                      ${entry.isCurrentUser ? "bg-blue-500/10 border border-blue-400/20" : ""}
+                      ${entry.isCurrentUser ? "bg-blue-500/10" : ""}
                       ${entry.position <= 3 ? getPositionStyling(entry.position) : ""}
-                      ${entry.position <= 3 && !entry.isCurrentUser ? "border" : ""}
                       opacity-0 animate-[slideIn_0.3s_ease-out_forwards]
                     `}
                     style={{ animationDelay: `${index * 50}ms` }}
@@ -566,9 +567,6 @@ function LeaderboardPageContent() {
                           >
                             #{entry.position}
                           </span>
-                          {entry.position === 1 && (
-                            <Crown className="absolute -top-1 -right-1 text-yellow-400" size={14} />
-                          )}
                         </div>
 
                         <div className="flex-1 min-w-0">
@@ -584,12 +582,6 @@ function LeaderboardPageContent() {
                             >
                               {entry.first_name} {entry.last_name || ""}
                             </span>
-                            {entry.isCurrentUser && (
-                              <Star
-                                className="text-blue-400 flex-shrink-0"
-                                size={14}
-                              />
-                            )}
                           </div>
                           {entry.username && (
                             <div className={`text-xs truncate ${
