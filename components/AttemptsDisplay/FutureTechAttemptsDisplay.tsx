@@ -204,7 +204,7 @@ const FutureTechAttemptsDisplay: React.FC<FutureTechAttemptsDisplayProps> = ({
                                         </span>
                                     </div>
                                     {/* Divider */}
-                                    <div className="h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent mt-4 mb-4" />
+                                    <div className={`h-px bg-gradient-to-r from-transparent via-white/30 to-transparent mb-4`} />
                                 </div>
                             )}
 
