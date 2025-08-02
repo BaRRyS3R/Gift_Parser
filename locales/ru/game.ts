@@ -214,7 +214,7 @@ export const game = {
     },
   },
   general: {
-    readyToPlay: "Готово к игре",
+    readyToPlay: "Э, паиграй да?",
     buyMoreAttempts: "Купите больше попыток",
     testYourSkills: "Протестируйте свою реакцию",
     initializingGame: "ИНИЦИАЛИЗАЦИЯ ИГРЫ...",

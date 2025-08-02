@@ -213,7 +213,7 @@ export const game = {
     },
   },
   general: {
-    readyToPlay: "Ready to play",
+    readyToPlay: "Yo! Go!",
     buyMoreAttempts: "Buy more attempts",
     testYourSkills: "Test yout skills",
     initializingGame: "INITIALIZING GAME...",
