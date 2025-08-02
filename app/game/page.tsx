@@ -19,7 +19,7 @@ import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
-import AttemptsDisplay from "@/components/AttemptsDisplay";
+import AttemptsDisplay from "@/components/AttemptsDisplay/AttemptsDisplay";
 import TournamentCard from "@/components/TournamentCard/TournamentCard";
 
 interface GameMode {
@@ -164,7 +164,7 @@ function GamePageContent() {
     fetchAttemptsStatus,
     consumeAttempt,
     clearError,
-  } = useAttempts();
+  } = useAttempts(makeAuthenticatedRequest);
   const t = useT();
 
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
@@ -241,18 +241,17 @@ function GamePageContent() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
-        loadingModeId
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
-      }`}
+        }`}
     >
       <div className="px-4">
         <div className="text-center space-y-4 mb-8">
@@ -315,9 +314,8 @@ function GamePageContent() {
                 <div key={mode.id} className="relative">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] transition-all duration-300 ${
-                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
-                    }`}
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                      }`}
                   >
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
                       <div className="flex items-center space-x-3 mb-2">

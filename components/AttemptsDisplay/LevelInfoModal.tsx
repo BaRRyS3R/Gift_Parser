@@ -1,36 +1,31 @@
-// src/components/LevelDisplay/LevelInfoModal.tsx - Level information modal in SeasonInfoModal style
+// src/components/AttemptsDisplay/LevelInfoModal.tsx - Enhanced level information modal
 
 import React from "react";
 import { X } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
+import type { UserLevelInfo } from "@/hooks/modules/useAttempts";
 
 interface LevelInfoModalProps {
     isOpen: boolean;
     onClose: () => void;
-    currentLevel: number;
-    totalGames: number;
+    userLevel: UserLevelInfo;
 }
 
 const LevelInfoModal: React.FC<LevelInfoModalProps> = ({
     isOpen,
     onClose,
-    currentLevel,
-    totalGames,
+    userLevel,
 }) => {
     const t = useT();
 
     if (!isOpen) return null;
 
-    // Calculate level progress
-    const GAMES_PER_LEVEL = 20;
+    // Level system constants
     const MAX_LEVEL = 10000;
     const ATTEMPTS_PER_LEVEL = 10;
-
-    const gamesInCurrentLevel = totalGames % GAMES_PER_LEVEL;
-    const gamesToNextLevel = GAMES_PER_LEVEL - gamesInCurrentLevel;
-    const progressPercent = (gamesInCurrentLevel / GAMES_PER_LEVEL) * 100;
-    const isMaxLevel = currentLevel >= MAX_LEVEL;
+    const progressPercent = (userLevel.gamesInCurrentLevel / 20) * 100;
+    const isMaxLevel = userLevel.currentLevel >= MAX_LEVEL;
 
     return (
         <>
@@ -88,10 +83,10 @@ const LevelInfoModal: React.FC<LevelInfoModalProps> = ({
                                 {/* Current Level Display */}
                                 <div className="text-center">
                                     <h3 className="text-3xl font-mono tracking-widest text-white mb-2">
-                                        {t("levels.modal.currentLevel")} {currentLevel}
+                                        {t("levels.modal.currentLevel")} {userLevel.currentLevel}
                                     </h3>
                                     <div className="text-sm text-white/70">
-                                        {t("levels.modal.totalGames", { games: totalGames })}
+                                        {t("levels.modal.totalGames", { games: userLevel.totalGames })}
                                     </div>
                                 </div>
 
@@ -111,7 +106,7 @@ const LevelInfoModal: React.FC<LevelInfoModalProps> = ({
                                                 <div className="flex justify-between text-sm">
                                                     <span className="text-white/70">{t("levels.modal.currentProgress")}</span>
                                                     <span className="text-white font-mono">
-                                                        {gamesInCurrentLevel} / {GAMES_PER_LEVEL}
+                                                        {userLevel.gamesInCurrentLevel} / 20
                                                     </span>
                                                 </div>
                                                 <div className="w-full bg-white/20 rounded-full h-2">
@@ -122,7 +117,7 @@ const LevelInfoModal: React.FC<LevelInfoModalProps> = ({
                                                 </div>
                                                 <div className="text-center">
                                                     <span className="text-white/80 text-sm">
-                                                        {t("levels.modal.gamesToNext", { games: gamesToNextLevel })}
+                                                        {t("levels.modal.gamesToNext", { games: userLevel.gamesToNextLevel })}
                                                     </span>
                                                 </div>
                                             </div>
@@ -160,7 +155,7 @@ const LevelInfoModal: React.FC<LevelInfoModalProps> = ({
                                     <div className="space-y-3 text-sm text-white/80">
                                         <div className="flex items-start space-x-3">
                                             <div className="w-1 h-1 rounded-full bg-white/40 mt-2 flex-shrink-0" />
-                                            <span>{t("levels.modal.rule1", { games: GAMES_PER_LEVEL })}</span>
+                                            <span>{t("levels.modal.rule1", { games: 20 })}</span>
                                         </div>
                                         <div className="flex items-start space-x-3">
                                             <div className="w-1 h-1 rounded-full bg-white/40 mt-2 flex-shrink-0" />

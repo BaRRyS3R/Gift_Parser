@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated with level display integration
+// src/app/main/page.tsx - Updated with enhanced AttemptsDisplay integration
 
 "use client";
 
@@ -19,10 +19,9 @@ import { useSettings } from "@/contexts/SettingsContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 import Settings from "@/components/Settings/Settings";
 import AboutModal from "@/components/AboutModal/AboutModal";
-import AttemptsDisplay from "@/components/AttemptsDisplay";
+import AttemptsDisplay from "@/components/AttemptsDisplay/AttemptsDisplay";
 import SeasonButton from "@/components/SeasonButton/SeasonButton";
 import SeasonInfoModal from "@/components/SeasonInfoModal/SeasonInfoModal";
-import { LevelDisplay } from "@/components/LevelDisplay";
 
 // Tournament types (from new API)
 interface Tournament {
@@ -76,13 +75,14 @@ function MainPageContent() {
   } = useUser();
   const {
     attemptsStatus,
+    userLevel, // NEW: Level information from enhanced hook
     isLoading: attemptsLoading,
     error: attemptsError,
     canPlay,
     attemptsRemaining,
     fetchAttemptsStatus,
     clearError,
-  } = useAttempts();
+  } = useAttempts(makeAuthenticatedRequest);
   const { settings } = useSettings();
   const t = useT();
 
@@ -589,7 +589,7 @@ function MainPageContent() {
         makeAuthenticatedRequest={makeAuthenticatedRequest}
       />
 
-      {/* Attempts Display and Level Display Section */}
+      {/* Enhanced Attempts Display with Level Integration */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
           ? `transition-all duration-1000 transform ${showTopButtons
@@ -600,27 +600,17 @@ function MainPageContent() {
           }`}
         style={{ paddingBottom: "140px" }}
       >
-        <div className="space-y-4">
-          {/* Attempts Display */}
-          <AttemptsDisplay
-            attemptsRemaining={attemptsRemaining}
-            attemptsStatus={attemptsStatus}
-            canPlay={canPlay}
-            error={attemptsError}
-            isLoading={attemptsLoading}
-            showShopButton={false}
-            onRetry={handleAttemptsRetry}
-          />
-
-          {/* Level Display - NEW */}
-          {user && (
-            <LevelDisplay
-              level={user.current_level}
-              totalGames={user.total_games}
-              className="mt-2"
-            />
-          )}
-        </div>
+        <AttemptsDisplay
+          attemptsRemaining={attemptsRemaining}
+          attemptsStatus={attemptsStatus}
+          userLevel={userLevel} // NEW: Level information
+          canPlay={canPlay}
+          error={attemptsError}
+          isLoading={attemptsLoading}
+          showShopButton={false}
+          mainPageMode={true} // NEW: Enable main page mode
+          onRetry={handleAttemptsRetry}
+        />
       </div>
     </div>
   );

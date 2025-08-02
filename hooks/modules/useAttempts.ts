@@ -1,10 +1,8 @@
-// src/hooks/modules/useAttempts.ts - Исправленный хук без кеширования
+// src/hooks/modules/useAttempts.ts - Updated with level information support
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 
-import { useUser } from "../useUser";
-
-// Экспортированный интерфейс для использования в других компонентах
+// Enhanced attempts status interface
 export interface AttemptsStatus {
   canPlay: boolean;
   attemptsRemaining: number;
@@ -12,52 +10,73 @@ export interface AttemptsStatus {
   timeUntilReset?: number;
 }
 
-// Hook state interface
+// NEW: User level information interface
+export interface UserLevelInfo {
+  currentLevel: number;
+  totalGames: number;
+  gamesInCurrentLevel: number;
+  gamesToNextLevel: number;
+}
+
+// Enhanced state interface
 interface AttemptsState {
   status: AttemptsStatus | null;
+  userLevel: UserLevelInfo | null; // NEW: Level information
   isLoading: boolean;
   error: string | null;
 }
 
+// Level calculation constants
+const GAMES_PER_LEVEL = 20;
+
 /**
- * Специализированный хук для управления попытками пользователя с серверной валидацией
- * Обеспечивает централизованное управление состоянием без кеширования для актуальных данных
+ * Calculate level progress information
  */
-export function useAttempts() {
-  const { makeAuthenticatedRequest, authState } = useUser();
+function calculateLevelProgress(currentLevel: number, totalGames: number): UserLevelInfo {
+  const gamesInCurrentLevel = totalGames % GAMES_PER_LEVEL;
+  const gamesToNextLevel = GAMES_PER_LEVEL - gamesInCurrentLevel;
+
+  return {
+    currentLevel,
+    totalGames,
+    gamesInCurrentLevel,
+    gamesToNextLevel,
+  };
+}
+
+/**
+ * Enhanced attempts hook with level information
+ */
+export function useAttempts(
+  makeAuthenticatedRequest: (
+    endpoint: string,
+    options?: RequestInit,
+  ) => Promise<Response>,
+) {
   const [state, setState] = useState<AttemptsState>({
     status: null,
+    userLevel: null,
     isLoading: false,
     error: null,
   });
 
-  // Отслеживание текущих запросов для предотвращения дублирования
   const fetchingRef = useRef<boolean>(false);
 
   /**
-   * Получение актуального статуса попыток с сервера (без кеширования)
-   * @param forceRefresh - параметр сохранен для совместимости, но игнорируется
+   * Fetch attempts status and level information
    */
   const fetchAttemptsStatus = useCallback(
-    async (forceRefresh = false): Promise<AttemptsStatus | null> => {
-      // Предотвращение дублирующих запросов
-      if (fetchingRef.current) {
-        console.log("Attempts fetch already in progress");
-
+    async (force: boolean = false): Promise<AttemptsStatus | null> => {
+      if (fetchingRef.current && !force) {
+        console.log("Attempts fetch already in progress, skipping...");
         return state.status;
-      }
-
-      if (!authState.isAuthenticated) {
-        console.log("User not authenticated, cannot fetch attempts");
-
-        return null;
       }
 
       fetchingRef.current = true;
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Fetching fresh attempts status from server...");
+        console.log("Fetching attempts status and level information...");
 
         const response = await makeAuthenticatedRequest(
           "/api/user/attempts/status",
@@ -65,32 +84,47 @@ export function useAttempts() {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-
           throw new Error(
             errorData.error || `Server error: ${response.status}`,
           );
         }
 
-        const data = await response.json();
+        const result = await response.json();
 
-        if (!data.success) {
-          throw new Error(data.error || "Failed to get attempts status");
+        if (!result.success) {
+          throw new Error(result.error || "Failed to fetch attempts status");
         }
 
+        // Parse attempts status
         const attemptsStatus: AttemptsStatus = {
-          canPlay: data.canPlay,
-          attemptsRemaining: data.attemptsRemaining,
-          resetTime: data.resetTime ? new Date(data.resetTime) : undefined,
-          timeUntilReset: data.timeUntilReset,
+          canPlay: result.canPlay,
+          attemptsRemaining: result.attemptsRemaining,
+          resetTime: result.resetTime ? new Date(result.resetTime) : undefined,
+          timeUntilReset: result.timeUntilReset,
         };
+
+        // Parse and calculate level information
+        let userLevel: UserLevelInfo | null = null;
+        if (result.userLevel) {
+          userLevel = calculateLevelProgress(
+            result.userLevel.currentLevel,
+            result.userLevel.totalGames,
+          );
+        }
 
         setState({
           status: attemptsStatus,
+          userLevel,
           isLoading: false,
           error: null,
         });
 
-        console.log("Successfully fetched attempts status:", attemptsStatus);
+        console.log("Attempts status and level fetched successfully:", {
+          canPlay: attemptsStatus.canPlay,
+          attemptsRemaining: attemptsStatus.attemptsRemaining,
+          currentLevel: userLevel?.currentLevel,
+          totalGames: userLevel?.totalGames,
+        });
 
         return attemptsStatus;
       } catch (error) {
@@ -109,139 +143,107 @@ export function useAttempts() {
         fetchingRef.current = false;
       }
     },
-    [authState.isAuthenticated, makeAuthenticatedRequest],
+    [makeAuthenticatedRequest, state.status],
   );
 
   /**
-   * Потребление одной попытки с серверной валидацией
+   * Consume an attempt
    */
-  const consumeAttempt =
-    useCallback(async (): Promise<AttemptsStatus | null> => {
-      if (!authState.isAuthenticated) {
-        console.log("User not authenticated, cannot consume attempt");
+  const consumeAttempt = useCallback(async (): Promise<AttemptsStatus | null> => {
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-        return null;
-      }
+    try {
+      console.log("Consuming attempt...");
 
-      if (fetchingRef.current) {
-        console.log("Attempt consumption already in progress");
+      const response = await makeAuthenticatedRequest(
+        "/api/user/attempts/consume",
+        {
+          method: "POST",
+        },
+      );
 
-        return state.status;
-      }
-
-      fetchingRef.current = true;
-      setState((prev) => ({ ...prev, isLoading: true, error: null }));
-
-      try {
-        console.log("Consuming attempt...");
-
-        const response = await makeAuthenticatedRequest(
-          "/api/user/attempts/consume",
-          {
-            method: "POST",
-          },
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Server error: ${response.status}`,
         );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-
-          throw new Error(
-            errorData.error || `Server error: ${response.status}`,
-          );
-        }
-
-        const data = await response.json();
-
-        if (!data.success) {
-          throw new Error(data.error || "Failed to consume attempt");
-        }
-
-        const attemptsStatus: AttemptsStatus = {
-          canPlay: data.canPlay,
-          attemptsRemaining: data.attemptsRemaining,
-          resetTime: data.resetTime ? new Date(data.resetTime) : undefined,
-          timeUntilReset: data.timeUntilReset,
-        };
-
-        setState({
-          status: attemptsStatus,
-          isLoading: false,
-          error: null,
-        });
-
-        console.log("Successfully consumed attempt:", attemptsStatus);
-
-        return attemptsStatus;
-      } catch (error) {
-        console.error("Error consuming attempt:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error: errorMessage,
-        }));
-
-        return null;
-      } finally {
-        fetchingRef.current = false;
       }
-    }, [authState.isAuthenticated, makeAuthenticatedRequest, state.status]);
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to consume attempt");
+      }
+
+      // Parse updated attempts status
+      const attemptsStatus: AttemptsStatus = {
+        canPlay: result.canPlay,
+        attemptsRemaining: result.attemptsRemaining,
+        resetTime: result.resetTime ? new Date(result.resetTime) : undefined,
+        timeUntilReset: result.timeUntilReset,
+      };
+
+      setState((prev) => ({
+        ...prev,
+        status: attemptsStatus,
+        isLoading: false,
+      }));
+
+      console.log("Attempt consumed successfully:", {
+        canPlay: attemptsStatus.canPlay,
+        attemptsRemaining: attemptsStatus.attemptsRemaining,
+      });
+
+      return attemptsStatus;
+    } catch (error) {
+      console.error("Error consuming attempt:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+
+      return null;
+    }
+  }, [makeAuthenticatedRequest]);
 
   /**
-   * Сброс состояния данных
-   */
-  const resetState = useCallback(() => {
-    console.log("Resetting attempts state");
-    setState({
-      status: null,
-      isLoading: false,
-      error: null,
-    });
-  }, []);
-
-  /**
-   * Очистка состояния ошибки
+   * Clear error state
    */
   const clearError = useCallback(() => {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
 
   /**
-   * Инициализация данных попыток при первой загрузке
+   * Reset attempts state
    */
-  useEffect(() => {
-    if (
-      authState.isAuthenticated &&
-      !state.status &&
-      !state.isLoading &&
-      !fetchingRef.current
-    ) {
-      console.log("Initializing attempts data...");
-      fetchAttemptsStatus();
-    }
-  }, [
-    authState.isAuthenticated,
-    state.status,
-    state.isLoading,
-    fetchAttemptsStatus,
-  ]);
+  const resetAttemptsState = useCallback(() => {
+    setState({
+      status: null,
+      userLevel: null,
+      isLoading: false,
+      error: null,
+    });
+  }, []);
 
   return {
-    // Текущее состояние
+    // Enhanced state with level information
     attemptsStatus: state.status,
+    userLevel: state.userLevel, // NEW: Level information
     isLoading: state.isLoading,
     error: state.error,
 
-    // Действия
-    fetchAttemptsStatus,
-    consumeAttempt,
-    resetState,
-    clearError,
-
-    // Вычисляемые значения для удобства
+    // Computed values for convenience
     canPlay: state.status?.canPlay ?? false,
     attemptsRemaining: state.status?.attemptsRemaining ?? 0,
+
+    // Actions
+    fetchAttemptsStatus,
+    consumeAttempt,
+    clearError,
+    resetAttemptsState,
   };
 }
