@@ -158,7 +158,7 @@ const AttemptsInfoModal: React.FC<AttemptsInfoModalProps> = ({
                                 {/* Divider */}
                                 <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
-                                {/* Reset Information */}
+                                {/* Reset Information - показывается только когда попытки закончились */}
                                 {isEmpty && attemptsStatus?.resetTime && (
                                     <>
                                         <div>
@@ -224,25 +224,21 @@ const AttemptsInfoModal: React.FC<AttemptsInfoModalProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Shop Section - Only show if user is out of attempts */}
-                                {isEmpty && (
-                                    <>
-                                        {/* Divider */}
-                                        <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                                {/* Shop Section - показывается всегда */}
+                                <div>
+                                    <div className="mb-4">
+                                        <span className="font-mono text-sm tracking-wider text-white/90 uppercase">
+                                            {t("attempts.modal.needMore")}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-3 text-sm text-white/80">
+                                        <p>{t("attempts.modal.shopDescription")}</p>
+                                        <p className="text-white/60 text-xs">{t("attempts.modal.shopDisclaimer")}</p>
+                                    </div>
+                                </div>
 
-                                        <div>
-                                            <div className="mb-4">
-                                                <span className="font-mono text-sm tracking-wider text-white/90 uppercase">
-                                                    {t("attempts.modal.needMore")}
-                                                </span>
-                                            </div>
-                                            <div className="space-y-3 text-sm text-white/80">
-                                                <p>{t("attempts.modal.shopDescription")}</p>
-                                                <p className="text-white/60 text-xs">{t("attempts.modal.shopDisclaimer")}</p>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
+                                {/* Divider */}
+                                <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
                                 {/* Important Information */}
                                 <div className="space-y-3 text-xs font-mono tracking-wide">

@@ -1,4 +1,4 @@
-// src/app/game/page.tsx - Обновленная страница игр с NextUI карточками
+// src/app/game/page.tsx - Исправленная страница игр с автозагрузкой попыток и Future Tech стилистикой
 
 "use client";
 
@@ -19,7 +19,7 @@ import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
-import AttemptsDisplay from "@/components/AttemptsDisplay/AttemptsDisplay";
+import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
 import TournamentCard from "@/components/TournamentCard/TournamentCard";
 
 interface GameMode {
@@ -170,11 +170,20 @@ function GamePageContent() {
   const [loadingModeId, setLoadingModeId] = useState<string | null>(null);
   const [consumeError, setConsumeError] = useState<string | null>(null);
 
+  /* -------------------------------------------------
+   * Инициализация загрузки статуса попыток для страницы игры
+   * -------------------------------------------------*/
+  useEffect(() => {
+    if (user && !attemptsLoading && !attemptsStatus) {
+      console.log("Initializing attempts status fetch for game page");
+      fetchAttemptsStatus();
+    }
+  }, [user, makeAuthenticatedRequest, attemptsLoading, attemptsStatus, fetchAttemptsStatus]);
+
   const handleModeStart = useCallback(
     async (mode: GameMode) => {
       if (loadingModeId || !canPlay) {
         console.log("Cannot start game:", { loadingModeId, canPlay });
-
         return;
       }
 
@@ -241,18 +250,17 @@ function GamePageContent() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
-        loadingModeId
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
-      }`}
+        }`}
     >
       <div className="px-4">
         <div className="text-center space-y-4 mb-8">
@@ -266,26 +274,37 @@ function GamePageContent() {
 
         {/* Отображение ошибки потребления попыток */}
         {consumeError && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-400/30 rounded-xl animate-fade-in">
-            <div className="flex items-center space-x-2 mb-2">
-              <AlertTriangle className="text-red-400" size={16} />
-              <span className="text-red-400 text-sm font-bold">
-                {t("common.error")}
-              </span>
-            </div>
-            <p className="text-red-300 text-xs">{consumeError}</p>
-            <button
-              className="mt-2 text-xs text-red-300 hover:text-red-200 transition-colors underline"
-              onClick={handleAttemptsRetry}
+          <div className="mb-6 animate-fade-in">
+            <div
+              className="bg-black/90 backdrop-blur-xl border-2 border-red-400/40 text-white w-full relative overflow-hidden"
+              style={{
+                clipPath: "polygon(15px 0, 100% 0, calc(100% - 15px) 100%, 0 100%)",
+              }}
             >
-              {t("common.retry")}
-            </button>
+              <div className="absolute inset-0 bg-red-500/10 pointer-events-none" />
+              <div className="relative z-10 p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <AlertTriangle className="text-red-400" size={16} />
+                  <span className="text-red-400 font-mono text-sm tracking-wider uppercase">
+                    {t("common.error")}
+                  </span>
+                </div>
+                <div className="h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent mb-2" />
+                <p className="text-red-300 font-mono text-xs mb-2">{consumeError}</p>
+                <button
+                  className="font-mono text-xs tracking-wider text-red-300 hover:text-red-200 transition-colors underline"
+                  onClick={handleAttemptsRetry}
+                >
+                  {t("common.retry")}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Централизованное отображение попыток */}
+        {/* Future Tech стилистика для отображения попыток */}
         <div className="mb-8 animate-fade-in">
-          <AttemptsDisplay
+          <FutureTechAttemptsDisplay
             attemptsRemaining={attemptsRemaining}
             attemptsStatus={attemptsStatus}
             canPlay={canPlay}
@@ -315,9 +334,8 @@ function GamePageContent() {
                 <div key={mode.id} className="relative">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] transition-all duration-300 ${
-                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
-                    }`}
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                      }`}
                   >
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
                       <div className="flex items-center space-x-3 mb-2">

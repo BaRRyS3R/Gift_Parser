@@ -17,9 +17,9 @@ export const levels = {
 
     howItWorks: "HOW LEVELS WORK",
     rule1: "Play any game mode to earn progress toward your next level",
-    rule2: "Every {games} games completed increases your level by 1",
-    rule3: "Each level increase awards {attempts} additional attempts",
-    rule4: "Maximum achievable level is {maxLevel}",
+    rule2: "Every 20 games completed increases your level by 1",
+    rule3: "Each level increase awards 10 additional attempts",
+    rule4: "Maximum achievable level is... Big. Mac.",
 
     gameModes: "GAME MODE CONTRIBUTIONS",
     reactionMode: "Reaction",
@@ -30,8 +30,8 @@ export const levels = {
     allModesNote: "All game modes contribute equally to level progression.",
 
     automaticNote:
-      "Level increases and attempt rewards are applied automatically after each game.",
+      "Level increases and attempt rewards are applied automatically.",
     rewardNote:
-      "Attempt bonuses from level increases are permanent additions to your account balance.",
+      "Attempt bonuses is good ma boy.",
   },
 } as const;

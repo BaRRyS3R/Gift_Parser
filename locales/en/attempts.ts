@@ -29,9 +29,9 @@ export const attempts = {
 
     needMore: "NEED MORE ATTEMPTS?",
     shopDescription:
-      "Our completely non-suspicious store offers additional attempts for those who just can't wait for the natural reset.",
+      "Our AMAZING store offers additional attempts for those who just can't wait for the natural reset.",
     shopDisclaimer: "No real money required - just measly Telegram Stars.",
-    visitShop: "VISIT STORE",
+    visitShop: "SHOP",
 
     automaticReset:
       "Attempts are reset automatically every 2 hours. No action is required on your part.",
