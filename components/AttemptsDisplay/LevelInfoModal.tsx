@@ -1,6 +1,7 @@
-// src/components/AttemptsDisplay/LevelInfoModal.tsx - Центрированная версия
+// src/components/AttemptsDisplay/LevelInfoModal.tsx - Полностью исправленная версия с порталом
 
-import React from "react";
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
@@ -19,6 +20,36 @@ const LevelInfoModal: React.FC<LevelInfoModalProps> = ({
 }) => {
     const t = useT();
 
+    // Prevent body scroll when modal is open
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
+        }
+
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [isOpen]);
+
+    // Handle escape key
+    useEffect(() => {
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('keydown', handleEscape);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     // Level system constants
@@ -27,27 +58,22 @@ const LevelInfoModal: React.FC<LevelInfoModalProps> = ({
     const progressPercent = (userLevel.gamesInCurrentLevel / 20) * 100;
     const isMaxLevel = userLevel.currentLevel >= MAX_LEVEL;
 
-    return (
-        <>
+    const modalContent = (
+        <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
             {/* Backdrop */}
             <div
-                role="button"
-                tabIndex={0}
-                aria-label="Close modal"
-                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 transition-opacity duration-300 cursor-pointer"
+                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
                 onClick={onClose}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onClose();
-                    }
-                }}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
             />
 
-            {/* Modal */}
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Modal Container */}
+            <div className="relative z-10 w-full max-w-md mx-4">
                 <div
-                    className="bg-black/90 backdrop-blur-xl border-2 border-white/30 text-white w-full max-w-md h-[70vh] relative overflow-hidden flex flex-col"
+                    className="bg-black/90 backdrop-blur-xl border-2 border-white/30 text-white w-full h-[70vh] relative overflow-hidden flex flex-col"
                     style={{
                         clipPath: "polygon(15px 0, 100% 0, calc(100% - 15px) 100%, 0 100%)",
                     }}
@@ -222,8 +248,11 @@ const LevelInfoModal: React.FC<LevelInfoModalProps> = ({
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     );
+
+    // Render modal using portal to document.body
+    return createPortal(modalContent, document.body);
 };
 
 export default LevelInfoModal;
