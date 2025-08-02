@@ -3,11 +3,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Target, RotateCcw, Clock, ShoppingCart, Zap, AlertTriangle } from "lucide-react";
+import { Clock, ShoppingCart, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { useT } from "@/contexts/LocalizationContext";
-import type { AttemptsStatus, UserLevelInfo } from "@/hooks/modules/useAttempts";
+import type { AttemptsStatus } from "@/hooks/modules/useAttempts";
 
 interface FutureTechAttemptsDisplayProps {
     className?: string;
@@ -164,12 +164,6 @@ const FutureTechAttemptsDisplay: React.FC<FutureTechAttemptsDisplayProps> = ({
         return "text-green-400";
     };
 
-    const getProgressColor = () => {
-        if (isEmpty) return "bg-red-400";
-        if (attemptsRemaining <= 2 && attemptsRemaining > 0) return "bg-orange-400";
-        return "bg-green-400";
-    };
-
     return (
         <div className={`${className}`}>
             <div
@@ -184,41 +178,19 @@ const FutureTechAttemptsDisplay: React.FC<FutureTechAttemptsDisplayProps> = ({
                     {/* Header */}
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-3">
-                            <Target className={getAccentColor()} size={20} />
                             <span className="font-mono text-sm tracking-wider uppercase text-white/90">
                                 {t("attempts.current")}
                             </span>
                         </div>
                         <div className="flex items-center space-x-2">
-                            <div className={`w-2 h-2 ${getAccentColor().replace('text-', 'bg-')} rounded-full animate-pulse`} />
                             <span className={`text-2xl font-mono tracking-widest ${getAccentColor()}`}>
-                                {attemptsRemaining}
+                                {attemptsRemaining} ⚡
                             </span>
-                            <Zap className={getAccentColor()} size={16} />
                         </div>
                     </div>
 
                     {/* Divider */}
                     <div className={`h-px bg-gradient-to-r from-transparent via-white/30 to-transparent mb-4`} />
-
-                    {/* Battery Bar */}
-                    <div className="mb-4">
-                        <div className="flex justify-between text-xs font-mono mb-2">
-                            <span className="text-white/60">
-                                {attemptsRemaining}
-                            </span>
-                        </div>
-                        <div className="w-full h-2 bg-white/10 rounded-none overflow-hidden relative">
-                            <div
-                                className={`h-full transition-all duration-500 ${getProgressColor()}`}
-                                style={{
-                                    width: `${getBatteryLevel()}%`,
-                                    clipPath: "polygon(0 0, calc(100% - 2px) 0, 100% 100%, 2px 100%)"
-                                }}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-transparent to-white/10" />
-                        </div>
-                    </div>
 
                     {/* Reset Timer or Shop Button */}
                     {isEmpty && (
@@ -228,15 +200,11 @@ const FutureTechAttemptsDisplay: React.FC<FutureTechAttemptsDisplayProps> = ({
                                     <div className="flex items-center justify-center space-x-2 mb-2">
                                         <Clock className="text-green-400" size={16} />
                                         <span className="font-mono text-xs tracking-wider uppercase text-white/70">
-                                            {t("attempts.resetTime")}
+                                            {t("attempts.resetTime")}: {timeUntilReset}
                                         </span>
                                     </div>
-                                    <div className="text-xl font-mono tracking-widest text-green-400">
-                                        {timeUntilReset}
-                                    </div>
-
                                     {/* Divider */}
-                                    <div className="h-px bg-gradient-to-r from-transparent via-green-400/30 to-transparent mt-4 mb-4" />
+                                    <div className="h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent mt-4 mb-4" />
                                 </div>
                             )}
 
