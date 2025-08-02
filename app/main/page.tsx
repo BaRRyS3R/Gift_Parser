@@ -178,6 +178,16 @@ function MainPageContent() {
   }, [telegramUser, setTelegramUser]);
 
   /* -------------------------------------------------
+   * Инициализация загрузки статуса попыток
+   * -------------------------------------------------*/
+  useEffect(() => {
+    if (user && !attemptsLoading && !attemptsStatus) {
+      console.log("Initializing attempts status fetch for main page");
+      fetchAttemptsStatus();
+    }
+  }, [user, makeAuthenticatedRequest, attemptsLoading, attemptsStatus, fetchAttemptsStatus]);
+
+  /* -------------------------------------------------
    * Tournament data loading using new API
    * -------------------------------------------------*/
   useEffect(() => {
