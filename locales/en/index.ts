@@ -18,11 +18,15 @@ import { about } from "./about";
 import { leagues } from "./leagues";
 import { nebula } from "./nebula";
 import { seasons } from "./seasons";
+import { levels } from "./levels";
 
 export const en = {
   // Common UI elements
   common,
 
+  // Levels
+  levels,
+  
   // Navigation
   nav: navigation,
 

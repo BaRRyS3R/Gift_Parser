@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated to use API instead of direct DB
+// src/app/main/page.tsx - Updated with level display integration
 
 "use client";
 
@@ -22,6 +22,7 @@ import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay";
 import SeasonButton from "@/components/SeasonButton/SeasonButton";
 import SeasonInfoModal from "@/components/SeasonInfoModal/SeasonInfoModal";
+import { LevelDisplay } from "@/components/LevelDisplay";
 
 // Tournament types (from new API)
 interface Tournament {
@@ -52,15 +53,12 @@ const formatTimeRemaining = (milliseconds: number): string => {
 
   if (days > 0) {
     const hours = totalHours % 24;
-
     return `${days}d ${hours}h`;
   } else if (totalHours > 0) {
     const minutes = totalMinutes % 60;
-
     return `${totalHours}h ${minutes}m`;
   } else if (totalMinutes > 0) {
     const seconds = totalSeconds % 60;
-
     return `${totalMinutes}m ${seconds}s`;
   } else {
     return `${totalSeconds}s`;
@@ -93,7 +91,6 @@ function MainPageContent() {
    * -------------------------------------------------*/
   const checkFirstVisit = () => {
     if (typeof window === "undefined") return false;
-
     return !sessionStorage.getItem("mainPageVisited");
   };
 
@@ -136,7 +133,6 @@ function MainPageContent() {
 
   useEffect(() => {
     const tgHeader = (window as any)?.Telegram?.WebApp?.headerHeight;
-
     if (typeof tgHeader === "number" && tgHeader > 0) {
       setHeaderOffset(tgHeader + EXTRA_OFFSET);
     }
@@ -153,7 +149,6 @@ function MainPageContent() {
   useEffect(() => {
     if (!isFirstVisit && user?.first_name) {
       const fullGreeting = t("main.greeting", { name: user.first_name });
-
       setGreetingText(fullGreeting);
     }
   }, [isFirstVisit, user?.first_name, t]);
@@ -177,7 +172,6 @@ function MainPageContent() {
           language_code: user.language_code,
           is_premium: user.is_premium,
         };
-
         setTelegramUser(telegramUserData);
       }
     }
@@ -201,14 +195,12 @@ function MainPageContent() {
         );
 
         if (!response.ok) {
-          // Silently handle errors for main page
           console.log("Tournament API not available or no active tournament");
           setTournamentStatus({
             isActive: false,
             activeTournament: null,
           });
           setShowTournamentButton(false);
-
           return;
         }
 
@@ -221,12 +213,10 @@ function MainPageContent() {
             activeTournament: null,
           });
           setShowTournamentButton(false);
-
           return;
         }
 
         const status: TournamentStatus = result.data;
-
         setTournamentStatus(status);
 
         if (status.isActive && status.activeTournament) {
@@ -237,7 +227,6 @@ function MainPageContent() {
               formatTimeRemaining(status.timeRemaining),
             );
 
-            // Set up countdown timer
             const interval = setInterval(() => {
               const now = new Date();
               const endDate = new Date(status.activeTournament!.end_date);
@@ -278,7 +267,6 @@ function MainPageContent() {
       }
     };
 
-    // Only load tournament status if user is authenticated
     if (user) {
       loadTournamentStatus();
     }
@@ -293,7 +281,6 @@ function MainPageContent() {
 
   useEffect(() => {
     const video = videoRef.current;
-
     if (!video || !settings.showBackgroundVideo) return;
 
     const handleLoadedMetadata = () => {
@@ -401,10 +388,10 @@ function MainPageContent() {
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-          ? "opacity-0 transition-opacity duration-500 ease-in"
-          : pageLoaded
-            ? "opacity-100 transition-opacity duration-1000 ease-out"
-            : "opacity-0"
+        ? "opacity-0 transition-opacity duration-500 ease-in"
+        : pageLoaded
+          ? "opacity-100 transition-opacity duration-1000 ease-out"
+          : "opacity-0"
         }`}
     >
       {/* Background Video */}
@@ -423,7 +410,6 @@ function MainPageContent() {
             playsInline
             className="w-full h-full object-cover"
           >
-            {/*<source src="/videos/mainbg.mp4" type="video/mp4" /> */}
             <source src="https://notfren.com/circusle/videos/mainbg.mp4" type="video/mp4" />
           </video>
         </div>
@@ -432,11 +418,11 @@ function MainPageContent() {
       {/* Top Navigation Icons */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           }`}
         style={{ top: headerOffset }}
       >
@@ -506,13 +492,13 @@ function MainPageContent() {
       {/* Season Button - Moved to top */}
       <div
         className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 -translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           }`}
-        style={{ top: "50px" }} // Moved to very top
+        style={{ top: "50px" }}
       >
         <SeasonButton
           isTransitioning={isTransitioning}
@@ -532,8 +518,8 @@ function MainPageContent() {
         {/* Action Button */}
         <div
           className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+            : "opacity-100 translate-y-0"
             }`}
         >
           <div className="relative group">
@@ -560,11 +546,11 @@ function MainPageContent() {
         {/* User Greeting */}
         <div
           className={`${isFirstVisit
-              ? `transition-all duration-1000 transform ${showGreeting
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-8"
-              }`
-              : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showGreeting
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
             }`}
         >
           {userLoading ? (
@@ -603,26 +589,38 @@ function MainPageContent() {
         makeAuthenticatedRequest={makeAuthenticatedRequest}
       />
 
-      {/* Централизованное отображение попыток */}
+      {/* Attempts Display and Level Display Section */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showTopButtons
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+          ? `transition-all duration-1000 transform ${showTopButtons
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+          }`
+          : "opacity-100 translate-y-0"
           }`}
         style={{ paddingBottom: "140px" }}
       >
-        <AttemptsDisplay
-          attemptsRemaining={attemptsRemaining}
-          attemptsStatus={attemptsStatus}
-          canPlay={canPlay}
-          error={attemptsError}
-          isLoading={attemptsLoading}
-          showShopButton={false}
-          onRetry={handleAttemptsRetry}
-        />
+        <div className="space-y-4">
+          {/* Attempts Display */}
+          <AttemptsDisplay
+            attemptsRemaining={attemptsRemaining}
+            attemptsStatus={attemptsStatus}
+            canPlay={canPlay}
+            error={attemptsError}
+            isLoading={attemptsLoading}
+            showShopButton={false}
+            onRetry={handleAttemptsRetry}
+          />
+
+          {/* Level Display - NEW */}
+          {user && (
+            <LevelDisplay
+              level={user.current_level}
+              totalGames={user.total_games}
+              className="mt-2"
+            />
+          )}
+        </div>
       </div>
     </div>
   );

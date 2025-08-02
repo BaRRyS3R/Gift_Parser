@@ -1,4 +1,4 @@
-// src/lib/supabase_server.ts - Updated with seasons service integration
+// src/lib/supabase_server.ts - Updated with level 1 initialization for new users
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -99,7 +99,7 @@ export interface ServerTelegramUser {
   is_premium?: boolean;
 }
 
-// Server-side user service (existing implementation remains the same)
+// Server-side user service (existing implementation with level system integration)
 export const serverUserService = {
   async findByTelegramId(telegramId: number): Promise<ServerUser | null> {
     const { data, error } = await supabaseServer
@@ -234,7 +234,7 @@ export const serverUserService = {
       referred_by: referredBy,
       referral_bonus: 5,
       referral_count: 0,
-      current_level: 1,
+      current_level: 1, // UPDATED: Ensure new users start at level 1
     };
 
     const { data, error } = await supabaseServer
@@ -247,6 +247,8 @@ export const serverUserService = {
       console.error("Error creating user:", error);
       throw error;
     }
+
+    console.log(`New user created with level 1: ${data.telegram_id} (${data.first_name})`);
 
     return data;
   },
@@ -329,7 +331,7 @@ export const serverUserService = {
     return serverUserProfileService.getUserProfileData(telegramId);
   },
 
-  // NEW: Delegate season operations to season service
+  // Delegate season operations to season service
   async getCurrentSeasonData(
     userId: string,
     telegramId: number,
@@ -343,4 +345,4 @@ export { serverAttemptsService };
 export { serverGameService };
 export { serverLeaderboardService };
 export { serverUserProfileService };
-export { serverSeasonService }; // NEW: Export season service
+export { serverSeasonService };

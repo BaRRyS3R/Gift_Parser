@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated with scoring system and multipliers (no leagues/levels)
+// src/lib/server/gameService.ts - Updated with level system and fixed total_games counting
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -15,9 +15,12 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Game save result interface (simplified)
+// Game save result interface (enhanced with level system)
 export interface GameSaveResult {
   success: boolean;
+  levelChanged?: boolean;
+  newLevel?: number;
+  attemptsAwarded?: number;
   error?: string;
 }
 
@@ -28,6 +31,22 @@ export interface TournamentSaveResponse {
   game_score: number;
   games_played: number;
   previous_total: number;
+}
+
+// Level system constants
+const LEVEL_CONFIG = {
+  GAMES_PER_LEVEL: 20,
+  ATTEMPTS_PER_LEVEL: 10,
+  MAX_LEVEL: 10000,
+  STARTING_LEVEL: 1,
+} as const;
+
+/**
+ * Calculate user level based on total games played
+ */
+function calculateLevel(totalGames: number): number {
+  const calculatedLevel = Math.floor(totalGames / LEVEL_CONFIG.GAMES_PER_LEVEL) + LEVEL_CONFIG.STARTING_LEVEL;
+  return Math.min(calculatedLevel, LEVEL_CONFIG.MAX_LEVEL);
 }
 
 /**
@@ -108,7 +127,7 @@ function calculateModeSpecificScore(gameResult: GameResult): number {
 // Server-side game service
 export const serverGameService = {
   /**
-   * Update user game statistics (simplified without leagues/levels)
+   * Update user game statistics with level system integration
    */
   async updateGameStats(
     telegramId: number,
@@ -126,12 +145,14 @@ export const serverGameService = {
     }
 
     const previousTotalGames = user.total_games;
+    const previousLevel = user.current_level;
 
-    // CRITICAL: Exclude reaction mode from total_games counting
-    const isCompetitiveMode = gameResult.mode !== GameMode.REACTION;
-    const newTotalGames = isCompetitiveMode
-      ? previousTotalGames + 1
-      : previousTotalGames;
+    // FIXED: All modes now count towards total_games (including reaction)
+    const newTotalGames = previousTotalGames + 1;
+
+    // Calculate new level based on total games
+    const newLevel = calculateLevel(newTotalGames);
+    const levelChanged = newLevel > previousLevel;
 
     // Calculate score contributions
     const totalScoreContribution = calculateTotalScoreContribution(gameResult);
@@ -139,12 +160,21 @@ export const serverGameService = {
 
     const updates: any = {
       total_games: newTotalGames,
-      // All modes contribute to total_score with multipliers
       total_score: user.total_score + totalScoreContribution,
-      // All modes can update best_score
       best_score: Math.max(user.best_score, totalScoreContribution),
+      current_level: newLevel,
       last_played_at: new Date().toISOString(),
     };
+
+    // Award attempts for level increase
+    let attemptsAwarded = 0;
+    if (levelChanged) {
+      const levelsGained = newLevel - previousLevel;
+      attemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
+      updates.attempts_remaining = user.attempts_remaining + attemptsAwarded;
+
+      console.log(`Level increased! User ${telegramId}: ${previousLevel} → ${newLevel} (+${attemptsAwarded} attempts)`);
+    }
 
     // Mode-specific statistics updates
     if (gameResult.mode === GameMode.REACTION) {
@@ -173,8 +203,8 @@ export const serverGameService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
-              (totalReactionGames + 1)
+              reactionResult.reactionTime) /
+            (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
@@ -268,10 +298,16 @@ export const serverGameService = {
       mode: gameResult.mode,
       totalGames: newTotalGames,
       scoreContribution: totalScoreContribution,
+      levelChanged,
+      newLevel: levelChanged ? newLevel : undefined,
+      attemptsAwarded,
     });
 
     return {
       success: true,
+      levelChanged,
+      newLevel: levelChanged ? newLevel : undefined,
+      attemptsAwarded: levelChanged ? attemptsAwarded : undefined,
     };
   },
 
@@ -354,4 +390,8 @@ export const serverGameService = {
   getScoreMultiplier,
   calculateTotalScoreContribution,
   calculateModeSpecificScore,
+  calculateLevel,
+
+  // Export level system constants
+  LEVEL_CONFIG,
 };

@@ -24,6 +24,7 @@ export interface User {
   is_premium: boolean;
   created_at: string;
   updated_at: string;
+  current_level: number;
 
   // Trust and moderation system
   trust_score: number; // Default: 50, Premium: 60

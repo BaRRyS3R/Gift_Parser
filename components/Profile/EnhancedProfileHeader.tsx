@@ -1,4 +1,4 @@
-// src/components/Profile/EnhancedProfileHeader.tsx - Обновленный для использования leagues API
+// src/components/Profile/EnhancedProfileHeader.tsx - Updated with level display integration
 
 "use client";
 
@@ -28,6 +28,11 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
       {user.username && (
         <p className="text-white/60 text-sm">@{user.username}</p>
       )}
+
+      {/* Level Display - NEW */}
+      <div className="text-white/80 text-sm font-mono">
+        {t("levels.profileDisplay", { level: user.current_level })}
+      </div>
     </div>
   );
 };
