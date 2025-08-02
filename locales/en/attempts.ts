@@ -20,16 +20,22 @@ export const attempts = {
     rule4: "Premium users get bonus attempts and faster reset times",
 
     whyImportant: "WHY ATTEMPTS MATTER",
-    importance1: "Think of attempts as your daily gaming energy. They prevent you from becoming a mindless clicking zombie who forgets to eat, sleep, or acknowledge the existence of other humans.",
-    importance2: "This system encourages you to play strategically rather than just mashing buttons like a caffeinated hamster. Quality over quantity, as they say in fancy business meetings.",
-    importance3: "Plus, it gives you time to contemplate your life choices between games. You're welcome for this profound philosophical opportunity.",
+    importance1:
+      "Think of attempts as your daily gaming energy. They prevent you from becoming a mindless clicking zombie who forgets to eat, sleep, or acknowledge the existence of other humans.",
+    importance2:
+      "This system encourages you to play strategically rather than just mashing buttons like a caffeinated hamster. Quality over quantity, as they say in fancy business meetings.",
+    importance3:
+      "Plus, it gives you time to contemplate your life choices between games. You're welcome for this profound philosophical opportunity.",
 
     needMore: "NEED MORE ATTEMPTS?",
-    shopDescription: "Our completely non-suspicious store offers additional attempts for those who just can't wait for the natural reset.",
+    shopDescription:
+      "Our completely non-suspicious store offers additional attempts for those who just can't wait for the natural reset.",
     shopDisclaimer: "No real money required - just measly Telegram Stars.",
     visitShop: "VISIT STORE",
 
-    automaticReset: "Attempts are reset automatically every 2 hours. No action is required on your part.",
-    fairPlay: "The system is designed to maintain fair play and prevent excessive gaming sessions. We care about you. We care about your houseplants, by the way.",
+    automaticReset:
+      "Attempts are reset automatically every 2 hours. No action is required on your part.",
+    fairPlay:
+      "The system is designed to maintain fair play and prevent excessive gaming sessions. We care about you. We care about your houseplants, by the way.",
   },
 } as const;

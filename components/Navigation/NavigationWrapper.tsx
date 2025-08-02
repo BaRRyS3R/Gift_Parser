@@ -49,6 +49,7 @@ export default function NavigationWrapper() {
       }
 
       prevPathRef.current = pathname;
+
       return;
     }
 

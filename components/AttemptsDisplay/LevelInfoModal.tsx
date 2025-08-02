@@ -65,8 +65,17 @@ const LevelInfoModal: React.FC<LevelInfoModalProps> = ({
         >
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                role="button"
+                tabIndex={0}
+                aria-label="Close modal"
+                className="absolute inset-0 bg-black/70 backdrop-blur-sm cursor-pointer"
                 onClick={onClose}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onClose();
+                    }
+                }}
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
             />
 

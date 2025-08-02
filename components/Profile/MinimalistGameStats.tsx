@@ -16,8 +16,6 @@ import {
   Atom,
   BarChart3,
   RotateCw,
-  Star,
-  ArrowUp,
 } from "lucide-react";
 
 import {

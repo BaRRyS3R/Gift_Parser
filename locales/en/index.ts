@@ -26,7 +26,7 @@ export const en = {
 
   // Levels
   levels,
-  
+
   // Navigation
   nav: navigation,
 

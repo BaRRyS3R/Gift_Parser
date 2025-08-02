@@ -13,28 +13,33 @@ export const main = {
   recommended: "Recommended for new users",
   skipIntro: "Skip intro • Potato mode",
   slowConnections: "For slow internet and impatient 🥔",
-  
+
   // Season Modal
   seasonModal: {
     title: "INFO",
     loading: "LOADING...",
     error: "ERROR",
     noActiveSeason: "NO ACTIVE SEASON",
-    noActiveSeasonDesc: "There is currently no active season running. Stay tuned for updates on upcoming seasonal competitions.",
+    noActiveSeasonDesc:
+      "There is currently no active season running. Stay tuned for updates on upcoming seasonal competitions.",
     dates: "SEASON DATES",
     prizes: "PRIZES",
     rules: "SEASON RULES",
     gameMode: "Game Mode:",
     kingOfHill: "King of the Hill",
-    rulesDescription: "All game modes count, but each has its own score multiplier. Because fairness is when everyone is equally inconvenienced.",
+    rulesDescription:
+      "All game modes count, but each has its own score multiplier. Because fairness is when everyone is equally inconvenienced.",
     reaction: "Reaction",
     survival: "Survival",
-    physics: "Physics", 
+    physics: "Physics",
     rotation: "Rotation",
     noMultiplier: "no multiplier (multipooper lol)",
-    rulesNote: "Remember: the harder the mode, the more points you get. Revolutionary concept, isn't it?",
-    snapshotInfo: "A final leaderboard snapshot will be taken at the end of the season. Changes after this moment will not be counted.",
-    fairPlayInfo: "If we suspect unfair play, we may conduct additional verification of the user before awarding prizes.",
+    rulesNote:
+      "Remember: the harder the mode, the more points you get. Revolutionary concept, isn't it?",
+    snapshotInfo:
+      "A final leaderboard snapshot will be taken at the end of the season. Changes after this moment will not be counted.",
+    fairPlayInfo:
+      "If we suspect unfair play, we may conduct additional verification of the user before awarding prizes.",
     viewDetails: "LEADERBOARD",
     upcomingSeason: "UPCOMING",
     activeSeason: "ACTIVE",

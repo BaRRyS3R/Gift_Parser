@@ -26,7 +26,7 @@ export const ru = {
 
   // Levels
   levels,
-  
+
   // Navigation
   nav: navigation,
 

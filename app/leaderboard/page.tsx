@@ -28,7 +28,6 @@ import { Renderer, Program, Mesh, Color, Triangle } from "ogl";
 import { useUser } from "@/hooks/useUser";
 import { useLeaderboard } from "@/hooks/modules/useLeaderboard";
 import { useT } from "@/contexts/LocalizationContext";
-import AuthGuard from "@/components/Auth/AuthGuard";
 
 type LeaderboardType =
   | "season"
@@ -734,7 +733,5 @@ function LeaderboardPageContent() {
 }
 
 export default function LeaderboardPage() {
-  return (
-      <LeaderboardPageContent />
-  );
+  return <LeaderboardPageContent />;
 }

@@ -45,7 +45,10 @@ const LEVEL_CONFIG = {
  * Calculate user level based on total games played
  */
 function calculateLevel(totalGames: number): number {
-  const calculatedLevel = Math.floor(totalGames / LEVEL_CONFIG.GAMES_PER_LEVEL) + LEVEL_CONFIG.STARTING_LEVEL;
+  const calculatedLevel =
+    Math.floor(totalGames / LEVEL_CONFIG.GAMES_PER_LEVEL) +
+    LEVEL_CONFIG.STARTING_LEVEL;
+
   return Math.min(calculatedLevel, LEVEL_CONFIG.MAX_LEVEL);
 }
 
@@ -168,12 +171,16 @@ export const serverGameService = {
 
     // Award attempts for level increase
     let attemptsAwarded = 0;
+
     if (levelChanged) {
       const levelsGained = newLevel - previousLevel;
+
       attemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
       updates.attempts_remaining = user.attempts_remaining + attemptsAwarded;
 
-      console.log(`Level increased! User ${telegramId}: ${previousLevel} → ${newLevel} (+${attemptsAwarded} attempts)`);
+      console.log(
+        `Level increased! User ${telegramId}: ${previousLevel} → ${newLevel} (+${attemptsAwarded} attempts)`,
+      );
     }
 
     // Mode-specific statistics updates
@@ -203,8 +210,8 @@ export const serverGameService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-              reactionResult.reactionTime) /
-            (totalReactionGames + 1)
+                reactionResult.reactionTime) /
+              (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
