@@ -1,4 +1,4 @@
-// src/components/AttemptsDisplay/LevelInfoModal.tsx - Enhanced level information modal
+// src/components/AttemptsDisplay/LevelInfoModal.tsx - Центрированная версия
 
 import React from "react";
 import { X } from "lucide-react";

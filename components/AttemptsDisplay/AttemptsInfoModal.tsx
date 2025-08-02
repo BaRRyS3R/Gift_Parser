@@ -1,4 +1,4 @@
-// src/components/AttemptsDisplay/AttemptsInfoModal.tsx - Information modal for attempts system
+// src/components/AttemptsDisplay/AttemptsInfoModal.tsx - Центрированная версия
 
 import React from "react";
 import { useRouter } from "next/navigation";
