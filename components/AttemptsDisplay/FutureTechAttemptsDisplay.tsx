@@ -34,6 +34,16 @@ const FutureTechAttemptsDisplay: React.FC<FutureTechAttemptsDisplayProps> = ({
     const router = useRouter();
     const [timeUntilReset, setTimeUntilReset] = useState<string>("");
 
+    // Функция для получения случайного мема
+    const getRandomMeme = (): string => {
+        // Получаем массив мемов из локализации
+        const memes = t("memes.readyToPlayMemes");
+
+        // Возвращаем случайный мем
+        const randomIndex = Math.floor(Math.random() * memes.length);
+        return memes[randomIndex];
+    };
+
     // Timer update logic
     useEffect(() => {
         if (!attemptsStatus?.resetTime || canPlay) {
@@ -228,11 +238,11 @@ const FutureTechAttemptsDisplay: React.FC<FutureTechAttemptsDisplayProps> = ({
                         </div>
                     )}
 
-                    {/* Normal State Message */}
+                    {/* Normal State Message with Random Meme */}
                     {!isEmpty && (
                         <div className="text-center">
                             <p className="font-mono text-xs tracking-wider uppercase text-white/60">
-                                {t("game.general.readyToPlay")}
+                                {getRandomMeme()}
                             </p>
                         </div>
                     )}
