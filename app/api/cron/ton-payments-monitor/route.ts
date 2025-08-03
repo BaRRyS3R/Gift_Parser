@@ -1,4 +1,4 @@
-// src/app/api/cron/ton-payments-monitor/route.ts - Финальная версия с GetBlock Access Token API
+// src/app/api/cron/ton-payments-monitor/route.ts - Updated with new separator support
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -156,6 +156,7 @@ export async function POST(
     console.log("[TON_MONITOR] - GETBLOCK_ACCESS_TOKEN exists:", !!CRON_CONFIG.GETBLOCK_ACCESS_TOKEN);
     console.log("[TON_MONITOR] - TELEGRAM_BOT_TOKEN exists:", !!CRON_CONFIG.TELEGRAM_BOT_TOKEN);
     console.log("[TON_MONITOR] - Access token length:", CRON_CONFIG.GETBLOCK_ACCESS_TOKEN?.length || 0);
+    console.log("[TON_MONITOR] - Payload separator:", TON_CONFIG.PAYLOAD_SEPARATOR); // NEW: Log the separator being used
 
     try {
         // Проверка авторизации
@@ -661,7 +662,7 @@ function isBase64(str: string): boolean {
 }
 
 /**
- * Обработка одной транзакции - ИСПРАВЛЕННАЯ ВЕРСИЯ С ДЕКОДИРОВАНИЕМ PAYLOAD
+ * Обработка одной транзакции - UPDATED с поддержкой нового разделителя
  */
 async function processTransaction(
     transaction: GetBlockTransaction,
@@ -751,9 +752,9 @@ async function processTransaction(
     console.log(`[TON_MONITOR] - TON_CONFIG.MAX_PAYLOAD_LENGTH: ${TON_CONFIG.MAX_PAYLOAD_LENGTH}`);
     console.log(`[TON_MONITOR] - TON_CONFIG.PAYLOAD_SEPARATOR: "${TON_CONFIG.PAYLOAD_SEPARATOR}"`);
 
-    // Добавим ручную проверку разделения
-    const debugParts = payload.split("_");
-    console.log(`[TON_MONITOR] - Manual split by "_":`, debugParts);
+    // UPDATED: Используем новый разделитель для отладочного разбора
+    const debugParts = payload.split(TON_CONFIG.PAYLOAD_SEPARATOR);
+    console.log(`[TON_MONITOR] - Manual split by "${TON_CONFIG.PAYLOAD_SEPARATOR}":`, debugParts);
     console.log(`[TON_MONITOR] - Manual split count: ${debugParts.length}`);
 
     if (debugParts.length === 4) {
@@ -1319,6 +1320,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             lookback_hours: CRON_CONFIG.LOOKBACK_HOURS,
             max_transactions_per_run: CRON_CONFIG.MAX_TRANSACTIONS_PER_RUN,
             execution_timeout: CRON_CONFIG.EXECUTION_TIMEOUT,
+            payload_separator: TON_CONFIG.PAYLOAD_SEPARATOR, // NEW: Include separator in config info
             has_getblock_token: !!CRON_CONFIG.GETBLOCK_ACCESS_TOKEN,
             has_telegram_token: !!CRON_CONFIG.TELEGRAM_BOT_TOKEN,
         },

@@ -1,4 +1,4 @@
-// src/types/ton-payments.ts - Fixed BigInt serialization issues
+// src/types/ton-payments.ts - Fixed BigInt serialization issues and updated separator
 
 import { ProductType } from "@/types/purchases";
 
@@ -76,8 +76,8 @@ export const TON_CONFIG = {
     TRANSACTION_LOOKBACK_HOURS: 24, // Период поиска транзакций назад
     ORDER_EXPIRY_HOURS: 2, // Время жизни заказа
 
-    // Payload настройки
-    PAYLOAD_SEPARATOR: "_",
+    // UPDATED: Payload настройки с новым разделителем
+    PAYLOAD_SEPARATOR: "|",
     MAX_PAYLOAD_LENGTH: 128,
 } as const;
 
@@ -86,7 +86,7 @@ export const TON_CONFIG = {
 // ============================================================================
 
 /**
- * Генерация уникального идентификатора заказа
+ * Генерация уникального идентификатора заказа - UPDATED с новым разделителем
  */
 export function generateUniqueOrderId(
     telegramId: number,
@@ -95,7 +95,8 @@ export function generateUniqueOrderId(
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(2, 8);
 
-    return `${timestamp}_${telegramId}_${productType}_${randomSuffix}`;
+    // UPDATED: Используем новый разделитель "|"
+    return `${timestamp}${TON_CONFIG.PAYLOAD_SEPARATOR}${telegramId}${TON_CONFIG.PAYLOAD_SEPARATOR}${productType}${TON_CONFIG.PAYLOAD_SEPARATOR}${randomSuffix}`;
 }
 
 /**
@@ -107,8 +108,8 @@ export function createTONPayload(uniqueId: string): string {
 }
 
 /**
- * Парсинг payload TON транзакции - ИСПРАВЛЕННАЯ ВЕРСИЯ
- * Обрабатывает формат: timestamp_telegramId_attempts_X_randomSuffix
+ * Парсинг payload TON транзакции - ИСПРАВЛЕННАЯ ВЕРСИЯ с новым разделителем
+ * Обрабатывает формат: timestamp|telegramId|productType|randomSuffix
  */
 export function parseTONPayload(payload: string): {
     isValid: boolean;
@@ -133,45 +134,24 @@ export function parseTONPayload(payload: string): {
         }
         console.log(`[TON_MONITOR] ✅ Payload length check passed`);
 
-        // ИСПРАВЛЕНО: Payload имеет формат timestamp_telegramId_attempts_X_randomSuffix (5 частей)
+        // UPDATED: Payload теперь имеет формат timestamp|telegramId|productType|randomSuffix (4 части)
         console.log(`[TON_MONITOR] - Using separator: "${TON_CONFIG.PAYLOAD_SEPARATOR}"`);
         const parts = payload.split(TON_CONFIG.PAYLOAD_SEPARATOR);
         console.log(`[TON_MONITOR] - Split result:`, parts);
-        console.log(`[TON_MONITOR] - Parts count: ${parts.length} (expected: 5 for attempts_X format)`);
+        console.log(`[TON_MONITOR] - Parts count: ${parts.length} (expected: 4 for new format)`);
 
-        // Поддерживаем два формата:
-        // 1. Старый формат: timestamp_telegramId_productType_randomSuffix (4 части)
-        // 2. Новый формат: timestamp_telegramId_attempts_X_randomSuffix (5 частей)
-
-        let timestampStr: string;
-        let telegramIdStr: string;
-        let productType: string;
-        let randomSuffix: string;
-
-        if (parts.length === 4) {
-            // Старый формат: timestamp_telegramId_productType_randomSuffix
-            console.log(`[TON_MONITOR] - Using old format (4 parts)`);
-            [timestampStr, telegramIdStr, productType, randomSuffix] = parts;
-        } else if (parts.length === 5) {
-            // Новый формат: timestamp_telegramId_attempts_X_randomSuffix
-            console.log(`[TON_MONITOR] - Using new format (5 parts)`);
-            const [ts, tgId, attemptsWord, attemptsNumber, suffix] = parts;
-
-            timestampStr = ts;
-            telegramIdStr = tgId;
-            productType = `${attemptsWord}_${attemptsNumber}`; // Объединяем "attempts" + "1" = "attempts_1"
-            randomSuffix = suffix;
-
-            console.log(`[TON_MONITOR] - Reconstructed product_type: "${productType}"`);
-        } else {
-            console.log(`[TON_MONITOR] ❌ Invalid parts count: ${parts.length} (expected: 4 or 5)`);
+        // UPDATED: Поддерживаем только новый формат из 4 частей
+        if (parts.length !== 4) {
+            console.log(`[TON_MONITOR] ❌ Invalid parts count: ${parts.length} (expected: 4)`);
             return {
                 isValid: false,
-                error: "Invalid payload format",
+                error: "Invalid payload format - expected 4 parts",
             };
         }
 
         console.log(`[TON_MONITOR] ✅ Payload format check passed`);
+
+        const [timestampStr, telegramIdStr, productType, randomSuffix] = parts;
 
         console.log(`[TON_MONITOR] - Extracted parts:`, {
             timestampStr,
