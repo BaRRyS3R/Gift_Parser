@@ -236,7 +236,7 @@ export async function POST(
 // ============================================================================
 
 /**
- * CORRECTED function to fetch transactions using proper GetBlock TON API format
+ * ИСПРАВЛЕННАЯ функция получения транзакций через GetBlock.io с правильным форматом access token
  */
 async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
     const lookbackTimestamp = Math.floor(
@@ -244,15 +244,16 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
     );
 
     try {
-        console.log("[TON_MONITOR] Fetching transactions from GetBlock TON API");
+        console.log("[TON_MONITOR] Fetching transactions from GetBlock API");
         console.log("[TON_MONITOR] Corporate wallet:", TON_CONFIG.CORPORATE_WALLET);
 
-        // CORRECTED: Use ton.getblock.io domain for TON-specific endpoints
-        const getBlockUrl = new URL(`https://ton.getblock.io/mainnet/getTransactions`);
+        // ПРАВИЛЬНЫЙ формат: access token встроен в URL путь
+        const baseUrl = `https://go.getblock.io/${CRON_CONFIG.GETBLOCK_API_KEY}`;
+        const getBlockUrl = new URL(`${baseUrl}/getTransactions`);
         getBlockUrl.searchParams.append('address', TON_CONFIG.CORPORATE_WALLET);
         getBlockUrl.searchParams.append('limit', '100');
 
-        // Optional: Add archival parameter for better historical data access
+        // Добавляем архивный параметр для доступа к полной истории
         getBlockUrl.searchParams.append('archival', 'true');
 
         console.log("[TON_MONITOR] Request URL:", getBlockUrl.toString());
@@ -260,8 +261,7 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         const response = await fetch(getBlockUrl.toString(), {
             method: "GET",
             headers: {
-                // CORRECTED: Use x-api-key header instead of URL-embedded token
-                "x-api-key": CRON_CONFIG.GETBLOCK_API_KEY!,
+                // Только Content-Type, без дополнительных заголовков авторизации
                 "Content-Type": "application/json",
             },
         });
@@ -291,7 +291,7 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
             `[TON_MONITOR] GetBlock API returned ${transactions.length} transactions`,
         );
 
-        // Filter transactions by time
+        // Фильтруем транзакции по времени
         const recentTransactions = transactions.filter(
             (tx) => tx.utime >= lookbackTimestamp
         );
