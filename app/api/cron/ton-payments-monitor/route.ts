@@ -344,11 +344,21 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         console.log("[TON_MONITOR] 🚀 Sending request to GetBlock...");
         const requestStart = Date.now();
 
-        const response = await fetch(apiUrl.toString(), {
-            method: "GET",
+        const response = await fetch(`https://go.getblock.io/${CRON_CONFIG.GETBLOCK_ACCESS_TOKEN}/`, {
+            method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
+            body: JSON.stringify({
+                jsonrpc: "2.0",
+                method: "getTransactions",
+                params: {
+                    address: TON_CONFIG.CORPORATE_WALLET,
+                    limit: 100,
+                    archival: true
+                },
+                id: "ton-monitor"
+            }),
         });
 
         const requestDuration = Date.now() - requestStart;
