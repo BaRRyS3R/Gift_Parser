@@ -1,10 +1,10 @@
-// src/app/shop/page.tsx - Обновленная страница покупок с пасхалкой
+// src/app/shop/page.tsx - Обновленная страница покупок с интеграцией TON
 
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, Button, Chip } from "@nextui-org/react";
+import { Card, CardBody, Button, Chip, Divider } from "@nextui-org/react";
 import ConfettiExplosion from "react-confetti-explosion";
 import {
   AlertCircle,
@@ -12,6 +12,8 @@ import {
   CheckCircle,
   Clock,
   ShoppingCart,
+  Wallet,
+  ExternalLink,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -19,6 +21,7 @@ import { usePurchase } from "@/hooks/modules/usePurchase";
 import { PRODUCTS, ProductType } from "@/types/purchases";
 import { useT } from "@/contexts/LocalizationContext";
 import CatEasterEgg from "@/components/EasterEggs/CatEasterEgg";
+import TONPurchaseButton from "@/components/TON/TONPurchaseButton";
 
 interface SuccessNotification {
   show: boolean;
@@ -38,7 +41,7 @@ export default function ShopPage() {
   const { user, refreshUser, makeAuthenticatedRequest } = useUser();
   const t = useT();
 
-  // Use new purchase hook
+  // Use existing purchase hook for Telegram Stars
   const purchaseModule = usePurchase(makeAuthenticatedRequest);
 
   const [isExploding, setIsExploding] = useState(false);
@@ -82,7 +85,7 @@ export default function ShopPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -176,9 +179,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-          attempts: attemptsText,
-          plural: plural,
-        });
+        attempts: attemptsText,
+        plural: plural,
+      });
 
     setSuccessNotification({
       show: true,
@@ -299,6 +302,58 @@ export default function ShopPage() {
         </div>
       )}
 
+      {/* Payment Methods Section */}
+      <div className="max-w-2xl mx-auto mb-8">
+        <h2 className="text-2xl font-bold text-white mb-4 text-center">
+          {t("shop.paymentMethods")}
+        </h2>
+
+        {/* TON Payment Option */}
+        <Card className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 mb-4">
+          <CardBody className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center">
+                  <Wallet className="text-blue-400" size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg">
+                    {t("shop.payWithTON")}
+                  </h3>
+                  <p className="text-white/70 text-sm">
+                    {t("shop.tonDescription")}
+                  </p>
+                </div>
+              </div>
+              <TONPurchaseButton
+                size="lg"
+                variant="solid"
+                className="bg-blue-600 text-white hover:bg-blue-700"
+              >
+                <div className="flex items-center space-x-2">
+                  <Wallet size={18} />
+                  <span>{t("shop.openTONShop")}</span>
+                  <ExternalLink size={14} className="opacity-70" />
+                </div>
+              </TONPurchaseButton>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Divider className="my-6 bg-white/20" />
+
+        {/* Telegram Stars Payment Option */}
+        <div className="text-center mb-4">
+          <h3 className="text-xl font-bold text-white mb-2">
+            {t("shop.payWithStars")}
+          </h3>
+          <p className="text-white/60 text-sm">
+            {t("shop.starsDescription")}
+          </p>
+        </div>
+      </div>
+
+      {/* Products Grid - Telegram Stars */}
       <div className="max-w-2xl mx-auto space-y-4">
         {Object.entries(PRODUCTS).map(([key, product]) => {
           const productType = key as ProductType;

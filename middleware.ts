@@ -21,7 +21,9 @@ export const config = {
     "/api/check-telegram-membership",
     "/api/nebula/:path*",
     "/api/seasons/:path*",
-    "/api/easter-egg/:path*"
+    "/api/easter-egg/:path*",
+    "/api/ton/create-order",
+    "/api/ton/order-status/:path*",
   ],
 };
 
@@ -33,6 +35,7 @@ const PUBLIC_ENDPOINTS = [
   "/api/cron/:path*",
   "/api/health",
   "/api/status",
+  "/api/ton/products",
 ];
 
 // Admin endpoints that require special permissions
