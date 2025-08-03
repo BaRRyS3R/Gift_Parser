@@ -1,4 +1,4 @@
-// src/app/api/cron/ton-payments-monitor/route.ts - Финальная версия с правильным GetBlock REST API
+// src/app/api/cron/ton-payments-monitor/route.ts - Исправленная версия с GetBlock JSON-RPC API
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -50,7 +50,19 @@ interface CronResponse {
     error?: string;
 }
 
-// Интерфейс транзакции GetBlock REST API
+// Интерфейс для JSON-RPC ответа
+interface JsonRpcResponse<T> {
+    jsonrpc: string;
+    id: string | number;
+    result?: T;
+    error?: {
+        code: number;
+        message: string;
+        data?: any;
+    };
+}
+
+// Интерфейс транзакции GetBlock API
 interface GetBlockTransaction {
     "@type": string;
     account: string;
@@ -86,13 +98,8 @@ interface GetBlockTransaction {
     out_msgs?: any[];
 }
 
-// Интерфейс ответа GetBlock API
-interface GetBlockResponse {
-    ok: boolean;
-    result: GetBlockTransaction[];
-    error?: string;
-    code?: number;
-}
+// Интерфейс ответа GetBlock JSON-RPC API
+interface GetBlockResponse extends JsonRpcResponse<GetBlockTransaction[]> { }
 
 interface ProcessedTransaction {
     hash: string;
@@ -236,7 +243,7 @@ export async function POST(
 // ============================================================================
 
 /**
- * ИСПРАВЛЕННАЯ функция получения транзакций через GetBlock.io с правильным форматом access token
+ * ИСПРАВЛЕННАЯ функция получения транзакций через GetBlock JSON-RPC API
  */
 async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
     const lookbackTimestamp = Math.floor(
@@ -244,26 +251,34 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
     );
 
     try {
-        console.log("[TON_MONITOR] Fetching transactions from GetBlock API");
+        console.log("[TON_MONITOR] Fetching transactions from GetBlock JSON-RPC API");
         console.log("[TON_MONITOR] Corporate wallet:", TON_CONFIG.CORPORATE_WALLET);
 
-        // ПРАВИЛЬНЫЙ формат: access token встроен в URL путь
-        const baseUrl = `https://go.getblock.io/${CRON_CONFIG.GETBLOCK_API_KEY}`;
-        const getBlockUrl = new URL(`${baseUrl}/getTransactions`);
-        getBlockUrl.searchParams.append('address', TON_CONFIG.CORPORATE_WALLET);
-        getBlockUrl.searchParams.append('limit', '100');
+        // Используем JSON-RPC эндпоинт с правильным форматом токена
+        const jsonRpcUrl = `https://go.getblock.io/${CRON_CONFIG.GETBLOCK_API_KEY}/`;
 
-        // Добавляем архивный параметр для доступа к полной истории
-        getBlockUrl.searchParams.append('archival', 'true');
+        console.log("[TON_MONITOR] JSON-RPC URL:", jsonRpcUrl);
 
-        console.log("[TON_MONITOR] Request URL:", getBlockUrl.toString());
+        // Формируем JSON-RPC запрос
+        const requestBody = {
+            jsonrpc: "2.0",
+            method: "getTransactions",
+            params: {
+                address: TON_CONFIG.CORPORATE_WALLET,
+                limit: 100,
+                archival: true
+            },
+            id: "ton-monitor-" + Date.now()
+        };
 
-        const response = await fetch(getBlockUrl.toString(), {
-            method: "GET",
+        console.log("[TON_MONITOR] Request body:", JSON.stringify(requestBody, null, 2));
+
+        const response = await fetch(jsonRpcUrl, {
+            method: "POST",
             headers: {
-                // Только Content-Type, без дополнительных заголовков авторизации
                 "Content-Type": "application/json",
             },
+            body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
@@ -278,17 +293,30 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
             );
         }
 
-        const data: GetBlockResponse = await response.json();
+        const jsonRpcResponse: GetBlockResponse = await response.json();
 
-        if (!data.ok) {
-            console.error("[TON_MONITOR] GetBlock API returned error:", data);
-            throw new Error(`GetBlock API error: ${data.error || 'Unknown error'}`);
+        console.log("[TON_MONITOR] JSON-RPC response structure:", {
+            hasResult: !!jsonRpcResponse.result,
+            hasError: !!jsonRpcResponse.error,
+            resultLength: jsonRpcResponse.result?.length || 0
+        });
+
+        // Проверяем наличие ошибки в JSON-RPC ответе
+        if (jsonRpcResponse.error) {
+            console.error("[TON_MONITOR] JSON-RPC error:", jsonRpcResponse.error);
+            throw new Error(`JSON-RPC error: ${jsonRpcResponse.error.message} (code: ${jsonRpcResponse.error.code})`);
         }
 
-        const transactions = data.result || [];
+        // Проверяем наличие результата
+        if (!jsonRpcResponse.result) {
+            console.warn("[TON_MONITOR] No result in JSON-RPC response");
+            return [];
+        }
+
+        const transactions = jsonRpcResponse.result;
 
         console.log(
-            `[TON_MONITOR] GetBlock API returned ${transactions.length} transactions`,
+            `[TON_MONITOR] GetBlock JSON-RPC returned ${transactions.length} transactions`,
         );
 
         // Фильтруем транзакции по времени
@@ -303,7 +331,7 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         return recentTransactions;
     } catch (error) {
         console.error(
-            "[TON_MONITOR] Error fetching transactions from GetBlock:",
+            "[TON_MONITOR] Error fetching transactions from GetBlock JSON-RPC:",
             error,
         );
         throw new Error(
@@ -414,7 +442,7 @@ function decodePayload(base64Body: string): string {
 }
 
 /**
- * Обработка одной транзакции с учётом формата GetBlock REST API
+ * Обработка одной транзакции с учётом формата GetBlock API
  */
 async function processTransaction(
     transaction: GetBlockTransaction,
