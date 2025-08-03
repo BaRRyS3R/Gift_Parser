@@ -45,6 +45,7 @@ const ADMIN_ENDPOINTS = [
 /**
  * Handle CORS preflight requests
  */
+
 function handleCORSPreflight(request: NextRequest): NextResponse | null {
   if (request.method !== "OPTIONS") {
     return null;
