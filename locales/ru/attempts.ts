@@ -1,4 +1,4 @@
-// src/locales/ru/attempts.ts - Обновленный русский файл с уведомлениями
+// src/locales/ru/attempts.ts - Обновленный русский файл с уведомлениями и кнопкой
 
 export const attempts = {
   current: "ПОПЫТКИ",
@@ -9,9 +9,11 @@ export const attempts = {
     restored: {
       title: "⚡ Попытки восстановлены!",
       greeting: "Пс, {firstName}! Твои игровые попытки были восстановлены.",
-      attemptsAwarded: "🎮 +{attemptsRestored} попыток теперь доступно!",
+      attemptsAwarded: "⚡ +{attemptsRestored} попыток теперь доступно!",
       encouragement: "Можешь продолжить играть. Если хочешь, конечно. Хоти.",
-      fullMessage: "⚡ <b>Попытки восстановлены!</b>\n\nПс, {firstName}! Твои игровые попытки были восстановлены.\n\n🎮 <b>+{attemptsRestored} попыток</b> теперь доступно!"
+      fullMessage: "🎮 <b>Попытки восстановлены!</b>\n\nПс, {firstName}! Твои игровые попытки были восстановлены.\n\n⚡ <b>+{attemptsRestored} попыток</b> теперь доступно!",
+      // Добавляем текст для кнопки
+      playButton: "🎮 Играть сейчас"
     }
   },
 

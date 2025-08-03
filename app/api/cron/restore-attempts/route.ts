@@ -1,4 +1,4 @@
-// src/app/api/cron/restore-attempts/route.ts - Cron job для восстановления попыток
+// src/app/api/cron/restore-attempts/route.ts - Cron job для восстановления попыток с кнопкой игры
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase_server";
@@ -14,6 +14,7 @@ interface NotificationTranslations {
         notifications: {
             restored: {
                 fullMessage: string;
+                playButton: string;
             };
         };
     };
@@ -24,14 +25,16 @@ const NOTIFICATION_TRANSLATIONS: NotificationTranslations = {
     en: {
         notifications: {
             restored: {
-                fullMessage: "⚡ <b>Attempts Restored!</b>\n\nHi {firstName}! Your game attempts have been restored.\n\n🎮 <b>+{attemptsRestored} attempts</b> are now available!\n\nYou can continue playing your favorite games. Good luck! 🍀"
+                fullMessage: "🎮 <b>Attempts Restored!</b>\n\nYo {firstName}! Your game attempts have been restored.\n\n⚡ <b>+{attemptsRestored} attempts</b> are now available!\n\nGo and play, buddy!",
+                playButton: "🎮 Play Now"
             }
         }
     },
     ru: {
         notifications: {
             restored: {
-                fullMessage: "⚡ <b>Попытки восстановлены!</b>\n\nПривет, {firstName}! Твои игровые попытки были восстановлены.\n\n🎮 <b>+{attemptsRestored} попыток</b> теперь доступно!\n\nМожешь продолжить играть в любимые игры. Удачи! 🍀"
+                fullMessage: "🎮 <b>Попытки восстановлены!</b>\n\nЙоу, {firstName}! Твои игровые попытки были восстановлены.\n\n⚡ <b>+{attemptsRestored} попыток</b> теперь доступно!\n\nМож это, поиграем?",
+                playButton: "🎮 Играть сейчас"
             }
         }
     }
@@ -72,6 +75,18 @@ function getLocalizedMessage(
     return finalMessage;
 }
 
+// Функция для получения локализованного текста кнопки
+function getLocalizedButtonText(languageCode: string | null): string {
+    // Безопасная нормализация языкового кода
+    const normalizedLanguageCode = languageCode?.toString().toLowerCase().trim();
+
+    // Упрощенная логика: если язык пользователя "ru" - русский, иначе - английский
+    const useRussian = normalizedLanguageCode === 'ru';
+    const userLanguage = useRussian ? 'ru' : 'en';
+
+    return NOTIFICATION_TRANSLATIONS[userLanguage].notifications.restored.playButton;
+}
+
 // ============================================================================
 const CRON_CONFIG = {
     // Количество попыток для восстановления
@@ -91,6 +106,9 @@ const CRON_CONFIG = {
 
     // Telegram Bot Token
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_API,
+
+    // URL для запуска игры
+    GAME_START_URL: "https://t.me/marketaggregator_bot?startapp",
 
     // Логирование для отладки
     ENABLE_DEBUG_LOGGING: process.env.NODE_ENV === "development",
@@ -461,7 +479,7 @@ async function sendTelegramNotificationWithRetry(
 }
 
 /**
- * Отправка локализованного уведомления в Telegram с расширенной отладкой
+ * Отправка локализованного уведомления в Telegram с inline кнопкой для игры
  */
 async function sendTelegramNotification(
     telegramId: number,
@@ -478,10 +496,23 @@ async function sendTelegramNotification(
     console.log(`[CRON_NOTIFICATION] Sending to user ${telegramId} (${firstName})`);
     console.log(`[CRON_NOTIFICATION] Language code received: "${languageCode}"`);
 
-    // Получаем локализованное сообщение
+    // Получаем локализованное сообщение и текст кнопки
     const message = getLocalizedMessage(languageCode, firstName, attemptsRestored);
+    const buttonText = getLocalizedButtonText(languageCode);
 
     const telegramApiUrl = `https://api.telegram.org/bot${CRON_CONFIG.TELEGRAM_BOT_TOKEN}/sendMessage`;
+
+    // Создаем inline клавиатуру с кнопкой для игры
+    const replyMarkup = {
+        inline_keyboard: [
+            [
+                {
+                    text: buttonText,
+                    url: CRON_CONFIG.GAME_START_URL
+                }
+            ]
+        ]
+    };
 
     try {
         const response = await fetch(telegramApiUrl, {
@@ -493,13 +524,14 @@ async function sendTelegramNotification(
                 chat_id: telegramId,
                 text: message,
                 parse_mode: "HTML",
+                reply_markup: replyMarkup
             }),
         });
 
         const result = await response.json();
 
         if (result.ok) {
-            console.log(`[CRON_NOTIFICATION] Successfully sent localized message to user ${telegramId}`);
+            console.log(`[CRON_NOTIFICATION] Successfully sent localized message with game button to user ${telegramId}`);
             return { success: true };
         } else {
             const errorCode = result.error_code;
@@ -563,6 +595,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             reset_attempts: CRON_CONFIG.RESET_ATTEMPTS,
             max_users_per_run: CRON_CONFIG.MAX_USERS_PER_RUN,
             execution_timeout: CRON_CONFIG.EXECUTION_TIMEOUT,
+            game_start_url: CRON_CONFIG.GAME_START_URL,
         },
         status: "Cron job endpoint is active",
         next_execution_url: `${request.nextUrl.origin}/api/cron/restore-attempts`,
