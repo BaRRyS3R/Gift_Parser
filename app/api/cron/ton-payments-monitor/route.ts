@@ -236,7 +236,7 @@ export async function POST(
 // ============================================================================
 
 /**
- * ПРАВИЛЬНАЯ функция получения транзакций через GetBlock REST API
+ * CORRECTED function to fetch transactions using proper GetBlock TON API format
  */
 async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
     const lookbackTimestamp = Math.floor(
@@ -244,22 +244,24 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
     );
 
     try {
-        console.log("[TON_MONITOR] Fetching transactions from GetBlock API");
+        console.log("[TON_MONITOR] Fetching transactions from GetBlock TON API");
         console.log("[TON_MONITOR] Corporate wallet:", TON_CONFIG.CORPORATE_WALLET);
 
-        // ПРАВИЛЬНЫЙ формат URL для GetBlock REST API
-        // Используем базовый URL из вашего эндпоинта GetBlock
-        const baseUrl = `https://go.getblock.io/${CRON_CONFIG.GETBLOCK_API_KEY}`;
-        const getBlockUrl = new URL(`${baseUrl}/getTransactions`);
+        // CORRECTED: Use ton.getblock.io domain for TON-specific endpoints
+        const getBlockUrl = new URL(`https://ton.getblock.io/mainnet/getTransactions`);
         getBlockUrl.searchParams.append('address', TON_CONFIG.CORPORATE_WALLET);
         getBlockUrl.searchParams.append('limit', '100');
+
+        // Optional: Add archival parameter for better historical data access
+        getBlockUrl.searchParams.append('archival', 'true');
 
         console.log("[TON_MONITOR] Request URL:", getBlockUrl.toString());
 
         const response = await fetch(getBlockUrl.toString(), {
             method: "GET",
             headers: {
-                // API ключ уже включен в URL, дополнительная авторизация не требуется
+                // CORRECTED: Use x-api-key header instead of URL-embedded token
+                "x-api-key": CRON_CONFIG.GETBLOCK_API_KEY!,
                 "Content-Type": "application/json",
             },
         });
@@ -289,7 +291,7 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
             `[TON_MONITOR] GetBlock API returned ${transactions.length} transactions`,
         );
 
-        // Фильтруем транзакции по времени
+        // Filter transactions by time
         const recentTransactions = transactions.filter(
             (tx) => tx.utime >= lookbackTimestamp
         );
