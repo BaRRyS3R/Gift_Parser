@@ -255,7 +255,7 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         console.log("[TON_MONITOR] Corporate wallet:", TON_CONFIG.CORPORATE_WALLET);
 
         // Используем JSON-RPC эндпоинт с правильным форматом токена
-        const jsonRpcUrl = `https://go.getblock.io/${CRON_CONFIG.GETBLOCK_API_KEY}/`;
+        const jsonRpcUrl = `https://ton.getblock.io/${CRON_CONFIG.GETBLOCK_API_KEY}/`;
 
         console.log("[TON_MONITOR] JSON-RPC URL:", jsonRpcUrl);
 

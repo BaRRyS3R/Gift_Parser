@@ -1,7 +1,7 @@
 {
-  "url": "${NEXT_PUBLIC_APP_URL}",
-  "name": "TON Shop",
-  "iconUrl": "${NEXT_PUBLIC_APP_URL}/icon-128x128.png",
-  "termsOfUseUrl": "${NEXT_PUBLIC_APP_URL}/terms",
-  "privacyPolicyUrl": "${NEXT_PUBLIC_APP_URL}/privacy"
+  "url": "https://gift-parser.vercel.app",
+  "name": "CIRCUSLE",
+  "iconUrl": "https://gift-parser.vercel.app/icon-128x128.png",
+  "termsOfUseUrl": "https://gift-parser.vercel.app/terms",
+  "privacyPolicyUrl": "https://gift-parser.vercel.app/privacy"
 }
