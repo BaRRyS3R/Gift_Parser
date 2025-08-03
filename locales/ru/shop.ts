@@ -2,6 +2,12 @@
 export const shop = {
   title: "SHOP",
   subtitle: "Покупка дополнительных игровых попыток",
+  paymentMethods: "Способы оплаты",
+  payWithTON: "За TON",
+  tonDescription: "Дешевле",
+  openTONSHOP: "TON",
+  payWithStars: "Telegram Stars",
+  starsDescription: "Мммм, звёздочки",
   moreAttempts: "Больше Попыток",
   description: "Получите 1 дополнительную игровую попытку",
   features: "Особенности",

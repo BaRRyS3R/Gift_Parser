@@ -3,6 +3,12 @@
 export const shop = {
   title: "SHOP",
   subtitle: "Purchase additional game attempts",
+  paymentMethods: "Payment Methods",
+  payWithTON: "Pay With TON",
+  tonDescription: "Cheaper",
+  openTONSHOP: "TON",
+  payWithStars: "Telegram Stars",
+  starsDescription: "Staaaaaars mmmm",
   moreAttempts: "More Attempts",
   description: "Get 1 additional game attempt",
   features: "Features",
