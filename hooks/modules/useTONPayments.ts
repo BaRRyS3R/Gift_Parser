@@ -37,7 +37,7 @@ interface TONShopProduct {
   attempts: number;
   title: string;
   description: string;
-  priceNanotons: bigint;
+  priceNanotons: string;
   priceTON: string;
 }
 

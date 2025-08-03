@@ -34,7 +34,7 @@ interface TONProduct {
     attempts: number;
     title: string;
     description: string;
-    priceNanotons: bigint;
+    priceNanotons: string; // Changed from bigint to string for JSON serialization
     priceTON: string;
 }
 
@@ -108,9 +108,13 @@ function TONShopContent() {
             });
 
             // Загружаем встроенный каталог продуктов
-            const embeddedProducts = EMBEDDED_PRODUCTS.map(productType =>
-                getTONProductInfo(productType)
-            );
+            const embeddedProducts = EMBEDDED_PRODUCTS.map(productType => {
+                const productInfo = getTONProductInfo(productType);
+                return {
+                    ...productInfo,
+                    priceNanotons: productInfo.priceNanotons // Already a string from getTONProductInfo
+                };
+            });
             setProducts(embeddedProducts);
 
             console.log("[TON_SHOP] Initialized with embedded catalog:", {
