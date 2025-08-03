@@ -90,19 +90,17 @@ function getLocalizedButtonText(languageCode: string | null): string {
 // ============================================================================
 const CRON_CONFIG = {
     // Количество попыток для восстановления
-    RESET_ATTEMPTS: parseInt(process.env.CRON_RESET_ATTEMPTS || "10"),
+    RESET_ATTEMPTS: parseInt("10"),
 
     // Частота проверки (в минутах) - настраивается через ENV
-    CHECK_FREQUENCY_MINUTES: parseInt(process.env.CRON_CHECK_FREQUENCY_MINUTES || "2"),
+    CHECK_FREQUENCY_MINUTES: parseInt("10"),
 
     // Максимальное количество пользователей за один запуск
-    MAX_USERS_PER_RUN: parseInt(process.env.CRON_MAX_USERS_PER_RUN || "1000"),
+    MAX_USERS_PER_RUN: parseInt("10000"),
 
-    // Таймаут для одного запуска (в секундах)
-    EXECUTION_TIMEOUT: parseInt(process.env.CRON_EXECUTION_TIMEOUT || "50"),
+    EXECUTION_TIMEOUT: parseInt("50"),
 
-    // API ключ для авторизации cron запросов (ОБЯЗАТЕЛЬНО настроить в ENV!)
-    CRON_API_KEY: process.env.CRON_API_KEY || "CHANGE_ME_IN_PRODUCTION",
+    CRON_API_KEY: process.env.CRON_API_KEY,
 
     // Telegram Bot Token
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_API,
@@ -110,19 +108,7 @@ const CRON_CONFIG = {
     // URL для запуска игры
     GAME_START_URL: "https://t.me/marketaggregator_bot?startapp",
 
-    // Логирование для отладки
-    ENABLE_DEBUG_LOGGING: process.env.NODE_ENV === "development",
 } as const;
-
-// Проверка критически важных переменных окружения
-if (!CRON_CONFIG.TELEGRAM_BOT_TOKEN) {
-    console.error("[CRON] CRITICAL: TELEGRAM_BOT_API environment variable not set!");
-}
-
-if (CRON_CONFIG.CRON_API_KEY === "CHANGE_ME_IN_PRODUCTION") {
-    console.warn("[CRON] WARNING: CRON_API_KEY not properly configured!");
-}
-// ============================================================================
 
 // Response interface
 interface CronResponse {
@@ -161,7 +147,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CronRespo
         const apiKey = authHeader?.replace("Bearer ", "");
 
         if (!apiKey || apiKey !== CRON_CONFIG.CRON_API_KEY) {
-            console.log("[CRON] Unauthorized attempt to access restore-attempts endpoint");
+            console.warn("[CRON] Unauthorized attempt to access restore-attempts endpoint");
             return NextResponse.json(
                 {
                     success: false,
