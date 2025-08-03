@@ -1,6 +1,6 @@
-const CACHE_NAME = "video-cache-v4";
+const CACHE_NAME = "video-cache-v3";
 const VIDEOS = [
-  "/videos/intro.mp4", 
+  "https://notfren.com/circusle/videos/intro.mp4", 
   "https://notfren.com/circusle/videos/mainbg.mp4"
 ];
 

@@ -1,4 +1,4 @@
-// src/app/page.tsx - Optimized with Nebula Security Integration
+// src/app/page.tsx - Исправленная версия с поддержкой iOS Safari
 
 "use client";
 
@@ -37,6 +37,7 @@ interface VideoState {
   isReady: boolean;
   isPlaying: boolean;
   fontLoaded: boolean;
+  userActivated: boolean; // NEW: Track if user has activated video playback
 }
 
 export default function IntroPage(): JSX.Element {
@@ -69,6 +70,7 @@ export default function IntroPage(): JSX.Element {
     isReady: false,
     isPlaying: false,
     fontLoaded: false,
+    userActivated: false,
   });
 
   const authStateRef = useRef(authState);
@@ -88,7 +90,6 @@ export default function IntroPage(): JSX.Element {
 
     if (!initData) {
       console.log("No Telegram initData available");
-
       return { user: null, initData: "" };
     }
 
@@ -96,12 +97,10 @@ export default function IntroPage(): JSX.Element {
 
     if (!parseResult.success || !parseResult.user) {
       console.log("Failed to parse Telegram data:", parseResult.error);
-
       return { user: null, initData };
     }
 
     console.log("Successfully parsed Telegram user data:", parseResult.user);
-
     return { user: parseResult.user, initData };
   }, []);
 
@@ -126,7 +125,6 @@ export default function IntroPage(): JSX.Element {
         };
       } catch (error) {
         console.error("Error validating referral code:", error);
-
         return { isValid: false, code, bonus: 0 };
       }
     },
@@ -152,7 +150,6 @@ export default function IntroPage(): JSX.Element {
 
         if (!result.success && result.error === "USER_NOT_FOUND") {
           console.log("User not found - this is expected for new users");
-
           return result;
         }
 
@@ -175,7 +172,6 @@ export default function IntroPage(): JSX.Element {
               setTimeout(() => {
                 router.push("/blocked");
               }, 1000);
-
               return result;
             }
 
@@ -189,7 +185,6 @@ export default function IntroPage(): JSX.Element {
               setTimeout(() => {
                 router.push("/nebula");
               }, 1000);
-
               return result;
             }
 
@@ -212,7 +207,6 @@ export default function IntroPage(): JSX.Element {
         return result;
       } catch (error) {
         console.error("Authentication error:", error);
-
         return {
           success: false,
           error:
@@ -225,7 +219,6 @@ export default function IntroPage(): JSX.Element {
 
   /**
    * Register new user without Nebula security checks
-   * New users receive default trust_score and do not require immediate verification
    */
   const registerNewUser = useCallback(
     async (
@@ -234,7 +227,6 @@ export default function IntroPage(): JSX.Element {
     ): Promise<RegistrationResult> => {
       if (operationInProgressRef.current) {
         console.log("Registration already in progress, skipping...");
-
         return { success: false, error: "Registration already in progress" };
       }
 
@@ -271,7 +263,6 @@ export default function IntroPage(): JSX.Element {
         return result;
       } catch (error) {
         console.error("Registration error:", error);
-
         return {
           success: false,
           error: error instanceof Error ? error.message : "Registration failed",
@@ -289,7 +280,6 @@ export default function IntroPage(): JSX.Element {
   const initializeAuthentication = useCallback(async () => {
     if (authInitializedRef.current) {
       console.log("Auth already initialized, skipping...");
-
       return;
     }
 
@@ -310,7 +300,6 @@ export default function IntroPage(): JSX.Element {
           isInitializing: false,
           videoError: t("auth.telegramDataUnavailable"),
         }));
-
         return;
       }
 
@@ -355,7 +344,6 @@ export default function IntroPage(): JSX.Element {
           isInitializing: false,
           needsAuthentication: true,
         }));
-
         return;
       }
 
@@ -366,7 +354,6 @@ export default function IntroPage(): JSX.Element {
           isInitializing: false,
           videoError: `Authentication error: ${authResult.error}`,
         }));
-
         return;
       }
     } catch (error) {
@@ -446,7 +433,6 @@ export default function IntroPage(): JSX.Element {
         isRegistering: authState.isRegistering,
         operationInProgress: operationInProgressRef.current,
       });
-
       return;
     }
 
@@ -461,31 +447,103 @@ export default function IntroPage(): JSX.Element {
   }, [authState.isRegistering, registerNewUser, pageState.referralInfo?.code]);
 
   /**
-   * Start video playback
+   * ИСПРАВЛЕННАЯ функция для запуска видео с поддержкой iOS Safari
+   * Критически важно: все операции должны происходить синхронно в обработчике клика
    */
   const handleStartVideo = useCallback(async () => {
     const video = videoRef.current;
 
-    if (!video) return;
+    if (!video) {
+      console.error("Video element not found");
+      return;
+    }
 
     try {
-      video.muted = true;
-      video.currentTime = 0;
-      await video.play();
+      console.log("Starting video playback (iOS Safari compatible)");
+      
+      // КРИТИЧЕСКИ ВАЖНО: не устанавливаем currentTime перед play() на iOS
+      // Это может нарушить цепочку пользовательского жеста
+      
+      // Убеждаемся, что видео готово к воспроизведению
+      if (video.readyState < 2) {
+        console.log("Video not ready, waiting...");
+        // Не ждем загрузки асинхронно - это нарушит пользовательский жест
+        setPageState((prev) => ({
+          ...prev,
+          videoError: "Video is still loading. Please try again in a moment.",
+        }));
+        return;
+      }
+
+      // Помечаем, что пользователь активировал видео
+      setVideoState((prev) => ({ ...prev, userActivated: true }));
+
+      // СИНХРОННЫЙ вызов play() без await для сохранения пользовательского жеста
+      const playPromise = video.play();
+
+      // Обновляем состояние немедленно
       setVideoState((prev) => ({ ...prev, isPlaying: true }));
       setPageState((prev) => ({
         ...prev,
         isVideoMode: true,
         videoError: null,
       }));
+
+      // Обрабатываем promise асинхронно, но не блокируем выполнение
+      playPromise
+        .then(() => {
+          console.log("Video started successfully");
+          // Теперь можно безопасно установить currentTime
+          video.currentTime = 0;
+        })
+        .catch((err) => {
+          console.error("Video play error:", err);
+          setPageState((prev) => ({
+            ...prev,
+            videoError: "Failed to play video. Please try again.",
+            isVideoMode: false,
+          }));
+          setVideoState((prev) => ({ 
+            ...prev, 
+            isPlaying: false,
+            userActivated: false 
+          }));
+        });
+
     } catch (err) {
-      console.error("Video play error:", err);
+      console.error("Video start error:", err);
       setPageState((prev) => ({
         ...prev,
-        videoError: "Failed to play video. Please try again.",
+        videoError: "Failed to start video. Please try again.",
       }));
     }
   }, []);
+
+  /**
+   * iOS Safari specific video activation on any touch
+   * Это помогает "разблокировать" видео для последующего воспроизведения
+   */
+  const activateVideoForIOS = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || videoState.userActivated) return;
+
+    // Пытаемся "активировать" видео для iOS Safari
+    const playPromise = video.play();
+    if (playPromise) {
+      playPromise
+        .then(() => {
+          // Немедленно ставим на паузу
+          video.pause();
+          video.currentTime = 0;
+          setVideoState((prev) => ({ ...prev, userActivated: true }));
+          console.log("Video activated for iOS Safari");
+        })
+        .catch(() => {
+          // Игнорируем ошибки активации
+          console.log("Video activation failed, but this is expected");
+        });
+    }
+  }, [videoState.userActivated]);
 
   // Initialize Service Worker and font loading
   useEffect(() => {
@@ -529,7 +587,6 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
-
           setVideoState((prev) => ({ ...prev, loadProgress: progress }));
         }
       }
@@ -575,6 +632,21 @@ export default function IntroPage(): JSX.Element {
       initializeAuthentication();
     }
   }, [initializeAuthentication, authState.isAuthenticated]);
+
+  // iOS Safari video activation on first touch
+  useEffect(() => {
+    // Добавляем обработчик для активации видео на iOS Safari
+    const handleFirstTouch = () => {
+      activateVideoForIOS();
+      document.removeEventListener("touchstart", handleFirstTouch);
+    };
+
+    document.addEventListener("touchstart", handleFirstTouch, { once: true });
+
+    return () => {
+      document.removeEventListener("touchstart", handleFirstTouch);
+    };
+  }, [activateVideoForIOS]);
 
   const isInitialLoading =
     pageState.isInitializing ||
@@ -787,17 +859,19 @@ export default function IntroPage(): JSX.Element {
           videoState.isPlaying ? "opacity-100" : "opacity-0"
         } transition-opacity duration-500`}
       >
+        {/* ИСПРАВЛЕННЫЙ элемент video с поддержкой iOS Safari */}
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video
           ref={videoRef}
+          muted
           playsInline
+          preload="auto"
           aria-label="Application introduction video"
           className="video-player"
-          preload="auto"
+          webkit-playsInline="true"
         >
-          {/*<source src="/videos/intro.mp4" type="video/mp4" />*/}
           <source
-            src="/videos/intro.mp4"
+            src="https://notfren.com/circusle/videos/intro.mp4"
             type="video/mp4"
           />
           <track
@@ -806,9 +880,10 @@ export default function IntroPage(): JSX.Element {
             label="English captions"
             srcLang="en"
           />
-          Your browser does not support the video tag. Loh.
+          Your browser does not support the video tag.
         </video>
       </div>
     </div>
   );
 }
+
