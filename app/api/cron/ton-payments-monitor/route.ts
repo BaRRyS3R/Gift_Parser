@@ -56,22 +56,20 @@ interface CronResponse {
     };
 }
 
-// Интерфейс транзакции GetBlock API
+// ИСПРАВЛЕННЫЙ интерфейс транзакции GetBlock API
 interface GetBlockTransaction {
     "@type": string;
-    account: string;
-    hash: string;
-    lt: string;
+    account?: string;
+    transaction_id: {
+        "@type": string;
+        hash: string;
+        lt: string;
+    };
     data: string;
     utime: number;
     fee: string;
     storage_fee: string;
     other_fee: string;
-    transaction_id: {
-        "@type": string;
-        lt: string;
-        hash: string;
-    };
     in_msg?: {
         "@type": string;
         source: string;
@@ -125,6 +123,17 @@ interface ProcessedTransaction {
     status: "processed" | "incorrect_payload";
     error_message?: string;
     attempts_credited: number;
+}
+
+// ============================================================================
+// УТИЛИТЫ
+// ============================================================================
+
+/**
+ * Helper функция для получения хеша транзакции
+ */
+function getTransactionHash(transaction: GetBlockTransaction): string | null {
+    return transaction.transaction_id?.hash || null;
 }
 
 // ============================================================================
@@ -440,11 +449,13 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
             console.log("[TON_MONITOR] 📋 Sample transaction structure:");
             const sampleTx = transactions[0];
             console.log("[TON_MONITOR] - Transaction keys:", Object.keys(sampleTx));
-            console.log("[TON_MONITOR] - Has hash:", !!sampleTx.hash);
+            console.log("[TON_MONITOR] - Has transaction_id:", !!sampleTx.transaction_id);
+            console.log("[TON_MONITOR] - Has hash in transaction_id:", !!sampleTx.transaction_id?.hash);
             console.log("[TON_MONITOR] - Has utime:", !!sampleTx.utime);
             console.log("[TON_MONITOR] - Has in_msg:", !!sampleTx.in_msg);
             console.log("[TON_MONITOR] - Sample timestamp:", sampleTx.utime);
             console.log("[TON_MONITOR] - Sample date:", new Date(sampleTx.utime * 1000).toISOString());
+            console.log("[TON_MONITOR] - Sample hash:", getTransactionHash(sampleTx));
         }
 
         // Фильтруем транзакции по времени
@@ -452,7 +463,8 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         const recentTransactions = transactions.filter((tx) => {
             const isRecent = tx.utime >= lookbackTimestamp;
             if (!isRecent) {
-                console.log(`[TON_MONITOR] - Filtered out old transaction: ${tx.hash} (${new Date(tx.utime * 1000).toISOString()})`);
+                const hash = getTransactionHash(tx);
+                console.log(`[TON_MONITOR] - Filtered out old transaction: ${hash} (${new Date(tx.utime * 1000).toISOString()})`);
             }
             return isRecent;
         });
@@ -465,7 +477,8 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         if (recentTransactions.length > 0) {
             console.log("[TON_MONITOR] 📋 Recent transactions summary:");
             recentTransactions.forEach((tx, index) => {
-                console.log(`[TON_MONITOR] - #${index + 1}: ${tx.hash} at ${new Date(tx.utime * 1000).toISOString()}`);
+                const hash = getTransactionHash(tx);
+                console.log(`[TON_MONITOR] - #${index + 1}: ${hash} at ${new Date(tx.utime * 1000).toISOString()}`);
             });
         }
 
@@ -488,7 +501,7 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
 // ============================================================================
 
 /**
- * Обработка списка транзакций
+ * Обработка списка транзакций - ИСПРАВЛЕННАЯ ВЕРСИЯ
  */
 async function processTransactions(
     transactions: GetBlockTransaction[],
@@ -503,10 +516,15 @@ async function processTransactions(
         console.log(`[TON_MONITOR] 📝 Processing transaction ${index + 1}/${transactions.length}...`);
 
         try {
-            const txHash = transaction.hash;
+            // ИСПРАВЛЕНО: Получаем хеш из transaction_id.hash
+            const txHash = getTransactionHash(transaction);
 
             if (!txHash) {
-                console.warn(`[TON_MONITOR] ⚠️  Transaction ${index + 1} missing hash, skipping`);
+                console.warn(`[TON_MONITOR] ⚠️  Transaction ${index + 1} missing hash in transaction_id, skipping`);
+                console.warn(`[TON_MONITOR] - Transaction structure:`, {
+                    hasTransactionId: !!transaction.transaction_id,
+                    transactionIdKeys: transaction.transaction_id ? Object.keys(transaction.transaction_id) : null,
+                });
                 continue;
             }
 
@@ -616,12 +634,19 @@ function decodePayload(base64Body: string): string {
 }
 
 /**
- * Обработка одной транзакции
+ * Обработка одной транзакции - ИСПРАВЛЕННАЯ ВЕРСИЯ
  */
 async function processTransaction(
     transaction: GetBlockTransaction,
 ): Promise<ProcessedTransaction | null> {
-    const txHash = transaction.hash;
+    // ИСПРАВЛЕНО: Получаем хеш из transaction_id.hash
+    const txHash = getTransactionHash(transaction);
+
+    if (!txHash) {
+        console.log(`[TON_MONITOR] - Transaction missing hash in transaction_id, skipping`);
+        return null;
+    }
+
     console.log(`[TON_MONITOR] 🔍 Analyzing transaction ${txHash}...`);
 
     const inMsg = transaction.in_msg;
@@ -865,7 +890,7 @@ async function processTransaction(
 // ============================================================================
 
 /**
- * Сохранение некорректной транзакции
+ * Сохранение некорректной транзакции - ИСПРАВЛЕННАЯ ВЕРСИЯ
  */
 async function saveIncorrectTransaction(
     transaction: GetBlockTransaction,
@@ -874,7 +899,13 @@ async function saveIncorrectTransaction(
     payload: string,
     errorMessage: string,
 ): Promise<void> {
-    const txHash = transaction.hash;
+    // ИСПРАВЛЕНО: Получаем хеш из transaction_id.hash
+    const txHash = getTransactionHash(transaction);
+
+    if (!txHash) {
+        throw new Error("Transaction hash not found in transaction_id");
+    }
+
     console.log(`[TON_MONITOR] 💾 Saving incorrect transaction ${txHash} to database...`);
 
     try {
@@ -905,7 +936,7 @@ async function saveIncorrectTransaction(
 }
 
 /**
- * Сохранение успешной транзакции
+ * Сохранение успешной транзакции - ИСПРАВЛЕННАЯ ВЕРСИЯ
  */
 async function saveSuccessfulTransaction(
     transaction: GetBlockTransaction,
@@ -917,7 +948,12 @@ async function saveSuccessfulTransaction(
     uniqueId: string,
 ): Promise<void> {
     const expectedAmount = TON_PRICES[productType];
-    const txHash = transaction.hash;
+    // ИСПРАВЛЕНО: Получаем хеш из transaction_id.hash
+    const txHash = getTransactionHash(transaction);
+
+    if (!txHash) {
+        throw new Error("Transaction hash not found in transaction_id");
+    }
 
     console.log(`[TON_MONITOR] 💾 Saving successful transaction ${txHash} to database...`);
 
