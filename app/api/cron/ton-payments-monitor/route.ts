@@ -746,6 +746,37 @@ async function processTransaction(
 
     // Парсим payload для извлечения информации о заказе
     console.log(`[TON_MONITOR] 🔍 Parsing payload for order information...`);
+    console.log(`[TON_MONITOR] - Raw payload: "${payload}"`);
+    console.log(`[TON_MONITOR] - Payload length: ${payload.length}`);
+    console.log(`[TON_MONITOR] - TON_CONFIG.MAX_PAYLOAD_LENGTH: ${TON_CONFIG.MAX_PAYLOAD_LENGTH}`);
+    console.log(`[TON_MONITOR] - TON_CONFIG.PAYLOAD_SEPARATOR: "${TON_CONFIG.PAYLOAD_SEPARATOR}"`);
+
+    // Добавим ручную проверку разделения
+    const debugParts = payload.split("_");
+    console.log(`[TON_MONITOR] - Manual split by "_":`, debugParts);
+    console.log(`[TON_MONITOR] - Manual split count: ${debugParts.length}`);
+
+    if (debugParts.length === 4) {
+        const [timestampStr, telegramIdStr, productType, randomSuffix] = debugParts;
+        console.log(`[TON_MONITOR] - Debug parsing:`);
+        console.log(`[TON_MONITOR]   - timestampStr: "${timestampStr}" -> ${parseInt(timestampStr)}`);
+        console.log(`[TON_MONITOR]   - telegramIdStr: "${telegramIdStr}" -> ${parseInt(telegramIdStr)}`);
+        console.log(`[TON_MONITOR]   - productType: "${productType}"`);
+        console.log(`[TON_MONITOR]   - randomSuffix: "${randomSuffix}" (length: ${randomSuffix.length})`);
+
+        // Проверяем каждое поле
+        const timestampValid = !isNaN(parseInt(timestampStr)) && parseInt(timestampStr) > 0;
+        const telegramIdValid = !isNaN(parseInt(telegramIdStr)) && parseInt(telegramIdStr) > 0;
+        const productTypeValid = ["attempts_1", "attempts_5", "attempts_10", "attempts_100"].includes(productType);
+        const suffixValid = randomSuffix.length >= 3;
+
+        console.log(`[TON_MONITOR] - Field validations:`);
+        console.log(`[TON_MONITOR]   - timestamp valid: ${timestampValid}`);
+        console.log(`[TON_MONITOR]   - telegram_id valid: ${telegramIdValid}`);
+        console.log(`[TON_MONITOR]   - product_type valid: ${productTypeValid}`);
+        console.log(`[TON_MONITOR]   - suffix valid: ${suffixValid}`);
+    }
+
     const parseResult = parseTONPayload(payload);
 
     console.log(`[TON_MONITOR] - Parse result:`, {
