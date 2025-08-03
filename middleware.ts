@@ -22,8 +22,6 @@ export const config = {
     "/api/nebula/:path*",
     "/api/seasons/:path*",
     "/api/easter-egg/:path*",
-    "/api/ton/create-order",
-    "/api/ton/order-status/:path*",
   ],
 };
 
@@ -36,6 +34,8 @@ const PUBLIC_ENDPOINTS = [
   "/api/health",
   "/api/status",
   "/api/ton/products",
+  "/api/ton/create-order",
+  "/api/ton/order-status",
 ];
 
 // Admin endpoints that require special permissions
