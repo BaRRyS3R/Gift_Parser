@@ -56,22 +56,23 @@ interface CronResponse {
     };
 }
 
-// Интерфейс транзакции GetBlock API
+// Интерфейс транзакции GetBlock API (исправленный для фактической структуры)
 interface GetBlockTransaction {
     "@type": string;
-    account: string;
-    hash: string;
-    lt: string;
-    data: string;
+    address: {
+        "@type": string;
+        account_address: string;
+    };
     utime: number;
-    fee: string;
-    storage_fee: string;
-    other_fee: string;
+    data: string;
     transaction_id: {
         "@type": string;
         lt: string;
         hash: string;
     };
+    fee: string;
+    storage_fee: string;
+    other_fee: string;
     in_msg?: {
         "@type": string;
         source: string;
@@ -440,11 +441,13 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
             console.log("[TON_MONITOR] 📋 Sample transaction structure:");
             const sampleTx = transactions[0];
             console.log("[TON_MONITOR] - Transaction keys:", Object.keys(sampleTx));
-            console.log("[TON_MONITOR] - Has hash:", !!sampleTx.hash);
+            console.log("[TON_MONITOR] - Has transaction_id:", !!sampleTx.transaction_id);
+            console.log("[TON_MONITOR] - Has hash:", !!sampleTx.transaction_id?.hash);
             console.log("[TON_MONITOR] - Has utime:", !!sampleTx.utime);
             console.log("[TON_MONITOR] - Has in_msg:", !!sampleTx.in_msg);
             console.log("[TON_MONITOR] - Sample timestamp:", sampleTx.utime);
             console.log("[TON_MONITOR] - Sample date:", new Date(sampleTx.utime * 1000).toISOString());
+            console.log("[TON_MONITOR] - Sample hash:", sampleTx.transaction_id?.hash);
         }
 
         // Фильтруем транзакции по времени
@@ -465,7 +468,8 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         if (recentTransactions.length > 0) {
             console.log("[TON_MONITOR] 📋 Recent transactions summary:");
             recentTransactions.forEach((tx, index) => {
-                console.log(`[TON_MONITOR] - #${index + 1}: ${tx.hash} at ${new Date(tx.utime * 1000).toISOString()}`);
+                const txHash = tx.transaction_id?.hash || 'unknown';
+                console.log(`[TON_MONITOR] - #${index + 1}: ${txHash} at ${new Date(tx.utime * 1000).toISOString()}`);
             });
         }
 
@@ -503,7 +507,7 @@ async function processTransactions(
         console.log(`[TON_MONITOR] 📝 Processing transaction ${index + 1}/${transactions.length}...`);
 
         try {
-            const txHash = transaction.hash;
+            const txHash = transaction.transaction_id?.hash;
 
             if (!txHash) {
                 console.warn(`[TON_MONITOR] ⚠️  Transaction ${index + 1} missing hash, skipping`);
@@ -621,7 +625,13 @@ function decodePayload(base64Body: string): string {
 async function processTransaction(
     transaction: GetBlockTransaction,
 ): Promise<ProcessedTransaction | null> {
-    const txHash = transaction.hash;
+    const txHash = transaction.transaction_id?.hash;
+
+    if (!txHash) {
+        console.log(`[TON_MONITOR] - Transaction missing hash, skipping`);
+        return null;
+    }
+
     console.log(`[TON_MONITOR] 🔍 Analyzing transaction ${txHash}...`);
 
     const inMsg = transaction.in_msg;
@@ -874,7 +884,13 @@ async function saveIncorrectTransaction(
     payload: string,
     errorMessage: string,
 ): Promise<void> {
-    const txHash = transaction.hash;
+    const txHash = transaction.transaction_id?.hash;
+
+    if (!txHash) {
+        console.error(`[TON_MONITOR] ❌ Cannot save transaction without hash`);
+        return;
+    }
+
     console.log(`[TON_MONITOR] 💾 Saving incorrect transaction ${txHash} to database...`);
 
     try {
@@ -917,7 +933,12 @@ async function saveSuccessfulTransaction(
     uniqueId: string,
 ): Promise<void> {
     const expectedAmount = TON_PRICES[productType];
-    const txHash = transaction.hash;
+    const txHash = transaction.transaction_id?.hash;
+
+    if (!txHash) {
+        console.error(`[TON_MONITOR] ❌ Cannot save transaction without hash`);
+        return;
+    }
 
     console.log(`[TON_MONITOR] 💾 Saving successful transaction ${txHash} to database...`);
 
