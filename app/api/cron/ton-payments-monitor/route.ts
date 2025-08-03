@@ -248,7 +248,9 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         console.log("[TON_MONITOR] Corporate wallet:", TON_CONFIG.CORPORATE_WALLET);
 
         // ПРАВИЛЬНЫЙ формат URL для GetBlock REST API
-        const getBlockUrl = new URL(`https://ton.getblock.io/mainnet/getTransactions`);
+        // Используем базовый URL из вашего эндпоинта GetBlock
+        const baseUrl = `https://go.getblock.io/${CRON_CONFIG.GETBLOCK_API_KEY}`;
+        const getBlockUrl = new URL(`${baseUrl}/getTransactions`);
         getBlockUrl.searchParams.append('address', TON_CONFIG.CORPORATE_WALLET);
         getBlockUrl.searchParams.append('limit', '100');
 
@@ -257,8 +259,7 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         const response = await fetch(getBlockUrl.toString(), {
             method: "GET",
             headers: {
-                // ВАЖНО: GetBlock использует x-api-key, а не Authorization
-                "x-api-key": CRON_CONFIG.GETBLOCK_API_KEY!,
+                // API ключ уже включен в URL, дополнительная авторизация не требуется
                 "Content-Type": "application/json",
             },
         });
