@@ -601,7 +601,7 @@ async function checkTransactionExists(
 }
 
 /**
- * Декодирование base64 payload и извлечение текста
+ * Декодирование base64 payload и извлечение текста - УЛУЧШЕННАЯ ВЕРСИЯ
  */
 function decodePayload(base64Body: string): string {
     console.log(`[TON_MONITOR] 🔓 Decoding payload (length: ${base64Body.length})`);
@@ -634,7 +634,34 @@ function decodePayload(base64Body: string): string {
 }
 
 /**
- * Обработка одной транзакции - ИСПРАВЛЕННАЯ ВЕРСИЯ
+ * Новая функция для декодирования base64 строк (для text payload'ов)
+ */
+function decodeBase64Text(base64Text: string): string {
+    console.log(`[TON_MONITOR] 🔓 Decoding base64 text (length: ${base64Text.length})`);
+
+    try {
+        const decoded = Buffer.from(base64Text, 'base64').toString('utf-8').trim();
+        console.log(`[TON_MONITOR] - Decoded base64 text: "${decoded}"`);
+        return decoded;
+    } catch (error) {
+        console.warn("[TON_MONITOR] ⚠️  Failed to decode base64 text:", error);
+        return base64Text; // Возвращаем исходную строку если декодирование не удалось
+    }
+}
+
+/**
+ * Проверка является ли строка base64
+ */
+function isBase64(str: string): boolean {
+    try {
+        return Buffer.from(str, 'base64').toString('base64') === str;
+    } catch (error) {
+        return false;
+    }
+}
+
+/**
+ * Обработка одной транзакции - ИСПРАВЛЕННАЯ ВЕРСИЯ С ДЕКОДИРОВАНИЕМ PAYLOAD
  */
 async function processTransaction(
     transaction: GetBlockTransaction,
@@ -686,17 +713,27 @@ async function processTransaction(
         amount_ton: formatTONAmount(amountNanotons),
     });
 
-    // Извлекаем payload из тела сообщения
+    // ИСПРАВЛЕНО: Извлекаем payload из тела сообщения с правильным декодированием
     let payload = "";
 
     if (inMsg.msg_data) {
         if (inMsg.msg_data.text) {
-            payload = inMsg.msg_data.text;
-            console.log(`[TON_MONITOR] - Found direct text payload: "${payload}"`);
+            const rawText = inMsg.msg_data.text;
+            console.log(`[TON_MONITOR] - Found direct text payload: "${rawText}"`);
+
+            // НОВОЕ: Проверяем, является ли текст base64-encoded
+            if (isBase64(rawText)) {
+                console.log(`[TON_MONITOR] - Text appears to be base64, attempting to decode...`);
+                payload = decodeBase64Text(rawText);
+                console.log(`[TON_MONITOR] - Decoded text payload: "${payload}"`);
+            } else {
+                payload = rawText;
+                console.log(`[TON_MONITOR] - Using text payload as-is: "${payload}"`);
+            }
         } else if (inMsg.msg_data.body) {
             console.log(`[TON_MONITOR] - Attempting to decode body payload...`);
             payload = decodePayload(inMsg.msg_data.body);
-            console.log(`[TON_MONITOR] - Decoded payload: "${payload}"`);
+            console.log(`[TON_MONITOR] - Decoded body payload: "${payload}"`);
         }
     }
 
