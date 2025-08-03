@@ -22,6 +22,7 @@ export const config = {
     "/api/nebula/:path*",
     "/api/seasons/:path*",
     "/api/easter-egg/:path*",
+    "/api/cron/:path*"
   ],
 };
 
@@ -54,6 +55,7 @@ function handleCORSPreflight(request: NextRequest): NextResponse | null {
     "https://web.telegram.org",
     "https://notfren.com",
     "https://telegram.org",
+    "https://cron-job.org",
     "http://localhost:3000", // For development
   ].filter(Boolean);
 
