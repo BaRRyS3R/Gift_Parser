@@ -1,4 +1,4 @@
-// src/app/page.tsx - Исправленная версия с поддержкой iOS Safari
+// src/app/page.tsx - Simplified authentication page with single initialization button
 
 "use client";
 
@@ -8,7 +8,7 @@ import type { RegistrationResult, LoginResult } from "@/hooks/modules/useAuth";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@nextui-org/react";
-import { Play, Zap, Wifi, WifiOff, Gift, AlertTriangle } from "lucide-react";
+import { Zap, Gift, AlertTriangle } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
@@ -21,8 +21,6 @@ import {
 interface PageState {
   isInitializing: boolean;
   needsAuthentication: boolean;
-  isVideoMode: boolean;
-  videoError: string | null;
   referralInfo?: {
     code: string;
     bonus: number;
@@ -31,18 +29,8 @@ interface PageState {
   };
 }
 
-interface VideoState {
-  isLoading: boolean;
-  loadProgress: number;
-  isReady: boolean;
-  isPlaying: boolean;
-  fontLoaded: boolean;
-  userActivated: boolean; // NEW: Track if user has activated video playback
-}
-
 export default function IntroPage(): JSX.Element {
   const router = useRouter();
-  const videoRef = useRef<HTMLVideoElement>(null);
   const t = useT();
 
   const {
@@ -60,18 +48,9 @@ export default function IntroPage(): JSX.Element {
   const [pageState, setPageState] = useState<PageState>({
     isInitializing: true,
     needsAuthentication: false,
-    isVideoMode: false,
-    videoError: null,
   });
 
-  const [videoState, setVideoState] = useState<VideoState>({
-    isLoading: true,
-    loadProgress: 0,
-    isReady: false,
-    isPlaying: false,
-    fontLoaded: false,
-    userActivated: false,
-  });
+  const [fontLoaded, setFontLoaded] = useState<boolean>(false);
 
   const authStateRef = useRef(authState);
 
@@ -90,7 +69,6 @@ export default function IntroPage(): JSX.Element {
 
     if (!initData) {
       console.log("No Telegram initData available");
-
       return { user: null, initData: "" };
     }
 
@@ -98,12 +76,10 @@ export default function IntroPage(): JSX.Element {
 
     if (!parseResult.success || !parseResult.user) {
       console.log("Failed to parse Telegram data:", parseResult.error);
-
       return { user: null, initData };
     }
 
     console.log("Successfully parsed Telegram user data:", parseResult.user);
-
     return { user: parseResult.user, initData };
   }, []);
 
@@ -128,7 +104,6 @@ export default function IntroPage(): JSX.Element {
         };
       } catch (error) {
         console.error("Error validating referral code:", error);
-
         return { isValid: false, code, bonus: 0 };
       }
     },
@@ -154,7 +129,6 @@ export default function IntroPage(): JSX.Element {
 
         if (!result.success && result.error === "USER_NOT_FOUND") {
           console.log("User not found - this is expected for new users");
-
           return result;
         }
 
@@ -177,7 +151,6 @@ export default function IntroPage(): JSX.Element {
               setTimeout(() => {
                 router.push("/blocked");
               }, 1000);
-
               return result;
             }
 
@@ -191,7 +164,6 @@ export default function IntroPage(): JSX.Element {
               setTimeout(() => {
                 router.push("/nebula");
               }, 1000);
-
               return result;
             }
 
@@ -214,7 +186,6 @@ export default function IntroPage(): JSX.Element {
         return result;
       } catch (error) {
         console.error("Authentication error:", error);
-
         return {
           success: false,
           error:
@@ -226,7 +197,7 @@ export default function IntroPage(): JSX.Element {
   );
 
   /**
-   * Register new user without Nebula security checks
+   * Register new user and redirect to main page
    */
   const registerNewUser = useCallback(
     async (
@@ -235,7 +206,6 @@ export default function IntroPage(): JSX.Element {
     ): Promise<RegistrationResult> => {
       if (operationInProgressRef.current) {
         console.log("Registration already in progress, skipping...");
-
         return { success: false, error: "Registration already in progress" };
       }
 
@@ -272,7 +242,6 @@ export default function IntroPage(): JSX.Element {
         return result;
       } catch (error) {
         console.error("Registration error:", error);
-
         return {
           success: false,
           error: error instanceof Error ? error.message : "Registration failed",
@@ -290,7 +259,6 @@ export default function IntroPage(): JSX.Element {
   const initializeAuthentication = useCallback(async () => {
     if (authInitializedRef.current) {
       console.log("Auth already initialized, skipping...");
-
       return;
     }
 
@@ -309,9 +277,7 @@ export default function IntroPage(): JSX.Element {
         setPageState((prev) => ({
           ...prev,
           isInitializing: false,
-          videoError: t("auth.telegramDataUnavailable"),
         }));
-
         return;
       }
 
@@ -320,11 +286,11 @@ export default function IntroPage(): JSX.Element {
       const referralCode = extractReferralCode(initData);
       let referralInfo:
         | {
-            code: string;
-            bonus: number;
-            referrerName?: string;
-            referrerUsername?: string;
-          }
+          code: string;
+          bonus: number;
+          referrerName?: string;
+          referrerUsername?: string;
+        }
         | undefined;
 
       if (referralCode) {
@@ -356,7 +322,6 @@ export default function IntroPage(): JSX.Element {
           isInitializing: false,
           needsAuthentication: true,
         }));
-
         return;
       }
 
@@ -365,9 +330,7 @@ export default function IntroPage(): JSX.Element {
         setPageState((prev) => ({
           ...prev,
           isInitializing: false,
-          videoError: `Authentication error: ${authResult.error}`,
         }));
-
         return;
       }
     } catch (error) {
@@ -375,7 +338,6 @@ export default function IntroPage(): JSX.Element {
       setPageState((prev) => ({
         ...prev,
         isInitializing: false,
-        videoError: `${t("auth.databaseConnectionError")}: ${error instanceof Error ? error.message : t("auth.unknownError")}`,
       }));
     }
   }, [
@@ -383,58 +345,12 @@ export default function IntroPage(): JSX.Element {
     setTelegramUser,
     validateReferralCode,
     attemptAuthentication,
-    t,
   ]);
 
   /**
-   * Handle video completion and trigger new user registration
+   * Handle initialization button click
    */
-  const handleVideoCompletion = useCallback(async () => {
-    console.log("Video completed");
-
-    const currentAuthState = authStateRef.current;
-    const initData = getTelegramInitData();
-
-    console.log("Current auth state:", {
-      isAuthenticated: currentAuthState.isAuthenticated,
-      user: !!currentAuthState.user,
-      isRegistering: currentAuthState.isRegistering,
-    });
-
-    if (
-      !currentAuthState.isAuthenticated &&
-      !currentAuthState.isRegistering &&
-      initData
-    ) {
-      console.log("Starting registration after video completion");
-
-      const registrationResult = await registerNewUser(
-        initData,
-        pageState.referralInfo?.code,
-      );
-
-      if (!registrationResult.success) {
-        console.error(
-          "Registration failed after video:",
-          registrationResult.error,
-        );
-        setTimeout(() => {
-          router.push("/main");
-        }, 2000);
-      }
-    } else if (currentAuthState.isAuthenticated) {
-      console.log("User already authenticated, redirecting to main");
-      router.push("/main");
-    } else {
-      console.log("Unexpected state, redirecting to main");
-      router.push("/main");
-    }
-  }, [registerNewUser, pageState.referralInfo?.code, router]);
-
-  /**
-   * Handle quick registration without video for new users
-   */
-  const handleQuickRegistration = useCallback(async () => {
+  const handleInitialization = useCallback(async () => {
     const initData = getTelegramInitData();
 
     if (
@@ -442,12 +358,11 @@ export default function IntroPage(): JSX.Element {
       authState.isRegistering ||
       operationInProgressRef.current
     ) {
-      console.log("Cannot start quick registration:", {
+      console.log("Cannot start initialization:", {
         hasInitData: !!initData,
         isRegistering: authState.isRegistering,
         operationInProgress: operationInProgressRef.current,
       });
-
       return;
     }
 
@@ -457,111 +372,9 @@ export default function IntroPage(): JSX.Element {
     );
 
     if (!registrationResult.success) {
-      console.error("Quick registration failed:", registrationResult.error);
+      console.error("Initialization failed:", registrationResult.error);
     }
   }, [authState.isRegistering, registerNewUser, pageState.referralInfo?.code]);
-
-  /**
-   * ИСПРАВЛЕННАЯ функция для запуска видео с поддержкой iOS Safari
-   * Критически важно: все операции должны происходить синхронно в обработчике клика
-   */
-  const handleStartVideo = useCallback(async () => {
-    const video = videoRef.current;
-
-    if (!video) {
-      console.error("Video element not found");
-
-      return;
-    }
-
-    try {
-      console.log("Starting video playback (iOS Safari compatible)");
-
-      // КРИТИЧЕСКИ ВАЖНО: не устанавливаем currentTime перед play() на iOS
-      // Это может нарушить цепочку пользовательского жеста
-
-      // Убеждаемся, что видео готово к воспроизведению
-      if (video.readyState < 2) {
-        console.log("Video not ready, waiting...");
-        // Не ждем загрузки асинхронно - это нарушит пользовательский жест
-        setPageState((prev) => ({
-          ...prev,
-          videoError: "Video is still loading. Please try again in a moment.",
-        }));
-
-        return;
-      }
-
-      // Помечаем, что пользователь активировал видео
-      setVideoState((prev) => ({ ...prev, userActivated: true }));
-
-      // СИНХРОННЫЙ вызов play() без await для сохранения пользовательского жеста
-      const playPromise = video.play();
-
-      // Обновляем состояние немедленно
-      setVideoState((prev) => ({ ...prev, isPlaying: true }));
-      setPageState((prev) => ({
-        ...prev,
-        isVideoMode: true,
-        videoError: null,
-      }));
-
-      // Обрабатываем promise асинхронно, но не блокируем выполнение
-      playPromise
-        .then(() => {
-          console.log("Video started successfully");
-          // Теперь можно безопасно установить currentTime
-          video.currentTime = 0;
-        })
-        .catch((err) => {
-          console.error("Video play error:", err);
-          setPageState((prev) => ({
-            ...prev,
-            videoError: "Failed to play video. Please try again.",
-            isVideoMode: false,
-          }));
-          setVideoState((prev) => ({
-            ...prev,
-            isPlaying: false,
-            userActivated: false,
-          }));
-        });
-    } catch (err) {
-      console.error("Video start error:", err);
-      setPageState((prev) => ({
-        ...prev,
-        videoError: "Failed to start video. Please try again.",
-      }));
-    }
-  }, []);
-
-  /**
-   * iOS Safari specific video activation on any touch
-   * Это помогает "разблокировать" видео для последующего воспроизведения
-   */
-  const activateVideoForIOS = useCallback(() => {
-    const video = videoRef.current;
-
-    if (!video || videoState.userActivated) return;
-
-    // Пытаемся "активировать" видео для iOS Safari
-    const playPromise = video.play();
-
-    if (playPromise) {
-      playPromise
-        .then(() => {
-          // Немедленно ставим на паузу
-          video.pause();
-          video.currentTime = 0;
-          setVideoState((prev) => ({ ...prev, userActivated: true }));
-          console.log("Video activated for iOS Safari");
-        })
-        .catch(() => {
-          // Игнорируем ошибки активации
-          console.log("Video activation failed, but this is expected");
-        });
-    }
-  }, [videoState.userActivated]);
 
   // Initialize Service Worker and font loading
   useEffect(() => {
@@ -577,73 +390,12 @@ export default function IntroPage(): JSX.Element {
     if ("fonts" in document) {
       document.fonts
         .load('1rem "BPDots Diamond"')
-        .then(() => setVideoState((prev) => ({ ...prev, fontLoaded: true })))
-        .catch(() => setVideoState((prev) => ({ ...prev, fontLoaded: true })));
+        .then(() => setFontLoaded(true))
+        .catch(() => setFontLoaded(true));
     } else {
-      setTimeout(
-        () => setVideoState((prev) => ({ ...prev, fontLoaded: true })),
-        1000,
-      );
+      setTimeout(() => setFontLoaded(true), 1000);
     }
   }, []);
-
-  // Initialize video setup
-  useEffect(() => {
-    const video = videoRef.current;
-
-    if (!video) return;
-
-    const handleLoadedMetadata = () => {
-      video.volume = 1;
-      setVideoState((prev) => ({ ...prev, isReady: true }));
-    };
-
-    const handleProgress = () => {
-      if (video.buffered.length > 0) {
-        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-        const duration = video.duration;
-
-        if (duration > 0) {
-          const progress = (bufferedEnd / duration) * 100;
-
-          setVideoState((prev) => ({ ...prev, loadProgress: progress }));
-        }
-      }
-    };
-
-    const handleCanPlayThrough = () => {
-      setVideoState((prev) => ({ ...prev, isLoading: false }));
-    };
-
-    const handleEnded = () => {
-      console.log("Video playback ended");
-      handleVideoCompletion();
-    };
-
-    const handleError = (e: Event) => {
-      console.error("Video error:", e);
-      setPageState((prev) => ({
-        ...prev,
-        videoError: "Failed to load video. Please try again.",
-      }));
-    };
-
-    video.addEventListener("loadedmetadata", handleLoadedMetadata);
-    video.addEventListener("progress", handleProgress);
-    video.addEventListener("canplaythrough", handleCanPlayThrough);
-    video.addEventListener("ended", handleEnded);
-    video.addEventListener("error", handleError);
-
-    video.load();
-
-    return () => {
-      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      video.removeEventListener("progress", handleProgress);
-      video.removeEventListener("canplaythrough", handleCanPlayThrough);
-      video.removeEventListener("ended", handleEnded);
-      video.removeEventListener("error", handleError);
-    };
-  }, [handleVideoCompletion]);
 
   // Initialize authentication flow
   useEffect(() => {
@@ -652,26 +404,8 @@ export default function IntroPage(): JSX.Element {
     }
   }, [initializeAuthentication, authState.isAuthenticated]);
 
-  // iOS Safari video activation on first touch
-  useEffect(() => {
-    // Добавляем обработчик для активации видео на iOS Safari
-    const handleFirstTouch = () => {
-      activateVideoForIOS();
-      document.removeEventListener("touchstart", handleFirstTouch);
-    };
-
-    document.addEventListener("touchstart", handleFirstTouch, { once: true });
-
-    return () => {
-      document.removeEventListener("touchstart", handleFirstTouch);
-    };
-  }, [activateVideoForIOS]);
-
   const isInitialLoading =
-    pageState.isInitializing ||
-    userLoading ||
-    (videoState.isLoading && !pageState.videoError) ||
-    !videoState.fontLoaded;
+    pageState.isInitializing || userLoading || !fontLoaded;
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -679,15 +413,12 @@ export default function IntroPage(): JSX.Element {
       {isInitialLoading && (
         <div className="loader-container">
           <div className="progress-bar">
-            <div
-              className="progress-bar-fill"
-              style={{ width: `${videoState.loadProgress}%` }}
-            />
+            <div className="progress-bar-fill" style={{ width: "100%" }} />
           </div>
           <p className="text-white mt-4 text-sm">
             {pageState.isInitializing
               ? t("auth.checkingUser")
-              : `${t("common.loading")} ${Math.round(videoState.loadProgress)}%`}
+              : t("common.loading")}
           </p>
         </div>
       )}
@@ -707,7 +438,6 @@ export default function IntroPage(): JSX.Element {
               setPageState((prev) => ({
                 ...prev,
                 isInitializing: true,
-                videoError: null,
               }));
               initializeAuthentication();
             }}
@@ -717,34 +447,11 @@ export default function IntroPage(): JSX.Element {
         </div>
       )}
 
-      {/* Video Error Screen */}
-      {pageState.videoError && !isInitialLoading && !authState.error && (
-        <div className="loader-container">
-          <div className="flex items-center justify-center mb-4">
-            <AlertTriangle className="text-red-400" size={48} />
-          </div>
-          <p className="text-white text-center mb-4">{pageState.videoError}</p>
-          <button
-            className="px-4 py-2 bg-white text-black rounded mb-4"
-            onClick={handleStartVideo}
-          >
-            {t("common.retry")}
-          </button>
-          <button
-            className="block px-6 py-3 bg-transparent border border-white/60 text-white/80 rounded-lg text-sm hover:bg-white/5 hover:border-white hover:text-white transition-colors"
-            onClick={handleQuickRegistration}
-          >
-            {t("auth.continueWithoutVideo")}
-          </button>
-        </div>
-      )}
-
       {/* Registration Screen */}
       {pageState.needsAuthentication &&
         !pageState.isInitializing &&
         !authState.error &&
-        !pageState.videoError &&
-        !videoState.isPlaying && (
+        !isInitialLoading && (
           <div className="min-h-screen bg-black flex items-center justify-center p-6 fixed inset-0 z-50">
             <div className="w-full max-w-md space-y-8">
               {authState.isRegistering ? (
@@ -783,124 +490,34 @@ export default function IntroPage(): JSX.Element {
                         <p className="text-green-400/60 text-xs">by John Doe</p>
                       </div>
                     )}
-
-                    <p className="text-white/50 text-xs uppercase tracking-widest">
-                      {t("main.chooseEntryMethod")}
-                    </p>
                   </div>
 
                   <div className="space-y-6">
-                    <div className="space-y-3">
-                      <button
-                        className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        disabled={authState.isRegistering}
-                        style={{ pointerEvents: "auto", zIndex: 100 }}
-                        onClick={handleStartVideo}
-                      >
-                        <div className="flex items-center justify-center space-x-4">
-                          <div className="relative">
-                            <Play
-                              className="text-white group-hover:translate-x-1 transition-transform duration-300"
-                              size={24}
-                            />
-                            <Wifi
-                              className="absolute -top-2 -right-2 text-white/60"
-                              size={16}
-                            />
-                          </div>
-                          <span className="tracking-wider">
-                            {t("main.initialize")}
-                          </span>
+                    <button
+                      className="group relative w-full px-8 py-6 bg-transparent border-2 border-white/60 text-white rounded-2xl text-xl font-bold hover:border-white hover:bg-white/5 transition-all duration-500 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      disabled={authState.isRegistering}
+                      style={{ pointerEvents: "auto", zIndex: 100 }}
+                      onClick={handleInitialization}
+                    >
+                      <div className="flex items-center justify-center space-x-4">
+                        <div className="relative">
+                          <Zap
+                            className="text-white group-hover:translate-x-1 transition-transform duration-300"
+                            size={24}
+                          />
                         </div>
-                        <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
-                      </button>
-                      <div className="text-center space-y-1">
-                        <p className="text-white/60 text-sm">
-                          {t("main.fullExperience")}
-                        </p>
-                        <p className="text-white/40 text-xs">
-                          {t("main.recommended")}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-white/20" />
-                      </div>
-                      <div className="relative flex justify-center">
-                        <span className="bg-black px-4 text-white/40 text-xs uppercase">
-                          {t("common.or")}
+                        <span className="tracking-wider">
+                          {t("main.initialize")}
                         </span>
                       </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <button
-                        className="group relative w-full px-6 py-4 bg-transparent border border-white/40 text-white/80 rounded-xl text-lg hover:bg-white/5 hover:border-white/60 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        disabled={authState.isRegistering}
-                        style={{ pointerEvents: "auto", zIndex: 100 }}
-                        onClick={handleQuickRegistration}
-                      >
-                        <div className="flex items-center justify-center space-x-3">
-                          <div className="relative">
-                            <Zap
-                              className="text-white/70 group-hover:text-white transition-colors duration-300"
-                              size={20}
-                            />
-                            <WifiOff
-                              className="absolute -top-1 -right-1 text-white/50"
-                              size={12}
-                            />
-                          </div>
-                          <span>{t("main.quickStart")}</span>
-                        </div>
-                      </button>
-                      <div className="text-center space-y-1">
-                        <p className="text-white/50 text-sm">
-                          {t("main.skipIntro")}
-                        </p>
-                        <p className="text-white/30 text-xs">
-                          {t("main.slowConnections")}
-                        </p>
-                      </div>
-                    </div>
+                      <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+                    </button>
                   </div>
                 </div>
               )}
             </div>
           </div>
         )}
-
-      {/* Video Container */}
-      <div
-        className={`video-container ${
-          videoState.isPlaying ? "opacity-100" : "opacity-0"
-        } transition-opacity duration-500`}
-      >
-        {/* ИСПРАВЛЕННЫЙ элемент video с поддержкой iOS Safari */}
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video
-          ref={videoRef}
-          muted
-          playsInline
-          aria-label="Application introduction video"
-          className="video-player"
-          preload="auto"
-        >
-          <source
-            src="https://notfren.com/circusle/videos/intro.mp4"
-            type="video/mp4"
-          />
-          <track
-            default
-            kind="captions"
-            label="English captions"
-            srcLang="en"
-          />
-          Your browser does not support the video tag.
-        </video>
-      </div>
     </div>
   );
 }
