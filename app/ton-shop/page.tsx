@@ -1,4 +1,4 @@
-// src/app/ton-shop/page.tsx - TON Shop с встроенным каталогом продуктов
+// src/app/ton-shop/page.tsx - Полностью исправленная версия с правильным форматом транзакций
 
 "use client";
 
@@ -13,6 +13,8 @@ import {
     TonConnectButton,
 } from "@tonconnect/ui-react";
 import { Wallet, CheckCircle, Clock, AlertCircle, Star } from "lucide-react";
+// ВАЖНО: Импортируем необходимые функции для работы с Cell
+import { beginCell } from "@ton/core";
 
 import {
     CreateTONOrderResponse,
@@ -34,7 +36,7 @@ interface TONProduct {
     attempts: number;
     title: string;
     description: string;
-    priceNanotons: string; // Changed from bigint to string for JSON serialization
+    priceNanotons: string;
     priceTON: string;
 }
 
@@ -84,7 +86,7 @@ function TONShopContent() {
     useEffect(() => {
         if (!initData) {
             setError(
-                "Missing authentication data. Please access this page through the main app.",
+                "Отсутствуют данные аутентификации. Пожалуйста, откройте эту страницу через основное приложение.",
             );
             setIsLoading(false);
             return;
@@ -95,7 +97,7 @@ function TONShopContent() {
             const parseResult = parseTelegramInitData(decodeURIComponent(initData));
 
             if (!parseResult.success || !parseResult.user) {
-                setError("Invalid authentication data");
+                setError("Неверные данные аутентификации");
                 setIsLoading(false);
                 return;
             }
@@ -104,7 +106,6 @@ function TONShopContent() {
             setUserInfo({
                 telegramId: parseResult.user.id,
                 firstName: parseResult.user.first_name,
-                // attemptsRemaining будет загружено отдельно если понадобится
             });
 
             // Загружаем встроенный каталог продуктов
@@ -112,20 +113,20 @@ function TONShopContent() {
                 const productInfo = getTONProductInfo(productType);
                 return {
                     ...productInfo,
-                    priceNanotons: productInfo.priceNanotons // Already a string from getTONProductInfo
+                    priceNanotons: productInfo.priceNanotons
                 };
             });
             setProducts(embeddedProducts);
 
-            console.log("[TON_SHOP] Initialized with embedded catalog:", {
+            console.log("[TON_SHOP] Инициализирован с встроенным каталогом:", {
                 user: parseResult.user.first_name,
                 productsCount: embeddedProducts.length,
             });
 
             setIsLoading(false);
         } catch (error) {
-            console.error("[TON_SHOP] Error initializing:", error);
-            setError("Failed to initialize shop");
+            console.error("[TON_SHOP] Ошибка инициализации:", error);
+            setError("Не удалось инициализировать магазин");
             setIsLoading(false);
         }
     }, [initData]);
@@ -145,7 +146,7 @@ function TONShopContent() {
                         ...prev,
                         isPending: false,
                         error:
-                            "Order monitoring timeout. Please check your transaction status manually.",
+                            "Время ожидания истекло. Пожалуйста, проверьте статус транзакции вручную.",
                     }));
                 },
                 5 * 60 * 1000,
@@ -178,18 +179,18 @@ function TONShopContent() {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || "Failed to create order");
+                throw new Error(errorData.error || "Не удалось создать заказ");
             }
 
             const data: CreateTONOrderResponse = await response.json();
 
             if (!data.success || !data.order) {
-                throw new Error(data.error || "Failed to create order");
+                throw new Error(data.error || "Не удалось создать заказ");
             }
 
-            console.log("[TON_SHOP] Order created:", data.order.id);
+            console.log("[TON_SHOP] Заказ создан:", data.order.id);
 
-            // Подготавливаем транзакцию для TON кошелька
+            // Отправляем транзакцию в TON кошелек
             await sendTONTransaction(data.order);
 
             setOrderState((prev) => ({
@@ -199,108 +200,92 @@ function TONShopContent() {
                 isPending: true,
             }));
         } catch (error) {
-            console.error("[TON_SHOP] Error creating order:", error);
+            console.error("[TON_SHOP] Ошибка создания заказа:", error);
             setOrderState((prev) => ({
                 ...prev,
                 isCreating: false,
                 error:
-                    error instanceof Error ? error.message : "Failed to create order",
+                    error instanceof Error ? error.message : "Не удалось создать заказ",
             }));
         }
     };
 
     /**
-     * Отправка TON транзакции
-     */
-    // src/app/ton-shop/page.tsx - Transaction sending fix
-
-    /**
-     * Fixed sendTONTransaction with proper amount formatting
+     * ИСПРАВЛЕННАЯ функция отправки TON транзакции
      */
     const sendTONTransaction = async (order: CreateTONOrderResponse["order"]) => {
         if (!wallet) {
-            throw new Error("Wallet not connected");
+            throw new Error("Кошелек не подключен");
         }
 
         if (!order) {
-            throw new Error("Invalid order data");
+            throw new Error("Неверные данные заказа");
         }
 
         try {
-            // CRITICAL: Ensure we have valid transaction data
-            if (!order.payment.amountNanotons || !order.payment.destinationWallet || !order.payment.payload) {
-                console.error("[TON_SHOP] Invalid order payment data:", order.payment);
-                throw new Error("Invalid payment data in order");
+            console.log("[TON_SHOP] Подготовка транзакции для заказа:", order.id);
+
+            // ВАЖНО: Создаем правильный payload с комментарием
+            let payloadBase64: string | undefined;
+
+            if (order.payment.payload) {
+                // Создаем Cell с комментарием по стандарту TON
+                const commentCell = beginCell()
+                    .storeUint(0, 32) // Записываем 32 нулевых бита для обозначения текстового комментария
+                    .storeStringTail(order.payment.payload) // Записываем сам комментарий (ID заказа)
+                    .endCell();
+
+                // Конвертируем в base64
+                payloadBase64 = commentCell.toBoc().toString('base64');
+
+                console.log("[TON_SHOP] Payload создан:", {
+                    orderId: order.payment.payload,
+                    base64: payloadBase64
+                });
             }
 
-            // Convert the comment/payload to the proper format
-            // TON Connect expects the payload as a base64-encoded BOC (Bag of Cells)
-            const comment = order.payment.payload;
-
-            // Create a properly formatted transaction
+            // Формируем транзакцию в правильном формате
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300, // 5 minutes from now
+                validUntil: Math.floor(Date.now() / 1000) + 300, // 5 минут
                 messages: [
                     {
                         address: order.payment.destinationWallet,
-                        amount: order.payment.amountNanotons, // This should be a string representation of nanotons
-                        // For simple text comments, we can send as plain text
-                        // The wallet will handle the encoding
-                        payload: comment, // The order ID/unique identifier
+                        amount: order.payment.amountNanotons, // Уже строка из API
+                        payload: payloadBase64 // Base64 закодированный Cell с комментарием
                     }
                 ]
             };
 
-            console.log("[TON_SHOP] Sending transaction:", {
+            console.log("[TON_SHOP] Отправка транзакции:", {
                 orderId: order.id,
                 amountTON: order.payment.amount,
                 amountNanotons: order.payment.amountNanotons,
                 destination: order.payment.destinationWallet,
-                payload: comment,
+                hasPayload: !!payloadBase64,
                 validUntil: transaction.validUntil
             });
 
-            // Validate the destination address format
-            if (!isValidTONAddress(order.payment.destinationWallet)) {
-                throw new Error("Invalid destination wallet address");
-            }
-
-            // Validate amount is a valid string number
-            const amountBigInt = BigInt(order.payment.amountNanotons);
-            if (amountBigInt <= 0) {
-                throw new Error("Invalid transaction amount");
-            }
-
-            // Send transaction through TON Connect UI
+            // Отправляем транзакцию через TON Connect UI
             const result = await tonConnectUI.sendTransaction(transaction);
 
-            console.log("[TON_SHOP] Transaction sent successfully:", result);
+            console.log("[TON_SHOP] Транзакция отправлена успешно:", result);
 
             return result;
         } catch (error) {
-            console.error("[TON_SHOP] Error sending transaction:", error);
+            console.error("[TON_SHOP] Ошибка отправки транзакции:", error);
 
-            // Provide user-friendly error messages
+            // Обработка специфических ошибок
             if (error instanceof Error) {
-                if (error.message.includes("User rejected")) {
-                    throw new Error("Transaction was cancelled by user");
+                if (error.message.includes("User rejects")) {
+                    throw new Error("Транзакция отменена пользователем");
                 }
                 if (error.message.includes("Insufficient balance")) {
-                    throw new Error("Insufficient TON balance in wallet");
+                    throw new Error("Недостаточно TON на балансе кошелька");
                 }
             }
 
-            throw new Error("Failed to send transaction. Please try again.");
+            throw new Error("Не удалось отправить транзакцию. Пожалуйста, попробуйте снова.");
         }
-    };
-
-    /**
-     * Helper function to validate TON address
-     */
-    const isValidTONAddress = (address: string): boolean => {
-        // Basic validation for TON address format
-        const tonAddressRegex = /^[UE]Q[A-Za-z0-9_-]{46}$/;
-        return tonAddressRegex.test(address);
     };
 
     /**
@@ -311,7 +296,7 @@ function TONShopContent() {
             const response = await fetch(`/api/ton/order-status/${orderId}`);
 
             if (!response.ok) {
-                throw new Error("Failed to check order status");
+                throw new Error("Не удалось проверить статус заказа");
             }
 
             const data = await response.json();
@@ -324,11 +309,11 @@ function TONShopContent() {
                         isCompleted: true,
                     }));
 
-                    console.log("[TON_SHOP] Order completed:", orderId);
+                    console.log("[TON_SHOP] Заказ выполнен:", orderId);
                 }
             }
         } catch (error) {
-            console.error("[TON_SHOP] Error checking order status:", error);
+            console.error("[TON_SHOP] Ошибка проверки статуса заказа:", error);
         }
     };
 
@@ -365,7 +350,7 @@ function TONShopContent() {
             <div className="min-h-screen bg-black text-white flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <Spinner color="white" size="lg" />
-                    <p className="text-white/70">Loading TON Shop...</p>
+                    <p className="text-white/70">Загрузка TON Shop...</p>
                 </div>
             </div>
         );
@@ -377,13 +362,13 @@ function TONShopContent() {
                 <Card className="bg-white/10 border border-white/20 max-w-md">
                     <CardBody className="text-center space-y-4">
                         <AlertCircle className="mx-auto text-red-400" size={48} />
-                        <h2 className="text-xl font-bold text-white">Error Loading Shop</h2>
+                        <h2 className="text-xl font-bold text-white">Ошибка загрузки магазина</h2>
                         <p className="text-white/70">{error}</p>
                         <Button
                             className="bg-white/20 text-white border border-white/40"
                             onPress={() => window.location.reload()}
                         >
-                            Retry
+                            Повторить
                         </Button>
                     </CardBody>
                 </Card>
@@ -393,26 +378,26 @@ function TONShopContent() {
 
     return (
         <div className="min-h-screen bg-black text-white p-4">
-            {/* Header */}
+            {/* Заголовок */}
             <div className="max-w-4xl mx-auto mb-8">
                 <div className="text-center space-y-4 mb-8">
                     <h1 className="text-4xl font-bold text-white">TON Shop</h1>
                     <p className="text-white/60 text-sm uppercase tracking-[0.3em]">
-                        Purchase game attempts with TON
+                        Покупка игровых попыток за TON
                     </p>
                 </div>
 
-                {/* User Info */}
+                {/* Информация о пользователе */}
                 {userInfo && (
                     <Card className="bg-white/10 border border-white/20 mb-6">
                         <CardBody className="p-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h3 className="font-bold text-white">
-                                        Welcome, {userInfo.firstName}!
+                                        Добро пожаловать, {userInfo.firstName}!
                                     </h3>
                                     <p className="text-white/70 text-sm">
-                                        Select a package below to purchase attempts
+                                        Выберите пакет для покупки попыток
                                     </p>
                                 </div>
                                 <Chip
@@ -426,18 +411,18 @@ function TONShopContent() {
                     </Card>
                 )}
 
-                {/* Wallet Connection */}
+                {/* Подключение кошелька */}
                 <Card className="bg-white/10 border border-white/20 mb-6">
                     <CardBody className="p-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
                                 <Wallet className="text-white" size={24} />
                                 <div>
-                                    <h3 className="font-bold text-white">TON Wallet</h3>
+                                    <h3 className="font-bold text-white">TON Кошелек</h3>
                                     <p className="text-white/70 text-sm">
                                         {wallet
-                                            ? "Connected"
-                                            : "Connect your TON wallet to make purchases"}
+                                            ? "Подключен"
+                                            : "Подключите кошелек для совершения покупок"}
                                     </p>
                                 </div>
                             </div>
@@ -448,7 +433,7 @@ function TONShopContent() {
                                 />
                                 {wallet && (
                                     <Chip className="bg-green-600/20 text-green-300 border border-green-600/30">
-                                        Connected
+                                        Подключен
                                     </Chip>
                                 )}
                             </div>
@@ -457,7 +442,7 @@ function TONShopContent() {
                 </Card>
             </div>
 
-            {/* Order Status */}
+            {/* Статус заказа */}
             {(orderState.isCreating ||
                 orderState.isPending ||
                 orderState.isCompleted ||
@@ -469,9 +454,9 @@ function TONShopContent() {
                                     <div className="flex items-center space-x-3">
                                         <Spinner color="white" size="sm" />
                                         <div>
-                                            <h4 className="font-bold text-white">Creating Order...</h4>
+                                            <h4 className="font-bold text-white">Создание заказа...</h4>
                                             <p className="text-white/70 text-sm">
-                                                Preparing your purchase
+                                                Подготовка вашей покупки
                                             </p>
                                         </div>
                                     </div>
@@ -482,11 +467,10 @@ function TONShopContent() {
                                         <Clock className="text-yellow-400 animate-pulse" size={24} />
                                         <div>
                                             <h4 className="font-bold text-white">
-                                                Payment Processing...
+                                                Обработка платежа...
                                             </h4>
                                             <p className="text-white/70 text-sm">
-                                                Your transaction is being processed. This may take up to 5
-                                                minutes.
+                                                Ваша транзакция обрабатывается. Это может занять до 5 минут.
                                             </p>
                                         </div>
                                     </div>
@@ -498,10 +482,10 @@ function TONShopContent() {
                                             <CheckCircle className="text-green-400" size={24} />
                                             <div>
                                                 <h4 className="font-bold text-white">
-                                                    Payment Successful!
+                                                    Платеж успешно завершен!
                                                 </h4>
                                                 <p className="text-white/70 text-sm">
-                                                    Your attempts have been added to your account.
+                                                    Ваши попытки добавлены на аккаунт.
                                                 </p>
                                             </div>
                                         </div>
@@ -509,7 +493,7 @@ function TONShopContent() {
                                             className="bg-white/20 text-white border border-white/40"
                                             onPress={resetOrderState}
                                         >
-                                            New Purchase
+                                            Новая покупка
                                         </Button>
                                     </div>
                                 )}
@@ -519,7 +503,7 @@ function TONShopContent() {
                                         <div className="flex items-center space-x-3">
                                             <AlertCircle className="text-red-400" size={24} />
                                             <div>
-                                                <h4 className="font-bold text-white">Payment Error</h4>
+                                                <h4 className="font-bold text-white">Ошибка платежа</h4>
                                                 <p className="text-white/70 text-sm">
                                                     {orderState.error}
                                                 </p>
@@ -529,7 +513,7 @@ function TONShopContent() {
                                             className="bg-white/20 text-white border border-white/40"
                                             onPress={resetOrderState}
                                         >
-                                            Try Again
+                                            Попробовать снова
                                         </Button>
                                     </div>
                                 )}
@@ -538,7 +522,7 @@ function TONShopContent() {
                     </div>
                 )}
 
-            {/* Products Grid */}
+            {/* Сетка продуктов */}
             <div className="max-w-4xl mx-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {products.map((product) => (
@@ -555,22 +539,21 @@ function TONShopContent() {
                 </div>
             </div>
 
-            {/* Info Section */}
+            {/* Информационный раздел */}
             <div className="max-w-4xl mx-auto mt-8">
                 <Card className="bg-white/5 border border-white/10">
                     <CardBody className="p-6 text-center">
-                        <h3 className="font-bold text-white mb-2">Important Information</h3>
+                        <h3 className="font-bold text-white mb-2">Важная информация</h3>
                         <p className="text-white/70 text-sm mb-4">
-                            • Payments are processed automatically within 5 minutes
+                            • Платежи обрабатываются автоматически в течение 5 минут
                             <br />
-                            • You can safely close this page after payment
+                            • Вы можете безопасно закрыть эту страницу после оплаты
                             <br />
-                            • Attempts will be visible in the main app after processing
-                            <br />• You will receive a notification when the payment is
-                            complete
+                            • Попытки будут видны в основном приложении после обработки
+                            <br />• Вы получите уведомление, когда платеж будет завершен
                         </p>
                         <p className="text-white/50 text-xs">
-                            Corporate wallet: {TON_CONFIG.CORPORATE_WALLET}
+                            Корпоративный кошелек: {TON_CONFIG.CORPORATE_WALLET}
                         </p>
                     </CardBody>
                 </Card>
@@ -597,17 +580,17 @@ function ProductCard({
         switch (product.productType) {
             case "attempts_5":
                 return {
-                    text: "Popular",
+                    text: "Популярный",
                     color: "bg-blue-600/20 text-blue-300 border-blue-600/30",
                 };
             case "attempts_10":
                 return {
-                    text: "Best Value",
+                    text: "Лучшая цена",
                     color: "bg-green-600/20 text-green-300 border-green-600/30",
                 };
             case "attempts_100":
                 return {
-                    text: "Ultimate",
+                    text: "Максимум",
                     color: "bg-purple-600/20 text-purple-300 border-purple-600/30",
                 };
             default:
@@ -631,7 +614,7 @@ function ProductCard({
         >
             <CardBody className="p-6">
                 <div className="space-y-4">
-                    {/* Header with badge */}
+                    {/* Заголовок с badge */}
                     <div className="flex items-start justify-between">
                         <div className="flex-1">
                             <h3 className="font-bold text-white text-lg mb-1">
@@ -646,7 +629,7 @@ function ProductCard({
                         )}
                     </div>
 
-                    {/* Price and purchase */}
+                    {/* Цена и покупка */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                             <Star className="text-yellow-400" size={20} />
@@ -665,7 +648,7 @@ function ProductCard({
                             isDisabled={disabled}
                             onPress={onSelect}
                         >
-                            {isSelected ? "Processing..." : "Buy with TON"}
+                            {isSelected ? "Обработка..." : "Купить за TON"}
                         </Button>
                     </div>
                 </div>
@@ -682,7 +665,7 @@ export default function TONShopPage() {
                 <div className="min-h-screen bg-black text-white flex items-center justify-center">
                     <div className="text-center space-y-4">
                         <Spinner color="white" size="lg" />
-                        <p className="text-white/70">Loading TON Shop...</p>
+                        <p className="text-white/70">Загрузка TON Shop...</p>
                     </div>
                 </div>
             }
