@@ -85,7 +85,7 @@ export default function ShopPage() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -179,9 +179,9 @@ export default function ShopPage() {
     const message = isInstantReset
       ? t("shop.notifications.instantResetMessage")
       : t("shop.notifications.purchaseSuccessMessage", {
-        attempts: attemptsText,
-        plural: plural,
-      });
+          attempts: attemptsText,
+          plural: plural,
+        });
 
     setSuccessNotification({
       show: true,
@@ -326,14 +326,14 @@ export default function ShopPage() {
                 </div>
               </div>
               <TONPurchaseButton
+                className="bg-blue-600 text-white hover:bg-blue-700"
                 size="lg"
                 variant="solid"
-                className="bg-blue-600 text-white hover:bg-blue-700"
               >
                 <div className="flex items-center space-x-2">
                   <Wallet size={18} />
                   <span>{t("shop.openTONShop")}</span>
-                  <ExternalLink size={14} className="opacity-70" />
+                  <ExternalLink className="opacity-70" size={14} />
                 </div>
               </TONPurchaseButton>
             </div>
@@ -347,9 +347,7 @@ export default function ShopPage() {
           <h3 className="text-xl font-bold text-white mb-2">
             {t("shop.payWithStars")}
           </h3>
-          <p className="text-white/60 text-sm">
-            {t("shop.starsDescription")}
-          </p>
+          <p className="text-white/60 text-sm">{t("shop.starsDescription")}</p>
         </div>
       </div>
 

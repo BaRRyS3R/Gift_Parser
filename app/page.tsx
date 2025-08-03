@@ -69,6 +69,7 @@ export default function IntroPage(): JSX.Element {
 
     if (!initData) {
       console.log("No Telegram initData available");
+
       return { user: null, initData: "" };
     }
 
@@ -76,10 +77,12 @@ export default function IntroPage(): JSX.Element {
 
     if (!parseResult.success || !parseResult.user) {
       console.log("Failed to parse Telegram data:", parseResult.error);
+
       return { user: null, initData };
     }
 
     console.log("Successfully parsed Telegram user data:", parseResult.user);
+
     return { user: parseResult.user, initData };
   }, []);
 
@@ -104,6 +107,7 @@ export default function IntroPage(): JSX.Element {
         };
       } catch (error) {
         console.error("Error validating referral code:", error);
+
         return { isValid: false, code, bonus: 0 };
       }
     },
@@ -129,6 +133,7 @@ export default function IntroPage(): JSX.Element {
 
         if (!result.success && result.error === "USER_NOT_FOUND") {
           console.log("User not found - this is expected for new users");
+
           return result;
         }
 
@@ -151,6 +156,7 @@ export default function IntroPage(): JSX.Element {
               setTimeout(() => {
                 router.push("/blocked");
               }, 1000);
+
               return result;
             }
 
@@ -164,6 +170,7 @@ export default function IntroPage(): JSX.Element {
               setTimeout(() => {
                 router.push("/nebula");
               }, 1000);
+
               return result;
             }
 
@@ -186,6 +193,7 @@ export default function IntroPage(): JSX.Element {
         return result;
       } catch (error) {
         console.error("Authentication error:", error);
+
         return {
           success: false,
           error:
@@ -206,6 +214,7 @@ export default function IntroPage(): JSX.Element {
     ): Promise<RegistrationResult> => {
       if (operationInProgressRef.current) {
         console.log("Registration already in progress, skipping...");
+
         return { success: false, error: "Registration already in progress" };
       }
 
@@ -242,6 +251,7 @@ export default function IntroPage(): JSX.Element {
         return result;
       } catch (error) {
         console.error("Registration error:", error);
+
         return {
           success: false,
           error: error instanceof Error ? error.message : "Registration failed",
@@ -259,6 +269,7 @@ export default function IntroPage(): JSX.Element {
   const initializeAuthentication = useCallback(async () => {
     if (authInitializedRef.current) {
       console.log("Auth already initialized, skipping...");
+
       return;
     }
 
@@ -278,6 +289,7 @@ export default function IntroPage(): JSX.Element {
           ...prev,
           isInitializing: false,
         }));
+
         return;
       }
 
@@ -286,11 +298,11 @@ export default function IntroPage(): JSX.Element {
       const referralCode = extractReferralCode(initData);
       let referralInfo:
         | {
-          code: string;
-          bonus: number;
-          referrerName?: string;
-          referrerUsername?: string;
-        }
+            code: string;
+            bonus: number;
+            referrerName?: string;
+            referrerUsername?: string;
+          }
         | undefined;
 
       if (referralCode) {
@@ -322,6 +334,7 @@ export default function IntroPage(): JSX.Element {
           isInitializing: false,
           needsAuthentication: true,
         }));
+
         return;
       }
 
@@ -331,6 +344,7 @@ export default function IntroPage(): JSX.Element {
           ...prev,
           isInitializing: false,
         }));
+
         return;
       }
     } catch (error) {
@@ -363,6 +377,7 @@ export default function IntroPage(): JSX.Element {
         isRegistering: authState.isRegistering,
         operationInProgress: operationInProgressRef.current,
       });
+
       return;
     }
 
