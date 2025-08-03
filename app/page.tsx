@@ -469,6 +469,7 @@ export default function IntroPage(): JSX.Element {
     if (!video) return;
 
     try {
+      video.muted = true;
       video.currentTime = 0;
       await video.play();
       setVideoState((prev) => ({ ...prev, isPlaying: true }));
