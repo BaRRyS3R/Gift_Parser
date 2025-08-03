@@ -797,7 +797,7 @@ export default function IntroPage(): JSX.Element {
         >
           {/*<source src="/videos/intro.mp4" type="video/mp4" />*/}
           <source
-            src="https://notfren.com/circusle/videos/intro.mp4"
+            src="/videos/intro.mp4"
             type="video/mp4"
           />
           <track
