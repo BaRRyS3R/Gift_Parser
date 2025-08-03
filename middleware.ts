@@ -21,8 +21,7 @@ export const config = {
     "/api/check-telegram-membership",
     "/api/nebula/:path*",
     "/api/seasons/:path*",
-    "/api/easter-egg/:path*",
-    "/api/cron/:path*"
+    "/api/easter-egg/:path*"
   ],
 };
 
@@ -31,6 +30,7 @@ const PUBLIC_ENDPOINTS = [
   "/api/auth/login",
   "/api/auth/register",
   "/api/auth/refresh",
+  "/api/cron/:path*",
   "/api/health",
   "/api/status",
 ];
