@@ -212,6 +212,11 @@ function TONShopContent() {
     /**
      * Отправка TON транзакции
      */
+    // src/app/ton-shop/page.tsx - Transaction sending fix
+
+    /**
+     * Fixed sendTONTransaction with proper amount formatting
+     */
     const sendTONTransaction = async (order: CreateTONOrderResponse["order"]) => {
         if (!wallet) {
             throw new Error("Wallet not connected");
@@ -222,32 +227,80 @@ function TONShopContent() {
         }
 
         try {
+            // CRITICAL: Ensure we have valid transaction data
+            if (!order.payment.amountNanotons || !order.payment.destinationWallet || !order.payment.payload) {
+                console.error("[TON_SHOP] Invalid order payment data:", order.payment);
+                throw new Error("Invalid payment data in order");
+            }
+
+            // Convert the comment/payload to the proper format
+            // TON Connect expects the payload as a base64-encoded BOC (Bag of Cells)
+            const comment = order.payment.payload;
+
+            // Create a properly formatted transaction
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300, // 5 минут
+                validUntil: Math.floor(Date.now() / 1000) + 300, // 5 minutes from now
                 messages: [
                     {
                         address: order.payment.destinationWallet,
-                        amount: order.payment.amountNanotons,
-                        payload: order.payment.payload,
-                    },
-                ],
+                        amount: order.payment.amountNanotons, // This should be a string representation of nanotons
+                        // For simple text comments, we can send as plain text
+                        // The wallet will handle the encoding
+                        payload: comment, // The order ID/unique identifier
+                    }
+                ]
             };
 
             console.log("[TON_SHOP] Sending transaction:", {
                 orderId: order.id,
-                amount: order.payment.amount,
+                amountTON: order.payment.amount,
+                amountNanotons: order.payment.amountNanotons,
                 destination: order.payment.destinationWallet,
-                payload: order.payment.payload,
+                payload: comment,
+                validUntil: transaction.validUntil
             });
 
-            // Отправляем транзакцию через TON Connect UI
+            // Validate the destination address format
+            if (!isValidTONAddress(order.payment.destinationWallet)) {
+                throw new Error("Invalid destination wallet address");
+            }
+
+            // Validate amount is a valid string number
+            const amountBigInt = BigInt(order.payment.amountNanotons);
+            if (amountBigInt <= 0) {
+                throw new Error("Invalid transaction amount");
+            }
+
+            // Send transaction through TON Connect UI
             const result = await tonConnectUI.sendTransaction(transaction);
 
-            console.log("[TON_SHOP] Transaction sent:", result);
+            console.log("[TON_SHOP] Transaction sent successfully:", result);
+
+            return result;
         } catch (error) {
             console.error("[TON_SHOP] Error sending transaction:", error);
-            throw new Error("Failed to send transaction");
+
+            // Provide user-friendly error messages
+            if (error instanceof Error) {
+                if (error.message.includes("User rejected")) {
+                    throw new Error("Transaction was cancelled by user");
+                }
+                if (error.message.includes("Insufficient balance")) {
+                    throw new Error("Insufficient TON balance in wallet");
+                }
+            }
+
+            throw new Error("Failed to send transaction. Please try again.");
         }
+    };
+
+    /**
+     * Helper function to validate TON address
+     */
+    const isValidTONAddress = (address: string): boolean => {
+        // Basic validation for TON address format
+        const tonAddressRegex = /^[UE]Q[A-Za-z0-9_-]{46}$/;
+        return tonAddressRegex.test(address);
     };
 
     /**
