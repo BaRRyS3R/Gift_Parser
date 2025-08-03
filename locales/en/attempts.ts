@@ -16,7 +16,8 @@ export const attempts = {
     howItWorks: "HOW ATTEMPTS WORK",
     rule1: "Each game mode requires one attempt to play",
     rule2: "Attempts automatically reset every 2 hours",
-    rule3: "You start with 10 attempts (and maybe more if you followed someone's ref) and can get free ones by leveling up",
+    rule3:
+      "You start with 10 attempts (and maybe more if you followed someone's ref) and can get free ones by leveling up",
     rule4: "If you have premium in Telegram, then you're great.",
 
     whyImportant: "WHY ATTEMPTS MATTER",

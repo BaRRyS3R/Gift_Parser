@@ -178,12 +178,19 @@ function GamePageContent() {
       console.log("Initializing attempts status fetch for game page");
       fetchAttemptsStatus();
     }
-  }, [user, makeAuthenticatedRequest, attemptsLoading, attemptsStatus, fetchAttemptsStatus]);
+  }, [
+    user,
+    makeAuthenticatedRequest,
+    attemptsLoading,
+    attemptsStatus,
+    fetchAttemptsStatus,
+  ]);
 
   const handleModeStart = useCallback(
     async (mode: GameMode) => {
       if (loadingModeId || !canPlay) {
         console.log("Cannot start game:", { loadingModeId, canPlay });
+
         return;
       }
 
@@ -250,17 +257,18 @@ function GamePageContent() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
 
   return (
     <div
-      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${loadingModeId
+      className={`min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset ${
+        loadingModeId
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : "opacity-100 transition-opacity duration-1000 ease-out"
-        }`}
+      }`}
     >
       <div className="px-4">
         <div className="text-center space-y-4 mb-8">
@@ -278,7 +286,8 @@ function GamePageContent() {
             <div
               className="bg-black/90 backdrop-blur-xl border-2 border-red-400/40 text-white w-full relative overflow-hidden"
               style={{
-                clipPath: "polygon(15px 0, 100% 0, calc(100% - 15px) 100%, 0 100%)",
+                clipPath:
+                  "polygon(15px 0, 100% 0, calc(100% - 15px) 100%, 0 100%)",
               }}
             >
               <div className="absolute inset-0 bg-red-500/10 pointer-events-none" />
@@ -290,7 +299,9 @@ function GamePageContent() {
                   </span>
                 </div>
                 <div className="h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent mb-2" />
-                <p className="text-red-300 font-mono text-xs mb-2">{consumeError}</p>
+                <p className="text-red-300 font-mono text-xs mb-2">
+                  {consumeError}
+                </p>
                 <button
                   className="font-mono text-xs tracking-wider text-red-300 hover:text-red-200 transition-colors underline"
                   onClick={handleAttemptsRetry}
@@ -334,8 +345,9 @@ function GamePageContent() {
                 <div key={mode.id} className="relative">
                   <Card
                     isFooterBlurred
-                    className={`w-[280px] h-[400px] transition-all duration-300 ${isDisabled || isAnyModeLoading ? "opacity-50" : ""
-                      }`}
+                    className={`w-[280px] h-[400px] transition-all duration-300 ${
+                      isDisabled || isAnyModeLoading ? "opacity-50" : ""
+                    }`}
                   >
                     <CardHeader className="absolute z-10 top-4 flex-col items-start bg-black/20 backdrop-blur-sm rounded-xl mx-4">
                       <div className="flex items-center space-x-3 mb-2">

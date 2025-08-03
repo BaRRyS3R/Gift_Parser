@@ -90,6 +90,7 @@ export default function IntroPage(): JSX.Element {
 
     if (!initData) {
       console.log("No Telegram initData available");
+
       return { user: null, initData: "" };
     }
 
@@ -97,10 +98,12 @@ export default function IntroPage(): JSX.Element {
 
     if (!parseResult.success || !parseResult.user) {
       console.log("Failed to parse Telegram data:", parseResult.error);
+
       return { user: null, initData };
     }
 
     console.log("Successfully parsed Telegram user data:", parseResult.user);
+
     return { user: parseResult.user, initData };
   }, []);
 
@@ -125,6 +128,7 @@ export default function IntroPage(): JSX.Element {
         };
       } catch (error) {
         console.error("Error validating referral code:", error);
+
         return { isValid: false, code, bonus: 0 };
       }
     },
@@ -150,6 +154,7 @@ export default function IntroPage(): JSX.Element {
 
         if (!result.success && result.error === "USER_NOT_FOUND") {
           console.log("User not found - this is expected for new users");
+
           return result;
         }
 
@@ -172,6 +177,7 @@ export default function IntroPage(): JSX.Element {
               setTimeout(() => {
                 router.push("/blocked");
               }, 1000);
+
               return result;
             }
 
@@ -185,6 +191,7 @@ export default function IntroPage(): JSX.Element {
               setTimeout(() => {
                 router.push("/nebula");
               }, 1000);
+
               return result;
             }
 
@@ -207,6 +214,7 @@ export default function IntroPage(): JSX.Element {
         return result;
       } catch (error) {
         console.error("Authentication error:", error);
+
         return {
           success: false,
           error:
@@ -227,6 +235,7 @@ export default function IntroPage(): JSX.Element {
     ): Promise<RegistrationResult> => {
       if (operationInProgressRef.current) {
         console.log("Registration already in progress, skipping...");
+
         return { success: false, error: "Registration already in progress" };
       }
 
@@ -263,6 +272,7 @@ export default function IntroPage(): JSX.Element {
         return result;
       } catch (error) {
         console.error("Registration error:", error);
+
         return {
           success: false,
           error: error instanceof Error ? error.message : "Registration failed",
@@ -280,6 +290,7 @@ export default function IntroPage(): JSX.Element {
   const initializeAuthentication = useCallback(async () => {
     if (authInitializedRef.current) {
       console.log("Auth already initialized, skipping...");
+
       return;
     }
 
@@ -300,6 +311,7 @@ export default function IntroPage(): JSX.Element {
           isInitializing: false,
           videoError: t("auth.telegramDataUnavailable"),
         }));
+
         return;
       }
 
@@ -344,6 +356,7 @@ export default function IntroPage(): JSX.Element {
           isInitializing: false,
           needsAuthentication: true,
         }));
+
         return;
       }
 
@@ -354,6 +367,7 @@ export default function IntroPage(): JSX.Element {
           isInitializing: false,
           videoError: `Authentication error: ${authResult.error}`,
         }));
+
         return;
       }
     } catch (error) {
@@ -433,6 +447,7 @@ export default function IntroPage(): JSX.Element {
         isRegistering: authState.isRegistering,
         operationInProgress: operationInProgressRef.current,
       });
+
       return;
     }
 
@@ -455,15 +470,16 @@ export default function IntroPage(): JSX.Element {
 
     if (!video) {
       console.error("Video element not found");
+
       return;
     }
 
     try {
       console.log("Starting video playback (iOS Safari compatible)");
-      
+
       // КРИТИЧЕСКИ ВАЖНО: не устанавливаем currentTime перед play() на iOS
       // Это может нарушить цепочку пользовательского жеста
-      
+
       // Убеждаемся, что видео готово к воспроизведению
       if (video.readyState < 2) {
         console.log("Video not ready, waiting...");
@@ -472,6 +488,7 @@ export default function IntroPage(): JSX.Element {
           ...prev,
           videoError: "Video is still loading. Please try again in a moment.",
         }));
+
         return;
       }
 
@@ -503,13 +520,12 @@ export default function IntroPage(): JSX.Element {
             videoError: "Failed to play video. Please try again.",
             isVideoMode: false,
           }));
-          setVideoState((prev) => ({ 
-            ...prev, 
+          setVideoState((prev) => ({
+            ...prev,
             isPlaying: false,
-            userActivated: false 
+            userActivated: false,
           }));
         });
-
     } catch (err) {
       console.error("Video start error:", err);
       setPageState((prev) => ({
@@ -525,10 +541,12 @@ export default function IntroPage(): JSX.Element {
    */
   const activateVideoForIOS = useCallback(() => {
     const video = videoRef.current;
+
     if (!video || videoState.userActivated) return;
 
     // Пытаемся "активировать" видео для iOS Safari
     const playPromise = video.play();
+
     if (playPromise) {
       playPromise
         .then(() => {
@@ -587,6 +605,7 @@ export default function IntroPage(): JSX.Element {
 
         if (duration > 0) {
           const progress = (bufferedEnd / duration) * 100;
+
           setVideoState((prev) => ({ ...prev, loadProgress: progress }));
         }
       }
@@ -865,10 +884,9 @@ export default function IntroPage(): JSX.Element {
           ref={videoRef}
           muted
           playsInline
-          preload="auto"
           aria-label="Application introduction video"
           className="video-player"
-          webkit-playsInline="true"
+          preload="auto"
         >
           <source
             src="https://notfren.com/circusle/videos/intro.mp4"
@@ -886,4 +904,3 @@ export default function IntroPage(): JSX.Element {
     </div>
   );
 }
-

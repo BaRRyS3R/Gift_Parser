@@ -31,7 +31,6 @@ export const levels = {
 
     automaticNote:
       "Level increases and attempt rewards are applied automatically.",
-    rewardNote:
-      "Attempt bonuses is good ma boy.",
+    rewardNote: "Attempt bonuses is good ma boy.",
   },
 } as const;

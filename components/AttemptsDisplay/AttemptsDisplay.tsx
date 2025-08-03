@@ -2,15 +2,19 @@
 
 "use client";
 
-import type { AttemptsStatus, UserLevelInfo } from "@/hooks/modules/useAttempts";
+import type {
+  AttemptsStatus,
+  UserLevelInfo,
+} from "@/hooks/modules/useAttempts";
 
 import React, { useState, useEffect } from "react";
 import { Target, RotateCcw, Clock, ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { useT } from "@/contexts/LocalizationContext";
 import AttemptsInfoModal from "./AttemptsInfoModal";
 import LevelInfoModal from "./LevelInfoModal";
+
+import { useT } from "@/contexts/LocalizationContext";
 
 interface AttemptsDisplayProps {
   className?: string;
@@ -47,6 +51,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   useEffect(() => {
     if (!attemptsStatus?.resetTime || canPlay) {
       setTimeUntilReset("");
+
       return;
     }
 
@@ -131,14 +136,16 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   if (mainPageMode) {
     return (
       <>
-        <div className={`flex items-center justify-center space-x-3 ${className}`}>
+        <div
+          className={`flex items-center justify-center space-x-3 ${className}`}
+        >
           {isEmpty && timeUntilReset ? (
             <>
               {/* Timer Section - Clickable */}
               <button
+                aria-label="Open attempts information"
                 className="flex items-center space-x-2 text-red-400 text-lg font-bold tabular-nums transition-colors duration-300 cursor-pointer hover:text-red-300"
                 onClick={handleAttemptsClick}
-                aria-label="Open attempts information"
               >
                 <RotateCcw size={18} />
                 <span>{timeUntilReset}</span>
@@ -151,9 +158,9 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
               {/* Level Section - Clickable */}
               {userLevel && (
                 <button
+                  aria-label="Open level information"
                   className="text-white/80 hover:text-white text-sm transition-colors duration-300 cursor-pointer"
                   onClick={handleLevelClick}
-                  aria-label="Open level information"
                 >
                   {t("levels.display", { level: userLevel.currentLevel })}
                 </button>
@@ -163,9 +170,9 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
             <>
               {/* Attempts Section - Clickable */}
               <button
+                aria-label="Open attempts information"
                 className="text-white/80 hover:text-white text-lg font-bold tabular-nums transition-colors duration-300 cursor-pointer"
                 onClick={handleAttemptsClick}
-                aria-label="Open attempts information"
               >
                 {attemptsRemaining} ⚡
               </button>
@@ -176,9 +183,9 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
               {/* Level Section - Clickable */}
               {userLevel && (
                 <button
+                  aria-label="Open level information"
                   className="text-white/80 hover:text-white text-sm transition-colors duration-300 cursor-pointer"
                   onClick={handleLevelClick}
-                  aria-label="Open level information"
                 >
                   {t("levels.display", { level: userLevel.currentLevel })}
                 </button>
@@ -189,17 +196,17 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
 
         {/* Modals */}
         <AttemptsInfoModal
+          attemptsRemaining={attemptsRemaining}
+          attemptsStatus={attemptsStatus}
           isOpen={isAttemptsModalOpen}
           onClose={handleCloseAttemptsModal}
-          attemptsStatus={attemptsStatus}
-          attemptsRemaining={attemptsRemaining}
         />
 
         {userLevel && (
           <LevelInfoModal
             isOpen={isLevelModalOpen}
-            onClose={handleCloseLevelModal}
             userLevel={userLevel}
+            onClose={handleCloseLevelModal}
           />
         )}
       </>
@@ -210,6 +217,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
   const getBatteryLevel = () => {
     if (attemptsRemaining <= 0) return 0;
     if (attemptsRemaining <= 5) return (attemptsRemaining / 5) * 100;
+
     return 100;
   };
 
@@ -217,6 +225,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
     if (isEmpty) return "text-red-400";
     if (attemptsRemaining <= 2 && attemptsRemaining > 0)
       return "text-orange-400";
+
     return "text-green-400";
   };
 
@@ -224,6 +233,7 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
     if (isEmpty) return "bg-red-500/20 border-red-400/40";
     if (attemptsRemaining <= 2 && attemptsRemaining > 0)
       return "bg-orange-500/20 border-orange-400/40";
+
     return "bg-white/10 border-white/30";
   };
 
@@ -245,12 +255,13 @@ const AttemptsDisplay: React.FC<AttemptsDisplayProps> = ({
 
       <div className="mb-3">
         <div
-          className={`w-full h-2 rounded-full overflow-hidden ${isEmpty
-            ? "bg-red-400/20"
-            : attemptsRemaining <= 2 && attemptsRemaining > 0
-              ? "bg-orange-400/20"
-              : "bg-white/20"
-            }`}
+          className={`w-full h-2 rounded-full overflow-hidden ${
+            isEmpty
+              ? "bg-red-400/20"
+              : attemptsRemaining <= 2 && attemptsRemaining > 0
+                ? "bg-orange-400/20"
+                : "bg-white/20"
+          }`}
         >
           <div
             className={`h-full transition-all duration-500 ${getBatteryColor().replace(
