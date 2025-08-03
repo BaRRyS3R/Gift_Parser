@@ -1,0 +1,51 @@
+/* src/app/ton-shop/ton-shop.css */
+
+/* Стили для кнопки TonConnect */
+.ton-connect-button {
+  --tc-button-bg-color: rgba(255, 255, 255, 0.2);
+  --tc-button-hover-bg-color: rgba(255, 255, 255, 0.3);
+  --tc-button-text-color: #ffffff;
+  --tc-button-border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Адаптация модального окна TON Connect под темную тему */
+:root {
+  --tc-modal-bg-color: #000000;
+  --tc-modal-text-color: #ffffff;
+  --tc-modal-secondary-text-color: rgba(255, 255, 255, 0.7);
+  --tc-modal-border-color: rgba(255, 255, 255, 0.2);
+  --tc-modal-button-bg-color: rgba(255, 255, 255, 0.1);
+  --tc-modal-button-hover-bg-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Дополнительные стили для компонентов TON Shop */
+.ton-shop-container {
+  min-height: 100vh;
+  background-color: #000000;
+  color: #ffffff;
+}
+
+/* Анимация для обработки платежей */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Медиа-запросы для мобильных устройств */
+@media (max-width: 768px) {
+  .ton-connect-button {
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+}
