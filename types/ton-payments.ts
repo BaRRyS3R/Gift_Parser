@@ -107,7 +107,8 @@ export function createTONPayload(uniqueId: string): string {
 }
 
 /**
- * Парсинг payload TON транзакции
+ * Парсинг payload TON транзакции - ИСПРАВЛЕННАЯ ВЕРСИЯ
+ * Обрабатывает формат: timestamp_telegramId_attempts_X_randomSuffix
  */
 export function parseTONPayload(payload: string): {
     isValid: boolean;
@@ -117,75 +118,140 @@ export function parseTONPayload(payload: string): {
     productType?: ProductType;
     error?: string;
 } {
+    console.log(`[TON_MONITOR] 🔍 Starting payload parsing for: "${payload}"`);
+    console.log(`[TON_MONITOR] - Payload length: ${payload.length}`);
+    console.log(`[TON_MONITOR] - Max allowed length: ${TON_CONFIG.MAX_PAYLOAD_LENGTH}`);
+
     try {
         // Проверяем длину payload
         if (payload.length > TON_CONFIG.MAX_PAYLOAD_LENGTH) {
+            console.log(`[TON_MONITOR] ❌ Payload too long: ${payload.length} > ${TON_CONFIG.MAX_PAYLOAD_LENGTH}`);
             return {
                 isValid: false,
                 error: "Payload too long",
             };
         }
+        console.log(`[TON_MONITOR] ✅ Payload length check passed`);
 
-        // Payload должен содержать unique_id в формате: timestamp_telegramId_productType_randomSuffix
+        // ИСПРАВЛЕНО: Payload имеет формат timestamp_telegramId_attempts_X_randomSuffix (5 частей)
+        console.log(`[TON_MONITOR] - Using separator: "${TON_CONFIG.PAYLOAD_SEPARATOR}"`);
         const parts = payload.split(TON_CONFIG.PAYLOAD_SEPARATOR);
+        console.log(`[TON_MONITOR] - Split result:`, parts);
+        console.log(`[TON_MONITOR] - Parts count: ${parts.length} (expected: 5 for attempts_X format)`);
 
-        if (parts.length !== 4) {
+        // Поддерживаем два формата:
+        // 1. Старый формат: timestamp_telegramId_productType_randomSuffix (4 части)
+        // 2. Новый формат: timestamp_telegramId_attempts_X_randomSuffix (5 частей)
+
+        let timestampStr: string;
+        let telegramIdStr: string;
+        let productType: string;
+        let randomSuffix: string;
+
+        if (parts.length === 4) {
+            // Старый формат: timestamp_telegramId_productType_randomSuffix
+            console.log(`[TON_MONITOR] - Using old format (4 parts)`);
+            [timestampStr, telegramIdStr, productType, randomSuffix] = parts;
+        } else if (parts.length === 5) {
+            // Новый формат: timestamp_telegramId_attempts_X_randomSuffix
+            console.log(`[TON_MONITOR] - Using new format (5 parts)`);
+            const [ts, tgId, attemptsWord, attemptsNumber, suffix] = parts;
+
+            timestampStr = ts;
+            telegramIdStr = tgId;
+            productType = `${attemptsWord}_${attemptsNumber}`; // Объединяем "attempts" + "1" = "attempts_1"
+            randomSuffix = suffix;
+
+            console.log(`[TON_MONITOR] - Reconstructed product_type: "${productType}"`);
+        } else {
+            console.log(`[TON_MONITOR] ❌ Invalid parts count: ${parts.length} (expected: 4 or 5)`);
             return {
                 isValid: false,
                 error: "Invalid payload format",
             };
         }
 
-        const [timestampStr, telegramIdStr, productType, randomSuffix] = parts;
+        console.log(`[TON_MONITOR] ✅ Payload format check passed`);
+
+        console.log(`[TON_MONITOR] - Extracted parts:`, {
+            timestampStr,
+            telegramIdStr,
+            productType,
+            randomSuffix
+        });
 
         // Валидация timestamp
+        console.log(`[TON_MONITOR] - Parsing timestamp: "${timestampStr}"`);
         const timestamp = parseInt(timestampStr);
+        console.log(`[TON_MONITOR] - Parsed timestamp: ${timestamp}`);
 
         if (isNaN(timestamp) || timestamp <= 0) {
+            console.log(`[TON_MONITOR] ❌ Invalid timestamp: ${timestamp}`);
             return {
                 isValid: false,
                 error: "Invalid timestamp",
             };
         }
+        console.log(`[TON_MONITOR] ✅ Timestamp validation passed`);
 
         // Валидация telegram_id
+        console.log(`[TON_MONITOR] - Parsing telegram_id: "${telegramIdStr}"`);
         const telegramId = parseInt(telegramIdStr);
+        console.log(`[TON_MONITOR] - Parsed telegram_id: ${telegramId}`);
 
         if (isNaN(telegramId) || telegramId <= 0) {
+            console.log(`[TON_MONITOR] ❌ Invalid telegram_id: ${telegramId}`);
             return {
                 isValid: false,
                 error: "Invalid telegram_id",
             };
         }
+        console.log(`[TON_MONITOR] ✅ Telegram ID validation passed`);
 
         // Валидация product_type
-        if (
-            !["attempts_1", "attempts_5", "attempts_10", "attempts_100"].includes(
-                productType,
-            )
-        ) {
+        console.log(`[TON_MONITOR] - Validating product_type: "${productType}"`);
+        const validProductTypes = ["attempts_1", "attempts_5", "attempts_10", "attempts_100"];
+        console.log(`[TON_MONITOR] - Valid product types:`, validProductTypes);
+        const isValidProductType = validProductTypes.includes(productType);
+        console.log(`[TON_MONITOR] - Product type is valid: ${isValidProductType}`);
+
+        if (!isValidProductType) {
+            console.log(`[TON_MONITOR] ❌ Invalid product_type: "${productType}"`);
             return {
                 isValid: false,
                 error: "Invalid product_type",
             };
         }
+        console.log(`[TON_MONITOR] ✅ Product type validation passed`);
 
         // Валидация randomSuffix
+        console.log(`[TON_MONITOR] - Validating random suffix: "${randomSuffix}"`);
+        console.log(`[TON_MONITOR] - Random suffix length: ${randomSuffix.length} (min: 3)`);
+
         if (randomSuffix.length < 3) {
+            console.log(`[TON_MONITOR] ❌ Invalid random suffix length: ${randomSuffix.length} < 3`);
             return {
                 isValid: false,
                 error: "Invalid random suffix",
             };
         }
+        console.log(`[TON_MONITOR] ✅ Random suffix validation passed`);
 
-        return {
+        console.log(`[TON_MONITOR] ✅ All payload validations passed successfully!`);
+
+        const result = {
             isValid: true,
             uniqueId: payload,
             timestamp,
             telegramId,
             productType: productType as ProductType,
         };
+
+        console.log(`[TON_MONITOR] - Final parse result:`, result);
+        return result;
+
     } catch (error) {
+        console.error(`[TON_MONITOR] ❌ Exception during payload parsing:`, error);
         return {
             isValid: false,
             error: `Parsing error: ${error instanceof Error ? error.message : "Unknown error"}`,
