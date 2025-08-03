@@ -1,4 +1,4 @@
-// src/app/ton-shop/page.tsx - Основная страница TON Shop
+// src/app/ton-shop/page.tsx - TON Shop с встроенным каталогом продуктов
 
 "use client";
 
@@ -15,17 +15,18 @@ import {
 import { Wallet, CheckCircle, Clock, AlertCircle, Star } from "lucide-react";
 
 import {
-    TONProductsResponse,
     CreateTONOrderResponse,
     TON_CONFIG,
+    getTONProductInfo,
 } from "@/types/ton-payments";
 import { ProductType } from "@/types/purchases";
+import { parseTelegramInitData } from "@/lib/telegram-auth";
 
 // Интерфейсы для состояния компонента
 interface UserInfo {
     telegramId: number;
     firstName: string;
-    attemptsRemaining: number;
+    attemptsRemaining?: number;
 }
 
 interface TONProduct {
@@ -44,6 +45,14 @@ interface OrderState {
     isCompleted: boolean;
     error: string | null;
 }
+
+// Встроенный каталог продуктов
+const EMBEDDED_PRODUCTS: ProductType[] = [
+    "attempts_1",
+    "attempts_5",
+    "attempts_10",
+    "attempts_100",
+];
 
 // Основной компонент TON Shop
 function TONShopContent() {
@@ -71,18 +80,50 @@ function TONShopContent() {
     // Получение initData из URL параметров
     const initData = searchParams.get("initdata");
 
-    // Загрузка данных при монтировании компонента
+    // Инициализация при монтировании компонента
     useEffect(() => {
         if (!initData) {
             setError(
                 "Missing authentication data. Please access this page through the main app.",
             );
             setIsLoading(false);
-
             return;
         }
 
-        loadTONShopData();
+        // Парсим данные пользователя из initData
+        try {
+            const parseResult = parseTelegramInitData(decodeURIComponent(initData));
+
+            if (!parseResult.success || !parseResult.user) {
+                setError("Invalid authentication data");
+                setIsLoading(false);
+                return;
+            }
+
+            // Устанавливаем информацию о пользователе
+            setUserInfo({
+                telegramId: parseResult.user.id,
+                firstName: parseResult.user.first_name,
+                // attemptsRemaining будет загружено отдельно если понадобится
+            });
+
+            // Загружаем встроенный каталог продуктов
+            const embeddedProducts = EMBEDDED_PRODUCTS.map(productType =>
+                getTONProductInfo(productType)
+            );
+            setProducts(embeddedProducts);
+
+            console.log("[TON_SHOP] Initialized with embedded catalog:", {
+                user: parseResult.user.first_name,
+                productsCount: embeddedProducts.length,
+            });
+
+            setIsLoading(false);
+        } catch (error) {
+            console.error("[TON_SHOP] Error initializing:", error);
+            setError("Failed to initialize shop");
+            setIsLoading(false);
+        }
     }, [initData]);
 
     // Мониторинг статуса заказа
@@ -114,46 +155,6 @@ function TONShopContent() {
     }, [orderState.orderId, orderState.isPending]);
 
     /**
-     * Загрузка данных TON Shop
-     */
-    const loadTONShopData = async () => {
-        try {
-            setIsLoading(true);
-
-            const response = await fetch(
-                `/api/ton/products?initData=${encodeURIComponent(initData!)}`,
-            );
-
-            if (!response.ok) {
-                const errorData = await response.json();
-
-                throw new Error(errorData.error || "Failed to load TON shop data");
-            }
-
-            const data: TONProductsResponse = await response.json();
-
-            if (!data.success) {
-                throw new Error(data.error || "Failed to load TON shop data");
-            }
-
-            setUserInfo(data.user!);
-            setProducts(data.products!);
-
-            console.log("[TON_SHOP] Data loaded successfully:", {
-                user: data.user!.firstName,
-                productsCount: data.products!.length,
-            });
-        } catch (error) {
-            console.error("[TON_SHOP] Error loading data:", error);
-            setError(
-                error instanceof Error ? error.message : "Failed to load shop data",
-            );
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    /**
      * Создание TON заказа
      */
     const createTONOrder = async (productType: ProductType) => {
@@ -173,7 +174,6 @@ function TONShopContent() {
 
             if (!response.ok) {
                 const errorData = await response.json();
-
                 throw new Error(errorData.error || "Failed to create order");
             }
 
@@ -267,9 +267,6 @@ function TONShopContent() {
                         isCompleted: true,
                     }));
 
-                    // Обновляем информацию о пользователе
-                    await loadTONShopData();
-
                     console.log("[TON_SHOP] Order completed:", orderId);
                 }
             }
@@ -284,7 +281,6 @@ function TONShopContent() {
     const handleProductSelect = async (productType: ProductType) => {
         if (!wallet) {
             openModal();
-
             return;
         }
 
@@ -359,7 +355,7 @@ function TONShopContent() {
                                         Welcome, {userInfo.firstName}!
                                     </h3>
                                     <p className="text-white/70 text-sm">
-                                        Current attempts: {userInfo.attemptsRemaining}
+                                        Select a package below to purchase attempts
                                     </p>
                                 </div>
                                 <Chip
@@ -388,17 +384,17 @@ function TONShopContent() {
                                     </p>
                                 </div>
                             </div>
-                            {!wallet && (
+                            <div className="flex items-center space-x-2">
                                 <TonConnectButton
                                     className="ton-connect-button"
                                     style={{ float: 'none' }}
                                 />
-                            )}
-                            {wallet && (
-                                <Chip className="bg-green-600/20 text-green-300 border border-green-600/30">
-                                    Connected
-                                </Chip>
-                            )}
+                                {wallet && (
+                                    <Chip className="bg-green-600/20 text-green-300 border border-green-600/30">
+                                        Connected
+                                    </Chip>
+                                )}
+                            </div>
                         </div>
                     </CardBody>
                 </Card>
