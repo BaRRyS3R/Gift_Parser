@@ -455,7 +455,8 @@ async function fetchRecentTransactions(): Promise<GetBlockTransaction[]> {
         const recentTransactions = transactions.filter((tx) => {
             const isRecent = tx.utime >= lookbackTimestamp;
             if (!isRecent) {
-                console.log(`[TON_MONITOR] - Filtered out old transaction: ${tx.hash} (${new Date(tx.utime * 1000).toISOString()})`);
+                const txHash = tx.transaction_id?.hash || 'unknown';
+                console.log(`[TON_MONITOR] - Filtered out old transaction: ${txHash} (${new Date(tx.utime * 1000).toISOString()})`);
             }
             return isRecent;
         });
