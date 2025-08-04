@@ -111,7 +111,6 @@ export function useLeaderboard(
     useCallback(async (): Promise<LeaderboardData | null> => {
       // Wait for current request to complete instead of returning cached data
       if (fetchingRef.current) {
-        console.log("Leaderboard fetch already in progress, waiting...");
 
         // Wait for current fetch to complete
         return new Promise((resolve) => {
@@ -131,7 +130,6 @@ export function useLeaderboard(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Fetching fresh leaderboards from API...");
 
         const response = await makeAuthenticatedRequest(
           "/api/leaderboard/all?limit=100",
@@ -157,13 +155,6 @@ export function useLeaderboard(
           data: leaderboardData,
           isLoading: false,
           error: null,
-        });
-
-        console.log("Successfully fetched fresh leaderboards:", {
-          reaction: leaderboardData.reaction.length,
-          survival: leaderboardData.survival.length,
-          physics: leaderboardData.physics.length,
-          rotation: leaderboardData.rotation.length,
         });
 
         return leaderboardData;

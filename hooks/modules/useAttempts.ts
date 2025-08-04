@@ -71,7 +71,6 @@ export function useAttempts(
   const fetchAttemptsStatus = useCallback(
     async (force: boolean = false): Promise<AttemptsStatus | null> => {
       if (fetchingRef.current && !force) {
-        console.log("Attempts fetch already in progress, skipping...");
 
         return state.status;
       }
@@ -80,7 +79,6 @@ export function useAttempts(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Fetching attempts status and level information...");
 
         const response = await makeAuthenticatedRequest(
           "/api/user/attempts/status",
@@ -125,13 +123,6 @@ export function useAttempts(
           error: null,
         });
 
-        console.log("Attempts status and level fetched successfully:", {
-          canPlay: attemptsStatus.canPlay,
-          attemptsRemaining: attemptsStatus.attemptsRemaining,
-          currentLevel: userLevel?.currentLevel,
-          totalGames: userLevel?.totalGames,
-        });
-
         return attemptsStatus;
       } catch (error) {
         console.error("Error fetching attempts status:", error);
@@ -160,7 +151,6 @@ export function useAttempts(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Consuming attempt...");
 
         const response = await makeAuthenticatedRequest(
           "/api/user/attempts/consume",
@@ -196,11 +186,6 @@ export function useAttempts(
           status: attemptsStatus,
           isLoading: false,
         }));
-
-        console.log("Attempt consumed successfully:", {
-          canPlay: attemptsStatus.canPlay,
-          attemptsRemaining: attemptsStatus.attemptsRemaining,
-        });
 
         return attemptsStatus;
       } catch (error) {

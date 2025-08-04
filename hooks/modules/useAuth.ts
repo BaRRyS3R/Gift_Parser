@@ -215,7 +215,6 @@ export function useAuth() {
   const login = useCallback(
     async (initData: string): Promise<LoginResult> => {
       if (operationInProgressRef.current) {
-        console.log("Login already in progress, skipping...");
 
         return { success: false, error: "Login already in progress" };
       }
@@ -229,7 +228,6 @@ export function useAuth() {
       }));
 
       try {
-        console.log("Attempting login...");
 
         const response = await fetch(API_ENDPOINTS.LOGIN, {
           method: "POST",
@@ -241,11 +239,8 @@ export function useAuth() {
           }),
         });
 
-        console.log("Login response status:", response.status);
-
         // CRITICAL FIX: Handle 404 (user not found) as expected behavior for new users
         if (response.status === 404) {
-          console.log("User not found - this is expected for new users");
 
           setAuthState((prev) => ({
             ...prev,
@@ -294,8 +289,6 @@ export function useAuth() {
             error: null,
           }));
 
-          console.log("Login successful:", result.user.first_name);
-
           return {
             success: true,
             user: result.user,
@@ -341,7 +334,6 @@ export function useAuth() {
       referralCode?: string,
     ): Promise<RegistrationResult> => {
       if (operationInProgressRef.current) {
-        console.log("Registration already in progress, skipping...");
 
         return { success: false, error: "Registration already in progress" };
       }
@@ -356,7 +348,6 @@ export function useAuth() {
       }));
 
       try {
-        console.log("Attempting registration...");
 
         const response = await fetch(API_ENDPOINTS.REGISTER, {
           method: "POST",
@@ -368,8 +359,6 @@ export function useAuth() {
             referralCode,
           }),
         });
-
-        console.log("Registration response status:", response.status);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -397,8 +386,6 @@ export function useAuth() {
             isLoading: false,
             error: null,
           }));
-
-          console.log("Registration successful:", result.user.first_name);
 
           return {
             success: true,
@@ -516,7 +503,6 @@ export function useAuth() {
       error: null,
     });
 
-    console.log("User logged out successfully");
   }, [clearTokens]);
 
   /**
@@ -526,7 +512,6 @@ export function useAuth() {
     const tokens = getStoredTokens();
 
     if (!tokens) {
-      console.log("No stored tokens found");
       setAuthState((prev) => ({
         ...prev,
         isAuthenticated: false,
@@ -537,15 +522,12 @@ export function useAuth() {
     }
 
     try {
-      console.log("Checking auth status with stored tokens...");
       const refreshResult = await refreshAuthToken();
 
       if (refreshResult.success) {
-        console.log("Auth status check successful");
 
         return true;
       } else {
-        console.log("Auth status check failed:", refreshResult.error);
 
         return false;
       }

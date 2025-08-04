@@ -67,7 +67,6 @@ export function usePurchase(
   const createInvoice = useCallback(
     async (productType: ProductType): Promise<CreateInvoiceResponse> => {
       if (processingRef.current) {
-        console.log("Purchase already in progress");
 
         return { success: false, error: "Purchase already in progress" };
       }
@@ -86,8 +85,6 @@ export function usePurchase(
         if (!initData) {
           throw new Error("Telegram WebApp data not available");
         }
-
-        console.log("Creating invoice for product:", productType);
 
         const response = await makeAuthenticatedRequest(
           "/api/purchase/create",
@@ -119,8 +116,6 @@ export function usePurchase(
           isLoading: false,
           loadingProduct: null,
         }));
-
-        console.log("Invoice created successfully:", result);
 
         return result;
       } catch (error) {
@@ -174,11 +169,9 @@ export function usePurchase(
 
         // Используем Telegram WebApp API для открытия инвойса
         if (tg.openInvoice) {
-          console.log("Opening invoice via Telegram WebApp API");
 
           return new Promise((resolve) => {
             tg.openInvoice(invoiceUrl, (status: string) => {
-              console.log("Invoice status:", status);
 
               setState((prev) => ({
                 ...prev,
@@ -187,11 +180,9 @@ export function usePurchase(
 
               switch (status) {
                 case "paid":
-                  console.log("Payment successful");
                   resolve(true);
                   break;
                 case "cancelled":
-                  console.log("Payment cancelled by user");
                   setState((prev) => ({
                     ...prev,
                     error: "Payment was cancelled",
@@ -199,7 +190,6 @@ export function usePurchase(
                   resolve(false);
                   break;
                 case "failed":
-                  console.log("Payment failed");
                   setState((prev) => ({
                     ...prev,
                     error: "Payment failed",
@@ -207,7 +197,6 @@ export function usePurchase(
                   resolve(false);
                   break;
                 default:
-                  console.log("Unknown payment status:", status);
                   setState((prev) => ({
                     ...prev,
                     error: "Unknown payment status",
@@ -219,7 +208,6 @@ export function usePurchase(
           });
         } else {
           // Fallback: открываем ссылку в новом окне
-          console.log("openInvoice API not available, using fallback");
           window.open(invoiceUrl, "_blank");
 
           setState((prev) => ({
@@ -251,7 +239,6 @@ export function usePurchase(
   const checkPurchaseStatus =
     useCallback(async (): Promise<PurchaseStatus | null> => {
       try {
-        console.log("Checking purchase status...");
 
         const response = await makeAuthenticatedRequest("/api/purchase/status");
 
@@ -268,8 +255,6 @@ export function usePurchase(
         if (!result.success) {
           throw new Error(result.error || "Failed to check purchase status");
         }
-
-        console.log("Purchase status checked successfully:", result.data);
 
         return result.data;
       } catch (error) {

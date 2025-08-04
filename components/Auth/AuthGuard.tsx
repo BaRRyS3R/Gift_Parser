@@ -115,7 +115,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
       try {
         // Check if user is authenticated
         if (!authState.isAuthenticated) {
-          console.log("User not authenticated, access denied");
+          console.error("User not authenticated, access denied");
           setAuthError(
             "User authentication required. Please restart the application through the main entry point.",
           );
@@ -126,7 +126,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
 
         // Check if we have required user data
         if (requireCompleteAuth && !authState.user) {
-          console.log("Incomplete authentication data, access denied");
+          console.error("Incomplete authentication data, access denied");
           setAuthError(
             "Authentication data incomplete. Please restart the application.",
           );
@@ -137,7 +137,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
 
         // Check if we have Telegram user data (for Telegram Web App context)
         if (requireCompleteAuth && !telegramUser) {
-          console.log("Missing Telegram user data, access denied");
+          console.error("Missing Telegram user data, access denied");
           setAuthError(
             "Telegram user data not available. Please ensure the application is launched from Telegram.",
           );
@@ -147,7 +147,6 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
         }
 
         // All checks passed
-        console.log("Authentication validation successful");
         setAuthError(null);
         setIsInitializing(false);
       } catch (error) {

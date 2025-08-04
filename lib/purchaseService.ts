@@ -47,8 +47,6 @@ const createInvoice = async (
       productType,
     };
 
-    console.log("Creating invoice for product:", productType);
-
     const response = await fetch(`${PHP_BACKEND_URL}/create_invoice.php`, {
       method: "POST",
       headers: {
@@ -66,8 +64,6 @@ const createInvoice = async (
     if (!result.success) {
       throw new Error(result.error || "Failed to create invoice");
     }
-
-    console.log("Invoice created successfully:", result);
 
     return result;
   } catch (error) {
@@ -99,27 +95,21 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
 
     // Используем Telegram WebApp API для открытия инвойса
     if (tg.openInvoice) {
-      console.log("Opening invoice via Telegram WebApp API");
 
       return new Promise((resolve) => {
         tg.openInvoice(invoiceUrl, (status: string) => {
-          console.log("Invoice status:", status);
 
           switch (status) {
             case "paid":
-              console.log("Payment successful");
               resolve(true);
               break;
             case "cancelled":
-              console.log("Payment cancelled by user");
               resolve(false);
               break;
             case "failed":
-              console.log("Payment failed");
               resolve(false);
               break;
             default:
-              console.log("Unknown payment status:", status);
               resolve(false);
               break;
           }
@@ -127,7 +117,6 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
       });
     } else {
       // Fallback: открываем ссылку в новом окне
-      console.log("openInvoice API not available, using fallback");
       window.open(invoiceUrl, "_blank");
 
       return true;
@@ -141,7 +130,6 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
 
 // Проверка статуса покупок - ОБНОВЛЕНО для обработки мгновенного сброса
 const checkPurchaseStatus = async (): Promise<void> => {
-  console.log("Checking purchase status...");
 
   // Дополнительная задержка для обработки мгновенного сброса
   await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -160,11 +148,8 @@ const setupTelegramWebAppHandlers = () => {
 
   // Слушаем события платежей
   tg.onEvent("invoiceClosed", (eventData: any) => {
-    console.log("Invoice closed event:", eventData);
 
     if (eventData.status === "paid") {
-      console.log("Payment completed successfully");
-      // Здесь можно вызвать обновление состояния приложения
       checkPurchaseStatus();
     }
   });

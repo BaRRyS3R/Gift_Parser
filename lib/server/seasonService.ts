@@ -176,7 +176,6 @@ export const serverSeasonService = {
     seasonId?: string,
   ): Promise<CompleteSeasonData | null> {
     try {
-      console.log(`Fetching complete season data for user: ${userId}`);
 
       // Get season (current or by ID)
       const season = seasonId
@@ -184,7 +183,6 @@ export const serverSeasonService = {
         : await this.getCurrentSeason();
 
       if (!season) {
-        console.log("No active season found");
 
         return null;
       }
@@ -204,17 +202,6 @@ export const serverSeasonService = {
         this.getSeasonLeaderboard(userId, 10),
         this.getUserSeasonStats(telegramId),
       ]);
-
-      console.log(
-        `Successfully fetched complete season data for user ${userId}:`,
-        {
-          seasonName: season.name,
-          isActive,
-          hasStarted,
-          leaderboardEntries: leaderboard.length,
-          userPosition: userStats.position,
-        },
-      );
 
       return {
         season,

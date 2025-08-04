@@ -144,11 +144,6 @@ export function useGame(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Saving game result:", {
-          mode: gameResult.mode,
-          score: gameResult.score,
-          duration: gameResult.duration,
-        });
 
         const response = await makeAuthenticatedRequest("/api/game/save", {
           method: "POST",
@@ -170,12 +165,6 @@ export function useGame(
         }
 
         setState((prev) => ({ ...prev, isLoading: false }));
-
-        console.log("Game result saved successfully:", {
-          leagueChanged: result.data.leagueChanged,
-          levelChanged: result.data.levelChanged,
-          hasReward: !!result.data.reward,
-        });
 
         return result.data;
       } catch (error) {
@@ -205,11 +194,6 @@ export function useGame(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Saving tournament result:", {
-          tournamentId,
-          score: gameResult.score,
-          survivalTime: gameResult.survivalTime,
-        });
 
         const response = await makeAuthenticatedRequest(
           "/api/tournament/save",
@@ -234,11 +218,6 @@ export function useGame(
         }
 
         setState((prev) => ({ ...prev, isLoading: false }));
-
-        console.log("Tournament result saved successfully:", {
-          gameScore: result.data.game_score,
-          totalScore: result.data.total_score,
-        });
 
         return result.data;
       } catch (error) {
@@ -267,7 +246,6 @@ export function useGame(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Fetching active tournament...");
 
         const response = await makeAuthenticatedRequest(
           "/api/tournament/active",
@@ -294,11 +272,6 @@ export function useGame(
           activeTournament: result.data.activeTournament,
         }));
 
-        console.log("Active tournament fetched:", {
-          isActive: result.data.isActive,
-          tournamentName: result.data.activeTournament?.name,
-        });
-
         return result.data;
       } catch (error) {
         console.error("Error fetching active tournament:", error);
@@ -324,7 +297,6 @@ export function useGame(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Fetching tournament list...");
 
         const response = await makeAuthenticatedRequest("/api/tournament/list");
 
@@ -347,12 +319,6 @@ export function useGame(
           isLoading: false,
           tournaments: result.data,
         }));
-
-        console.log("Tournament list fetched:", {
-          active: result.data.active.length,
-          upcoming: result.data.upcoming.length,
-          completed: result.data.completed.length,
-        });
 
         return result.data;
       } catch (error) {
@@ -382,7 +348,6 @@ export function useGame(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log(`Fetching leaderboard for tournament ${tournamentId}...`);
 
         const response = await makeAuthenticatedRequest(
           "/api/tournament/leaderboard",
@@ -409,10 +374,6 @@ export function useGame(
         }
 
         setState((prev) => ({ ...prev, isLoading: false }));
-
-        console.log(`Tournament leaderboard fetched for ${tournamentId}:`, {
-          entries: result.data.length,
-        });
 
         return result.data;
       } catch (error) {
@@ -444,7 +405,6 @@ export function useGame(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log(`Fetching winners for tournament ${tournamentId}...`);
 
         const response = await makeAuthenticatedRequest(
           "/api/tournament/winners",
@@ -469,10 +429,6 @@ export function useGame(
         }
 
         setState((prev) => ({ ...prev, isLoading: false }));
-
-        console.log(`Tournament winners fetched for ${tournamentId}:`, {
-          winners: result.data.length,
-        });
 
         return result.data;
       } catch (error) {
@@ -501,7 +457,6 @@ export function useGame(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log(`Fetching user result for tournament ${tournamentId}...`);
 
         const response = await makeAuthenticatedRequest(
           "/api/tournament/user-result",
@@ -528,12 +483,7 @@ export function useGame(
         }
 
         setState((prev) => ({ ...prev, isLoading: false }));
-
-        console.log(`User tournament result fetched for ${tournamentId}:`, {
-          hasResult: !!result.data,
-          score: result.data?.survival_score,
-        });
-
+        
         return result.data;
       } catch (error) {
         console.error("Error fetching user tournament result:", error);

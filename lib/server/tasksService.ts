@@ -135,8 +135,6 @@ export const serverTasksService = {
         rewarded_at: userTask.rewarded_at,
       };
 
-      console.log(`Task started for user ${userId}:`, taskId);
-
       return taskWithStatus;
     } catch (error) {
       console.error("Error starting task:", error);
@@ -338,8 +336,6 @@ export const serverTasksService = {
         rewarded_at: updatedUserTask.rewarded_at,
       };
 
-      console.log(`Task verified for user ${userId}:`, taskId);
-
       return taskWithStatus;
     } catch (error) {
       console.error("Error verifying task:", error);
@@ -460,12 +456,6 @@ export const serverTasksService = {
         completed_at: userTask.completed_at,
         rewarded_at: now,
       };
-
-      console.log(`Task reward claimed for user ${userId}:`, {
-        taskId,
-        attemptsAdded: attemptsToAdd,
-        newAttemptsTotal,
-      });
 
       return {
         taskWithStatus,

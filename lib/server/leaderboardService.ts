@@ -401,7 +401,6 @@ export const serverLeaderboardService = {
     limit: number = 100,
   ): Promise<AllLeaderboardsResponse> {
     try {
-      console.log(`Fetching all leaderboards for user: ${currentUserId}`);
 
       const [season, reaction, survival, physics, rotation, userRankings] =
         await Promise.all([

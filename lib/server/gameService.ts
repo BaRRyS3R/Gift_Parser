@@ -177,10 +177,6 @@ export const serverGameService = {
 
       attemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
       updates.attempts_remaining = user.attempts_remaining + attemptsAwarded;
-
-      console.log(
-        `Level increased! User ${telegramId}: ${previousLevel} → ${newLevel} (+${attemptsAwarded} attempts)`,
-      );
     }
 
     // Mode-specific statistics updates
@@ -301,15 +297,6 @@ export const serverGameService = {
       throw new Error("Failed to update user statistics");
     }
 
-    console.log("Game statistics updated successfully:", {
-      mode: gameResult.mode,
-      totalGames: newTotalGames,
-      scoreContribution: totalScoreContribution,
-      levelChanged,
-      newLevel: levelChanged ? newLevel : undefined,
-      attemptsAwarded,
-    });
-
     return {
       success: true,
       levelChanged,
@@ -325,12 +312,6 @@ export const serverGameService = {
     telegramId: number,
     gameResult: GameResult,
   ): Promise<GameSaveResult> {
-    console.log("Processing game result:", {
-      mode: gameResult.mode,
-      score: gameResult.score,
-      duration: gameResult.duration,
-    });
-
     return await this.updateGameStats(telegramId, gameResult);
   },
 
@@ -342,13 +323,6 @@ export const serverGameService = {
     telegramId: number,
     gameResult: SurvivalGameResult,
   ): Promise<TournamentSaveResponse> {
-    console.log("Processing tournament result:", {
-      tournamentId,
-      telegramId,
-      score: gameResult.score,
-      survivalTime: gameResult.survivalTime,
-    });
-
     // Get user data
     const { data: user, error: userError } = await supabaseServer
       .from("users")
@@ -384,10 +358,6 @@ export const serverGameService = {
     // Parse JSON response from the RPC function
     const saveResponse: TournamentSaveResponse =
       typeof data === "string" ? JSON.parse(data) : data;
-
-    console.log(
-      `Tournament points accumulated: +${saveResponse.game_score} (Total: ${saveResponse.total_score})`,
-    );
 
     return saveResponse;
   },

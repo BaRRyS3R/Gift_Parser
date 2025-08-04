@@ -125,7 +125,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         const isAuthenticated = await checkAuthStatus();
 
         if (!isAuthenticated) {
-          console.log("No valid authentication found");
+          console.error("No valid authentication found");
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -152,13 +152,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         setError(null);
         const result = await authRegister(initData, referralCode);
 
-        if (result.success && result.user) {
-          console.log("Registration successful:", result.user.first_name);
-          if (result.referralBonus) {
-            console.log("Referral bonus received:", result.referralBonus);
-          }
-        }
-
         return result;
       } catch (error) {
         console.error("Registration error:", error);
@@ -179,10 +172,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
       try {
         setError(null);
         const result = await authLogin(initData);
-
-        if (result.success && result.user) {
-          console.log("Login successful:", result.user.first_name);
-        }
 
         return result;
       } catch (error) {
@@ -209,8 +198,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     profileModule.resetProfileData();
     gameModule.resetTournamentState();
     seasonsModule.resetSeasonData(); // NEW: Reset season data
-
-    console.log("User logged out");
   }, [authLogout, leaderboardModule, profileModule, gameModule, seasonsModule]);
 
   // Refresh user data
@@ -221,7 +208,6 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
     try {
       setIsLoading(true);
-      console.log("User data refreshed");
     } catch (error) {
       console.error("Error refreshing user:", error);
       setError(

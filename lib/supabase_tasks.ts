@@ -66,11 +66,9 @@ export const taskService = {
   // Получение заданий с информацией о выполнении для пользователя
   // Получение заданий с информацией о выполнении для пользователя
   async getTasksForUser(userId: string): Promise<TaskWithCompletion[]> {
-    console.log("=== TASK SERVICE: getTasksForUser START ===");
-    console.log("User ID:", userId);
+
 
     // Получаем активные задания
-    console.log("Fetching active tasks...");
     const { data: tasks, error: tasksError } = await supabase
       .from("tasks")
       .select("*")
@@ -82,20 +80,12 @@ export const taskService = {
       throw tasksError;
     }
 
-    console.log("Active tasks found:", tasks?.length || 0);
-    console.log(
-      "Tasks:",
-      tasks?.map((t) => ({ id: t.id, name: t.name, type: t.type })),
-    );
-
     if (!tasks) {
-      console.log("No tasks found, returning empty array");
 
       return [];
     }
 
     // Получаем выполнения заданий только для текущего пользователя
-    console.log("Fetching user completions for user ID:", userId);
     const { data: completions, error: completionsError } = await supabase
       .from("user_task_completions")
       .select("*")
@@ -106,16 +96,6 @@ export const taskService = {
       throw completionsError;
     }
 
-    console.log("User completions found:", completions?.length || 0);
-    console.log(
-      "Completions:",
-      completions?.map((c) => ({
-        task_id: c.task_id,
-        status: c.status,
-        claimed_at: c.claimed_at,
-      })),
-    );
-
     const completionsMap = new Map<string, UserTaskCompletion[]>();
 
     (completions || []).forEach((completion) => {
@@ -124,8 +104,6 @@ export const taskService = {
       }
       completionsMap.get(completion.task_id)!.push(completion);
     });
-
-    console.log("Completions map keys:", Array.from(completionsMap.keys()));
 
     const result = tasks.map((task) => {
       const userCompletions = completionsMap.get(task.id) || [];
@@ -162,30 +140,8 @@ export const taskService = {
         next_available_at: nextAvailableAt,
       };
 
-      console.log(`Task ${task.id} (${task.name}):`, {
-        type: task.type,
-        can_complete: canComplete,
-        user_completion: latestCompletion
-          ? {
-              status: latestCompletion.status,
-              claimed_at: latestCompletion.claimed_at,
-            }
-          : null,
-        next_available_at: nextAvailableAt,
-      });
-
       return taskWithCompletion;
     });
-
-    console.log(
-      "Final result:",
-      result.map((t) => ({
-        id: t.id,
-        name: t.name,
-        can_complete: t.can_complete,
-      })),
-    );
-    console.log("=== TASK SERVICE: getTasksForUser END ===");
 
     return result;
   },

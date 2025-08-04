@@ -176,10 +176,6 @@ export const serverBlockService = {
         ] || VERIFICATION_TIMEOUTS.CAPTCHA;
       const expiresAt = new Date(Date.now() + timeoutMs).toISOString();
 
-      console.log(
-        `Creating verification attempt for ${verificationType}. Timeout: ${timeoutMs}ms (${Math.round(timeoutMs / 1000)}s)`,
-      );
-
       const { data, error } = await supabaseServer
         .from("verification_attempts")
         .insert({
@@ -198,10 +194,6 @@ export const serverBlockService = {
           `Failed to create verification attempt: ${error.message}`,
         );
       }
-
-      console.log(
-        `Created verification attempt ${data.id} for user ${telegramId}, type: ${verificationType}, expires: ${expiresAt}`,
-      );
 
       return data.id;
     } catch (error) {
@@ -262,9 +254,7 @@ export const serverBlockService = {
 
       if (error) {
         console.error("Error removing verification attempt:", error);
-      } else {
-        console.log(`Removed verification attempt ${attemptId}`);
-      }
+      } 
     } catch (error) {
       console.error("Error removing verification attempt:", error);
     }
@@ -406,10 +396,6 @@ export const serverBlockService = {
         throw new Error(`Failed to create block: ${blockError.message}`);
       }
 
-      console.log(
-        `User ${telegramId} blocked for ${durationHours} hours. Reason: ${blockReason}, Block ID: ${blockId}`,
-      );
-
       return {
         success: true,
         data: {
@@ -456,10 +442,6 @@ export const serverBlockService = {
 
       const blocksCleared = data?.length || 0;
 
-      console.log(
-        `User ${telegramId} unblocked. Blocks cleared: ${blocksCleared}, Reason: ${reason}`,
-      );
-
       return {
         success: true,
         unblocked: true,
@@ -492,10 +474,6 @@ export const serverBlockService = {
         return 0;
       }
 
-      if (unblockedCount > 0) {
-        console.log(`Auto-unblocked ${unblockedCount} expired blocks`);
-      }
-
       return unblockedCount || 0;
     } catch (error) {
       console.error("Error in auto-unblock process:", error);
@@ -523,10 +501,6 @@ export const serverBlockService = {
       if (error) {
         throw new Error(`Failed to restore trust score: ${error.message}`);
       }
-
-      console.log(
-        `Trust score restored to ${RESTORED_TRUST_SCORE} for user ${telegramId} after successful ${verificationType} verification`,
-      );
 
       return {
         success: true,
@@ -589,11 +563,6 @@ export const serverBlockService = {
         throw new Error(restoreResult.error);
       }
 
-      // Log successful verification
-      console.log(
-        `Verification successful for user ${telegramId}, type: ${verificationType}`,
-      );
-
       return {
         success: true,
         data: {
@@ -623,9 +592,6 @@ export const serverBlockService = {
     attempt: VerificationAttempt,
   ): Promise<BlockServiceResponse> {
     try {
-      console.log(
-        `Handling abandoned verification for user ${attempt.telegramId}, type: ${attempt.verificationType}`,
-      );
 
       // Block user for abandoning verification
       const blockResult = await this.blockUser(

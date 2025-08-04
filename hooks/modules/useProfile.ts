@@ -111,7 +111,6 @@ export function useProfile(
     useCallback(async (): Promise<ProfileData | null> => {
       // Wait for current request to complete instead of returning cached data
       if (fetchingRef.current) {
-        console.log("Profile fetch already in progress, waiting...");
 
         // Wait for current fetch to complete
         return new Promise((resolve) => {
@@ -131,7 +130,6 @@ export function useProfile(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Fetching fresh profile data from API...");
 
         const response = await makeAuthenticatedRequest("/api/user/profile");
 
@@ -157,16 +155,6 @@ export function useProfile(
           error: null,
         });
 
-        console.log("Successfully fetched fresh profile data:", {
-          userId: profileData.user.id,
-          totalGames: profileData.user.total_games,
-          referralCode: profileData.referrals.code,
-          referralCount: profileData.referrals.count,
-          rankingsCount: Object.values(profileData.rankings).filter(
-            (rank) => rank !== null,
-          ).length,
-        });
-
         return profileData;
       } catch (error) {
         console.error("Error fetching profile data:", error);
@@ -189,7 +177,6 @@ export function useProfile(
    * Сброс данных профиля
    */
   const resetProfileData = useCallback(() => {
-    console.log("Resetting profile data");
     setState({
       data: null,
       isLoading: false,

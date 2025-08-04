@@ -248,10 +248,6 @@ export const serverUserService = {
       throw error;
     }
 
-    console.log(
-      `New user created with level 1: ${data.telegram_id} (${data.first_name})`,
-    );
-
     return data;
   },
 

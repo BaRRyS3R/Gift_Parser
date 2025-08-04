@@ -164,11 +164,6 @@ export function useTONPayments() {
           lastOrderStatus: "created",
         }));
 
-        console.log(
-          "[TON_PAYMENTS] Order created successfully:",
-          data.order.id,
-        );
-
         return data.order;
       } catch (error) {
         const errorMessage =
@@ -215,16 +210,7 @@ export function useTONPayments() {
           ],
         };
 
-        console.log("[TON_PAYMENTS] Sending transaction:", {
-          orderId: order.id,
-          amount: order.payment.amount,
-          destination: order.payment.destinationWallet,
-          payload: order.payment.payload,
-        });
-
         const result = await tonConnectUI.sendTransaction(transaction);
-
-        console.log("[TON_PAYMENTS] Transaction sent successfully:", result);
 
         setState((prev) => ({
           ...prev,

@@ -67,9 +67,6 @@ export const serverAttemptsService = {
 
     // Check if reset time has passed
     if (resetTime && serverTime >= resetTime) {
-      console.log(
-        `Reset time reached for user ${telegramId}, resetting attempts`,
-      );
       await this.resetAttempts(telegramId);
 
       return {
@@ -155,10 +152,6 @@ export const serverAttemptsService = {
       throw new Error("Failed to consume attempt");
     }
 
-    console.log(
-      `Attempt consumed for user ${telegramId}. Remaining: ${newAttemptsRemaining}`,
-    );
-
     const timeUntilReset =
       newAttemptsRemaining === 0
         ? ATTEMPTS_CONFIG.RESET_INTERVAL_MS
@@ -209,8 +202,6 @@ export const serverAttemptsService = {
       console.error("Error resetting attempts:", error);
       throw new Error("Failed to reset attempts");
     }
-
-    console.log(`Attempts reset for user ${telegramId} to ${newAttempts}`);
   },
 
   /**
@@ -232,8 +223,6 @@ export const serverAttemptsService = {
       console.error("Error performing instant reset:", error);
       throw new Error("Failed to perform instant reset");
     }
-
-    console.log(`Instant reset performed for user ${telegramId}`);
 
     return {
       canPlay: true,
@@ -277,10 +266,6 @@ export const serverAttemptsService = {
       console.error("Error adding bonus attempts:", error);
       throw new Error("Failed to add bonus attempts");
     }
-
-    console.log(
-      `Added ${bonusAmount} bonus attempts for user ${telegramId}. Reason: ${reason}`,
-    );
 
     return {
       canPlay: true,

@@ -53,8 +53,6 @@ export function useTasks(
    */
   const fetchTasks = useCallback(async (): Promise<TaskWithStatus[] | null> => {
     if (fetchingRef.current) {
-      console.log("Tasks fetch already in progress");
-
       return state.tasks;
     }
 
@@ -62,7 +60,6 @@ export function useTasks(
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      console.log("Fetching fresh tasks from API...");
 
       const response = await makeAuthenticatedRequest("/api/tasks");
 
@@ -98,10 +95,6 @@ export function useTasks(
         timers: existingTimers,
       }));
 
-      console.log("Successfully fetched tasks:", {
-        total: result.tasks.length,
-      });
-
       return result.tasks;
     } catch (error) {
       console.error("Error fetching tasks:", error);
@@ -132,7 +125,6 @@ export function useTasks(
       }));
 
       try {
-        console.log("Starting task with timer:", task.task_id);
 
         // First, start the task on the server
         const response = await makeAuthenticatedRequest("/api/tasks/start", {
@@ -214,8 +206,6 @@ export function useTasks(
 
         timerIntervals[task.task_id] = intervalId;
 
-        console.log("Task started with timer successfully:", task.task_id);
-
         return true;
       } catch (error) {
         console.error("Error starting task:", error);
@@ -287,10 +277,6 @@ export function useTasks(
             verifyingTaskId: null,
           };
         });
-
-        if (!result.verified && isTelegramTask) {
-          console.log("Telegram verification failed, user can retry");
-        }
       } catch (error) {
         console.error("Error verifying task after timer:", error);
         setState((prev) => ({ ...prev, verifyingTaskId: null }));
@@ -368,7 +354,6 @@ export function useTasks(
       setState((prev) => ({ ...prev, claimingTaskId: taskId, error: null }));
 
       try {
-        console.log("Claiming reward for task:", taskId);
 
         const response = await makeAuthenticatedRequest("/api/tasks/claim", {
           method: "POST",
@@ -402,12 +387,6 @@ export function useTasks(
             tasks: updatedTasks,
             claimingTaskId: null,
           };
-        });
-
-        console.log("Reward claimed successfully:", {
-          taskId,
-          attemptsAdded: result.attemptsAdded,
-          newTotal: result.newAttemptsTotal,
         });
 
         return {

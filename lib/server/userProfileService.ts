@@ -259,22 +259,12 @@ export const serverUserProfileService = {
    */
   async getUserProfileData(telegramId: number): Promise<UserProfileData> {
     try {
-      console.log(`Fetching complete profile data for user: ${telegramId}`);
 
       const [user, referrals, rankings] = await Promise.all([
         this.getUserData(telegramId),
         this.getUserReferralInfo(telegramId),
         this.getUserRankings(telegramId),
       ]);
-
-      console.log(
-        `Successfully fetched complete profile data for user ${telegramId}:`,
-        {
-          hasUserData: !!user,
-          referralCount: referrals.count,
-          hasRankings: Object.values(rankings).some((rank) => rank !== null),
-        },
-      );
 
       return {
         user,

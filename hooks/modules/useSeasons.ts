@@ -70,7 +70,6 @@ export function useSeasons(
     useCallback(async (): Promise<CompleteSeasonData | null> => {
       // Wait for current request to complete if already fetching
       if (fetchingRef.current) {
-        console.log("Season fetch already in progress, waiting...");
 
         return new Promise((resolve) => {
           const checkCompletion = () => {
@@ -94,7 +93,6 @@ export function useSeasons(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        console.log("Fetching current season data from API...");
 
         const response = await makeAuthenticatedRequest("/api/seasons/current");
 
@@ -106,8 +104,6 @@ export function useSeasons(
               isLoading: false,
               error: null,
             });
-
-            console.log("No active season found");
 
             return null;
           }
@@ -131,13 +127,6 @@ export function useSeasons(
           data: seasonData,
           isLoading: false,
           error: null,
-        });
-
-        console.log("Successfully fetched season data:", {
-          seasonName: seasonData.season.name,
-          isActive: seasonData.isActive,
-          leaderboardEntries: seasonData.leaderboard.length,
-          userPosition: seasonData.userStats.position,
         });
 
         return seasonData;
