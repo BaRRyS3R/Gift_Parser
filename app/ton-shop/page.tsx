@@ -481,15 +481,13 @@ function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCard
     return (
         <Card
             className={`
-                transition-all duration-200 cursor-pointer
+                transition-all duration-200
                 ${isSelected
                     ? "bg-blue-500/10 border-blue-500/30"
                     : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
                 }
-                ${disabled ? "opacity-50 cursor-not-allowed" : ""}
+                ${disabled ? "opacity-50" : ""}
             `}
-            isPressable={!disabled}
-            onPress={onSelect}
         >
             <CardBody className="p-4">
                 <div className="flex items-center justify-between">
@@ -520,6 +518,7 @@ function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCard
                                 }
                             `}
                             isDisabled={disabled}
+                            onPress={onSelect} // ← Это было пропущено!
                         >
                             {isSelected ? t("shop.tonShop.actions.processing") : t("shop.tonShop.actions.buyWithTON")}
                         </Button>
