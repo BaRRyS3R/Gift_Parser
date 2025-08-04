@@ -14,6 +14,7 @@ const hiddenPaths = [
   "/tournament",
   "/tournament/play",
   "/tournament/active",
+  "/ton-sop",
 ];
 
 export default function NavigationWrapper() {
