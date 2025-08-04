@@ -152,9 +152,7 @@ const AttemptsInfoModal: React.FC<AttemptsInfoModalProps> = ({
                   <div className="text-sm text-white/70">
                     {isEmpty
                       ? t("attempts.modal.noAttemptsLeft")
-                      : t("attempts.modal.attemptsRemaining", {
-                          count: attemptsRemaining,
-                        })}
+                      : t("attempts.modal.attemptsRestoring")}
                   </div>
                 </div>
 

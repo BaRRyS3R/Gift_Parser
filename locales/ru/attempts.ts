@@ -21,7 +21,7 @@ export const attempts = {
   modal: {
     title: "СИСТЕМА ПОПЫТОК",
     noAttemptsLeft: "Попытки закончились",
-    attemptsRemaining: "Осталось попыток: {count}",
+    attemptsRestoring: "Важно! Попытки начнут восстанавливаться только после полного их использования!",
     nextReset: "СЛЕДУЮЩИЙ СБРОС",
     resetNow: "Сбрасываются сейчас...",
     resetInHours: "Через {hours}ч {minutes}м",

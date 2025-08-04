@@ -21,7 +21,7 @@ export const attempts = {
   modal: {
     title: "ATTEMPTS SYSTEM",
     noAttemptsLeft: "No attempts remaining",
-    attemptsRemaining: "{count} attempts remaining",
+    attemptsRestoring: "Attention! Attempts will start to recover only after they are fully used!",
     nextReset: "NEXT RESET",
     resetNow: "Resetting now...",
     resetInHours: "In {hours}h {minutes}m",
