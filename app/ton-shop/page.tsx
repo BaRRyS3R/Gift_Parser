@@ -493,7 +493,7 @@ function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCard
                     <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
                             <h3 className="font-bold text-white">
-                                {t(`tonShop.products.${product.productType.replace('_', '')}.title`)}
+                                {t(`tonShop.products.${product.productType}.title`)}
                             </h3>
                             {badge && (
                                 <span className="px-2 py-1 bg-white/10 text-white/80 text-xs rounded-full">
@@ -502,7 +502,7 @@ function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCard
                             )}
                         </div>
                         <p className="text-white/60 text-sm mb-2">
-                            {t(`tonShop.products.${product.productType.replace('_', '')}.description`)}
+                            {t(`tonShop.products.${product.productType}.description`)}
                         </p>
                         <p className="text-white font-bold">{product.priceTON} TON</p>
                     </div>

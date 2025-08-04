@@ -33,24 +33,6 @@ const WALLET_CONFIGS = [
         universalLink: "https://mytonwallet.io/ton-connect",
         bridgeUrl: "https://tonconnectbridge.mytonwallet.org/bridge",
         platforms: ["ios", "android", "windows", "macos", "linux", "chrome", "firefox", "safari"] as Platform[]
-    },
-    {
-        appName: "telegram-wallet",
-        name: "Wallet",
-        imageUrl: "https://wallet.tg/images/logo-288.png",
-        aboutUrl: "https://wallet.tg/",
-        universalLink: "https://t.me/wallet?attach=wallet",
-        bridgeUrl: "https://bridge.tonapi.io/bridge",
-        platforms: ["ios", "android", "macos", "windows", "linux"] as Platform[]
-    },
-    {
-        appName: "bitgetTonWallet",
-        name: "Bitget Wallet",
-        imageUrl: "https://raw.githubusercontent.com/bitkeepwallet/download/main/logo/png/bitget%20wallet_logo_iOS.png",
-        aboutUrl: "https://web3.bitget.com",
-        universalLink: "https://bkcode.vip/ton-connect",
-        bridgeUrl: "https://bridge.tonapi.io/bridge",
-        platforms: ["ios", "android", "chrome"] as Platform[]
     }
 ];
 
