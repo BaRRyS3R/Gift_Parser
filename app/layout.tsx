@@ -13,8 +13,8 @@ import NavigationWrapper from "@/components/Navigation/NavigationWrapper";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "s0mething",
-  description: "s0mething game???",
+  title: "Circusle",
+  description: "Play. Tap. Win. Dab.",
   viewport: {
     width: "device-width",
     initialScale: 1,

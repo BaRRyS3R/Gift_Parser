@@ -1,4 +1,4 @@
-// src/types/telegram.d.ts - Complete with latest Telegram WebApp API
+// src/types/telegram.d.ts - Обновленная версия с новыми методами Mini Apps 2.0 (без нового SDK)
 
 interface TelegramWebApp {
   initData: string;
@@ -12,6 +12,7 @@ interface TelegramWebApp {
       username?: string;
       language_code?: string;
       is_premium?: boolean;
+      photo_url?: string; // 🆕 Доступно в Mini Apps 2.0
     };
     receiver?: {
       id: number;
@@ -52,6 +53,7 @@ interface TelegramWebApp {
     header_bg_color?: string;
     accent_text_color?: string;
     section_separator_color?: string;
+    bottom_bar_bg_color?: string; // 🆕 Mini Apps 2.0
   };
   isExpanded: boolean;
   viewportHeight: number;
@@ -59,12 +61,27 @@ interface TelegramWebApp {
   isClosingConfirmationEnabled: boolean;
   headerColor: string;
   backgroundColor: string;
+  bottomBarColor?: string; // 🆕 Mini Apps 2.0
 
-  // ✨ NEW: Orientation control (Bot API 7.7+)
-  isOrientationLocked?: boolean;
+  // 🆕 НОВЫЕ СВОЙСТВА MINI APPS 2.0
+  isActive?: boolean; // Активно ли приложение
+  isFullscreen?: boolean; // В полноэкранном режиме ли приложение
+  isOrientationLocked?: boolean; // Заблокирована ли ориентация
+  isVerticalSwipesEnabled?: boolean; // Включены ли вертикальные свайпы
 
-  // ✨ NEW: Vertical swipes control (Bot API 7.7+)
-  isVerticalSwipesEnabled?: boolean;
+  // 🆕 SAFE AREA INSETS (Mini Apps 2.0)
+  safeAreaInset?: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
+  contentSafeAreaInset?: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
 
   BackButton: {
     isVisible: boolean;
@@ -99,7 +116,32 @@ interface TelegramWebApp {
     }) => void;
   };
 
-  // ✨ NEW: Settings Button (Bot API 6.10+)
+  // 🆕 SECONDARY BUTTON (Mini Apps 2.0)
+  SecondaryButton?: {
+    text: string;
+    color: string;
+    textColor: string;
+    isVisible: boolean;
+    isActive: boolean;
+    isProgressVisible: boolean;
+    onClick: (callback: () => void) => void;
+    offClick: (callback: () => void) => void;
+    show: () => void;
+    hide: () => void;
+    enable: () => void;
+    disable: () => void;
+    showProgress: (leaveActive?: boolean) => void;
+    hideProgress: () => void;
+    setText: (text: string) => void;
+    setParams: (params: {
+      text?: string;
+      color?: string;
+      text_color?: string;
+      is_active?: boolean;
+      is_visible?: boolean;
+    }) => void;
+  };
+
   SettingsButton?: {
     isVisible: boolean;
     onClick: (callback: () => void) => void;
@@ -116,7 +158,6 @@ interface TelegramWebApp {
     selectionChanged: () => void;
   };
 
-  // ✨ NEW: Cloud Storage (Bot API 6.9+)
   CloudStorage?: {
     setItem: (
       key: string,
@@ -142,7 +183,6 @@ interface TelegramWebApp {
     getKeys: (callback: (error: string | null, keys: string[]) => void) => void;
   };
 
-  // ✨ NEW: Biometric Manager (Bot API 7.2+)
   BiometricManager?: {
     isInited: boolean;
     isBiometricAvailable: boolean;
@@ -167,80 +207,7 @@ interface TelegramWebApp {
     openSettings: () => void;
   };
 
-  // Basic methods
-  close: () => void;
-  expand: () => void;
-  sendData: (data: string) => void;
-  ready: () => void;
-  setHeaderColor: (color: string) => void;
-  setBackgroundColor: (color: string) => void;
-  enableClosingConfirmation: () => void;
-  disableClosingConfirmation: () => void;
-  onEvent: (eventType: string, eventHandler: (...args: any[]) => void) => void;
-  offEvent: (eventType: string, eventHandler: (...args: any[]) => void) => void;
-  openLink: (
-    url: string,
-    options?: { try_instant_view?: boolean; try_browser?: string },
-  ) => void;
-  openTelegramLink: (url: string) => void;
-  openInvoice: (url: string, callback?: (status: string) => void) => void;
-
-  // Popup methods
-  showPopup: (
-    params: {
-      title?: string;
-      message: string;
-      buttons?: Array<{
-        id?: string;
-        type?: "default" | "ok" | "close" | "cancel" | "destructive";
-        text?: string;
-      }>;
-    },
-    callback?: (button_id: string) => void,
-  ) => void;
-  showAlert: (message: string, callback?: () => void) => void;
-  showConfirm: (
-    message: string,
-    callback?: (confirmed: boolean) => void,
-  ) => void;
-
-  // QR Scanner methods (Bot API 6.4+)
-  showScanQrPopup: (
-    params: {
-      text?: string;
-    },
-    callback?: (text: string) => boolean | void,
-  ) => void;
-  closeScanQrPopup: () => void;
-
-  // Clipboard methods (Bot API 6.4+)
-  readTextFromClipboard?: (callback?: (text: string) => void) => void;
-
-  // Contact/Access methods
-  requestWriteAccess: (callback?: (granted: boolean) => void) => void;
-  requestContact: (callback?: (sent: boolean) => void) => void;
-
-  // Inline query methods (Bot API 6.7+)
-  switchInlineQuery?: (query: string, choose_chat_types?: string[]) => void;
-
-  // Custom methods
-  invokeCustomMethod: (
-    method: string,
-    params: any,
-    callback?: (error: string | null, result?: any) => void,
-  ) => void;
-
-  // ✨ NEW METHODS (Bot API 7.7+)
-
-  // 🔒 ORIENTATION CONTROL
-  lockOrientation?: () => void;
-  unlockOrientation?: () => void;
-
-  // 🚫 VERTICAL SWIPES CONTROL (блокирует pull-to-refresh и свайп-закрытие)
-  disableVerticalSwipes?: () => void;
-  enableVerticalSwipes?: () => void;
-
-  // ✨ NEW: Device Motion (Bot API 7.6+)
+  // 🆕 DEVICE MOTION (Mini Apps 2.0)
   Accelerometer?: {
     isStarted: boolean;
     x: number;
@@ -272,7 +239,46 @@ interface TelegramWebApp {
     stop: (callback?: () => void) => void;
   };
 
-  // ✨ NEW: Share to Story (Bot API 7.8+)
+  // Базовые методы
+  close: () => void;
+  expand: () => void;
+  sendData: (data: string) => void;
+  ready: () => void;
+  setHeaderColor: (color: string) => void;
+  setBackgroundColor: (color: string) => void;
+  enableClosingConfirmation: () => void;
+  disableClosingConfirmation: () => void;
+  onEvent: (eventType: string, eventHandler: (...args: any[]) => void) => void;
+  offEvent: (eventType: string, eventHandler: (...args: any[]) => void) => void;
+
+  // 🆕 НОВЫЕ МЕТОДЫ MINI APPS 2.0 (доступны через window.Telegram.WebApp)
+
+  // FULLSCREEN МЕТОДЫ
+  requestFullscreen?: () => Promise<void> | void;
+  exitFullscreen?: () => Promise<void> | void;
+
+  // ORIENTATION МЕТОДЫ
+  lockOrientation?: () => void;
+  unlockOrientation?: () => void;
+
+  // VERTICAL SWIPES МЕТОДЫ
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
+
+  // BOTTOM BAR МЕТОДЫ
+  setBottomBarColor?: (color: string) => void;
+
+  // HOME SCREEN МЕТОДЫ
+  addToHomeScreen?: () => void;
+  checkHomeScreenStatus?: (callback: (status: string) => void) => void;
+
+  // MEDIA SHARING МЕТОДЫ
+  shareMessage?: (params: {
+    text?: string;
+    parse_mode?: string;
+    entities?: any[];
+  }) => void;
+
   shareToStory?: (
     media_url: string,
     params?: {
@@ -282,6 +288,86 @@ interface TelegramWebApp {
         name?: string;
       };
     },
+  ) => void;
+
+  // FILE DOWNLOAD МЕТОДЫ
+  downloadFile?: (params: {
+    url: string;
+    filename: string;
+  }) => void;
+
+  // EMOJI STATUS МЕТОДЫ
+  setEmojiStatus?: (params: {
+    custom_emoji_id: string;
+    duration?: number;
+  }) => void;
+
+  requestEmojiStatusAccess?: (callback?: (granted: boolean) => void) => void;
+
+  // GEOLOCATION МЕТОДЫ
+  requestLocation?: (params?: {
+    live_period?: number;
+  }, callback?: (location: {
+    latitude: number;
+    longitude: number;
+    altitude?: number;
+    course?: number;
+    speed?: number;
+    horizontal_accuracy?: number;
+    live_period?: number;
+  } | null) => void) => void;
+
+  openLocationSettings?: () => void;
+
+  // SAFE AREA МЕТОДЫ
+  requestSafeAreaInset?: () => void;
+  requestContentSafeAreaInset?: () => void;
+
+  // Остальные методы
+  openLink: (
+    url: string,
+    options?: { try_instant_view?: boolean; try_browser?: string },
+  ) => void;
+  openTelegramLink: (url: string) => void;
+  openInvoice: (url: string, callback?: (status: string) => void) => void;
+
+  showPopup: (
+    params: {
+      title?: string;
+      message: string;
+      buttons?: Array<{
+        id?: string;
+        type?: "default" | "ok" | "close" | "cancel" | "destructive";
+        text?: string;
+      }>;
+    },
+    callback?: (button_id: string) => void,
+  ) => void;
+  showAlert: (message: string, callback?: () => void) => void;
+  showConfirm: (
+    message: string,
+    callback?: (confirmed: boolean) => void,
+  ) => void;
+
+  showScanQrPopup: (
+    params: {
+      text?: string;
+    },
+    callback?: (text: string) => boolean | void,
+  ) => void;
+  closeScanQrPopup: () => void;
+
+  readTextFromClipboard?: (callback?: (text: string) => void) => void;
+
+  requestWriteAccess: (callback?: (granted: boolean) => void) => void;
+  requestContact: (callback?: (sent: boolean) => void) => void;
+
+  switchInlineQuery?: (query: string, choose_chat_types?: string[]) => void;
+
+  invokeCustomMethod: (
+    method: string,
+    params: any,
+    callback?: (error: string | null, result?: any) => void,
   ) => void;
 }
 

@@ -25,6 +25,7 @@
     "@react-aria/ssr": "3.9.7",
     "@react-aria/visually-hidden": "3.8.18",
     "@supabase/supabase-js": "^2.47.10",
+    "@telegram-apps/sdk": "^3.11.4",
     "@ton/core": "^0.60.1",
     "@ton/crypto": "^3.3.0",
     "@ton/ton": "^15.2.1",
