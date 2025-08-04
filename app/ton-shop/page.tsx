@@ -1,4 +1,4 @@
-// src/app/ton-shop/page.tsx - Минималистичная версия с локализацией
+// src/app/ton-shop/page.tsx - Updated with corrected localization and improved layout
 
 "use client";
 
@@ -76,7 +76,7 @@ function TONShopContent() {
 
     const initData = searchParams.get("initdata");
 
-    // Инициализация
+    // Component initialization
     useEffect(() => {
         if (!initData) {
             setError(t("shop.tonShop.errors.missingAuthData"));
@@ -109,13 +109,13 @@ function TONShopContent() {
 
             setIsLoading(false);
         } catch (error) {
-            console.error("[TON_SHOP] Ошибка инициализации:", error);
+            console.error("[TON_SHOP] Initialization error:", error);
             setError(t("shop.tonShop.errors.initializationFailed"));
             setIsLoading(false);
         }
     }, [initData, t]);
 
-    // Мониторинг статуса заказа
+    // Order status monitoring
     useEffect(() => {
         if (orderState.orderId && orderState.isPending) {
             const interval = setInterval(() => {
@@ -168,7 +168,7 @@ function TONShopContent() {
                 isPending: true,
             }));
         } catch (error) {
-            console.error("[TON_SHOP] Ошибка создания заказа:", error);
+            console.error("[TON_SHOP] Order creation error:", error);
             setOrderState((prev) => ({
                 ...prev,
                 isCreating: false,
@@ -210,7 +210,7 @@ function TONShopContent() {
             const result = await tonConnectUI.sendTransaction(transaction);
             return result;
         } catch (error) {
-            console.error("[TON_SHOP] Ошибка отправки транзакции:", error);
+            console.error("[TON_SHOP] Transaction error:", error);
 
             if (error instanceof Error) {
                 if (error.message.includes("User rejects")) {
@@ -243,7 +243,7 @@ function TONShopContent() {
                 }));
             }
         } catch (error) {
-            console.error("[TON_SHOP] Ошибка проверки статуса заказа:", error);
+            console.error("[TON_SHOP] Order status check error:", error);
         }
     };
 
@@ -309,7 +309,7 @@ function TONShopContent() {
 
     return (
         <div className="min-h-screen bg-black text-white">
-            {/* Header */}
+            {/* Header Section */}
             <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-sm border-b border-white/10">
                 <div className="max-w-2xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
@@ -326,35 +326,38 @@ function TONShopContent() {
                             <p className="text-white/50 text-xs">{t("shop.tonShop.subtitle")}</p>
                         </div>
 
-                        <div className="w-16" /> {/* Spacer for centering */}
+                        <div className="w-16" />
                     </div>
                 </div>
             </div>
 
             <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-                {/* Wallet Connection */}
+                {/* Wallet Connection Section - Restructured */}
                 <Card className="bg-white/5 border border-white/10">
-                    <CardBody className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <Wallet className="text-blue-400" size={20} />
-                                <div>
-                                    <p className="text-white font-medium">
-                                        {wallet ? t("shop.tonShop.wallet.connected") : t("shop.tonShop.wallet.connectRequired")}
+                    <CardBody className="p-4 space-y-4">
+                        {/* Status Text and Icon */}
+                        <div className="flex items-center space-x-3">
+                            <Wallet className="text-blue-400 flex-shrink-0" size={20} />
+                            <div className="flex-1">
+                                <p className="text-white font-medium">
+                                    {wallet ? t("shop.tonShop.wallet.connected") : t("shop.tonShop.wallet.connectRequired")}
+                                </p>
+                                {userInfo && (
+                                    <p className="text-white/60 text-sm">
+                                        {t("shop.tonShop.user.greeting", { name: userInfo.firstName })}
                                     </p>
-                                    {userInfo && (
-                                        <p className="text-white/60 text-sm">
-                                            {t("shop.tonShop.user.greeting", { name: userInfo.firstName })}
-                                        </p>
-                                    )}
-                                </div>
+                                )}
                             </div>
+                        </div>
+
+                        {/* Connection Button */}
+                        <div className="flex justify-center pt-2">
                             <TonConnectButton className="ton-connect-button-minimal" />
                         </div>
                     </CardBody>
                 </Card>
 
-                {/* Order Status */}
+                {/* Order Status Section */}
                 {(orderState.isCreating || orderState.isPending || orderState.isCompleted || orderState.error) && (
                     <Card className="bg-white/5 border border-white/10">
                         <CardBody className="p-4">
@@ -419,7 +422,7 @@ function TONShopContent() {
                     </Card>
                 )}
 
-                {/* Products */}
+                {/* Products Section */}
                 <div className="space-y-3">
                     {products.map((product) => (
                         <ProductCard
@@ -433,7 +436,7 @@ function TONShopContent() {
                     ))}
                 </div>
 
-                {/* Info */}
+                {/* Information Section */}
                 <Card className="bg-white/5 border border-white/10">
                     <CardBody className="p-4 text-center">
                         <div className="space-y-2 text-sm text-white/60">
@@ -463,11 +466,11 @@ function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCard
     const getBadge = () => {
         switch (product.productType) {
             case "attempts_5":
-                return t("tonShop.badges.popular");
+                return t("shop.tonShop.badges.popular");
             case "attempts_10":
-                return t("tonShop.badges.bestValue");
+                return t("shop.tonShop.badges.bestValue");
             case "attempts_100":
-                return t("tonShop.badges.ultimate");
+                return t("shop.tonShop.badges.ultimate");
             default:
                 return null;
         }
@@ -493,7 +496,7 @@ function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCard
                     <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
                             <h3 className="font-bold text-white">
-                                {t(`tonShop.products.${product.productType}.title`)}
+                                {t(`shop.tonShop.products.${product.productType}.title`)}
                             </h3>
                             {badge && (
                                 <span className="px-2 py-1 bg-white/10 text-white/80 text-xs rounded-full">
@@ -502,7 +505,7 @@ function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCard
                             )}
                         </div>
                         <p className="text-white/60 text-sm mb-2">
-                            {t(`tonShop.products.${product.productType}.description`)}
+                            {t(`shop.tonShop.products.${product.productType}.description`)}
                         </p>
                         <p className="text-white font-bold">{product.priceTON} TON</p>
                     </div>
@@ -518,7 +521,7 @@ function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCard
                             `}
                             isDisabled={disabled}
                         >
-                            {isSelected ? t("tonShop.actions.processing") : t("tonShop.actions.buyWithTON")}
+                            {isSelected ? t("shop.tonShop.actions.processing") : t("shop.tonShop.actions.buyWithTON")}
                         </Button>
                     </div>
                 </div>

@@ -150,19 +150,19 @@ export const shop = {
     },
 
     products: {
-      attempts1: {
+      attempts_1: {
         title: "+1 Попытка",
         description: "Получите 1 дополнительную игровую попытку",
       },
-      attempts5: {
+      attempts_5: {
         title: "+5 Попыток",
         description: "Получите 5 дополнительных игровых попыток",
       },
-      attempts10: {
+      attempts_10: {
         title: "+10 Попыток",
         description: "Получите 10 дополнительных игровых попыток",
       },
-      attempts100: {
+      attempts_100: {
         title: "+100 Попыток",
         description: "Получите 100 дополнительных игровых попыток",
       },
