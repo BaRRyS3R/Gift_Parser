@@ -4,8 +4,10 @@ import { ReactNode } from "react";
 import { TonShopProvider } from "./components/ton-shop-provider";
 import type { Metadata } from "next";
 
+import NavigationWrapper from "@/components/Navigation/NavigationWrapper";
+
 export const metadata: Metadata = {
-    title: "TON Shop - Purchase Game Attempts",
+    title: "Circusle",
     description: "Purchase game attempts using TON cryptocurrency",
     robots: {
         index: false,
@@ -21,6 +23,7 @@ export default function TonShopLayout({ children }: TonShopLayoutProps) {
     return (
         <TonShopProvider>
             {children}
+            <NavigationWrapper />
         </TonShopProvider>
     );
 }
