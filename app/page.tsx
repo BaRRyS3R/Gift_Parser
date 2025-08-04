@@ -68,7 +68,7 @@ export default function IntroPage(): JSX.Element {
     const initData = getTelegramInitData();
 
     if (!initData) {
-      console.log("No Telegram initData available");
+      console.warn("No Telegram initData available");
 
       return { user: null, initData: "" };
     }
@@ -76,12 +76,10 @@ export default function IntroPage(): JSX.Element {
     const parseResult = parseTelegramInitData(initData);
 
     if (!parseResult.success || !parseResult.user) {
-      console.log("Failed to parse Telegram data:", parseResult.error);
+      console.error("Failed to parse Telegram data:", parseResult.error);
 
       return { user: null, initData };
     }
-
-    console.log("Successfully parsed Telegram user data:", parseResult.user);
 
     return { user: parseResult.user, initData };
   }, []);
@@ -120,39 +118,17 @@ export default function IntroPage(): JSX.Element {
   const attemptAuthentication = useCallback(
     async (initData: string): Promise<LoginResult> => {
       try {
-        console.log("NEBULA DEBUG: Updated authentication function is running");
-        console.log("Attempting user authentication...");
         const result = await login(initData);
 
-        console.log("Login result received:", {
-          success: result.success,
-          hasUser: !!result.user,
-          hasSecurity: !!result.security,
-          error: result.error,
-        });
-
         if (!result.success && result.error === "USER_NOT_FOUND") {
-          console.log("User not found - this is expected for new users");
-
           return result;
         }
 
         if (result.success && result.user) {
-          console.log(
-            "Authentication successful for user:",
-            result.user.first_name,
-          );
 
           if (result.security) {
-            console.log("Processing Nebula security checks:", {
-              blocked: result.security.blocked,
-              verificationRequired: result.security.verificationRequired,
-              verificationType: result.security.verificationType,
-              trustScore: result.security.trustScore,
-            });
 
             if (result.security.blocked) {
-              console.log("User is blocked - redirecting to blocked page");
               setTimeout(() => {
                 router.push("/blocked");
               }, 1000);
@@ -164,23 +140,13 @@ export default function IntroPage(): JSX.Element {
               result.security.verificationRequired &&
               result.security.verificationType
             ) {
-              console.log(
-                `User requires ${result.security.verificationType} verification (trust score: ${result.security.trustScore}) - redirecting to Nebula page`,
-              );
               setTimeout(() => {
                 router.push("/nebula");
               }, 1000);
 
               return result;
             }
-
-            console.log(
-              `User passed all Nebula security checks (trust score: ${result.security.trustScore}) - redirecting to main page`,
-            );
           } else {
-            console.log(
-              "No security object in response - proceeding to main page",
-            );
           }
 
           setTimeout(() => {
@@ -213,7 +179,6 @@ export default function IntroPage(): JSX.Element {
       referralCode?: string,
     ): Promise<RegistrationResult> => {
       if (operationInProgressRef.current) {
-        console.log("Registration already in progress, skipping...");
 
         return { success: false, error: "Registration already in progress" };
       }
@@ -221,28 +186,15 @@ export default function IntroPage(): JSX.Element {
       operationInProgressRef.current = true;
 
       try {
-        console.log("Registering new user...");
         const result = await register(initData, referralCode);
 
         if (result.success && result.user) {
-          console.log(
-            "Registration successful for new user:",
-            result.user.first_name,
-          );
-
-          if (result.referralBonus) {
-            console.log("Referral bonus received:", result.referralBonus);
-          }
-
           setPageState((prev) => ({
             ...prev,
             isInitializing: false,
             needsAuthentication: false,
           }));
 
-          console.log(
-            "New user registration complete - redirecting to main page",
-          );
           setTimeout(() => {
             router.push("/main");
           }, 1000);
@@ -268,20 +220,14 @@ export default function IntroPage(): JSX.Element {
    */
   const initializeAuthentication = useCallback(async () => {
     if (authInitializedRef.current) {
-      console.log("Auth already initialized, skipping...");
-
       return;
     }
 
     authInitializedRef.current = true;
 
     try {
-      console.log("Initializing authentication...");
 
       const { user: telegramUserData, initData } = getTelegramUserData();
-
-      console.log("Telegram user data:", telegramUserData);
-      console.log("InitData available:", !!initData);
 
       if (!telegramUserData || !initData) {
         console.error("Telegram data unavailable");
@@ -315,7 +261,6 @@ export default function IntroPage(): JSX.Element {
             referrerName: validation.referrerName,
             referrerUsername: validation.referrerUsername,
           };
-          console.log(`Valid referral code found: ${referralCode}`);
         }
       }
 
@@ -324,11 +269,9 @@ export default function IntroPage(): JSX.Element {
         referralInfo,
       }));
 
-      console.log("Attempting authentication for existing user...");
       const authResult = await attemptAuthentication(initData);
 
       if (!authResult.success && authResult.error === "USER_NOT_FOUND") {
-        console.log("User not found - showing registration UI for new user");
         setPageState((prev) => ({
           ...prev,
           isInitializing: false,
@@ -372,11 +315,6 @@ export default function IntroPage(): JSX.Element {
       authState.isRegistering ||
       operationInProgressRef.current
     ) {
-      console.log("Cannot start initialization:", {
-        hasInitData: !!initData,
-        isRegistering: authState.isRegistering,
-        operationInProgress: operationInProgressRef.current,
-      });
 
       return;
     }

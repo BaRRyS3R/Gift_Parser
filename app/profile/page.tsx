@@ -33,7 +33,6 @@ export default function ProfilePage() {
   // Load profile data when user is authenticated
   useEffect(() => {
     if (authState.isAuthenticated && authState.user && telegramUser) {
-      console.log("User authenticated, loading fresh profile data...");
       profile.fetchProfileData();
     }
   }, [authState.isAuthenticated, authState.user, telegramUser]);
@@ -52,9 +51,6 @@ export default function ProfilePage() {
 
       // If total games changed, update league data immediately
       if (currentTotalGames !== lastKnownTotalGames) {
-        console.log(
-          `Total games changed from ${lastKnownTotalGames} to ${currentTotalGames}, updating league data...`,
-        );
         setLastKnownTotalGames(currentTotalGames);
       }
     }

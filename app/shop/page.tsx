@@ -106,12 +106,6 @@ export default function ShopPage() {
     const currentTime = Date.now();
     const timeDifference = currentTime - easterEggState.lastClickTime;
 
-    console.log("Title clicked:", {
-      currentClickCount: easterEggState.clickCount,
-      timeDifference,
-      currentTime,
-    });
-
     // Если прошло больше 5 секунд с последнего клика, сбрасываем счетчик
     if (timeDifference > 5000) {
       setEasterEggState({
@@ -119,18 +113,14 @@ export default function ShopPage() {
         lastClickTime: currentTime,
         isActive: false,
       });
-      console.log("Reset click count, set to 1");
 
       return;
     }
 
     const newClickCount = easterEggState.clickCount + 1;
 
-    console.log("New click count:", newClickCount);
-
     if (newClickCount >= 3) {
       // Активируем пасхалку и добавляем вибрацию только при успешной активации
-      console.log("Activating easter egg!");
       setEasterEggState({
         clickCount: 0,
         lastClickTime: 0,
@@ -147,7 +137,6 @@ export default function ShopPage() {
         lastClickTime: currentTime,
         isActive: false,
       });
-      console.log("Click count updated to:", newClickCount);
     }
   };
 
@@ -204,7 +193,6 @@ export default function ShopPage() {
     if (purchaseModule.isLoading || purchaseModule.isProcessing) return;
 
     try {
-      console.log(`Processing purchase for product: ${productType}`);
 
       const success = await purchaseModule.processPurchase(productType);
 
@@ -215,13 +203,7 @@ export default function ShopPage() {
         // Show success notification
         showSuccessNotification(productType);
 
-        console.log(
-          `Purchase completed successfully for product: ${productType}`,
-        );
-      } else {
-        console.log(`Purchase was not completed for product: ${productType}`);
-        // Error handling is managed by the purchase module
-      }
+      } else { }
     } catch (error) {
       console.error("Error in purchase process:", error);
     }

@@ -98,7 +98,6 @@ export default function BlockedPage(): JSX.Element {
         }
 
         if (result.unblocked) {
-          console.log("User has been unblocked");
           setPageState((prev) => ({
             ...prev,
             isLoading: false,
@@ -119,7 +118,6 @@ export default function BlockedPage(): JSX.Element {
             router.push("/");
           }, 3000);
         } else if (result.blockInfo) {
-          console.log("User is still blocked:", result.blockInfo);
           setPageState((prev) => ({
             ...prev,
             isLoading: false,

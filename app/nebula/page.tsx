@@ -148,9 +148,6 @@ export default function NebulaPage(): JSX.Element {
         return;
       }
 
-      console.log(
-        `Opening ${vType} verification modal with attempt ID: ${aId}`,
-      );
       setPageState((prev) => ({
         ...prev,
         phase: "verifying",
@@ -182,7 +179,6 @@ export default function NebulaPage(): JSX.Element {
 
       // Проверка блокировки пользователя
       if (result.blocked) {
-        console.log("User is blocked, redirecting to blocked page");
         router.push("/blocked");
 
         return;
@@ -190,7 +186,6 @@ export default function NebulaPage(): JSX.Element {
 
       // Проверка разрешения на продолжение
       if (result.allowed) {
-        console.log("User passed Nebula checks, redirecting to main");
         router.push("/main");
 
         return;
@@ -198,7 +193,6 @@ export default function NebulaPage(): JSX.Element {
 
       // Пользователь требует верификации
       if (result.verification) {
-        console.log(`User requires ${result.verification.type} verification`);
         setPageState((prev) => ({
           ...prev,
           phase:
@@ -239,8 +233,6 @@ export default function NebulaPage(): JSX.Element {
    */
   const checkDeviceSupport = useCallback(async (type: VerificationType) => {
     if (type === "captcha") return;
-
-    console.log(`Checking device support for ${type}`);
     setPageState((prev) => ({ ...prev, phase: "device_checking" }));
 
     try {
@@ -294,7 +286,6 @@ export default function NebulaPage(): JSX.Element {
       const manager = tg.BiometricManager;
 
       manager.init(() => {
-        console.log("BiometricManager initialized");
 
         if (!manager.isBiometricAvailable) {
           reject(
@@ -306,8 +297,6 @@ export default function NebulaPage(): JSX.Element {
 
         // Проверяем разрешения
         const permissionGranted = manager.isAccessGranted;
-
-        console.log("Biometric permission status:", permissionGranted);
 
         setPageState((prev) => ({
           ...prev,
@@ -364,7 +353,6 @@ export default function NebulaPage(): JSX.Element {
         typeof DeviceOrientationEvent.requestPermission === "function";
 
       if (requiresPermission) {
-        console.log("Gyroscope requires permission");
         setPageState((prev) => ({
           ...prev,
           deviceCapability: {
@@ -463,12 +451,10 @@ export default function NebulaPage(): JSX.Element {
 
       if (remaining <= 0) {
         cleanupTimers();
-        console.log("Permission timeout - blocking user");
         blockForPermissionTimeout();
       }
     }, 1000);
 
-    console.log("Permission timer started - 5 minutes countdown");
   }, [cleanupTimers]);
 
   /**
@@ -481,7 +467,6 @@ export default function NebulaPage(): JSX.Element {
     )
       return;
 
-    console.log(`Requesting permission for ${pageState.verificationType}`);
     setPageState((prev) => ({
       ...prev,
       deviceCapability: {
@@ -499,7 +484,6 @@ export default function NebulaPage(): JSX.Element {
           tg.BiometricManager.requestAccess(
             { reason: "Security verification required for continued access" },
             (granted: boolean) => {
-              console.log("Biometric permission result:", granted);
               if (granted) {
                 handlePermissionGranted();
               }
@@ -580,7 +564,6 @@ export default function NebulaPage(): JSX.Element {
         }
 
         if (permissionGranted) {
-          console.log("Permission detected during auto-check");
           handlePermissionGranted();
         }
       } catch (error) {
@@ -593,7 +576,6 @@ export default function NebulaPage(): JSX.Element {
    * Обработка получения разрешения
    */
   const handlePermissionGranted = useCallback(() => {
-    console.log("Permission granted - switching to verification");
     cleanupTimers();
 
     setPageState((prev) => ({
@@ -635,7 +617,6 @@ export default function NebulaPage(): JSX.Element {
       }
 
       try {
-        console.log(`Blocking user for unsupported ${type} device`);
         const endpoint =
           type === "biometric"
             ? "/api/nebula/biometric"
@@ -659,8 +640,6 @@ export default function NebulaPage(): JSX.Element {
         }
 
         const result = await response.json();
-
-        console.log("Block result:", result);
 
         // Принудительно перенаправляем на страницу блокировки
         router.push("/blocked");
@@ -687,9 +666,6 @@ export default function NebulaPage(): JSX.Element {
     }
 
     try {
-      console.log(
-        `Blocking user for permission timeout: ${pageState.verificationType}`,
-      );
       const endpoint =
         pageState.verificationType === "biometric"
           ? "/api/nebula/biometric"
@@ -764,7 +740,6 @@ export default function NebulaPage(): JSX.Element {
       pageState.verificationType &&
       pageState.attemptId
     ) {
-      console.log("Auto-opening verification modal due to phase change");
       const timer = setTimeout(() => {
         openVerificationModal(
           pageState.verificationType!,

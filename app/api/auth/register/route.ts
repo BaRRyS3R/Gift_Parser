@@ -185,11 +185,6 @@ export async function POST(
       created_at: newUser.created_at,
     };
 
-    // Log successful registration
-    console.log(
-      `User registered successfully: ${newUser.telegram_id} (${newUser.first_name})`,
-    );
-
     return NextResponse.json({
       success: true,
       user: userData,
