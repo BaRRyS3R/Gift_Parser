@@ -1,4 +1,4 @@
-// src/components/TON/TONPurchaseButton.tsx - Кнопка покупки через TON для основного приложения
+// src/components/TON/TONPurchaseButton.tsx - Улучшенная версия с синими оттенками
 
 "use client";
 
@@ -7,41 +7,29 @@ import { Button } from "@nextui-org/react";
 import { Wallet, ExternalLink, AlertCircle } from "lucide-react";
 
 import { getTelegramInitData } from "@/lib/telegram-auth";
+import { useT } from "@/contexts/LocalizationContext";
 
 interface TONPurchaseButtonProps {
   className?: string;
   size?: "sm" | "md" | "lg";
-  variant?:
-    | "solid"
-    | "bordered"
-    | "light"
-    | "flat"
-    | "faded"
-    | "shadow"
-    | "ghost";
+  variant?: "solid" | "bordered" | "light" | "flat" | "faded" | "shadow" | "ghost";
   isDisabled?: boolean;
   fullWidth?: boolean;
   children?: React.ReactNode;
 }
 
-/**
- * Компонент кнопки для открытия TON Shop
- * Формирует URL с initData и открывает магазин в новом окне
- */
 export function TONPurchaseButton({
   className = "",
   size = "md",
-  variant = "bordered",
+  variant = "solid",
   isDisabled = false,
   fullWidth = false,
   children,
 }: TONPurchaseButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
 
-  /**
-   * Получение TON Shop URL с текущими initData пользователя
-   */
   const getTONShopURL = useCallback((): string => {
     const initData = getTelegramInitData();
     const baseURL = typeof window !== "undefined" ? window.location.origin : "";
@@ -49,27 +37,19 @@ export function TONPurchaseButton({
     return `${baseURL}/ton-shop?initdata=${encodeURIComponent(initData)}`;
   }, []);
 
-  /**
-   * Обработка нажатия на кнопку TON Shop
-   */
   const handleTONShopOpen = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Получаем initData для формирования URL
       const initData = getTelegramInitData();
 
       if (!initData) {
-        throw new Error("Unable to get Telegram authentication data");
+        throw new Error(t("shop.tonShop.errors.authDataUnavailable"));
       }
 
-      // Формируем URL TON Shop
       const tonShopURL = getTONShopURL();
 
-      console.log("[TON_BUTTON] Opening TON Shop:", tonShopURL);
-
-      // Открываем TON Shop в новом окне
       const newWindow = window.open(
         tonShopURL,
         "ton-shop",
@@ -77,36 +57,30 @@ export function TONPurchaseButton({
       );
 
       if (!newWindow) {
-        // Fallback если всплывающие окна заблокированы
         window.location.href = tonShopURL;
       } else {
-        // Фокусируемся на новом окне
         newWindow.focus();
       }
 
-      // Добавляем небольшую задержку для анимации
       setTimeout(() => {
         setIsLoading(false);
       }, 500);
     } catch (error) {
       console.error("[TON_BUTTON] Error opening TON Shop:", error);
 
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to open TON Shop";
+      const errorMessage = error instanceof Error
+        ? error.message
+        : t("shop.tonShop.errors.openingFailed");
 
       setError(errorMessage);
       setIsLoading(false);
 
-      // Очищаем ошибку через 3 секунды
       setTimeout(() => {
         setError(null);
       }, 3000);
     }
-  }, [getTONShopURL]);
+  }, [getTONShopURL, t]);
 
-  /**
-   * Получение содержимого кнопки
-   */
   const getButtonContent = () => {
     if (children) {
       return children;
@@ -116,7 +90,7 @@ export function TONPurchaseButton({
       return (
         <div className="flex items-center space-x-2">
           <AlertCircle size={16} />
-          <span>Error</span>
+          <span>{t("common.error")}</span>
         </div>
       );
     }
@@ -125,7 +99,7 @@ export function TONPurchaseButton({
       return (
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          <span>Opening...</span>
+          <span>{t("shop.tonShop.actions.opening")}</span>
         </div>
       );
     }
@@ -133,39 +107,38 @@ export function TONPurchaseButton({
     return (
       <div className="flex items-center space-x-2">
         <Wallet size={16} />
-        <span>Buy with TON</span>
+        <span>{t("shop.tonShop.actions.buyWithTON")}</span>
         <ExternalLink className="opacity-70" size={14} />
       </div>
     );
   };
 
-  /**
-   * Получение цвета кнопки в зависимости от состояния
-   */
-  const getButtonColor = () => {
+  const getButtonStyles = () => {
     if (error) {
-      return "danger";
+      return "bg-red-600/80 text-white border-red-500/50 hover:bg-red-600";
     }
 
-    return "primary";
+    // Минималистичные синие оттенки без сложных эффектов
+    return `
+      bg-blue-600 text-white border-blue-500
+      hover:bg-blue-700 hover:border-blue-600
+      active:bg-blue-800
+      disabled:bg-blue-600/50 disabled:border-blue-500/50 disabled:opacity-60
+      transition-colors duration-200
+    `;
   };
 
   return (
     <Button
       className={`
-        transition-all duration-200
-        ${error ? "animate-pulse" : ""}
+        ${getButtonStyles()}
         ${className}
       `}
-      color={getButtonColor()}
       fullWidth={fullWidth}
       isDisabled={isDisabled || isLoading}
       isLoading={isLoading}
       size={size}
-      title={
-        error ||
-        "Open TON Shop to purchase game attempts with TON cryptocurrency"
-      }
+      title={error || t("shop.tonShop.button.tooltip")}
       variant={variant}
       onPress={handleTONShopOpen}
     >

@@ -1,53 +1,273 @@
-/* src/app/ton-shop/ton-shop.css */
+/* src/app/ton-shop/ton-shop.css - Минималистичные стили для TON Shop */
 
-/* Стили для кнопки TonConnect */
-.ton-connect-button {
-    --tc-button-bg-color: rgba(255, 255, 255, 0.2);
-    --tc-button-hover-bg-color: rgba(255, 255, 255, 0.3);
-    --tc-button-text-color: #ffffff;
-    --tc-button-border-color: rgba(255, 255, 255, 0.4);
+/* Основные стили для TonConnect кнопки - минималистичный вариант */
+.ton-connect-button-minimal {
+    --tc-button-bg-color: rgba(59, 130, 246, 0.1) !important;
+    --tc-button-hover-bg-color: rgba(59, 130, 246, 0.2) !important;
+    --tc-button-text-color: #3b82f6 !important;
+    --tc-button-border-color: rgba(59, 130, 246, 0.3) !important;
+    --tc-button-border-radius: 8px !important;
+    font-size: 14px !important;
+    padding: 8px 16px !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
 }
 
-/* Адаптация модального окна TON Connect под темную тему */
+/* Адаптация модального окна TON Connect под минималистичную темную тему */
 :root {
     --tc-modal-bg-color: #000000;
     --tc-modal-text-color: #ffffff;
     --tc-modal-secondary-text-color: rgba(255, 255, 255, 0.7);
-    --tc-modal-border-color: rgba(255, 255, 255, 0.2);
-    --tc-modal-button-bg-color: rgba(255, 255, 255, 0.1);
-    --tc-modal-button-hover-bg-color: rgba(255, 255, 255, 0.2);
+    --tc-modal-border-color: rgba(255, 255, 255, 0.1);
+    --tc-modal-button-bg-color: rgba(59, 130, 246, 0.1);
+    --tc-modal-button-hover-bg-color: rgba(59, 130, 246, 0.2);
+    --tc-modal-button-text-color: #3b82f6;
+    --tc-modal-button-border-color: rgba(59, 130, 246, 0.3);
 }
 
-/* Дополнительные стили для компонентов TON Shop */
+/* Основной контейнер TON Shop */
 .ton-shop-container {
     min-height: 100vh;
     background-color: #000000;
     color: #ffffff;
 }
 
-/* Анимация для обработки платежей */
-@keyframes pulse {
-    0% {
+/* Минималистичные карточки продуктов */
+.ton-product-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.ton-product-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ton-product-card.selected {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Стили для заголовков */
+.ton-shop-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+}
+
+.ton-shop-subtitle {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Статусные индикаторы */
+.ton-status-success {
+    color: #10b981;
+}
+
+.ton-status-warning {
+    color: #f59e0b;
+}
+
+.ton-status-error {
+    color: #ef4444;
+}
+
+.ton-status-info {
+    color: #3b82f6;
+}
+
+/* Кнопки в минималистичном стиле */
+.ton-button-primary {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border: 1px solid #3b82f6;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.ton-button-primary:hover {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
+.ton-button-primary:active {
+    background-color: #1d4ed8;
+}
+
+.ton-button-secondary {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.ton-button-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Анимации для состояний загрузки */
+.ton-loading-pulse {
+    animation: tonPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes tonPulse {
+
+    0%,
+    100% {
         opacity: 1;
     }
 
     50% {
-        opacity: 0.5;
-    }
-
-    100% {
-        opacity: 1;
+        opacity: 0.6;
     }
 }
 
-.animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* Индикатор обработки */
+.ton-processing-indicator {
+    animation: tonSpin 1s linear infinite;
 }
 
-/* Медиа-запросы для мобильных устройств */
-@media (max-width: 768px) {
-    .ton-connect-button {
-        font-size: 14px;
-        padding: 8px 16px;
+@keyframes tonSpin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Sticky header стили */
+.ton-sticky-header {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Badge стили */
+.ton-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ton-badge.popular {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.ton-badge.best-value {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.ton-badge.ultimate {
+    background: rgba(168, 85, 247, 0.1);
+    color: #a855f7;
+    border-color: rgba(168, 85, 247, 0.3);
+}
+
+/* Информационные блоки */
+.ton-info-block {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.ton-info-text {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.ton-info-text-small {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.75rem;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 640px) {
+    .ton-connect-button-minimal {
+        font-size: 12px !important;
+        padding: 6px 12px !important;
+    }
+
+    .ton-shop-title {
+        font-size: 1.25rem;
+    }
+
+    .ton-product-card {
+        border-radius: 8px;
+    }
+
+    .ton-button-primary,
+    .ton-button-secondary {
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    .ton-product-card {
+        transition: none;
+    }
+
+    .ton-button-primary,
+    .ton-button-secondary {
+        transition: none;
+    }
+
+    .ton-loading-pulse {
+        animation: none;
+        opacity: 0.8;
+    }
+
+    .ton-processing-indicator {
+        animation: none;
+    }
+}
+
+/* Focus states for keyboard navigation */
+.ton-product-card:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.ton-button-primary:focus-visible,
+.ton-button-secondary:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Высокое разрешение экрана */
+@media (-webkit-min-device-pixel-ratio: 2),
+(min-resolution: 192dpi) {
+    .ton-product-card {
+        border-width: 0.5px;
+    }
+
+    .ton-sticky-header {
+        border-bottom-width: 0.5px;
     }
 }

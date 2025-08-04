@@ -1,19 +1,18 @@
-// src/app/ton-shop/page.tsx - Полностью исправленная версия с правильным форматом транзакций
+// src/app/ton-shop/page.tsx - Минималистичная версия с локализацией
 
 "use client";
 
 import "./ton-shop.css";
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Card, CardBody, Button, Chip, Spinner } from "@nextui-org/react";
+import { Card, CardBody, Button, Spinner } from "@nextui-org/react";
 import {
     useTonWallet,
     useTonConnectModal,
     useTonConnectUI,
     TonConnectButton,
 } from "@tonconnect/ui-react";
-import { Wallet, CheckCircle, Clock, AlertCircle, Star } from "lucide-react";
-// ВАЖНО: Импортируем необходимые функции для работы с Cell
+import { Wallet, CheckCircle, Clock, AlertCircle, ArrowLeft } from "lucide-react";
 import { beginCell } from "@ton/core";
 
 import {
@@ -23,8 +22,8 @@ import {
 } from "@/types/ton-payments";
 import { ProductType } from "@/types/purchases";
 import { parseTelegramInitData } from "@/lib/telegram-auth";
+import { useT } from "@/contexts/LocalizationContext";
 
-// Интерфейсы для состояния компонента
 interface UserInfo {
     telegramId: number;
     firstName: string;
@@ -48,7 +47,6 @@ interface OrderState {
     error: string | null;
 }
 
-// Встроенный каталог продуктов
 const EMBEDDED_PRODUCTS: ProductType[] = [
     "attempts_1",
     "attempts_5",
@@ -56,21 +54,18 @@ const EMBEDDED_PRODUCTS: ProductType[] = [
     "attempts_100",
 ];
 
-// Основной компонент TON Shop
 function TONShopContent() {
     const searchParams = useSearchParams();
     const wallet = useTonWallet();
     const { open: openModal } = useTonConnectModal();
     const [tonConnectUI] = useTonConnectUI();
+    const t = useT();
 
-    // Состояние компонента
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
     const [products, setProducts] = useState<TONProduct[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedProduct, setSelectedProduct] = useState<ProductType | null>(
-        null,
-    );
+    const [selectedProduct, setSelectedProduct] = useState<ProductType | null>(null);
     const [orderState, setOrderState] = useState<OrderState>({
         orderId: null,
         isCreating: false,
@@ -79,36 +74,30 @@ function TONShopContent() {
         error: null,
     });
 
-    // Получение initData из URL параметров
     const initData = searchParams.get("initdata");
 
-    // Инициализация при монтировании компонента
+    // Инициализация
     useEffect(() => {
         if (!initData) {
-            setError(
-                "Отсутствуют данные аутентификации. Пожалуйста, откройте эту страницу через основное приложение.",
-            );
+            setError(t("shop.tonShop.errors.missingAuthData"));
             setIsLoading(false);
             return;
         }
 
-        // Парсим данные пользователя из initData
         try {
             const parseResult = parseTelegramInitData(decodeURIComponent(initData));
 
             if (!parseResult.success || !parseResult.user) {
-                setError("Неверные данные аутентификации");
+                setError(t("shop.tonShop.errors.invalidAuthData"));
                 setIsLoading(false);
                 return;
             }
 
-            // Устанавливаем информацию о пользователе
             setUserInfo({
                 telegramId: parseResult.user.id,
                 firstName: parseResult.user.first_name,
             });
 
-            // Загружаем встроенный каталог продуктов
             const embeddedProducts = EMBEDDED_PRODUCTS.map(productType => {
                 const productInfo = getTONProductInfo(productType);
                 return {
@@ -118,79 +107,58 @@ function TONShopContent() {
             });
             setProducts(embeddedProducts);
 
-            console.log("[TON_SHOP] Инициализирован с встроенным каталогом:", {
-                user: parseResult.user.first_name,
-                productsCount: embeddedProducts.length,
-            });
-
             setIsLoading(false);
         } catch (error) {
             console.error("[TON_SHOP] Ошибка инициализации:", error);
-            setError("Не удалось инициализировать магазин");
+            setError(t("shop.tonShop.errors.initializationFailed"));
             setIsLoading(false);
         }
-    }, [initData]);
+    }, [initData, t]);
 
     // Мониторинг статуса заказа
     useEffect(() => {
         if (orderState.orderId && orderState.isPending) {
             const interval = setInterval(() => {
                 checkOrderStatus(orderState.orderId!);
-            }, 10000); // Проверяем каждые 10 секунд
+            }, 10000);
 
-            // Очистка через 5 минут
-            const timeout = setTimeout(
-                () => {
-                    clearInterval(interval);
-                    setOrderState((prev) => ({
-                        ...prev,
-                        isPending: false,
-                        error:
-                            "Время ожидания истекло. Пожалуйста, проверьте статус транзакции вручную.",
-                    }));
-                },
-                5 * 60 * 1000,
-            );
+            const timeout = setTimeout(() => {
+                clearInterval(interval);
+                setOrderState((prev) => ({
+                    ...prev,
+                    isPending: false,
+                    error: t("shop.tonShop.errors.timeoutExpired"),
+                }));
+            }, 5 * 60 * 1000);
 
             return () => {
                 clearInterval(interval);
                 clearTimeout(timeout);
             };
         }
-    }, [orderState.orderId, orderState.isPending]);
+    }, [orderState.orderId, orderState.isPending, t]);
 
-    /**
-     * Создание TON заказа
-     */
     const createTONOrder = async (productType: ProductType) => {
         try {
             setOrderState((prev) => ({ ...prev, isCreating: true, error: null }));
 
             const response = await fetch("/api/ton/create-order", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    initData: initData!,
-                    productType,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ initData: initData!, productType }),
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || "Не удалось создать заказ");
+                throw new Error(errorData.error || t("shop.tonShop.errors.orderCreationFailed"));
             }
 
             const data: CreateTONOrderResponse = await response.json();
 
             if (!data.success || !data.order) {
-                throw new Error(data.error || "Не удалось создать заказ");
+                throw new Error(data.error || t("shop.tonShop.errors.orderCreationFailed"));
             }
 
-            console.log("[TON_SHOP] Заказ создан:", data.order.id);
-
-            // Отправляем транзакцию в TON кошелек
             await sendTONTransaction(data.order);
 
             setOrderState((prev) => ({
@@ -204,122 +172,81 @@ function TONShopContent() {
             setOrderState((prev) => ({
                 ...prev,
                 isCreating: false,
-                error:
-                    error instanceof Error ? error.message : "Не удалось создать заказ",
+                error: error instanceof Error ? error.message : t("shop.tonShop.errors.orderCreationFailed"),
             }));
         }
     };
 
-    /**
-     * ИСПРАВЛЕННАЯ функция отправки TON транзакции
-     */
     const sendTONTransaction = async (order: CreateTONOrderResponse["order"]) => {
         if (!wallet) {
-            throw new Error("Кошелек не подключен");
+            throw new Error(t("shop.tonShop.errors.walletNotConnected"));
         }
 
         if (!order) {
-            throw new Error("Неверные данные заказа");
+            throw new Error(t("shop.tonShop.errors.invalidOrderData"));
         }
 
         try {
-            console.log("[TON_SHOP] Подготовка транзакции для заказа:", order.id);
-
-            // ВАЖНО: Создаем правильный payload с комментарием
             let payloadBase64: string | undefined;
 
             if (order.payment.payload) {
-                // Создаем Cell с комментарием по стандарту TON
                 const commentCell = beginCell()
-                    .storeUint(0, 32) // Записываем 32 нулевых бита для обозначения текстового комментария
-                    .storeStringTail(order.payment.payload) // Записываем сам комментарий (ID заказа)
+                    .storeUint(0, 32)
+                    .storeStringTail(order.payment.payload)
                     .endCell();
 
-                // Конвертируем в base64
                 payloadBase64 = commentCell.toBoc().toString('base64');
-
-                console.log("[TON_SHOP] Payload создан:", {
-                    orderId: order.payment.payload,
-                    base64: payloadBase64
-                });
             }
 
-            // Формируем транзакцию в правильном формате
             const transaction = {
-                validUntil: Math.floor(Date.now() / 1000) + 300, // 5 минут
-                messages: [
-                    {
-                        address: order.payment.destinationWallet,
-                        amount: order.payment.amountNanotons, // Уже строка из API
-                        payload: payloadBase64 // Base64 закодированный Cell с комментарием
-                    }
-                ]
+                validUntil: Math.floor(Date.now() / 1000) + 300,
+                messages: [{
+                    address: order.payment.destinationWallet,
+                    amount: order.payment.amountNanotons,
+                    payload: payloadBase64
+                }]
             };
 
-            console.log("[TON_SHOP] Отправка транзакции:", {
-                orderId: order.id,
-                amountTON: order.payment.amount,
-                amountNanotons: order.payment.amountNanotons,
-                destination: order.payment.destinationWallet,
-                hasPayload: !!payloadBase64,
-                validUntil: transaction.validUntil
-            });
-
-            // Отправляем транзакцию через TON Connect UI
             const result = await tonConnectUI.sendTransaction(transaction);
-
-            console.log("[TON_SHOP] Транзакция отправлена успешно:", result);
-
             return result;
         } catch (error) {
             console.error("[TON_SHOP] Ошибка отправки транзакции:", error);
 
-            // Обработка специфических ошибок
             if (error instanceof Error) {
                 if (error.message.includes("User rejects")) {
-                    throw new Error("Транзакция отменена пользователем");
+                    throw new Error(t("shop.tonShop.errors.transactionCancelled"));
                 }
                 if (error.message.includes("Insufficient balance")) {
-                    throw new Error("Недостаточно TON на балансе кошелька");
+                    throw new Error(t("shop.tonShop.errors.insufficientBalance"));
                 }
             }
 
-            throw new Error("Не удалось отправить транзакцию. Пожалуйста, попробуйте снова.");
+            throw new Error(t("shop.tonShop.errors.transactionFailed"));
         }
     };
 
-    /**
-     * Проверка статуса заказа
-     */
     const checkOrderStatus = async (orderId: string) => {
         try {
             const response = await fetch(`/api/ton/order-status/${orderId}`);
 
             if (!response.ok) {
-                throw new Error("Не удалось проверить статус заказа");
+                throw new Error(t("shop.tonShop.errors.statusCheckFailed"));
             }
 
             const data = await response.json();
 
-            if (data.success && data.order) {
-                if (data.order.status === "completed") {
-                    setOrderState((prev) => ({
-                        ...prev,
-                        isPending: false,
-                        isCompleted: true,
-                    }));
-
-                    console.log("[TON_SHOP] Заказ выполнен:", orderId);
-                }
+            if (data.success && data.order && data.order.status === "completed") {
+                setOrderState((prev) => ({
+                    ...prev,
+                    isPending: false,
+                    isCompleted: true,
+                }));
             }
         } catch (error) {
             console.error("[TON_SHOP] Ошибка проверки статуса заказа:", error);
         }
     };
 
-    /**
-     * Обработка выбора товара
-     */
     const handleProductSelect = async (productType: ProductType) => {
         if (!wallet) {
             openModal();
@@ -330,9 +257,6 @@ function TONShopContent() {
         await createTONOrder(productType);
     };
 
-    /**
-     * Сброс состояния заказа
-     */
     const resetOrderState = () => {
         setOrderState({
             orderId: null,
@@ -344,13 +268,20 @@ function TONShopContent() {
         setSelectedProduct(null);
     };
 
-    // Обработка состояний загрузки и ошибок
+    const goBack = () => {
+        if (window.opener) {
+            window.close();
+        } else {
+            window.history.back();
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-black text-white flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <Spinner color="white" size="lg" />
-                    <p className="text-white/70">Загрузка TON Shop...</p>
+                    <p className="text-white/70">{t("shop.tonShop.loading")}</p>
                 </div>
             </div>
         );
@@ -362,13 +293,13 @@ function TONShopContent() {
                 <Card className="bg-white/10 border border-white/20 max-w-md">
                     <CardBody className="text-center space-y-4">
                         <AlertCircle className="mx-auto text-red-400" size={48} />
-                        <h2 className="text-xl font-bold text-white">Ошибка загрузки магазина</h2>
+                        <h2 className="text-xl font-bold text-white">{t("shop.tonShop.errors.loadingError")}</h2>
                         <p className="text-white/70">{error}</p>
                         <Button
                             className="bg-white/20 text-white border border-white/40"
                             onPress={() => window.location.reload()}
                         >
-                            Повторить
+                            {t("common.retry")}
                         </Button>
                     </CardBody>
                 </Card>
@@ -377,183 +308,141 @@ function TONShopContent() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white p-4">
-            {/* Заголовок */}
-            <div className="max-w-4xl mx-auto mb-8">
-                <div className="text-center space-y-4 mb-8">
-                    <h1 className="text-4xl font-bold text-white">TON Shop</h1>
-                    <p className="text-white/60 text-sm uppercase tracking-[0.3em]">
-                        Покупка игровых попыток за TON
-                    </p>
-                </div>
+        <div className="min-h-screen bg-black text-white">
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-sm border-b border-white/10">
+                <div className="max-w-2xl mx-auto px-4 py-4">
+                    <div className="flex items-center justify-between">
+                        <button
+                            onClick={goBack}
+                            className="flex items-center space-x-2 text-white/60 hover:text-white transition-colors"
+                        >
+                            <ArrowLeft size={20} />
+                            <span className="text-sm">{t("common.back")}</span>
+                        </button>
 
-                {/* Информация о пользователе */}
-                {userInfo && (
-                    <Card className="bg-white/10 border border-white/20 mb-6">
-                        <CardBody className="p-4">
-                            <div className="flex items-center justify-between">
+                        <div className="text-center">
+                            <h1 className="text-2xl font-bold text-white">{t("shop.tonShop.title")}</h1>
+                            <p className="text-white/50 text-xs">{t("shop.tonShop.subtitle")}</p>
+                        </div>
+
+                        <div className="w-16" /> {/* Spacer for centering */}
+                    </div>
+                </div>
+            </div>
+
+            <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+                {/* Wallet Connection */}
+                <Card className="bg-white/5 border border-white/10">
+                    <CardBody className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <Wallet className="text-blue-400" size={20} />
                                 <div>
-                                    <h3 className="font-bold text-white">
-                                        Добро пожаловать, {userInfo.firstName}!
-                                    </h3>
-                                    <p className="text-white/70 text-sm">
-                                        Выберите пакет для покупки попыток
+                                    <p className="text-white font-medium">
+                                        {wallet ? t("shop.tonShop.wallet.connected") : t("shop.tonShop.wallet.connectRequired")}
                                     </p>
+                                    {userInfo && (
+                                        <p className="text-white/60 text-sm">
+                                            {t("shop.tonShop.user.greeting", { name: userInfo.firstName })}
+                                        </p>
+                                    )}
                                 </div>
-                                <Chip
-                                    className="bg-white/20 text-white border border-white/30"
-                                    size="sm"
-                                >
-                                    Telegram ID: {userInfo.telegramId}
-                                </Chip>
                             </div>
+                            <TonConnectButton className="ton-connect-button-minimal" />
+                        </div>
+                    </CardBody>
+                </Card>
+
+                {/* Order Status */}
+                {(orderState.isCreating || orderState.isPending || orderState.isCompleted || orderState.error) && (
+                    <Card className="bg-white/5 border border-white/10">
+                        <CardBody className="p-4">
+                            {orderState.isCreating && (
+                                <div className="flex items-center space-x-3">
+                                    <Spinner color="white" size="sm" />
+                                    <div>
+                                        <p className="font-medium text-white">{t("shop.tonShop.status.creatingOrder")}</p>
+                                        <p className="text-white/60 text-sm">{t("shop.tonShop.status.preparingPurchase")}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {orderState.isPending && (
+                                <div className="flex items-center space-x-3">
+                                    <Clock className="text-yellow-400 animate-pulse" size={20} />
+                                    <div>
+                                        <p className="font-medium text-white">{t("shop.tonShop.status.processingPayment")}</p>
+                                        <p className="text-white/60 text-sm">{t("shop.tonShop.status.processingTime")}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {orderState.isCompleted && (
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                        <CheckCircle className="text-green-400" size={20} />
+                                        <div>
+                                            <p className="font-medium text-white">{t("shop.tonShop.status.paymentSuccessful")}</p>
+                                            <p className="text-white/60 text-sm">{t("shop.tonShop.status.attemptsAdded")}</p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        className="bg-white/10 text-white border border-white/20"
+                                        onPress={resetOrderState}
+                                    >
+                                        {t("shop.tonShop.actions.newPurchase")}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {orderState.error && (
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                        <AlertCircle className="text-red-400" size={20} />
+                                        <div>
+                                            <p className="font-medium text-white">{t("shop.tonShop.status.paymentError")}</p>
+                                            <p className="text-white/60 text-sm">{orderState.error}</p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        className="bg-white/10 text-white border border-white/20"
+                                        onPress={resetOrderState}
+                                    >
+                                        {t("shop.tonShop.actions.tryAgain")}
+                                    </Button>
+                                </div>
+                            )}
                         </CardBody>
                     </Card>
                 )}
 
-                {/* Подключение кошелька */}
-                <Card className="bg-white/10 border border-white/20 mb-6">
-                    <CardBody className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <Wallet className="text-white" size={24} />
-                                <div>
-                                    <h3 className="font-bold text-white">TON Кошелек</h3>
-                                    <p className="text-white/70 text-sm">
-                                        {wallet
-                                            ? "Подключен"
-                                            : "Подключите кошелек для совершения покупок"}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <TonConnectButton
-                                    className="ton-connect-button"
-                                    style={{ float: 'none' }}
-                                />
-                                {wallet && (
-                                    <Chip className="bg-green-600/20 text-green-300 border border-green-600/30">
-                                        Подключен
-                                    </Chip>
-                                )}
-                            </div>
-                        </div>
-                    </CardBody>
-                </Card>
-            </div>
-
-            {/* Статус заказа */}
-            {(orderState.isCreating ||
-                orderState.isPending ||
-                orderState.isCompleted ||
-                orderState.error) && (
-                    <div className="max-w-4xl mx-auto mb-6">
-                        <Card className="bg-white/10 border border-white/20">
-                            <CardBody className="p-4">
-                                {orderState.isCreating && (
-                                    <div className="flex items-center space-x-3">
-                                        <Spinner color="white" size="sm" />
-                                        <div>
-                                            <h4 className="font-bold text-white">Создание заказа...</h4>
-                                            <p className="text-white/70 text-sm">
-                                                Подготовка вашей покупки
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {orderState.isPending && (
-                                    <div className="flex items-center space-x-3">
-                                        <Clock className="text-yellow-400 animate-pulse" size={24} />
-                                        <div>
-                                            <h4 className="font-bold text-white">
-                                                Обработка платежа...
-                                            </h4>
-                                            <p className="text-white/70 text-sm">
-                                                Ваша транзакция обрабатывается. Это может занять до 5 минут.
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {orderState.isCompleted && (
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-3">
-                                            <CheckCircle className="text-green-400" size={24} />
-                                            <div>
-                                                <h4 className="font-bold text-white">
-                                                    Платеж успешно завершен!
-                                                </h4>
-                                                <p className="text-white/70 text-sm">
-                                                    Ваши попытки добавлены на аккаунт.
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            className="bg-white/20 text-white border border-white/40"
-                                            onPress={resetOrderState}
-                                        >
-                                            Новая покупка
-                                        </Button>
-                                    </div>
-                                )}
-
-                                {orderState.error && (
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-3">
-                                            <AlertCircle className="text-red-400" size={24} />
-                                            <div>
-                                                <h4 className="font-bold text-white">Ошибка платежа</h4>
-                                                <p className="text-white/70 text-sm">
-                                                    {orderState.error}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            className="bg-white/20 text-white border border-white/40"
-                                            onPress={resetOrderState}
-                                        >
-                                            Попробовать снова
-                                        </Button>
-                                    </div>
-                                )}
-                            </CardBody>
-                        </Card>
-                    </div>
-                )}
-
-            {/* Сетка продуктов */}
-            <div className="max-w-4xl mx-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Products */}
+                <div className="space-y-3">
                     {products.map((product) => (
                         <ProductCard
                             key={product.productType}
-                            disabled={
-                                !wallet || orderState.isCreating || orderState.isPending
-                            }
+                            disabled={!wallet || orderState.isCreating || orderState.isPending}
                             isSelected={selectedProduct === product.productType}
                             product={product}
+                            t={t}
                             onSelect={() => handleProductSelect(product.productType)}
                         />
                     ))}
                 </div>
-            </div>
 
-            {/* Информационный раздел */}
-            <div className="max-w-4xl mx-auto mt-8">
+                {/* Info */}
                 <Card className="bg-white/5 border border-white/10">
-                    <CardBody className="p-6 text-center">
-                        <h3 className="font-bold text-white mb-2">Важная информация</h3>
-                        <p className="text-white/70 text-sm mb-4">
-                            • Платежи обрабатываются автоматически в течение 5 минут
-                            <br />
-                            • Вы можете безопасно закрыть эту страницу после оплаты
-                            <br />
-                            • Попытки будут видны в основном приложении после обработки
-                            <br />• Вы получите уведомление, когда платеж будет завершен
-                        </p>
-                        <p className="text-white/50 text-xs">
-                            Корпоративный кошелек: {TON_CONFIG.CORPORATE_WALLET}
+                    <CardBody className="p-4 text-center">
+                        <div className="space-y-2 text-sm text-white/60">
+                            <p>{t("shop.tonShop.info.processingTime")}</p>
+                            <p>{t("shop.tonShop.info.safeToClose")}</p>
+                            <p>{t("shop.tonShop.info.attemptsVisible")}</p>
+                        </div>
+                        <p className="text-white/40 text-xs mt-4">
+                            {t("shop.tonShop.info.corporateWallet")}: {TON_CONFIG.CORPORATE_WALLET}
                         </p>
                     </CardBody>
                 </Card>
@@ -562,37 +451,23 @@ function TONShopContent() {
     );
 }
 
-// Компонент карточки товара
 interface ProductCardProps {
     product: TONProduct;
     onSelect: () => void;
     disabled: boolean;
     isSelected: boolean;
+    t: any;
 }
 
-function ProductCard({
-    product,
-    onSelect,
-    disabled,
-    isSelected,
-}: ProductCardProps) {
+function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCardProps) {
     const getBadge = () => {
         switch (product.productType) {
             case "attempts_5":
-                return {
-                    text: "Популярный",
-                    color: "bg-blue-600/20 text-blue-300 border-blue-600/30",
-                };
+                return t("tonShop.badges.popular");
             case "attempts_10":
-                return {
-                    text: "Лучшая цена",
-                    color: "bg-green-600/20 text-green-300 border-green-600/30",
-                };
+                return t("tonShop.badges.bestValue");
             case "attempts_100":
-                return {
-                    text: "Максимум",
-                    color: "bg-purple-600/20 text-purple-300 border-purple-600/30",
-                };
+                return t("tonShop.badges.ultimate");
             default:
                 return null;
         }
@@ -603,52 +478,47 @@ function ProductCard({
     return (
         <Card
             className={`
-      relative overflow-hidden transition-all duration-200
-      bg-white/10 border border-white/20
-      ${isSelected
-                    ? "border-blue-500 bg-blue-500/10"
-                    : "hover:border-white/30 hover:bg-gradient-to-r hover:from-white/15 hover:to-white/10"
+                transition-all duration-200 cursor-pointer
+                ${isSelected
+                    ? "bg-blue-500/10 border-blue-500/30"
+                    : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
                 }
-      ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-    `}
+                ${disabled ? "opacity-50 cursor-not-allowed" : ""}
+            `}
+            isPressable={!disabled}
+            onPress={onSelect}
         >
-            <CardBody className="p-6">
-                <div className="space-y-4">
-                    {/* Заголовок с badge */}
-                    <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                            <h3 className="font-bold text-white text-lg mb-1">
-                                {product.title}
+            <CardBody className="p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                            <h3 className="font-bold text-white">
+                                {t(`tonShop.products.${product.productType.replace('_', '')}.title`)}
                             </h3>
-                            <p className="text-white/70 text-sm">{product.description}</p>
+                            {badge && (
+                                <span className="px-2 py-1 bg-white/10 text-white/80 text-xs rounded-full">
+                                    {badge}
+                                </span>
+                            )}
                         </div>
-                        {badge && (
-                            <Chip className={`${badge.color} border`} size="sm">
-                                {badge.text}
-                            </Chip>
-                        )}
+                        <p className="text-white/60 text-sm mb-2">
+                            {t(`tonShop.products.${product.productType.replace('_', '')}.description`)}
+                        </p>
+                        <p className="text-white font-bold">{product.priceTON} TON</p>
                     </div>
 
-                    {/* Цена и покупка */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                            <Star className="text-yellow-400" size={20} />
-                            <span className="text-white font-bold text-xl">
-                                {product.priceTON} TON
-                            </span>
-                        </div>
-
+                    <div className="ml-4">
                         <Button
+                            size="sm"
                             className={`
-                ${isSelected
-                                    ? "bg-blue-600 text-white border-blue-600"
-                                    : "bg-white/20 text-white border border-white/40 hover:bg-white/30"
+                                ${isSelected
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-white/10 text-white border border-white/20"
                                 }
-              `}
+                            `}
                             isDisabled={disabled}
-                            onPress={onSelect}
                         >
-                            {isSelected ? "Обработка..." : "Купить за TON"}
+                            {isSelected ? t("tonShop.actions.processing") : t("tonShop.actions.buyWithTON")}
                         </Button>
                     </div>
                 </div>
@@ -657,7 +527,6 @@ function ProductCard({
     );
 }
 
-// Главный компонент с Suspense
 export default function TONShopPage() {
     return (
         <Suspense
@@ -665,7 +534,7 @@ export default function TONShopPage() {
                 <div className="min-h-screen bg-black text-white flex items-center justify-center">
                     <div className="text-center space-y-4">
                         <Spinner color="white" size="lg" />
-                        <p className="text-white/70">Загрузка TON Shop...</p>
+                        <p className="text-white/70">Loading TON Shop...</p>
                     </div>
                 </div>
             }

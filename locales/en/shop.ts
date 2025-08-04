@@ -1,4 +1,4 @@
-// src/locales/en/shop.ts - Shop and purchases
+// src/locales/en/shop.ts - Shop and purchases with TON Shop localization
 
 export const shop = {
   title: "SHOP",
@@ -76,5 +76,92 @@ export const shop = {
     purchaseSuccessMessage: "{attempts} attempt{plural} added to your account",
     instantResetSuccess: "Attempts Restored!",
     instantResetMessage: "Your attempts have been restored and timer reset",
+  },
+
+  // TON Shop specific localization
+  tonShop: {
+    title: "TON Shop",
+    subtitle: "Purchase game attempts with TON cryptocurrency",
+    loading: "Loading TON Shop...",
+
+    errors: {
+      missingAuthData: "Authentication data missing. Please open this page through the main application.",
+      invalidAuthData: "Invalid authentication data",
+      initializationFailed: "Failed to initialize shop",
+      loadingError: "Shop Loading Error",
+      orderCreationFailed: "Failed to create order",
+      walletNotConnected: "Wallet not connected",
+      invalidOrderData: "Invalid order data",
+      transactionCancelled: "Transaction cancelled by user",
+      insufficientBalance: "Insufficient TON balance in wallet",
+      transactionFailed: "Failed to send transaction. Please try again.",
+      statusCheckFailed: "Failed to check order status",
+      timeoutExpired: "Timeout expired. Please check transaction status manually.",
+      authDataUnavailable: "Unable to get Telegram authentication data",
+      openingFailed: "Failed to open TON Shop",
+    },
+
+    wallet: {
+      connected: "Wallet Connected",
+      connectRequired: "Connect wallet to make purchases",
+    },
+
+    user: {
+      greeting: "Welcome, {name}!",
+    },
+
+    status: {
+      creatingOrder: "Creating order...",
+      preparingPurchase: "Preparing your purchase",
+      processingPayment: "Processing payment...",
+      processingTime: "Your transaction is being processed. This may take up to 5 minutes.",
+      paymentSuccessful: "Payment successful!",
+      attemptsAdded: "Your attempts have been added to your account.",
+      paymentError: "Payment error",
+    },
+
+    actions: {
+      newPurchase: "New Purchase",
+      tryAgain: "Try Again",
+      processing: "Processing...",
+      buyWithTON: "Buy with TON",
+      opening: "Opening...",
+    },
+
+    info: {
+      processingTime: "Payments are processed automatically within 5 minutes",
+      safeToClose: "You can safely close this page after payment",
+      attemptsVisible: "Attempts will be visible in the main app after processing",
+      corporateWallet: "Corporate wallet",
+    },
+
+    badges: {
+      popular: "Popular",
+      bestValue: "Best Value",
+      ultimate: "Ultimate",
+    },
+
+    products: {
+      attempts1: {
+        title: "+1 Attempt",
+        description: "Get 1 additional game attempt",
+      },
+      attempts5: {
+        title: "+5 Attempts",
+        description: "Get 5 additional game attempts",
+      },
+      attempts10: {
+        title: "+10 Attempts",
+        description: "Get 10 additional game attempts",
+      },
+      attempts100: {
+        title: "+100 Attempts",
+        description: "Get 100 additional game attempts",
+      },
+    },
+
+    button: {
+      tooltip: "Open TON Shop to purchase game attempts with TON cryptocurrency",
+    },
   },
 } as const;

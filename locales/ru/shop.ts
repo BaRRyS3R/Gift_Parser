@@ -1,11 +1,11 @@
-// src/locales/ru/shop.ts - Shop and purchases
+// src/locales/ru/shop.ts - Shop and purchases with TON Shop localization
 export const shop = {
   title: "SHOP",
   subtitle: "Покупка дополнительных игровых попыток",
   paymentMethods: "Способы оплаты",
   payWithTON: "За TON",
   tonDescription: "Дешевле",
-  onepTONShop: "TON",
+  openTONShop: "TON",
   payWithStars: "Telegram Stars",
   starsDescription: "Мммм, звёздочки",
   moreAttempts: "Больше Попыток",
@@ -84,5 +84,92 @@ export const shop = {
     purchaseSuccessMessage: "{attempts} попыт{plural} добавлено на ваш аккаунт",
     instantResetSuccess: "Попытки Восстановлены!",
     instantResetMessage: "Ваши попытки восстановлены и таймер сброшен",
+  },
+
+  // TON Shop specific localization
+  tonShop: {
+    title: "TON Магазин",
+    subtitle: "Покупка игровых попыток за криптовалюту TON",
+    loading: "Загрузка TON магазина...",
+
+    errors: {
+      missingAuthData: "Отсутствуют данные аутентификации. Пожалуйста, откройте эту страницу через основное приложение.",
+      invalidAuthData: "Неверные данные аутентификации",
+      initializationFailed: "Не удалось инициализировать магазин",
+      loadingError: "Ошибка загрузки магазина",
+      orderCreationFailed: "Не удалось создать заказ",
+      walletNotConnected: "Кошелек не подключен",
+      invalidOrderData: "Неверные данные заказа",
+      transactionCancelled: "Транзакция отменена пользователем",
+      insufficientBalance: "Недостаточно TON на балансе кошелька",
+      transactionFailed: "Не удалось отправить транзакцию. Пожалуйста, попробуйте снова.",
+      statusCheckFailed: "Не удалось проверить статус заказа",
+      timeoutExpired: "Время ожидания истекло. Пожалуйста, проверьте статус транзакции вручную.",
+      authDataUnavailable: "Не удалось получить данные аутентификации Telegram",
+      openingFailed: "Не удалось открыть TON магазин",
+    },
+
+    wallet: {
+      connected: "Кошелек подключен",
+      connectRequired: "Подключите кошелек для совершения покупок",
+    },
+
+    user: {
+      greeting: "Добро пожаловать, {name}!",
+    },
+
+    status: {
+      creatingOrder: "Создание заказа...",
+      preparingPurchase: "Подготовка вашей покупки",
+      processingPayment: "Обработка платежа...",
+      processingTime: "Ваша транзакция обрабатывается. Это может занять до 5 минут.",
+      paymentSuccessful: "Платеж успешно завершен!",
+      attemptsAdded: "Ваши попытки добавлены на аккаунт.",
+      paymentError: "Ошибка платежа",
+    },
+
+    actions: {
+      newPurchase: "Новая покупка",
+      tryAgain: "Попробовать снова",
+      processing: "Обработка...",
+      buyWithTON: "Купить за TON",
+      opening: "Открытие...",
+    },
+
+    info: {
+      processingTime: "Платежи обрабатываются автоматически в течение 5 минут",
+      safeToClose: "Вы можете безопасно закрыть эту страницу после оплаты",
+      attemptsVisible: "Попытки будут видны в основном приложении после обработки",
+      corporateWallet: "Корпоративный кошелек",
+    },
+
+    badges: {
+      popular: "Популярный",
+      bestValue: "Лучшая цена",
+      ultimate: "Максимум",
+    },
+
+    products: {
+      attempts1: {
+        title: "+1 Попытка",
+        description: "Получите 1 дополнительную игровую попытку",
+      },
+      attempts5: {
+        title: "+5 Попыток",
+        description: "Получите 5 дополнительных игровых попыток",
+      },
+      attempts10: {
+        title: "+10 Попыток",
+        description: "Получите 10 дополнительных игровых попыток",
+      },
+      attempts100: {
+        title: "+100 Попыток",
+        description: "Получите 100 дополнительных игровых попыток",
+      },
+    },
+
+    button: {
+      tooltip: "Открыть TON магазин для покупки игровых попыток за криптовалюту TON",
+    },
   },
 } as const;
