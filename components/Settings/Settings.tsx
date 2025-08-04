@@ -184,8 +184,8 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
 
             <p className="text-xs text-white/50">
               {currentLanguage === "en"
-                ? "Toggle background video on main page for better performance"
-                : "Переключить фоновое видео на главной странице для лучшей производительности"}
+                ? "Background video on the home page. Turn off for better performance."
+                : "Фоновое видео на главной странице. Выключите для лучшей производительности."}
             </p>
           </div>
         </div>

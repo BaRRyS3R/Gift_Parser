@@ -39,7 +39,7 @@ export const main = {
     snapshotInfo:
       "A final leaderboard snapshot will be taken at the end of the season. Changes after this moment will not be counted.",
     fairPlayInfo:
-      "If we suspect unfair play, we may conduct additional verification of the user before awarding prizes.",
+      "If we suspect cheating, we may run extra checks before awarding a prize.",
     viewDetails: "LEADERBOARD",
     upcomingSeason: "UPCOMING",
     activeSeason: "ACTIVE",

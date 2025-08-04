@@ -5,7 +5,7 @@ export const about = {
   overview: {
     title: "So, signed up for pain?",
     description:
-      "Circusle — a genius way to prove your time is worth less than keyboard dust. Three modes where clicking circles eloquently confirms your inadequacy.",
+      "Circusle is a way to prove your time is cheaper than keyboard dust. Three modes. Clicking circles shows your true level.",
   },
 
   modes: {
