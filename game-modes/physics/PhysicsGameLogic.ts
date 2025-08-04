@@ -453,11 +453,6 @@ export const applyImpulse = (
 
   if (!clickedBody) return state;
 
-  console.log(
-    `Applying impulse from circle ${clickedCircleId} at position:`,
-    clickedBody.position,
-  );
-
   let affectedCircles = 0;
 
   state.circles.forEach((circle) => {
@@ -489,8 +484,6 @@ export const applyImpulse = (
       affectedCircles++;
     }
   });
-
-  console.log(`Impulse affected ${affectedCircles} circles`);
 
   return updatePhysicsPositions(state);
 };

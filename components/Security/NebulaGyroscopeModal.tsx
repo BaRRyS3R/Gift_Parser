@@ -174,7 +174,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
    * Обработка тайм-аута верификации
    */
   const handleVerificationTimeout = useCallback(() => {
-    console.log("Gyroscope verification timeout");
     setState((prev) => ({ ...prev, verificationTimerActive: false }));
     handleVerificationFailure(t("nebula.gyroscope.errors.timeout"));
   }, [t]);
@@ -184,7 +183,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
    */
   const handleVerificationFailure = useCallback(
     async (reason: string) => {
-      console.log("Gyroscope verification failed:", reason);
       setState((prev) => ({
         ...prev,
         error: reason,
@@ -228,7 +226,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
    */
   const handleVerificationSuccess = useCallback(
     async (actualMovements?: number) => {
-      console.log("Gyroscope verification successful");
       setState((prev) => ({
         ...prev,
         verificationTimerActive: false,
@@ -279,10 +276,8 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
           }
 
           if (result.verified && result.trustRestored) {
-            console.log("Gyroscope verification validated successfully");
             setTimeout(() => onSuccess(), 1500);
           } else if (result.blocked) {
-            console.log("Gyroscope verification validation failed");
             handleVerificationFailure(
               result.blockReason ||
                 t("nebula.gyroscope.errors.verificationFailed"),
@@ -316,7 +311,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
   const handleStartVerification = () => {
     if (state.isVerifying || state.attemptMade) return;
 
-    console.log("Starting gyroscope verification");
     setState((prev) => ({
       ...prev,
       isVerifying: true,
@@ -339,7 +333,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
       // Сохранение начальных значений для сравнения
       if (initialDataRef.current.alpha === null && currentData.alpha !== null) {
         initialDataRef.current = { ...currentData };
-        console.log("Initial gyroscope data captured:", initialDataRef.current);
 
         return;
       }
@@ -361,7 +354,7 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
         gyroscopeDataRef.current.beta === null &&
         gyroscopeDataRef.current.gamma === null
       ) {
-        console.log(
+        console.error(
           "No gyroscope data received - device likely doesn't support it",
         );
         handleVerificationFailure(t("nebula.gyroscope.errors.noData"));
@@ -408,11 +401,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
       gammaDiff > TIMING_CONFIG.MOVEMENT_THRESHOLD;
 
     if (significantMovement) {
-      console.log("Movement detected:", {
-        alpha: normalizedAlphaDiff.toFixed(1),
-        beta: betaDiff.toFixed(1),
-        gamma: gammaDiff.toFixed(1),
-      });
 
       lastMovementTimeRef.current = now;
       setState((prev) => {

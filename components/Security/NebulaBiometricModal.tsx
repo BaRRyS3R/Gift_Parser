@@ -151,10 +151,8 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
    * Initialize biometric manager with improved compatibility
    */
   const initBiometric = async () => {
-    console.log("Initializing biometric authentication");
 
     if (typeof window === "undefined") {
-      console.log("Window not available");
       await handleUnsupportedDevice(
         "Biometric authentication is not available in this environment",
       );
@@ -165,7 +163,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
     const tg = window.Telegram?.WebApp;
 
     if (!tg || !tg.BiometricManager) {
-      console.log(
+      console.error(
         "BiometricManager not available - device/platform not supported",
       );
       await handleUnsupportedDevice(
@@ -179,7 +177,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
     // Check if BiometricManager is already initialized
     if (manager.isInited) {
-      console.log("BiometricManager already initialized, proceeding directly");
 
       setState((prev) => ({
         ...prev,
@@ -188,7 +185,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
       }));
 
       if (!manager.isBiometricAvailable) {
-        console.log("Biometric not available on device");
+        console.error("Biometric not available on device");
         handleUnsupportedDevice(
           "Biometric authentication is not available on this device",
         );
@@ -198,7 +195,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
       // Check if permission is already granted
       if (manager.isAccessGranted) {
-        console.log("Permission already granted, proceeding to authentication");
         updatePhase("auth", true);
         setState((prev) => ({
           ...prev,
@@ -206,9 +202,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
           authTimerActive: true,
         }));
       } else {
-        console.log(
-          "Permission not granted, showing permission required screen",
-        );
         updatePhase("permission_required", false);
       }
 
@@ -217,7 +210,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
     // Initialize biometric manager with callback
     manager.init(() => {
-      console.log("BiometricManager initialized via callback");
       setState((prev) => ({
         ...prev,
         biometricManager: manager,
@@ -225,7 +217,7 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
       }));
 
       if (!manager.isBiometricAvailable) {
-        console.log("Biometric not available on device");
+        console.error("Biometric not available on device");
         handleUnsupportedDevice(
           "Biometric authentication is not available on this device",
         );
@@ -235,7 +227,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
       // Check if permission is already granted
       if (manager.isAccessGranted) {
-        console.log("Permission already granted, proceeding to authentication");
         updatePhase("auth", true);
         setState((prev) => ({
           ...prev,
@@ -243,9 +234,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
           authTimerActive: true,
         }));
       } else {
-        console.log(
-          "Permission not granted, showing permission required screen",
-        );
         updatePhase("permission_required", false);
       }
     });
@@ -256,7 +244,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         state.currentPhase === "initializing" &&
         manager.isBiometricAvailable
       ) {
-        console.log("Init callback timeout, using fallback approach");
 
         setState((prev) => ({
           ...prev,
@@ -265,7 +252,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         }));
 
         if (manager.isAccessGranted) {
-          console.log("Fallback: Permission available, proceeding to auth");
           updatePhase("auth", true);
           setState((prev) => ({
             ...prev,
@@ -273,7 +259,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
             authTimerActive: true,
           }));
         } else {
-          console.log("Fallback: Permission required");
           updatePhase("permission_required", false);
         }
       }
@@ -284,7 +269,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
    * Handle authentication timeout
    */
   const handleAuthTimeout = useCallback(() => {
-    console.log("Authentication timeout");
     setState((prev) => ({ ...prev, authTimerActive: false }));
 
     if (!state.attemptMade) {
@@ -315,7 +299,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
       return;
     }
 
-    console.log("Starting biometric authentication");
     setState((prev) => ({
       ...prev,
       isAuthenticating: true,
@@ -331,12 +314,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         async (success: boolean, token?: string) => {
           const authEndTime = Date.now();
           const completedInTime = authEndTime - authStartTime < authTimeout;
-
-          console.log("Biometric authentication result:", {
-            success,
-            completedInTime,
-            hasToken: !!token,
-          });
 
           try {
             const response = await makeAuthenticatedRequest(
@@ -367,7 +344,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
             }
 
             if (result.verified && result.trustRestored) {
-              console.log("Biometric authentication successful");
               updatePhase("success", false);
               setState((prev) => ({
                 ...prev,
@@ -379,7 +355,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
                 onSuccess();
               }, 1500);
             } else if (result.blocked) {
-              console.log("Biometric authentication failed, user blocked");
               updatePhase("error", true);
               setState((prev) => ({
                 ...prev,
@@ -424,10 +399,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
    * Handle biometric failure
    */
   const handleBiometricFailure = useCallback(async () => {
-    console.log(
-      "Handling biometric failure, supported:",
-      state.isBiometricSupported,
-    );
 
     updatePhase("error", true);
     setState((prev) => ({
@@ -469,7 +440,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
    */
   const handleUnsupportedDevice = useCallback(
     async (reason: string) => {
-      console.log("Auto-blocking for unsupported device:", reason);
 
       updatePhase("unsupported", true);
       setState((prev) => ({
@@ -530,10 +500,8 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
       state.biometricManager.requestAccess(
         { reason: "Security verification required for continued access" },
         (granted: boolean) => {
-          console.log("Permission request result:", granted);
 
           if (granted) {
-            console.log("Permission granted, proceeding to authentication");
             updatePhase("auth", true);
             setState((prev) => ({
               ...prev,

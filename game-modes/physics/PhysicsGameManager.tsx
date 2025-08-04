@@ -223,7 +223,6 @@ export default function PhysicsGameManager() {
 
   const endGame = useCallback(
     (cause: "mistakes" | "escaped_circles" | "timeout") => {
-      console.log("Physics game ended:", cause);
 
       setGameState((prev) => {
         const finalState = updatePhysicsPositions(prev);
@@ -268,12 +267,8 @@ export default function PhysicsGameManager() {
           const newState = activateRandomCircles(
             updatedState,
             (circleIds, decoyIds) => {
-              console.log(
-                `Activated circles: ${circleIds.join(", ")}, Decoys: ${decoyIds.join(", ")}`,
-              );
             },
             (circleId, wasDecoy) => {
-              console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
 
               if (!wasDecoy) {
                 // Missed white circle - count as mistake
@@ -318,8 +313,6 @@ export default function PhysicsGameManager() {
     (circleId: number) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
 
-      console.log("Physics circle clicked:", circleId);
-
       const clickTime = Date.now();
       const { newState, result } = handlePhysicsCircleClick(
         gameStateRef.current,
@@ -356,7 +349,6 @@ export default function PhysicsGameManager() {
   );
 
   const startGame = useCallback(() => {
-    console.log("Starting Physics Game...");
 
     setGameState(initializePhysicsGameState());
     setGameResult(null);

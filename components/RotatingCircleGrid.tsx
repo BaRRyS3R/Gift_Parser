@@ -79,14 +79,6 @@ export default function RotatingCircleGrid({
       setContainerSize(calculatedContainerSize);
       setCircleSize(calculatedCircleSize);
       setEffectiveRadius(calculatedEffectiveRadius);
-
-      console.log("Simplified container sizing:", {
-        screenDimensions: `${screenWidth}x${screenHeight}`,
-        availableSpace: `${availableWidth}x${availableHeight}`,
-        containerSize: calculatedContainerSize,
-        circleSize: calculatedCircleSize,
-        effectiveRadius: calculatedEffectiveRadius,
-      });
     };
 
     calculateAdaptiveSizes();

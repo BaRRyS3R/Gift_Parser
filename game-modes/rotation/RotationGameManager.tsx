@@ -187,7 +187,6 @@ export default function RotationGameManager() {
 
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
-      console.log("Rotation game ended:", cause);
 
       setGameState((prev) => {
         const finalState = updateRotationLevel(prev, Date.now());
@@ -246,9 +245,6 @@ export default function RotationGameManager() {
           const newState = activateRotationCircles(
             prev,
             (circleIds, redCircleIds) => {
-              console.log(
-                `Activated circles: ${circleIds.join(", ")}, Red: ${redCircleIds.join(", ")}`,
-              );
 
               const timestamp = Date.now();
 
@@ -260,7 +256,6 @@ export default function RotationGameManager() {
               }, 450);
             },
             (circleId, wasDecoy) => {
-              console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
 
               if (!wasDecoy) {
                 endGame("miss");
@@ -288,8 +283,6 @@ export default function RotationGameManager() {
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
-
-      console.log("Rotation circle clicked:", circleId);
 
       const clickTime = Date.now();
       const { newState, result } = handleRotationCircleClick(
@@ -319,7 +312,6 @@ export default function RotationGameManager() {
   );
 
   const startGame = useCallback(() => {
-    console.log("Starting Rotation Game...");
 
     const initialState = initializeRotationGameState();
 

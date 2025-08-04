@@ -50,10 +50,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
         if (savedSettings) {
           const parsedSettings = JSON.parse(savedSettings);
 
-          console.log("Loaded settings from localStorage:", parsedSettings);
           setSettings({ ...defaultSettings, ...parsedSettings });
         } else {
-          console.log("No saved settings found, using defaults");
           setSettings(defaultSettings);
         }
       } catch (error) {
@@ -75,7 +73,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
     if (!isLoading) {
       try {
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-        console.log("Settings saved to localStorage:", settings);
       } catch (error) {
         console.warn("Failed to save settings to localStorage:", error);
       }
@@ -85,8 +82,6 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
-
-      console.log("Settings updated:", updated);
 
       return updated;
     });

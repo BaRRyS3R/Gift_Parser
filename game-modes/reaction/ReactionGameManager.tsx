@@ -192,7 +192,6 @@ export default function ReactionGameManager() {
   );
 
   const handleGameTimeout = useCallback(() => {
-    console.log("Reaction game timed out");
 
     setGameState((prev) => {
       const finalState = {
@@ -216,7 +215,6 @@ export default function ReactionGameManager() {
 
   const handleCircleActivated = useCallback(
     (circleId: number) => {
-      console.log(`Circle ${circleId} activated, waiting for click...`);
 
       // Trigger activation pulse effect
       const timestamp = Date.now();
@@ -237,8 +235,6 @@ export default function ReactionGameManager() {
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
-
-      console.log("Reaction circle clicked:", circleId);
 
       const newState = handleCircleClick(gameStateRef.current, circleId);
 
@@ -273,8 +269,6 @@ export default function ReactionGameManager() {
         return;
       }
 
-      console.log("Background clicked - game over");
-
       const newState = handleBackgroundClick(gameStateRef.current);
 
       if (newState.gameState === GameState.FINISHED) {
@@ -293,7 +287,6 @@ export default function ReactionGameManager() {
   );
 
   const startGame = useCallback(() => {
-    console.log("Starting Reaction Game...");
 
     setGameState(initializeReactionGameState());
     setGameResult(null);
@@ -309,8 +302,6 @@ export default function ReactionGameManager() {
       setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
       const delay = getRandomDelay(gameStateRef.current.config);
-
-      console.log(`Circle will activate in ${delay}ms`);
 
       const timeout = setTimeout(() => {
         if (gameStateRef.current.gameState === GameState.PLAYING) {

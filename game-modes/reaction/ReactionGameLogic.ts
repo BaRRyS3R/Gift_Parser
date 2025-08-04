@@ -136,8 +136,6 @@ export const handleBackgroundClick = (
 ): ReactionGameState => {
   const clickTime = Date.now();
 
-  console.log("Background click detected - ending game");
-
   // Background click always results in a miss
   return {
     ...state,

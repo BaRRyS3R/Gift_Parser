@@ -217,7 +217,6 @@ const NebulaCaptchaModal: React.FC<NebulaCaptchaModalProps> = ({
       }
 
       if (result.verified && result.trustRestored) {
-        console.log("Captcha verification successful");
         setState((prev) => ({
           ...prev,
           isValidating: false,
@@ -229,7 +228,6 @@ const NebulaCaptchaModal: React.FC<NebulaCaptchaModalProps> = ({
           onSuccess();
         }, 1500);
       } else if (result.blocked) {
-        console.log("Captcha verification failed, user blocked");
         setState((prev) => ({
           ...prev,
           isValidating: false,

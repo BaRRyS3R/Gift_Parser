@@ -45,8 +45,6 @@ const getTelegramLanguage = (): string | undefined => {
     const tg = window.Telegram.WebApp;
     const user = tg.initDataUnsafe?.user;
 
-    console.log("Telegram user data for language detection:", user);
-
     return user?.language_code;
   }
 
@@ -63,7 +61,6 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({
   // Initialize language based on Telegram user data and stored preferences
   useEffect(() => {
     const initializeLanguage = () => {
-      console.log("Initializing language...");
 
       try {
         // First, try to get stored language preference
@@ -71,13 +68,10 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({
           STORAGE_KEYS.LANGUAGE,
         ) as SupportedLanguage;
 
-        console.log("Stored language:", storedLanguage);
-
         if (
           storedLanguage &&
           (storedLanguage === "en" || storedLanguage === "ru")
         ) {
-          console.log("Using stored language:", storedLanguage);
           setLanguage(storedLanguage);
           setIsInitialized(true);
 
@@ -87,24 +81,15 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({
         // If no stored preference, detect from Telegram
         const telegramLanguageCode = getTelegramLanguage();
 
-        console.log("Telegram language code:", telegramLanguageCode);
-
         if (telegramLanguageCode) {
           const detectedLanguage =
             detectLanguageFromTelegram(telegramLanguageCode);
-
-          console.log("Detected language:", detectedLanguage);
           setLanguage(detectedLanguage);
 
           // Store the detected language for future use
           localStorage.setItem(STORAGE_KEYS.LANGUAGE, detectedLanguage);
-          console.log("Stored detected language:", detectedLanguage);
         } else {
           // Fallback to default language
-          console.log(
-            "No Telegram language found, using default:",
-            defaultLanguage,
-          );
           setLanguage(defaultLanguage);
           localStorage.setItem(STORAGE_KEYS.LANGUAGE, defaultLanguage);
         }
@@ -124,13 +109,8 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({
           const detectedLanguage =
             detectLanguageFromTelegram(telegramLanguageCode);
 
-          console.log(
-            "Fallback: detected language from Telegram:",
-            detectedLanguage,
-          );
           setLanguage(detectedLanguage);
         } else {
-          console.log("Fallback: using default language:", defaultLanguage);
           setLanguage(defaultLanguage);
         }
 
@@ -174,12 +154,10 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({
 
   // Change language function
   const changeLanguage = useCallback((newLanguage: SupportedLanguage) => {
-    console.log("Changing language to:", newLanguage);
     setLanguage(newLanguage);
 
     try {
       localStorage.setItem(STORAGE_KEYS.LANGUAGE, newLanguage);
-      console.log("Language preference saved:", newLanguage);
     } catch (error) {
       console.warn(
         "Could not save language preference to localStorage:",
@@ -206,8 +184,6 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({
       </div>
     );
   }
-
-  console.log("LocalizationProvider rendering with language:", language);
 
   return (
     <LocalizationContext.Provider value={contextValue}>
