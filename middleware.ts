@@ -60,6 +60,8 @@ function handleCORSPreflight(request: NextRequest): NextResponse | null {
     "https://notfren.com",
     "https://telegram.org",
     "https://cron-job.org",
+    "https://www.circusle.xyz",
+    "https://circusle.xyz",
     "http://localhost:3000", // For development
   ].filter(Boolean);
 
@@ -97,6 +99,8 @@ function addCORSHeaders(response: NextResponse, request: NextRequest): void {
     "https://web.telegram.org",
     "https://notfren.com",
     "https://telegram.org",
+    "https://www.circusle.xyz",
+    "https://circusle.xyz",
     "http://localhost:3000", // For development
   ].filter(Boolean);
 
