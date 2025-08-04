@@ -22,7 +22,6 @@ import {
 export async function POST(
     request: NextRequest,
 ): Promise<NextResponse<CreateTONOrderResponse>> {
-    console.log("[TON_CREATE_ORDER] Starting order creation process");
 
     try {
         // Проверка наличия критически важных переменных окружения
@@ -42,7 +41,6 @@ export async function POST(
         let body: CreateTONOrderRequest;
         try {
             body = await request.json();
-            console.log("[TON_CREATE_ORDER] Request body parsed successfully");
         } catch (parseError) {
             console.error("[TON_CREATE_ORDER] Failed to parse request body:", parseError);
             return NextResponse.json(
@@ -84,8 +82,6 @@ export async function POST(
             );
         }
 
-        console.log("[TON_CREATE_ORDER] Validating Telegram data...");
-
         // Валидация Telegram данных
         let validation;
         try {
@@ -95,8 +91,6 @@ export async function POST(
 
             if (!validation.isValid) {
                 console.error("[TON_CREATE_ORDER] Telegram validation failed:", validation.error);
-            } else {
-                console.log("[TON_CREATE_ORDER] Telegram validation successful");
             }
         } catch (validationError) {
             console.error("[TON_CREATE_ORDER] Exception during Telegram validation:", validationError);
@@ -120,7 +114,6 @@ export async function POST(
         }
 
         const telegramUser = validation.user;
-        console.log(`[TON_CREATE_ORDER] Processing order for Telegram user: ${telegramUser.id}`);
 
         // Проверяем существование пользователя в базе данных
         let user;
@@ -128,9 +121,7 @@ export async function POST(
             user = await serverUserService.findByTelegramId(telegramUser.id);
 
             if (!user) {
-                console.log(`[TON_CREATE_ORDER] User ${telegramUser.id} not found in database`);
-            } else {
-                console.log(`[TON_CREATE_ORDER] User found: ${user.first_name} (ID: ${user.id})`);
+                console.error(`[TON_CREATE_ORDER] User ${telegramUser.id} not found in database`);
             }
         } catch (dbError) {
             console.error("[TON_CREATE_ORDER] Database error while finding user:", dbError);
@@ -155,7 +146,6 @@ export async function POST(
 
         // Генерируем уникальный идентификатор заказа
         const uniqueOrderId = generateUniqueOrderId(user.telegram_id, productType);
-        console.log(`[TON_CREATE_ORDER] Generated unique order ID: ${uniqueOrderId}`);
 
         // Создаем payload для TON транзакции
         const payload = createTONPayload(uniqueOrderId);
@@ -167,20 +157,6 @@ export async function POST(
         // Создаем заказ
         const orderExpiresAt = new Date(
             Date.now() + TON_CONFIG.ORDER_EXPIRY_HOURS * 60 * 60 * 1000,
-        );
-
-        console.log(
-            `[TON_CREATE_ORDER] Order details:`,
-            {
-                userId: user.id,
-                telegramId: user.telegram_id,
-                productType,
-                uniqueOrderId,
-                priceNanotons: priceNanotons.toString(),
-                priceTON: formatTONAmount(priceNanotons),
-                payload,
-                expiresAt: orderExpiresAt.toISOString(),
-            },
         );
 
         // Формируем ответ с данными для TON транзакции
@@ -195,8 +171,6 @@ export async function POST(
             },
             expiresAt: orderExpiresAt.toISOString(),
         };
-
-        console.log(`[TON_CREATE_ORDER] Order created successfully for user ${user.telegram_id}`);
 
         return NextResponse.json({
             success: true,

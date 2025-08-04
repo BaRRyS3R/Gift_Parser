@@ -41,12 +41,8 @@ export async function POST(
       );
     }
 
-    console.log(`Starting task ${taskId} for user ${telegramId}`);
-
     // Start the task
     const task = await serverTasksService.startTask(userId, taskId);
-
-    console.log(`Task ${taskId} started successfully for user ${telegramId}`);
 
     return NextResponse.json({
       success: true,

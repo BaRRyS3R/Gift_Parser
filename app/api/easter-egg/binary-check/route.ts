@@ -25,11 +25,6 @@ export async function POST(
     const telegramId = request.headers.get("X-Telegram-ID");
     const userId = request.headers.get("X-User-ID");
 
-    // For easter egg, we don't require authentication but log if available
-    if (telegramId) {
-      console.log(`Binary easter egg attempt by user ${telegramId}`);
-    }
-
     const { binaryString } = await request.json();
 
     if (!binaryString || typeof binaryString !== "string") {
@@ -52,10 +47,6 @@ export async function POST(
         { status: 400 },
       );
     }
-
-    console.log(
-      `Binary check attempt: "${binaryString}" vs secret: "${SECRET_BINARY}"`,
-    );
 
     // Check if the binary string matches our secret
     const isCorrect = binaryString === SECRET_BINARY;
@@ -92,10 +83,6 @@ export async function POST(
 
       const randomMessage =
         sarcasticMessages[Math.floor(Math.random() * sarcasticMessages.length)];
-
-      console.log(
-        `Incorrect binary sequence: "${binaryString}" by user ${telegramId || "anonymous"}`,
-      );
 
       return NextResponse.json({
         success: false,

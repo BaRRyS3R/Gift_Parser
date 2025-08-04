@@ -64,10 +64,6 @@ export async function POST(
       );
     }
 
-    console.log(
-      `Creating purchase invoice for user ${telegramId}, product: ${productType}`,
-    );
-
     // Validate initData (additional security check)
     const validation = validateTelegramData(initData);
 
@@ -135,12 +131,6 @@ export async function POST(
         { status: 400 },
       );
     }
-
-    console.log(`Invoice created successfully for user ${telegramId}:`, {
-      productType,
-      invoiceUrl: phpResult.invoice_url,
-      price: phpResult.product?.price,
-    });
 
     return NextResponse.json({
       success: true,

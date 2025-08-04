@@ -50,8 +50,6 @@ export async function GET(
       );
     }
 
-    console.log(`Checking purchase status for user: ${telegramIdNumber}`);
-
     // Get current user data to check for updates
     const user = await serverUserService.findByTelegramId(telegramIdNumber);
 
@@ -68,14 +66,6 @@ export async function GET(
     // For purchase status check, we primarily ensure the user data is current
     // The PHP backend handles the actual purchase processing and attempt updates
     // This endpoint serves as a way to refresh user state after potential purchases
-
-    console.log(
-      `Purchase status check completed for user ${telegramIdNumber}:`,
-      {
-        attemptsRemaining: user.attempts_remaining,
-        lastUpdated: user.updated_at,
-      },
-    );
 
     return NextResponse.json({
       success: true,

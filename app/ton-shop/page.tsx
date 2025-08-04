@@ -255,10 +255,8 @@ function TONShopContent() {
     };
 
     const handleProductSelect = async (productType: ProductType) => {
-        console.log('Product selected:', productType);
 
         if (!wallet) {
-            console.log('No wallet, opening modal');
             openModal();
             return;
         }

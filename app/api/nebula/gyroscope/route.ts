@@ -77,19 +77,6 @@ export async function POST(
       movementData,
     } = body;
 
-    console.log(
-      `Gyroscope verification attempt for user ${telegramIdNumber}:`,
-      {
-        success: gyroscopeSuccess,
-        completedInTime,
-        deviceSupported,
-        unavailable,
-        permissionDenied,
-        attemptId,
-        movementData,
-      },
-    );
-
     // Verify attempt belongs to user (if attemptId provided)
     if (attemptId) {
       const { attempt } =
@@ -108,9 +95,6 @@ export async function POST(
 
     // Handle gyroscope unavailable on device
     if (unavailable || !deviceSupported) {
-      console.log(
-        `Gyroscope unavailable for user ${telegramIdNumber} - blocking for 1 month`,
-      );
 
       const blockReason = unavailable
         ? "gyroscope_unavailable"
@@ -155,9 +139,6 @@ export async function POST(
 
     // Handle permission denied
     if (permissionDenied) {
-      console.log(
-        `Gyroscope permission denied for user ${telegramIdNumber} - blocking for 1 month`,
-      );
 
       const blockResult = await serverBlockService.handleVerificationFailure(
         userId,
@@ -208,9 +189,6 @@ export async function POST(
 
     // Handle successful gyroscope verification
     if (gyroscopeSuccess && completedInTime && isValidMovement) {
-      console.log(
-        `Gyroscope verification successful for user ${telegramIdNumber}`,
-      );
 
       // Restore trust score
       const restoreResult = await serverBlockService.handleVerificationSuccess(
@@ -253,10 +231,6 @@ export async function POST(
       } else if (!isValidMovement) {
         failureReason = "Insufficient device movement detected";
       }
-
-      console.log(
-        `Gyroscope verification failed for user ${telegramIdNumber}: ${failureReason}`,
-      );
 
       // Block user for failed gyroscope verification
       const blockResult = await serverBlockService.handleVerificationFailure(

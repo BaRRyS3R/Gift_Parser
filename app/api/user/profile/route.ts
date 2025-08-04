@@ -48,24 +48,9 @@ export async function GET(
       );
     }
 
-    console.log(`Fetching complete profile data for user: ${telegramIdNumber}`);
-
     // Get complete profile data including user stats, referrals and rankings
     const profileData =
       await serverUserProfileService.getUserProfileData(telegramIdNumber);
-
-    console.log(
-      `Successfully fetched complete profile data for user ${telegramIdNumber}:`,
-      {
-        hasUserData: !!profileData.user,
-        totalGames: profileData.user.total_games,
-        referralCode: profileData.referrals.code,
-        referralCount: profileData.referrals.count,
-        rankingsCount: Object.values(profileData.rankings).filter(
-          (rank) => rank !== null,
-        ).length,
-      },
-    );
 
     return NextResponse.json({
       success: true,

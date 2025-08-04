@@ -128,12 +128,6 @@ export async function POST(
       );
     }
 
-    console.log(`Saving game result for user ${telegramIdNumber}:`, {
-      mode: gameResult.mode,
-      score: gameResult.score,
-      duration: gameResult.duration,
-    });
-
     // Save game result using server service
     const saveResult = await serverGameService.saveGameResult(
       telegramIdNumber,

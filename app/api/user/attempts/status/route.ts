@@ -78,14 +78,6 @@ export async function GET(
       );
     }
 
-    console.log(`Attempts and level status for user ${telegramIdNumber}:`, {
-      canPlay: attemptsStatus.canPlay,
-      attemptsRemaining: attemptsStatus.attemptsRemaining,
-      currentLevel: user.current_level,
-      totalGames: user.total_games,
-      hasResetTime: !!attemptsStatus.resetTime,
-    });
-
     return NextResponse.json({
       success: true,
       canPlay: attemptsStatus.canPlay,

@@ -45,18 +45,8 @@ export async function POST(
       );
     }
 
-    console.log(`Claiming reward for task ${taskId} by user ${telegramId}`);
-
     // Claim the reward
     const result = await serverTasksService.claimTaskReward(userId, taskId);
-
-    console.log(
-      `Reward claimed successfully for task ${taskId} by user ${telegramId}:`,
-      {
-        attemptsAdded: result.attemptsAdded,
-        newAttemptsTotal: result.newAttemptsTotal,
-      },
-    );
 
     return NextResponse.json({
       success: true,

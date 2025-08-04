@@ -24,7 +24,6 @@ export default function BinaryEasterEgg({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [resultMessage, setResultMessage] = useState<string>("");
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
-  const [debugInfo, setDebugInfo] = useState<string>(""); // DEBUG STATE
 
   // Haptic feedback helper
   const triggerHaptic = (type: "light" | "medium" | "heavy" = "light") => {
@@ -51,7 +50,6 @@ export default function BinaryEasterEgg({
     triggerHaptic("medium"); // Enhanced haptic feedback for circle clicks
     setBinaryString((prev) => prev + digit);
     setResultMessage(""); // Clear any previous messages
-    setDebugInfo(""); // Clear debug info when starting new sequence
   };
 
   // Handle check button click
@@ -64,10 +62,8 @@ export default function BinaryEasterEgg({
 
     setIsSubmitting(true);
     triggerHaptic("light");
-    setDebugInfo("Starting binary check...");
 
     try {
-      setDebugInfo((prev) => prev + "\nMaking API request...");
 
       const response = await makeAuthenticatedRequest(
         "/api/easter-egg/binary-check",
@@ -80,29 +76,13 @@ export default function BinaryEasterEgg({
         },
       );
 
-      setDebugInfo(
-        (prev) =>
-          prev +
-          `\nResponse: ${response.status} ${response.ok ? "OK" : "NOT OK"}`,
-      );
-
       if (!response.ok) {
-        setDebugInfo((prev) => prev + "\nResponse not OK, parsing error...");
         const errorData = await response.json().catch(() => ({}));
-
-        setDebugInfo(
-          (prev) => prev + `\nError data: ${JSON.stringify(errorData)}`,
-        );
         throw new Error(errorData.error || `Server error: ${response.status}`);
       }
-
-      setDebugInfo((prev) => prev + "\nParsing response JSON...");
       const data = await response.json();
 
-      setDebugInfo((prev) => prev + `\nParsed data: ${JSON.stringify(data)}`);
-
       if (data.success) {
-        setDebugInfo((prev) => prev + "\nSUCCESS - correct binary!");
         setIsSuccess(true);
         setResultMessage(data.message);
         // Success haptic feedback
@@ -118,9 +98,6 @@ export default function BinaryEasterEgg({
           }
         }
       } else {
-        setDebugInfo(
-          (prev) => prev + `\nWRONG binary - API error: "${data.error}"`,
-        );
         setIsSuccess(false);
         setResultMessage(data.error || "Wrong binary sequence!");
         // Clear the binary string for retry
@@ -137,11 +114,6 @@ export default function BinaryEasterEgg({
         }
       }
     } catch (error) {
-      setDebugInfo(
-        (prev) =>
-          prev +
-          `\nCATCH BLOCK: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
       setIsSuccess(false);
       setResultMessage("Network error. Try again!");
       setBinaryString("");
@@ -166,7 +138,6 @@ export default function BinaryEasterEgg({
     setBinaryString("");
     setResultMessage("");
     setIsSuccess(false);
-    setDebugInfo(""); // Clear debug info
     onClose();
   };
 
@@ -243,33 +214,6 @@ export default function BinaryEasterEgg({
               {isSubmitting ? "Checking..." : "Check"}
             </Button>
           </div>
-
-          {/* Visual feedback for testing - REMOVE LATER */}
-          {binaryString && (
-            <div className="text-center">
-              <div className="text-white/70 text-sm">Current string:</div>
-              <div className="text-white font-mono text-lg break-all">
-                {binaryString}
-              </div>
-              <div className="text-white/50 text-xs">
-                Length: {binaryString.length}
-              </div>
-            </div>
-          )}
-
-          {/* Debug info - TEMPORARY */}
-          {debugInfo && (
-            <div className="text-center">
-              <div className="bg-gray-800/90 text-gray-300 text-xs p-3 rounded-lg border border-gray-600">
-                <div className="font-bold text-yellow-400 mb-2">
-                  DEBUG INFO:
-                </div>
-                <pre className="whitespace-pre-wrap text-left overflow-x-auto">
-                  {debugInfo}
-                </pre>
-              </div>
-            </div>
-          )}
 
           {/* Result message */}
           {resultMessage && (

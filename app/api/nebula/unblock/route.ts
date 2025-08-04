@@ -47,8 +47,6 @@ export async function POST(
       );
     }
 
-    console.log(`Checking unblock status for user: ${telegramIdNumber}`);
-
     // Auto-unblock expired blocks system-wide
     await serverBlockService.autoUnblockExpiredBlocks();
 
@@ -61,10 +59,6 @@ export async function POST(
       blockInfo.timeRemainingSeconds <= 0
     ) {
       // User is not blocked or block has expired
-      console.log(
-        `User ${telegramIdNumber} is not currently blocked or block has expired`,
-      );
-
       return NextResponse.json({
         success: true,
         unblocked: true,
@@ -73,9 +67,6 @@ export async function POST(
       });
     } else {
       // User is still blocked
-      console.log(
-        `User ${telegramIdNumber} is still blocked for ${blockInfo.timeRemainingSeconds} seconds`,
-      );
 
       return NextResponse.json({
         success: true,
@@ -130,8 +121,6 @@ export async function GET(
         { status: 400 },
       );
     }
-
-    console.log(`Getting block status for user: ${telegramIdNumber}`);
 
     // Get current block status
     const blockInfo = await serverBlockService.checkUserBlock(telegramIdNumber);

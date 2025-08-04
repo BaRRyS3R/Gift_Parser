@@ -70,10 +70,6 @@ export async function POST(
       );
     }
 
-    console.log(
-      `Device support update for user ${telegramIdNumber}: ${verificationType}, supported: ${deviceSupported}, permission: ${permissionGranted}`,
-    );
-
     // Verify attempt belongs to user
     const { attempt } =
       await serverBlockService.checkVerificationAttempt(telegramIdNumber);
@@ -90,7 +86,7 @@ export async function POST(
 
     // Handle unsupported device - immediate blocking
     if (!deviceSupported) {
-      console.log(
+      console.warn(
         `Device does not support ${verificationType} for user ${telegramIdNumber} - blocking`,
       );
 
@@ -134,19 +130,10 @@ export async function POST(
     // Device is supported - update attempt record with supported status
     // Note: In a full implementation, you would update the verification_attempts table
     // For now, we'll assume the attempt record is updated via the existing database structure
-
-    console.log(
-      `Device supports ${verificationType} for user ${telegramIdNumber}`,
-    );
-
     // Check if permission status is provided
     if (permissionGranted !== undefined) {
       if (permissionGranted) {
         // Permission granted - verification can proceed
-        console.log(
-          `${verificationType} permission granted for user ${telegramIdNumber}`,
-        );
-
         return NextResponse.json({
           success: true,
           blocked: false,
@@ -154,9 +141,6 @@ export async function POST(
         });
       } else {
         // Permission check - still in permission flow
-        console.log(
-          `${verificationType} permission not yet granted for user ${telegramIdNumber}`,
-        );
 
         return NextResponse.json({
           success: true,

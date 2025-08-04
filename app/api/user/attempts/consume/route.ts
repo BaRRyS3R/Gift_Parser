@@ -58,12 +58,6 @@ export async function POST(
         telegramIdNumber,
       );
 
-    console.log(`Attempt consumed for user ${telegramIdNumber}:`, {
-      canPlay: attemptsStatus.canPlay,
-      attemptsRemaining: attemptsStatus.attemptsRemaining,
-      hasResetTime: !!attemptsStatus.resetTime,
-    });
-
     return NextResponse.json({
       success: true,
       canPlay: attemptsStatus.canPlay,

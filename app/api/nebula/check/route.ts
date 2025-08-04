@@ -62,8 +62,6 @@ export async function GET(
       );
     }
 
-    console.log(`Nebula check for user: ${telegramIdNumber}`);
-
     // Step 1: Check for verification attempts
     const { attempt, isExpired } =
       await serverBlockService.checkVerificationAttempt(telegramIdNumber);
@@ -71,9 +69,6 @@ export async function GET(
     if (attempt) {
       // Handle expired verification attempts (abandoned)
       if (isExpired) {
-        console.log(
-          `User ${telegramIdNumber} has abandoned verification attempt, blocking`,
-        );
 
         // Block user for abandoning verification
         const abandonResult =
@@ -107,9 +102,6 @@ export async function GET(
 
       // If there's an active (non-expired) verification attempt, user should continue it
       if (!isExpired) {
-        console.log(
-          `User ${telegramIdNumber} has active verification attempt, redirecting to continue`,
-        );
 
         // Calculate time remaining based on server time
         const expiresAt = new Date(attempt.expiresAt);
@@ -145,7 +137,6 @@ export async function GET(
     const blockInfo = await serverBlockService.checkUserBlock(telegramIdNumber);
 
     if (blockInfo && blockInfo.isActive && blockInfo.timeRemainingSeconds > 0) {
-      console.log(`User ${telegramIdNumber} is currently blocked:`, blockInfo);
 
       return NextResponse.json({
         success: true,
@@ -161,9 +152,6 @@ export async function GET(
       await serverBlockService.checkVerificationRequirement(telegramIdNumber);
 
     if (verificationReq.required && verificationReq.type) {
-      console.log(
-        `User ${telegramIdNumber} requires ${verificationReq.type} verification. Trust score: ${verificationReq.trustScore}`,
-      );
 
       // Create new verification attempt with device support assumption
       const attemptId = await serverBlockService.createVerificationAttempt(
@@ -207,10 +195,6 @@ export async function GET(
     }
 
     // Step 4: User is allowed to proceed
-    console.log(
-      `User ${telegramIdNumber} passed Nebula checks. Trust score: ${verificationReq.trustScore}`,
-    );
-
     return NextResponse.json({
       success: true,
       allowed: {

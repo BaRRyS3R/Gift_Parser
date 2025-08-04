@@ -47,8 +47,6 @@ export async function GET(
       );
     }
 
-    console.log(`Fetching current season data for user ${telegramIdNumber}`);
-
     // Fetch complete season data
     const seasonData = await serverSeasonService.getCompleteSeasonData(
       userId,
@@ -64,17 +62,6 @@ export async function GET(
         { status: 404 },
       );
     }
-
-    console.log(
-      `Successfully fetched season data for user ${telegramIdNumber}:`,
-      {
-        seasonName: seasonData.season.name,
-        isActive: seasonData.isActive,
-        hasStarted: seasonData.hasStarted,
-        leaderboardEntries: seasonData.leaderboard.length,
-        userPosition: seasonData.userStats.position,
-      },
-    );
 
     return NextResponse.json({
       success: true,

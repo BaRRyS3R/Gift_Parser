@@ -28,8 +28,6 @@ export async function GET(
       );
     }
 
-    console.log(`Fetching tasks for user ${telegramId}`);
-
     // Get tasks with user status
     const tasks = await serverTasksService.getUserTasksWithStatus(userId);
 
@@ -46,16 +44,6 @@ export async function GET(
         (task) => task.user_status === TaskStatus.REWARDED,
       ),
     };
-
-    console.log(
-      `Successfully fetched ${tasks.length} tasks for user ${telegramId}:`,
-      {
-        notStarted: categorized.notStarted.length,
-        started: categorized.started.length,
-        completed: categorized.completed.length,
-        rewarded: categorized.rewarded.length,
-      },
-    );
 
     return NextResponse.json({
       success: true,

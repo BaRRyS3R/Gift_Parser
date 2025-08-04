@@ -54,26 +54,11 @@ export async function GET(
       ? Math.min(Math.max(parseInt(limitParam), 1), 100)
       : 100;
 
-    console.log(
-      `Fetching fresh leaderboards for user ${telegramIdNumber} with limit ${limit}`,
-    );
-
     // Fetch all leaderboards (fresh data every time)
     const leaderboardData = await serverLeaderboardService.getAllLeaderboards(
       userId,
       telegramIdNumber,
       limit,
-    );
-
-    console.log(
-      `Successfully fetched leaderboards for user ${telegramIdNumber}:`,
-      {
-        reaction: leaderboardData.reaction.length,
-        survival: leaderboardData.survival.length,
-        physics: leaderboardData.physics.length,
-        rotation: leaderboardData.rotation.length,
-        hasRankings: !!leaderboardData.userRankings,
-      },
     );
 
     return NextResponse.json({

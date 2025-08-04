@@ -29,8 +29,6 @@ export async function GET(
             );
         }
 
-        console.log(`[TON_ORDER_STATUS] Checking status for order: ${orderId}`);
-
         // Парсим orderId для извлечения информации о заказе
         const parseResult = parseTONPayload(orderId);
 
@@ -61,7 +59,6 @@ export async function GET(
         const currentTime = Date.now();
 
         if (currentTime > orderExpiryTime) {
-            console.log(`[TON_ORDER_STATUS] Order ${orderId} has expired`);
             return NextResponse.json({
                 success: true,
                 order: {
@@ -92,7 +89,6 @@ export async function GET(
 
         if (!transaction) {
             // Транзакция не найдена - заказ еще не оплачен
-            console.log(`[TON_ORDER_STATUS] Order ${orderId} not found - still pending payment`);
             return NextResponse.json({
                 success: true,
                 order: {
@@ -117,12 +113,6 @@ export async function GET(
                 orderStatus = 'pending';
                 break;
         }
-
-        console.log(`[TON_ORDER_STATUS] Order ${orderId} found with status: ${orderStatus}`, {
-            transactionHash: transaction.transaction_hash,
-            transactionStatus: transaction.status,
-            processedAt: transaction.processed_at,
-        });
 
         return NextResponse.json({
             success: true,

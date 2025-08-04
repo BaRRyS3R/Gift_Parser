@@ -137,11 +137,6 @@ export async function POST(
       last_played_at: user.last_played_at,
     };
 
-    // Log successful token refresh
-    console.log(
-      `Token refreshed for user: ${user.telegram_id} (${user.first_name})`,
-    );
-
     return NextResponse.json({
       success: true,
       tokens: {

@@ -72,19 +72,6 @@ export async function POST(
       attemptId,
     } = body;
 
-    console.log(
-      `Biometric verification attempt for user ${telegramIdNumber}:`,
-      {
-        success: biometricSuccess,
-        completedInTime,
-        deviceSupported,
-        unavailable,
-        permissionDenied,
-        hasToken: !!token,
-        attemptId,
-      },
-    );
-
     // Verify attempt belongs to user (if attemptId provided)
     if (attemptId) {
       const { attempt } =
@@ -103,9 +90,6 @@ export async function POST(
 
     // Handle biometric unavailable on device
     if (unavailable || !deviceSupported) {
-      console.log(
-        `Biometric unavailable for user ${telegramIdNumber} - blocking for 2 days`,
-      );
 
       const blockReason = unavailable
         ? "biometric_unavailable"
@@ -150,9 +134,6 @@ export async function POST(
 
     // Handle permission denied
     if (permissionDenied) {
-      console.log(
-        `Biometric permission denied for user ${telegramIdNumber} - blocking for 2 days`,
-      );
 
       const blockResult = await serverBlockService.handleVerificationFailure(
         userId,
@@ -192,9 +173,6 @@ export async function POST(
 
     // Handle successful biometric verification
     if (biometricSuccess && completedInTime) {
-      console.log(
-        `Biometric verification successful for user ${telegramIdNumber}`,
-      );
 
       // Restore trust score
       const restoreResult = await serverBlockService.handleVerificationSuccess(
@@ -235,10 +213,6 @@ export async function POST(
       } else if (!completedInTime) {
         failureReason = "Biometric authentication timed out";
       }
-
-      console.log(
-        `Biometric verification failed for user ${telegramIdNumber}: ${failureReason}`,
-      );
 
       // Block user for failed biometric
       const blockResult = await serverBlockService.handleVerificationFailure(

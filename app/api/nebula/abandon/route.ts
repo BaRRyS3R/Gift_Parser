@@ -126,18 +126,11 @@ export async function POST(
     // Validate and normalize the abandonment reason
     const validatedReason = validateAbandonmentReason(reason);
 
-    console.log(
-      `Processing abandonment for user ${telegramIdNumber}, attempt ${attemptId}, reason: ${validatedReason}`,
-    );
-
     // Check if the verification attempt exists and belongs to the user
     const { attempt, isExpired } =
       await serverBlockService.checkVerificationAttempt(telegramIdNumber);
 
     if (!attempt) {
-      console.log(
-        `No active verification attempt found for user ${telegramIdNumber}`,
-      );
 
       return NextResponse.json({
         success: true,
@@ -147,9 +140,6 @@ export async function POST(
     }
 
     if (attempt.id !== attemptId) {
-      console.log(
-        `Attempt ID mismatch for user ${telegramIdNumber}. Expected: ${attempt.id}, Received: ${attemptId}`,
-      );
 
       return NextResponse.json({
         success: true,
@@ -160,9 +150,6 @@ export async function POST(
 
     // Check if attempt is already expired (natural expiration vs abandonment)
     if (isExpired) {
-      console.log(
-        `Attempt ${attemptId} already expired for user ${telegramIdNumber}`,
-      );
 
       // Remove expired attempt without additional blocking
       await serverBlockService.removeVerificationAttempt(attemptId);
@@ -185,9 +172,6 @@ export async function POST(
       await serverBlockService.handleAbandonedVerification(enhancedAttempt);
 
     if (abandonResult.success) {
-      console.log(
-        `Successfully processed abandonment for user ${telegramIdNumber}. Reason: ${validatedReason}`,
-      );
 
       return NextResponse.json({
         success: true,

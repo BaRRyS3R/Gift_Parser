@@ -30,8 +30,6 @@ export async function GET(
             );
         }
 
-        console.log("[TON_PRODUCTS] Validating Telegram data...");
-
         // Валидация Telegram данных
         const validation = validateTelegramData(decodeURIComponent(initData));
 
@@ -47,13 +45,11 @@ export async function GET(
         }
 
         const telegramUser = validation.user;
-        console.log(`[TON_PRODUCTS] Request from user: ${telegramUser.id} (${telegramUser.first_name})`);
-
+        
         // Получаем информацию о пользователе из базы данных
         const user = await serverUserService.findByTelegramId(telegramUser.id);
 
         if (!user) {
-            console.log(`[TON_PRODUCTS] User ${telegramUser.id} not found in database`);
             return NextResponse.json(
                 {
                     success: false,
@@ -72,10 +68,6 @@ export async function GET(
         ];
         const products = productTypes.map((productType) =>
             getTONProductInfo(productType),
-        );
-
-        console.log(
-            `[TON_PRODUCTS] Catalog successfully prepared for user ${user.telegram_id} (${user.first_name})`,
         );
 
         return NextResponse.json({

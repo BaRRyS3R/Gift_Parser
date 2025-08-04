@@ -189,7 +189,6 @@ function MainPageContent() {
    * -------------------------------------------------*/
   useEffect(() => {
     if (user && !attemptsLoading && !attemptsStatus) {
-      console.log("Initializing attempts status fetch for main page");
       fetchAttemptsStatus();
     }
   }, [
@@ -211,14 +210,11 @@ function MainPageContent() {
         setTournamentLoading(true);
         setTournamentError(null);
 
-        console.log("Loading tournament status using API...");
-
         const response = await makeAuthenticatedRequest(
           "/api/tournament/active",
         );
 
         if (!response.ok) {
-          console.log("Tournament API not available or no active tournament");
           setTournamentStatus({
             isActive: false,
             activeTournament: null,
@@ -231,7 +227,6 @@ function MainPageContent() {
         const result = await response.json();
 
         if (!result.success) {
-          console.log("No active tournament available");
           setTournamentStatus({
             isActive: false,
             activeTournament: null,
@@ -276,17 +271,7 @@ function MainPageContent() {
         } else {
           setShowTournamentButton(false);
         }
-
-        console.log("Tournament status loaded:", {
-          isActive: status.isActive,
-          tournamentName: status.activeTournament?.name,
-        });
       } catch (error) {
-        console.log("Tournament loading failed (silently handled):", error);
-        setTournamentStatus({
-          isActive: false,
-          activeTournament: null,
-        });
         setShowTournamentButton(false);
       } finally {
         setTournamentLoading(false);

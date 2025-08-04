@@ -125,11 +125,6 @@ export async function POST(
     );
 
     if (blockInfo && blockInfo.isActive && blockInfo.timeRemainingSeconds > 0) {
-      console.log(
-        `User ${updatedUser.telegram_id} is currently blocked:`,
-        blockInfo,
-      );
-
       // Create limited tokens for accessing block status page
       const initDataHash = createInitDataHash(initData);
       const accessToken = await createJWT({
@@ -203,9 +198,6 @@ export async function POST(
       );
 
     if (verificationReq.required && verificationReq.type) {
-      console.log(
-        `User ${updatedUser.telegram_id} requires ${verificationReq.type} verification. Trust score: ${verificationReq.trustScore}`,
-      );
 
       // Create limited tokens for accessing verification page
       const initDataHash = createInitDataHash(initData);
@@ -272,11 +264,6 @@ export async function POST(
         },
       });
     }
-
-    // Step 3: User passes all security checks - normal login flow
-    console.log(
-      `User ${updatedUser.telegram_id} passed all Nebula security checks. Trust score: ${verificationReq.trustScore}`,
-    );
 
     // Create full access JWT tokens
     const initDataHash = createInitDataHash(initData);

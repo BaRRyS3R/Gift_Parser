@@ -124,10 +124,6 @@ export async function POST(
       // Generate new captcha challenge
       const captcha = generateSecureCaptcha();
 
-      console.log(
-        `Generated captcha for user ${telegramIdNumber}: ${captcha.challenge} = ${captcha.correctAnswer}`,
-      );
-
       return NextResponse.json({
         success: true,
         challenge: captcha.challenge,
@@ -199,9 +195,6 @@ export async function POST(
 
       // Check if verification was successful
       if (isCorrect && completedInTime) {
-        console.log(
-          `Captcha verification successful for user ${telegramIdNumber}`,
-        );
 
         // Restore trust score
         const restoreResult =
@@ -231,10 +224,6 @@ export async function POST(
           );
         }
       } else {
-        console.log(
-          `Captcha verification failed for user ${telegramIdNumber}. Correct: ${isCorrect}, In time: ${completedInTime}`,
-        );
-
         // Block user for failed captcha - simply use failed_captcha reason
         const blockResult = await serverBlockService.handleVerificationFailure(
           userId,
