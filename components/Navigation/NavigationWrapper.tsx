@@ -19,6 +19,7 @@ const hiddenPaths = [
   "/nebula",
   "/blocked",
   "/seasons",
+  "/ton-shop",
 ];
 
 export default function NavigationWrapper() {
