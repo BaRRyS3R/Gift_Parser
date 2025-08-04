@@ -132,7 +132,7 @@ export const shop = {
       processingTime: "Payments are processed automatically within 5 minutes",
       safeToClose: "You can safely close this page after payment",
       attemptsVisible: "Attempts will be visible in the main app after processing",
-      corporateWallet: "Corporate wallet",
+      corporateWallet: "All transactions here:",
     },
 
     badges: {

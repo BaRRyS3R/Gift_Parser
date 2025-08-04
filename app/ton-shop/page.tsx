@@ -1,4 +1,4 @@
-// src/app/ton-shop/page.tsx - Updated with corrected localization and improved layout
+// src/app/ton-shop/page.tsx - Исправления для сброса состояния и кликабельного кошелька
 
 "use client";
 
@@ -12,7 +12,7 @@ import {
     useTonConnectUI,
     TonConnectButton,
 } from "@tonconnect/ui-react";
-import { Wallet, CheckCircle, Clock, AlertCircle, ArrowLeft } from "lucide-react";
+import { Wallet, CheckCircle, Clock, AlertCircle, ArrowLeft, ExternalLink } from "lucide-react";
 import { beginCell } from "@ton/core";
 
 import {
@@ -129,6 +129,8 @@ function TONShopContent() {
                     isPending: false,
                     error: t("shop.tonShop.errors.timeoutExpired"),
                 }));
+                // Сбрасываем выбранный продукт при таймауте
+                setSelectedProduct(null);
             }, 5 * 60 * 1000);
 
             return () => {
@@ -174,6 +176,8 @@ function TONShopContent() {
                 isCreating: false,
                 error: error instanceof Error ? error.message : t("shop.tonShop.errors.orderCreationFailed"),
             }));
+            // ИСПРАВЛЕНИЕ: Сбрасываем выбранный продукт при ошибке
+            setSelectedProduct(null);
         }
     };
 
@@ -212,6 +216,9 @@ function TONShopContent() {
         } catch (error) {
             console.error("[TON_SHOP] Transaction error:", error);
 
+            // ИСПРАВЛЕНИЕ: Сбрасываем выбранный продукт при ошибке транзакции
+            setSelectedProduct(null);
+
             if (error instanceof Error) {
                 if (error.message.includes("User rejects")) {
                     throw new Error(t("shop.tonShop.errors.transactionCancelled"));
@@ -248,7 +255,10 @@ function TONShopContent() {
     };
 
     const handleProductSelect = async (productType: ProductType) => {
+        console.log('Product selected:', productType);
+
         if (!wallet) {
+            console.log('No wallet, opening modal');
             openModal();
             return;
         }
@@ -266,6 +276,12 @@ function TONShopContent() {
             error: null,
         });
         setSelectedProduct(null);
+    };
+
+    // НОВАЯ ФУНКЦИЯ: Открытие кошелька в tonviewer
+    const openWalletViewer = () => {
+        const walletViewerUrl = `https://tonviewer.com/${TON_CONFIG.CORPORATE_WALLET}`;
+        window.open(walletViewerUrl, '_blank', 'noopener,noreferrer');
     };
 
     const goBack = () => {
@@ -332,10 +348,9 @@ function TONShopContent() {
             </div>
 
             <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-                {/* Wallet Connection Section - Restructured */}
+                {/* Wallet Connection Section */}
                 <Card className="bg-white/5 border border-white/10">
                     <CardBody className="p-4 space-y-4">
-                        {/* Status Text and Icon */}
                         <div className="flex items-center space-x-3">
                             <Wallet className="text-blue-400 flex-shrink-0" size={20} />
                             <div className="flex-1">
@@ -350,7 +365,6 @@ function TONShopContent() {
                             </div>
                         </div>
 
-                        {/* Connection Button */}
                         <div className="flex justify-center pt-2">
                             <TonConnectButton className="ton-connect-button-minimal" />
                         </div>
@@ -436,7 +450,7 @@ function TONShopContent() {
                     ))}
                 </div>
 
-                {/* Information Section */}
+                {/* Information Section - ОБНОВЛЕНО */}
                 <Card className="bg-white/5 border border-white/10">
                     <CardBody className="p-4 text-center">
                         <div className="space-y-2 text-sm text-white/60">
@@ -444,9 +458,21 @@ function TONShopContent() {
                             <p>{t("shop.tonShop.info.safeToClose")}</p>
                             <p>{t("shop.tonShop.info.attemptsVisible")}</p>
                         </div>
-                        <p className="text-white/40 text-xs mt-4">
-                            {t("shop.tonShop.info.corporateWallet")}: {TON_CONFIG.CORPORATE_WALLET}
-                        </p>
+
+                        {/* ИСПРАВЛЕНИЕ: Кликабельный адрес кошелька */}
+                        <div className="mt-4">
+                            <p className="text-white/40 text-xs mb-2">
+                                {t("shop.tonShop.info.corporateWallet")}:
+                            </p>
+                            <button
+                                onClick={openWalletViewer}
+                                className="inline-flex items-center space-x-1 text-white/60 hover:text-white/80 transition-colors text-xs font-mono bg-white/5 px-2 py-1 rounded border border-white/10 hover:border-white/20"
+                                title="Открыть в TON Viewer"
+                            >
+                                <span>{TON_CONFIG.CORPORATE_WALLET}</span>
+                                <ExternalLink size={12} />
+                            </button>
+                        </div>
                     </CardBody>
                 </Card>
             </div>
@@ -518,7 +544,7 @@ function ProductCard({ product, onSelect, disabled, isSelected, t }: ProductCard
                                 }
                             `}
                             isDisabled={disabled}
-                            onPress={onSelect} // ← Это было пропущено!
+                            onPress={onSelect}
                         >
                             {isSelected ? t("shop.tonShop.actions.processing") : t("shop.tonShop.actions.buyWithTON")}
                         </Button>
@@ -536,7 +562,7 @@ export default function TONShopPage() {
                 <div className="min-h-screen bg-black text-white flex items-center justify-center">
                     <div className="text-center space-y-4">
                         <Spinner color="white" size="lg" />
-                        <p className="text-white/70">Loading TON Shop...</p>
+                        <p className="text-white/70">Money Бабки Cash Сучки</p>
                     </div>
                 </div>
             }
