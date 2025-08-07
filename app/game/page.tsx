@@ -20,7 +20,6 @@ import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
 import FutureTechAttemptsDisplay from "@/components/AttemptsDisplay/FutureTechAttemptsDisplay";
-import TournamentCard from "@/components/TournamentCard/TournamentCard";
 
 interface GameMode {
   id: string;
@@ -317,10 +316,6 @@ function GamePageContent() {
             showShopButton={true}
             onRetry={handleAttemptsRetry}
           />
-        </div>
-
-        <div className="mb-8">
-          <TournamentCard />
         </div>
       </div>
 

@@ -7,7 +7,6 @@ import { main } from "./main";
 import { game } from "./game";
 import { attempts } from "./attempts";
 import { tasks } from "./tasks";
-import { tournament } from "./tournament";
 import { profile } from "./profile";
 import { leaderboard } from "./leaderboard";
 import { shop } from "./shop";
@@ -51,9 +50,6 @@ export const ru = {
 
   // Game modes
   game,
-
-  // Tournament system
-  tournament,
 
   // Attempts system
   attempts,
