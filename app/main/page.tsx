@@ -280,10 +280,10 @@ function MainPageContent() {
   return (
     <div
       className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
-        ? "opacity-0 transition-opacity duration-500 ease-in"
-        : pageLoaded
-          ? "opacity-100 transition-opacity duration-1000 ease-out"
-          : "opacity-0"
+          ? "opacity-0 transition-opacity duration-500 ease-in"
+          : pageLoaded
+            ? "opacity-100 transition-opacity duration-1000 ease-out"
+            : "opacity-0"
         }`}
     >
       {/* Background Video */}
@@ -313,49 +313,17 @@ function MainPageContent() {
       {/* Top Navigation Icons */}
       <div
         className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
           }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
-          {/* Left side - Settings and About */}
+          {/* Left side - About and Settings (изменен порядок) */}
           <div className="flex items-center gap-3">
-            <button
-              aria-label={t("common.settings")}
-              className="group relative w-12 h-12 bg-black/80 backdrop-blur-sm border border-slate-600/50 text-white rounded-lg hover:border-slate-500 hover:bg-black/90 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
-              disabled={isTransitioning}
-              onClick={handleOpenSettings}
-            >
-              {/* Градиентный фон */}
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-              {/* Основная иконка */}
-              <div className="relative z-10 flex items-center justify-center w-full h-full">
-                <SettingsIcon
-                  className="text-slate-400 group-hover:text-white group-hover:rotate-90 transition-all duration-300"
-                  size={18}
-                />
-              </div>
-
-              {/* Hover эффект свечения */}
-              <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="absolute inset-0 bg-slate-500/20 rounded-lg blur-sm" />
-              </div>
-
-              {/* Внешнее свечение при hover */}
-              <div className="absolute -inset-1 rounded-lg blur-sm opacity-0 group-hover:opacity-50 transition-opacity duration-300 bg-gradient-to-br from-slate-500/40 to-slate-600/20" style={{ zIndex: -1 }} />
-
-              {/* Сканирующая линия для Future Tech эффекта */}
-              <div
-                className="absolute top-0 left-0 w-full h-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-slate-400 to-transparent"
-                style={{ animation: "shimmer 2s ease-in-out infinite" }}
-              />
-            </button>
-
             <button
               aria-label="About"
               className="group relative w-12 h-12 bg-black/80 backdrop-blur-sm border border-blue-600/50 text-white rounded-lg hover:border-blue-500 hover:bg-black/90 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
@@ -434,11 +402,11 @@ function MainPageContent() {
       {/* Season Button - Центральная позиция */}
       <div
         className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
           }`}
         style={{ top: "50px" }}
       >
@@ -460,8 +428,8 @@ function MainPageContent() {
         {/* Action Buttons Container - Убрана кнопка турниров */}
         <div
           className={`space-y-4 ${isFirstVisit
-            ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
-            : "opacity-100 translate-y-0"
+              ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
+              : "opacity-100 translate-y-0"
             }`}
         >
           {/* Main Play Button */}
@@ -489,11 +457,11 @@ function MainPageContent() {
         {/* User Greeting */}
         <div
           className={`${isFirstVisit
-            ? `transition-all duration-1000 transform ${showGreeting
-              ? "opacity-100 translate-y-0"
-              : "opacity-0 translate-y-8"
-            }`
-            : "opacity-100 translate-y-0"
+              ? `transition-all duration-1000 transform ${showGreeting
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-8"
+              }`
+              : "opacity-100 translate-y-0"
             }`}
         >
           {userLoading ? (
@@ -535,11 +503,11 @@ function MainPageContent() {
       {/* Enhanced Attempts Display with Level Integration */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
-          ? `transition-all duration-1000 transform ${showTopButtons
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-8"
-          }`
-          : "opacity-100 translate-y-0"
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
+            : "opacity-100 translate-y-0"
           }`}
         style={{ paddingBottom: "140px" }}
       >
