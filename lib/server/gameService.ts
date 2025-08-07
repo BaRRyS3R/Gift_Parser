@@ -304,17 +304,26 @@ export const serverGameService = {
       throw new Error("Failed to update user statistics");
     }
 
-    // NEW: Check and award achievements after stats update
-    // The database trigger will automatically check, but we also get the results here
-    const newAchievements = await serverAchievementsService.checkAndAwardAchievements(
-      telegramId
-    );
+    // NEW: Check and award achievements after stats update (with error handling)
+    let newAchievements: any[] = [];
+    let achievementAttemptsAwarded = 0;
 
-    // Calculate total attempts awarded
-    const achievementAttemptsAwarded = newAchievements.reduce(
-      (total: number, achievement: any) => total + achievement.attempts_awarded,
-      0
-    );
+    try {
+      // The database trigger will automatically check, but we also get the results here
+      newAchievements = await serverAchievementsService.checkAndAwardAchievements(
+        telegramId
+      );
+
+      // Calculate total attempts awarded
+      achievementAttemptsAwarded = newAchievements.reduce(
+        (total: number, achievement: any) => total + achievement.attempts_awarded,
+        0
+      );
+    } catch (achievementError) {
+      // Log achievement error but don't fail the game save
+      console.warn("Achievement check failed but game saved:", achievementError);
+      // Continue without achievements - game save is more important
+    }
 
     const totalAttemptsAwarded = levelAttemptsAwarded + achievementAttemptsAwarded;
 
