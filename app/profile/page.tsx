@@ -153,7 +153,7 @@ export default function ProfilePage() {
             achievements={achievements?.achievements}
           />
         ) : (
-          <div className="text-center space-y-3 px-4 py-6">
+          <div className="text-center px-4 py-6">
             <div className="space-y-2">
               <div className="h-8 bg-white/10 rounded animate-pulse mx-auto w-48" />
               <div className="h-4 bg-white/10 rounded animate-pulse mx-auto w-32" />

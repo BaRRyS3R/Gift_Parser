@@ -311,19 +311,6 @@ export default function RotatingCircleGrid({
             );
           })}
         </div>
-
-        {/* Rotation direction indicator */}
-        <div className="absolute bottom-3 right-3">
-          <div
-            className="w-8 h-8 border-2 border-white/25 rounded-full relative"
-            style={{
-              transform: `rotate(${currentRotationRef.current}rad)`,
-              transition: "none",
-            }}
-          >
-            <div className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-white/50 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
-          </div>
-        </div>
       </div>
     </div>
   );

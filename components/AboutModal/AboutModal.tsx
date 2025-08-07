@@ -76,6 +76,14 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                   {t("about.modes.physics.description")}
                 </p>
               </div>
+              <div>
+                <h4 className="font-medium text-white text-sm mb-1">
+                  {t("about.modes.rotation.name")}
+                </h4>
+                <p className="text-white/60 text-xs">
+                  {t("about.modes.rotation.description")}
+                </p>
+              </div>
             </div>
           </div>
 

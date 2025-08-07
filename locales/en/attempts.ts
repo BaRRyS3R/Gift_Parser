@@ -29,7 +29,7 @@ export const attempts = {
 
     howItWorks: "HOW ATTEMPTS WORK",
     rule1: "Each game mode requires one attempt to play",
-    rule2: "Attempts automatically reset every 2 hours",
+    rule2: "Attempts are automatically reset after 2 hours after they are completely used up",
     rule3:
       "You start with 10 attempts (and maybe more if you followed someone's ref) and can get free ones by leveling up",
     rule4: "If you have premium in Telegram, then you're great.",
@@ -40,7 +40,7 @@ export const attempts = {
     importance2:
       "This system encourages you to play strategically rather than just mashing buttons like a caffeinated hamster. Quality over quantity, as they say in fancy business meetings.",
     importance3:
-      "Plus, it gives you time to contemplate your life choices between games. You're welcome for this profound philosophical opportunity.",
+      "Plus, it gives you time to reflect on life's choices between games. No need to thank me for that deep philosophical thought.",
 
     needMore: "NEED MORE ATTEMPTS?",
     shopDescription:
@@ -49,7 +49,7 @@ export const attempts = {
     visitShop: "SHOP",
 
     automaticReset:
-      "Attempts are reset automatically every 2 hours. No action is required on your part.",
+      "Attempts are automatically restored 2 hours after they are completely used up. No action is required on your part.",
     fairPlay:
       "The system is designed to maintain fair play and prevent excessive gaming sessions. We care about you. We care about your houseplants, by the way.",
   },

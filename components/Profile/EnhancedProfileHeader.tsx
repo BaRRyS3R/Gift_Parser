@@ -157,20 +157,6 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
                         </div>
                       )}
                     </div>
-
-                    {/* Reward badge positioned below the icon */}
-                    <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full">
-                      <div className={`
-                        flex items-center gap-1 px-2 py-0.5 rounded-full
-                        bg-black/80 border ${colors.border} backdrop-blur-sm
-                        transition-all duration-300 ${isHovered ? 'scale-110' : ''}
-                      `}>
-                        <Gift className={`${colors.icon}`} size={10} />
-                        <span className={`text-[10px] font-mono font-bold ${colors.icon}`}>
-                          +{achievement.attempts_reward}
-                        </span>
-                      </div>
-                    </div>
                   </div>
 
                   {/* Tooltip on hover with futuristic design */}

@@ -34,7 +34,7 @@ export const profile = {
   progress: "Прогресс",
 
   // Level and league display
-  levelDisplay: "Уровень {level}",
+  levelDisplay: "Уровень:",
   currentLeague: "Текущая",
   gamesUnit: "игр",
   rewardsUnit: "наград",

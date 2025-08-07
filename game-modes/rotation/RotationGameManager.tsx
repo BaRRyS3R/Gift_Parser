@@ -521,7 +521,7 @@ export default function RotationGameManager() {
                     className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
                     onClick={() => handleSaveGameResult(gameResult)}
                   >
-                    Retry Save
+                    {t("save.retrySave")}
                   </button>
                 </div>
               )}
@@ -534,7 +534,7 @@ export default function RotationGameManager() {
               onClick={handleBackToGames}
             >
               <ArrowLeft size={20} />
-              <span>BACK НАЗАД</span>
+              <span>{t("game.modes.buttonBack")}</span>
             </button>
           </div>
         </div>
@@ -572,20 +572,6 @@ export default function RotationGameManager() {
               <span className="text-lg font-bold text-white">
                 {formatRotationTime(gameState.stats.survivalTime)}
               </span>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-orange-400/60">
-                {gameState.currentLevel}/10 {t("common.level")}
-              </span>
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="text-orange-400" size={12} />
-                <span className="text-orange-300 uppercase tracking-wider">
-                  {t("game.modes.rotation.instructions.oneMistakeDeath")}
-                </span>
-              </div>
             </div>
           </div>
         </div>
