@@ -29,6 +29,13 @@ export default function TournamentCard({
         router.push(`/tournaments/${tournament.id}`);
     };
 
+    const handleKeyDown = (event: React.KeyboardEvent) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleCardClick();
+        }
+    };
+
     const getGameModeIcon = (mode: TournamentGameMode) => {
         switch (mode) {
             case "survival":
@@ -97,10 +104,14 @@ export default function TournamentCard({
         <div
             className={`
         relative overflow-hidden rounded-xl border backdrop-blur-sm transition-all duration-300
-        hover:scale-[1.02] hover:shadow-lg cursor-pointer
+        hover:scale-[1.02] hover:shadow-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500
         ${modeColor} ${className}
       `}
             onClick={handleCardClick}
+            onKeyDown={handleKeyDown}
+            role="button"
+            tabIndex={0}
+            aria-label={`View details for ${tournament.name} tournament`}
         >
             <div className="p-6">
                 {/* Header */}

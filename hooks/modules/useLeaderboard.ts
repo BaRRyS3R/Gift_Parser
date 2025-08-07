@@ -111,7 +111,6 @@ export function useLeaderboard(
     useCallback(async (): Promise<LeaderboardData | null> => {
       // Wait for current request to complete instead of returning cached data
       if (fetchingRef.current) {
-
         // Wait for current fetch to complete
         return new Promise((resolve) => {
           const checkCompletion = () => {
@@ -130,7 +129,6 @@ export function useLeaderboard(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-
         const response = await makeAuthenticatedRequest(
           "/api/leaderboard/all?limit=100",
         );

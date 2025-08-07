@@ -291,10 +291,7 @@ interface TelegramWebApp {
   ) => void;
 
   // FILE DOWNLOAD МЕТОДЫ
-  downloadFile?: (params: {
-    url: string;
-    filename: string;
-  }) => void;
+  downloadFile?: (params: { url: string; filename: string }) => void;
 
   // EMOJI STATUS МЕТОДЫ
   setEmojiStatus?: (params: {
@@ -305,17 +302,22 @@ interface TelegramWebApp {
   requestEmojiStatusAccess?: (callback?: (granted: boolean) => void) => void;
 
   // GEOLOCATION МЕТОДЫ
-  requestLocation?: (params?: {
-    live_period?: number;
-  }, callback?: (location: {
-    latitude: number;
-    longitude: number;
-    altitude?: number;
-    course?: number;
-    speed?: number;
-    horizontal_accuracy?: number;
-    live_period?: number;
-  } | null) => void) => void;
+  requestLocation?: (
+    params?: {
+      live_period?: number;
+    },
+    callback?: (
+      location: {
+        latitude: number;
+        longitude: number;
+        altitude?: number;
+        course?: number;
+        speed?: number;
+        horizontal_accuracy?: number;
+        live_period?: number;
+      } | null,
+    ) => void,
+  ) => void;
 
   openLocationSettings?: () => void;
 

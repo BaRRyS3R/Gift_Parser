@@ -44,7 +44,6 @@ export function formatPhysicsTime(timeMs: number): string {
   return `${totalSeconds.toFixed(3)}s`;
 }
 
-
 /**
  * Formats physics game time for display in compact format
  * @param timeMs - Time in milliseconds

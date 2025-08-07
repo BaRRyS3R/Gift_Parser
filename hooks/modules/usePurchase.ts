@@ -67,7 +67,6 @@ export function usePurchase(
   const createInvoice = useCallback(
     async (productType: ProductType): Promise<CreateInvoiceResponse> => {
       if (processingRef.current) {
-
         return { success: false, error: "Purchase already in progress" };
       }
 
@@ -169,10 +168,8 @@ export function usePurchase(
 
         // Используем Telegram WebApp API для открытия инвойса
         if (tg.openInvoice) {
-
           return new Promise((resolve) => {
             tg.openInvoice(invoiceUrl, (status: string) => {
-
               setState((prev) => ({
                 ...prev,
                 isProcessing: false,
@@ -239,7 +236,6 @@ export function usePurchase(
   const checkPurchaseStatus =
     useCallback(async (): Promise<PurchaseStatus | null> => {
       try {
-
         const response = await makeAuthenticatedRequest("/api/purchase/status");
 
         if (!response.ok) {

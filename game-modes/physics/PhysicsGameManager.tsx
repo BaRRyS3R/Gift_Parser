@@ -223,7 +223,6 @@ export default function PhysicsGameManager() {
 
   const endGame = useCallback(
     (cause: "mistakes" | "escaped_circles" | "timeout") => {
-
       setGameState((prev) => {
         const finalState = updatePhysicsPositions(prev);
 
@@ -266,10 +265,8 @@ export default function PhysicsGameManager() {
           const updatedState = updatePhysicsLevel(prev);
           const newState = activateRandomCircles(
             updatedState,
-            (circleIds, decoyIds) => {
-            },
+            (circleIds, decoyIds) => {},
             (circleId, wasDecoy) => {
-
               if (!wasDecoy) {
                 // Missed white circle - count as mistake
                 setGameState((current) => {
@@ -349,7 +346,6 @@ export default function PhysicsGameManager() {
   );
 
   const startGame = useCallback(() => {
-
     setGameState(initializePhysicsGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);

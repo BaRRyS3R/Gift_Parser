@@ -5,9 +5,11 @@ import type { SurvivalGameResult } from "@/types/game-modes/survival";
 import type { PhysicsGameResult } from "@/types/game-modes/physics";
 import type { RotationGameResult } from "@/types/game-modes/rotation";
 
-import { GameMode } from "@/types/game-modes/common";
 import { supabaseServer } from "../supabase_server";
+
 import { serverAchievementsService } from "./achievementsService";
+
+import { GameMode } from "@/types/game-modes/common";
 
 // Game result union type
 type GameResult =
@@ -182,8 +184,10 @@ export const serverGameService = {
 
     if (levelChanged) {
       const levelsGained = newLevel - previousLevel;
+
       levelAttemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
-      updates.attempts_remaining = user.attempts_remaining + levelAttemptsAwarded;
+      updates.attempts_remaining =
+        user.attempts_remaining + levelAttemptsAwarded;
     }
 
     // Mode-specific statistics updates
@@ -213,8 +217,8 @@ export const serverGameService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-              reactionResult.reactionTime) /
-            (totalReactionGames + 1)
+                reactionResult.reactionTime) /
+              (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
@@ -310,29 +314,34 @@ export const serverGameService = {
 
     try {
       // The database trigger will automatically check, but we also get the results here
-      newAchievements = await serverAchievementsService.checkAndAwardAchievements(
-        telegramId
-      );
+      newAchievements =
+        await serverAchievementsService.checkAndAwardAchievements(telegramId);
 
       // Calculate total attempts awarded
       achievementAttemptsAwarded = newAchievements.reduce(
-        (total: number, achievement: any) => total + achievement.attempts_awarded,
-        0
+        (total: number, achievement: any) =>
+          total + achievement.attempts_awarded,
+        0,
       );
     } catch (achievementError) {
       // Log achievement error but don't fail the game save
-      console.warn("Achievement check failed but game saved:", achievementError);
+      console.warn(
+        "Achievement check failed but game saved:",
+        achievementError,
+      );
       // Continue without achievements - game save is more important
     }
 
-    const totalAttemptsAwarded = levelAttemptsAwarded + achievementAttemptsAwarded;
+    const totalAttemptsAwarded =
+      levelAttemptsAwarded + achievementAttemptsAwarded;
 
     // Prepare response
     const response: GameSaveResult = {
       success: true,
       levelChanged,
       newLevel: levelChanged ? newLevel : undefined,
-      attemptsAwarded: levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
+      attemptsAwarded:
+        levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
     };
 
     // Add achievement information if any were unlocked

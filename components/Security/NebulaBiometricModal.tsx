@@ -151,7 +151,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
    * Initialize biometric manager with improved compatibility
    */
   const initBiometric = async () => {
-
     if (typeof window === "undefined") {
       await handleUnsupportedDevice(
         "Biometric authentication is not available in this environment",
@@ -177,7 +176,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
 
     // Check if BiometricManager is already initialized
     if (manager.isInited) {
-
       setState((prev) => ({
         ...prev,
         biometricManager: manager,
@@ -244,7 +242,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
         state.currentPhase === "initializing" &&
         manager.isBiometricAvailable
       ) {
-
         setState((prev) => ({
           ...prev,
           biometricManager: manager,
@@ -399,7 +396,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
    * Handle biometric failure
    */
   const handleBiometricFailure = useCallback(async () => {
-
     updatePhase("error", true);
     setState((prev) => ({
       ...prev,
@@ -440,7 +436,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
    */
   const handleUnsupportedDevice = useCallback(
     async (reason: string) => {
-
       updatePhase("unsupported", true);
       setState((prev) => ({
         ...prev,
@@ -500,7 +495,6 @@ const NebulaBiometricModal: React.FC<NebulaBiometricModalProps> = ({
       state.biometricManager.requestAccess(
         { reason: "Security verification required for continued access" },
         (granted: boolean) => {
-
           if (granted) {
             updatePhase("auth", true);
             setState((prev) => ({

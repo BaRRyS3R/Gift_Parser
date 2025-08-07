@@ -38,9 +38,7 @@ const PUBLIC_ENDPOINTS = [
 ];
 
 // Admin endpoints that require special permissions
-const ADMIN_ENDPOINTS = [
-  "/api/admin/",
-];
+const ADMIN_ENDPOINTS = ["/api/admin/"];
 
 /**
  * Handle CORS preflight requests

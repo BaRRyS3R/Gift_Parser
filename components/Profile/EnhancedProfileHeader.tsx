@@ -2,10 +2,13 @@
 
 "use client";
 
-import type { UserProfileGameStats, Achievement } from "@/hooks/modules/useProfile";
+import type {
+  UserProfileGameStats,
+  Achievement,
+} from "@/hooks/modules/useProfile";
 
 import React, { useState } from "react";
-import { Trophy, Gamepad2, Users, Zap, Gift, Sparkles } from "lucide-react";
+import { Trophy, Gamepad2, Users, Zap, Sparkles } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -23,40 +26,43 @@ const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<any>> = {
 };
 
 // Future tech color schemes matching the modal
-const ACHIEVEMENT_COLORS: Record<string, { 
-  gradient: string; 
-  border: string; 
-  glow: string;
-  icon: string;
-  bgGradient: string;
-}> = {
+const ACHIEVEMENT_COLORS: Record<
+  string,
+  {
+    gradient: string;
+    border: string;
+    glow: string;
+    icon: string;
+    bgGradient: string;
+  }
+> = {
   first_game: {
     gradient: "from-cyan-500/20 to-blue-600/20",
     border: "border-cyan-500/30",
     glow: "shadow-[0_0_20px_rgba(6,182,212,0.4)]",
     icon: "text-cyan-400",
-    bgGradient: "from-cyan-500 to-blue-600"
+    bgGradient: "from-cyan-500 to-blue-600",
   },
   all_modes_player: {
     gradient: "from-purple-500/20 to-pink-600/20",
     border: "border-purple-500/30",
     glow: "shadow-[0_0_20px_rgba(168,85,247,0.4)]",
     icon: "text-purple-400",
-    bgGradient: "from-purple-500 to-pink-600"
+    bgGradient: "from-purple-500 to-pink-600",
   },
   super_recruiter: {
     gradient: "from-amber-500/20 to-orange-600/20",
     border: "border-amber-500/30",
     glow: "shadow-[0_0_20px_rgba(245,158,11,0.4)]",
     icon: "text-amber-400",
-    bgGradient: "from-amber-500 to-orange-600"
+    bgGradient: "from-amber-500 to-orange-600",
   },
   lightning_reflexes: {
     gradient: "from-emerald-500/20 to-teal-600/20",
     border: "border-emerald-500/30",
     glow: "shadow-[0_0_20px_rgba(16,185,129,0.4)]",
     icon: "text-emerald-400",
-    bgGradient: "from-emerald-500 to-teal-600"
+    bgGradient: "from-emerald-500 to-teal-600",
   },
 };
 
@@ -65,7 +71,9 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
   achievements = [],
 }) => {
   const t = useT();
-  const [hoveredAchievement, setHoveredAchievement] = useState<string | null>(null);
+  const [hoveredAchievement, setHoveredAchievement] = useState<string | null>(
+    null,
+  );
 
   // Filter for unlocked achievements
   const unlockedAchievements = achievements.filter((a) => a.unlocked);
@@ -74,7 +82,7 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
     <div className="relative text-center space-y-4 px-4 py-6">
       {/* Background gradient effect */}
       <div className="absolute inset-0 bg-gradient-to-b from-purple-900/5 via-transparent to-cyan-900/5 pointer-events-none" />
-      
+
       {/* User Name with glowing effect */}
       <div className="relative">
         <h1 className="text-2xl font-bold text-white tracking-wider">
@@ -101,8 +109,9 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
         <div className="relative bg-black/60 border border-white/20 rounded-lg px-4 py-1.5 backdrop-blur-sm">
           <div className="text-white/80 text-sm font-mono tracking-wider">
             <span className="text-white/50">{t("profile.levelDisplay")}</span>
-            <span className="ml-2 text-white font-bold">{user.current_level}</span>
-            
+            <span className="ml-2 text-white font-bold">
+              {user.current_level}
+            </span>
           </div>
         </div>
       </div>
@@ -114,9 +123,11 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
           <div className="flex items-center justify-center gap-4 flex-wrap">
             {unlockedAchievements.map((achievement) => {
               const IconComponent = ACHIEVEMENT_ICONS[achievement.id] || Trophy;
-              const colors = ACHIEVEMENT_COLORS[achievement.id] || ACHIEVEMENT_COLORS.first_game;
+              const colors =
+                ACHIEVEMENT_COLORS[achievement.id] ||
+                ACHIEVEMENT_COLORS.first_game;
               const isHovered = hoveredAchievement === achievement.id;
-              
+
               return (
                 <div
                   key={achievement.id}
@@ -127,29 +138,29 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
                   {/* Achievement Icon Container with holographic effect */}
                   <div className="relative">
                     {/* Glow effect */}
-                    <div 
+                    <div
                       className={`
                         absolute inset-0 bg-gradient-to-r ${colors.bgGradient} 
                         rounded-lg blur-md opacity-0 group-hover:opacity-50 
                         transition-opacity duration-300
-                      `} 
+                      `}
                     />
-                    
+
                     {/* Main icon container */}
                     <div
                       className={`
                         relative w-12 h-12 rounded-lg flex items-center justify-center
                         bg-gradient-to-br ${colors.gradient} ${colors.border}
                         border backdrop-blur-sm transition-all duration-300
-                        group-hover:scale-110 ${isHovered ? colors.glow : ''}
+                        group-hover:scale-110 ${isHovered ? colors.glow : ""}
                         cursor-pointer
                       `}
                     >
-                      <IconComponent 
-                        className={`${colors.icon} transition-all duration-300 ${isHovered ? 'scale-110' : ''}`} 
-                        size={24} 
+                      <IconComponent
+                        className={`${colors.icon} transition-all duration-300 ${isHovered ? "scale-110" : ""}`}
+                        size={24}
                       />
-                      
+
                       {/* Shimmer effect on hover */}
                       {isHovered && (
                         <div className="absolute inset-0 rounded-lg overflow-hidden">
@@ -160,15 +171,19 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
                   </div>
 
                   {/* Tooltip on hover with futuristic design */}
-                  <div className={`
+                  <div
+                    className={`
                     absolute bottom-full left-1/2 transform -translate-x-1/2 mb-8
                     transition-all duration-200 pointer-events-none z-20
-                    ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
-                  `}>
+                    ${isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
+                  `}
+                  >
                     <div className="relative">
                       {/* Tooltip glow */}
-                      <div className={`absolute inset-0 bg-gradient-to-r ${colors.bgGradient} rounded-lg blur-md opacity-50`} />
-                      
+                      <div
+                        className={`absolute inset-0 bg-gradient-to-r ${colors.bgGradient} rounded-lg blur-md opacity-50`}
+                      />
+
                       {/* Tooltip content */}
                       <div className="relative bg-black/90 border border-white/20 rounded-lg px-3 py-2 backdrop-blur-sm">
                         <div className="font-semibold text-white text-xs whitespace-nowrap">
@@ -178,7 +193,7 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
                           {achievement.description}
                         </div>
                       </div>
-                      
+
                       {/* Tooltip arrow */}
                       <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-white/20" />
                     </div>
@@ -195,9 +210,9 @@ const EnhancedProfileHeader: React.FC<EnhancedProfileHeaderProps> = ({
               <div className="flex items-center gap-2">
                 <Sparkles className="text-cyan-400" size={12} />
                 <p className="text-white/70 text-xs font-mono">
-                  {t("profile.achievementsUnlocked", { 
+                  {t("profile.achievementsUnlocked", {
                     count: unlockedAchievements.length,
-                    total: achievements.length 
+                    total: achievements.length,
                   })}
                 </p>
               </div>

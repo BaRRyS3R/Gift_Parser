@@ -90,7 +90,6 @@ export async function POST(
 
     // Handle biometric unavailable on device
     if (unavailable || !deviceSupported) {
-
       const blockReason = unavailable
         ? "biometric_unavailable"
         : "device_unsupported_biometric";
@@ -134,7 +133,6 @@ export async function POST(
 
     // Handle permission denied
     if (permissionDenied) {
-
       const blockResult = await serverBlockService.handleVerificationFailure(
         userId,
         telegramIdNumber,
@@ -173,7 +171,6 @@ export async function POST(
 
     // Handle successful biometric verification
     if (biometricSuccess && completedInTime) {
-
       // Restore trust score
       const restoreResult = await serverBlockService.handleVerificationSuccess(
         telegramIdNumber,

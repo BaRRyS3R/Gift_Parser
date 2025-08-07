@@ -61,7 +61,6 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({
   // Initialize language based on Telegram user data and stored preferences
   useEffect(() => {
     const initializeLanguage = () => {
-
       try {
         // First, try to get stored language preference
         const storedLanguage = localStorage.getItem(
@@ -84,6 +83,7 @@ export const LocalizationProvider: React.FC<LocalizationProviderProps> = ({
         if (telegramLanguageCode) {
           const detectedLanguage =
             detectLanguageFromTelegram(telegramLanguageCode);
+
           setLanguage(detectedLanguage);
 
           // Store the detected language for future use
