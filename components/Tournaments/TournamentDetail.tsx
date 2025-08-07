@@ -174,6 +174,22 @@ function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
         { icon: "💎", color: colors.secondary, label: "PRIZE" },
     ];
 
+    // Функция для безопасного получения позиции приза
+    const getPrizePosition = (prize: any): string => {
+        if (prize.position !== undefined) {
+            return typeof prize.position === 'string' ? prize.position : `#${prize.position}`;
+        }
+        if (prize.place !== undefined) {
+            return typeof prize.place === 'string' ? prize.place : `#${prize.place}`;
+        }
+        return `#${prizes.indexOf(prize) + 1}`;
+    };
+
+    // Функция для безопасного получения описания приза
+    const getPrizeDescription = (prize: any): string => {
+        return prize.description || prize.prize || 'Prize';
+    };
+
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-mono text-white/60">
@@ -185,7 +201,7 @@ function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
                     const config = prizeConfig[index] || prizeConfig[4];
                     return (
                         <div
-                            key={prize.position || index}
+                            key={index}
                             className="flex items-center justify-between p-3 rounded border bg-black/40"
                             style={{
                                 borderColor: config.color + "40",
@@ -196,13 +212,13 @@ function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
                                 <span className="text-lg">{config.icon}</span>
                                 <div>
                                     <div className="text-sm font-mono font-bold" style={{ color: config.color }}>
-                                        #{prize.position}
+                                        {getPrizePosition(prize)}
                                     </div>
                                     <div className="text-xs text-white/60 font-mono">POSITION</div>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-sm text-white font-mono">{prize.description}</div>
+                                <div className="text-sm text-white font-mono">{getPrizeDescription(prize)}</div>
                                 {prize.attempts && (
                                     <div className="text-xs font-mono" style={{ color: colors.primary }}>
                                         +{prize.attempts} ATTEMPTS

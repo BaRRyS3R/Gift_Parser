@@ -136,7 +136,7 @@ function formatTimeUntilStart(startTime: string): string {
 // Компонент статуса турнира
 function TournamentStatus({ status, colors }: { status: string; colors: any }) {
     const t = useT();
-    
+
     const statusConfig = {
         active: { icon: "🟢", text: t(`tournaments.status.active`), pulse: true },
         upcoming: { icon: "🔵", text: t(`tournaments.status.upcoming`), pulse: false },
@@ -162,11 +162,24 @@ function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
 
     const prizeIcons = ["🥇", "🥈", "🥉", "🏆", "💎"];
 
+    // Функция для безопасного получения позиции приза
+    const getPrizePosition = (prize: any): string => {
+        // Проверяем разные возможные поля
+        if (prize.position !== undefined) {
+            return typeof prize.position === 'string' ? prize.position : `#${prize.position}`;
+        }
+        if (prize.place !== undefined) {
+            return typeof prize.place === 'string' ? prize.place : `#${prize.place}`;
+        }
+        // Fallback на основе индекса
+        return `#${prizes.indexOf(prize) + 1}`;
+    };
+
     return (
         <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs font-mono text-white/60">
                 <Trophy size={12} />
-                <span>{t("tournaments.details.prizes")}</span>
+                <span>PRIZES</span>
             </div>
             <div className="flex flex-wrap gap-1">
                 {prizes.slice(0, 5).map((prize, index) => (
@@ -179,7 +192,7 @@ function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
                     >
                         <span>{prizeIcons[index] || "🎁"}</span>
                         <span className={colors.text}>
-                            {typeof prize.place === 'string' ? prize.place : `#${prize.place}`}
+                            {getPrizePosition(prize)}
                         </span>
                     </div>
                 ))}
@@ -269,7 +282,7 @@ function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
                     <span className="text-white/60 flex items-center gap-1">
                         <Clock size={10} />
                         {tournament.status === 'active' ? 'ENDS' :
-                         tournament.status === 'upcoming' ? 'STARTS' : 'ENDED'}
+                            tournament.status === 'upcoming' ? 'STARTS' : 'ENDED'}
                     </span>
                     <span style={{ color: colors.primary }}>
                         {tournament.status === 'completed'
@@ -292,7 +305,7 @@ function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
                                 color: colors.primary,
                             }}
                             startContent={<Play size={12} />}
-                            onPress={() => onViewDetails(tournament)}
+                            onClick={() => onViewDetails(tournament)}
                         >
                             PLAY
                         </Button>
@@ -305,7 +318,7 @@ function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
                             color: colors.text.replace('text-', ''),
                         }}
                         startContent={<Trophy size={12} />}
-                        onPress={() => onViewLeaderboard(tournament)}
+                        onClick={() => onViewLeaderboard(tournament)}
                     >
                         BOARD
                     </Button>
@@ -470,7 +483,7 @@ function TournamentsPageContent() {
                         <Button
                             className="bg-red-500/20 border border-red-500/40 text-red-400 font-mono"
                             startContent={<Zap size={16} />}
-                            onPress={handleRetry}
+                            onClick={handleRetry}
                         >
                             RETRY
                         </Button>

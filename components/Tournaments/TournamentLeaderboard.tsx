@@ -179,6 +179,23 @@ function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
         { icon: "💎", color: colors.secondary, label: "PRIZE" },
     ];
 
+    // Функция для безопасного получения позиции приза
+    const getPrizePosition = (prize: any): string => {
+        if (prize.position !== undefined) {
+            return typeof prize.position === 'string' ? prize.position : `#${prize.position}`;
+        }
+        if (prize.place !== undefined) {
+            return typeof prize.place === 'string' ? prize.place : `#${prize.place}`;
+        }
+        return `#${prizes.indexOf(prize) + 1}`;
+    };
+
+    // Функция для безопасного получения описания приза
+    const getPrizeDescription = (prize: any): string => {
+        const description = prize.description || prize.prize || 'Prize';
+        return description.length > 20 ? description.substring(0, 20) + '...' : description;
+    };
+
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-mono text-white/60">
@@ -200,10 +217,10 @@ function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
                             <span className="text-sm">{config.icon}</span>
                             <div className="flex-1 min-w-0">
                                 <div className="text-xs font-mono" style={{ color: config.color }}>
-                                    {typeof prize.place === 'string' ? prize.place : `#${prize.place}`}
+                                    {getPrizePosition(prize)}
                                 </div>
                                 <div className="text-xs text-white/60 truncate">
-                                    {prize.prize.length > 20 ? prize.prize.substring(0, 20) + '...' : prize.prize}
+                                    {getPrizeDescription(prize)}
                                 </div>
                             </div>
                         </div>
@@ -583,7 +600,7 @@ export default function TournamentLeaderboard({
                 )}
 
                 {/* Leaderboard */}
-                {leaderboard && leaderboard.length > 0 ? (
+                {leaderboard && Array.isArray(leaderboard) && leaderboard.length > 0 ? (
                     <div>
                         <div className="flex items-center gap-3 mb-4">
                             <div className="flex items-center gap-2">
@@ -601,12 +618,14 @@ export default function TournamentLeaderboard({
 
                         <div className="space-y-2">
                             {leaderboard.map((entry, index) => {
+                                if (!entry) return null; // Защита от пустых записей
+
                                 const position = index + 1;
                                 const isCurrentUser = isCurrentUserEntry(entry, user);
 
                                 return (
                                     <LeaderboardEntry
-                                        key={`${entry.tournament_id}-${entry.first_name}-${position}`}
+                                        key={`${entry.tournament_id || 'unknown'}-${entry.first_name || 'unknown'}-${position}`}
                                         colors={colors}
                                         entry={entry}
                                         isCurrentUser={isCurrentUser}
