@@ -1,21 +1,18 @@
-// src/app/tournaments/page.tsx - Fixed tournaments page with ID-based leaderboard access
+// src/app/tournaments/page.tsx - Future Tech стилистика турниров
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardHeader, CardBody, CardFooter, Button, Spinner } from "@nextui-org/react";
+import { Card, CardHeader, CardBody, Button, Spinner } from "@nextui-org/react";
 import {
     Trophy,
     Clock,
-    Users,
-    Crosshair,
-    Atom,
-    RotateCw,
-    ChevronRight,
-    Calendar,
+    Zap,
     Target,
     AlertTriangle,
+    ArrowLeft,
+    Play,
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -43,91 +40,160 @@ interface TournamentsData {
     completed: Tournament[];
 }
 
-// Get mode icon component
-function getModeIcon(mode: string): React.ComponentType<any> {
-    switch (mode) {
-        case 'survival':
-            return Crosshair;
-        case 'physics':
-            return Atom;
-        case 'rotation':
-            return RotateCw;
-        default:
-            return Target;
-    }
-}
-
-// Get mode color classes
-function getModeColors(mode: string) {
+// Future Tech цвета для режимов
+function getFutureTechModeColors(mode: string) {
     switch (mode) {
         case 'survival':
             return {
-                primary: "text-red-400",
-                background: "bg-red-500/10",
-                border: "border-red-400/30",
-                button: "bg-red-500/20 hover:bg-red-500/30 border-red-400/40",
+                primary: "#ff0040",
+                secondary: "#ff4d7a",
+                accent: "#ff8fa3",
+                glow: "rgba(255, 0, 64, 0.3)",
+                gradient: "from-red-500 via-pink-500 to-red-600",
+                border: "border-red-500/30",
+                bg: "bg-red-500/5",
+                text: "text-red-400",
             };
         case 'physics':
             return {
-                primary: "text-purple-400",
-                background: "bg-purple-500/10",
-                border: "border-purple-400/30",
-                button: "bg-purple-500/20 hover:bg-purple-500/30 border-purple-400/40",
+                primary: "#7c3aed",
+                secondary: "#a855f7",
+                accent: "#c084fc",
+                glow: "rgba(124, 58, 237, 0.3)",
+                gradient: "from-purple-600 via-violet-500 to-purple-700",
+                border: "border-purple-500/30",
+                bg: "bg-purple-500/5",
+                text: "text-purple-400",
             };
         case 'rotation':
             return {
-                primary: "text-orange-400",
-                background: "bg-orange-500/10",
-                border: "border-orange-400/30",
-                button: "bg-orange-500/20 hover:bg-orange-500/30 border-orange-400/40",
+                primary: "#f59e0b",
+                secondary: "#fbbf24",
+                accent: "#fcd34d",
+                glow: "rgba(245, 158, 11, 0.3)",
+                gradient: "from-orange-500 via-amber-500 to-yellow-500",
+                border: "border-orange-500/30",
+                bg: "bg-orange-500/5",
+                text: "text-orange-400",
             };
         default:
             return {
-                primary: "text-white",
-                background: "bg-white/10",
-                border: "border-white/30",
-                button: "bg-white/20 hover:bg-white/30 border-white/40",
+                primary: "#64748b",
+                secondary: "#94a3b8",
+                accent: "#cbd5e1",
+                glow: "rgba(100, 116, 139, 0.3)",
+                gradient: "from-slate-500 via-slate-400 to-slate-600",
+                border: "border-slate-500/30",
+                bg: "bg-slate-500/5",
+                text: "text-slate-400",
             };
     }
 }
 
-// Format time remaining
+// Получение иконки режима
+function getModeIcon(mode: string) {
+    switch (mode) {
+        case 'survival':
+            return "⚡";
+        case 'physics':
+            return "⚛️";
+        case 'rotation':
+            return "🔄";
+        default:
+            return "🎯";
+    }
+}
+
+// Форматирование времени
 function formatTimeRemaining(endTime: string): string {
     const now = new Date().getTime();
     const end = new Date(endTime).getTime();
     const remaining = Math.max(0, end - now);
 
-    if (remaining === 0) return "Ended";
+    if (remaining === 0) return "ENDED";
 
-    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const hours = Math.floor(remaining / (1000 * 60 * 60));
     const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
 
-    if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${minutes}m`;
-    if (minutes > 0) return `${minutes}m ${seconds}s`;
-    return `${seconds}s`;
+    return `${minutes}m`;
 }
 
-// Format time until start
 function formatTimeUntilStart(startTime: string): string {
     const now = new Date().getTime();
     const start = new Date(startTime).getTime();
     const remaining = Math.max(0, start - now);
 
-    if (remaining === 0) return "Starting";
+    if (remaining === 0) return "STARTING";
 
     const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
     const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
 
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+    if (days > 0) return `${days}d`;
+    return `${hours}h`;
 }
 
-// Tournament card component
+// Компонент статуса турнира
+function TournamentStatus({ status, colors }: { status: string; colors: any }) {
+    const t = useT();
+    
+    const statusConfig = {
+        active: { icon: "🟢", text: t(`tournaments.status.active`), pulse: true },
+        upcoming: { icon: "🔵", text: t(`tournaments.status.upcoming`), pulse: false },
+        completed: { icon: "⚫", text: t(`tournaments.status.completed`), pulse: false },
+        cancelled: { icon: "🔴", text: t(`tournaments.status.cancelled`), pulse: false },
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.upcoming;
+
+    return (
+        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono border ${colors.border} ${colors.bg}`}>
+            <span className={config.pulse ? "animate-pulse" : ""}>{config.icon}</span>
+            <span className={colors.text}>{config.text}</span>
+        </div>
+    );
+}
+
+// Компонент отображения призов
+function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
+    const t = useT();
+
+    if (!prizes || prizes.length === 0) return null;
+
+    const prizeIcons = ["🥇", "🥈", "🥉", "🏆", "💎"];
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs font-mono text-white/60">
+                <Trophy size={12} />
+                <span>{t("tournaments.details.prizes")}</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+                {prizes.slice(0, 5).map((prize, index) => (
+                    <div
+                        key={index}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono border ${colors.border} ${colors.bg}`}
+                        style={{
+                            boxShadow: `0 0 8px ${colors.glow}`,
+                        }}
+                    >
+                        <span>{prizeIcons[index] || "🎁"}</span>
+                        <span className={colors.text}>
+                            {typeof prize.place === 'string' ? prize.place : `#${prize.place}`}
+                        </span>
+                    </div>
+                ))}
+                {prizes.length > 5 && (
+                    <div className={`inline-flex items-center px-2 py-1 rounded text-xs font-mono border ${colors.border} ${colors.bg}`}>
+                        <span className={colors.text}>+{prizes.length - 5}</span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// Компонент карточки турнира
 function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
     tournament: Tournament;
     onViewDetails: (tournament: Tournament) => void;
@@ -136,12 +202,11 @@ function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
     const t = useT();
     const [timeLeft, setTimeLeft] = useState<string>("");
 
-    // Update countdown timer - moved before validation
+    const colors = getFutureTechModeColors(tournament.mode);
+    const modeIcon = getModeIcon(tournament.mode);
+
     useEffect(() => {
-        // Only run if tournament data is valid
-        if (!tournament || !tournament.mode) {
-            return;
-        }
+        if (!tournament || !tournament.mode) return;
 
         const updateTimer = () => {
             if (tournament.status === 'active') {
@@ -152,106 +217,100 @@ function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
         };
 
         updateTimer();
-        const interval = setInterval(updateTimer, 1000);
+        const interval = setInterval(updateTimer, 30000);
         return () => clearInterval(interval);
     }, [tournament?.end_time, tournament?.start_time, tournament?.status, tournament?.mode]);
 
-    // Validate tournament data after all hooks are called
     if (!tournament || !tournament.mode) {
-        console.error('Invalid tournament data:', tournament);
         return (
-            <Card className="bg-black/40 backdrop-blur-sm border-2 border-red-400/30">
-                <CardBody className="text-center p-6">
-                    <p className="text-red-400">Tournament data error</p>
+            <Card className="bg-black/60 backdrop-blur-sm border border-red-500/30">
+                <CardBody className="text-center p-4">
+                    <p className="text-red-400 text-sm font-mono">TOURNAMENT DATA ERROR</p>
                 </CardBody>
             </Card>
         );
     }
 
-    const ModeIcon = getModeIcon(tournament.mode);
-    const colors = getModeColors(tournament.mode);
-
     return (
         <Card
-            className={`bg-black/40 backdrop-blur-sm border-2 ${colors.border} hover:border-opacity-60 transition-all duration-300 hover:scale-105`}
+            className="bg-black/80 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.02] group"
+            style={{
+                borderColor: colors.primary + "40",
+                boxShadow: tournament.status === 'active' ? `0 0 20px ${colors.glow}` : "none",
+            }}
         >
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-3">
                 <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center space-x-3">
-                        <div className={`w-12 h-12 rounded-xl ${colors.background} border ${colors.border} flex items-center justify-center`}>
-                            <ModeIcon className={colors.primary} size={24} />
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="w-10 h-10 rounded-lg flex items-center justify-center border"
+                            style={{
+                                backgroundColor: colors.primary + "20",
+                                borderColor: colors.primary + "40",
+                                boxShadow: `0 0 10px ${colors.glow}`,
+                            }}
+                        >
+                            <span className="text-lg">{modeIcon}</span>
                         </div>
                         <div>
-                            <h3 className="text-white font-bold text-lg">{tournament.name}</h3>
-                            <p className={`text-sm ${colors.primary}`}>
+                            <h3 className="text-white font-bold text-sm font-mono">{tournament.name}</h3>
+                            <p className="text-xs font-mono" style={{ color: colors.primary }}>
                                 {t(`tournaments.modes.${tournament.mode}` as any)}
                             </p>
                         </div>
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${colors.background} ${colors.primary} border ${colors.border}`}>
-                        {t(`tournaments.status.${tournament.status}` as any)}
-                    </div>
+                    <TournamentStatus status={tournament.status} colors={colors} />
                 </div>
             </CardHeader>
 
-            <CardBody className="py-2">
-                {tournament.description && (
-                    <p className="text-white/70 text-sm mb-3">{tournament.description}</p>
-                )}
-
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                        <span className="text-white/60 flex items-center space-x-1">
-                            <Clock size={14} />
-                            <span>
-                                {tournament.status === 'active' ? t("tournaments.details.timeLeft") :
-                                    tournament.status === 'upcoming' ? t("tournaments.details.startsIn") :
-                                        t("tournaments.details.endedOn")}
-                            </span>
-                        </span>
-                        <span className={`font-mono ${colors.primary}`}>
-                            {tournament.status === 'completed'
-                                ? new Date(tournament.end_time).toLocaleDateString()
-                                : timeLeft}
-                        </span>
-                    </div>
-
-                    {tournament.prizes && tournament.prizes.length > 0 && (
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-white/60 flex items-center space-x-1">
-                                <Trophy size={14} />
-                                <span>{t("tournaments.details.prizes")}</span>
-                            </span>
-                            <span className="text-yellow-400 font-bold">
-                                {tournament.prizes.length} {t("tournaments.prizes.topTen")}
-                            </span>
-                        </div>
-                    )}
+            <CardBody className="pt-0 pb-3 space-y-3">
+                {/* Time Display */}
+                <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-white/60 flex items-center gap-1">
+                        <Clock size={10} />
+                        {tournament.status === 'active' ? 'ENDS' :
+                         tournament.status === 'upcoming' ? 'STARTS' : 'ENDED'}
+                    </span>
+                    <span style={{ color: colors.primary }}>
+                        {tournament.status === 'completed'
+                            ? new Date(tournament.end_time).toLocaleDateString()
+                            : timeLeft}
+                    </span>
                 </div>
-            </CardBody>
 
-            <CardFooter className="pt-2">
-                <div className="flex items-center space-x-2 w-full">
+                {/* Prizes */}
+                <PrizesDisplay prizes={tournament.prizes} colors={colors} />
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2">
                     {tournament.status === 'active' && (
                         <Button
-                            className={`flex-1 border ${colors.button} text-white font-bold`}
-                            variant="bordered"
-                            onClick={() => onViewDetails(tournament)}
+                            size="sm"
+                            className="flex-1 bg-transparent border font-mono text-xs"
+                            style={{
+                                borderColor: colors.primary + "60",
+                                color: colors.primary,
+                            }}
+                            startContent={<Play size={12} />}
+                            onPress={() => onViewDetails(tournament)}
                         >
-                            {t("tournaments.details.joinTournament")}
+                            PLAY
                         </Button>
                     )}
-
                     <Button
-                        className={`flex-1 border ${colors.button} text-white font-bold`}
-                        variant="bordered"
-                        endContent={<ChevronRight size={16} />}
-                        onClick={() => onViewLeaderboard(tournament)}
+                        size="sm"
+                        className="flex-1 bg-transparent border font-mono text-xs"
+                        style={{
+                            borderColor: colors.primary + "40",
+                            color: colors.text.replace('text-', ''),
+                        }}
+                        startContent={<Trophy size={12} />}
+                        onPress={() => onViewLeaderboard(tournament)}
                     >
-                        {t("tournaments.details.viewLeaderboard")}
+                        BOARD
                     </Button>
                 </div>
-            </CardFooter>
+            </CardBody>
         </Card>
     );
 }
@@ -267,18 +326,13 @@ function TournamentsPageContent() {
     const [error, setError] = useState<string | null>(null);
     const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
 
-    // Check if we should show a specific tournament leaderboard
     const tournamentId = searchParams.get('tournamentId');
 
-    // Fetch tournaments data
     const fetchTournaments = useCallback(async () => {
         if (tournamentId) {
-            // Fetch specific tournament by ID
             try {
                 setIsLoading(true);
                 setError(null);
-
-                console.log('Fetching tournament by ID:', tournamentId);
 
                 const response = await makeAuthenticatedRequest(
                     `/api/tournaments/detail?tournamentId=${encodeURIComponent(tournamentId)}`
@@ -302,7 +356,6 @@ function TournamentsPageContent() {
                 setIsLoading(false);
             }
         } else {
-            // Fetch all tournaments
             try {
                 setIsLoading(true);
                 setError(null);
@@ -331,7 +384,6 @@ function TournamentsPageContent() {
 
     const handleViewDetails = useCallback((tournament: Tournament) => {
         if (tournament.status === 'active') {
-            // Navigate to the appropriate game mode
             const gameRoute = `/game/${tournament.mode}`;
             router.push(gameRoute);
         }
@@ -343,7 +395,6 @@ function TournamentsPageContent() {
             return;
         }
 
-        console.log('Navigating to leaderboard for tournament ID:', tournament.id);
         router.push(`/tournaments?tournamentId=${encodeURIComponent(tournament.id)}`);
     }, [router]);
 
@@ -356,12 +407,10 @@ function TournamentsPageContent() {
         fetchTournaments();
     }, [fetchTournaments]);
 
-    // Effect hooks - called consistently at top level
     useEffect(() => {
         fetchTournaments();
     }, [fetchTournaments]);
 
-    // Telegram WebApp back button effect
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -382,7 +431,6 @@ function TournamentsPageContent() {
         }
     }, [router, selectedTournament, handleBackToTournaments]);
 
-    // Show tournament leaderboard if specific tournament is selected
     if (selectedTournament) {
         return (
             <TournamentLeaderboard
@@ -392,58 +440,80 @@ function TournamentsPageContent() {
         );
     }
 
-    // Loading state
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center text-white safe-area-inset">
+            <div className="min-h-screen bg-black flex items-center justify-center safe-area-inset">
                 <div className="text-center space-y-4">
-                    <Spinner color="white" size="lg" />
-                    <p className="text-white/80">{t("tournaments.errors.loadingTournaments")}</p>
+                    <div className="relative">
+                        <Spinner color="primary" size="lg" />
+                        <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl animate-pulse" />
+                    </div>
+                    <p className="text-white/80 font-mono text-sm">LOADING TOURNAMENTS...</p>
                 </div>
             </div>
         );
     }
 
-    // Error state
     if (error) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center text-white safe-area-inset">
-                <div className="text-center space-y-4 p-6">
-                    <AlertTriangle className="text-red-400 mx-auto" size={48} />
-                    <h2 className="text-xl font-bold">{t("tournaments.errors.failedToLoad")}</h2>
-                    <p className="text-white/70">{error}</p>
-                    <Button
-                        className="bg-white/20 hover:bg-white/30 text-white border border-white/30"
-                        variant="bordered"
-                        onClick={handleRetry}
-                    >
-                        {t("tournaments.errors.tryAgain")}
-                    </Button>
+            <div className="min-h-screen bg-black flex items-center justify-center safe-area-inset">
+                <div className="text-center space-y-6 p-6">
+                    <div className="relative">
+                        <AlertTriangle className="text-red-400 mx-auto" size={48} />
+                        <div className="absolute inset-0 bg-red-500/20 rounded-full blur-xl" />
+                    </div>
+                    <div className="space-y-2">
+                        <h2 className="text-xl font-bold text-white font-mono">SYSTEM ERROR</h2>
+                        <p className="text-red-400 font-mono text-sm">{error}</p>
+                    </div>
+                    <div className="flex gap-3 justify-center">
+                        <Button
+                            className="bg-red-500/20 border border-red-500/40 text-red-400 font-mono"
+                            startContent={<Zap size={16} />}
+                            onPress={handleRetry}
+                        >
+                            RETRY
+                        </Button>
+                        <Button
+                            className="bg-white/10 border border-white/30 text-white font-mono"
+                            startContent={<ArrowLeft size={16} />}
+                            onClick={() => router.push('/main')}
+                        >
+                            BACK
+                        </Button>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-black text-white safe-area-inset-bottom safe-area-inset">
+        <div className="min-h-screen bg-black safe-area-inset-bottom safe-area-inset">
             <div className="px-4 pb-8">
                 {/* Header */}
-                <div className="text-center space-y-4 mb-8">
-                    <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
-                        {t("tournaments.title")}
-                    </h1>
-                    <p className="text-white/60 text-sm uppercase tracking-[0.3em] animate-fade-in">
-                        {t("tournaments.subtitle")}
+                <div className="text-center space-y-3 mb-8 pt-6">
+                    <div className="relative">
+                        <h1 className="text-3xl font-bold font-mono tracking-[0.3em] text-white">
+                            TOURNAMENTS
+                        </h1>
+                        <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full animate-pulse" />
+                    </div>
+                    <div className="h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+                    <p className="text-blue-400/80 text-xs font-mono tracking-widest">
+                        COMPETITIVE GAMING MATRIX
                     </p>
                 </div>
 
                 {/* Active Tournament */}
                 {tournaments?.active && (
-                    <div className="mb-8 animate-fade-in">
-                        <h2 className="text-xl font-bold text-white mb-4 flex items-center space-x-2">
-                            <Trophy className="text-yellow-400" size={24} />
-                            <span>{t("tournaments.sections.activeTournament")}</span>
-                        </h2>
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                                <h2 className="text-sm font-mono text-green-400 tracking-wider">ACTIVE</h2>
+                            </div>
+                            <div className="flex-1 h-px bg-gradient-to-r from-green-500/50 to-transparent" />
+                        </div>
                         <TournamentCard
                             tournament={tournaments.active}
                             onViewDetails={handleViewDetails}
@@ -454,28 +524,40 @@ function TournamentsPageContent() {
 
                 {/* No Active Tournament */}
                 {!tournaments?.active && (
-                    <div className="mb-8 animate-fade-in">
-                        <div className="bg-white/5 border border-white/20 rounded-xl p-6 text-center">
-                            <Calendar className="text-white/40 mx-auto mb-4" size={48} />
-                            <h3 className="text-lg font-bold text-white mb-2">
-                                {t("tournaments.sections.noActiveTournament")}
-                            </h3>
-                            <p className="text-white/60">
-                                {tournaments?.upcoming && tournaments.upcoming.length > 0
-                                    ? t("tournaments.empty.checkBackLater")
-                                    : t("tournaments.empty.firstTournament")}
-                            </p>
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-slate-500 rounded-full" />
+                                <h2 className="text-sm font-mono text-slate-400 tracking-wider">STANDBY</h2>
+                            </div>
+                            <div className="flex-1 h-px bg-gradient-to-r from-slate-500/30 to-transparent" />
                         </div>
+                        <Card className="bg-black/60 border border-slate-500/30">
+                            <CardBody className="text-center p-6 space-y-3">
+                                <Target className="text-slate-500 mx-auto" size={32} />
+                                <div className="space-y-1">
+                                    <h3 className="text-white font-mono text-sm">NO ACTIVE TOURNAMENTS</h3>
+                                    <p className="text-slate-400 font-mono text-xs">
+                                        {tournaments?.upcoming && tournaments.upcoming.length > 0
+                                            ? "NEXT TOURNAMENT LOADING..."
+                                            : "TOURNAMENT SYSTEM INITIALIZING..."}
+                                    </p>
+                                </div>
+                            </CardBody>
+                        </Card>
                     </div>
                 )}
 
                 {/* Upcoming Tournaments */}
                 {tournaments?.upcoming && tournaments.upcoming.length > 0 && (
-                    <div className="mb-8 animate-fade-in">
-                        <h2 className="text-xl font-bold text-white mb-4 flex items-center space-x-2">
-                            <Clock className="text-blue-400" size={24} />
-                            <span>{t("tournaments.sections.upcomingTournaments")}</span>
-                        </h2>
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                                <h2 className="text-sm font-mono text-blue-400 tracking-wider">UPCOMING</h2>
+                            </div>
+                            <div className="flex-1 h-px bg-gradient-to-r from-blue-500/50 to-transparent" />
+                        </div>
                         <div className="space-y-4">
                             {tournaments.upcoming.map((tournament) => (
                                 <TournamentCard
@@ -491,13 +573,16 @@ function TournamentsPageContent() {
 
                 {/* Completed Tournaments */}
                 {tournaments?.completed && tournaments.completed.length > 0 && (
-                    <div className="animate-fade-in">
-                        <h2 className="text-xl font-bold text-white mb-4 flex items-center space-x-2">
-                            <Trophy className="text-gray-400" size={24} />
-                            <span>{t("tournaments.sections.completedTournaments")}</span>
-                        </h2>
+                    <div>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 bg-slate-600 rounded-full" />
+                                <h2 className="text-sm font-mono text-slate-400 tracking-wider">ARCHIVED</h2>
+                            </div>
+                            <div className="flex-1 h-px bg-gradient-to-r from-slate-600/30 to-transparent" />
+                        </div>
                         <div className="space-y-4">
-                            {tournaments.completed.slice(0, 5).map((tournament) => (
+                            {tournaments.completed.slice(0, 3).map((tournament) => (
                                 <TournamentCard
                                     key={tournament.id}
                                     tournament={tournament}
@@ -513,14 +598,15 @@ function TournamentsPageContent() {
                 {!tournaments?.active &&
                     (!tournaments?.upcoming || tournaments.upcoming.length === 0) &&
                     (!tournaments?.completed || tournaments.completed.length === 0) && (
-                        <div className="text-center py-12 animate-fade-in">
-                            <Trophy className="text-white/20 mx-auto mb-6" size={64} />
-                            <h3 className="text-xl font-bold text-white mb-2">
-                                {t("tournaments.empty.noTournaments")}
-                            </h3>
-                            <p className="text-white/60">
-                                {t("tournaments.empty.firstTournament")}
-                            </p>
+                        <div className="text-center py-12">
+                            <div className="relative mb-6">
+                                <Trophy className="text-white/20 mx-auto" size={64} />
+                                <div className="absolute inset-0 bg-white/5 blur-xl rounded-full" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-bold text-white font-mono">NO DATA FOUND</h3>
+                                <p className="text-white/60 font-mono text-sm">TOURNAMENT SYSTEM OFFLINE</p>
+                            </div>
                         </div>
                     )}
             </div>
@@ -530,8 +616,6 @@ function TournamentsPageContent() {
 
 export default function TournamentsPage() {
     return (
-        <AuthGuard requireCompleteAuth={true} showError={true}>
             <TournamentsPageContent />
-        </AuthGuard>
     );
 }
