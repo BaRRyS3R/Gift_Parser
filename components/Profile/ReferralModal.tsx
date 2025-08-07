@@ -1,4 +1,4 @@
-// src/components/Profile/ReferralModal.tsx - Updated to use new ReferralInfo interface
+// src/components/Profile/ReferralModal.tsx - Enhanced with advanced Telegram sharing methods
 
 "use client";
 
@@ -14,7 +14,7 @@ import {
   Card,
   CardBody,
 } from "@nextui-org/react";
-import { Share2, Copy, Users, Gift, Check, Star, X } from "lucide-react";
+import { Share2, Copy, Users, Gift, Check, Star, X, Image, MessageCircle } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -24,6 +24,74 @@ interface ReferralModalProps {
   referralInfo: ReferralInfo;
 }
 
+// Enhanced sharing methods for Telegram Mini Apps
+const TelegramSharing = {
+  // Method 1: Simple share with web preview (recommended for most cases)
+  shareWithPreview: (referralLink: string, message: string) => {
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(message)}`;
+
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      window.Telegram.WebApp.openTelegramLink(shareUrl);
+    } else {
+      window.open(shareUrl, '_blank');
+    }
+  },
+
+  // Method 2: Share with embedded image using zero-width characters
+  shareWithEmbeddedImage: (referralLink: string, message: string, imageUrl: string) => {
+    // Using zero-width characters to embed image in message
+    const embeddedMessage = `${message}\n\n[​​​​​​​​​​​](${imageUrl})\n\n${referralLink}`;
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(embeddedMessage)}`;
+
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      window.Telegram.WebApp.openTelegramLink(shareUrl);
+    } else {
+      window.open(shareUrl, '_blank');
+    }
+  },
+
+  // Method 3: Native share using new Telegram Mini Apps API (if available)
+  shareMessage: async (referralLink: string, message: string, imageUrl: string) => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp?.shareMessage) {
+      try {
+        // The shareMessage method expects a prepared message ID
+        // For now, we'll use the simple share method as the prepared message API
+        // requires backend integration with Telegram Bot API
+        console.log('Native shareMessage available but requires message preparation');
+        TelegramSharing.shareWithPreview(referralLink, message);
+      } catch (error) {
+        console.warn('Native shareMessage failed, falling back to simple share:', error);
+        TelegramSharing.shareWithPreview(referralLink, message);
+      }
+    } else {
+      // Fallback to simple share
+      TelegramSharing.shareWithPreview(referralLink, message);
+    }
+  },
+
+  // Method 4: Share to Stories (if supported)
+  shareToStory: (referralLink: string, message: string, imageUrl: string) => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp?.shareToStory) {
+      try {
+        // shareToStory method signature: shareToStory(media_url, params?)
+        window.Telegram.WebApp.shareToStory(imageUrl, {
+          text: message,
+          widget_link: {
+            url: referralLink,
+            name: "Join Circusle"
+          }
+        });
+      } catch (error) {
+        console.warn('Story sharing failed, falling back to regular share:', error);
+        TelegramSharing.shareWithPreview(referralLink, message);
+      }
+    } else {
+      console.log('shareToStory not available, using regular share');
+      TelegramSharing.shareWithPreview(referralLink, message);
+    }
+  }
+};
+
 const ReferralModal: React.FC<ReferralModalProps> = ({
   isOpen,
   onClose,
@@ -31,6 +99,14 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
 }) => {
   const t = useT();
   const [copySuccess, setCopySuccess] = useState(false);
+  const [sharingMethod, setSharingMethod] = useState<'simple' | 'embedded' | 'story'>('simple');
+
+  // Enhanced sharing configuration
+  const SHARING_CONFIG = {
+    message: "Psh, maybe.. Play? 🎮",
+    imageUrl: "https://notfren.com/circusle/circusle.png",
+    fallbackMessage: "Join me in Circusle - an awesome game where every tap counts! 🎯"
+  };
 
   const handleCopyReferralLink = async () => {
     try {
@@ -42,20 +118,32 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
     }
   };
 
+  // Enhanced sharing with multiple methods
   const handleShareReferralLink = () => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const shareText = `🎮 Join me on this awesome game: ${referralInfo.referralLink}`;
+    const { message, imageUrl } = SHARING_CONFIG;
 
-      if (window.Telegram.WebApp.openTelegramLink) {
-        window.Telegram.WebApp.openTelegramLink(
-          `https://t.me/share/url?url=${encodeURIComponent(referralInfo.referralLink)}&text=${encodeURIComponent(shareText)}`,
-        );
-      } else {
-        handleCopyReferralLink();
-      }
-    } else {
-      handleCopyReferralLink();
+    switch (sharingMethod) {
+      case 'embedded':
+        TelegramSharing.shareWithEmbeddedImage(referralInfo.referralLink, message, imageUrl);
+        break;
+      case 'story':
+        TelegramSharing.shareToStory(referralInfo.referralLink, message, imageUrl);
+        break;
+      default:
+        TelegramSharing.shareWithPreview(referralInfo.referralLink, message);
     }
+  };
+
+  // Advanced native sharing (using new Telegram APIs)
+  const handleAdvancedShare = () => {
+    const { message, imageUrl } = SHARING_CONFIG;
+    TelegramSharing.shareMessage(referralInfo.referralLink, message, imageUrl);
+  };
+
+  // Quick share with just the link and short message
+  const handleQuickShare = () => {
+    const quickMessage = "🎮 Psh, maybe.. Play?";
+    TelegramSharing.shareWithPreview(referralInfo.referralLink, quickMessage);
   };
 
   return (
@@ -82,7 +170,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
               <h2 className="text-xl font-bold text-white">
                 {t("profile.referrals.title")}
               </h2>
-              <p className="text-white/60 text-sm">🤞❤️</p>
+              <p className="text-white/60 text-sm">🤞❤️ Enhanced Sharing</p>
             </div>
           </div>
           <button
@@ -121,6 +209,43 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </Card>
           </div>
 
+          {/* Sharing Method Selector */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-white">Choose Sharing Style</h3>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                className={`p-2 rounded-lg border text-xs transition-all ${sharingMethod === 'simple'
+                    ? 'bg-white/20 border-white/40 text-white'
+                    : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
+                  }`}
+                onClick={() => setSharingMethod('simple')}
+              >
+                <MessageCircle size={16} className="mx-auto mb-1" />
+                Simple
+              </button>
+              <button
+                className={`p-2 rounded-lg border text-xs transition-all ${sharingMethod === 'embedded'
+                    ? 'bg-white/20 border-white/40 text-white'
+                    : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
+                  }`}
+                onClick={() => setSharingMethod('embedded')}
+              >
+                <Image size={16} className="mx-auto mb-1" />
+                With Image
+              </button>
+              <button
+                className={`p-2 rounded-lg border text-xs transition-all ${sharingMethod === 'story'
+                    ? 'bg-white/20 border-white/40 text-white'
+                    : 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
+                  }`}
+                onClick={() => setSharingMethod('story')}
+              >
+                <Star size={16} className="mx-auto mb-1" />
+                Story
+              </button>
+            </div>
+          </div>
+
           {/* Referral Code Section */}
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-white">
@@ -149,36 +274,74 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </Card>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex space-x-2">
-            <Button
-              className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20 text-sm"
-              size="sm"
-              startContent={
-                copySuccess ? (
-                  <Check className="text-white" size={14} />
-                ) : (
-                  <Copy className="text-white" size={14} />
-                )
-              }
-              variant="bordered"
-              onPress={handleCopyReferralLink}
-            >
-              {copySuccess
-                ? t("common.copied")
-                : t("profile.referrals.copyLink")}
-            </Button>
+          {/* Enhanced Action Buttons */}
+          <div className="space-y-2">
+            {/* Main sharing buttons */}
+            <div className="flex space-x-2">
+              <Button
+                className="flex-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/40 text-white hover:from-blue-500/30 hover:to-purple-500/30 text-sm"
+                size="sm"
+                startContent={<Share2 className="text-white" size={14} />}
+                variant="bordered"
+                onPress={handleShareReferralLink}
+              >
+                Share {sharingMethod === 'story' ? 'to Story' : sharingMethod === 'embedded' ? 'with Image' : 'Link'}
+              </Button>
 
-            <Button
-              className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20 text-sm"
-              size="sm"
-              startContent={<Share2 className="text-white" size={14} />}
-              variant="bordered"
-              onPress={handleShareReferralLink}
-            >
-              {t("profile.referrals.share")}
-            </Button>
+              <Button
+                className="flex-1 bg-white/10 border border-white/30 text-white hover:bg-white/20 text-sm"
+                size="sm"
+                startContent={
+                  copySuccess ? (
+                    <Check className="text-green-400" size={14} />
+                  ) : (
+                    <Copy className="text-white" size={14} />
+                  )
+                }
+                variant="bordered"
+                onPress={handleCopyReferralLink}
+              >
+                {copySuccess
+                  ? t("common.copied")
+                  : t("profile.referrals.copyLink")}
+              </Button>
+            </div>
+
+            {/* Quick action buttons */}
+            <div className="flex space-x-2">
+              <Button
+                className="flex-1 bg-green-500/20 border border-green-400/40 text-green-300 hover:bg-green-500/30 text-xs"
+                size="sm"
+                onPress={handleQuickShare}
+              >
+                Quick Share
+              </Button>
+
+              <Button
+                className="flex-1 bg-orange-500/20 border border-orange-400/40 text-orange-300 hover:bg-orange-500/30 text-xs"
+                size="sm"
+                onPress={handleAdvancedShare}
+              >
+                Advanced Share
+              </Button>
+            </div>
           </div>
+
+          {/* Preview Message */}
+          <Card className="bg-white/5 border border-white/20">
+            <CardBody className="p-3">
+              <h4 className="text-sm font-bold text-white mb-2">Preview Message:</h4>
+              <div className="text-xs text-white/70 font-mono">
+                "{SHARING_CONFIG.message}"
+                {sharingMethod === 'embedded' && (
+                  <div className="mt-1 text-blue-300">+ Image: circusle.png</div>
+                )}
+                {sharingMethod === 'story' && (
+                  <div className="mt-1 text-purple-300">+ Story format with image</div>
+                )}
+              </div>
+            </CardBody>
+          </Card>
 
           {/* How it Works Section */}
           <Card className="bg-white/5 border border-white/20">
@@ -202,6 +365,10 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                 <div className="flex items-start space-x-2">
                   <div className="w-1 h-1 rounded-full bg-white/40 mt-1.5 flex-shrink-0" />
                   <span>{t("profile.referrals.youGetRecognition")}</span>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <div className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
+                  <span>Enhanced sharing with images and Stories support</span>
                 </div>
               </div>
             </CardBody>
