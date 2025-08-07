@@ -17,7 +17,7 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Enhanced game save result with tournament information
+// Enhanced game save result with tournaments and achievements
 export interface GameSaveResult {
   success: boolean;
   levelChanged?: boolean;
@@ -30,8 +30,14 @@ export interface GameSaveResult {
     attemptsAwarded: number;
   }>;
   totalAttemptsAwarded?: number;
-  // NEW: Tournament participation result
-  tournamentParticipation?: TournamentParticipationResult;
+  // Tournament information
+  tournamentInfo?: {
+    tournamentId: string;
+    tournamentName: string;
+    newBestScore: boolean;
+    position?: number;
+    improved: boolean;
+  };
   error?: string;
 }
 
@@ -129,10 +135,55 @@ function calculateModeSpecificScore(gameResult: GameResult): number {
   return baseScore * multiplier;
 }
 
-// Server-side game service with tournament integration
+/**
+ * Convert GameResult to tournament format
+ */
+function convertToTournamentGameResult(gameResult: GameResult): any {
+  const base = {
+    mode: gameResult.mode,
+    score: gameResult.score,
+    duration: gameResult.duration,
+  };
+
+  switch (gameResult.mode) {
+    case GameMode.SURVIVAL:
+      const survivalResult = gameResult as SurvivalGameResult;
+      return {
+        ...base,
+        survivalTime: survivalResult.survivalTime,
+        maxLevelReached: survivalResult.maxLevelReached,
+        perfectStreak: survivalResult.perfectStreak,
+        correctHits: survivalResult.correctHits,
+      };
+
+    case GameMode.PHYSICS:
+      const physicsResult = gameResult as PhysicsGameResult;
+      return {
+        ...base,
+        gameTime: physicsResult.gameTime,
+        totalHits: physicsResult.totalHits,
+        mistakesMade: physicsResult.mistakesMade,
+      };
+
+    case GameMode.ROTATION:
+      const rotationResult = gameResult as RotationGameResult;
+      return {
+        ...base,
+        survivalTime: rotationResult.survivalTime,
+        maxLevelReached: rotationResult.maxLevelReached,
+        perfectStreak: rotationResult.perfectStreak,
+        correctHits: rotationResult.correctHits,
+      };
+
+    default:
+      return base;
+  }
+}
+
+// Server-side game service
 export const serverGameService = {
   /**
-   * Update user game statistics with level, achievement, and tournament system integration
+   * Update user game statistics with level, achievement and tournament system integration
    */
   async updateGameStats(
     telegramId: number,
@@ -298,40 +349,77 @@ export const serverGameService = {
       throw new Error("Failed to update user statistics");
     }
 
-    // NEW: Check and record tournament participation
-    let tournamentParticipation: TournamentParticipationResult | null = null;
-
-    try {
-      tournamentParticipation = await serverTournamentService.recordTournamentParticipation(
-        telegramId,
-        gameResult.mode,
-        gameResult
-      );
-    } catch (tournamentError) {
-      // Log tournament error but don't fail the game save
-      console.warn("Tournament participation recording failed but game saved:", tournamentError);
-      // Continue without tournament participation - game save is more important
-    }
-
     // Check and award achievements after stats update (with error handling)
     let newAchievements: any[] = [];
     let achievementAttemptsAwarded = 0;
 
     try {
-      // The database trigger will automatically check, but we also get the results here
       newAchievements = await serverAchievementsService.checkAndAwardAchievements(
         telegramId
       );
 
-      // Calculate total attempts awarded
       achievementAttemptsAwarded = newAchievements.reduce(
         (total: number, achievement: any) => total + achievement.attempts_awarded,
         0
       );
     } catch (achievementError) {
-      // Log achievement error but don't fail the game save
       console.warn("Achievement check failed but game saved:", achievementError);
-      // Continue without achievements - game save is more important
+    }
+
+    // Check for active tournament and update tournament leaderboard
+    let tournamentInfo: any = undefined;
+
+    try {
+      const isTournamentActive = await serverTournamentService.isTournamentActiveForMode(gameResult.mode);
+
+      if (isTournamentActive) {
+        const activeTournament = await serverTournamentService.getActiveTournament();
+
+        if (activeTournament && activeTournament.mode === gameResult.mode.toLowerCase()) {
+          // Get previous tournament entry to check for improvements
+          const previousPosition = await serverTournamentService.getUserTournamentPosition(
+            activeTournament.id,
+            telegramId
+          );
+
+          // Update tournament leaderboard
+          await serverTournamentService.updateTournamentLeaderboard(
+            activeTournament.id,
+            telegramId,
+            convertToTournamentGameResult(gameResult),
+            {
+              user_id: user.id,
+              first_name: user.first_name,
+              last_name: user.last_name,
+              username: user.username,
+              is_premium: user.is_premium,
+            }
+          );
+
+          // Get new position after update
+          const newPosition = await serverTournamentService.getUserTournamentPosition(
+            activeTournament.id,
+            telegramId
+          );
+
+          // Check if this is a new best score in tournament
+          const tournamentScore = modeSpecificScore;
+          const newBestScore = !previousPosition ||
+            (newPosition && newPosition.entry.best_score > (previousPosition.entry.best_score || 0));
+
+          tournamentInfo = {
+            tournamentId: activeTournament.id,
+            tournamentName: activeTournament.name,
+            newBestScore,
+            position: newPosition?.position,
+            improved: !previousPosition || (newPosition && newPosition.position < previousPosition.position),
+            previousPosition: previousPosition?.position,
+            scoreImprovement: newBestScore ? modeSpecificScore - (previousPosition?.entry.best_score || 0) : undefined,
+          };
+        }
+      }
+    } catch (tournamentError) {
+      console.warn("Tournament update failed but game saved:", tournamentError);
     }
 
     const totalAttemptsAwarded = levelAttemptsAwarded + achievementAttemptsAwarded;
@@ -342,6 +430,7 @@ export const serverGameService = {
       levelChanged,
       newLevel: levelChanged ? newLevel : undefined,
       attemptsAwarded: levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
+      tournamentInfo,
     };
 
     // Add achievement information if any were unlocked
@@ -352,11 +441,6 @@ export const serverGameService = {
         attemptsAwarded: achievement.attempts_awarded,
       }));
       response.totalAttemptsAwarded = totalAttemptsAwarded;
-    }
-
-    // Add tournament participation result if available
-    if (tournamentParticipation) {
-      response.tournamentParticipation = tournamentParticipation;
     }
 
     return response;

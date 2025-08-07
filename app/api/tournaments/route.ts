@@ -1,53 +1,87 @@
-// src/app/api/tournaments/route.ts - Main tournaments endpoint
+// src/app/api/tournaments/route.ts - Tournament data and leaderboards API
 
 import { NextRequest, NextResponse } from "next/server";
-import { serverTournamentService, type Tournament } from "@/lib/server/tournamentService";
+import { serverTournamentService, type TournamentsData, type TournamentLeaderboardEntry } from "@/lib/server/tournamentService";
 
-// Response interface for tournaments list
+// Response interfaces
 interface TournamentsResponse {
     success: boolean;
-    data?: {
-        active: Tournament | null;
-        upcoming: Tournament[];
-        completed: Tournament[];
+    data?: TournamentsData;
+    error?: string;
+}
+
+interface TournamentLeaderboardResponse {
+    success: boolean;
+    tournament?: any;
+    leaderboard?: TournamentLeaderboardEntry[];
+    userPosition?: {
+        position: number;
+        entry: TournamentLeaderboardEntry;
     };
     error?: string;
 }
 
 /**
  * GET /api/tournaments
- * Get tournaments summary with active, upcoming, and completed tournaments
+ * Get all tournaments grouped by status (active, upcoming, completed)
  */
 export async function GET(
     request: NextRequest,
-): Promise<NextResponse<TournamentsResponse>> {
+): Promise<NextResponse<TournamentsResponse | TournamentLeaderboardResponse>> {
     try {
         const { searchParams } = new URL(request.url);
-        const status = searchParams.get('status') as Tournament['status'] | null;
-        const limit = parseInt(searchParams.get('limit') || '10');
-        const offset = parseInt(searchParams.get('offset') || '0');
+        const tournament = searchParams.get('tournament');
+        const telegramId = request.headers.get("X-Telegram-ID");
 
-        if (status) {
-            // Get tournaments with specific status
-            const tournaments = await serverTournamentService.getTournaments(status, limit, offset);
+        // If tournament query parameter is provided, get specific tournament and leaderboard
+        if (tournament) {
+            // Parse tournament identifier (e.g., "physics-week-32-2025")
+            const tournamentData = await serverTournamentService.getTournamentByQuery(tournament);
+
+            if (!tournamentData) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: "Tournament not found",
+                    },
+                    { status: 404 },
+                );
+            }
+
+            // Get tournament leaderboard
+            const leaderboard = await serverTournamentService.getTournamentLeaderboard(
+                tournamentData.id,
+                100
+            );
+
+            // Get user's position if authenticated
+            let userPosition = undefined;
+            if (telegramId) {
+                const telegramIdNumber = parseInt(telegramId);
+                if (!isNaN(telegramIdNumber)) {
+                    const position = await serverTournamentService.getUserTournamentPosition(
+                        tournamentData.id,
+                        telegramIdNumber
+                    );
+                    userPosition = position || undefined;
+                }
+            }
 
             return NextResponse.json({
                 success: true,
-                data: {
-                    active: null,
-                    upcoming: status === 'upcoming' ? tournaments : [],
-                    completed: status === 'completed' ? tournaments : [],
-                },
-            });
-        } else {
-            // Get tournaments summary
-            const summary = await serverTournamentService.getTournamentsSummary();
-
-            return NextResponse.json({
-                success: true,
-                data: summary,
+                tournament: tournamentData,
+                leaderboard,
+                userPosition,
             });
         }
+
+        // Get all tournaments grouped by status
+        const tournamentsData = await serverTournamentService.getAllTournaments();
+
+        return NextResponse.json({
+            success: true,
+            data: tournamentsData,
+        });
     } catch (error) {
         console.error("Error fetching tournaments:", error);
 
@@ -56,7 +90,7 @@ export async function GET(
                 success: false,
                 error: "Failed to fetch tournaments",
             },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

@@ -2,9 +2,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { serverTournamentService } from "@/lib/server/tournamentService";
-import type { Tournament } from "@/types/tournaments";
+import type { Tournament } from "@/lib/server/tournamentService";
 
-// Response interface
+// Response interface using the server service Tournament type
 interface ActiveTournamentResponse {
     success: boolean;
     tournament?: Tournament;
