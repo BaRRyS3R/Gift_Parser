@@ -1,4 +1,4 @@
-// src/types/tournaments.ts - Tournament type definitions
+// src/types/tournaments.ts - Tournament type definitions with sanitized leaderboard
 
 // Tournament status enum
 export enum TournamentStatus {
@@ -38,7 +38,7 @@ export interface Tournament {
   updated_at: string;
 }
 
-// Tournament leaderboard entry interface
+// Full tournament leaderboard entry interface (internal use only)
 export interface TournamentLeaderboardEntry {
   id: string;
   tournament_id: string;
@@ -61,10 +61,19 @@ export interface TournamentLeaderboardEntry {
   updated_at: string;
 }
 
-// Tournament user position interface
+// Sanitized tournament leaderboard entry interface (public API)
+export interface PublicTournamentLeaderboardEntry {
+  tournament_id: string;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  best_score: number;
+}
+
+// Tournament user position interface with sanitized entry
 export interface TournamentUserPosition {
   position: number;
-  entry: TournamentLeaderboardEntry;
+  entry: PublicTournamentLeaderboardEntry;
 }
 
 // Tournament data groupings
@@ -74,10 +83,10 @@ export interface TournamentsData {
   completed: Tournament[];
 }
 
-// Tournament leaderboard response
+// Tournament leaderboard response with sanitized data
 export interface TournamentLeaderboardData {
   tournament: Tournament;
-  leaderboard: TournamentLeaderboardEntry[];
+  leaderboard: PublicTournamentLeaderboardEntry[];
   userPosition?: TournamentUserPosition;
 }
 
@@ -115,7 +124,7 @@ export interface TournamentResultUpdate {
   scoreImprovement?: number;
 }
 
-// API Response interfaces
+// API Response interfaces with sanitized data
 export interface TournamentsApiResponse {
   success: boolean;
   data?: TournamentsData;
@@ -125,7 +134,7 @@ export interface TournamentsApiResponse {
 export interface TournamentLeaderboardApiResponse {
   success: boolean;
   tournament?: Tournament;
-  leaderboard?: TournamentLeaderboardEntry[];
+  leaderboard?: PublicTournamentLeaderboardEntry[];
   userPosition?: TournamentUserPosition;
   stats?: TournamentStats;
   error?: string;
@@ -185,6 +194,19 @@ export const GAME_MODE_TO_TOURNAMENT_MODE: Record<
   physics: TournamentMode.PHYSICS,
   rotation: TournamentMode.ROTATION,
 };
+
+// Data sanitization utility
+export function sanitizeLeaderboardEntry(
+  entry: TournamentLeaderboardEntry
+): PublicTournamentLeaderboardEntry {
+  return {
+    tournament_id: entry.tournament_id,
+    first_name: entry.first_name,
+    last_name: entry.last_name,
+    username: entry.username,
+    best_score: entry.best_score,
+  };
+}
 
 // Tournament validation utilities
 export function isValidTournamentMode(mode: string): mode is TournamentMode {

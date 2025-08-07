@@ -1,14 +1,14 @@
-// src/app/api/tournaments/route.ts - Fixed Tournament data and leaderboards API
+// src/app/api/tournaments/route.ts - Tournament API with sanitized data
 
 import { NextRequest, NextResponse } from "next/server";
 
 import {
     serverTournamentService,
     type TournamentsData,
-    type TournamentLeaderboardEntry,
+    type PublicTournamentLeaderboardEntry,
 } from "@/lib/server/tournamentService";
 
-// Response interfaces
+// Response interfaces using sanitized data
 interface TournamentsResponse {
     success: boolean;
     data?: TournamentsData;
@@ -18,10 +18,10 @@ interface TournamentsResponse {
 interface TournamentLeaderboardResponse {
     success: boolean;
     tournament?: any;
-    leaderboard?: TournamentLeaderboardEntry[];
+    leaderboard?: PublicTournamentLeaderboardEntry[];
     userPosition?: {
         position: number;
-        entry: TournamentLeaderboardEntry;
+        entry: PublicTournamentLeaderboardEntry;
     };
     error?: string;
 }
@@ -65,8 +65,8 @@ export async function GET(
                         if (activeTournament && activeTournament.mode === mode) {
                             console.log("Found active tournament for mode:", mode);
 
-                            // Get leaderboard for the active tournament
-                            const leaderboard = await serverTournamentService.getTournamentLeaderboard(
+                            // Get sanitized leaderboard for the active tournament
+                            const leaderboard = await serverTournamentService.getPublicTournamentLeaderboard(
                                 activeTournament.id,
                                 100,
                             );
@@ -103,13 +103,13 @@ export async function GET(
 
                 console.log("Found tournament:", tournamentData.id);
 
-                // Get tournament leaderboard
-                const leaderboard = await serverTournamentService.getTournamentLeaderboard(
+                // Get sanitized tournament leaderboard
+                const leaderboard = await serverTournamentService.getPublicTournamentLeaderboard(
                     tournamentData.id,
                     100,
                 );
 
-                console.log("Fetched leaderboard with", leaderboard.length, "entries");
+                console.log("Fetched sanitized leaderboard with", leaderboard.length, "entries");
 
                 // Get user's position if authenticated
                 let userPosition = undefined;

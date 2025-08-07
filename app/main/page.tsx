@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated with tournament button integration
+// src/app/main/page.tsx - Обновленная главная страница с перемещенной кнопкой турниров
 
 "use client";
 
@@ -279,13 +279,12 @@ function MainPageContent() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
-        isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : pageLoaded
             ? "opacity-100 transition-opacity duration-1000 ease-out"
             : "opacity-0"
-      }`}
+        }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -313,18 +312,17 @@ function MainPageContent() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-8"
-              }`
+        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-8"
+            }`
             : "opacity-100 translate-y-0"
-        }`}
+          }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
+          {/* Left side - Settings and About */}
           <div className="flex items-center gap-3">
             <button
               aria-label={t("common.settings")}
@@ -356,20 +354,26 @@ function MainPageContent() {
               <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
             </button>
           </div>
+
+          {/* Right side - Tournament Button */}
+          <div className="flex items-center gap-3">
+            <TournamentButton
+              isTransitioning={isTransitioning}
+              onClick={handleOpenTournaments}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Season Button - Moved to top */}
+      {/* Season Button - Центральная позиция */}
       <div
-        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-8"
-              }`
+        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-8"
+            }`
             : "opacity-100 translate-y-0"
-        }`}
+          }`}
         style={{ top: "50px" }}
       >
         <SeasonButton
@@ -387,13 +391,12 @@ function MainPageContent() {
           </h1>
         </div>
 
-        {/* Action Buttons Container */}
+        {/* Action Buttons Container - Убрана кнопка турниров */}
         <div
-          className={`space-y-4 ${
-            isFirstVisit
+          className={`space-y-4 ${isFirstVisit
               ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
               : "opacity-100 translate-y-0"
-          }`}
+            }`}
         >
           {/* Main Play Button */}
           <div className="relative group">
@@ -415,27 +418,17 @@ function MainPageContent() {
               </div>
             </button>
           </div>
-
-          {/* Tournament Button */}
-          <div className="flex justify-center">
-            <TournamentButton
-              isTransitioning={isTransitioning}
-              onClick={handleOpenTournaments}
-            />
-          </div>
         </div>
 
         {/* User Greeting */}
         <div
-          className={`${
-            isFirstVisit
-              ? `transition-all duration-1000 transform ${
-                  showGreeting
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-8"
-                }`
+          className={`${isFirstVisit
+              ? `transition-all duration-1000 transform ${showGreeting
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-8"
+              }`
               : "opacity-100 translate-y-0"
-          }`}
+            }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -475,15 +468,13 @@ function MainPageContent() {
 
       {/* Enhanced Attempts Display with Level Integration */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-8"
-              }`
+        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
             : "opacity-100 translate-y-0"
-        }`}
+          }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay

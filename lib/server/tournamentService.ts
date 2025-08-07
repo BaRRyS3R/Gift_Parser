@@ -1,17 +1,26 @@
-// src/lib/server/tournamentService.ts - Tournament management service with data transformation
+// src/lib/server/tournamentService.ts - Tournament management service with data sanitization
 
 import type {
     Tournament,
     TournamentLeaderboardEntry,
+    PublicTournamentLeaderboardEntry,
     TournamentsData,
     Prize,
 } from "@/types/tournaments";
+
+import { sanitizeLeaderboardEntry } from "@/types/tournaments";
 
 import { supabaseServer } from "@/lib/supabase_server";
 import { GameMode } from "@/types/game-modes/common";
 
 // Re-export types from the main types file to ensure consistency
-export type { Tournament, TournamentLeaderboardEntry, TournamentsData, Prize };
+export type {
+    Tournament,
+    TournamentLeaderboardEntry,
+    PublicTournamentLeaderboardEntry,
+    TournamentsData,
+    Prize
+};
 
 // Raw database tournament interface (what comes from Supabase)
 interface RawTournament {
@@ -55,6 +64,8 @@ function transformTournament(rawTournament: RawTournament): Tournament {
         updated_at: rawTournament.updated_at,
     };
 }
+
+// Note: sanitizeLeaderboardEntry function is imported from types/tournaments.ts
 
 // Tournament participation result interface for game service integration
 export interface TournamentParticipationResult {
@@ -225,7 +236,7 @@ export const serverTournamentService = {
     },
 
     /**
-     * Get tournament leaderboard
+     * Get tournament leaderboard (internal, full data)
      */
     async getTournamentLeaderboard(
         tournamentId: string,
@@ -248,6 +259,22 @@ export const serverTournamentService = {
             return data || [];
         } catch (error) {
             console.error("Error in getTournamentLeaderboard:", error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get public tournament leaderboard (sanitized data)
+     */
+    async getPublicTournamentLeaderboard(
+        tournamentId: string,
+        limit: number = 100,
+    ): Promise<PublicTournamentLeaderboardEntry[]> {
+        try {
+            const leaderboard = await this.getTournamentLeaderboard(tournamentId, limit);
+            return leaderboard.map(sanitizeLeaderboardEntry);
+        } catch (error) {
+            console.error("Error in getPublicTournamentLeaderboard:", error);
             throw error;
         }
     },
@@ -450,12 +477,12 @@ export const serverTournamentService = {
     },
 
     /**
-     * Get user's position in tournament
+     * Get user's position in tournament (sanitized)
      */
     async getUserTournamentPosition(
         tournamentId: string,
         telegramId: number,
-    ): Promise<{ position: number; entry: TournamentLeaderboardEntry } | null> {
+    ): Promise<{ position: number; entry: PublicTournamentLeaderboardEntry } | null> {
         try {
             const leaderboard = await this.getTournamentLeaderboard(
                 tournamentId,
@@ -471,7 +498,7 @@ export const serverTournamentService = {
 
             return {
                 position: userIndex + 1,
-                entry: leaderboard[userIndex],
+                entry: sanitizeLeaderboardEntry(leaderboard[userIndex]),
             };
         } catch (error) {
             console.error("Error in getUserTournamentPosition:", error);
