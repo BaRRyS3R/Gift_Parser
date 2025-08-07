@@ -321,9 +321,9 @@ function MainPageContent() {
           }`}
         style={{ top: headerOffset }}
       >
-        <div className="flex items-center justify-between">
-          {/* Left side - About and Settings (изменен порядок, вертикальное расположение) */}
-          <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col gap-3">
+          {/* Top row - About and Tournament buttons */}
+          <div className="flex items-center justify-between">
             <button
               aria-label="About"
               className="group relative w-12 h-12 bg-black/80 backdrop-blur-sm border border-blue-600/50 text-white rounded-lg hover:border-blue-500 hover:bg-black/90 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
@@ -356,6 +356,14 @@ function MainPageContent() {
               />
             </button>
 
+            <TournamentButton
+              isTransitioning={isTransitioning}
+              onClick={handleOpenTournaments}
+            />
+          </div>
+
+          {/* Bottom row - Settings button */}
+          <div className="flex items-center">
             <button
               aria-label={t("common.settings")}
               className="group relative w-12 h-12 bg-black/80 backdrop-blur-sm border border-slate-600/50 text-white rounded-lg hover:border-slate-500 hover:bg-black/90 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
@@ -387,14 +395,6 @@ function MainPageContent() {
                 style={{ animation: "shimmer 2s ease-in-out infinite" }}
               />
             </button>
-          </div>
-
-          {/* Right side - Tournament Button */}
-          <div className="flex items-center gap-3">
-            <TournamentButton
-              isTransitioning={isTransitioning}
-              onClick={handleOpenTournaments}
-            />
           </div>
         </div>
       </div>
