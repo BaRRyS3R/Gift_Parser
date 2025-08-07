@@ -192,7 +192,6 @@ export default function ReactionGameManager() {
   );
 
   const handleGameTimeout = useCallback(() => {
-
     setGameState((prev) => {
       const finalState = {
         ...prev,
@@ -215,7 +214,6 @@ export default function ReactionGameManager() {
 
   const handleCircleActivated = useCallback(
     (circleId: number) => {
-
       // Trigger activation pulse effect
       const timestamp = Date.now();
 
@@ -287,7 +285,6 @@ export default function ReactionGameManager() {
   );
 
   const startGame = useCallback(() => {
-
     setGameState(initializeReactionGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);

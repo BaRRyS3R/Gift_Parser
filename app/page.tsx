@@ -125,9 +125,7 @@ export default function IntroPage(): JSX.Element {
         }
 
         if (result.success && result.user) {
-
           if (result.security) {
-
             if (result.security.blocked) {
               setTimeout(() => {
                 router.push("/blocked");
@@ -179,7 +177,6 @@ export default function IntroPage(): JSX.Element {
       referralCode?: string,
     ): Promise<RegistrationResult> => {
       if (operationInProgressRef.current) {
-
         return { success: false, error: "Registration already in progress" };
       }
 
@@ -226,7 +223,6 @@ export default function IntroPage(): JSX.Element {
     authInitializedRef.current = true;
 
     try {
-
       const { user: telegramUserData, initData } = getTelegramUserData();
 
       if (!telegramUserData || !initData) {
@@ -315,7 +311,6 @@ export default function IntroPage(): JSX.Element {
       authState.isRegistering ||
       operationInProgressRef.current
     ) {
-
       return;
     }
 

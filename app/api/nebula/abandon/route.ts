@@ -131,7 +131,6 @@ export async function POST(
       await serverBlockService.checkVerificationAttempt(telegramIdNumber);
 
     if (!attempt) {
-
       return NextResponse.json({
         success: true,
         blocked: false,
@@ -140,7 +139,6 @@ export async function POST(
     }
 
     if (attempt.id !== attemptId) {
-
       return NextResponse.json({
         success: true,
         blocked: false,
@@ -150,7 +148,6 @@ export async function POST(
 
     // Check if attempt is already expired (natural expiration vs abandonment)
     if (isExpired) {
-
       // Remove expired attempt without additional blocking
       await serverBlockService.removeVerificationAttempt(attemptId);
 
@@ -172,7 +169,6 @@ export async function POST(
       await serverBlockService.handleAbandonedVerification(enhancedAttempt);
 
     if (abandonResult.success) {
-
       return NextResponse.json({
         success: true,
         blocked: true,

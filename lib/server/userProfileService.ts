@@ -259,7 +259,6 @@ export const serverUserProfileService = {
    */
   async getUserProfileData(telegramId: number): Promise<UserProfileData> {
     try {
-
       const [user, referrals, rankings] = await Promise.all([
         this.getUserData(telegramId),
         this.getUserReferralInfo(telegramId),

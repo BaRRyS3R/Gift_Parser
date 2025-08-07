@@ -60,7 +60,6 @@ export function useTasks(
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-
       const response = await makeAuthenticatedRequest("/api/tasks");
 
       if (!response.ok) {
@@ -125,7 +124,6 @@ export function useTasks(
       }));
 
       try {
-
         // First, start the task on the server
         const response = await makeAuthenticatedRequest("/api/tasks/start", {
           method: "POST",
@@ -354,7 +352,6 @@ export function useTasks(
       setState((prev) => ({ ...prev, claimingTaskId: taskId, error: null }));
 
       try {
-
         const response = await makeAuthenticatedRequest("/api/tasks/claim", {
           method: "POST",
           body: JSON.stringify({ taskId }),

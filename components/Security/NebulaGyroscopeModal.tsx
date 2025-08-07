@@ -401,7 +401,6 @@ const NebulaGyroscopeModal: React.FC<NebulaGyroscopeModalProps> = ({
       gammaDiff > TIMING_CONFIG.MOVEMENT_THRESHOLD;
 
     if (significantMovement) {
-
       lastMovementTimeRef.current = now;
       setState((prev) => {
         const newCount = prev.detectedMovements + 1;

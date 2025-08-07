@@ -95,7 +95,6 @@ export async function POST(
 
     // Handle gyroscope unavailable on device
     if (unavailable || !deviceSupported) {
-
       const blockReason = unavailable
         ? "gyroscope_unavailable"
         : "device_unsupported_gyroscope";
@@ -139,7 +138,6 @@ export async function POST(
 
     // Handle permission denied
     if (permissionDenied) {
-
       const blockResult = await serverBlockService.handleVerificationFailure(
         userId,
         telegramIdNumber,
@@ -189,7 +187,6 @@ export async function POST(
 
     // Handle successful gyroscope verification
     if (gyroscopeSuccess && completedInTime && isValidMovement) {
-
       // Restore trust score
       const restoreResult = await serverBlockService.handleVerificationSuccess(
         telegramIdNumber,

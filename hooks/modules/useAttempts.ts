@@ -71,7 +71,6 @@ export function useAttempts(
   const fetchAttemptsStatus = useCallback(
     async (force: boolean = false): Promise<AttemptsStatus | null> => {
       if (fetchingRef.current && !force) {
-
         return state.status;
       }
 
@@ -79,7 +78,6 @@ export function useAttempts(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-
         const response = await makeAuthenticatedRequest(
           "/api/user/attempts/status",
         );
@@ -151,7 +149,6 @@ export function useAttempts(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-
         const response = await makeAuthenticatedRequest(
           "/api/user/attempts/consume",
           {

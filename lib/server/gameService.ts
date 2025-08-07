@@ -5,10 +5,12 @@ import type { SurvivalGameResult } from "@/types/game-modes/survival";
 import type { PhysicsGameResult } from "@/types/game-modes/physics";
 import type { RotationGameResult } from "@/types/game-modes/rotation";
 
-import { GameMode } from "@/types/game-modes/common";
 import { supabaseServer } from "../supabase_server";
+
 import { serverAchievementsService } from "./achievementsService";
-import { serverTournamentService, type TournamentParticipationResult } from "./tournamentService";
+import { serverTournamentService } from "./tournamentService";
+
+import { GameMode } from "@/types/game-modes/common";
 
 // Game result union type
 type GameResult =
@@ -148,6 +150,7 @@ function convertToTournamentGameResult(gameResult: GameResult): any {
   switch (gameResult.mode) {
     case GameMode.SURVIVAL:
       const survivalResult = gameResult as SurvivalGameResult;
+
       return {
         ...base,
         survivalTime: survivalResult.survivalTime,
@@ -158,6 +161,7 @@ function convertToTournamentGameResult(gameResult: GameResult): any {
 
     case GameMode.PHYSICS:
       const physicsResult = gameResult as PhysicsGameResult;
+
       return {
         ...base,
         gameTime: physicsResult.gameTime,
@@ -167,6 +171,7 @@ function convertToTournamentGameResult(gameResult: GameResult): any {
 
     case GameMode.ROTATION:
       const rotationResult = gameResult as RotationGameResult;
+
       return {
         ...base,
         survivalTime: rotationResult.survivalTime,
@@ -227,8 +232,10 @@ export const serverGameService = {
 
     if (levelChanged) {
       const levelsGained = newLevel - previousLevel;
+
       levelAttemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
-      updates.attempts_remaining = user.attempts_remaining + levelAttemptsAwarded;
+      updates.attempts_remaining =
+        user.attempts_remaining + levelAttemptsAwarded;
     }
 
     // Mode-specific statistics updates
@@ -258,8 +265,8 @@ export const serverGameService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-              reactionResult.reactionTime) /
-            (totalReactionGames + 1)
+                reactionResult.reactionTime) /
+              (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
@@ -354,33 +361,44 @@ export const serverGameService = {
     let achievementAttemptsAwarded = 0;
 
     try {
-      newAchievements = await serverAchievementsService.checkAndAwardAchievements(
-        telegramId
-      );
+      newAchievements =
+        await serverAchievementsService.checkAndAwardAchievements(telegramId);
 
       achievementAttemptsAwarded = newAchievements.reduce(
-        (total: number, achievement: any) => total + achievement.attempts_awarded,
-        0
+        (total: number, achievement: any) =>
+          total + achievement.attempts_awarded,
+        0,
       );
     } catch (achievementError) {
-      console.warn("Achievement check failed but game saved:", achievementError);
+      console.warn(
+        "Achievement check failed but game saved:",
+        achievementError,
+      );
     }
 
     // Check for active tournament and update tournament leaderboard
     let tournamentInfo: any = undefined;
 
     try {
-      const isTournamentActive = await serverTournamentService.isTournamentActiveForMode(gameResult.mode);
+      const isTournamentActive =
+        await serverTournamentService.isTournamentActiveForMode(
+          gameResult.mode,
+        );
 
       if (isTournamentActive) {
-        const activeTournament = await serverTournamentService.getActiveTournament();
+        const activeTournament =
+          await serverTournamentService.getActiveTournament();
 
-        if (activeTournament && activeTournament.mode === gameResult.mode.toLowerCase()) {
+        if (
+          activeTournament &&
+          activeTournament.mode === gameResult.mode.toLowerCase()
+        ) {
           // Get previous tournament entry to check for improvements
-          const previousPosition = await serverTournamentService.getUserTournamentPosition(
-            activeTournament.id,
-            telegramId
-          );
+          const previousPosition =
+            await serverTournamentService.getUserTournamentPosition(
+              activeTournament.id,
+              telegramId,
+            );
 
           // Update tournament leaderboard
           await serverTournamentService.updateTournamentLeaderboard(
@@ -393,28 +411,36 @@ export const serverGameService = {
               last_name: user.last_name,
               username: user.username,
               is_premium: user.is_premium,
-            }
+            },
           );
 
           // Get new position after update
-          const newPosition = await serverTournamentService.getUserTournamentPosition(
-            activeTournament.id,
-            telegramId
-          );
+          const newPosition =
+            await serverTournamentService.getUserTournamentPosition(
+              activeTournament.id,
+              telegramId,
+            );
 
           // Check if this is a new best score in tournament
           const tournamentScore = modeSpecificScore;
-          const newBestScore = !previousPosition ||
-            (newPosition && newPosition.entry.best_score > (previousPosition.entry.best_score || 0));
+          const newBestScore =
+            !previousPosition ||
+            (newPosition &&
+              newPosition.entry.best_score >
+                (previousPosition.entry.best_score || 0));
 
           tournamentInfo = {
             tournamentId: activeTournament.id,
             tournamentName: activeTournament.name,
             newBestScore,
             position: newPosition?.position,
-            improved: !previousPosition || (newPosition && newPosition.position < previousPosition.position),
+            improved:
+              !previousPosition ||
+              (newPosition && newPosition.position < previousPosition.position),
             previousPosition: previousPosition?.position,
-            scoreImprovement: newBestScore ? modeSpecificScore - (previousPosition?.entry.best_score || 0) : undefined,
+            scoreImprovement: newBestScore
+              ? modeSpecificScore - (previousPosition?.entry.best_score || 0)
+              : undefined,
           };
         }
       }
@@ -422,14 +448,16 @@ export const serverGameService = {
       console.warn("Tournament update failed but game saved:", tournamentError);
     }
 
-    const totalAttemptsAwarded = levelAttemptsAwarded + achievementAttemptsAwarded;
+    const totalAttemptsAwarded =
+      levelAttemptsAwarded + achievementAttemptsAwarded;
 
     // Prepare response
     const response: GameSaveResult = {
       success: true,
       levelChanged,
       newLevel: levelChanged ? newLevel : undefined,
-      attemptsAwarded: levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
+      attemptsAwarded:
+        levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
       tournamentInfo,
     };
 

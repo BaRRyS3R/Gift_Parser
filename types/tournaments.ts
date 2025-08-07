@@ -2,17 +2,17 @@
 
 // Tournament status enum
 export enum TournamentStatus {
-  UPCOMING = 'upcoming',
-  ACTIVE = 'active',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  UPCOMING = "upcoming",
+  ACTIVE = "active",
+  COMPLETED = "completed",
+  CANCELLED = "cancelled",
 }
 
 // Tournament mode enum (subset of GameMode for tournaments only)
 export enum TournamentMode {
-  SURVIVAL = 'survival',
-  PHYSICS = 'physics',
-  ROTATION = 'rotation',
+  SURVIVAL = "survival",
+  PHYSICS = "physics",
+  ROTATION = "rotation",
 }
 
 // Prize interface
@@ -21,7 +21,7 @@ export interface Prize {
   description: string;
   attempts?: number;
   special_title?: string;
-  reward_type?: 'attempts' | 'title' | 'custom';
+  reward_type?: "attempts" | "title" | "custom";
 }
 
 // Tournament interface
@@ -171,16 +171,19 @@ export interface TournamentTimeInfo {
 
 // Tournament mode mapping utilities
 export const TOURNAMENT_MODE_TO_GAME_MODE: Record<TournamentMode, string> = {
-  [TournamentMode.SURVIVAL]: 'survival',
-  [TournamentMode.PHYSICS]: 'physics',
-  [TournamentMode.ROTATION]: 'rotation',
+  [TournamentMode.SURVIVAL]: "survival",
+  [TournamentMode.PHYSICS]: "physics",
+  [TournamentMode.ROTATION]: "rotation",
 };
 
-export const GAME_MODE_TO_TOURNAMENT_MODE: Record<string, TournamentMode | null> = {
-  'reaction': null, // Reaction mode doesn't have tournaments
-  'survival': TournamentMode.SURVIVAL,
-  'physics': TournamentMode.PHYSICS,
-  'rotation': TournamentMode.ROTATION,
+export const GAME_MODE_TO_TOURNAMENT_MODE: Record<
+  string,
+  TournamentMode | null
+> = {
+  reaction: null, // Reaction mode doesn't have tournaments
+  survival: TournamentMode.SURVIVAL,
+  physics: TournamentMode.PHYSICS,
+  rotation: TournamentMode.ROTATION,
 };
 
 // Tournament validation utilities
@@ -188,12 +191,16 @@ export function isValidTournamentMode(mode: string): mode is TournamentMode {
   return Object.values(TournamentMode).includes(mode as TournamentMode);
 }
 
-export function isValidTournamentStatus(status: string): status is TournamentStatus {
+export function isValidTournamentStatus(
+  status: string,
+): status is TournamentStatus {
   return Object.values(TournamentStatus).includes(status as TournamentStatus);
 }
 
 // Tournament time calculation utilities
-export function calculateTournamentTimeInfo(tournament: Tournament): TournamentTimeInfo {
+export function calculateTournamentTimeInfo(
+  tournament: Tournament,
+): TournamentTimeInfo {
   const now = new Date().getTime();
   const start = new Date(tournament.start_time).getTime();
   const end = new Date(tournament.end_time).getTime();
@@ -201,14 +208,17 @@ export function calculateTournamentTimeInfo(tournament: Tournament): TournamentT
   const isActive = now >= start && now <= end;
   const hasEnded = now > end;
   const timeRemaining = isActive ? Math.max(0, end - now) : undefined;
-  const timeUntilStart = !isActive && !hasEnded ? Math.max(0, start - now) : undefined;
+  const timeUntilStart =
+    !isActive && !hasEnded ? Math.max(0, start - now) : undefined;
 
   let formattedTime = "";
   const timeToFormat = timeRemaining || timeUntilStart;
 
   if (timeToFormat) {
     const days = Math.floor(timeToFormat / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((timeToFormat % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const hours = Math.floor(
+      (timeToFormat % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+    );
     const minutes = Math.floor((timeToFormat % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((timeToFormat % (1000 * 60)) / 1000);
 
@@ -257,16 +267,18 @@ export function getTournamentPositionTitle(position: number): string {
 }
 
 // Tournament scoring utilities
-export function calculateTournamentScore(gameMode: string, baseScore: number): number {
+export function calculateTournamentScore(
+  gameMode: string,
+  baseScore: number,
+): number {
   switch (gameMode) {
-    case 'survival':
+    case "survival":
       return baseScore * 2;
-    case 'physics':
+    case "physics":
       return baseScore * 4;
-    case 'rotation':
+    case "rotation":
       return baseScore * 3;
     default:
       return baseScore;
   }
 }
-

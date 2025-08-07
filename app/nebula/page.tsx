@@ -286,7 +286,6 @@ export default function NebulaPage(): JSX.Element {
       const manager = tg.BiometricManager;
 
       manager.init(() => {
-
         if (!manager.isBiometricAvailable) {
           reject(
             new Error("Biometric authentication not available on this device"),
@@ -454,7 +453,6 @@ export default function NebulaPage(): JSX.Element {
         blockForPermissionTimeout();
       }
     }, 1000);
-
   }, [cleanupTimers]);
 
   /**

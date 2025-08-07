@@ -85,7 +85,8 @@ export const shop = {
     loading: "Loading TON Shop...",
 
     errors: {
-      missingAuthData: "Authentication data missing. Please open this page through the main application.",
+      missingAuthData:
+        "Authentication data missing. Please open this page through the main application.",
       invalidAuthData: "Invalid authentication data",
       initializationFailed: "Failed to initialize shop",
       loadingError: "Shop Loading Error",
@@ -96,7 +97,8 @@ export const shop = {
       insufficientBalance: "Insufficient TON balance in wallet",
       transactionFailed: "Failed to send transaction. Please try again.",
       statusCheckFailed: "Failed to check order status",
-      timeoutExpired: "Timeout expired. Please check transaction status manually.",
+      timeoutExpired:
+        "Timeout expired. Please check transaction status manually.",
       authDataUnavailable: "Unable to get Telegram authentication data",
       openingFailed: "Failed to open TON Shop",
     },
@@ -114,7 +116,8 @@ export const shop = {
       creatingOrder: "Creating order...",
       preparingPurchase: "Preparing your purchase",
       processingPayment: "Processing payment...",
-      processingTime: "Your transaction is being processed. This may take up to 5 minutes.",
+      processingTime:
+        "Your transaction is being processed. This may take up to 5 minutes.",
       paymentSuccessful: "Payment successful!",
       attemptsAdded: "Your attempts have been added to your account.",
       paymentError: "Payment error",
@@ -131,7 +134,8 @@ export const shop = {
     info: {
       processingTime: "Payments are processed automatically within 5 minutes",
       safeToClose: "You can safely close this page after payment",
-      attemptsVisible: "Attempts will be visible in the main app after processing",
+      attemptsVisible:
+        "Attempts will be visible in the main app after processing",
       corporateWallet: "All transactions here",
     },
 
@@ -161,7 +165,8 @@ export const shop = {
     },
 
     button: {
-      tooltip: "Open TON Shop to purchase game attempts with TON cryptocurrency",
+      tooltip:
+        "Open TON Shop to purchase game attempts with TON cryptocurrency",
     },
   },
 } as const;

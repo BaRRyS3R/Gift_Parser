@@ -322,11 +322,6 @@ function TournamentsPageContent() {
         }
     }, [makeAuthenticatedRequest, tournamentQuery]);
 
-    useEffect(() => {
-        fetchTournaments();
-    }, [fetchTournaments]);
-
-    // Handle tournament actions
     const handleViewDetails = useCallback((tournament: Tournament) => {
         if (tournament.status === 'active') {
             // Navigate to the appropriate game mode
@@ -358,7 +353,12 @@ function TournamentsPageContent() {
         fetchTournaments();
     }, [fetchTournaments]);
 
-    // Telegram WebApp back button
+    // Effect hooks - called consistently at top level
+    useEffect(() => {
+        fetchTournaments();
+    }, [fetchTournaments]);
+
+    // Telegram WebApp back button effect
     useEffect(() => {
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
@@ -531,4 +531,4 @@ export default function TournamentsPage() {
             <TournamentsPageContent />
         </AuthGuard>
     );
-}   
+}

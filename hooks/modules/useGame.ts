@@ -54,7 +54,6 @@ export function useGame(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-
         const response = await makeAuthenticatedRequest("/api/game/save", {
           method: "POST",
           body: JSON.stringify({ gameResult }),
@@ -92,7 +91,6 @@ export function useGame(
     },
     [makeAuthenticatedRequest],
   );
-
 
   /**
    * Clear error state
