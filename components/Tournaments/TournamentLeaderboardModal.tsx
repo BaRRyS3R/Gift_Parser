@@ -191,8 +191,8 @@ function LeaderboardEntry({
     return (
         <Card
             className={`bg-black/60 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.01] ${isCurrentUser
-                    ? `border-2 ${colors.border}`
-                    : "border-white/10 hover:border-white/20"
+                ? `border-2 ${colors.border}`
+                : "border-white/10 hover:border-white/20"
                 }`}
             style={{
                 boxShadow: isCurrentUser ? `0 0 15px ${colors.glow}` : "none",
@@ -377,16 +377,18 @@ export default function TournamentLeaderboardModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            size="full"
+            size="5xl"
             classNames={{
-                base: "bg-black/95 backdrop-blur-lg",
+                wrapper: "items-start pt-16 pb-8",
+                base: "bg-black/95 backdrop-blur-lg m-4 max-h-[calc(100vh-8rem)]",
                 header: "border-b border-white/20",
-                body: "px-0",
-                closeButton: "hover:bg-white/20 text-white z-50",
+                body: "px-0 max-h-[calc(100vh-12rem)]",
+                closeButton: "hover:bg-white/20 text-white z-50 top-4 right-4",
             }}
             hideCloseButton={false}
             isDismissable={true}
             scrollBehavior="inside"
+            placement="top"
         >
             <ModalContent>
                 {() => (
