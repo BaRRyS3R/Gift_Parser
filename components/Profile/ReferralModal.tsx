@@ -194,7 +194,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
 
           {/* Sharing Method Selector */}
           <div className="space-y-2">
-            <h3 className="text-sm font-bold text-white">{t("profile.referrals.share")} Style</h3>
+            <h3 className="text-sm font-bold text-white">{t("profile.referrals.share")}</h3>
             <div className="grid grid-cols-2 gap-2">
               <button
                 className={`p-2 rounded-lg border text-xs transition-all ${sharingMethod === 'simple'
@@ -203,8 +203,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                   }`}
                 onClick={() => setSharingMethod('simple')}
               >
-                <MessageCircle size={16} className="mx-auto mb-1" />
-                Simple
+                <MessageCircle size={20} className="mx-auto mb-1" />
               </button>
               <button
                 className={`p-2 rounded-lg border text-xs transition-all ${sharingMethod === 'story'
@@ -213,8 +212,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                   }`}
                 onClick={() => setSharingMethod('story')}
               >
-                <Camera size={16} className="mx-auto mb-1" />
-                Story
+                <Camera size={20} className="mx-auto mb-1" />
               </button>
             </div>
           </div>
@@ -258,7 +256,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                 variant="bordered"
                 onPress={handleShareReferralLink}
               >
-                {t("profile.referrals.share")} {sharingMethod === 'story' ? 'to Story' : 'Link'}
+                {t("profile.referrals.share")}
               </Button>
 
               <Button
