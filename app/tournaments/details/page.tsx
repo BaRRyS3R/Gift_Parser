@@ -1,13 +1,14 @@
-// src/app/tournaments/[id]/page.tsx - Fixed detail page with proper types
+// src/app/tournaments/details/page.tsx - Tournament detail page using query parameters
 
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Trophy,
   Users,
   Calendar,
+  Clock,
   Gift,
   Target,
   Crosshair,
@@ -15,6 +16,7 @@ import {
   RotateCw,
   RefreshCw,
   Play,
+  ArrowLeft
 } from "lucide-react";
 
 import { useUser } from "@/hooks/useUser";
@@ -25,14 +27,8 @@ import {
   getTournamentTimeRemaining,
   getTournamentTimeUntilStart,
   type TournamentGameMode,
-  type TournamentPrize,
+  type TournamentPrize
 } from "@/types/tournaments";
-
-interface TournamentDetailPageProps {
-  params: {
-    id: string;
-  };
-}
 
 interface GameModeColors {
   primary: string;
@@ -40,10 +36,11 @@ interface GameModeColors {
   border: string;
 }
 
-export default function TournamentDetailPage({
-  params,
-}: TournamentDetailPageProps) {
+export default function TournamentDetailsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tournamentId = searchParams.get("id");
+
   const { makeAuthenticatedRequest } = useUser();
   const {
     currentTournament,
@@ -57,9 +54,15 @@ export default function TournamentDetailPage({
 
   const t = useT();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "leaderboard">(
-    "overview",
-  );
+  const [activeTab, setActiveTab] = useState<"overview" | "leaderboard">("overview");
+
+  // Redirect if no tournament ID is provided
+  useEffect(() => {
+    if (!tournamentId) {
+      router.push("/tournaments");
+      return;
+    }
+  }, [tournamentId, router]);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -83,47 +86,42 @@ export default function TournamentDetailPage({
     }
   }, [router]);
 
-  // Load tournament data on mount
+  // Load tournament data when tournament ID is available
   useEffect(() => {
+    if (!tournamentId) return;
+
     const loadTournamentData = async () => {
-      await fetchTournamentDetails(params.id);
+      await fetchTournamentDetails(tournamentId);
       if (activeTab === "leaderboard") {
-        await fetchTournamentLeaderboard(params.id);
+        await fetchTournamentLeaderboard(tournamentId);
       }
     };
 
     loadTournamentData();
-  }, [
-    params.id,
-    fetchTournamentDetails,
-    fetchTournamentLeaderboard,
-    activeTab,
-  ]);
+  }, [tournamentId, fetchTournamentDetails, fetchTournamentLeaderboard, activeTab]);
 
   const handleTabChange = async (tab: "overview" | "leaderboard") => {
+    if (!tournamentId) return;
+
     setActiveTab(tab);
     if (tab === "leaderboard" && !leaderboard) {
-      await fetchTournamentLeaderboard(params.id);
+      await fetchTournamentLeaderboard(tournamentId);
     }
   };
 
   const handleRefresh = useCallback(async () => {
+    if (!tournamentId) return;
+
     setIsRefreshing(true);
     clearError();
 
-    await fetchTournamentDetails(params.id);
+    await fetchTournamentDetails(tournamentId);
     if (activeTab === "leaderboard") {
-      await fetchTournamentLeaderboard(params.id);
+      await fetchTournamentLeaderboard(tournamentId);
     }
 
     setIsRefreshing(false);
-  }, [
-    params.id,
-    activeTab,
-    fetchTournamentDetails,
-    fetchTournamentLeaderboard,
-    clearError,
-  ]);
+  }, [tournamentId, activeTab, fetchTournamentDetails, fetchTournamentLeaderboard, clearError]);
 
   const handlePlayGame = () => {
     if (!currentTournament) return;
@@ -135,10 +133,13 @@ export default function TournamentDetailPage({
     };
 
     const route = gameRoutes[currentTournament.game_mode];
-
     if (route) {
       router.push(route);
     }
+  };
+
+  const handleBackToTournaments = () => {
+    router.push("/tournaments");
   };
 
   const getGameModeIcon = (mode: TournamentGameMode) => {
@@ -201,16 +202,10 @@ export default function TournamentDetailPage({
     switch (currentTournament.status) {
       case "upcoming": {
         const timeUntilStart = getTournamentTimeUntilStart(currentTournament);
-        const daysUntilStart = Math.ceil(
-          timeUntilStart / (1000 * 60 * 60 * 24),
-        );
-
+        const daysUntilStart = Math.ceil(timeUntilStart / (1000 * 60 * 60 * 24));
         return {
           text: t("tournaments.status.upcoming"),
-          detail:
-            daysUntilStart > 0
-              ? `${daysUntilStart} d`
-              : t("tournaments.status.startingSoon"),
+          detail: daysUntilStart > 0 ? `${daysUntilStart} d` : t("tournaments.status.startingSoon"),
           color: "text-blue-400",
           bgColor: "bg-blue-500/10",
         };
@@ -218,13 +213,9 @@ export default function TournamentDetailPage({
       case "active": {
         const timeRemaining = getTournamentTimeRemaining(currentTournament);
         const hoursRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60));
-
         return {
           text: t("tournaments.status.active"),
-          detail:
-            hoursRemaining > 24
-              ? `${Math.ceil(hoursRemaining / 24)} d`
-              : `${hoursRemaining} h`,
+          detail: hoursRemaining > 24 ? `${Math.ceil(hoursRemaining / 24)} d` : `${hoursRemaining} h`,
           color: "text-green-400",
           bgColor: "bg-green-500/10",
         };
@@ -272,6 +263,11 @@ export default function TournamentDetailPage({
     }
   };
 
+  // Early return if no tournament ID
+  if (!tournamentId) {
+    return null;
+  }
+
   if (isLoading && !currentTournament) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -291,15 +287,21 @@ export default function TournamentDetailPage({
           <h3 className="text-lg font-bold text-white/80">
             {t("tournaments.error.notFound")}
           </h3>
-          <p className="text-white/60">
-            {error || t("tournaments.error.loadFailed")}
-          </p>
-          <button
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-            onClick={handleRefresh}
-          >
-            {t("common.retry")}
-          </button>
+          <p className="text-white/60">{error || t("tournaments.error.loadFailed")}</p>
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={handleRefresh}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            >
+              {t("common.retry")}
+            </button>
+            <button
+              onClick={handleBackToTournaments}
+              className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+            >
+              {t("common.back")}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -311,10 +313,17 @@ export default function TournamentDetailPage({
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom">
       <div className="px-6 py-8">
-        {/* Tournament Header */}
-        <div
-          className={`rounded-xl border backdrop-blur-sm p-6 mb-6 ${colors.bg} ${colors.border}`}
+        {/* Back Button */}
+        <button
+          onClick={handleBackToTournaments}
+          className="flex items-center space-x-2 text-white/60 hover:text-white transition-colors mb-6"
         >
+          <ArrowLeft size={20} />
+          <span>{t("common.back")}</span>
+        </button>
+
+        {/* Tournament Header */}
+        <div className={`rounded-xl border backdrop-blur-sm p-6 mb-6 ${colors.bg} ${colors.border}`}>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center space-x-4">
               {getGameModeIcon(currentTournament.game_mode)}
@@ -323,20 +332,14 @@ export default function TournamentDetailPage({
                   {currentTournament.name}
                 </h1>
                 <p className="text-white/70 capitalize">
-                  {t(
-                    getTournamentModeTranslationKey(
-                      currentTournament.game_mode,
-                    ),
-                  )}
+                  {t(getTournamentModeTranslationKey(currentTournament.game_mode))}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-3">
               {status && (
-                <div
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${status.bgColor} ${status.color}`}
-                >
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${status.bgColor} ${status.color}`}>
                   {status.text}
                   {status.detail && (
                     <span className="ml-2 text-xs">
@@ -347,14 +350,11 @@ export default function TournamentDetailPage({
               )}
 
               <button
-                className="p-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg transition-colors disabled:opacity-50"
-                disabled={isRefreshing}
                 onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg transition-colors disabled:opacity-50"
               >
-                <RefreshCw
-                  className={`${isRefreshing ? "animate-spin" : ""}`}
-                  size={16}
-                />
+                <RefreshCw className={`${isRefreshing ? "animate-spin" : ""}`} size={16} />
               </button>
             </div>
           </div>
@@ -375,10 +375,7 @@ export default function TournamentDetailPage({
                 </span>
               </div>
               <div className="text-white text-sm">
-                {formatDateRange(
-                  currentTournament.start_date,
-                  currentTournament.end_date,
-                )}
+                {formatDateRange(currentTournament.start_date, currentTournament.end_date)}
               </div>
             </div>
 
@@ -417,7 +414,7 @@ export default function TournamentDetailPage({
             <div className="flex items-center space-x-4">
               {currentTournament.user_result && (
                 <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-green-400 rounded-full" />
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                   <span className="text-green-300 text-sm font-medium">
                     {t("tournaments.participating")}
                   </span>
@@ -432,8 +429,8 @@ export default function TournamentDetailPage({
 
             {currentTournament.status === "active" && (
               <button
-                className="flex items-center space-x-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
                 onClick={handlePlayGame}
+                className="flex items-center space-x-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
               >
                 <Play size={16} />
                 <span>{t("tournaments.playNow")}</span>
@@ -445,22 +442,20 @@ export default function TournamentDetailPage({
         {/* Navigation Tabs */}
         <div className="flex space-x-1 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-1 mb-6">
           <button
-            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              activeTab === "overview"
+            onClick={() => handleTabChange("overview")}
+            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === "overview"
                 ? "bg-white/10 text-white border border-white/20"
                 : "text-white/60 hover:text-white/80"
-            }`}
-            onClick={() => handleTabChange("overview")}
+              }`}
           >
             {t("tournaments.tabs.overview")}
           </button>
           <button
-            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              activeTab === "leaderboard"
+            onClick={() => handleTabChange("leaderboard")}
+            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === "leaderboard"
                 ? "bg-white/10 text-white border border-white/20"
                 : "text-white/60 hover:text-white/80"
-            }`}
-            onClick={() => handleTabChange("leaderboard")}
+              }`}
           >
             {t("tournaments.tabs.leaderboard")}
           </button>
@@ -477,43 +472,28 @@ export default function TournamentDetailPage({
               </h2>
 
               <div className="space-y-3">
-                {currentTournament.prizes.map(
-                  (prize: TournamentPrize, index: number) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                            prize.position === 1
-                              ? "bg-yellow-400 text-black"
-                              : prize.position === 2
-                                ? "bg-gray-300 text-black"
-                                : prize.position === 3
-                                  ? "bg-amber-500 text-black"
-                                  : "bg-white/20 text-white"
-                          }`}
-                        >
-                          #{prize.position}
-                        </div>
-                        <div>
-                          <div className="text-white font-medium">
-                            {prize.title}
-                          </div>
-                          <div className="text-white/60 text-sm">
-                            {prize.description}
-                          </div>
-                        </div>
+                {currentTournament.prizes.map((prize: TournamentPrize, index: number) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${prize.position === 1 ? "bg-yellow-400 text-black" :
+                          prize.position === 2 ? "bg-gray-300 text-black" :
+                            prize.position === 3 ? "bg-amber-500 text-black" :
+                              "bg-white/20 text-white"
+                        }`}>
+                        #{prize.position}
                       </div>
-                      {prize.value && (
-                        <div className="text-white font-medium">
-                          {prize.value}
-                        </div>
-                      )}
+                      <div>
+                        <div className="text-white font-medium">{prize.title}</div>
+                        <div className="text-white/60 text-sm">{prize.description}</div>
+                      </div>
                     </div>
-                  ),
-                )}
+                    {prize.value && (
+                      <div className="text-white font-medium">
+                        {prize.value}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -526,11 +506,7 @@ export default function TournamentDetailPage({
 
               <div className="prose prose-invert max-w-none">
                 <p className="text-white/80 mb-4">
-                  {t(
-                    getTournamentRulesTranslationKey(
-                      currentTournament.game_mode,
-                    ),
-                  )}
+                  {t(getTournamentRulesTranslationKey(currentTournament.game_mode))}
                 </p>
 
                 <div className="bg-white/5 rounded-lg p-4 border border-white/10">
@@ -544,20 +520,22 @@ export default function TournamentDetailPage({
               </div>
             </div>
           </div>
-        ) : leaderboard ? (
-          <TournamentLeaderboard
-            gameMode={currentTournament.game_mode}
-            isLoading={isLoading}
-            leaderboard={leaderboard.leaderboard}
-            stats={leaderboard.stats}
-            totalParticipants={leaderboard.total_participants}
-            userPosition={leaderboard.user_position}
-          />
         ) : (
-          <div className="text-center py-12">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-white">{t("tournaments.leaderboard.loading")}</p>
-          </div>
+          leaderboard ? (
+            <TournamentLeaderboard
+              leaderboard={leaderboard.leaderboard}
+              userPosition={leaderboard.user_position}
+              totalParticipants={leaderboard.total_participants}
+              stats={leaderboard.stats}
+              isLoading={isLoading}
+              gameMode={currentTournament.game_mode}
+            />
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-white">{t("tournaments.leaderboard.loading")}</p>
+            </div>
+          )
         )}
       </div>
     </div>
