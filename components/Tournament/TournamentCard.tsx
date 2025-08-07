@@ -26,7 +26,7 @@ export default function TournamentCard({
     const t = useT();
 
     const handleCardClick = () => {
-        router.push(`/tournaments/${tournament.id}`);
+        router.push(`/tournaments/details?id=${tournament.id}`);
     };
 
     const handleKeyDown = (event: React.KeyboardEvent) => {
