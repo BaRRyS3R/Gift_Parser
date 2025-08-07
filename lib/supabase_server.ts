@@ -9,7 +9,6 @@ import {
 import {
   serverGameService,
   type GameSaveResult,
-  type TournamentSaveResponse,
 } from "./server/gameService";
 import { serverLeaderboardService } from "./server/leaderboardService";
 import {
@@ -310,18 +309,6 @@ export const serverUserService = {
     gameResult: any,
   ): Promise<GameSaveResult> {
     return serverGameService.saveGameResult(telegramId, gameResult);
-  },
-
-  async saveTournamentResult(
-    tournamentId: string,
-    telegramId: number,
-    gameResult: any,
-  ): Promise<TournamentSaveResponse> {
-    return serverGameService.saveTournamentResult(
-      tournamentId,
-      telegramId,
-      gameResult,
-    );
   },
 
   // Delegate profile operations to profile service
