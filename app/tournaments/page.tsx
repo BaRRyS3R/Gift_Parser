@@ -430,7 +430,7 @@ function TournamentsPageContent() {
                 if (selectedTournament) {
                     handleBackToTournaments();
                 } else {
-                    router.push("/main");
+                    router.push("/main"); // Изменено: возврат на главную страницу
                 }
             });
 
@@ -458,7 +458,9 @@ function TournamentsPageContent() {
                         <Spinner color="primary" size="lg" />
                         <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl animate-pulse" />
                     </div>
-                    <p className="text-white/80 font-mono text-sm">LOADING TOURNAMENTS...</p>
+                    <p className="text-white/80 font-mono text-sm">
+                        {t("tournaments.errors.loadingTournaments").toUpperCase()}
+                    </p>
                 </div>
             </div>
         );
@@ -482,14 +484,14 @@ function TournamentsPageContent() {
                             startContent={<Zap size={16} />}
                             onClick={handleRetry}
                         >
-                            RETRY
+                            {t("tournaments.errors.tryAgain").toUpperCase()}
                         </Button>
                         <Button
                             className="bg-white/10 border border-white/30 text-white font-mono"
                             startContent={<ArrowLeft size={16} />}
                             onClick={() => router.push('/main')}
                         >
-                            BACK
+                            {t("tournaments.navigation.backToMain").toUpperCase()}
                         </Button>
                     </div>
                 </div>
@@ -504,13 +506,13 @@ function TournamentsPageContent() {
                 <div className="text-center space-y-3 mb-8 pt-6">
                     <div className="relative">
                         <h1 className="text-3xl font-bold font-mono tracking-[0.3em] text-white">
-                            TOURNAMENTS
+                            {t("tournaments.title")}
                         </h1>
                         <div className="absolute inset-0 bg-blue-500/10 blur-xl rounded-full animate-pulse" />
                     </div>
                     <div className="h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
                     <p className="text-blue-400/80 text-xs font-mono tracking-widest">
-                        COMPETITIVE GAMING MATRIX
+                        {t("tournaments.subtitle").toUpperCase()}
                     </p>
                 </div>
 
@@ -520,7 +522,9 @@ function TournamentsPageContent() {
                         <div className="flex items-center gap-3 mb-4">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                                <h2 className="text-sm font-mono text-green-400 tracking-wider">ACTIVE</h2>
+                                <h2 className="text-sm font-mono text-green-400 tracking-wider">
+                                    {t("tournaments.status.active").toUpperCase()}
+                                </h2>
                             </div>
                             <div className="flex-1 h-px bg-gradient-to-r from-green-500/50 to-transparent" />
                         </div>
@@ -546,11 +550,13 @@ function TournamentsPageContent() {
                             <CardBody className="text-center p-6 space-y-3">
                                 <Target className="text-slate-500 mx-auto" size={32} />
                                 <div className="space-y-1">
-                                    <h3 className="text-white font-mono text-sm">NO ACTIVE TOURNAMENTS</h3>
+                                    <h3 className="text-white font-mono text-sm">
+                                        {t("tournaments.sections.noActiveTournament").toUpperCase()}
+                                    </h3>
                                     <p className="text-slate-400 font-mono text-xs">
                                         {tournaments?.upcoming && tournaments.upcoming.length > 0
-                                            ? "NEXT TOURNAMENT LOADING..."
-                                            : "TOURNAMENT SYSTEM INITIALIZING..."}
+                                            ? t("tournaments.empty.checkBackLater").toUpperCase() + "..."
+                                            : t("tournaments.empty.firstTournament").toUpperCase() + "..."}
                                     </p>
                                 </div>
                             </CardBody>
@@ -564,7 +570,9 @@ function TournamentsPageContent() {
                         <div className="flex items-center gap-3 mb-4">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                                <h2 className="text-sm font-mono text-blue-400 tracking-wider">UPCOMING</h2>
+                                <h2 className="text-sm font-mono text-blue-400 tracking-wider">
+                                    {t("tournaments.status.upcoming").toUpperCase()}
+                                </h2>
                             </div>
                             <div className="flex-1 h-px bg-gradient-to-r from-blue-500/50 to-transparent" />
                         </div>
@@ -587,7 +595,9 @@ function TournamentsPageContent() {
                         <div className="flex items-center gap-3 mb-4">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-slate-600 rounded-full" />
-                                <h2 className="text-sm font-mono text-slate-400 tracking-wider">ARCHIVED</h2>
+                                <h2 className="text-sm font-mono text-slate-400 tracking-wider">
+                                    {t("tournaments.status.completed").toUpperCase()}
+                                </h2>
                             </div>
                             <div className="flex-1 h-px bg-gradient-to-r from-slate-600/30 to-transparent" />
                         </div>
@@ -614,8 +624,12 @@ function TournamentsPageContent() {
                                 <div className="absolute inset-0 bg-white/5 blur-xl rounded-full" />
                             </div>
                             <div className="space-y-2">
-                                <h3 className="text-xl font-bold text-white font-mono">NO DATA FOUND</h3>
-                                <p className="text-white/60 font-mono text-sm">TOURNAMENT SYSTEM OFFLINE</p>
+                                <h3 className="text-xl font-bold text-white font-mono">
+                                    {t("tournaments.empty.noTournaments").toUpperCase()}
+                                </h3>
+                                <p className="text-white/60 font-mono text-sm">
+                                    {t("tournaments.empty.firstTournament").toUpperCase()}
+                                </p>
                             </div>
                         </div>
                     )}
@@ -626,8 +640,6 @@ function TournamentsPageContent() {
 
 export default function TournamentsPage() {
     return (
-        <AuthGuard requireCompleteAuth={true} showError={true}>
             <TournamentsPageContent />
-        </AuthGuard>
     );
 }

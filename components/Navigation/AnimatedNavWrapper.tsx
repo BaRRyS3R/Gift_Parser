@@ -11,9 +11,7 @@ const hiddenPaths = [
   "/game/reaction",
   "/game/survival",
   "/game/physics",
-  "/tournament",
-  "/tournament/play",
-  "/tournament/active",
+  "/tournaments",
   "/ton-shop",
 ];
 

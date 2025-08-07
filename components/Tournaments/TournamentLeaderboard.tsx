@@ -212,13 +212,13 @@ function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
                 <Trophy size={12} />
                 <span>PRIZE MATRIX ({prizes.length} TOTAL)</span>
             </div>
-            
+
             {/* Сетка призов */}
             <div className="grid grid-cols-2 gap-2">
                 {prizes.slice(0, maxDisplayInGrid).map((prize, index) => {
                     const prizeColor = getColorForPosition(index);
                     const prizeIcon = getIconForPosition(index);
-                    
+
                     return (
                         <div
                             key={index}
@@ -241,7 +241,7 @@ function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
                     );
                 })}
             </div>
-            
+
             {/* Индикатор дополнительных призов */}
             {remainingPrizes > 0 && (
                 <div className="text-center p-2 rounded border border-white/20 bg-black/20">
@@ -271,11 +271,10 @@ function LeaderboardEntry({
 
     return (
         <Card
-            className={`bg-black/60 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.01] ${
-                isCurrentUser
+            className={`bg-black/60 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.01] ${isCurrentUser
                     ? `border-2 ${colors.border}`
                     : "border-white/10 hover:border-white/20"
-            }`}
+                }`}
             style={{
                 boxShadow: isCurrentUser ? `0 0 15px ${colors.glow}` : "none",
             }}
@@ -284,7 +283,7 @@ function LeaderboardEntry({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {/* Position */}
-                        <div 
+                        <div
                             className="flex items-center justify-center w-8 h-8 rounded border"
                             style={{
                                 borderColor: positionColor + "60",
@@ -292,13 +291,13 @@ function LeaderboardEntry({
                             }}
                         >
                             {PositionIcon ? (
-                                <PositionIcon 
-                                    className="text-sm" 
-                                    size={14} 
+                                <PositionIcon
+                                    className="text-sm"
+                                    size={14}
                                     style={{ color: positionColor }}
                                 />
                             ) : (
-                                <span 
+                                <span
                                     className="text-xs font-mono font-bold"
                                     style={{ color: positionColor }}
                                 >
@@ -324,16 +323,16 @@ function LeaderboardEntry({
                                         {entry.last_name && ` ${entry.last_name.charAt(0)}.`}
                                     </span>
                                     {isCurrentUser && (
-                                        <Star 
-                                            size={10} 
+                                        <Star
+                                            size={10}
                                             className="text-yellow-400 fill-current"
                                         />
                                     )}
                                 </div>
                                 {entry.username && (
                                     <span className="text-white/50 text-xs font-mono">
-                                        @{entry.username.length > 12 
-                                            ? entry.username.substring(0, 12) + '...' 
+                                        @{entry.username.length > 12
+                                            ? entry.username.substring(0, 12) + '...'
                                             : entry.username}
                                     </span>
                                 )}
@@ -343,7 +342,7 @@ function LeaderboardEntry({
 
                     {/* Score */}
                     <div className="text-right">
-                        <div 
+                        <div
                             className="text-sm font-mono font-bold"
                             style={{ color: isCurrentUser ? colors.primary : "#ffffff" }}
                         >
@@ -416,6 +415,23 @@ export default function TournamentLeaderboard({
         fetchLeaderboard();
     }, [fetchLeaderboard]);
 
+    // Системная кнопка Telegram для возврата к турнирам
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+            const tg = window.Telegram.WebApp;
+
+            tg.BackButton.show();
+            tg.BackButton.onClick(() => {
+                onBack(); // Возврат к списку турниров
+            });
+
+            return () => {
+                tg.BackButton.hide();
+                tg.BackButton.offClick(() => { });
+            };
+        }
+    }, [onBack]);
+
     // Update countdown timer
     useEffect(() => {
         const updateTimer = () => {
@@ -457,7 +473,9 @@ export default function TournamentLeaderboard({
                         <Spinner color="primary" size="lg" />
                         <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl animate-pulse" />
                     </div>
-                    <p className="text-white/80 font-mono text-sm">LOADING LEADERBOARD...</p>
+                    <p className="text-white/80 font-mono text-sm">
+                        {t("tournaments.leaderboard.loadingLeaderboard").toUpperCase()}
+                    </p>
                 </div>
             </div>
         );
@@ -482,14 +500,14 @@ export default function TournamentLeaderboard({
                             startContent={<Zap size={16} />}
                             onClick={handleRetry}
                         >
-                            RETRY
+                            {t("tournaments.leaderboard.retryLoading").toUpperCase()}
                         </Button>
                         <Button
                             className="bg-white/10 border border-white/30 text-white font-mono"
                             startContent={<ArrowLeft size={16} />}
                             onClick={onBack}
                         >
-                            BACK
+                            {t("tournaments.leaderboard.backToTournaments").toUpperCase()}
                         </Button>
                     </div>
                 </div>
@@ -504,15 +522,6 @@ export default function TournamentLeaderboard({
             <div className="px-4 pb-8">
                 {/* Header */}
                 <div className="mb-6 pt-4">
-                    <Button
-                        className="mb-4 bg-white/10 border border-white/30 text-white font-mono text-xs"
-                        startContent={<ArrowLeft size={14} />}
-                        size="sm"
-                        onClick={onBack}
-                    >
-                        BACK
-                    </Button>
-
                     <Card
                         className="bg-black/80 backdrop-blur-sm border-2"
                         style={{
@@ -533,7 +542,7 @@ export default function TournamentLeaderboard({
                                     >
                                         <span className="text-lg">
                                             {tournament.mode === "survival" ? "⚡" :
-                                             tournament.mode === "physics" ? "⚛️" : "🔄"}
+                                                tournament.mode === "physics" ? "⚛️" : "🔄"}
                                         </span>
                                     </div>
                                     <div>
@@ -549,7 +558,7 @@ export default function TournamentLeaderboard({
                                 {tournament.status === "active" && timeLeft && (
                                     <div className="text-right">
                                         <div className="text-xs text-white/60 font-mono">ENDS IN</div>
-                                        <div 
+                                        <div
                                             className="text-sm font-mono font-bold"
                                             style={{ color: colors.primary }}
                                         >
@@ -566,7 +575,7 @@ export default function TournamentLeaderboard({
                                     {tournament.description}
                                 </p>
                             )}
-                            
+
                             {/* Prizes Display */}
                             <PrizesDisplay prizes={tournament.prizes} colors={colors} />
                         </CardBody>
@@ -580,12 +589,12 @@ export default function TournamentLeaderboard({
                             <div className="flex items-center gap-2">
                                 <TrendingUp size={12} style={{ color: colors.primary }} />
                                 <h2 className="text-xs font-mono tracking-wider" style={{ color: colors.primary }}>
-                                    YOUR POSITION
+                                    {t("tournaments.leaderboard.yourPosition").toUpperCase()}
                                 </h2>
                             </div>
-                            <div 
+                            <div
                                 className="flex-1 h-px bg-gradient-to-r to-transparent"
-                                style={{ 
+                                style={{
                                     backgroundImage: `linear-gradient(to right, ${colors.primary}60, transparent)`
                                 }}
                             />
@@ -606,10 +615,12 @@ export default function TournamentLeaderboard({
                             <CardBody className="p-4 text-center space-y-2">
                                 <Target className="text-blue-400 mx-auto" size={24} />
                                 <h3 className="text-white font-mono text-sm font-bold">
-                                    NOT IN COMPETITION
+                                    {t("tournaments.leaderboard.notParticipating").toUpperCase()}
                                 </h3>
                                 <p className="text-blue-300 text-xs font-mono">
-                                    Play {t(`tournaments.modes.${tournament.mode}` as any)} mode to join
+                                    {t("tournaments.leaderboard.participateFirst", {
+                                        mode: t(`tournaments.modes.${tournament.mode}` as any)
+                                    }).toUpperCase()}
                                 </p>
                             </CardBody>
                         </Card>
@@ -623,7 +634,7 @@ export default function TournamentLeaderboard({
                             <div className="flex items-center gap-2">
                                 <Trophy className="text-yellow-400" size={12} />
                                 <h2 className="text-xs font-mono text-yellow-400 tracking-wider">
-                                    TOP PLAYERS
+                                    {t("tournaments.leaderboard.topPlayers").toUpperCase()}
                                 </h2>
                             </div>
                             <div className="flex-1 h-px bg-gradient-to-r from-yellow-500/50 to-transparent" />
@@ -636,7 +647,7 @@ export default function TournamentLeaderboard({
                         <div className="space-y-2">
                             {leaderboard.map((entry, index) => {
                                 if (!entry) return null; // Защита от пустых записей
-                                
+
                                 const position = index + 1;
                                 const isCurrentUser = isCurrentUserEntry(entry, user);
 
@@ -662,8 +673,8 @@ export default function TournamentLeaderboard({
                             <h3 className="text-lg font-bold text-white font-mono">NO DATA</h3>
                             <p className="text-white/60 font-mono text-sm">
                                 {tournament.status === "upcoming"
-                                    ? "TOURNAMENT NOT STARTED"
-                                    : "NO PARTICIPANTS YET"}
+                                    ? t("tournaments.cards.comingSoon").toUpperCase()
+                                    : t("tournaments.leaderboard.notParticipating").toUpperCase()}
                             </p>
                         </div>
                     </div>
