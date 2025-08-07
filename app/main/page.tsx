@@ -23,23 +23,6 @@ import AttemptsDisplay from "@/components/AttemptsDisplay/AttemptsDisplay";
 import SeasonButton from "@/components/SeasonButton/SeasonButton";
 import SeasonInfoModal from "@/components/SeasonInfoModal/SeasonInfoModal";
 
-// Tournament types (from new API)
-interface Tournament {
-  id: string;
-  name: string;
-  start_date: string;
-  end_date: string;
-  prizes: string[];
-  created_at: string;
-  updated_at: string;
-}
-
-interface TournamentStatus {
-  isActive: boolean;
-  activeTournament: Tournament | null;
-  timeRemaining?: number;
-  hasStarted?: boolean;
-}
 
 // Utility function to format time remaining
 const formatTimeRemaining = (milliseconds: number): string => {
@@ -114,19 +97,6 @@ function MainPageContent() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   /* -------------------------------------------------
-   * Tournament state - using new API
-   * -------------------------------------------------*/
-  const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus>({
-    isActive: false,
-    activeTournament: null,
-  });
-  const [tournamentTimeRemaining, setTournamentTimeRemaining] =
-    useState<string>("");
-  const [showTournamentButton, setShowTournamentButton] = useState(false);
-  const [tournamentLoading, setTournamentLoading] = useState(false);
-  const [tournamentError, setTournamentError] = useState<string | null>(null);
-
-  /* -------------------------------------------------
    * Dynamic offset for Telegram system UI
    * -------------------------------------------------*/
   const DEFAULT_TG_HEADER = 60;
@@ -198,90 +168,6 @@ function MainPageContent() {
     attemptsStatus,
     fetchAttemptsStatus,
   ]);
-
-  /* -------------------------------------------------
-   * Tournament data loading using new API
-   * -------------------------------------------------*/
-  useEffect(() => {
-    const loadTournamentStatus = async () => {
-      if (!makeAuthenticatedRequest) return;
-
-      try {
-        setTournamentLoading(true);
-        setTournamentError(null);
-
-        const response = await makeAuthenticatedRequest(
-          "/api/tournament/active",
-        );
-
-        if (!response.ok) {
-          setTournamentStatus({
-            isActive: false,
-            activeTournament: null,
-          });
-          setShowTournamentButton(false);
-
-          return;
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          setTournamentStatus({
-            isActive: false,
-            activeTournament: null,
-          });
-          setShowTournamentButton(false);
-
-          return;
-        }
-
-        const status: TournamentStatus = result.data;
-
-        setTournamentStatus(status);
-
-        if (status.isActive && status.activeTournament) {
-          setShowTournamentButton(true);
-
-          if (status.timeRemaining) {
-            setTournamentTimeRemaining(
-              formatTimeRemaining(status.timeRemaining),
-            );
-
-            const interval = setInterval(() => {
-              const now = new Date();
-              const endDate = new Date(status.activeTournament!.end_date);
-              const diff = endDate.getTime() - now.getTime();
-
-              if (diff <= 0) {
-                setTournamentStatus({
-                  isActive: false,
-                  activeTournament: null,
-                });
-                setShowTournamentButton(false);
-                setTournamentTimeRemaining("");
-                clearInterval(interval);
-              } else {
-                setTournamentTimeRemaining(formatTimeRemaining(diff));
-              }
-            }, 1000);
-
-            return () => clearInterval(interval);
-          }
-        } else {
-          setShowTournamentButton(false);
-        }
-      } catch (error) {
-        setShowTournamentButton(false);
-      } finally {
-        setTournamentLoading(false);
-      }
-    };
-
-    if (user) {
-      loadTournamentStatus();
-    }
-  }, [user, makeAuthenticatedRequest]);
 
   /* -------------------------------------------------
    * Background video logic
@@ -358,13 +244,6 @@ function MainPageContent() {
     }, 600);
   };
 
-  const handleOpenTournament = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      router.push("/tournament");
-    }, 600);
-  };
-
   const handleOpenSettings = () => {
     setIsSettingsOpen(true);
   };
@@ -399,13 +278,12 @@ function MainPageContent() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
-        isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : pageLoaded
             ? "opacity-100 transition-opacity duration-1000 ease-out"
             : "opacity-0"
-      }`}
+        }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -433,15 +311,13 @@ function MainPageContent() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-8"
-              }`
+        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-8"
+            }`
             : "opacity-100 translate-y-0"
-        }`}
+          }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -476,48 +352,18 @@ function MainPageContent() {
               <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
             </button>
           </div>
-
-          {/* Tournament Button */}
-          {showTournamentButton && tournamentStatus.activeTournament && (
-            <button
-              aria-label="Active Tournament"
-              className="group relative px-4 py-2 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-sm border-2 border-yellow-400/40 text-yellow-300 rounded-full hover:border-yellow-400 hover:from-yellow-400/30 hover:to-orange-500/30 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isTransitioning}
-              onClick={handleOpenTournament}
-            >
-              <div className="flex items-center space-x-2">
-                <Trophy
-                  className="text-yellow-300 group-hover:scale-110 transition-transform duration-300"
-                  size={16}
-                />
-                <div className="text-xs">
-                  <div className="font-bold text-yellow-300">TOURNAMENT</div>
-                  {tournamentTimeRemaining && (
-                    <div className="text-yellow-400/80 flex items-center space-x-1">
-                      <Clock size={10} />
-                      <span>{tournamentTimeRemaining}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/30 via-orange-500/20 to-yellow-400/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-              <div className="absolute inset-0 rounded-full bg-yellow-400/10 animate-pulse opacity-50" />
-            </button>
-          )}
         </div>
       </div>
 
       {/* Season Button - Moved to top */}
       <div
-        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-8"
-              }`
+        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-8"
+            }`
             : "opacity-100 translate-y-0"
-        }`}
+          }`}
         style={{ top: "50px" }}
       >
         <SeasonButton
@@ -537,11 +383,10 @@ function MainPageContent() {
 
         {/* Action Button */}
         <div
-          className={`${
-            isFirstVisit
+          className={`${isFirstVisit
               ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
               : "opacity-100 translate-y-0"
-          }`}
+            }`}
         >
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
@@ -566,15 +411,13 @@ function MainPageContent() {
 
         {/* User Greeting */}
         <div
-          className={`${
-            isFirstVisit
-              ? `transition-all duration-1000 transform ${
-                  showGreeting
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-8"
-                }`
+          className={`${isFirstVisit
+              ? `transition-all duration-1000 transform ${showGreeting
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-8"
+              }`
               : "opacity-100 translate-y-0"
-          }`}
+            }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -614,15 +457,13 @@ function MainPageContent() {
 
       {/* Enhanced Attempts Display with Level Integration */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-8"
-              }`
+        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
             : "opacity-100 translate-y-0"
-        }`}
+          }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay
