@@ -233,7 +233,7 @@ export const serverTournamentService = {
     ): Promise<TournamentLeaderboardEntry[]> {
         try {
             const { data, error } = await supabaseServer
-                .from("tournament_leaderboards")
+                .from("tournament_leaderboard")
                 .select("*")
                 .eq("tournament_id", tournamentId)
                 .order("best_score", { ascending: false })
@@ -272,7 +272,7 @@ export const serverTournamentService = {
 
             // Get existing entry
             const { data: existingEntry } = await supabaseServer
-                .from("tournament_leaderboards")
+                .from("tournament_leaderboard")
                 .select("*")
                 .eq("tournament_id", tournamentId)
                 .eq("telegram_id", telegramId)
@@ -390,7 +390,7 @@ export const serverTournamentService = {
                 }
 
                 const { error } = await supabaseServer
-                    .from("tournament_leaderboards")
+                    .from("tournament_leaderboard")
                     .update(updates)
                     .eq("id", existingEntry.id);
 
@@ -433,7 +433,7 @@ export const serverTournamentService = {
                 }
 
                 const { error } = await supabaseServer
-                    .from("tournament_leaderboards")
+                    .from("tournament_leaderboard")
                     .insert(newEntry);
 
                 if (error) {
