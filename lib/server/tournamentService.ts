@@ -388,14 +388,18 @@ export const serverTournamentService = {
      */
     async getTournamentByQuery(query: string): Promise<Tournament | null> {
         try {
+            console.log('Searching for tournament with query:', query);
+
             // Parse query format: physics-week-32-2025
             const parts = query.split('-');
             if (parts.length < 4) {
+                console.error('Invalid query format:', query);
                 return null;
             }
 
             const mode = parts[0];
             if (!['survival', 'physics', 'rotation'].includes(mode)) {
+                console.error('Invalid tournament mode in query:', mode);
                 return null;
             }
 
@@ -413,9 +417,10 @@ export const serverTournamentService = {
                 return null;
             }
 
-            // Return the most recent tournament for the mode
-            // You can enhance this logic based on your specific query format needs
-            return data?.[0] || null;
+            const tournament = data?.[0] || null;
+            console.log('Found tournament:', tournament ? tournament.id : 'none');
+
+            return tournament;
         } catch (error) {
             console.error('Error in getTournamentByQuery:', error);
             return null;

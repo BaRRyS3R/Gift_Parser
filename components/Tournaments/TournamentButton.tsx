@@ -144,8 +144,8 @@ export default function TournamentButton({ isTransitioning = false, onClick }: T
     const displayTournament = activeTournament || nextTournament;
     const isActive = !!activeTournament;
 
-    if (!displayTournament) {
-        // Default tournament button when no tournaments are available
+    if (!displayTournament || !displayTournament.mode) {
+        // Default tournament button when no tournaments are available or mode is missing
         return (
             <button
                 className="group relative w-full max-w-[200px] px-6 py-4 bg-transparent border-2 border-white/30 text-white rounded-xl font-bold hover:border-white/60 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"

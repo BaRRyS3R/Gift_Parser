@@ -258,17 +258,23 @@ export default function TournamentDetail({
 
     // Handle tournament actions
     const handleJoinTournament = useCallback(() => {
-        if (tournament.status === 'active' && tournament.mode in gameRoutes) {
+        if (tournament.status === 'active' && tournament.mode && tournament.mode in gameRoutes) {
             setIsLoading(true);
+            const gameRoute = gameRoutes[tournament.mode];
+            console.log('Navigating to:', gameRoute); // Debug log
             setTimeout(() => {
-                router.push(gameRoutes[tournament.mode]);
+                router.push(gameRoute);
             }, 600);
+        } else {
+            console.error('Invalid tournament mode or status:', tournament.mode, tournament.status);
         }
     }, [tournament, router]);
 
     const handleViewLeaderboard = useCallback(() => {
-        if (onViewLeaderboard) {
+        if (onViewLeaderboard && tournament.mode) {
             onViewLeaderboard(tournament);
+        } else {
+            console.error('Cannot view leaderboard: missing mode or callback');
         }
     }, [tournament, onViewLeaderboard]);
 

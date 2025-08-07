@@ -135,6 +135,19 @@ function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
 }) {
     const t = useT();
     const [timeLeft, setTimeLeft] = useState<string>("");
+
+    // Validate tournament data
+    if (!tournament || !tournament.mode) {
+        console.error('Invalid tournament data:', tournament);
+        return (
+            <Card className="bg-black/40 backdrop-blur-sm border-2 border-red-400/30">
+                <CardBody className="text-center p-6">
+                    <p className="text-red-400">Tournament data error</p>
+                </CardBody>
+            </Card>
+        );
+    }
+
     const ModeIcon = getModeIcon(tournament.mode);
     const colors = getModeColors(tournament.mode);
 
@@ -323,7 +336,16 @@ function TournamentsPageContent() {
     }, [router]);
 
     const handleViewLeaderboard = useCallback((tournament: Tournament) => {
-        const query = `${tournament.mode}-week-${Math.floor(Date.now() / (1000 * 60 * 60 * 24 * 7))}-${new Date().getFullYear()}`;
+        if (!tournament.mode || !tournament.id) {
+            console.error('Cannot view leaderboard: missing tournament mode or id', tournament);
+            return;
+        }
+
+        // Create a more reliable query using tournament ID and current timestamp
+        const currentWeek = Math.floor(Date.now() / (1000 * 60 * 60 * 24 * 7));
+        const query = `${tournament.mode}-week-${currentWeek}-${new Date().getFullYear()}`;
+
+        console.log('Navigating to leaderboard with query:', query); // Debug log
         router.push(`/tournaments?tournament=${encodeURIComponent(query)}`);
     }, [router]);
 
@@ -509,4 +531,4 @@ export default function TournamentsPage() {
             <TournamentsPageContent />
         </AuthGuard>
     );
-}
+}   
