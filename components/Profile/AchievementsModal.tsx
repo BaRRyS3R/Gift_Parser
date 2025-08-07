@@ -46,8 +46,12 @@ export default function AchievementsModal({
   const totalCount = achievements?.totalCount || 4;
   const totalAttemptsEarned = achievements?.totalAttemptsEarned || 0;
 
+  // Helper function to convert snake_case to camelCase for localization keys
+  const toCamelCase = (str: string) => {
+    return str.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+  };
+
   const formatDescriptionValue = (
-    descriptionKey: string,
     achievement: Achievement,
   ) => {
     const params: Record<string, any> = {};
@@ -59,7 +63,8 @@ export default function AchievementsModal({
       params.time = 10;
     }
 
-    return t(descriptionKey as any, params);
+    const camelCaseId = toCamelCase(achievement.id);
+    return t(`profile.achievements.descriptions.${camelCaseId}` as any, params);
   };
 
   const getProgressBarColor = (achievement: Achievement) => {
@@ -221,7 +226,7 @@ export default function AchievementsModal({
                                   }
                                 `}
                               >
-                                {t(`profile.achievements.${achievement.id}` as any)}
+                                {t(`profile.achievements.${toCamelCase(achievement.id)}` as any) || achievement.name}
                               </h3>
 
                               {/* Reward Badge - NEW */}
@@ -245,10 +250,7 @@ export default function AchievementsModal({
                                 }
                               `}
                             >
-                              {formatDescriptionValue(
-                                `profile.achievements.descriptions.${achievement.id}`,
-                                achievement,
-                              )}
+                              {formatDescriptionValue(achievement)}
                             </p>
 
                             {achievement.progress !== undefined &&

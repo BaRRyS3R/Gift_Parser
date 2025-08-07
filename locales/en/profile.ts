@@ -9,6 +9,7 @@ export const profile = {
   survivalMode: "Survival",
   physicsMode: "Physics",
   rotationMode: "Rotation",
+  noDataYet: "No data",
   noReactionTestsYet: "No data. Fortunately.",
   testReflexesToSeeStats: "Play reaction mode to see stats",
   noSurvivalAttemptsYet: "No data. Fortunately.",
@@ -70,6 +71,7 @@ export const profile = {
     legend: "LEGEND",
   },
   stats: {
+    title: "STATISTICS",
     currentAttempts: "Current Attempts",
     reactionModeStats: "Reaction",
     survivalModeStats: "Survival",
@@ -118,19 +120,19 @@ export const profile = {
     noAchievements: "NO ACHIEVEMENTS UNLOCKED",
     playToUnlock: "PLAY GAMES TO UNLOCK ACHIEVEMENTS!",
 
-    // NEW: Achievement reward strings
+    // Achievement reward strings
     totalAttemptsEarned: "Total attempts earned: {count}",
     rewardsInfo: "Unlock achievements to earn bonus attempts!",
     automaticRewards: "Rewards are automatically added to your account when you unlock an achievement.",
     unlockedOn: "Unlocked on {date}",
 
-    // Achievement names
+    // Achievement names (camelCase keys matching the toCamelCase conversion)
     firstGame: "FIRST STEPS",
     allModesPlayer: "UNIVERSAL PLAYER",
     superRecruiter: "SUPER RECRUITER",
     lightningReflexes: "LIGHTNING REFLEXES",
 
-    // Achievement descriptions
+    // Achievement descriptions (camelCase keys)
     descriptions: {
       firstGame: "PLAYED FIRST GAME",
       allModesPlayer: "TRIED ALL GAME MODES",

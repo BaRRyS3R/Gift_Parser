@@ -9,6 +9,8 @@ export const profile = {
   survivalMode: "Выживание",
   physicsMode: "Физика",
   rotationMode: "Вращение",
+  noDataYet: "Нет данных",
+  totalGames: "Всего игр",
   noReactionTestsYet: "Нет данных. К счастью.",
   testReflexesToSeeStats:
     "Сыграйте в режим на реакцию, чтобы увидеть статистику",
@@ -19,7 +21,6 @@ export const profile = {
   enterPhysicsToSeeStats: "Сыграйте в режим с физикой для просмотра статистики",
   noRotationAttemptsYet: "Нет данных. К счастью.",
   enterRotationToSeeStats: "Сыграйте в режим вращения для просмотра статистики",
-  totalGames: "Всего игр",
   currentAttempts: "Текущие попытки",
   totalTests: "Всего тестов",
   totalAttempts: "Всего попыток",
@@ -72,6 +73,7 @@ export const profile = {
     legend: "ЛЕГЕНДА",
   },
   stats: {
+    title: "СТАТИСТИКА",
     currentAttempts: "Текущие попытки",
     reactionModeStats: "Реакция",
     survivalModeStats: "Выживание",
@@ -122,19 +124,19 @@ export const profile = {
     noAchievements: "ДОСТИЖЕНИЙ ЕЩЁ НЕТ",
     playToUnlock: "ИГРАЙТЕ, ЧТОБЫ ОТКРЫВАТЬ ДОСТИЖЕНИЯ!",
 
-    // NEW: Achievement reward strings
+    // Achievement reward strings
     totalAttemptsEarned: "Всего заработано попыток: {count}",
     rewardsInfo: "Открывайте достижения, чтобы получать бонусные попытки!",
     automaticRewards: "Награды автоматически добавляются на ваш аккаунт при разблокировке достижения.",
     unlockedOn: "Разблокировано {date}",
 
-    // Achievement names
+    // Achievement names (camelCase keys matching the toCamelCase conversion)
     firstGame: "ПЕРВЫЕ ШАГИ",
     allModesPlayer: "УНИВЕРСАЛЬНЫЙ ИГРОК",
     superRecruiter: "СУПЕР ВЕРБОВЩИК",
     lightningReflexes: "МОЛНИЕНОСНЫЕ РЕФЛЕКСЫ",
 
-    // Achievement descriptions
+    // Achievement descriptions (camelCase keys)
     descriptions: {
       firstGame: "СЫГРАЛ ПЕРВУЮ ИГРУ",
       allModesPlayer: "ПОПРОБОВАЛ ВСЕ ИГРОВЫЕ РЕЖИМЫ",

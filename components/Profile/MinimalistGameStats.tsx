@@ -1,4 +1,4 @@
-// src/components/Profile/MinimalistGameStats.tsx - Обновленный с использованием данных профиля
+// src/components/Profile/MinimalistGameStats.tsx - Updated with corrected statistics display
 
 "use client";
 
@@ -16,6 +16,7 @@ import {
   Atom,
   BarChart3,
   RotateCw,
+  TrendingUp,
 } from "lucide-react";
 
 import {
@@ -48,7 +49,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
         <Card className="bg-black/40 border border-white/20">
           <CardBody className="p-5">
             <div className="space-y-4">
-              {[...Array(6)].map((_, i) => (
+              {[...Array(5)].map((_, i) => (
                 <div key={i} className="space-y-3">
                   <div className="flex items-center space-x-2">
                     <div className="w-6 h-6 rounded bg-white/10 animate-pulse" />
@@ -93,16 +94,16 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
     title,
     icon: Icon,
     children,
-    emptyState,
+    gamesPlayed,
     isLast = false,
   }: {
     title: string;
     icon: React.ComponentType<any>;
     children: React.ReactNode;
-    emptyState?: React.ReactNode;
+    gamesPlayed: number;
     isLast?: boolean;
   }) => {
-    const isEmpty = emptyState && React.isValidElement(emptyState);
+    const hasData = gamesPlayed > 0;
 
     return (
       <div className={!isLast ? "border-b border-white/10 pb-4 mb-4" : ""}>
@@ -113,9 +114,9 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
           <h4 className="text-sm font-semibold text-white/90">{title}</h4>
         </div>
 
-        {isEmpty ? (
+        {!hasData ? (
           <div className="ml-8">
-            <span className="text-white/50 text-xs">Нет данных</span>
+            <span className="text-white/50 text-xs">{t("profile.noDataYet")}</span>
           </div>
         ) : (
           <div className="ml-8 space-y-1">{children}</div>
@@ -128,13 +129,17 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
     <div className="space-y-6 px-4">
       <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
         <BarChart3 className="text-white/80" size={18} />
-        <span>{t("profile.overallStats")}</span>
+        <span>{t("profile.stats.title")}</span>
       </h3>
 
       <Card className="bg-black/40 border border-white/20">
         <CardBody className="p-5">
           {/* Overall Statistics Section */}
-          <StatsSection icon={Activity} title={t("profile.overallStats")}>
+          <StatsSection
+            icon={Activity}
+            title={t("profile.overallStats")}
+            gamesPlayed={user.total_games}
+          >
             <StatItem
               icon={Activity}
               label={t("profile.totalGames")}
@@ -144,56 +149,38 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
 
           {/* Reaction Mode Statistics Section */}
           <StatsSection
-            emptyState={
-              user.reaction_games === 0 ? (
-                <div className="flex items-center space-x-2">
-                  <Zap className="text-white/40" size={14} />
-                  <span className="text-white/50 text-xs">
-                    {t("profile.noReactionTestsYet")}
-                  </span>
-                </div>
-              ) : null
-            }
             icon={Zap}
             title={t("profile.reactionMode")}
+            gamesPlayed={user.reaction_games}
           >
+            <StatItem
+              icon={Activity}
+              label={t("profile.totalGames")}
+              value={user.reaction_games}
+            />
             <StatItem
               icon={Clock}
               label={t("profile.stats.bestTime")}
-              value={`${user.reaction_best_time || 0}ms`}
+              value={user.reaction_best_time > 0 ? `${user.reaction_best_time}ms` : "-"}
             />
             <StatItem
               icon={Trophy}
               label={t("profile.stats.bestScore")}
               value={user.reaction_best_score || 0}
             />
-            <StatItem
-              icon={Target}
-              label={t("profile.stats.averageTime")}
-              value={`${user.reaction_average_time || 0}ms`}
-            />
-            <StatItem
-              icon={Activity}
-              label={t("profile.totalTests")}
-              value={user.reaction_games}
-            />
           </StatsSection>
 
           {/* Survival Mode Statistics Section */}
           <StatsSection
-            emptyState={
-              user.survival_games === 0 ? (
-                <div className="flex items-center space-x-2">
-                  <Crosshair className="text-white/40" size={14} />
-                  <span className="text-white/50 text-xs">
-                    {t("profile.noSurvivalAttemptsYet")}
-                  </span>
-                </div>
-              ) : null
-            }
             icon={Crosshair}
             title={t("profile.survivalMode")}
+            gamesPlayed={user.survival_games}
           >
+            <StatItem
+              icon={Activity}
+              label={t("profile.totalGames")}
+              value={user.survival_games}
+            />
             <StatItem
               icon={Clock}
               label={t("profile.stats.bestTime")}
@@ -201,40 +188,26 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
             />
             <StatItem
               icon={Trophy}
+              label={t("profile.stats.bestScore")}
+              value={user.survival_best_score || 0}
+            />
+            <StatItem
+              icon={TrendingUp}
               label={t("profile.stats.maxLevel")}
               value={user.survival_max_level || 0}
-            />
-            <StatItem
-              icon={Target}
-              label={t("profile.stats.bestStreak")}
-              value={user.survival_best_streak || 0}
-            />
-            <StatItem
-              icon={Activity}
-              label={t("profile.totalAttempts")}
-              value={user.survival_games}
             />
           </StatsSection>
 
           {/* Physics Mode Statistics Section */}
           <StatsSection
-            emptyState={
-              user.physics_games === 0 ? (
-                <div className="flex items-center space-x-2">
-                  <Atom className="text-white/40" size={14} />
-                  <span className="text-white/50 text-xs">
-                    {t("profile.noPhysicsAttemptsYet")}
-                  </span>
-                </div>
-              ) : null
-            }
             icon={Atom}
             title={t("profile.physicsMode")}
+            gamesPlayed={user.physics_games}
           >
             <StatItem
-              icon={Trophy}
-              label={t("profile.stats.bestScore")}
-              value={user.physics_best_score || 0}
+              icon={Activity}
+              label={t("profile.totalGames")}
+              value={user.physics_games}
             />
             <StatItem
               icon={Clock}
@@ -242,33 +215,29 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
               value={formatPhysicsTime(user.physics_best_time || 0)}
             />
             <StatItem
-              icon={Target}
-              label={t("profile.stats.bestSurvival")}
-              value={user.physics_best_hits || 0}
+              icon={Trophy}
+              label={t("profile.stats.bestScore")}
+              value={user.physics_best_score || 0}
             />
             <StatItem
-              icon={Activity}
-              label={t("profile.stats.totalExperiments")}
-              value={user.physics_games}
+              icon={TrendingUp}
+              label={t("profile.stats.maxLevel")}
+              value={user.physics_best_hits || 0}
             />
           </StatsSection>
 
           {/* Rotation Mode Statistics Section */}
           <StatsSection
-            emptyState={
-              user.rotation_games === 0 ? (
-                <div className="flex items-center space-x-2">
-                  <RotateCw className="text-white/40" size={14} />
-                  <span className="text-white/50 text-xs">
-                    {t("profile.noRotationAttemptsYet")}
-                  </span>
-                </div>
-              ) : null
-            }
             icon={RotateCw}
-            isLast={true}
             title={t("profile.rotationMode")}
+            gamesPlayed={user.rotation_games}
+            isLast={true}
           >
+            <StatItem
+              icon={Activity}
+              label={t("profile.totalGames")}
+              value={user.rotation_games}
+            />
             <StatItem
               icon={Clock}
               label={t("profile.stats.bestTime")}
@@ -276,18 +245,13 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
             />
             <StatItem
               icon={Trophy}
+              label={t("profile.stats.bestScore")}
+              value={user.rotation_best_score || 0}
+            />
+            <StatItem
+              icon={TrendingUp}
               label={t("profile.stats.maxLevel")}
               value={user.rotation_max_level || 0}
-            />
-            <StatItem
-              icon={Target}
-              label={t("profile.stats.bestStreak")}
-              value={user.rotation_best_streak || 0}
-            />
-            <StatItem
-              icon={Activity}
-              label={t("profile.stats.totalSpins")}
-              value={user.rotation_games}
             />
           </StatsSection>
         </CardBody>
