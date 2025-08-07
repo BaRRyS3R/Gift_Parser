@@ -136,7 +136,27 @@ function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
     const t = useT();
     const [timeLeft, setTimeLeft] = useState<string>("");
 
-    // Validate tournament data
+    // Update countdown timer - moved before validation
+    useEffect(() => {
+        // Only run if tournament data is valid
+        if (!tournament || !tournament.mode) {
+            return;
+        }
+
+        const updateTimer = () => {
+            if (tournament.status === 'active') {
+                setTimeLeft(formatTimeRemaining(tournament.end_time));
+            } else if (tournament.status === 'upcoming') {
+                setTimeLeft(formatTimeUntilStart(tournament.start_time));
+            }
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+    }, [tournament?.end_time, tournament?.start_time, tournament?.status, tournament?.mode]);
+
+    // Validate tournament data after all hooks are called
     if (!tournament || !tournament.mode) {
         console.error('Invalid tournament data:', tournament);
         return (
@@ -150,21 +170,6 @@ function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
 
     const ModeIcon = getModeIcon(tournament.mode);
     const colors = getModeColors(tournament.mode);
-
-    // Update countdown timer
-    useEffect(() => {
-        const updateTimer = () => {
-            if (tournament.status === 'active') {
-                setTimeLeft(formatTimeRemaining(tournament.end_time));
-            } else if (tournament.status === 'upcoming') {
-                setTimeLeft(formatTimeUntilStart(tournament.start_time));
-            }
-        };
-
-        updateTimer();
-        const interval = setInterval(updateTimer, 1000);
-        return () => clearInterval(interval);
-    }, [tournament.end_time, tournament.start_time, tournament.status]);
 
     return (
         <Card
