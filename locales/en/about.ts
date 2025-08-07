@@ -22,7 +22,7 @@ export const about = {
     },
     physics: {
       name: "Physics",
-      description: "Newton got an apple on his head. You get pigeon shit.",
+      description: "Newton got an apple on his head. Cool, right?",
     },
     rotation: {
       name: "Rotation",

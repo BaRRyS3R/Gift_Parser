@@ -32,7 +32,7 @@ export const main = {
     survival: "Выживание:",
     physics: "Физика:",
     rotation: "Вращение:",
-    noMultiplier: "без множителя (жопа слипнется)",
+    noMultiplier: "без множителя",
     rulesNote:
       "Помните: чем сложнее режим, тем больше очков. Логично, не правда ли?",
     snapshotInfo:
