@@ -1,4 +1,4 @@
-// src/app/tournaments/page.tsx - Main tournaments page
+// src/app/tournaments/page.tsx - Fixed tournaments page with ID-based leaderboard access
 
 "use client";
 
@@ -268,18 +268,20 @@ function TournamentsPageContent() {
     const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
 
     // Check if we should show a specific tournament leaderboard
-    const tournamentQuery = searchParams.get('tournament');
+    const tournamentId = searchParams.get('tournamentId');
 
     // Fetch tournaments data
     const fetchTournaments = useCallback(async () => {
-        if (tournamentQuery) {
-            // Fetch specific tournament and its leaderboard
+        if (tournamentId) {
+            // Fetch specific tournament by ID
             try {
                 setIsLoading(true);
                 setError(null);
 
+                console.log('Fetching tournament by ID:', tournamentId);
+
                 const response = await makeAuthenticatedRequest(
-                    `/api/tournaments?tournament=${encodeURIComponent(tournamentQuery)}`
+                    `/api/tournaments/detail?tournamentId=${encodeURIComponent(tournamentId)}`
                 );
 
                 if (!response.ok) {
@@ -325,7 +327,7 @@ function TournamentsPageContent() {
                 setIsLoading(false);
             }
         }
-    }, [makeAuthenticatedRequest, tournamentQuery]);
+    }, [makeAuthenticatedRequest, tournamentId]);
 
     const handleViewDetails = useCallback((tournament: Tournament) => {
         if (tournament.status === 'active') {
@@ -336,17 +338,13 @@ function TournamentsPageContent() {
     }, [router]);
 
     const handleViewLeaderboard = useCallback((tournament: Tournament) => {
-        if (!tournament.mode || !tournament.id) {
-            console.error('Cannot view leaderboard: missing tournament mode or id', tournament);
+        if (!tournament.id) {
+            console.error('Cannot view leaderboard: missing tournament ID', tournament);
             return;
         }
 
-        // Create a more reliable query using tournament ID and current timestamp
-        const currentWeek = Math.floor(Date.now() / (1000 * 60 * 60 * 24 * 7));
-        const query = `${tournament.mode}-week-${currentWeek}-${new Date().getFullYear()}`;
-
-        console.log('Navigating to leaderboard with query:', query); // Debug log
-        router.push(`/tournaments?tournament=${encodeURIComponent(query)}`);
+        console.log('Navigating to leaderboard for tournament ID:', tournament.id);
+        router.push(`/tournaments?tournamentId=${encodeURIComponent(tournament.id)}`);
     }, [router]);
 
     const handleBackToTournaments = useCallback(() => {
