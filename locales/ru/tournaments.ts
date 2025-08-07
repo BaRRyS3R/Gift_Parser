@@ -146,7 +146,7 @@ export const tournaments = {
   empty: {
     noTournaments: "Турниров пока нет",
     checkBackLater: "Заходите позже",
-    firstTournament: "Первый турнир скоро начнётся!",
+    firstTournament: "Новый турнир скоро начнётся!",
   },
 
   // Additional missing keys found in components
