@@ -332,7 +332,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             <CardBody className="p-3">
               <h4 className="text-sm font-bold text-white mb-2">Preview Message:</h4>
               <div className="text-xs text-white/70 font-mono">
-                "{SHARING_CONFIG.message}"
+                {SHARING_CONFIG.message}
                 {sharingMethod === 'embedded' && (
                   <div className="mt-1 text-blue-300">+ Image: circusle.png</div>
                 )}
