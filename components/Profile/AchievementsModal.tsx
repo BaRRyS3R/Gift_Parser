@@ -1,4 +1,4 @@
-// src/components/Profile/AchievementsModal.tsx - Updated with attempt rewards display
+// src/components/Profile/AchievementsModal.tsx - Future Tech styled achievements modal
 
 "use client";
 
@@ -9,9 +9,9 @@ import type {
   UserAchievementsData,
 } from "@/hooks/modules/useProfile";
 
-import React from "react";
+import React, { useState } from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@nextui-org/react";
-import { Trophy, Users, Gamepad2, Zap, X, Gift, Lock } from "lucide-react";
+import { Trophy, Users, Gamepad2, Zap, X, Gift, Lock, Sparkles, HexagonIcon, Activity } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -31,6 +31,44 @@ const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<any>> = {
   lightning_reflexes: Zap,
 };
 
+// Future tech color schemes for achievements
+const ACHIEVEMENT_COLORS: Record<string, {
+  gradient: string;
+  border: string;
+  glow: string;
+  icon: string;
+  progressBar: string;
+}> = {
+  first_game: {
+    gradient: "from-cyan-500/20 to-blue-600/20",
+    border: "border-cyan-500/30",
+    glow: "hover:shadow-[0_0_25px_rgba(6,182,212,0.3)]",
+    icon: "text-cyan-400",
+    progressBar: "bg-gradient-to-r from-cyan-500 to-blue-500"
+  },
+  all_modes_player: {
+    gradient: "from-purple-500/20 to-pink-600/20",
+    border: "border-purple-500/30",
+    glow: "hover:shadow-[0_0_25px_rgba(168,85,247,0.3)]",
+    icon: "text-purple-400",
+    progressBar: "bg-gradient-to-r from-purple-500 to-pink-500"
+  },
+  super_recruiter: {
+    gradient: "from-amber-500/20 to-orange-600/20",
+    border: "border-amber-500/30",
+    glow: "hover:shadow-[0_0_25px_rgba(245,158,11,0.3)]",
+    icon: "text-amber-400",
+    progressBar: "bg-gradient-to-r from-amber-500 to-orange-500"
+  },
+  lightning_reflexes: {
+    gradient: "from-emerald-500/20 to-teal-600/20",
+    border: "border-emerald-500/30",
+    glow: "hover:shadow-[0_0_25px_rgba(16,185,129,0.3)]",
+    icon: "text-emerald-400",
+    progressBar: "bg-gradient-to-r from-emerald-500 to-teal-500"
+  },
+};
+
 export default function AchievementsModal({
   isOpen,
   onClose,
@@ -39,8 +77,9 @@ export default function AchievementsModal({
   rankings,
 }: AchievementsModalProps) {
   const t = useT();
+  const [hoveredAchievement, setHoveredAchievement] = useState<string | null>(null);
 
-  // Use achievement data from props or calculate from user data for backward compatibility
+  // Use achievement data from props
   const achievementsList = achievements?.achievements || [];
   const unlockedCount = achievements?.unlockedCount || 0;
   const totalCount = achievements?.totalCount || 4;
@@ -51,9 +90,7 @@ export default function AchievementsModal({
     return str.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
   };
 
-  const formatDescriptionValue = (
-    achievement: Achievement,
-  ) => {
+  const formatDescriptionValue = (achievement: Achievement) => {
     const params: Record<string, any> = {};
 
     if (achievement.id === "super_recruiter") {
@@ -67,29 +104,18 @@ export default function AchievementsModal({
     return t(`profile.achievements.descriptions.${camelCaseId}` as any, params);
   };
 
-  const getProgressBarColor = (achievement: Achievement) => {
-    if (!achievement.unlocked) return "bg-white/20";
-
-    switch (achievement.color) {
-      case "text-blue-400":
-        return "bg-blue-400";
-      case "text-purple-400":
-        return "bg-purple-400";
-      case "text-yellow-400":
-        return "bg-yellow-400";
-      default:
-        return "bg-white/60";
-    }
+  const getAchievementColors = (achievement: Achievement) => {
+    return ACHIEVEMENT_COLORS[achievement.id] || ACHIEVEMENT_COLORS.first_game;
   };
 
   return (
     <Modal
       backdrop="blur"
       classNames={{
-        backdrop: "bg-black/80",
-        base: "bg-black border border-white/20 m-4",
-        header: "border-b border-white/10",
-        body: "px-0",
+        backdrop: "bg-black/90 backdrop-blur-md",
+        base: "bg-gradient-to-b from-gray-900 via-black to-gray-900 border border-white/10",
+        header: "border-b border-white/10 bg-black/50",
+        body: "px-0 bg-transparent",
         closeButton: "hidden",
       }}
       closeButton={false}
@@ -124,61 +150,78 @@ export default function AchievementsModal({
       <ModalContent>
         {(onClose) => (
           <>
-            <ModalHeader className="flex flex-col gap-1 bg-black text-white relative px-6 py-4">
+            <ModalHeader className="flex flex-col gap-1 relative px-6 py-4">
+              {/* Futuristic close button */}
               <button
-                className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300 z-10"
+                className="absolute top-4 right-4 p-2 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300 z-10 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)]"
                 onClick={onClose}
               >
                 <X size={20} />
               </button>
 
-              <div className="flex items-center space-x-2">
-                <Trophy className="text-yellow-400" size={20} />
-                <span>{t("profile.achievements.title")}</span>
-              </div>
-              <p className="text-sm text-white/60 font-normal">
-                {t("profile.achievementsUnlocked", {
-                  count: unlockedCount,
-                  total: totalCount
-                })}
-              </p>
-
-              {/* Total Attempts Earned Display - NEW */}
-              {totalAttemptsEarned > 0 && (
-                <div className="flex items-center gap-2 mt-2">
-                  <Gift className="text-green-400" size={16} />
-                  <span className="text-sm text-green-400">
-                    {t("profile.achievements.totalAttemptsEarned", {
-                      count: totalAttemptsEarned
-                    })}
+              {/* Header with glowing effect */}
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg blur-lg opacity-50" />
+                  <div className="relative bg-black/70 p-2 rounded-lg border border-white/20">
+                    <Trophy className="text-white" size={20} />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-white font-bold tracking-wider bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                    {t("profile.achievements.title")}
                   </span>
+                  <p className="text-sm text-white/60 font-normal">
+                    {t("profile.achievementsUnlocked", {
+                      count: unlockedCount,
+                      total: totalCount
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Total Attempts Display with neon effect */}
+              {totalAttemptsEarned > 0 && (
+                <div className="flex items-center gap-2 mt-3">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-full">
+                    <Gift className="text-green-400" size={14} />
+                    <span className="text-sm text-green-400 font-mono">
+                      +{totalAttemptsEarned} {t("profile.attempts")}
+                    </span>
+                  </div>
                 </div>
               )}
             </ModalHeader>
 
-            <ModalBody className="bg-black text-white px-6 pb-6">
-              {/* Info Banner about Rewards - NEW */}
-              <div className="bg-white/5 border border-white/20 rounded-lg p-3 mb-4">
-                <div className="flex items-start space-x-2">
-                  <Gift className="text-white/60 mt-0.5" size={16} />
-                  <div className="flex-1">
-                    <p className="text-sm text-white/80">
-                      {t("profile.achievements.rewardsInfo")}
-                    </p>
-                    <p className="text-xs text-white/50 mt-1">
-                      {t("profile.achievements.automaticRewards")}
-                    </p>
+            <ModalBody className="px-6 pb-6">
+              {/* Info Banner with tech styling */}
+              <div className="relative mb-4">
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-lg blur" />
+                <div className="relative bg-black/50 border border-white/10 rounded-lg p-3 backdrop-blur-sm">
+                  <div className="flex items-start space-x-2">
+                    <Sparkles className="text-cyan-400 mt-0.5" size={16} />
+                    <div className="flex-1">
+                      <p className="text-sm text-white/80">
+                        {t("profile.achievements.rewardsInfo")}
+                      </p>
+                      <p className="text-xs text-white/50 mt-1 font-mono">
+                        {t("profile.achievements.automaticRewards")}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {achievementsList.length === 0 ? (
-                <div className="text-center py-8">
-                  <Trophy className="text-white/40 mx-auto mb-4" size={48} />
+                <div className="text-center py-12">
+                  <div className="relative inline-block">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full blur-xl opacity-30" />
+                    <Trophy className="relative text-white/40 mx-auto mb-4" size={48} />
+                  </div>
                   <p className="text-white/60 mb-2">
                     {t("profile.achievements.noAchievements")}
                   </p>
-                  <p className="text-sm text-white/40">
+                  <p className="text-sm text-white/40 font-mono">
                     {t("profile.achievements.playToUnlock")}
                   </p>
                 </div>
@@ -186,110 +229,111 @@ export default function AchievementsModal({
                 <div className="space-y-3">
                   {achievementsList.map((achievement) => {
                     const Icon = ACHIEVEMENT_ICONS[achievement.id] || Trophy;
+                    const colors = getAchievementColors(achievement);
 
                     return (
                       <div
                         key={achievement.id}
                         className={`
-                          relative p-4 rounded-lg border transition-all duration-200
+                          relative p-4 rounded-lg border transition-all duration-300
                           ${achievement.unlocked
-                            ? `${achievement.bg_color} border-current/30`
-                            : "bg-white/5 border-white/10"
-                          }
+                            ? `bg-gradient-to-r ${colors.gradient} ${colors.border} ${colors.glow}`
+                            : "bg-black/40 border-white/5 opacity-60"}
+                          hover:scale-[1.02] cursor-pointer
                         `}
+                        onMouseEnter={() => setHoveredAchievement(achievement.id)}
+                        onMouseLeave={() => setHoveredAchievement(null)}
                       >
-                        <div className="flex items-start space-x-3">
-                          <div
-                            className={`
-                              w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
-                              ${achievement.unlocked ? achievement.bg_color : "bg-white/10"}
-                            `}
-                          >
-                            <Icon
-                              className={
-                                achievement.unlocked
-                                  ? achievement.color
-                                  : "text-white/40"
-                              }
-                              size={20}
-                            />
+                        {/* Animated border effect for unlocked achievements */}
+                        {achievement.unlocked && (
+                          <div className="absolute inset-0 rounded-lg overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_3s_infinite]" />
+                          </div>
+                        )}
+
+                        <div className="relative flex items-start space-x-3">
+                          {/* Icon with holographic effect */}
+                          <div className="relative">
+                            {achievement.unlocked && (
+                              <div className={`absolute inset-0 ${colors.icon} blur-xl opacity-50`} />
+                            )}
+                            <div className={`
+                              relative w-10 h-10 rounded-lg flex items-center justify-center
+                              ${achievement.unlocked
+                                ? `bg-black/50 border ${colors.border}`
+                                : "bg-white/5 border border-white/10"}
+                            `}>
+                              <Icon
+                                className={achievement.unlocked ? colors.icon : "text-white/30"}
+                                size={20}
+                              />
+                            </div>
                           </div>
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <h3
-                                className={`
-                                  font-bold text-sm
-                                  ${achievement.unlocked
-                                    ? "text-white"
-                                    : "text-white/60"
-                                  }
-                                `}
-                              >
+                              <h3 className={`
+                                font-bold text-sm
+                                ${achievement.unlocked ? "text-white" : "text-white/40"}
+                              `}>
                                 {t(`profile.achievements.${toCamelCase(achievement.id)}` as any) || achievement.name}
                               </h3>
 
-                              {/* Reward Badge - NEW */}
+                              {/* Reward Badge with neon effect */}
                               <div className={`
-                                flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
+                                flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono
                                 ${achievement.unlocked
-                                  ? "bg-green-500/20 text-green-400"
-                                  : "bg-white/10 text-white/40"}
+                                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                  : "bg-white/5 text-white/30 border border-white/10"}
                               `}>
                                 {achievement.unlocked ? <Gift size={12} /> : <Lock size={12} />}
                                 <span>+{achievement.attempts_reward}</span>
                               </div>
                             </div>
 
-                            <p
-                              className={`
-                                text-xs mb-2
-                                ${achievement.unlocked
-                                  ? "text-white/80"
-                                  : "text-white/40"
-                                }
-                              `}
-                            >
+                            <p className={`
+                              text-xs mb-2 font-mono
+                              ${achievement.unlocked ? "text-white/70" : "text-white/30"}
+                            `}>
                               {formatDescriptionValue(achievement)}
                             </p>
 
-                            {achievement.progress !== undefined &&
-                              achievement.max_progress !== undefined && (
-                                <div className="space-y-1">
-                                  <div className="flex justify-between text-xs">
-                                    <span className="text-white/60">
-                                      {t("profile.progress")}
-                                    </span>
-                                    <span className="text-white/80">
-                                      {achievement.progress} /{" "}
-                                      {achievement.max_progress}
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-white/10 rounded-full h-1.5">
-                                    <div
-                                      className={`
-                                        h-1.5 rounded-full transition-all duration-500
-                                        ${getProgressBarColor(achievement)}
-                                      `}
-                                      style={{
-                                        width: `${Math.min(
-                                          100,
-                                          (achievement.progress /
-                                            achievement.max_progress) *
-                                          100,
-                                        )}%`,
-                                      }}
-                                    />
-                                  </div>
+                            {/* Progress bar with gradient */}
+                            {achievement.progress !== undefined && achievement.max_progress !== undefined && (
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs font-mono">
+                                  <span className="text-white/50">
+                                    {t("profile.progress")}
+                                  </span>
+                                  <span className={achievement.unlocked ? "text-white/80" : "text-white/40"}>
+                                    {achievement.progress} / {achievement.max_progress}
+                                  </span>
                                 </div>
-                              )}
+                                <div className="relative w-full bg-black/50 rounded-full h-1.5 overflow-hidden border border-white/10">
+                                  <div
+                                    className={`
+                                      h-full transition-all duration-500
+                                      ${achievement.unlocked ? colors.progressBar : "bg-white/20"}
+                                    `}
+                                    style={{
+                                      width: `${Math.min(100, (achievement.progress / achievement.max_progress) * 100)}%`,
+                                    }}
+                                  />
+                                  {achievement.unlocked && (
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
+                          {/* Unlock indicator with pulse effect */}
                           {achievement.unlocked && (
-                            <div className="flex-shrink-0">
-                              <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                            <div className="flex-shrink-0 relative">
+                              <div className="absolute inset-0 bg-green-500 rounded-full blur-md opacity-50 animate-pulse" />
+                              <div className="relative w-6 h-6 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center border border-green-400/50">
                                 <svg
-                                  className="w-3 h-3 text-white"
+                                  className="w-3 h-3 text-black"
                                   fill="currentColor"
                                   viewBox="0 0 20 20"
                                 >
@@ -304,10 +348,10 @@ export default function AchievementsModal({
                           )}
                         </div>
 
-                        {/* Unlocked Date - NEW */}
+                        {/* Unlocked Date with tech font */}
                         {achievement.unlocked && achievement.unlocked_at && (
                           <div className="mt-2 pt-2 border-t border-white/10">
-                            <p className="text-xs text-white/50">
+                            <p className="text-xs text-white/40 font-mono">
                               {t("profile.achievements.unlockedOn", {
                                 date: new Date(achievement.unlocked_at).toLocaleDateString()
                               })}

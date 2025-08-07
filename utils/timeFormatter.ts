@@ -30,21 +30,20 @@ export function formatSurvivalTime(timeMs: number): string {
 export function formatPhysicsTime(timeMs: number): string {
   if (timeMs <= 0) return "0.000s";
 
-  // Handle case where time might be stored as seconds instead of milliseconds
-  // If number is too large (> 3600), assume it's in milliseconds
-  // If number is small (< 3600), assume it's in seconds
-  let seconds: number;
+  const totalSeconds = timeMs / 1000;
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
 
-  if (timeMs > 3600) {
-    // Assume milliseconds
-    seconds = timeMs / 1000;
-  } else {
-    // Assume already in seconds
-    seconds = timeMs;
+  if (minutes > 0) {
+    const wholeSeconds = Math.floor(remainingSeconds);
+    const milliseconds = Math.floor((remainingSeconds - wholeSeconds) * 1000);
+
+    return `${minutes}:${wholeSeconds.toString().padStart(2, "0")}.${milliseconds.toString().padStart(3, "0")}`;
   }
 
-  return `${seconds.toFixed(3)}s`;
+  return `${totalSeconds.toFixed(3)}s`;
 }
+
 
 /**
  * Formats physics game time for display in compact format
