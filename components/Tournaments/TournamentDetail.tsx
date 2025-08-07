@@ -103,9 +103,9 @@ function getModeIcon(mode: string) {
 
 // Game route mapping
 const gameRoutes: Record<string, string> = {
-    survival: "/game/survival",
-    physics: "/game/physics",
-    rotation: "/game/rotation",
+    survival: "/game",
+    physics: "/game",
+    rotation: "/game",
 };
 
 // Форматирование времени
@@ -166,13 +166,19 @@ function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
 
     if (!prizes || prizes.length === 0) return null;
 
-    const prizeConfig = [
-        { icon: "🥇", color: "#ffd700", label: "1ST" },
-        { icon: "🥈", color: "#c0c0c0", label: "2ND" },
-        { icon: "🥉", color: "#cd7f32", label: "3RD" },
-        { icon: "🏆", color: colors.primary, label: "TOP" },
-        { icon: "💎", color: colors.secondary, label: "PRIZE" },
-    ];
+    // Базовые иконки для первых позиций
+    const getIconForPosition = (index: number): string => {
+        const baseIcons = ["🥇", "🥈", "🥉"];
+        if (index < baseIcons.length) return baseIcons[index];
+        return "🏆"; // Для всех остальных позиций
+    };
+
+    // Базовые цвета для первых позиций
+    const getColorForPosition = (index: number): string => {
+        const baseColors = ["#ffd700", "#c0c0c0", "#cd7f32"];
+        if (index < baseColors.length) return baseColors[index];
+        return colors.primary; // Для всех остальных позиций
+    };
 
     // Функция для безопасного получения позиции приза
     const getPrizePosition = (prize: any): string => {
@@ -194,24 +200,28 @@ function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
         <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-mono text-white/60">
                 <Trophy size={12} />
-                <span>PRIZE MATRIX</span>
+                <span>PRIZE MATRIX ({prizes.length} TOTAL)</span>
             </div>
-            <div className="space-y-2">
+
+            {/* Отображение всех призов в вертикальном списке */}
+            <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
                 {prizes.map((prize, index) => {
-                    const config = prizeConfig[index] || prizeConfig[4];
+                    const prizeColor = getColorForPosition(index);
+                    const prizeIcon = getIconForPosition(index);
+
                     return (
                         <div
                             key={index}
                             className="flex items-center justify-between p-3 rounded border bg-black/40"
                             style={{
-                                borderColor: config.color + "40",
-                                boxShadow: `0 0 8px ${config.color}20`,
+                                borderColor: prizeColor + "40",
+                                boxShadow: `0 0 8px ${prizeColor}20`,
                             }}
                         >
                             <div className="flex items-center gap-3">
-                                <span className="text-lg">{config.icon}</span>
+                                <span className="text-lg">{prizeIcon}</span>
                                 <div>
-                                    <div className="text-sm font-mono font-bold" style={{ color: config.color }}>
+                                    <div className="text-sm font-mono font-bold" style={{ color: prizeColor }}>
                                         {getPrizePosition(prize)}
                                     </div>
                                     <div className="text-xs text-white/60 font-mono">POSITION</div>
@@ -229,6 +239,15 @@ function PrizesDisplay({ prizes, colors }: { prizes: Prize[]; colors: any }) {
                     );
                 })}
             </div>
+
+            {/* Общая статистика призов */}
+            {prizes.length > 3 && (
+                <div className="text-center p-2 rounded border border-white/20 bg-black/20">
+                    <span className="text-xs font-mono text-white/60">
+                        TOTAL PRIZE POSITIONS: {prizes.length}
+                    </span>
+                </div>
+            )}
         </div>
     );
 }

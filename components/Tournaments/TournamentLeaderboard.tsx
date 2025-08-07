@@ -171,13 +171,19 @@ function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
 
     if (!prizes || prizes.length === 0) return null;
 
-    const prizeConfig = [
-        { icon: "🥇", color: "#ffd700", label: "1ST" },
-        { icon: "🥈", color: "#c0c0c0", label: "2ND" },
-        { icon: "🥉", color: "#cd7f32", label: "3RD" },
-        { icon: "🏆", color: colors.primary, label: "TOP" },
-        { icon: "💎", color: colors.secondary, label: "PRIZE" },
-    ];
+    // Базовые иконки для первых позиций
+    const getIconForPosition = (index: number): string => {
+        const baseIcons = ["🥇", "🥈", "🥉"];
+        if (index < baseIcons.length) return baseIcons[index];
+        return "🏆"; // Для всех остальных позиций
+    };
+
+    // Базовые цвета для первых позиций
+    const getColorForPosition = (index: number): string => {
+        const baseColors = ["#ffd700", "#c0c0c0", "#cd7f32"];
+        if (index < baseColors.length) return baseColors[index];
+        return colors.primary; // Для всех остальных позиций
+    };
 
     // Функция для безопасного получения позиции приза
     const getPrizePosition = (prize: any): string => {
@@ -196,27 +202,35 @@ function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
         return description.length > 20 ? description.substring(0, 20) + '...' : description;
     };
 
+    // Определяем количество призов для отображения в сетке
+    const maxDisplayInGrid = Math.min(prizes.length, 6); // Максимум 6 в сетке для удобства
+    const remainingPrizes = Math.max(0, prizes.length - maxDisplayInGrid);
+
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-mono text-white/60">
                 <Trophy size={12} />
-                <span>PRIZE MATRIX</span>
+                <span>PRIZE MATRIX ({prizes.length} TOTAL)</span>
             </div>
+            
+            {/* Сетка призов */}
             <div className="grid grid-cols-2 gap-2">
-                {prizes.slice(0, 4).map((prize, index) => {
-                    const config = prizeConfig[index] || prizeConfig[4];
+                {prizes.slice(0, maxDisplayInGrid).map((prize, index) => {
+                    const prizeColor = getColorForPosition(index);
+                    const prizeIcon = getIconForPosition(index);
+                    
                     return (
                         <div
                             key={index}
                             className="flex items-center gap-2 p-2 rounded border bg-black/40"
                             style={{
-                                borderColor: config.color + "40",
-                                boxShadow: `0 0 8px ${config.color}20`,
+                                borderColor: prizeColor + "40",
+                                boxShadow: `0 0 8px ${prizeColor}20`,
                             }}
                         >
-                            <span className="text-sm">{config.icon}</span>
+                            <span className="text-sm">{prizeIcon}</span>
                             <div className="flex-1 min-w-0">
-                                <div className="text-xs font-mono" style={{ color: config.color }}>
+                                <div className="text-xs font-mono" style={{ color: prizeColor }}>
                                     {getPrizePosition(prize)}
                                 </div>
                                 <div className="text-xs text-white/60 truncate">
@@ -227,10 +241,12 @@ function PrizesDisplay({ prizes, colors }: { prizes: any[]; colors: any }) {
                     );
                 })}
             </div>
-            {prizes.length > 4 && (
-                <div className="text-center">
-                    <span className="text-xs font-mono text-white/40">
-                        +{prizes.length - 4} MORE PRIZES
+            
+            {/* Индикатор дополнительных призов */}
+            {remainingPrizes > 0 && (
+                <div className="text-center p-2 rounded border border-white/20 bg-black/20">
+                    <span className="text-xs font-mono text-white/60">
+                        +{remainingPrizes} MORE PRIZE{remainingPrizes > 1 ? 'S' : ''}
                     </span>
                 </div>
             )}
@@ -255,10 +271,11 @@ function LeaderboardEntry({
 
     return (
         <Card
-            className={`bg-black/60 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.01] ${isCurrentUser
+            className={`bg-black/60 backdrop-blur-sm border transition-all duration-300 hover:scale-[1.01] ${
+                isCurrentUser
                     ? `border-2 ${colors.border}`
                     : "border-white/10 hover:border-white/20"
-                }`}
+            }`}
             style={{
                 boxShadow: isCurrentUser ? `0 0 15px ${colors.glow}` : "none",
             }}
@@ -267,7 +284,7 @@ function LeaderboardEntry({
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {/* Position */}
-                        <div
+                        <div 
                             className="flex items-center justify-center w-8 h-8 rounded border"
                             style={{
                                 borderColor: positionColor + "60",
@@ -275,13 +292,13 @@ function LeaderboardEntry({
                             }}
                         >
                             {PositionIcon ? (
-                                <PositionIcon
-                                    className="text-sm"
-                                    size={14}
+                                <PositionIcon 
+                                    className="text-sm" 
+                                    size={14} 
                                     style={{ color: positionColor }}
                                 />
                             ) : (
-                                <span
+                                <span 
                                     className="text-xs font-mono font-bold"
                                     style={{ color: positionColor }}
                                 >
@@ -307,16 +324,16 @@ function LeaderboardEntry({
                                         {entry.last_name && ` ${entry.last_name.charAt(0)}.`}
                                     </span>
                                     {isCurrentUser && (
-                                        <Star
-                                            size={10}
+                                        <Star 
+                                            size={10} 
                                             className="text-yellow-400 fill-current"
                                         />
                                     )}
                                 </div>
                                 {entry.username && (
                                     <span className="text-white/50 text-xs font-mono">
-                                        @{entry.username.length > 12
-                                            ? entry.username.substring(0, 12) + '...'
+                                        @{entry.username.length > 12 
+                                            ? entry.username.substring(0, 12) + '...' 
                                             : entry.username}
                                     </span>
                                 )}
@@ -326,7 +343,7 @@ function LeaderboardEntry({
 
                     {/* Score */}
                     <div className="text-right">
-                        <div
+                        <div 
                             className="text-sm font-mono font-bold"
                             style={{ color: isCurrentUser ? colors.primary : "#ffffff" }}
                         >
@@ -516,7 +533,7 @@ export default function TournamentLeaderboard({
                                     >
                                         <span className="text-lg">
                                             {tournament.mode === "survival" ? "⚡" :
-                                                tournament.mode === "physics" ? "⚛️" : "🔄"}
+                                             tournament.mode === "physics" ? "⚛️" : "🔄"}
                                         </span>
                                     </div>
                                     <div>
@@ -532,7 +549,7 @@ export default function TournamentLeaderboard({
                                 {tournament.status === "active" && timeLeft && (
                                     <div className="text-right">
                                         <div className="text-xs text-white/60 font-mono">ENDS IN</div>
-                                        <div
+                                        <div 
                                             className="text-sm font-mono font-bold"
                                             style={{ color: colors.primary }}
                                         >
@@ -549,7 +566,7 @@ export default function TournamentLeaderboard({
                                     {tournament.description}
                                 </p>
                             )}
-
+                            
                             {/* Prizes Display */}
                             <PrizesDisplay prizes={tournament.prizes} colors={colors} />
                         </CardBody>
@@ -566,9 +583,9 @@ export default function TournamentLeaderboard({
                                     YOUR POSITION
                                 </h2>
                             </div>
-                            <div
+                            <div 
                                 className="flex-1 h-px bg-gradient-to-r to-transparent"
-                                style={{
+                                style={{ 
                                     backgroundImage: `linear-gradient(to right, ${colors.primary}60, transparent)`
                                 }}
                             />
@@ -619,7 +636,7 @@ export default function TournamentLeaderboard({
                         <div className="space-y-2">
                             {leaderboard.map((entry, index) => {
                                 if (!entry) return null; // Защита от пустых записей
-
+                                
                                 const position = index + 1;
                                 const isCurrentUser = isCurrentUserEntry(entry, user);
 

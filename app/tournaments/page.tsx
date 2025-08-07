@@ -291,9 +291,6 @@ function TournamentCard({ tournament, onViewDetails, onViewLeaderboard }: {
                     </span>
                 </div>
 
-                {/* Prizes */}
-                <PrizesDisplay prizes={tournament.prizes} colors={colors} />
-
                 {/* Action Buttons */}
                 <div className="flex gap-2 pt-2">
                     {tournament.status === 'active' && (
@@ -397,8 +394,8 @@ function TournamentsPageContent() {
 
     const handleViewDetails = useCallback((tournament: Tournament) => {
         if (tournament.status === 'active') {
-            const gameRoute = `/game/${tournament.mode}`;
-            router.push(gameRoute);
+            // Переход на общую страницу игры
+            router.push('/game');
         }
     }, [router]);
 
@@ -629,6 +626,8 @@ function TournamentsPageContent() {
 
 export default function TournamentsPage() {
     return (
+        <AuthGuard requireCompleteAuth={true} showError={true}>
             <TournamentsPageContent />
+        </AuthGuard>
     );
 }
