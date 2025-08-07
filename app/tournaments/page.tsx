@@ -18,7 +18,7 @@ import {
 import { useUser } from "@/hooks/useUser";
 import { useT } from "@/contexts/LocalizationContext";
 import AuthGuard from "@/components/Auth/AuthGuard";
-import TournamentLeaderboard from "@/components/Tournaments/TournamentLeaderboard";
+import TournamentLeaderboardModal from "@/components/Tournaments/TournamentLeaderboardModal";
 
 // Tournament interfaces
 interface Tournament {
@@ -336,6 +336,10 @@ function TournamentsPageContent() {
     const [error, setError] = useState<string | null>(null);
     const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
 
+    // Добавляем состояние для модального окна лидерборда
+    const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState<boolean>(false);
+    const [leaderboardTournament, setLeaderboardTournament] = useState<Tournament | null>(null);
+
     const tournamentId = searchParams.get('tournamentId');
 
     const fetchTournaments = useCallback(async () => {
@@ -399,14 +403,22 @@ function TournamentsPageContent() {
         }
     }, [router]);
 
+    // Изменяем функцию для открытия модального окна лидерборда
     const handleViewLeaderboard = useCallback((tournament: Tournament) => {
         if (!tournament.id) {
             console.error('Cannot view leaderboard: missing tournament ID', tournament);
             return;
         }
 
-        router.push(`/tournaments?tournamentId=${encodeURIComponent(tournament.id)}`);
-    }, [router]);
+        setLeaderboardTournament(tournament);
+        setIsLeaderboardModalOpen(true);
+    }, []);
+
+    // Добавляем функцию для закрытия модального окна
+    const handleCloseLeaderboardModal = useCallback(() => {
+        setIsLeaderboardModalOpen(false);
+        setLeaderboardTournament(null);
+    }, []);
 
     const handleBackToTournaments = useCallback(() => {
         router.push('/tournaments');
@@ -440,15 +452,6 @@ function TournamentsPageContent() {
             };
         }
     }, [router, selectedTournament, handleBackToTournaments]);
-
-    if (selectedTournament) {
-        return (
-            <TournamentLeaderboard
-                tournament={selectedTournament}
-                onBack={handleBackToTournaments}
-            />
-        );
-    }
 
     if (isLoading) {
         return (
@@ -634,12 +637,19 @@ function TournamentsPageContent() {
                         </div>
                     )}
             </div>
+
+            {/* Модальное окно лидерборда */}
+            <TournamentLeaderboardModal
+                isOpen={isLeaderboardModalOpen}
+                onClose={handleCloseLeaderboardModal}
+                tournament={leaderboardTournament}
+            />
         </div>
     );
 }
 
 export default function TournamentsPage() {
     return (
-            <TournamentsPageContent />
+        <TournamentsPageContent />
     );
 }
