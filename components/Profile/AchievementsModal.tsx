@@ -271,17 +271,24 @@ export default function AchievementsModal({
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h3 className={`
-                                font-bold text-sm
-                                ${achievement.unlocked ? "text-white" : "text-white/40"}
-                              `}>
-                                {t(`profile.achievements.${toCamelCase(achievement.id)}` as any) || achievement.name}
-                              </h3>
+                            <h3 className={`
+                              font-bold text-sm mb-1
+                              ${achievement.unlocked ? "text-white" : "text-white/40"}
+                            `}>
+                              {t(`profile.achievements.${toCamelCase(achievement.id)}` as any) || achievement.name}
+                            </h3>
 
-                              {/* Reward Badge with neon effect */}
+                            <p className={`
+                              text-xs mb-2 font-mono
+                              ${achievement.unlocked ? "text-white/70" : "text-white/30"}
+                            `}>
+                              {formatDescriptionValue(achievement)}
+                            </p>
+
+                            {/* Reward Badge with neon effect - moved here */}
+                            <div className="mb-2">
                               <div className={`
-                                flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono
+                                inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono
                                 ${achievement.unlocked
                                   ? "bg-green-500/20 text-green-400 border border-green-500/30"
                                   : "bg-white/5 text-white/30 border border-white/10"}
@@ -290,13 +297,6 @@ export default function AchievementsModal({
                                 <span>+{achievement.attempts_reward}</span>
                               </div>
                             </div>
-
-                            <p className={`
-                              text-xs mb-2 font-mono
-                              ${achievement.unlocked ? "text-white/70" : "text-white/30"}
-                            `}>
-                              {formatDescriptionValue(achievement)}
-                            </p>
 
                             {/* Progress bar with gradient */}
                             {achievement.progress !== undefined && achievement.max_progress !== undefined && (
