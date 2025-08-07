@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated with level system and fixed total_games counting
+// src/lib/server/gameService.ts - Updated with achievement system integration
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -6,7 +6,8 @@ import type { PhysicsGameResult } from "@/types/game-modes/physics";
 import type { RotationGameResult } from "@/types/game-modes/rotation";
 
 import { GameMode } from "@/types/game-modes/common";
-import { supabaseServer } from "@/lib/supabase_server";
+import { supabaseServer } from "../supabase_server";
+import { serverAchievementsService } from "./achievementsService";
 
 // Game result union type
 type GameResult =
@@ -15,12 +16,19 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Game save result interface (enhanced with level system)
+// Enhanced game save result with achievements
 export interface GameSaveResult {
   success: boolean;
   levelChanged?: boolean;
   newLevel?: number;
   attemptsAwarded?: number;
+  // NEW: Achievement rewards
+  achievementsUnlocked?: Array<{
+    id: string;
+    name: string;
+    attemptsAwarded: number;
+  }>;
+  totalAttemptsAwarded?: number;
   error?: string;
 }
 
@@ -130,7 +138,7 @@ function calculateModeSpecificScore(gameResult: GameResult): number {
 // Server-side game service
 export const serverGameService = {
   /**
-   * Update user game statistics with level system integration
+   * Update user game statistics with level and achievement system integration
    */
   async updateGameStats(
     telegramId: number,
@@ -150,7 +158,7 @@ export const serverGameService = {
     const previousTotalGames = user.total_games;
     const previousLevel = user.current_level;
 
-    // FIXED: All modes now count towards total_games (including reaction)
+    // All modes count towards total_games
     const newTotalGames = previousTotalGames + 1;
 
     // Calculate new level based on total games
@@ -170,13 +178,12 @@ export const serverGameService = {
     };
 
     // Award attempts for level increase
-    let attemptsAwarded = 0;
+    let levelAttemptsAwarded = 0;
 
     if (levelChanged) {
       const levelsGained = newLevel - previousLevel;
-
-      attemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
-      updates.attempts_remaining = user.attempts_remaining + attemptsAwarded;
+      levelAttemptsAwarded = levelsGained * LEVEL_CONFIG.ATTEMPTS_PER_LEVEL;
+      updates.attempts_remaining = user.attempts_remaining + levelAttemptsAwarded;
     }
 
     // Mode-specific statistics updates
@@ -192,7 +199,7 @@ export const serverGameService = {
       updates.reaction_games = user.reaction_games + 1;
       updates.reaction_best_score = Math.max(
         user.reaction_best_score || 0,
-        calculatedScore, // Use calculated score instead of gameResult.score
+        calculatedScore,
       );
 
       if (!reactionResult.missed && reactionResult.reactionTime > 0) {
@@ -206,8 +213,8 @@ export const serverGameService = {
         const newAverage =
           totalReactionGames > 0
             ? (currentAverage * totalReactionGames +
-                reactionResult.reactionTime) /
-              (totalReactionGames + 1)
+              reactionResult.reactionTime) /
+            (totalReactionGames + 1)
             : reactionResult.reactionTime;
 
         updates.reaction_average_time = Math.round(newAverage);
@@ -218,7 +225,7 @@ export const serverGameService = {
       updates.survival_games = user.survival_games + 1;
       updates.survival_best_score = Math.max(
         user.survival_best_score || 0,
-        survivalResult.score * 2, // Apply multiplier to mode-specific best score
+        survivalResult.score * 2,
       );
       updates.survival_best_time = Math.max(
         user.survival_best_time || 0,
@@ -238,7 +245,7 @@ export const serverGameService = {
       updates.physics_games = user.physics_games + 1;
       updates.physics_best_score = Math.max(
         user.physics_best_score || 0,
-        physicsResult.score * 4, // Apply multiplier to mode-specific best score
+        physicsResult.score * 4,
       );
       updates.physics_best_time = Math.max(
         user.physics_best_time || 0,
@@ -268,7 +275,7 @@ export const serverGameService = {
       updates.rotation_games = user.rotation_games + 1;
       updates.rotation_best_score = Math.max(
         user.rotation_best_score || 0,
-        rotationResult.score * 3, // Apply multiplier to mode-specific best score
+        rotationResult.score * 3,
       );
       updates.rotation_best_time = Math.max(
         user.rotation_best_time || 0,
@@ -297,12 +304,39 @@ export const serverGameService = {
       throw new Error("Failed to update user statistics");
     }
 
-    return {
+    // NEW: Check and award achievements after stats update
+    // The database trigger will automatically check, but we also get the results here
+    const newAchievements = await serverAchievementsService.checkAndAwardAchievements(
+      telegramId
+    );
+
+    // Calculate total attempts awarded
+    const achievementAttemptsAwarded = newAchievements.reduce(
+      (total: number, achievement: any) => total + achievement.attempts_awarded,
+      0
+    );
+
+    const totalAttemptsAwarded = levelAttemptsAwarded + achievementAttemptsAwarded;
+
+    // Prepare response
+    const response: GameSaveResult = {
       success: true,
       levelChanged,
       newLevel: levelChanged ? newLevel : undefined,
-      attemptsAwarded: levelChanged ? attemptsAwarded : undefined,
+      attemptsAwarded: levelAttemptsAwarded > 0 ? levelAttemptsAwarded : undefined,
     };
+
+    // Add achievement information if any were unlocked
+    if (newAchievements.length > 0) {
+      response.achievementsUnlocked = newAchievements.map((achievement) => ({
+        id: achievement.achievement_id,
+        name: achievement.achievement_name,
+        attemptsAwarded: achievement.attempts_awarded,
+      }));
+      response.totalAttemptsAwarded = totalAttemptsAwarded;
+    }
+
+    return response;
   },
 
   /**
@@ -358,6 +392,9 @@ export const serverGameService = {
     // Parse JSON response from the RPC function
     const saveResponse: TournamentSaveResponse =
       typeof data === "string" ? JSON.parse(data) : data;
+
+    // Also check achievements after tournament game
+    await serverAchievementsService.checkAndAwardAchievements(telegramId);
 
     return saveResponse;
   },

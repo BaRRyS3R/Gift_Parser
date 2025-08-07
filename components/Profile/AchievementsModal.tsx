@@ -1,112 +1,50 @@
-// src/components/Profile/AchievementsModal.tsx - Simplified achievements modal with 4 core achievements
+// src/components/Profile/AchievementsModal.tsx - Updated with attempt rewards display
 
 "use client";
 
 import type {
   UserProfileGameStats,
   UserRankings,
+  Achievement,
+  UserAchievementsData,
 } from "@/hooks/modules/useProfile";
 
 import React from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@nextui-org/react";
-import { Trophy, Users, Gamepad2, Zap, X } from "lucide-react";
+import { Trophy, Users, Gamepad2, Zap, X, Gift, Lock } from "lucide-react";
 
 import { useT } from "@/contexts/LocalizationContext";
 
 interface AchievementsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: UserProfileGameStats;
-  rankings: UserRankings;
+  achievements?: UserAchievementsData;
+  user?: UserProfileGameStats | null;
+  rankings?: UserRankings;
 }
 
-interface Achievement {
-  id: string;
-  titleKey: string;
-  descriptionKey: string;
-  icon: React.ComponentType<any>;
-  color: string;
-  bgColor: string;
-  isUnlocked: boolean;
-  progress?: number;
-  maxProgress?: number;
-}
+// Map achievement IDs to their icon components
+const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<any>> = {
+  first_game: Trophy,
+  all_modes_player: Gamepad2,
+  super_recruiter: Users,
+  lightning_reflexes: Zap,
+};
 
 export default function AchievementsModal({
   isOpen,
   onClose,
+  achievements,
   user,
   rankings,
 }: AchievementsModalProps) {
   const t = useT();
 
-  const getAchievements = (): Achievement[] => {
-    const achievements: Achievement[] = [
-      // First game achievement
-      {
-        id: "first_game",
-        titleKey: "profile.achievements.firstGame",
-        descriptionKey: "profile.achievements.descriptions.firstGame",
-        icon: Trophy,
-        color: "text-blue-400",
-        bgColor: "bg-blue-500/20",
-        isUnlocked: user.total_games >= 1,
-        progress: Math.min(user.total_games, 1),
-        maxProgress: 1,
-      },
-
-      // All modes played achievement
-      {
-        id: "all_modes_player",
-        titleKey: "profile.achievements.allModesPlayer",
-        descriptionKey: "profile.achievements.descriptions.allModesPlayer",
-        icon: Gamepad2,
-        color: "text-purple-400",
-        bgColor: "bg-purple-500/20",
-        isUnlocked:
-          user.reaction_games >= 1 &&
-          user.survival_games >= 1 &&
-          user.physics_games >= 1 &&
-          user.rotation_games >= 1,
-        progress: [
-          user.reaction_games >= 1 ? 1 : 0,
-          user.survival_games >= 1 ? 1 : 0,
-          user.physics_games >= 1 ? 1 : 0,
-          user.rotation_games >= 1 ? 1 : 0,
-        ].reduce((sum, val) => sum + val, 0),
-        maxProgress: 4,
-      },
-
-      // Super recruiter achievement (100+ friends)
-      {
-        id: "super_recruiter",
-        titleKey: "profile.achievements.superRecruiter",
-        descriptionKey: "profile.achievements.descriptions.superRecruiter",
-        icon: Users,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked: user.referral_count >= 100,
-        progress: user.referral_count,
-        maxProgress: 100,
-      },
-
-      // Lightning reflexes achievement (<10ms reaction)
-      {
-        id: "lightning_reflexes",
-        titleKey: "profile.achievements.lightningReflexes",
-        descriptionKey: "profile.achievements.descriptions.lightningReflexes",
-        icon: Zap,
-        color: "text-yellow-400",
-        bgColor: "bg-yellow-500/20",
-        isUnlocked: user.reaction_best_time > 0 && user.reaction_best_time < 10,
-      },
-    ];
-
-    return achievements;
-  };
-
-  const achievements = getAchievements();
-  const unlockedCount = achievements.filter((a) => a.isUnlocked).length;
+  // Use achievement data from props or calculate from user data for backward compatibility
+  const achievementsList = achievements?.achievements || [];
+  const unlockedCount = achievements?.unlockedCount || 0;
+  const totalCount = achievements?.totalCount || 4;
+  const totalAttemptsEarned = achievements?.totalAttemptsEarned || 0;
 
   const formatDescriptionValue = (
     descriptionKey: string,
@@ -114,9 +52,8 @@ export default function AchievementsModal({
   ) => {
     const params: Record<string, any> = {};
 
-    // Set appropriate parameter values based on achievement type
     if (achievement.id === "super_recruiter") {
-      params.count = achievement.maxProgress || 100;
+      params.count = 100;
     }
     if (achievement.id === "lightning_reflexes") {
       params.time = 10;
@@ -125,9 +62,8 @@ export default function AchievementsModal({
     return t(descriptionKey as any, params);
   };
 
-  // Helper function to get proper progress bar color
   const getProgressBarColor = (achievement: Achievement) => {
-    if (!achievement.isUnlocked) return "bg-white/20";
+    if (!achievement.unlocked) return "bg-white/20";
 
     switch (achievement.color) {
       case "text-blue-400":
@@ -184,7 +120,6 @@ export default function AchievementsModal({
         {(onClose) => (
           <>
             <ModalHeader className="flex flex-col gap-1 bg-black text-white relative px-6 py-4">
-              {/* Close button */}
               <button
                 className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all duration-300 z-10"
                 onClick={onClose}
@@ -197,11 +132,42 @@ export default function AchievementsModal({
                 <span>{t("profile.achievements.title")}</span>
               </div>
               <p className="text-sm text-white/60 font-normal">
-                {unlockedCount} / {achievements.length} разблокировано
+                {t("profile.achievementsUnlocked", {
+                  count: unlockedCount,
+                  total: totalCount
+                })}
               </p>
+
+              {/* Total Attempts Earned Display - NEW */}
+              {totalAttemptsEarned > 0 && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Gift className="text-green-400" size={16} />
+                  <span className="text-sm text-green-400">
+                    {t("profile.achievements.totalAttemptsEarned", {
+                      count: totalAttemptsEarned
+                    })}
+                  </span>
+                </div>
+              )}
             </ModalHeader>
+
             <ModalBody className="bg-black text-white px-6 pb-6">
-              {achievements.length === 0 ? (
+              {/* Info Banner about Rewards - NEW */}
+              <div className="bg-white/5 border border-white/20 rounded-lg p-3 mb-4">
+                <div className="flex items-start space-x-2">
+                  <Gift className="text-white/60 mt-0.5" size={16} />
+                  <div className="flex-1">
+                    <p className="text-sm text-white/80">
+                      {t("profile.achievements.rewardsInfo")}
+                    </p>
+                    <p className="text-xs text-white/50 mt-1">
+                      {t("profile.achievements.automaticRewards")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {achievementsList.length === 0 ? (
                 <div className="text-center py-8">
                   <Trophy className="text-white/40 mx-auto mb-4" size={48} />
                   <p className="text-white/60 mb-2">
@@ -213,31 +179,30 @@ export default function AchievementsModal({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {achievements.map((achievement) => {
-                    const Icon = achievement.icon;
+                  {achievementsList.map((achievement) => {
+                    const Icon = ACHIEVEMENT_ICONS[achievement.id] || Trophy;
 
                     return (
                       <div
                         key={achievement.id}
                         className={`
                           relative p-4 rounded-lg border transition-all duration-200
-                          ${
-                            achievement.isUnlocked
-                              ? `${achievement.bgColor} border-current/30`
-                              : "bg-white/5 border-white/10"
+                          ${achievement.unlocked
+                            ? `${achievement.bg_color} border-current/30`
+                            : "bg-white/5 border-white/10"
                           }
                         `}
                       >
                         <div className="flex items-start space-x-3">
                           <div
                             className={`
-                              w-10 h-10 rounded-lg flex items-center justify-center
-                              ${achievement.isUnlocked ? achievement.bgColor : "bg-white/10"}
+                              w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+                              ${achievement.unlocked ? achievement.bg_color : "bg-white/10"}
                             `}
                           >
                             <Icon
                               className={
-                                achievement.isUnlocked
+                                achievement.unlocked
                                   ? achievement.color
                                   : "text-white/40"
                               }
@@ -246,45 +211,56 @@ export default function AchievementsModal({
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <h3
-                              className={`
-                                font-bold text-sm mb-1
-                                ${
-                                  achievement.isUnlocked
+                            <div className="flex items-center gap-2">
+                              <h3
+                                className={`
+                                  font-bold text-sm
+                                  ${achievement.unlocked
                                     ? "text-white"
                                     : "text-white/60"
-                                }
-                              `}
-                            >
-                              {t(achievement.titleKey as any)}
-                            </h3>
+                                  }
+                                `}
+                              >
+                                {t(`profile.achievements.${achievement.id}` as any)}
+                              </h3>
+
+                              {/* Reward Badge - NEW */}
+                              <div className={`
+                                flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
+                                ${achievement.unlocked
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-white/10 text-white/40"}
+                              `}>
+                                {achievement.unlocked ? <Gift size={12} /> : <Lock size={12} />}
+                                <span>+{achievement.attempts_reward}</span>
+                              </div>
+                            </div>
 
                             <p
                               className={`
                                 text-xs mb-2
-                                ${
-                                  achievement.isUnlocked
-                                    ? "text-white/80"
-                                    : "text-white/40"
+                                ${achievement.unlocked
+                                  ? "text-white/80"
+                                  : "text-white/40"
                                 }
                               `}
                             >
                               {formatDescriptionValue(
-                                achievement.descriptionKey,
+                                `profile.achievements.descriptions.${achievement.id}`,
                                 achievement,
                               )}
                             </p>
 
                             {achievement.progress !== undefined &&
-                              achievement.maxProgress !== undefined && (
+                              achievement.max_progress !== undefined && (
                                 <div className="space-y-1">
                                   <div className="flex justify-between text-xs">
                                     <span className="text-white/60">
-                                      Прогресс
+                                      {t("profile.progress")}
                                     </span>
                                     <span className="text-white/80">
                                       {achievement.progress} /{" "}
-                                      {achievement.maxProgress}
+                                      {achievement.max_progress}
                                     </span>
                                   </div>
                                   <div className="w-full bg-white/10 rounded-full h-1.5">
@@ -297,8 +273,8 @@ export default function AchievementsModal({
                                         width: `${Math.min(
                                           100,
                                           (achievement.progress /
-                                            achievement.maxProgress) *
-                                            100,
+                                            achievement.max_progress) *
+                                          100,
                                         )}%`,
                                       }}
                                     />
@@ -307,7 +283,7 @@ export default function AchievementsModal({
                               )}
                           </div>
 
-                          {achievement.isUnlocked && (
+                          {achievement.unlocked && (
                             <div className="flex-shrink-0">
                               <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                                 <svg
@@ -325,6 +301,17 @@ export default function AchievementsModal({
                             </div>
                           )}
                         </div>
+
+                        {/* Unlocked Date - NEW */}
+                        {achievement.unlocked && achievement.unlocked_at && (
+                          <div className="mt-2 pt-2 border-t border-white/10">
+                            <p className="text-xs text-white/50">
+                              {t("profile.achievements.unlockedOn", {
+                                date: new Date(achievement.unlocked_at).toLocaleDateString()
+                              })}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

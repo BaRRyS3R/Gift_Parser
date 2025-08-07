@@ -1,4 +1,4 @@
-// src/locales/ru/profile.ts - Updated Russian profile translations with simplified achievements
+// src/locales/ru/profile.ts - Updated Russian profile translations with achievement rewards
 
 export const profile = {
   title: "PROFILE",
@@ -27,7 +27,12 @@ export const profile = {
   achievementButton: "Достижения",
   leagueButton: "Лиги",
 
-  // NEW: Level and league display
+  // Achievement header display
+  attempts: "попыток",
+  achievementsUnlocked: "{count} из {total} достижений разблокировано",
+  progress: "Прогресс",
+
+  // Level and league display
   levelDisplay: "Уровень {level}",
   currentLeague: "Текущая",
   gamesUnit: "игр",
@@ -35,7 +40,7 @@ export const profile = {
   gamesRequired: "игр необходимо",
   inLeague: "в",
 
-  // NEW: Level progress
+  // Level progress
   levelProgress: {
     gamesToNext: "Игр до следующего уровня",
     nextLevel: "Следующий уровень {level}",
@@ -43,7 +48,7 @@ export const profile = {
     maxAchieved: "Достигнут максимум",
   },
 
-  // NEW: League position
+  // League position
   leaguePosition: {
     title: "Позиция в лиге",
     yourPosition: "Ваша позиция",
@@ -117,12 +122,19 @@ export const profile = {
     noAchievements: "ДОСТИЖЕНИЙ ЕЩЁ НЕТ",
     playToUnlock: "ИГРАЙТЕ, ЧТОБЫ ОТКРЫВАТЬ ДОСТИЖЕНИЯ!",
 
-    // Updated simplified achievements
+    // NEW: Achievement reward strings
+    totalAttemptsEarned: "Всего заработано попыток: {count}",
+    rewardsInfo: "Открывайте достижения, чтобы получать бонусные попытки!",
+    automaticRewards: "Награды автоматически добавляются на ваш аккаунт при разблокировке достижения.",
+    unlockedOn: "Разблокировано {date}",
+
+    // Achievement names
     firstGame: "ПЕРВЫЕ ШАГИ",
     allModesPlayer: "УНИВЕРСАЛЬНЫЙ ИГРОК",
     superRecruiter: "СУПЕР ВЕРБОВЩИК",
     lightningReflexes: "МОЛНИЕНОСНЫЕ РЕФЛЕКСЫ",
 
+    // Achievement descriptions
     descriptions: {
       firstGame: "СЫГРАЛ ПЕРВУЮ ИГРУ",
       allModesPlayer: "ПОПРОБОВАЛ ВСЕ ИГРОВЫЕ РЕЖИМЫ",

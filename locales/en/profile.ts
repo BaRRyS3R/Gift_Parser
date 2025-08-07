@@ -1,4 +1,4 @@
-// src/locales/en/profile.ts - Updated English profile translations with simplified achievements
+// src/locales/en/profile.ts - Updated English profile translations with achievement rewards
 
 export const profile = {
   title: "PROFILE",
@@ -25,7 +25,12 @@ export const profile = {
   achievementButton: "Achievements",
   leagueButton: "League",
 
-  // NEW: Level and league display
+  // Achievement header display
+  attempts: "attempts",
+  achievementsUnlocked: "{count} of {total} achievements unlocked",
+  progress: "Progress",
+
+  // Level and league display
   levelDisplay: "Level {level}",
   currentLeague: "Current",
   gamesUnit: "games",
@@ -33,7 +38,7 @@ export const profile = {
   gamesRequired: "games required",
   inLeague: "in",
 
-  // NEW: Level progress
+  // Level progress
   levelProgress: {
     gamesToNext: "Games to next level",
     nextLevel: "Next level {level}",
@@ -41,7 +46,7 @@ export const profile = {
     maxAchieved: "Maximum achieved",
   },
 
-  // NEW: League position
+  // League position
   leaguePosition: {
     title: "League Position",
     yourPosition: "Your position",
@@ -113,12 +118,19 @@ export const profile = {
     noAchievements: "NO ACHIEVEMENTS UNLOCKED",
     playToUnlock: "PLAY GAMES TO UNLOCK ACHIEVEMENTS!",
 
-    // Updated simplified achievements
+    // NEW: Achievement reward strings
+    totalAttemptsEarned: "Total attempts earned: {count}",
+    rewardsInfo: "Unlock achievements to earn bonus attempts!",
+    automaticRewards: "Rewards are automatically added to your account when you unlock an achievement.",
+    unlockedOn: "Unlocked on {date}",
+
+    // Achievement names
     firstGame: "FIRST STEPS",
     allModesPlayer: "UNIVERSAL PLAYER",
     superRecruiter: "SUPER RECRUITER",
     lightningReflexes: "LIGHTNING REFLEXES",
 
+    // Achievement descriptions
     descriptions: {
       firstGame: "PLAYED FIRST GAME",
       allModesPlayer: "TRIED ALL GAME MODES",

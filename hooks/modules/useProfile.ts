@@ -1,15 +1,14 @@
-// src/hooks/modules/useProfile.ts - Обновленный хук профиля с полными данными пользователя
+// src/hooks/modules/useProfile.ts - Updated with achievements support
 
 import { useState, useCallback, useRef } from "react";
 
-// Profile interfaces (обновленные)
+// Profile interfaces (existing)
 export interface ReferralInfo {
   code: string;
   count: number;
   bonus: number;
   referredBy?: string;
   referredByName?: string;
-  // Add computed fields for modal
   referralLink: string;
 }
 
@@ -21,7 +20,7 @@ export interface UserRankings {
   rotation: number | null;
 }
 
-// Полные данные пользователя для профиля
+// User profile game stats (existing)
 export interface UserProfileGameStats {
   id: string;
   telegram_id: number;
@@ -73,10 +72,35 @@ export interface UserProfileGameStats {
   is_active: boolean;
 }
 
+// NEW: Achievement interfaces
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  attempts_reward: number;
+  icon: string;
+  color: string;
+  bg_color: string;
+  unlocked: boolean;
+  unlocked_at?: string;
+  progress?: number;
+  max_progress?: number;
+}
+
+export interface UserAchievementsData {
+  achievements: Achievement[];
+  unlockedCount: number;
+  totalCount: number;
+  recentlyUnlocked: Achievement[];
+  totalAttemptsEarned: number;
+}
+
+// Enhanced profile data interface
 export interface ProfileData {
   user: UserProfileGameStats;
   referrals: ReferralInfo;
   rankings: UserRankings;
+  achievements?: UserAchievementsData; // NEW: Achievements data
 }
 
 // Hook state interface
@@ -84,11 +108,11 @@ interface ProfileState {
   data: ProfileData | null;
   isLoading: boolean;
   error: string | null;
+  achievementsLoading: boolean; // NEW: Separate loading state for achievements
 }
 
 /**
- * Унифицированный хук профиля для рефералов, рейтингов и полной статистики пользователя
- * Всегда загружает свежие данные - без кеширования
+ * Enhanced profile hook with achievements support
  */
 export function useProfile(
   makeAuthenticatedRequest: (
@@ -100,19 +124,18 @@ export function useProfile(
     data: null,
     isLoading: false,
     error: null,
+    achievementsLoading: false,
   });
 
   const fetchingRef = useRef<boolean>(false);
+  const fetchingAchievementsRef = useRef<boolean>(false);
 
   /**
-   * Загрузить свежие данные профиля из API (всегда актуальные данные)
+   * Fetch profile data including achievements
    */
   const fetchProfileData =
     useCallback(async (): Promise<ProfileData | null> => {
-      // Wait for current request to complete instead of returning cached data
       if (fetchingRef.current) {
-
-        // Wait for current fetch to complete
         return new Promise((resolve) => {
           const checkCompletion = () => {
             if (!fetchingRef.current) {
@@ -121,7 +144,6 @@ export function useProfile(
               setTimeout(checkCompletion, 100);
             }
           };
-
           checkCompletion();
         });
       }
@@ -130,29 +152,45 @@ export function useProfile(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
+        // Fetch profile data and achievements in parallel
+        const [profileResponse, achievementsResponse] = await Promise.all([
+          makeAuthenticatedRequest("/api/user/profile"),
+          makeAuthenticatedRequest("/api/user/achievements"),
+        ]);
 
-        const response = await makeAuthenticatedRequest("/api/user/profile");
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-
+        if (!profileResponse.ok) {
+          const errorData = await profileResponse.json().catch(() => ({}));
           throw new Error(
-            errorData.error || `Server error: ${response.status}`,
+            errorData.error || `Server error: ${profileResponse.status}`,
           );
         }
 
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch profile data");
+        const profileResult = await profileResponse.json();
+        if (!profileResult.success) {
+          throw new Error(
+            profileResult.error || "Failed to fetch profile data",
+          );
         }
 
-        const profileData: ProfileData = result.data;
+        // Parse achievements if available
+        let achievementsData: UserAchievementsData | undefined;
+        if (achievementsResponse.ok) {
+          const achievementsResult = await achievementsResponse.json();
+          if (achievementsResult.success) {
+            achievementsData = achievementsResult.data;
+          }
+        }
+
+        const profileData: ProfileData = {
+          ...profileResult.data,
+          achievements: achievementsData,
+        };
 
         setState({
           data: profileData,
           isLoading: false,
           error: null,
+          achievementsLoading: false,
         });
 
         return profileData;
@@ -174,273 +212,112 @@ export function useProfile(
     }, [makeAuthenticatedRequest]);
 
   /**
-   * Сброс данных профиля
+   * Fetch only achievements data
+   */
+  const fetchAchievements =
+    useCallback(async (): Promise<UserAchievementsData | null> => {
+      if (fetchingAchievementsRef.current) {
+        return null;
+      }
+
+      fetchingAchievementsRef.current = true;
+      setState((prev) => ({ ...prev, achievementsLoading: true }));
+
+      try {
+        const response = await makeAuthenticatedRequest(
+          "/api/user/achievements",
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || `Server error: ${response.status}`,
+          );
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || "Failed to fetch achievements");
+        }
+
+        const achievementsData: UserAchievementsData = result.data;
+
+        setState((prev) => ({
+          ...prev,
+          data: prev.data
+            ? { ...prev.data, achievements: achievementsData }
+            : null,
+          achievementsLoading: false,
+        }));
+
+        return achievementsData;
+      } catch (error) {
+        console.error("Error fetching achievements:", error);
+        setState((prev) => ({
+          ...prev,
+          achievementsLoading: false,
+        }));
+        return null;
+      } finally {
+        fetchingAchievementsRef.current = false;
+      }
+    }, [makeAuthenticatedRequest]);
+
+  /**
+   * Reset profile data
    */
   const resetProfileData = useCallback(() => {
     setState({
       data: null,
       isLoading: false,
       error: null,
+      achievementsLoading: false,
     });
   }, []);
 
   /**
-   * Очистка состояния ошибки
+   * Clear error state
    */
   const clearError = useCallback(() => {
     setState((prev) => ({ ...prev, error: null }));
   }, []);
 
   /**
-   * Вычисление достижений на основе данных пользователя и рейтингов
+   * Get unlocked achievement icons for header display
    */
-  const calculateAchievements = useCallback(
-    (user: UserProfileGameStats, rankings: UserRankings) => {
-      // Эта функция может быть вызвана из компонентов для получения достижений
-      // Реализация будет такой же, как в AchievementsModal, но абстрагированной
-      const achievements = [];
+  const getUnlockedAchievementIcons = useCallback(() => {
+    if (!state.data?.achievements) return [];
 
-      // General achievements
-      if (user.total_games >= 1) {
-        achievements.push({
-          id: "active_player",
-          isUnlocked: true,
-          progress: user.total_games,
-          maxProgress: 1,
-        });
-      }
-
-      if (user.total_games >= 10) {
-        achievements.push({
-          id: "dedicated_gamer",
-          isUnlocked: true,
-          progress: user.total_games,
-          maxProgress: 10,
-        });
-      }
-
-      if (user.total_games >= 50) {
-        achievements.push({
-          id: "game_master",
-          isUnlocked: true,
-          progress: user.total_games,
-          maxProgress: 50,
-        });
-      }
-
-      // Referral achievements
-      if (user.referral_count >= 1) {
-        achievements.push({
-          id: "recruiter",
-          isUnlocked: true,
-          progress: user.referral_count,
-          maxProgress: 1,
-        });
-      }
-
-      if (user.referral_count >= 5) {
-        achievements.push({
-          id: "influencer",
-          isUnlocked: true,
-          progress: user.referral_count,
-          maxProgress: 5,
-        });
-      }
-
-      if (user.referral_count >= 20) {
-        achievements.push({
-          id: "ambassador",
-          isUnlocked: true,
-          progress: user.referral_count,
-          maxProgress: 20,
-        });
-      }
-
-      // Reaction mode achievements
-      if (user.reaction_games >= 1) {
-        achievements.push({
-          id: "speed_tester",
-          isUnlocked: true,
-        });
-      }
-
-      if (user.reaction_games >= 10) {
-        achievements.push({
-          id: "quick_reflexes",
-          isUnlocked: true,
-          progress: user.reaction_games,
-          maxProgress: 10,
-        });
-      }
-
-      if (user.reaction_best_time > 0 && user.reaction_best_time <= 200) {
-        achievements.push({
-          id: "lightning_fast",
-          isUnlocked: true,
-        });
-      }
-
-      if (user.reaction_best_time > 0 && user.reaction_best_time <= 150) {
-        achievements.push({
-          id: "superhuman_speed",
-          isUnlocked: true,
-        });
-      }
-
-      if (rankings.reaction !== null && rankings.reaction <= 10) {
-        achievements.push({
-          id: "speed_demon",
-          isUnlocked: true,
-        });
-      }
-
-      // Survival mode achievements
-      if (user.survival_games >= 1) {
-        achievements.push({
-          id: "survivor",
-          isUnlocked: true,
-        });
-      }
-
-      if (user.survival_games >= 10) {
-        achievements.push({
-          id: "persistent_survivor",
-          isUnlocked: true,
-          progress: user.survival_games,
-          maxProgress: 10,
-        });
-      }
-
-      if (user.survival_best_time >= 30000) {
-        achievements.push({
-          id: "endurance_master",
-          isUnlocked: true,
-        });
-      }
-
-      if (user.survival_best_time >= 60000) {
-        achievements.push({
-          id: "survival_legend",
-          isUnlocked: true,
-        });
-      }
-
-      if (user.survival_max_level >= 5) {
-        achievements.push({
-          id: "level_climber",
-          isUnlocked: true,
-          progress: user.survival_max_level,
-          maxProgress: 5,
-        });
-      }
-
-      if (user.survival_max_level >= 10) {
-        achievements.push({
-          id: "elite_survivor",
-          isUnlocked: true,
-          progress: user.survival_max_level,
-          maxProgress: 10,
-        });
-      }
-
-      if (user.survival_best_streak >= 50) {
-        achievements.push({
-          id: "streak_master",
-          isUnlocked: true,
-          progress: user.survival_best_streak,
-          maxProgress: 50,
-        });
-      }
-
-      if (rankings.survival !== null && rankings.survival <= 10) {
-        achievements.push({
-          id: "survival_elite",
-          isUnlocked: true,
-        });
-      }
-
-      // Physics mode achievements
-      if (user.physics_games >= 1) {
-        achievements.push({
-          id: "physics_experimenter",
-          isUnlocked: true,
-        });
-      }
-
-      if (user.physics_games >= 10) {
-        achievements.push({
-          id: "impulse_master",
-          isUnlocked: true,
-          progress: user.physics_games,
-          maxProgress: 10,
-        });
-      }
-
-      if (user.physics_best_score >= 100) {
-        achievements.push({
-          id: "wall_breaker",
-          isUnlocked: true,
-          progress: user.physics_best_score,
-          maxProgress: 100,
-        });
-      }
-
-      // Rotation mode achievements
-      if (user.rotation_games >= 1) {
-        achievements.push({
-          id: "rotation_tester",
-          isUnlocked: true,
-        });
-      }
-
-      if (user.rotation_games >= 10) {
-        achievements.push({
-          id: "spin_master",
-          isUnlocked: true,
-          progress: user.rotation_games,
-          maxProgress: 10,
-        });
-      }
-
-      if (user.rotation_best_time >= 60000) {
-        achievements.push({
-          id: "dizziness_resistant",
-          isUnlocked: true,
-          progress: Math.floor(user.rotation_best_time / 1000),
-          maxProgress: 60,
-        });
-      }
-
-      // Top player achievements
-      if (rankings.overall !== null && rankings.overall <= 10) {
-        achievements.push({
-          id: "top_player",
-          isUnlocked: true,
-        });
-      }
-
-      return achievements;
-    },
-    [],
-  );
+    return state.data.achievements.achievements
+      .filter((achievement) => achievement.unlocked)
+      .map((achievement) => ({
+        id: achievement.id,
+        icon: achievement.icon,
+        color: achievement.color,
+        name: achievement.name,
+      }));
+  }, [state.data?.achievements]);
 
   return {
     // State
     profileData: state.data,
     isLoading: state.isLoading,
     error: state.error,
+    achievementsLoading: state.achievementsLoading,
 
     // Actions
     fetchProfileData,
+    fetchAchievements,
     resetProfileData,
     clearError,
-
-    // Utility functions
-    calculateAchievements,
 
     // Computed values for convenience
     user: state.data?.user || null,
     referrals: state.data?.referrals || null,
     rankings: state.data?.rankings || null,
+    achievements: state.data?.achievements || null,
+
+    // Achievement helpers
+    getUnlockedAchievementIcons,
   };
 }

@@ -1,4 +1,4 @@
-// src/app/profile/page.tsx - Исправленная версия с автообновлением данных лиг
+// src/app/profile/page.tsx - Updated with achievements integration
 
 "use client";
 
@@ -27,17 +27,21 @@ export default function ProfilePage() {
     null,
   );
 
-  // Track if initial league data load has been triggered for this page session
-  const leagueDataLoadedRef = useRef<boolean>(false);
+  // Track if initial data load has been triggered
+  const dataLoadedRef = useRef<boolean>(false);
 
   // Load profile data when user is authenticated
   useEffect(() => {
     if (authState.isAuthenticated && authState.user && telegramUser) {
-      profile.fetchProfileData();
+      // Load profile data including achievements
+      if (!dataLoadedRef.current) {
+        profile.fetchProfileData();
+        dataLoadedRef.current = true;
+      }
     }
   }, [authState.isAuthenticated, authState.user, telegramUser]);
 
-  // Update league data when total games changes (for immediate updates after playing)
+  // Refresh achievements when game count changes
   useEffect(() => {
     const currentTotalGames = profile.profileData?.user?.total_games;
 
@@ -45,13 +49,14 @@ export default function ProfilePage() {
       // If this is the first time we see the total games, just store it
       if (lastKnownTotalGames === null) {
         setLastKnownTotalGames(currentTotalGames);
-
         return;
       }
 
-      // If total games changed, update league data immediately
+      // If total games changed, refresh achievements to check for new unlocks
       if (currentTotalGames !== lastKnownTotalGames) {
         setLastKnownTotalGames(currentTotalGames);
+        // Refresh achievements to check for new unlocks
+        profile.fetchAchievements();
       }
     }
   }, [profile.profileData?.user?.total_games, lastKnownTotalGames]);
@@ -63,9 +68,7 @@ export default function ProfilePage() {
   };
 
   const handleOpenAchievements = () => {
-    if (profile.profileData?.user) {
-      setIsAchievementsModalOpen(true);
-    }
+    setIsAchievementsModalOpen(true);
   };
 
   // Show loading while user data is being authenticated or profile data is loading
@@ -119,9 +122,10 @@ export default function ProfilePage() {
     );
   }
 
-  // Get profile data and convert undefined to null for type compatibility
+  // Get profile data
   const profileData = profile.profileData;
   const profileUser = profileData?.user ?? null;
+  const achievements = profileData?.achievements;
   const rankings = profileData?.rankings || {
     overall: null,
     reaction: null,
@@ -142,9 +146,12 @@ export default function ProfilePage() {
       <MinimalistDivider />
 
       <div className="max-w-md mx-auto">
-        {/* Enhanced Profile Header with Level and League */}
+        {/* Enhanced Profile Header with Achievement Icons */}
         {profileUser ? (
-          <EnhancedProfileHeader user={profileUser} />
+          <EnhancedProfileHeader
+            user={profileUser}
+            achievements={achievements?.achievements}
+          />
         ) : (
           <div className="text-center space-y-3 px-4 py-6">
             <div className="space-y-2">
@@ -163,8 +170,11 @@ export default function ProfilePage() {
         {/* Divider */}
         <MinimalistDivider />
 
-        {/* Game Statistics with Level Progress */}
-        <MinimalistGameStats isLoading={profile.isLoading} user={profileUser} />
+        {/* Game Statistics */}
+        <MinimalistGameStats
+          isLoading={profile.isLoading}
+          user={profileUser}
+        />
 
         {/* Bottom spacing for safe area */}
         <div className="h-20" />
@@ -179,14 +189,14 @@ export default function ProfilePage() {
         />
       )}
 
-      {profileUser && (
-        <AchievementsModal
-          isOpen={isAchievementsModalOpen}
-          rankings={rankings}
-          user={profileUser}
-          onClose={() => setIsAchievementsModalOpen(false)}
-        />
-      )}
+      {/* Updated Achievements Modal with achievements data */}
+      <AchievementsModal
+        isOpen={isAchievementsModalOpen}
+        achievements={achievements}
+        user={profileUser}
+        rankings={rankings}
+        onClose={() => setIsAchievementsModalOpen(false)}
+      />
     </div>
   );
 }
