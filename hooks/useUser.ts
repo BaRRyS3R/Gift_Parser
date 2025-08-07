@@ -196,6 +196,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     // Reset all module data on logout
     leaderboardModule.resetLeaderboard();
     profileModule.resetProfileData();
+    gameModule.resetTournamentState();
     seasonsModule.resetSeasonData(); // NEW: Reset season data
   }, [authLogout, leaderboardModule, profileModule, gameModule, seasonsModule]);
 

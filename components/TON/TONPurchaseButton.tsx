@@ -12,14 +12,7 @@ import { useT } from "@/contexts/LocalizationContext";
 interface TONPurchaseButtonProps {
   className?: string;
   size?: "sm" | "md" | "lg";
-  variant?:
-    | "solid"
-    | "bordered"
-    | "light"
-    | "flat"
-    | "faded"
-    | "shadow"
-    | "ghost";
+  variant?: "solid" | "bordered" | "light" | "flat" | "faded" | "shadow" | "ghost";
   isDisabled?: boolean;
   fullWidth?: boolean;
   children?: React.ReactNode;
@@ -75,10 +68,9 @@ export function TONPurchaseButton({
     } catch (error) {
       console.error("[TON_BUTTON] Error opening TON Shop:", error);
 
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : t("shop.tonShop.errors.openingFailed");
+      const errorMessage = error instanceof Error
+        ? error.message
+        : t("shop.tonShop.errors.openingFailed");
 
       setError(errorMessage);
       setIsLoading(false);

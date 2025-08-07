@@ -21,8 +21,7 @@ export const attempts = {
   modal: {
     title: "ATTEMPTS SYSTEM",
     noAttemptsLeft: "No attempts remaining",
-    attemptsRestoring:
-      "Attention! Attempts will start to recover only after they are fully used!",
+    attemptsRestoring: "Attention! Attempts will start to recover only after they are fully used!",
     nextReset: "NEXT RESET",
     resetNow: "Resetting now...",
     resetInHours: "In {hours}h {minutes}m",
@@ -30,8 +29,7 @@ export const attempts = {
 
     howItWorks: "HOW ATTEMPTS WORK",
     rule1: "Each game mode requires one attempt to play",
-    rule2:
-      "Attempts are automatically reset after 2 hours after they are completely used up",
+    rule2: "Attempts are automatically reset after 2 hours after they are completely used up",
     rule3:
       "You start with 10 attempts (and maybe more if you followed someone's ref) and can get free ones by leveling up",
     rule4: "If you have premium in Telegram, then you're great.",

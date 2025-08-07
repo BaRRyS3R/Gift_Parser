@@ -66,6 +66,8 @@ export const taskService = {
   // Получение заданий с информацией о выполнении для пользователя
   // Получение заданий с информацией о выполнении для пользователя
   async getTasksForUser(userId: string): Promise<TaskWithCompletion[]> {
+
+
     // Получаем активные задания
     const { data: tasks, error: tasksError } = await supabase
       .from("tasks")
@@ -79,6 +81,7 @@ export const taskService = {
     }
 
     if (!tasks) {
+
       return [];
     }
 

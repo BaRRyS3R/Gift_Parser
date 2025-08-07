@@ -149,7 +149,7 @@ export const serverUserProfileService = {
       referredBy: user.referred_by || undefined,
       referredByName,
       // Add computed referral link
-      referralLink: `https://t.me/marketaggregator_bot?startapp=${user.referral_code}`,
+      referralLink: `https://t.me/circusle_bot?startapp=${user.referral_code}`,
     };
   },
 
@@ -259,6 +259,7 @@ export const serverUserProfileService = {
    */
   async getUserProfileData(telegramId: number): Promise<UserProfileData> {
     try {
+
       const [user, referrals, rankings] = await Promise.all([
         this.getUserData(telegramId),
         this.getUserReferralInfo(telegramId),

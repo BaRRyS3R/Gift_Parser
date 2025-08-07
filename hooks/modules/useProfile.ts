@@ -144,7 +144,6 @@ export function useProfile(
               setTimeout(checkCompletion, 100);
             }
           };
-
           checkCompletion();
         });
       }
@@ -161,14 +160,12 @@ export function useProfile(
 
         if (!profileResponse.ok) {
           const errorData = await profileResponse.json().catch(() => ({}));
-
           throw new Error(
             errorData.error || `Server error: ${profileResponse.status}`,
           );
         }
 
         const profileResult = await profileResponse.json();
-
         if (!profileResult.success) {
           throw new Error(
             profileResult.error || "Failed to fetch profile data",
@@ -177,10 +174,8 @@ export function useProfile(
 
         // Parse achievements if available
         let achievementsData: UserAchievementsData | undefined;
-
         if (achievementsResponse.ok) {
           const achievementsResult = await achievementsResponse.json();
-
           if (achievementsResult.success) {
             achievementsData = achievementsResult.data;
           }
@@ -235,14 +230,12 @@ export function useProfile(
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-
           throw new Error(
             errorData.error || `Server error: ${response.status}`,
           );
         }
 
         const result = await response.json();
-
         if (!result.success) {
           throw new Error(result.error || "Failed to fetch achievements");
         }
@@ -264,7 +257,6 @@ export function useProfile(
           ...prev,
           achievementsLoading: false,
         }));
-
         return null;
       } finally {
         fetchingAchievementsRef.current = false;

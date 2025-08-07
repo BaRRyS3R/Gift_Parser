@@ -12,6 +12,8 @@ export const config = {
     // Only match protected API routes, exclude auth routes
     "/api/user/:path*",
     "/api/game/:path*",
+    "/api/tournament/:path*",
+    "/api/leagues/:path*",
     "/api/tasks/:path*",
     "/api/purchase/:path*",
     "/api/referral/:path*",
@@ -20,7 +22,6 @@ export const config = {
     "/api/nebula/:path*",
     "/api/seasons/:path*",
     "/api/easter-egg/:path*",
-    "/api/tournaments/:path*",
   ],
 };
 
@@ -38,7 +39,11 @@ const PUBLIC_ENDPOINTS = [
 ];
 
 // Admin endpoints that require special permissions
-const ADMIN_ENDPOINTS = ["/api/admin/"];
+const ADMIN_ENDPOINTS = [
+  "/api/admin/",
+  "/api/tournament/create",
+  "/api/tournament/manage",
+];
 
 /**
  * Handle CORS preflight requests

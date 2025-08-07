@@ -13,6 +13,8 @@ const hiddenPaths = [
   "/game/survival",
   "/game/physics",
   "/game",
+  "/tournament/play",
+  "/tournament",
   "/game/rotation",
   "/nebula",
   "/blocked",

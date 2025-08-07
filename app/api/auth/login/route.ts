@@ -198,6 +198,7 @@ export async function POST(
       );
 
     if (verificationReq.required && verificationReq.type) {
+
       // Create limited tokens for accessing verification page
       const initDataHash = createInitDataHash(initData);
       const accessToken = await createJWT({

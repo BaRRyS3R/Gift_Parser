@@ -200,6 +200,7 @@ export default function SurvivalGameManager() {
 
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
+
       setGameState((prev) => {
         const finalState = updateSurvivalLevel(prev, Date.now());
 
@@ -259,6 +260,7 @@ export default function SurvivalGameManager() {
           const newState = activateSurvivalCircles(
             prev,
             (circleIds, redCircleIds) => {
+
               const timestamp = Date.now();
 
               setActivatedCircles(circleIds);
@@ -269,6 +271,7 @@ export default function SurvivalGameManager() {
               }, 450);
             },
             (circleId, wasDecoy) => {
+
               if (!wasDecoy) {
                 endGame("miss");
               } else {
@@ -324,6 +327,7 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
+
     setGameState(initializeSurvivalGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);

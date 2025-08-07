@@ -195,6 +195,7 @@ export async function POST(
 
       // Check if verification was successful
       if (isCorrect && completedInTime) {
+
         // Restore trust score
         const restoreResult =
           await serverBlockService.handleVerificationSuccess(

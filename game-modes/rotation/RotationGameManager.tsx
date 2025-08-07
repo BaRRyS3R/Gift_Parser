@@ -187,6 +187,7 @@ export default function RotationGameManager() {
 
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
+
       setGameState((prev) => {
         const finalState = updateRotationLevel(prev, Date.now());
 
@@ -244,6 +245,7 @@ export default function RotationGameManager() {
           const newState = activateRotationCircles(
             prev,
             (circleIds, redCircleIds) => {
+
               const timestamp = Date.now();
 
               setActivatedCircles(circleIds);
@@ -254,6 +256,7 @@ export default function RotationGameManager() {
               }, 450);
             },
             (circleId, wasDecoy) => {
+
               if (!wasDecoy) {
                 endGame("miss");
               } else {
@@ -309,6 +312,7 @@ export default function RotationGameManager() {
   );
 
   const startGame = useCallback(() => {
+
     const initialState = initializeRotationGameState();
 
     setGameState(initialState);

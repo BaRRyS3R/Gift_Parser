@@ -12,6 +12,7 @@ import {
   Trophy,
   Activity,
   Clock,
+  Target,
   Atom,
   BarChart3,
   RotateCw,
@@ -115,9 +116,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
 
         {!hasData ? (
           <div className="ml-8">
-            <span className="text-white/50 text-xs">
-              {t("profile.noDataYet")}
-            </span>
+            <span className="text-white/50 text-xs">{t("profile.noDataYet")}</span>
           </div>
         ) : (
           <div className="ml-8 space-y-1">{children}</div>
@@ -137,9 +136,9 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
         <CardBody className="p-5">
           {/* Overall Statistics Section */}
           <StatsSection
-            gamesPlayed={user.total_games}
             icon={Activity}
             title={t("profile.overallStats")}
+            gamesPlayed={user.total_games}
           >
             <StatItem
               icon={Activity}
@@ -150,9 +149,9 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
 
           {/* Reaction Mode Statistics Section */}
           <StatsSection
-            gamesPlayed={user.reaction_games}
             icon={Zap}
             title={t("profile.reactionMode")}
+            gamesPlayed={user.reaction_games}
           >
             <StatItem
               icon={Activity}
@@ -162,11 +161,7 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
             <StatItem
               icon={Clock}
               label={t("profile.stats.bestTime")}
-              value={
-                user.reaction_best_time > 0
-                  ? `${user.reaction_best_time}ms`
-                  : "-"
-              }
+              value={user.reaction_best_time > 0 ? `${user.reaction_best_time}ms` : "-"}
             />
             <StatItem
               icon={Trophy}
@@ -177,9 +172,9 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
 
           {/* Survival Mode Statistics Section */}
           <StatsSection
-            gamesPlayed={user.survival_games}
             icon={Crosshair}
             title={t("profile.survivalMode")}
+            gamesPlayed={user.survival_games}
           >
             <StatItem
               icon={Activity}
@@ -205,9 +200,9 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
 
           {/* Physics Mode Statistics Section */}
           <StatsSection
-            gamesPlayed={user.physics_games}
             icon={Atom}
             title={t("profile.physicsMode")}
+            gamesPlayed={user.physics_games}
           >
             <StatItem
               icon={Activity}
@@ -233,10 +228,10 @@ const MinimalistGameStats: React.FC<MinimalistGameStatsProps> = ({
 
           {/* Rotation Mode Statistics Section */}
           <StatsSection
-            gamesPlayed={user.rotation_games}
             icon={RotateCw}
-            isLast={true}
             title={t("profile.rotationMode")}
+            gamesPlayed={user.rotation_games}
+            isLast={true}
           >
             <StatItem
               icon={Activity}

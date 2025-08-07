@@ -123,8 +123,7 @@ export const profile = {
     // Achievement reward strings
     totalAttemptsEarned: "Total attempts earned: {count}",
     rewardsInfo: "Unlock achievements to earn bonus attempts!",
-    automaticRewards:
-      "Rewards are automatically added to your account when you unlock an achievement.",
+    automaticRewards: "Rewards are automatically added to your account when you unlock an achievement.",
     unlockedOn: "Unlocked on {date}",
 
     // Achievement names (camelCase keys matching the toCamelCase conversion)

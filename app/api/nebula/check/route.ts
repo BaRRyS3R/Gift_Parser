@@ -69,6 +69,7 @@ export async function GET(
     if (attempt) {
       // Handle expired verification attempts (abandoned)
       if (isExpired) {
+
         // Block user for abandoning verification
         const abandonResult =
           await serverBlockService.handleAbandonedVerification(attempt);
@@ -101,6 +102,7 @@ export async function GET(
 
       // If there's an active (non-expired) verification attempt, user should continue it
       if (!isExpired) {
+
         // Calculate time remaining based on server time
         const expiresAt = new Date(attempt.expiresAt);
         const now = new Date();
@@ -135,6 +137,7 @@ export async function GET(
     const blockInfo = await serverBlockService.checkUserBlock(telegramIdNumber);
 
     if (blockInfo && blockInfo.isActive && blockInfo.timeRemainingSeconds > 0) {
+
       return NextResponse.json({
         success: true,
         blocked: {
@@ -149,6 +152,7 @@ export async function GET(
       await serverBlockService.checkVerificationRequirement(telegramIdNumber);
 
     if (verificationReq.required && verificationReq.type) {
+
       // Create new verification attempt with device support assumption
       const attemptId = await serverBlockService.createVerificationAttempt(
         userId,

@@ -95,8 +95,10 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
 
     // Используем Telegram WebApp API для открытия инвойса
     if (tg.openInvoice) {
+
       return new Promise((resolve) => {
         tg.openInvoice(invoiceUrl, (status: string) => {
+
           switch (status) {
             case "paid":
               resolve(true);
@@ -128,6 +130,7 @@ const openInvoice = async (invoiceUrl: string): Promise<boolean> => {
 
 // Проверка статуса покупок - ОБНОВЛЕНО для обработки мгновенного сброса
 const checkPurchaseStatus = async (): Promise<void> => {
+
   // Дополнительная задержка для обработки мгновенного сброса
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -145,6 +148,7 @@ const setupTelegramWebAppHandlers = () => {
 
   // Слушаем события платежей
   tg.onEvent("invoiceClosed", (eventData: any) => {
+
     if (eventData.status === "paid") {
       checkPurchaseStatus();
     }

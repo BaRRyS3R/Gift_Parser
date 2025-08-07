@@ -7,6 +7,7 @@ import { main } from "./main";
 import { game } from "./game";
 import { attempts } from "./attempts";
 import { tasks } from "./tasks";
+import { tournament } from "./tournament";
 import { profile } from "./profile";
 import { leaderboard } from "./leaderboard";
 import { shop } from "./shop";
@@ -19,7 +20,6 @@ import { nebula } from "./nebula";
 import { seasons } from "./seasons";
 import { levels } from "./levels";
 import { memes } from "./memes";
-import { tournaments } from "./tournaments";
 
 export const ru = {
   // Common UI elements
@@ -27,9 +27,6 @@ export const ru = {
 
   // Levels
   levels,
-
-  // Tournaments
-  tournaments,
 
   // Memes
   memes,
@@ -54,6 +51,9 @@ export const ru = {
 
   // Game modes
   game,
+
+  // Tournament system
+  tournament,
 
   // Attempts system
   attempts,

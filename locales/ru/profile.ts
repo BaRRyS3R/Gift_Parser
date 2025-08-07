@@ -127,8 +127,7 @@ export const profile = {
     // Achievement reward strings
     totalAttemptsEarned: "Всего заработано попыток: {count}",
     rewardsInfo: "Открывайте достижения, чтобы получать бонусные попытки!",
-    automaticRewards:
-      "Награды автоматически добавляются на ваш аккаунт при разблокировке достижения.",
+    automaticRewards: "Награды автоматически добавляются на ваш аккаунт при разблокировке достижения.",
     unlockedOn: "Разблокировано {date}",
 
     // Achievement names (camelCase keys matching the toCamelCase conversion)

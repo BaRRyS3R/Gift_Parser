@@ -49,7 +49,6 @@ export default function ProfilePage() {
       // If this is the first time we see the total games, just store it
       if (lastKnownTotalGames === null) {
         setLastKnownTotalGames(currentTotalGames);
-
         return;
       }
 
@@ -150,8 +149,8 @@ export default function ProfilePage() {
         {/* Enhanced Profile Header with Achievement Icons */}
         {profileUser ? (
           <EnhancedProfileHeader
-            achievements={achievements?.achievements}
             user={profileUser}
+            achievements={achievements?.achievements}
           />
         ) : (
           <div className="text-center px-4 py-6">
@@ -172,7 +171,10 @@ export default function ProfilePage() {
         <MinimalistDivider />
 
         {/* Game Statistics */}
-        <MinimalistGameStats isLoading={profile.isLoading} user={profileUser} />
+        <MinimalistGameStats
+          isLoading={profile.isLoading}
+          user={profileUser}
+        />
 
         {/* Bottom spacing for safe area */}
         <div className="h-20" />
@@ -189,10 +191,10 @@ export default function ProfilePage() {
 
       {/* Updated Achievements Modal with achievements data */}
       <AchievementsModal
-        achievements={achievements}
         isOpen={isAchievementsModalOpen}
-        rankings={rankings}
+        achievements={achievements}
         user={profileUser}
+        rankings={rankings}
         onClose={() => setIsAchievementsModalOpen(false)}
       />
     </div>

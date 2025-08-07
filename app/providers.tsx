@@ -31,13 +31,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
         if (tg.requestFullscreen) {
           try {
             tg.requestFullscreen();
+            
           } catch (error) {
             console.warn("Fullscreen request failed:", error);
           }
         } else {
-          console.warn(
-            "requestFullscreen method not available in this Telegram version",
-          );
+          console.warn("requestFullscreen method not available in this Telegram version");
         }
 
         // 🆕 БЛОКИРОВКА ОРИЕНТАЦИИ (Bot API 7.7+)
@@ -47,7 +46,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           } catch (error) {
             console.warn("Orientation lock not supported:", error);
           }
-        }
+        } 
 
         if (tg.disableVerticalSwipes) {
           try {
@@ -55,7 +54,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           } catch (error) {
             console.warn("Vertical swipes control not supported:", error);
           }
-        }
+        } 
 
         if (tg.setBottomBarColor) {
           try {
@@ -73,14 +72,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         console.error("Error initializing Telegram WebApp:", error);
       }
     } else {
-      console.warn(
-        "Telegram WebApp not available (not running in Telegram or outdated version)",
-      );
+      console.warn("Telegram WebApp not available (not running in Telegram or outdated version)");
     }
 
     // Enhanced viewport meta tag configuration for fullscreen
     const viewport = document.querySelector('meta[name="viewport"]');
-
     if (viewport) {
       viewport.setAttribute(
         "content",
@@ -92,7 +88,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     let lastTouchEnd = 0;
     const preventZoom = (e: TouchEvent) => {
       const now = new Date().getTime();
-
       if (now - lastTouchEnd <= 300) {
         e.preventDefault();
       }

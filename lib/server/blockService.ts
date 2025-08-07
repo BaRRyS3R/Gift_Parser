@@ -254,7 +254,7 @@ export const serverBlockService = {
 
       if (error) {
         console.error("Error removing verification attempt:", error);
-      }
+      } 
     } catch (error) {
       console.error("Error removing verification attempt:", error);
     }
@@ -592,6 +592,7 @@ export const serverBlockService = {
     attempt: VerificationAttempt,
   ): Promise<BlockServiceResponse> {
     try {
+
       // Block user for abandoning verification
       const blockResult = await this.blockUser(
         attempt.userId,

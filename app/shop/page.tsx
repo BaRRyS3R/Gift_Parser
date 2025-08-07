@@ -193,6 +193,7 @@ export default function ShopPage() {
     if (purchaseModule.isLoading || purchaseModule.isProcessing) return;
 
     try {
+
       const success = await purchaseModule.processPurchase(productType);
 
       if (success) {
@@ -201,8 +202,8 @@ export default function ShopPage() {
 
         // Show success notification
         showSuccessNotification(productType);
-      } else {
-      }
+
+      } else { }
     } catch (error) {
       console.error("Error in purchase process:", error);
     }

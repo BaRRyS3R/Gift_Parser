@@ -70,6 +70,7 @@ export function useSeasons(
     useCallback(async (): Promise<CompleteSeasonData | null> => {
       // Wait for current request to complete if already fetching
       if (fetchingRef.current) {
+
         return new Promise((resolve) => {
           const checkCompletion = () => {
             if (!fetchingRef.current) {
@@ -92,6 +93,7 @@ export function useSeasons(
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
+
         const response = await makeAuthenticatedRequest("/api/seasons/current");
 
         if (!response.ok) {

@@ -401,6 +401,7 @@ export const serverLeaderboardService = {
     limit: number = 100,
   ): Promise<AllLeaderboardsResponse> {
     try {
+
       const [season, reaction, survival, physics, rotation, userRankings] =
         await Promise.all([
           this.getSeasonLeaderboard(currentUserId, limit),

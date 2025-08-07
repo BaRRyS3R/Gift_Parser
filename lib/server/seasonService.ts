@@ -176,12 +176,14 @@ export const serverSeasonService = {
     seasonId?: string,
   ): Promise<CompleteSeasonData | null> {
     try {
+
       // Get season (current or by ID)
       const season = seasonId
         ? await this.getSeasonById(seasonId)
         : await this.getCurrentSeason();
 
       if (!season) {
+
         return null;
       }
 

@@ -215,6 +215,7 @@ export function useAuth() {
   const login = useCallback(
     async (initData: string): Promise<LoginResult> => {
       if (operationInProgressRef.current) {
+
         return { success: false, error: "Login already in progress" };
       }
 
@@ -227,6 +228,7 @@ export function useAuth() {
       }));
 
       try {
+
         const response = await fetch(API_ENDPOINTS.LOGIN, {
           method: "POST",
           headers: {
@@ -239,6 +241,7 @@ export function useAuth() {
 
         // CRITICAL FIX: Handle 404 (user not found) as expected behavior for new users
         if (response.status === 404) {
+
           setAuthState((prev) => ({
             ...prev,
             isLoading: false,
@@ -331,6 +334,7 @@ export function useAuth() {
       referralCode?: string,
     ): Promise<RegistrationResult> => {
       if (operationInProgressRef.current) {
+
         return { success: false, error: "Registration already in progress" };
       }
 
@@ -344,6 +348,7 @@ export function useAuth() {
       }));
 
       try {
+
         const response = await fetch(API_ENDPOINTS.REGISTER, {
           method: "POST",
           headers: {
@@ -497,6 +502,7 @@ export function useAuth() {
       isRegistering: false,
       error: null,
     });
+
   }, [clearTokens]);
 
   /**
@@ -519,8 +525,10 @@ export function useAuth() {
       const refreshResult = await refreshAuthToken();
 
       if (refreshResult.success) {
+
         return true;
       } else {
+
         return false;
       }
     } catch (error) {
