@@ -281,19 +281,6 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
             </div>
           </div>
 
-          {/* Preview Message */}
-          <Card className="bg-white/5 border border-white/20">
-            <CardBody className="p-3">
-              <h4 className="text-sm font-bold text-white mb-2">Preview Message:</h4>
-              <div className="text-xs text-white/70 font-mono">
-                "{SHARING_CONFIG.message}"
-                {sharingMethod === 'story' && (
-                  <div className="mt-1 text-purple-300">+ Story format with image</div>
-                )}
-              </div>
-            </CardBody>
-          </Card>
-
           {/* How it Works Section */}
           <Card className="bg-white/5 border border-white/20">
             <CardBody className="p-3 space-y-2">
