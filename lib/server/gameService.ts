@@ -1,4 +1,4 @@
-// src/lib/server/gameService.ts - Updated with achievement system integration
+// src/lib/server/gameService.ts - Updated with tournament system integration
 
 import type { ReactionGameResult } from "@/types/game-modes/reaction";
 import type { SurvivalGameResult } from "@/types/game-modes/survival";
@@ -8,6 +8,7 @@ import type { RotationGameResult } from "@/types/game-modes/rotation";
 import { GameMode } from "@/types/game-modes/common";
 import { supabaseServer } from "../supabase_server";
 import { serverAchievementsService } from "./achievementsService";
+import { serverTournamentService, type TournamentParticipationResult } from "./tournamentService";
 
 // Game result union type
 type GameResult =
@@ -16,19 +17,21 @@ type GameResult =
   | PhysicsGameResult
   | RotationGameResult;
 
-// Enhanced game save result with achievements
+// Enhanced game save result with tournament information
 export interface GameSaveResult {
   success: boolean;
   levelChanged?: boolean;
   newLevel?: number;
   attemptsAwarded?: number;
-  // NEW: Achievement rewards
+  // Achievement rewards
   achievementsUnlocked?: Array<{
     id: string;
     name: string;
     attemptsAwarded: number;
   }>;
   totalAttemptsAwarded?: number;
+  // NEW: Tournament participation result
+  tournamentParticipation?: TournamentParticipationResult;
   error?: string;
 }
 
@@ -126,10 +129,10 @@ function calculateModeSpecificScore(gameResult: GameResult): number {
   return baseScore * multiplier;
 }
 
-// Server-side game service
+// Server-side game service with tournament integration
 export const serverGameService = {
   /**
-   * Update user game statistics with level and achievement system integration
+   * Update user game statistics with level, achievement, and tournament system integration
    */
   async updateGameStats(
     telegramId: number,
@@ -295,7 +298,22 @@ export const serverGameService = {
       throw new Error("Failed to update user statistics");
     }
 
-    // NEW: Check and award achievements after stats update (with error handling)
+    // NEW: Check and record tournament participation
+    let tournamentParticipation: TournamentParticipationResult | null = null;
+
+    try {
+      tournamentParticipation = await serverTournamentService.recordTournamentParticipation(
+        telegramId,
+        gameResult.mode,
+        gameResult
+      );
+    } catch (tournamentError) {
+      // Log tournament error but don't fail the game save
+      console.warn("Tournament participation recording failed but game saved:", tournamentError);
+      // Continue without tournament participation - game save is more important
+    }
+
+    // Check and award achievements after stats update (with error handling)
     let newAchievements: any[] = [];
     let achievementAttemptsAwarded = 0;
 
@@ -334,6 +352,11 @@ export const serverGameService = {
         attemptsAwarded: achievement.attempts_awarded,
       }));
       response.totalAttemptsAwarded = totalAttemptsAwarded;
+    }
+
+    // Add tournament participation result if available
+    if (tournamentParticipation) {
+      response.tournamentParticipation = tournamentParticipation;
     }
 
     return response;

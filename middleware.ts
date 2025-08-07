@@ -12,7 +12,6 @@ export const config = {
     // Only match protected API routes, exclude auth routes
     "/api/user/:path*",
     "/api/game/:path*",
-    "/api/tournament/:path*",
     "/api/leagues/:path*",
     "/api/tasks/:path*",
     "/api/purchase/:path*",
@@ -41,8 +40,6 @@ const PUBLIC_ENDPOINTS = [
 // Admin endpoints that require special permissions
 const ADMIN_ENDPOINTS = [
   "/api/admin/",
-  "/api/tournament/create",
-  "/api/tournament/manage",
 ];
 
 /**

@@ -1,4 +1,4 @@
-// src/app/main/page.tsx - Updated with enhanced AttemptsDisplay integration
+// src/app/main/page.tsx - Updated with tournament button integration
 
 "use client";
 
@@ -22,6 +22,7 @@ import AboutModal from "@/components/AboutModal/AboutModal";
 import AttemptsDisplay from "@/components/AttemptsDisplay/AttemptsDisplay";
 import SeasonButton from "@/components/SeasonButton/SeasonButton";
 import SeasonInfoModal from "@/components/SeasonInfoModal/SeasonInfoModal";
+import TournamentButton from "@/components/Tournaments/TournamentButton";
 
 // Utility function to format time remaining
 const formatTimeRemaining = (milliseconds: number): string => {
@@ -60,7 +61,7 @@ function MainPageContent() {
   } = useUser();
   const {
     attemptsStatus,
-    userLevel, // NEW: Level information from enhanced hook
+    userLevel, // Level information from enhanced hook
     isLoading: attemptsLoading,
     error: attemptsError,
     canPlay,
@@ -154,7 +155,7 @@ function MainPageContent() {
   }, [telegramUser, setTelegramUser]);
 
   /* -------------------------------------------------
-   * Инициализация загрузки статуса попыток
+   * Attempts initialization
    * -------------------------------------------------*/
   useEffect(() => {
     if (user && !attemptsLoading && !attemptsStatus) {
@@ -243,6 +244,13 @@ function MainPageContent() {
     }, 600);
   };
 
+  const handleOpenTournaments = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      router.push("/tournaments");
+    }, 600);
+  };
+
   const handleOpenSettings = () => {
     setIsSettingsOpen(true);
   };
@@ -277,13 +285,12 @@ function MainPageContent() {
    * -------------------------------------------------*/
   return (
     <div
-      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${
-        isTransitioning
+      className={`min-h-screen bg-black flex flex-col items-center justify-center text-white relative overflow-hidden ${isTransitioning
           ? "opacity-0 transition-opacity duration-500 ease-in"
           : pageLoaded
             ? "opacity-100 transition-opacity duration-1000 ease-out"
             : "opacity-0"
-      }`}
+        }`}
     >
       {/* Background Video */}
       {settings.showBackgroundVideo && (
@@ -311,15 +318,13 @@ function MainPageContent() {
 
       {/* Top Navigation Icons */}
       <div
-        className={`fixed left-0 right-0 z-30 px-6 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-8"
-              }`
+        className={`fixed left-0 right-0 z-30 px-6 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-8"
+            }`
             : "opacity-100 translate-y-0"
-        }`}
+          }`}
         style={{ top: headerOffset }}
       >
         <div className="flex items-center justify-between">
@@ -359,15 +364,13 @@ function MainPageContent() {
 
       {/* Season Button - Moved to top */}
       <div
-        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 -translate-y-8"
-              }`
+        className={`fixed left-1/2 transform -translate-x-1/2 z-40 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-8"
+            }`
             : "opacity-100 translate-y-0"
-        }`}
+          }`}
         style={{ top: "50px" }}
       >
         <SeasonButton
@@ -385,14 +388,14 @@ function MainPageContent() {
           </h1>
         </div>
 
-        {/* Action Button */}
+        {/* Action Buttons Container */}
         <div
-          className={`${
-            isFirstVisit
+          className={`space-y-4 ${isFirstVisit
               ? `transition-all duration-1000 transform ${showButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`
               : "opacity-100 translate-y-0"
-          }`}
+            }`}
         >
+          {/* Main Play Button */}
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/5 to-white/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
 
@@ -412,19 +415,25 @@ function MainPageContent() {
               </div>
             </button>
           </div>
+
+          {/* Tournament Button */}
+          <div className="flex justify-center">
+            <TournamentButton
+              isTransitioning={isTransitioning}
+              onClick={handleOpenTournaments}
+            />
+          </div>
         </div>
 
         {/* User Greeting */}
         <div
-          className={`${
-            isFirstVisit
-              ? `transition-all duration-1000 transform ${
-                  showGreeting
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-8"
-                }`
+          className={`${isFirstVisit
+              ? `transition-all duration-1000 transform ${showGreeting
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-8"
+              }`
               : "opacity-100 translate-y-0"
-          }`}
+            }`}
         >
           {userLoading ? (
             <div className="flex items-center justify-center space-x-2">
@@ -464,15 +473,13 @@ function MainPageContent() {
 
       {/* Enhanced Attempts Display with Level Integration */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 ${
-          isFirstVisit
-            ? `transition-all duration-1000 transform ${
-                showTopButtons
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-8"
-              }`
+        className={`fixed bottom-0 left-0 right-0 z-40 ${isFirstVisit
+            ? `transition-all duration-1000 transform ${showTopButtons
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-8"
+            }`
             : "opacity-100 translate-y-0"
-        }`}
+          }`}
         style={{ paddingBottom: "140px" }}
       >
         <AttemptsDisplay
@@ -481,9 +488,9 @@ function MainPageContent() {
           canPlay={canPlay}
           error={attemptsError}
           isLoading={attemptsLoading}
-          mainPageMode={true} // NEW: Enable main page mode
+          mainPageMode={true} // Enable main page mode
           showShopButton={false}
-          userLevel={userLevel} // NEW: Level information
+          userLevel={userLevel} // Level information
           onRetry={handleAttemptsRetry}
         />
       </div>

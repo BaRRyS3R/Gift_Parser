@@ -19,6 +19,7 @@ import { nebula } from "./nebula";
 import { seasons } from "./seasons";
 import { levels } from "./levels";
 import { memes } from "./memes";
+import { tournaments } from "./tournaments";
 
 export const ru = {
   // Common UI elements
@@ -26,6 +27,9 @@ export const ru = {
 
   // Levels
   levels,
+
+  // Tournaments
+  tournaments,
 
   // Memes
   memes,
