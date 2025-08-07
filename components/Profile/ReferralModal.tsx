@@ -203,7 +203,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                   }`}
                 onClick={() => setSharingMethod('simple')}
               >
-                <MessageCircle size={20} className="mx-auto mb-1" />
+                <MessageCircle size={24} className="mx-auto mb-1" />
               </button>
               <button
                 className={`p-2 rounded-lg border text-xs transition-all ${sharingMethod === 'story'
@@ -212,7 +212,7 @@ const ReferralModal: React.FC<ReferralModalProps> = ({
                   }`}
                 onClick={() => setSharingMethod('story')}
               >
-                <Camera size={20} className="mx-auto mb-1" />
+                <Camera size={24} className="mx-auto mb-1" />
               </button>
             </div>
           </div>
