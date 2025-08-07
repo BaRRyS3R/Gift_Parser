@@ -237,7 +237,7 @@ export const serverTournamentService = {
                 .select("*")
                 .eq("tournament_id", tournamentId)
                 .order("best_score", { ascending: false })
-                .order("last_game_at", { ascending: true }) // Tiebreaker: earlier last game wins
+                .order("last_participation_at", { ascending: true }) // Tiebreaker: earlier last participation wins
                 .limit(limit);
 
             if (error) {
@@ -302,7 +302,7 @@ export const serverTournamentService = {
                     username: userInfo.username,
                     is_premium: userInfo.is_premium,
                     total_games: existingEntry.total_games + 1,
-                    last_game_at: now,
+                    last_participation_at: now,
                     updated_at: now,
                 };
 
@@ -345,8 +345,13 @@ export const serverTournamentService = {
                         updates.best_time = Math.round(gameResult.gameTime);
                     }
                     if (gameResult.totalHits !== undefined) {
-                        updates.total_hits =
-                            (existingEntry.total_hits || 0) + gameResult.totalHits;
+                        // For physics mode, we track best hits, not total hits across all games
+                        if (
+                            !existingEntry.best_hits ||
+                            gameResult.totalHits > existingEntry.best_hits
+                        ) {
+                            updates.best_hits = gameResult.totalHits;
+                        }
                     }
                     if (gameResult.mistakesMade !== undefined) {
                         if (
@@ -383,10 +388,7 @@ export const serverTournamentService = {
                     ) {
                         updates.best_streak = gameResult.perfectStreak;
                     }
-                    if (gameResult.correctHits !== undefined) {
-                        updates.total_hits =
-                            (existingEntry.total_hits || 0) + gameResult.correctHits;
-                    }
+                    // Note: rotation mode doesn't track hits in the database schema
                 }
 
                 const { error } = await supabaseServer
@@ -410,8 +412,8 @@ export const serverTournamentService = {
                     is_premium: userInfo.is_premium,
                     best_score: tournamentScore,
                     total_games: 1,
-                    first_game_at: now,
-                    last_game_at: now,
+                    first_participation_at: now,
+                    last_participation_at: now,
                 };
 
                 // Set mode-specific initial values
@@ -423,13 +425,13 @@ export const serverTournamentService = {
                     newEntry.best_time = gameResult.gameTime
                         ? Math.round(gameResult.gameTime)
                         : 0;
-                    newEntry.total_hits = gameResult.totalHits || 0;
+                    newEntry.best_hits = gameResult.totalHits || 0;
                     newEntry.least_mistakes = gameResult.mistakesMade || 0;
                 } else if (gameResult.mode === GameMode.ROTATION) {
                     newEntry.best_time = gameResult.survivalTime || 0;
                     newEntry.max_level = gameResult.maxLevelReached || 0;
                     newEntry.best_streak = gameResult.perfectStreak || 0;
-                    newEntry.total_hits = gameResult.correctHits || 0;
+                    // Note: rotation mode doesn't track hits in the database schema
                 }
 
                 const { error } = await supabaseServer
