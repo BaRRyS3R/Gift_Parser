@@ -120,7 +120,7 @@ const CRON_CONFIG = {
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_API,
 
   // URL для запуска игры
-  GAME_START_URL: "https://t.me/marketaggregator_bot?startapp",
+  GAME_START_URL: "https://t.me/circusle_bot?startapp",
 } as const;
 
 // Response interface

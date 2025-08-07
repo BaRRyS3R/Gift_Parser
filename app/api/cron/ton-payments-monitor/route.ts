@@ -31,7 +31,7 @@ const CRON_CONFIG = {
   LOOKBACK_HOURS: 24, // Период поиска транзакций назад
 
   // Telegram уведомления
-  GAME_START_URL: "https://t.me/marketaggregator_bot?startapp",
+  GAME_START_URL: "https://t.me/circusle_bot?startapp",
 } as const;
 
 // ============================================================================
