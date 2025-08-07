@@ -420,14 +420,17 @@ export default function TournamentLeaderboard({
         if (typeof window !== "undefined" && window.Telegram?.WebApp) {
             const tg = window.Telegram.WebApp;
 
-            tg.BackButton.show();
-            tg.BackButton.onClick(() => {
+            // Создаем функцию-обработчик
+            const handleBackClick = () => {
                 onBack(); // Возврат к списку турниров
-            });
+            };
+
+            tg.BackButton.show();
+            tg.BackButton.onClick(handleBackClick);
 
             return () => {
+                tg.BackButton.offClick(handleBackClick); // Передаем ту же функцию
                 tg.BackButton.hide();
-                tg.BackButton.offClick(() => { });
             };
         }
     }, [onBack]);
