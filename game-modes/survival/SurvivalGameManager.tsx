@@ -1,8 +1,8 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Полная версия с обновленными результатами
+// src/game-modes/survival/SurvivalGameManager.tsx - Исправлено для устранения race conditions
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import {
   Crosshair,
   AlertTriangle,
@@ -68,16 +68,57 @@ export default function SurvivalGameManager() {
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
 
+  // НОВОЕ: Состояние для pending активаций
+  const [pendingActivations, setPendingActivations] = useState<Set<number>>(new Set());
+  const [pendingRedCircles, setPendingRedCircles] = useState<Set<number>>(new Set());
+
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
 
   const gameStateRef = useRef<SurvivalGameState>(gameState);
+  const pendingActivationsRef = useRef<Set<number>>(pendingActivations);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  useEffect(() => {
+    pendingActivationsRef.current = pendingActivations;
+  }, [pendingActivations]);
+
+  // НОВОЕ: Синхронизация pending активаций с реальным состоянием
+  useLayoutEffect(() => {
+    if (pendingActivations.size > 0) {
+      // Проверяем, какие pending активации уже применены в gameState
+      const appliedActivations = Array.from(pendingActivations).filter(
+        (circleId) => gameState.circles.find(c => c.id === circleId)?.isActive
+      );
+
+      if (appliedActivations.length > 0) {
+        setPendingActivations(prev => {
+          const newSet = new Set(prev);
+          appliedActivations.forEach(id => newSet.delete(id));
+          return newSet;
+        });
+      }
+    }
+
+    if (pendingRedCircles.size > 0) {
+      const appliedRedCircles = Array.from(pendingRedCircles).filter(
+        (circleId) => gameState.circles.find(c => c.id === circleId)?.isDecoy
+      );
+
+      if (appliedRedCircles.length > 0) {
+        setPendingRedCircles(prev => {
+          const newSet = new Set(prev);
+          appliedRedCircles.forEach(id => newSet.delete(id));
+          return newSet;
+        });
+      }
+    }
+  }, [gameState.circles, pendingActivations, pendingRedCircles]);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -111,7 +152,6 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -120,7 +160,6 @@ export default function SurvivalGameManager() {
     (newScore: number) => {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
-
         setIsNewBestScore(newScore > previousBest);
       }
     },
@@ -175,7 +214,6 @@ export default function SurvivalGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -232,6 +270,10 @@ export default function SurvivalGameManager() {
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
 
+        // Очищаем pending активации при завершении игры
+        setPendingActivations(new Set());
+        setPendingRedCircles(new Set());
+
         return finalGameState;
       });
     },
@@ -256,11 +298,26 @@ export default function SurvivalGameManager() {
         gameStateRef.current.gameState === GameState.PLAYING
       ) {
         setGameState((prev) => {
-          const newState = activateSurvivalCircles(
+          // ИСПРАВЛЕНО: Используем новую структуру возврата
+          const { newState, activatedCircleIds, redCircleIds } = activateSurvivalCircles(
             prev,
             (circleIds, redCircleIds) => {
               const timestamp = Date.now();
 
+              // НОВОЕ: Немедленно помечаем круги как pending
+              setPendingActivations(prevPending => {
+                const newSet = new Set(prevPending);
+                circleIds.forEach(id => newSet.add(id));
+                return newSet;
+              });
+
+              setPendingRedCircles(prevPending => {
+                const newSet = new Set(prevPending);
+                redCircleIds.forEach(id => newSet.add(id));
+                return newSet;
+              });
+
+              // Визуальные эффекты
               setActivatedCircles(circleIds);
               setLastActivationTimestamp(timestamp);
 
@@ -297,15 +354,31 @@ export default function SurvivalGameManager() {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
 
       const clickTime = Date.now();
+      
+      // ИСПРАВЛЕНО: Передаем pending активации в обработчик клика
       const { newState, result } = handleSurvivalCircleClick(
         gameStateRef.current,
         circleId,
+        pendingActivationsRef.current,
         clickTime,
       );
 
       if (result === "correct") {
         triggerHapticFeedback("success");
         setGameState(newState);
+
+        // Убираем из pending при успешном клике
+        setPendingActivations(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(circleId);
+          return newSet;
+        });
+
+        setPendingRedCircles(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(circleId);
+          return newSet;
+        });
 
         setTimeout(() => {
           setGameState((current) =>
@@ -330,6 +403,10 @@ export default function SurvivalGameManager() {
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
     setIsNewBestScore(false);
+    
+    // НОВОЕ: Очищаем pending активации при старте игры
+    setPendingActivations(new Set());
+    setPendingRedCircles(new Set());
 
     setTimeout(() => {
       setShowCircles(true);
@@ -342,7 +419,6 @@ export default function SurvivalGameManager() {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
-
             return current;
           }
 
@@ -450,8 +526,6 @@ export default function SurvivalGameManager() {
                   {t("game.modes.survival.results.correctHits")}
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {" "}
-                  {/* Изменен цвет на белый */}
                   {gameResult.correctHits}
                 </div>
               </div>
@@ -460,8 +534,6 @@ export default function SurvivalGameManager() {
                   {t("game.modes.survival.results.survivalTime")}
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {" "}
-                  {/* Изменен цвет на белый */}
                   {formatSurvivalTime(gameResult.survivalTime)}
                 </div>
               </div>
@@ -581,6 +653,8 @@ export default function SurvivalGameManager() {
           showCircles={showCircles}
           onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
+          pendingActivations={pendingActivations}
+          pendingRedCircles={pendingRedCircles}
         />
       </div>
 
