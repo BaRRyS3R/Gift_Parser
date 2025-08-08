@@ -38,7 +38,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 2,
-    simultaneousCircles: 1,
+    simultaneousCircles: 2,
     redCircles: 0,
     activationTimeMin: 1600,
     activationTimeMax: 2600,
@@ -48,7 +48,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 3,
-    simultaneousCircles: 1,
+    simultaneousCircles: 2,
     redCircles: 1,
     activationTimeMin: 1400,
     activationTimeMax: 2400,
@@ -58,7 +58,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 4,
-    simultaneousCircles: 2,
+    simultaneousCircles: 3,
     redCircles: 1,
     activationTimeMin: 1200,
     activationTimeMax: 2200,
@@ -68,8 +68,8 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 5,
-    simultaneousCircles: 2,
-    redCircles: 1,
+    simultaneousCircles: 3,
+    redCircles: 2,
     activationTimeMin: 1100,
     activationTimeMax: 2000,
     circleActiveTime: 2200,
@@ -78,8 +78,8 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 6,
-    simultaneousCircles: 2,
-    redCircles: 1,
+    simultaneousCircles: 4,
+    redCircles: 2,
     activationTimeMin: 1000,
     activationTimeMax: 1800,
     circleActiveTime: 2000,
@@ -88,8 +88,8 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 7,
-    simultaneousCircles: 2,
-    redCircles: 1,
+    simultaneousCircles: 3,
+    redCircles: 3,
     activationTimeMin: 900,
     activationTimeMax: 1600,
     circleActiveTime: 1800,
@@ -98,8 +98,8 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 8,
-    simultaneousCircles: 2,
-    redCircles: 2,
+    simultaneousCircles: 4,
+    redCircles: 3,
     activationTimeMin: 800,
     activationTimeMax: 1400,
     circleActiveTime: 1600,
@@ -108,7 +108,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 9,
-    simultaneousCircles: 2,
+    simultaneousCircles: 5,
     redCircles: 2,
     activationTimeMin: 700,
     activationTimeMax: 1200,
@@ -118,8 +118,8 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 10,
-    simultaneousCircles: 2,
-    redCircles: 2,
+    simultaneousCircles: 4,
+    redCircles: 4,
     activationTimeMin: 600,
     activationTimeMax: 1000,
     circleActiveTime: 1200,
