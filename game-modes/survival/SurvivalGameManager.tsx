@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Обновленная версия с системой временного исключения
+// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with logging UI and copy functionality
 
 "use client";
 
@@ -11,6 +11,11 @@ import {
   Target,
   RotateCcw,
   ArrowLeft,
+  Copy,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Check,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -28,6 +33,7 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { GameState } from "@/types/game-modes/common";
+import { GameLogType } from "@/utils/gameLogger";
 import {
   SurvivalGameState,
   SurvivalGameResult,
@@ -53,7 +59,7 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
+const LEVEL_UPDATE_INTERVAL = 16;
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -73,8 +79,12 @@ export default function SurvivalGameManager() {
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
   
-  // NEW: State for instant deactivation tracking
+  // State for instant deactivation tracking
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
+
+  // NEW: State for logging UI
+  const [showLogs, setShowLogs] = useState(false);
+  const [logsCopied, setLogsCopied] = useState(false);
 
   const gameStateRef = useRef<SurvivalGameState>(gameState);
 
@@ -94,7 +104,7 @@ export default function SurvivalGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -114,7 +124,6 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -123,12 +132,33 @@ export default function SurvivalGameManager() {
     (newScore: number) => {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
-
         setIsNewBestScore(newScore > previousBest);
       }
     },
     [user],
   );
+
+  // NEW: Copy logs to clipboard
+  const copyLogsToClipboard = useCallback(async () => {
+    if (!gameResult || !gameResult.gameLogs) return;
+
+    try {
+      // Get formatted log from the logger
+      const formattedLog = gameState.logger.getFormattedLog();
+      await navigator.clipboard.writeText(formattedLog);
+      setLogsCopied(true);
+      
+      // Reset copied state after 2 seconds
+      setTimeout(() => {
+        setLogsCopied(false);
+      }, 2000);
+      
+      triggerHapticFeedback("success");
+    } catch (error) {
+      console.error("Failed to copy logs:", error);
+      triggerHapticFeedback("error");
+    }
+  }, [gameResult, gameState.logger, triggerHapticFeedback]);
 
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
@@ -178,7 +208,6 @@ export default function SurvivalGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -228,9 +257,7 @@ export default function SurvivalGameManager() {
         };
 
         const result = createSurvivalGameResult(finalGameState);
-
         checkForNewBestScore(result.score);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -241,7 +268,8 @@ export default function SurvivalGameManager() {
     [handleSaveGameResult, checkForNewBestScore],
   );
 
-  const scheduleNextActivation = useCallback(() => {
+  // Define scheduleNextActivation function
+  const scheduleNextActivation = useCallback((): void => {
     const currentState = gameStateRef.current;
 
     if (!currentState.isActive || currentState.gameState !== GameState.PLAYING)
@@ -259,13 +287,10 @@ export default function SurvivalGameManager() {
         gameStateRef.current.gameState === GameState.PLAYING
       ) {
         setGameState((prev) => {
-          // ОБНОВЛЕНО: система автоматически предотвратит повторную активацию 
-          // кругов в течение установленного периода (по умолчанию 2 секунды)
           const newState = activateSurvivalCircles(
             prev,
             (circleIds, redCircleIds) => {
               const timestamp = Date.now();
-
               setActivatedCircles(circleIds);
               setLastActivationTimestamp(timestamp);
 
@@ -273,12 +298,21 @@ export default function SurvivalGameManager() {
                 setActivatedCircles([]);
               }, 450);
             },
-            (circleId, wasDecoy) => {
+            (circleId: number, wasDecoy: boolean) => {
+              const currentState = gameStateRef.current;
+              
+              // Log the timeout event
+              currentState.logger.addEntry(GameLogType.CIRCLE_TIMEOUT, {
+                circleId,
+                wasDecoy,
+                scheduledDuration: getLevelConfig(currentState.currentLevel).circleActiveTime,
+              });
+
               if (!wasDecoy) {
                 endGame("miss");
               } else {
                 setGameState((current) =>
-                  deactivateSurvivalCircle(current, circleId),
+                  deactivateSurvivalCircle(current, circleId, "timeout"),
                 );
                 scheduleNextActivation();
               }
@@ -310,15 +344,11 @@ export default function SurvivalGameManager() {
 
       if (result === "correct") {
         triggerHapticFeedback("success");
-
-        // NEW: Add circle to instant deactivation list
         setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
 
-        // Немедленно очищаем таймаут и деактивируем круг без анимации
-        const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId);
+        const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId, "click");
         setGameState(immediatelyDeactivatedState);
 
-        // Remove from instant deactivation list after a short delay to prevent visual artifacts
         setTimeout(() => {
           setInstantlyDeactivatedCircles((prev) => prev.filter(id => id !== circleId));
         }, 100);
@@ -334,15 +364,15 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
-    // ОБНОВЛЕНО: инициализация включает новую систему временного исключения
     setGameState(initializeSurvivalGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
     setIsNewBestScore(false);
-    // NEW: Reset instant deactivation tracking
     setInstantlyDeactivatedCircles([]);
+    setShowLogs(false);
+    setLogsCopied(false);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -355,11 +385,8 @@ export default function SurvivalGameManager() {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
-
             return current;
           }
-
-          // ОБНОВЛЕНО: updateSurvivalLevel теперь также очищает устаревшие записи
           return updateSurvivalLevel(current, Date.now());
         });
       }, LEVEL_UPDATE_INTERVAL);
@@ -413,10 +440,31 @@ export default function SurvivalGameManager() {
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
 
+  // NEW: Get log event count by type for summary
+  const getLogSummary = () => {
+    if (!gameResult?.gameLogs) return null;
+
+    const eventCounts = gameResult.gameLogs.reduce((acc, log) => {
+      acc[log.type] = (acc[log.type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      total: gameResult.gameLogs.length,
+      activations: eventCounts[GameLogType.CIRCLE_ACTIVATION] || 0,
+      clicks: eventCounts[GameLogType.CIRCLE_CLICK] || 0,
+      timeouts: eventCounts[GameLogType.CIRCLE_TIMEOUT] || 0,
+      levelUps: eventCounts[GameLogType.LEVEL_UP] || 0,
+      errors: eventCounts[GameLogType.ERROR] || 0,
+    };
+  };
+
   if (gameState.gameState === GameState.FINISHED && gameResult) {
+    const logSummary = getLogSummary();
+
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
-        <div className="w-full max-w-md space-y-8 animate-fade-in">
+        <div className="w-full max-w-4xl space-y-8 animate-fade-in">
           <div className="text-center space-y-4">
             <div className="text-6xl mb-4">💀</div>
 
@@ -445,127 +493,204 @@ export default function SurvivalGameManager() {
             )}
           </div>
 
-          <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6 space-y-6">
-            <div className="text-center space-y-2">
-              <div className="text-sm text-red-400/60">
-                {t("game.modes.survival.results.finalScore")}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Game Results */}
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6 space-y-6">
+              <div className="text-center space-y-2">
+                <div className="text-sm text-red-400/60">
+                  {t("game.modes.survival.results.finalScore")}
+                </div>
+                <div className="text-6xl font-bold text-green-400">
+                  {gameResult.score}
+                </div>
+                <div className="text-lg text-red-300/80">
+                  {gameResult.score * 2} (×2)
+                </div>
               </div>
-              <div className="text-6xl font-bold text-green-400">
-                {gameResult.score}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center space-y-1">
+                  <div className="text-xs text-red-400/60">
+                    {t("game.modes.survival.results.correctHits")}
+                  </div>
+                  <div className="text-2xl font-bold text-white">
+                    {gameResult.correctHits}
+                  </div>
+                </div>
+                <div className="text-center space-y-1">
+                  <div className="text-xs text-red-400/60">
+                    {t("game.modes.survival.results.survivalTime")}
+                  </div>
+                  <div className="text-2xl font-bold text-white">
+                    {formatSurvivalTime(gameResult.survivalTime)}
+                  </div>
+                </div>
               </div>
-              <div className="text-lg text-red-300/80">
-                {gameResult.score * 2} (×2)
+
+              <div className="text-center space-y-1 border-t border-red-400/30 pt-4">
+                <div className="text-xs text-red-400/60">
+                  {t("game.modes.survival.results.levelsCompleted")}
+                </div>
+                <div className="text-xl font-bold text-yellow-400">
+                  {gameResult.maxLevelReached}/15
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center space-y-1">
-                <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.correctHits")}
+            {/* NEW: Debug Logs Section */}
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <FileText className="text-red-400" size={20} />
+                  <h3 className="text-lg font-bold text-red-300">Debug Logs</h3>
                 </div>
-                <div className="text-2xl font-bold text-white">
-                  {gameResult.correctHits}
-                </div>
+                <button
+                  onClick={() => setShowLogs(!showLogs)}
+                  className="flex items-center space-x-1 text-red-400/60 hover:text-red-400 transition-colors"
+                >
+                  {showLogs ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
               </div>
-              <div className="text-center space-y-1">
-                <div className="text-xs text-red-400/60">
-                  {t("game.modes.survival.results.survivalTime")}
-                </div>
-                <div className="text-2xl font-bold text-white">
-                  {formatSurvivalTime(gameResult.survivalTime)}
-                </div>
-              </div>
-            </div>
 
-            <div className="text-center space-y-1 border-t border-red-400/30 pt-4">
-              <div className="text-xs text-red-400/60">
-                {t("game.modes.survival.results.levelsCompleted")}
+              {logSummary && (
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="space-y-1">
+                    <div className="text-red-400/60">Total Events</div>
+                    <div className="text-white font-mono">{logSummary.total}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-red-400/60">Circle Activations</div>
+                    <div className="text-white font-mono">{logSummary.activations}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-red-400/60">User Clicks</div>
+                    <div className="text-white font-mono">{logSummary.clicks}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-red-400/60">Circle Timeouts</div>
+                    <div className="text-white font-mono">{logSummary.timeouts}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-red-400/60">Level Changes</div>
+                    <div className="text-white font-mono">{logSummary.levelUps}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-red-400/60">Errors</div>
+                    <div className="text-white font-mono text-yellow-400">{logSummary.errors}</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex space-x-2">
+                <button
+                  onClick={copyLogsToClipboard}
+                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-red-400/20 border border-red-400/30 text-red-300 rounded-lg hover:bg-red-400/30 transition-colors"
+                >
+                  {logsCopied ? (
+                    <>
+                      <Check size={16} />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={16} />
+                      <span>Copy Full Log</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <div className="text-xl font-bold text-yellow-400">
-                {gameResult.maxLevelReached}/15
-              </div>
+
+              {showLogs && (
+                <div className="border-t border-red-400/30 pt-4">
+                  <div className="bg-black/50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                    <pre className="text-xs text-red-200/80 font-mono whitespace-pre-wrap break-words">
+                      {gameState.logger.getFormattedLog()}
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {(saveStatus.isLoading ||
-            saveStatus.error ||
-            saveStatus.isSuccess) && (
-              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                      <span className="text-sm text-red-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
+          {/* Save Status */}
+          {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                    <span className="text-sm text-red-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("save.recording")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-red-400/60" size={14} />
-                          <span className="text-xs text-red-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-red-400/20 rounded-full h-1">
-                          <div
-                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                        : t("save.recording")}
+                    </span>
                   </div>
-                )}
 
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.recordedSuccessfully")}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-red-400/60" size={14} />
+                        <span className="text-xs text-red-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-red-400/20 rounded-full h-1">
+                        <div
+                          className="bg-red-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.recordedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                      : t("save.synchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        {t("shop.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
-                    </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("shop.recordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() => handleSaveGameResult(gameResult)}
-                    >
-                      {t("shop.retrySave")}
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      {t("shop.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="text-red-400/60 text-xs mb-3">
+                    {t("shop.recordedLocally")}
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    {t("shop.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
+          {/* Back Button */}
           <div className="space-y-4">
             <button
               className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
@@ -592,6 +717,8 @@ export default function SurvivalGameManager() {
           onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
           instantlyDeactivatedCircles={instantlyDeactivatedCircles}
+          logger={gameState.logger}
+          gameStartTime={gameState.gameStartTime}
         />
       </div>
 

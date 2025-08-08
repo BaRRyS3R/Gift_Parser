@@ -1,10 +1,11 @@
-// src/components/GameGrid.tsx - Updated with instant deactivation support
+// src/components/GameGrid.tsx - Enhanced with comprehensive interaction logging
 
 "use client";
 
 import { useRef, useState, useEffect } from "react";
 
 import { Circle } from "@/types/game-modes/common";
+import { GameLogger, GameLogType } from "@/utils/gameLogger";
 
 interface GameGridProps {
   circles: Circle[];
@@ -15,14 +16,25 @@ interface GameGridProps {
   onActivatedCircles?: number[]; // Array of circle IDs that were just activated
   lastActivationTimestamp?: number; // Timestamp to trigger re-render when activations occur
   gameMode?: "reaction" | "survival" | "physics"; // Game mode for styling differences
-  // NEW: Props for instant deactivation support
+  // Props for instant deactivation support
   instantlyDeactivatedCircles?: number[]; // Array of circle IDs that should be instantly deactivated
+  // NEW: Props for logging support
+  logger?: GameLogger; // Optional logger instance for debugging
+  gameStartTime?: number; // Game start time for relative timing calculations
 }
 
 interface ActivePulse {
   circleId: number;
   isRed: boolean;
   timestamp: number;
+}
+
+interface TouchEvent {
+  touchId: number;
+  circleId: number;
+  startTime: number;
+  startCoordinates: { x: number; y: number };
+  processed: boolean;
 }
 
 // Utility function to determine grid dimensions based on circle count
@@ -54,10 +66,13 @@ export default function GameGrid({
   lastActivationTimestamp = 0,
   gameMode = "reaction",
   instantlyDeactivatedCircles = [],
+  logger,
+  gameStartTime = Date.now(),
 }: GameGridProps) {
   const { cols, rows } = getGridDimensions(circles.length);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
+  const activeTouchEventsRef = useRef<Map<number, TouchEvent>>(new Map());
 
   // State for dynamic sizing
   const [circleSize, setCircleSize] = useState(40);
@@ -66,9 +81,66 @@ export default function GameGrid({
   // State for tracking active activation pulses
   const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
 
+  // NEW: Helper function to log grid events
+  const logGridEvent = (type: GameLogType, data: any) => {
+    if (logger) {
+      logger.addEntry(type, {
+        ...data,
+        component: "GameGrid",
+        gameMode,
+        isGameActive,
+        activeCircleCount: circles.filter(c => c.isActive).length,
+      });
+    }
+  };
+
+  // NEW: Get circle coordinates for logging
+  const getCircleCoordinates = (circleId: number, event: React.TouchEvent | React.MouseEvent) => {
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    
+    let clientX = 0;
+    let clientY = 0;
+    
+    if ('touches' in event && event.touches.length > 0) {
+      clientX = event.touches[0].clientX;
+      clientY = event.touches[0].clientY;
+    } else if ('clientX' in event) {
+      clientX = event.clientX;
+      clientY = event.clientY;
+    }
+    
+    return {
+      circleId,
+      circleCenter: {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      },
+      clickCoordinates: { x: clientX, y: clientY },
+      offset: {
+        x: clientX - (rect.left + rect.width / 2),
+        y: clientY - (rect.top + rect.height / 2),
+      },
+      circleRect: {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      },
+    };
+  };
+
   // Effect to handle activation pulses
   useEffect(() => {
     if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
+      // Log circle activation visual updates
+      logGridEvent(GameLogType.CIRCLE_ACTIVATION, {
+        message: "Visual activation pulse triggered",
+        activatedCircleIds: onActivatedCircles,
+        activationTimestamp: lastActivationTimestamp,
+        relativeTime: lastActivationTimestamp - gameStartTime,
+      });
+
       // Create new pulses for activated circles
       const newPulses: ActivePulse[] = onActivatedCircles.map((circleId) => {
         const circle = circles.find((c) => c.id === circleId);
@@ -89,7 +161,7 @@ export default function GameGrid({
         );
       }, 450);
     }
-  }, [onActivatedCircles, lastActivationTimestamp, circles]);
+  }, [onActivatedCircles, lastActivationTimestamp, circles, logger, gameStartTime]);
 
   // Calculate adaptive sizes based on screen dimensions
   useEffect(() => {
@@ -140,6 +212,16 @@ export default function GameGrid({
 
       setCircleSize(Math.floor(finalSize));
       setGapSize(finalGap);
+
+      // Log grid initialization
+      logGridEvent(GameLogType.GAME_STATE_CHANGE, {
+        message: "Grid dimensions calculated",
+        screenDimensions: { width: screenWidth, height: screenHeight },
+        gridDimensions: { cols, rows },
+        circleCount: circles.length,
+        calculatedCircleSize: Math.floor(finalSize),
+        gapSize: finalGap,
+      });
     };
 
     // Calculate on mount and window resize
@@ -155,7 +237,7 @@ export default function GameGrid({
       window.removeEventListener("resize", calculateAdaptiveSizes);
       window.removeEventListener("orientationchange", calculateAdaptiveSizes);
     };
-  }, [circles.length, cols, rows]);
+  }, [circles.length, cols, rows, logger, gameStartTime]);
 
   const getCircleStyles = (circle: Circle) => {
     const baseStyles = {
@@ -214,25 +296,80 @@ export default function GameGrid({
     }
   };
 
-  // Touch event handlers for mobile compatibility
+  // Touch event handlers for mobile compatibility with enhanced logging
   const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
-    if (!isGameActive) return;
+    if (!isGameActive) {
+      logGridEvent(GameLogType.ERROR, {
+        message: "Touch start on inactive game",
+        circleId,
+        isGameActive,
+      });
+      return;
+    }
 
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
 
     const currentTime = Date.now();
+    const coordinates = getCircleCoordinates(circleId, event);
+    const circle = circles.find(c => c.id === circleId);
+
+    // Log touch start event
+    logGridEvent(GameLogType.CIRCLE_CLICK, {
+      message: "Touch start event",
+      eventType: "touchstart",
+      circleId,
+      touchTime: currentTime,
+      relativeTime: currentTime - gameStartTime,
+      coordinates,
+      circleState: circle ? {
+        isActive: circle.isActive,
+        isAnimating: circle.isAnimating,
+        isDecoy: circle.isDecoy,
+      } : null,
+      touchCount: event.touches.length,
+      activeTouchEvents: activeTouchEventsRef.current.size,
+    });
 
     touchStartTimeRef.current.set(circleId, currentTime);
 
+    // Store touch event details
+    if (event.touches.length > 0) {
+      const touch = event.touches[0];
+      activeTouchEventsRef.current.set(touch.identifier, {
+        touchId: touch.identifier,
+        circleId,
+        startTime: currentTime,
+        startCoordinates: { x: touch.clientX, y: touch.clientY },
+        processed: false,
+      });
+    }
+
     if (!processedTouchesRef.current.has(circleId)) {
       processedTouchesRef.current.add(circleId);
+      
+      // Log click processing
+      logGridEvent(GameLogType.CIRCLE_CLICK, {
+        message: "Processing touch click",
+        circleId,
+        eventType: "click_processing",
+        touchTime: currentTime,
+        relativeTime: currentTime - gameStartTime,
+      });
+
       onCircleClick(circleId);
 
       setTimeout(() => {
         processedTouchesRef.current.delete(circleId);
       }, 100);
+    } else {
+      // Log duplicate touch attempt
+      logGridEvent(GameLogType.ERROR, {
+        message: "Duplicate touch attempt blocked",
+        circleId,
+        eventType: "duplicate_touch_blocked",
+      });
     }
   };
 
@@ -240,22 +377,77 @@ export default function GameGrid({
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
+    
+    const currentTime = Date.now();
+    const startTime = touchStartTimeRef.current.get(circleId);
+    const touchDuration = startTime ? currentTime - startTime : 0;
+
+    // Log touch end event
+    logGridEvent(GameLogType.CIRCLE_CLICK, {
+      message: "Touch end event",
+      eventType: "touchend",
+      circleId,
+      touchDuration,
+      relativeTime: currentTime - gameStartTime,
+      changedTouchCount: event.changedTouches.length,
+    });
+
     touchStartTimeRef.current.delete(circleId);
+
+    // Clean up active touch events
+    for (let i = 0; i < event.changedTouches.length; i++) {
+      const touch = event.changedTouches[i];
+      activeTouchEventsRef.current.delete(touch.identifier);
+    }
   };
 
   const handleClick = (circleId: number, event: React.MouseEvent) => {
-    if (!isGameActive) return;
+    if (!isGameActive) {
+      logGridEvent(GameLogType.ERROR, {
+        message: "Mouse click on inactive game",
+        circleId,
+        isGameActive,
+      });
+      return;
+    }
 
     const touchTime = touchStartTimeRef.current.get(circleId);
     const currentTime = Date.now();
 
     if (touchTime && currentTime - touchTime < 300) {
+      // Log blocked mouse click due to recent touch
+      logGridEvent(GameLogType.CIRCLE_CLICK, {
+        message: "Mouse click blocked due to recent touch",
+        eventType: "mouse_click_blocked",
+        circleId,
+        timeSinceTouch: currentTime - touchTime,
+      });
       return;
     }
 
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
+
+    const coordinates = getCircleCoordinates(circleId, event);
+    const circle = circles.find(c => c.id === circleId);
+
+    // Log mouse click event
+    logGridEvent(GameLogType.CIRCLE_CLICK, {
+      message: "Mouse click event",
+      eventType: "mouseclick",
+      circleId,
+      clickTime: currentTime,
+      relativeTime: currentTime - gameStartTime,
+      coordinates,
+      circleState: circle ? {
+        isActive: circle.isActive,
+        isAnimating: circle.isAnimating,
+        isDecoy: circle.isDecoy,
+      } : null,
+      mouseButton: event.button,
+    });
+
     onCircleClick(circleId);
   };
 
@@ -340,6 +532,24 @@ export default function GameGrid({
 
   const { maxWidth, maxHeight } = getContainerMaxDimensions();
 
+  // Log component mounting
+  useEffect(() => {
+    logGridEvent(GameLogType.GAME_STATE_CHANGE, {
+      message: "GameGrid component mounted",
+      circleCount: circles.length,
+      gameMode,
+      isGameActive,
+      showCircles,
+    });
+
+    return () => {
+      logGridEvent(GameLogType.GAME_STATE_CHANGE, {
+        message: "GameGrid component unmounting",
+        activeTouchEvents: activeTouchEventsRef.current.size,
+      });
+    };
+  }, []);
+
   return (
     <div className="flex items-center justify-center min-h-[400px] p-4">
       <div
@@ -380,11 +590,6 @@ export default function GameGrid({
               {/* Fast activation pulse effect */}
               {renderActivationPulse(circle)}
               {/* Debug info for development */}
-              {process.env.NODE_ENV === "development" && circle.isActive && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
-                  {circle.id}
-                </div>
-              )}
             </button>
           );
         })}

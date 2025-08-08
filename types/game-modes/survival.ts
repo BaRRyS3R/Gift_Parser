@@ -1,6 +1,7 @@
-// src/types/game-modes/survival.ts - Обновленные типы с системой временного исключения
+// src/types/game-modes/survival.ts - Updated with logging system
 
 import { Circle, GameState, GameMode } from "./common";
+import { GameLogger, GameLogEntry } from "./logging";
 
 export interface SurvivalGameConfig {
   id: string;
@@ -13,8 +14,8 @@ export interface SurvivalGameConfig {
   maxIntensityLevel: number;
   simultaneousCirclesMin: number;
   simultaneousCirclesMax: number;
-  circleReactivationCooldown: number; // ДОБАВЛЕНО: время блокировки повторной активации
-  maxHistoryRetention: number; // ДОБАВЛЕНО: максимальное время хранения истории
+  circleReactivationCooldown: number;
+  maxHistoryRetention: number;
 }
 
 export interface SurvivalLevelConfig {
@@ -53,7 +54,10 @@ export interface SurvivalGameState {
   levelUpdateInterval: NodeJS.Timeout | null;
   isActive: boolean;
   gameStartTime: number;
-  recentlyUsedCircles: Map<number, number>; // ДОБАВЛЕНО: история активации кругов (circleId -> timestamp)
+  recentlyUsedCircles: Map<number, number>;
+  // NEW: Add logging system
+  logger: GameLogger;
+  circleActivationTimes: Map<number, number>; // Track when each circle was activated
 }
 
 export interface SurvivalGameResult {
@@ -66,4 +70,6 @@ export interface SurvivalGameResult {
   correctHits: number;
   deathCause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
   createdAt: string;
+  // NEW: Add game logs
+  gameLogs: GameLogEntry[];
 }
