@@ -127,7 +127,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   },
   {
     level: 12,
-    simultaneousCircles: 18,
+    simultaneousCircles: 16,
     redCircles: 7,
     activationTimeMin: 500,
     activationTimeMax: 900,
@@ -136,7 +136,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   },
   {
     level: 13,
-    simultaneousCircles: 22,
+    simultaneousCircles: 18,
     redCircles: 8,
     activationTimeMin: 450,
     activationTimeMax: 850,
@@ -145,7 +145,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   },
   {
     level: 14,
-    simultaneousCircles: 26,
+    simultaneousCircles: 18,
     redCircles: 10,
     activationTimeMin: 400,
     activationTimeMax: 800,
@@ -154,8 +154,8 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   },
   {
     level: 15,
-    simultaneousCircles: 30,
-    redCircles: 12,
+    simultaneousCircles: 18,
+    redCircles: 8,
     activationTimeMin: 350,
     activationTimeMax: 750,
     circleActiveTime: 800,
