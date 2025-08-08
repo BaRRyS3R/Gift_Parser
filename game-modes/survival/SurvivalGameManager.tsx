@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Optimized version with direct text updates
+// src/game-modes/survival/SurvivalGameManager.tsx - Optimized version with correct types and bottom positioning
 
 "use client";
 
@@ -7,6 +7,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Crosshair,
   AlertTriangle,
+  Zap,
+  Clock,
+  Target,
   RotateCcw,
   ArrowLeft,
 } from "lucide-react";
@@ -314,7 +317,7 @@ export default function SurvivalGameManager() {
 
         const newState = activateSurvivalCircles(
           prev,
-          (circleIds, redCircleIds) => {
+          (circleIds: number[], redCircleIds: number[]) => {
             const timestamp = Date.now();
 
             setActivatedCircles(circleIds);
@@ -324,7 +327,7 @@ export default function SurvivalGameManager() {
               setActivatedCircles([]);
             }, 450);
           },
-          (circleId, wasDecoy) => {
+          (circleId: number, wasDecoy: boolean) => {
             // Check if game is ending before processing timeout
             if (isGameEndingRef.current || prev.isGameEnding) {
               return;
@@ -478,9 +481,9 @@ export default function SurvivalGameManager() {
   const getDeathCauseIcon = (deathCause: string) => {
     switch (deathCause) {
       case "miss":
-        return <Crosshair className="text-red-400" size={20} />;
+        return <Clock className="text-red-400" size={20} />;
       case "wrong_click":
-        return <AlertTriangle className="text-red-400" size={20} />;
+        return <Target className="text-red-400" size={20} />;
       case "decoy_hit":
         return <AlertTriangle className="text-red-400" size={20} />;
       default:
@@ -671,8 +674,7 @@ export default function SurvivalGameManager() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col text-white relative">
-      {/* Game area - full screen */}
+    <div className="min-h-screen bg-black flex flex-col text-white">
       <div className="flex-1 flex items-center justify-center">
         <GameGrid
           circles={gameState.circles}
@@ -686,32 +688,39 @@ export default function SurvivalGameManager() {
         />
       </div>
 
-      {/* Direct text overlays - no container, just positioned text */}
-      <div className="fixed top-8 left-6 z-10 pointer-events-none">
-        <span
-          ref={levelDisplayRef}
-          className="text-lg font-bold text-orange-400 drop-shadow-lg"
-          style={{
-            fontVariantNumeric: 'tabular-nums',
-            textShadow: '0 2px 4px rgba(0,0,0,0.8)'
-          }}
-        >
-          {t("common.level")} 1/15
-        </span>
+      {/* Level display - bottom left */}
+      <div className="fixed bottom-8 left-6 z-10 pointer-events-none">
+        <div className="flex items-center space-x-2">
+          <Zap className="text-orange-400" size={18} />
+          <span
+            ref={levelDisplayRef}
+            className="text-lg font-bold text-orange-400"
+            style={{
+              fontVariantNumeric: 'tabular-nums',
+              textShadow: '0 2px 4px rgba(0,0,0,0.8)'
+            }}
+          >
+            {t("common.level")} 1/15
+          </span>
+        </div>
       </div>
 
-      <div className="fixed top-8 right-6 z-10 pointer-events-none">
-        <span
-          ref={timeDisplayRef}
-          className="text-lg font-bold text-white drop-shadow-lg"
-          style={{
-            fontVariantNumeric: 'tabular-nums',
-            textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-            fontFamily: 'monospace'
-          }}
-        >
-          0.000s
-        </span>
+      {/* Time display - bottom right */}
+      <div className="fixed bottom-8 right-6 z-10 pointer-events-none">
+        <div className="flex items-center space-x-2">
+          <Clock className="text-white" size={18} />
+          <span
+            ref={timeDisplayRef}
+            className="text-lg font-bold text-white"
+            style={{
+              fontVariantNumeric: 'tabular-nums',
+              textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+              fontFamily: 'monospace'
+            }}
+          >
+            0.000s
+          </span>
+        </div>
       </div>
     </div>
   );
