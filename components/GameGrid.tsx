@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Версия без анимаций и предварительного показа
+// src/components/GameGrid.tsx - Updated with fast activation pulse effects
 
 "use client";
 
@@ -11,7 +11,16 @@ interface GameGridProps {
   onCircleClick: (circleId: number) => void;
   isGameActive: boolean;
   showCircles: boolean;
-  gameMode?: "reaction" | "survival" | "physics";
+  // Props for activation pulse notifications
+  onActivatedCircles?: number[]; // Array of circle IDs that were just activated
+  lastActivationTimestamp?: number; // Timestamp to trigger re-render when activations occur
+  gameMode?: "reaction" | "survival" | "physics"; // NEW: Game mode for styling differences
+}
+
+interface ActivePulse {
+  circleId: number;
+  isRed: boolean;
+  timestamp: number;
 }
 
 // Utility function to determine grid dimensions based on circle count
@@ -29,6 +38,7 @@ const getGridDimensions = (circleCount: number) => {
       // Fallback calculation for any other counts
       const cols = Math.ceil(Math.sqrt(circleCount));
       const rows = Math.ceil(circleCount / cols);
+
       return { cols, rows };
   }
 };
@@ -38,6 +48,8 @@ export default function GameGrid({
   onCircleClick,
   isGameActive,
   showCircles,
+  onActivatedCircles = [],
+  lastActivationTimestamp = 0,
   gameMode = "reaction",
 }: GameGridProps) {
   const { cols, rows } = getGridDimensions(circles.length);
@@ -47,6 +59,34 @@ export default function GameGrid({
   // State for dynamic sizing
   const [circleSize, setCircleSize] = useState(40);
   const [gapSize, setGapSize] = useState(4);
+
+  // NEW: State for tracking active activation pulses
+  const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
+
+  // NEW: Effect to handle activation pulses
+  useEffect(() => {
+    if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
+      // Create new pulses for activated circles
+      const newPulses: ActivePulse[] = onActivatedCircles.map((circleId) => {
+        const circle = circles.find((c) => c.id === circleId);
+
+        return {
+          circleId,
+          isRed: circle?.isDecoy || false,
+          timestamp: lastActivationTimestamp,
+        };
+      });
+
+      setActivePulses((prev) => [...prev, ...newPulses]);
+
+      // Remove pulses after animation completes (400ms + small buffer)
+      setTimeout(() => {
+        setActivePulses((prev) =>
+          prev.filter((pulse) => pulse.timestamp !== lastActivationTimestamp),
+        );
+      }, 450);
+    }
+  }, [onActivatedCircles, lastActivationTimestamp, circles]);
 
   // Calculate adaptive sizes based on screen dimensions
   useEffect(() => {
@@ -122,41 +162,39 @@ export default function GameGrid({
       minHeight: `${circleSize}px`,
     };
 
-    // Убираем все transition анимации для мгновенных изменений
-    const baseClasses = "rounded-full border-2 relative";
+    const baseClasses =
+      "rounded-full border-2 transition-all duration-300 ease-out relative";
 
-    // State-based styling for visibility (только для общего показа/скрытия сетки)
+    // State-based styling for visibility and animation
     const visibilityClasses = showCircles
-      ? "opacity-100"
-      : "opacity-0";
+      ? "opacity-100 transform scale-100"
+      : "opacity-0 transform scale-0";
 
     // Interactive state styling based on circle type and activity
     if (circle.isActive) {
       if (circle.isDecoy) {
         // Decoy circles: red coloring with danger indicators
-        // Убираем все анимации и transitions - мгновенное появление/исчезновение
         return {
-          className: `${baseClasses} ${visibilityClasses} 
-                      bg-red-500 border-red-400 shadow-lg shadow-red-500/50
-                      hover:scale-105 active:scale-95`,
+          className: `${baseClasses} ${visibilityClasses}
+                      bg-red-500 border-red-400 shadow-lg shadow-red-500/50 scale-110
+                      hover:scale-115 active:scale-95`,
           style: baseStyles,
         };
       } else {
         // Regular active circles: white coloring with positive indicators
-        // Убираем все анимации и transitions - мгновенное появление/исчезновение
         return {
           className: `${baseClasses} ${visibilityClasses}
-                      bg-white shadow-lg shadow-white/50 border-white
-                      hover:scale-105 active:scale-95`,
+                      bg-white shadow-lg shadow-white/50 border-white scale-110
+                      hover:scale-115 active:scale-95`,
           style: baseStyles,
         };
       }
     } else {
-      // Inactive circles: standard border styling with minimal hover effects
+      // Inactive circles: standard border styling with hover effects
       return {
         className: `${baseClasses} ${visibilityClasses}
-                    bg-transparent border-white/60 hover:border-white/80
-                    active:scale-95`,
+                    bg-transparent border-white/60 hover:border-white hover:scale-105
+                    active:scale-95 hover:shadow-md hover:shadow-white/30`,
         style: baseStyles,
       };
     }
@@ -171,6 +209,7 @@ export default function GameGrid({
     event.stopPropagation();
 
     const currentTime = Date.now();
+
     touchStartTimeRef.current.set(circleId, currentTime);
 
     if (!processedTouchesRef.current.has(circleId)) {
@@ -210,7 +249,11 @@ export default function GameGrid({
     return {
       disabled: !isGameActive,
       style: {
-        // Убираем transitionDelay - больше нет постепенного появления
+        transitionDelay: showCircles ? `${circle.id * 12}ms` : "0ms",
+        transition:
+          circle.isActive && !circle.isAnimating
+            ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
+            : "all 0.3s ease-out",
         touchAction: "manipulation",
       },
       onTouchStart: (event: React.TouchEvent) =>
@@ -221,9 +264,9 @@ export default function GameGrid({
     };
   };
 
-  // Pulse effect остается только для активных кругов, но без transition
+  // Existing continuous pulse effect (unchanged)
   const renderPulseEffect = (circle: Circle) => {
-    if (!circle.isActive) return null;
+    if (!circle.isActive || circle.isAnimating) return null;
 
     const pulseColor = circle.isDecoy ? "border-red-400" : "border-white";
     const animationDuration = circle.isDecoy ? "1.2s" : "0.8s";
@@ -233,6 +276,33 @@ export default function GameGrid({
         className={`absolute inset-0 rounded-full border-2 ${pulseColor} opacity-50`}
         style={{
           animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
+        }}
+      />
+    );
+  };
+
+  // NEW: Fast activation pulse effect (single burst on activation)
+  const renderActivationPulse = (circle: Circle) => {
+    const activePulse = activePulses.find(
+      (pulse) => pulse.circleId === circle.id,
+    );
+
+    if (!activePulse) return null;
+
+    const pulseClass = activePulse.isRed
+      ? "activation-pulse-red"
+      : "activation-pulse";
+    const pulseColor = activePulse.isRed ? "border-red-400" : "border-white";
+
+    // Different z-index for different game modes
+    // In survival mode, pulse goes behind circles; in reaction mode, it goes above
+    const zIndex = gameMode === "survival" ? -1 : 10;
+
+    return (
+      <div
+        className={`absolute inset-0 rounded-full border-2 ${pulseColor} ${pulseClass} pointer-events-none`}
+        style={{
+          zIndex: zIndex,
         }}
       />
     );
@@ -262,8 +332,8 @@ export default function GameGrid({
           userSelect: "none",
           WebkitUserSelect: "none",
           WebkitTouchCallout: "none",
-          touchAction: "none",
-          overscrollBehavior: "none",
+          touchAction: "none", // <── ключевой момент
+          overscrollBehavior: "none", // <── чтобы убрать резиновое прокручивание
           maxWidth,
           maxHeight,
         }}
@@ -288,9 +358,10 @@ export default function GameGrid({
               onTouchEnd={getInteractionProps(circle).onTouchEnd}
               onTouchStart={getInteractionProps(circle).onTouchStart}
             >
-              {/* Pulse effect только для активных кругов */}
+              {/* Existing continuous pulse effect */}
               {renderPulseEffect(circle)}
-
+              {/* NEW: Fast activation pulse effect */}
+              {renderActivationPulse(circle)}
               {/* Debug info for development */}
               {process.env.NODE_ENV === "development" && circle.isActive && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">

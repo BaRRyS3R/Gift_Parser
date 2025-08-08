@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameLogic.ts - Упрощенная версия без анимаций
+// src/game-modes/reaction/ReactionGameLogic.ts - Updated with localized rating descriptions
 
 import type { TranslationFunction } from "@/types/localization";
 
@@ -57,6 +57,7 @@ export const initializeReactionGameState = (): ReactionGameState => {
 
 export const activateRandomCircle = (
   state: ReactionGameState,
+  onCircleActivated: (circleId: number) => void,
   onGameTimeout: () => void,
 ): ReactionGameState => {
   const circleId = getRandomCircleId(state.config.gridSize);
@@ -70,11 +71,11 @@ export const activateRandomCircle = (
       startTime: activationTime,
     },
     circles: state.circles.map((circle) =>
-      circle.id === circleId
-        ? { ...circle, isActive: true, isAnimating: false }
-        : circle,
+      circle.id === circleId ? { ...circle, isActive: true } : circle,
     ),
   };
+
+  onCircleActivated(circleId);
 
   // Set timeout for game ending if no click
   const gameTimeout = setTimeout(() => {
@@ -94,7 +95,7 @@ export const handleCircleClick = (
   const clickTime = Date.now();
 
   if (state.activeCircleId === clickedCircleId && state.stats.startTime) {
-    // Correct click - немедленная деактивация
+    // Correct click
     const reactionTime = clickTime - state.stats.startTime;
 
     return {
@@ -109,7 +110,7 @@ export const handleCircleClick = (
       },
       circles: state.circles.map((circle) =>
         circle.id === clickedCircleId
-          ? { ...circle, isActive: false, isAnimating: false }
+          ? { ...circle, isAnimating: true }
           : circle,
       ),
     };
@@ -235,16 +236,16 @@ export const getReactionRatingColor = (
 ): string => {
   switch (rating) {
     case "LIGHTNING":
-      return "text-white";
+      return "text-white"; // Changed from text-yellow-400 to monochrome
     case "EXCELLENT":
-      return "text-green-400";
+      return "text-green-400"; // Keep green for positive result
     case "GOOD":
-      return "text-blue-400";
+      return "text-blue-400"; // Keep blue for good result
     case "AVERAGE":
-      return "text-white";
+      return "text-white"; // Monochrome
     case "SLOW":
-      return "text-orange-400";
+      return "text-orange-400"; // Keep orange for warning
     case "MISSED":
-      return "text-red-400";
+      return "text-red-400"; // Keep red for error
   }
 };
