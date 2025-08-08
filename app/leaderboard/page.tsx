@@ -489,6 +489,9 @@ function LeaderboardPageContent() {
   }, [leaderboardData, activeTab]);
 
   // NEW: Get current user data for display
+  // Полностью исправленная версия функции getCurrentUserData в page.tsx
+  // Замените соответствующую часть в useMemo
+
   const getCurrentUserData = useMemo(() => {
     if (!leaderboardData || !user || !telegramUser) return null;
 
@@ -501,65 +504,99 @@ function LeaderboardPageContent() {
     let gamesCount = 0;
     let value = "N/A";
 
+    // Добавляем консольную отладку для диагностики
+    console.log(`[Leaderboard Debug] Tab: ${activeTab}`, {
+      user: {
+        reaction_games: user.reaction_games,
+        reaction_best_time: user.reaction_best_time,
+        reaction_best_score: user.reaction_best_score,
+        survival_games: user.survival_games,
+        survival_best_score: user.survival_best_score,
+        physics_games: user.physics_games,
+        physics_best_score: user.physics_best_score,
+        rotation_games: user.rotation_games,
+        rotation_best_score: user.rotation_best_score,
+        total_games: user.total_games,
+        total_score: user.total_score
+      },
+      userData,
+      userPosition
+    });
+
     switch (activeTab) {
       case "season":
-        gamesCount = user.total_games;
+        gamesCount = user.total_games || 0;
         if (userData) {
           value = `${(userData as SafeSeasonLeaderboard).total_score}`;
-        } else if (user.total_score > 0) {
-          value = `${user.total_score}`;
-        } else if (gamesCount > 0) {
-          value = "0";
+        } else {
+          const totalScore = user.total_score || 0;
+          if (gamesCount > 0 || totalScore > 0) {
+            value = `${totalScore}`;
+          }
         }
         break;
 
       case "reaction":
-        gamesCount = user.reaction_games;
+        gamesCount = user.reaction_games || 0;
         if (userData) {
           value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
-        } else if (gamesCount > 0) {
-          // Если есть игры, показываем лучший результат или 0
-          const bestTime = user.reaction_best_time || 0;
-          value = `${bestTime}ms`;
+        } else {
+          const bestTime = user.reaction_best_time;
+          console.log(`[Reaction Debug]`, { gamesCount, bestTime, type: typeof bestTime });
+
+          if (gamesCount > 0) {
+            // Более надежная проверка значения времени
+            const timeValue = bestTime != null && bestTime > 0 ? bestTime : 0;
+            value = `${timeValue}ms`;
+          }
         }
         break;
 
       case "survival":
-        gamesCount = user.survival_games;
+        gamesCount = user.survival_games || 0;
         if (userData) {
           value = `${(userData as SafeSurvivalLeaderboard).best_survival_score}`;
-        } else if (user.survival_best_score > 0) {
-          value = `${user.survival_best_score}`;
-        } else if (gamesCount > 0) {
-          value = "0";
+        } else {
+          const bestScore = user.survival_best_score || 0;
+          if (gamesCount > 0 || bestScore > 0) {
+            value = `${bestScore}`;
+          }
         }
         break;
 
       case "physics":
-        gamesCount = user.physics_games;
+        gamesCount = user.physics_games || 0;
         if (userData) {
           value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
-        } else if (user.physics_best_score > 0) {
-          value = `${user.physics_best_score}`;
-        } else if (gamesCount > 0) {
-          value = "0";
+        } else {
+          const bestScore = user.physics_best_score || 0;
+          if (gamesCount > 0 || bestScore > 0) {
+            value = `${bestScore}`;
+          }
         }
         break;
 
       case "rotation":
-        gamesCount = user.rotation_games;
+        gamesCount = user.rotation_games || 0;
         if (userData) {
           value = `${(userData as SafeRotationLeaderboard).best_rotation_score}`;
-        } else if (gamesCount > 0) {
-          // Если есть игры, показываем лучший результат или 0
-          const bestScore = user.rotation_best_score || 0;
-          value = `${bestScore}`;
+        } else {
+          const bestScore = user.rotation_best_score;
+          console.log(`[Rotation Debug]`, { gamesCount, bestScore, type: typeof bestScore });
+
+          if (gamesCount > 0) {
+            // Более надежная проверка значения счета
+            const scoreValue = bestScore != null && bestScore >= 0 ? bestScore : 0;
+            value = `${scoreValue}`;
+          }
         }
         break;
     }
 
-    // Fixed: User has played if they have games OR appear in leaderboard OR have a ranking position
+    // Проверяем, играл ли пользователь в этот режим
     const hasPlayed = gamesCount > 0 || userData !== undefined || userPosition !== undefined;
+
+    console.log(`[Leaderboard Result]`, { activeTab, gamesCount, value, hasPlayed, userPosition });
 
     return {
       name: `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim(),
@@ -570,6 +607,13 @@ function LeaderboardPageContent() {
       hasPlayed,
     };
   }, [leaderboardData, activeTab, user, telegramUser, getCurrentLeaderboard]);
+
+  // ДОПОЛНИТЕЛЬНО: Добавьте эту функцию для отладки в компоненте
+  useEffect(() => {
+    if (user) {
+      console.log('[User Data Full]', user);
+    }
+  }, [user]);
 
   // NEW: Get full leaderboard starting from position 1
   const getFullLeaderboard = useMemo(() => {
@@ -847,14 +891,14 @@ function LeaderboardPageContent() {
                           <div className="flex items-center space-x-2">
                             <span
                               className={`font-medium truncate ${entry.isCurrentUser
-                                  ? "text-white"
-                                  : entry.position === 1
-                                    ? "text-yellow-100"
-                                    : entry.position === 2
-                                      ? "text-gray-100"
-                                      : entry.position === 3
-                                        ? "text-amber-100"
-                                        : "text-white/90"
+                                ? "text-white"
+                                : entry.position === 1
+                                  ? "text-yellow-100"
+                                  : entry.position === 2
+                                    ? "text-gray-100"
+                                    : entry.position === 3
+                                      ? "text-amber-100"
+                                      : "text-white/90"
                                 }`}
                             >
                               {entry.first_name} {entry.last_name || ""}
@@ -863,8 +907,8 @@ function LeaderboardPageContent() {
                           {entry.username && (
                             <div
                               className={`text-xs truncate ${entry.position <= 3
-                                  ? "text-white/60"
-                                  : "text-white/50"
+                                ? "text-white/60"
+                                : "text-white/50"
                                 }`}
                             >
                               @{entry.username}
@@ -876,20 +920,20 @@ function LeaderboardPageContent() {
                       <div className="text-right flex-shrink-0">
                         <div
                           className={`font-bold text-lg ${entry.position === 1
-                              ? "text-yellow-400"
-                              : entry.position === 2
-                                ? "text-gray-300"
-                                : entry.position === 3
-                                  ? "text-amber-500"
-                                  : "text-white"
+                            ? "text-yellow-400"
+                            : entry.position === 2
+                              ? "text-gray-300"
+                              : entry.position === 3
+                                ? "text-amber-500"
+                                : "text-white"
                             }`}
                         >
                           {getPlayerValue(entry)}
                         </div>
                         <div
                           className={`text-xs ${entry.position <= 3
-                              ? "text-white/60"
-                              : "text-white/50"
+                            ? "text-white/60"
+                            : "text-white/50"
                             }`}
                         >
                           {activeTab === "season"
