@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Updated with fast activation pulse effects
+// src/components/GameGrid.tsx - Updated with fast activation pulse effects + мгновенная деактивация
 
 "use client";
 
@@ -165,13 +165,18 @@ export default function GameGrid({
     const baseClasses =
       "rounded-full border-2 transition-all duration-300 ease-out relative";
 
-    // State-based styling for visibility and animation
+    // State-based styling for visibility
     const visibilityClasses = showCircles
       ? "opacity-100 transform scale-100"
       : "opacity-0 transform scale-0";
 
+    // УБРАНО: проверка isAnimating для анимации затухания
+    // const animationClasses = circle.isAnimating
+    //   ? "opacity-0 scale-75 transition-all duration-200"
+    //   : "";
+
     // Interactive state styling based on circle type and activity
-    if (circle.isActive) {
+    if (circle.isActive) { // УБРАНО: && !circle.isAnimating
       if (circle.isDecoy) {
         // Decoy circles: red coloring with danger indicators
         return {
@@ -251,7 +256,7 @@ export default function GameGrid({
       style: {
         transitionDelay: showCircles ? `${circle.id * 12}ms` : "0ms",
         transition:
-          circle.isActive && !circle.isAnimating
+          circle.isActive // УБРАНО: && !circle.isAnimating
             ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
             : "all 0.3s ease-out",
         touchAction: "manipulation",
@@ -264,9 +269,9 @@ export default function GameGrid({
     };
   };
 
-  // Existing continuous pulse effect (unchanged)
+  // Existing continuous pulse effect
   const renderPulseEffect = (circle: Circle) => {
-    if (!circle.isActive || circle.isAnimating) return null;
+    if (!circle.isActive) return null; // УБРАНО: || circle.isAnimating
 
     const pulseColor = circle.isDecoy ? "border-red-400" : "border-white";
     const animationDuration = circle.isDecoy ? "1.2s" : "0.8s";
@@ -332,8 +337,8 @@ export default function GameGrid({
           userSelect: "none",
           WebkitUserSelect: "none",
           WebkitTouchCallout: "none",
-          touchAction: "none", // <── ключевой момент
-          overscrollBehavior: "none", // <── чтобы убрать резиновое прокручивание
+          touchAction: "none",
+          overscrollBehavior: "none",
           maxWidth,
           maxHeight,
         }}
@@ -362,12 +367,7 @@ export default function GameGrid({
               {renderPulseEffect(circle)}
               {/* NEW: Fast activation pulse effect */}
               {renderActivationPulse(circle)}
-              {/* Debug info for development */}
-              {process.env.NODE_ENV === "development" && circle.isActive && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
-                  {circle.id}
-                </div>
-              )}
+
             </button>
           );
         })}

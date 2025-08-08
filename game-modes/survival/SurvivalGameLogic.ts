@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameLogic.ts - Исправлено для точного учета времени
+// src/game-modes/survival/SurvivalGameLogic.ts - Исправлено для точного учета времени + мгновенная деактивация
 
 import {
   SurvivalGameConfig,
@@ -30,7 +30,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
     redCircles: 0,
     activationTimeMin: 1200,
     activationTimeMax: 2000,
-    circleActiveTime: 2500,
+    circleActiveTime: 2000,
     description: "WARMING UP",
   },
   {
@@ -39,7 +39,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
     redCircles: 0,
     activationTimeMin: 1100,
     activationTimeMax: 1900,
-    circleActiveTime: 2300,
+    circleActiveTime: 2000,
     description: "GETTING STARTED",
   },
   {
@@ -48,7 +48,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
     redCircles: 1,
     activationTimeMin: 1000,
     activationTimeMax: 1700,
-    circleActiveTime: 2100,
+    circleActiveTime: 2000,
     description: "BASIC PRECISION",
   },
   {
@@ -57,7 +57,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
     redCircles: 1,
     activationTimeMin: 900,
     activationTimeMax: 1600,
-    circleActiveTime: 1900,
+    circleActiveTime: 2000,
     description: "FOCUS REQUIRED",
   },
   // Обновленные уровни 5-15
@@ -157,7 +157,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
     redCircles: 12, // было 18
     activationTimeMin: 350, // было 300
     activationTimeMax: 750, // было 700
-    circleActiveTime: 2000, // было 700
+    circleActiveTime: 800, // было 700
     description: "PERFECT MACHINE",
   },
 ];
@@ -368,7 +368,7 @@ export const handleSurvivalCircleClick = (
         result: "decoy",
       };
     } else {
-      // Correct white circle click
+      // Correct white circle click - УБРАНА анимация затухания
       const newStats = {
         ...updatedState.stats,
         correctHits: updatedState.stats.correctHits + 1,
