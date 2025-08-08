@@ -72,6 +72,9 @@ export default function SurvivalGameManager() {
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
+  
+  // NEW: State for instant deactivation tracking
+  const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
 
   const gameStateRef = useRef<SurvivalGameState>(gameState);
 
@@ -308,9 +311,17 @@ export default function SurvivalGameManager() {
       if (result === "correct") {
         triggerHapticFeedback("success");
 
+        // NEW: Add circle to instant deactivation list
+        setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
+
         // Немедленно очищаем таймаут и деактивируем круг без анимации
         const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId);
         setGameState(immediatelyDeactivatedState);
+
+        // Remove from instant deactivation list after a short delay to prevent visual artifacts
+        setTimeout(() => {
+          setInstantlyDeactivatedCircles((prev) => prev.filter(id => id !== circleId));
+        }, 100);
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");
@@ -330,6 +341,8 @@ export default function SurvivalGameManager() {
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
     setIsNewBestScore(false);
+    // NEW: Reset instant deactivation tracking
+    setInstantlyDeactivatedCircles([]);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -578,6 +591,7 @@ export default function SurvivalGameManager() {
           showCircles={showCircles}
           onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
+          instantlyDeactivatedCircles={instantlyDeactivatedCircles}
         />
       </div>
 

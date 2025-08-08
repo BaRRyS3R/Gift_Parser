@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Updated with fast activation pulse effects
+// src/components/GameGrid.tsx - Updated with instant deactivation support
 
 "use client";
 
@@ -14,7 +14,9 @@ interface GameGridProps {
   // Props for activation pulse notifications
   onActivatedCircles?: number[]; // Array of circle IDs that were just activated
   lastActivationTimestamp?: number; // Timestamp to trigger re-render when activations occur
-  gameMode?: "reaction" | "survival" | "physics"; // NEW: Game mode for styling differences
+  gameMode?: "reaction" | "survival" | "physics"; // Game mode for styling differences
+  // NEW: Props for instant deactivation support
+  instantlyDeactivatedCircles?: number[]; // Array of circle IDs that should be instantly deactivated
 }
 
 interface ActivePulse {
@@ -51,6 +53,7 @@ export default function GameGrid({
   onActivatedCircles = [],
   lastActivationTimestamp = 0,
   gameMode = "reaction",
+  instantlyDeactivatedCircles = [],
 }: GameGridProps) {
   const { cols, rows } = getGridDimensions(circles.length);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
@@ -60,10 +63,10 @@ export default function GameGrid({
   const [circleSize, setCircleSize] = useState(40);
   const [gapSize, setGapSize] = useState(4);
 
-  // NEW: State for tracking active activation pulses
+  // State for tracking active activation pulses
   const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
 
-  // NEW: Effect to handle activation pulses
+  // Effect to handle activation pulses
   useEffect(() => {
     if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
       // Create new pulses for activated circles
@@ -165,17 +168,24 @@ export default function GameGrid({
     const baseClasses =
       "rounded-full border-2 transition-all duration-300 ease-out relative";
 
+    // Check if this circle should be instantly deactivated
+    const shouldInstantlyDeactivate = instantlyDeactivatedCircles.includes(circle.id);
+
     // State-based styling for visibility and animation
     const visibilityClasses = showCircles
       ? "opacity-100 transform scale-100"
       : "opacity-0 transform scale-0";
 
-    const animationClasses = circle.isAnimating
-      ? "opacity-0 scale-75 transition-all duration-5"
-      : "";
+    // Handle instant deactivation vs normal animation
+    let animationClasses = "";
+    if (shouldInstantlyDeactivate) {
+      animationClasses = "circle-instant-deactivate";
+    } else if (circle.isAnimating) {
+      animationClasses = "opacity-0 scale-75 transition-all duration-100";
+    }
 
     // Interactive state styling based on circle type and activity
-    if (circle.isActive && !circle.isAnimating) {
+    if (circle.isActive && !circle.isAnimating && !shouldInstantlyDeactivate) {
       if (circle.isDecoy) {
         // Decoy circles: red coloring with danger indicators
         return {
@@ -268,8 +278,10 @@ export default function GameGrid({
     };
   };
 
-  // Existing continuous pulse effect (unchanged)
+  // Continuous pulse effect (unchanged but respects instant deactivation)
   const renderPulseEffect = (circle: Circle) => {
+    // Don't render pulse for instantly deactivated circles
+    if (instantlyDeactivatedCircles.includes(circle.id)) return null;
     if (!circle.isActive || circle.isAnimating) return null;
 
     const pulseColor = circle.isDecoy ? "border-red-400" : "border-white";
@@ -285,8 +297,11 @@ export default function GameGrid({
     );
   };
 
-  // NEW: Fast activation pulse effect (single burst on activation)
+  // Fast activation pulse effect (respects instant deactivation)
   const renderActivationPulse = (circle: Circle) => {
+    // Don't render activation pulse for instantly deactivated circles
+    if (instantlyDeactivatedCircles.includes(circle.id)) return null;
+
     const activePulse = activePulses.find(
       (pulse) => pulse.circleId === circle.id,
     );
@@ -362,7 +377,7 @@ export default function GameGrid({
             >
               {/* Existing continuous pulse effect */}
               {renderPulseEffect(circle)}
-              {/* NEW: Fast activation pulse effect */}
+              {/* Fast activation pulse effect */}
               {renderActivationPulse(circle)}
               {/* Debug info for development */}
               {process.env.NODE_ENV === "development" && circle.isActive && (
