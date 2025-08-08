@@ -1,4 +1,4 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Refactored version without attempts logic
+// src/game-modes/reaction/ReactionGameManager.tsx - Упрощенная версия без анимаций активации
 
 "use client";
 
@@ -59,11 +59,6 @@ export default function ReactionGameManager() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
 
-  // State for activation pulse effects
-  const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
-  const [lastActivationTimestamp, setLastActivationTimestamp] =
-    useState<number>(0);
-
   const gameStateRef = useRef<ReactionGameState>(gameState);
 
   useEffect(() => {
@@ -82,7 +77,7 @@ export default function ReactionGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -102,7 +97,6 @@ export default function ReactionGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -117,7 +111,6 @@ export default function ReactionGameManager() {
           isSuccess: false,
           error: null,
         }));
-
         return;
       }
 
@@ -168,7 +161,6 @@ export default function ReactionGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -203,7 +195,6 @@ export default function ReactionGameManager() {
       };
 
       const result = createReactionGameResult(finalState);
-
       setGameResult(result);
       handleSaveGameResult(result);
       cleanupReactionGame(finalState);
@@ -211,24 +202,6 @@ export default function ReactionGameManager() {
       return finalState;
     });
   }, [handleSaveGameResult]);
-
-  const handleCircleActivated = useCallback(
-    (circleId: number) => {
-      // Trigger activation pulse effect
-      const timestamp = Date.now();
-
-      setActivatedCircles([circleId]);
-      setLastActivationTimestamp(timestamp);
-
-      // Clear activation state after pulse animation completes
-      setTimeout(() => {
-        setActivatedCircles([]);
-      }, 450);
-
-      triggerHapticFeedback("success");
-    },
-    [triggerHapticFeedback],
-  );
 
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
@@ -242,7 +215,6 @@ export default function ReactionGameManager() {
         );
 
         const result = createReactionGameResult(newState);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupReactionGame(newState);
@@ -273,7 +245,6 @@ export default function ReactionGameManager() {
         triggerHapticFeedback("error");
 
         const result = createReactionGameResult(newState);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupReactionGame(newState);
@@ -288,8 +259,6 @@ export default function ReactionGameManager() {
     setGameState(initializeReactionGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
-    setActivatedCircles([]);
-    setLastActivationTimestamp(0);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -303,11 +272,7 @@ export default function ReactionGameManager() {
       const timeout = setTimeout(() => {
         if (gameStateRef.current.gameState === GameState.PLAYING) {
           setGameState((current) =>
-            activateRandomCircle(
-              current,
-              handleCircleActivated,
-              handleGameTimeout,
-            ),
+            activateRandomCircle(current, handleGameTimeout),
           );
         }
       }, delay);
@@ -317,7 +282,7 @@ export default function ReactionGameManager() {
         startDelayTimeout: timeout,
       }));
     }, 500);
-  }, [handleCircleActivated, handleGameTimeout]);
+  }, [handleGameTimeout]);
 
   const handleBackToGames = useCallback(() => {
     router.push("/game");
@@ -435,94 +400,94 @@ export default function ReactionGameManager() {
             saveStatus.error ||
             saveStatus.isSuccess ||
             saveStatus.skipped) && (
-            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span className="text-sm text-white/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="text-sm text-white/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recordingReaction")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-white/60" size={14} />
-                        <span className="text-xs text-white/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-white/20 rounded-full h-1">
-                        <div
-                          className="bg-white h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recordingReaction")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.savedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-white/60" size={14} />
+                          <span className="text-xs text-white/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-white/20 rounded-full h-1">
+                          <div
+                            className="bg-white h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.savedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.skipped && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-orange-400 text-sm">
-                      {t("save.attemptNotRecorded")}
-                    </span>
+                {saveStatus.skipped && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-orange-400 text-sm">
+                        {t("save.attemptNotRecorded")}
+                      </span>
+                    </div>
+                    <div className="text-orange-400/60 text-xs">
+                      {t("save.onlySuccessful")}
+                    </div>
                   </div>
-                  <div className="text-orange-400/60 text-xs">
-                    {t("save.onlySuccessful")}
-                  </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 text-sm">
-                      {t("save.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 text-sm">
+                        {t("save.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 text-xs mb-3">
+                      {t("save.recordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("save.retrySave")}
+                    </button>
                   </div>
-                  <div className="text-red-400/60 text-xs mb-3">
-                    {t("save.recordedLocally")}
-                  </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("save.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           <div className="space-y-4">
             <button
@@ -548,9 +513,7 @@ export default function ReactionGameManager() {
           circles={gameState.circles}
           gameMode="reaction"
           isGameActive={gameState.gameState === GameState.PLAYING}
-          lastActivationTimestamp={lastActivationTimestamp}
           showCircles={showCircles}
-          onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
         />
       </div>
@@ -561,11 +524,10 @@ export default function ReactionGameManager() {
             <div className="flex items-center justify-center space-x-2">
               {getInstructionIcon()}
               <span
-                className={`text-lg font-bold transition-colors duration-300 ${
-                  gameState.activeCircleId !== null
+                className={`text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null
                     ? "text-white animate-pulse"
                     : "text-white/80"
-                }`}
+                  }`}
               >
                 {getInstructionText()}
               </span>
