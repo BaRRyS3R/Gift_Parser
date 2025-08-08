@@ -120,6 +120,7 @@ function GameGrid({
   const { cols, rows } = useMemo(() => getGridDimensions(circles.length), [circles.length]);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
+  const resizeTimeoutRef = useRef<NodeJS.Timeout>();
 
   // State for dynamic sizing - memoized to prevent recalculation
   const [circleSize, setCircleSize] = useState(40);
@@ -168,8 +169,6 @@ function GameGrid({
 
   // Calculate adaptive sizes based on screen dimensions
   useEffect(() => {
-    const resizeTimeoutRef = useRef<NodeJS.Timeout>();
-
     const calculateAdaptiveSizes = () => {
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
