@@ -1,7 +1,6 @@
-// src/types/game-modes/survival.ts - Updated with race condition protection
+// src/types/game-modes/survival.ts - Updated types with logging components removed
 
 import { Circle, GameState, GameMode } from "./common";
-import { GameLogger } from "@/utils/gameLogger";
 
 export interface SurvivalGameConfig {
   id: string;
@@ -55,9 +54,8 @@ export interface SurvivalGameState {
   isActive: boolean;
   gameStartTime: number;
   recentlyUsedCircles: Map<number, number>;
-  logger?: GameLogger;
-  isGameEnding?: boolean; // NEW: Flag to prevent multiple game endings
-  pendingActivationTimeouts?: Set<NodeJS.Timeout>; // NEW: Track all pending activation timeouts
+  isGameEnding?: boolean; // Flag to prevent multiple game endings
+  pendingActivationTimeouts?: Set<NodeJS.Timeout>; // Track all pending activation timeouts
 }
 
 export interface SurvivalGameResult {
@@ -70,5 +68,4 @@ export interface SurvivalGameResult {
   correctHits: number;
   deathCause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
   createdAt: string;
-  gameLog?: string;
 }

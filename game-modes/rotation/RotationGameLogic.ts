@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameLogic.ts - Fixed level transitions preserving active circles
+// src/game-modes/rotation/RotationGameLogic.ts - Updated with fewer, larger circles
 
 import {
   RotationGameConfig,
@@ -13,8 +13,8 @@ import { GameState, GameMode } from "@/types/game-modes/common";
 export const ROTATION_CONFIG: RotationGameConfig = {
   id: "rotation",
   name: "ROTATION MODE",
-  circleCount: 14,
-  radius: 120,
+  circleCount: 8, // Reduced from 14 to 8 for larger circles
+  radius: 140, // Increased radius to accommodate larger circles
   initialRotationSpeed: 0.02,
   initialActivationTimeMin: 1500,
   initialActivationTimeMax: 2500,
@@ -22,7 +22,7 @@ export const ROTATION_CONFIG: RotationGameConfig = {
   intensityIncreaseInterval: 10, // seconds
   maxIntensityLevel: 10,
   simultaneousCirclesMin: 1,
-  simultaneousCirclesMax: 3,
+  simultaneousCirclesMax: 2, // Reduced max simultaneous circles from 3 to 2
 };
 
 export const ROTATION_LEVELS: RotationLevelConfig[] = [
@@ -48,7 +48,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 3,
-    simultaneousCircles: 2,
+    simultaneousCircles: 1,
     redCircles: 1,
     activationTimeMin: 1400,
     activationTimeMax: 2400,
@@ -78,7 +78,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 6,
-    simultaneousCircles: 3,
+    simultaneousCircles: 2,
     redCircles: 1,
     activationTimeMin: 1000,
     activationTimeMax: 1800,
@@ -88,8 +88,8 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 7,
-    simultaneousCircles: 3,
-    redCircles: 2,
+    simultaneousCircles: 2,
+    redCircles: 1,
     activationTimeMin: 900,
     activationTimeMax: 1600,
     circleActiveTime: 1800,
@@ -98,7 +98,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 8,
-    simultaneousCircles: 3,
+    simultaneousCircles: 2,
     redCircles: 2,
     activationTimeMin: 800,
     activationTimeMax: 1400,
@@ -108,7 +108,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 9,
-    simultaneousCircles: 3,
+    simultaneousCircles: 2,
     redCircles: 2,
     activationTimeMin: 700,
     activationTimeMax: 1200,
@@ -118,7 +118,7 @@ export const ROTATION_LEVELS: RotationLevelConfig[] = [
   },
   {
     level: 10,
-    simultaneousCircles: 3,
+    simultaneousCircles: 2,
     redCircles: 2,
     activationTimeMin: 600,
     activationTimeMax: 1000,
@@ -180,11 +180,10 @@ export const initializeRotationGameState = (): RotationGameState => {
 
 export const getLevelConfig = (level: number): RotationLevelConfig => {
   const clampedLevel = Math.max(1, Math.min(level, ROTATION_LEVELS.length));
-
   return ROTATION_LEVELS[clampedLevel - 1];
 };
 
-// Updated function to preserve active circles during level transitions
+// Race condition fix: Use atomic state updates with proper cleanup
 export const updateRotationLevel = (
   state: RotationGameState,
   currentTime?: number,
@@ -205,7 +204,7 @@ export const updateRotationLevel = (
     const newLevel = state.currentLevel + 1;
     const levelConfig = getLevelConfig(newLevel);
 
-    // CRITICAL: Preserve active circles and their states during level transition
+    // Preserve active circles and their states during level transition
     const preservedCircles = state.circles.map((circle) => ({
       ...circle,
       // Keep existing active state and position - DO NOT reset
@@ -216,7 +215,7 @@ export const updateRotationLevel = (
       currentLevel: newLevel,
       timeInCurrentLevel: 0,
       currentRotationSpeed: levelConfig.rotationSpeed,
-      circles: preservedCircles, // Preserve all circle states
+      circles: preservedCircles,
       stats: {
         ...state.stats,
         survivalTime: actualSurvivalTime,
@@ -238,9 +237,6 @@ export const updateRotationLevel = (
   };
 };
 
-// Removed problematic updateCirclePositions function that was causing conflicts
-// Positions are now handled entirely by CSS animation
-
 export const getRandomCircleIds = (
   totalCircles: number,
   targetCount: number,
@@ -256,23 +252,30 @@ export const getRandomCircleIds = (
   for (let i = 0; i < count; i++) {
     const randomIndex = Math.floor(Math.random() * availableIds.length);
     const selectedId = availableIds.splice(randomIndex, 1)[0];
-
     selectedIds.push(selectedId);
   }
 
   return selectedIds;
 };
 
+// Race condition fix: Added mutex-like protection for circle activation
+let isActivatingCircles = false;
+
 export const activateRotationCircles = (
   state: RotationGameState,
   onCirclesActivated: (circleIds: number[], redCircleIds: number[]) => void,
   onCircleTimeout: (circleId: number, wasDecoy: boolean) => void,
 ): RotationGameState => {
+  // Prevent concurrent activations
+  if (isActivatingCircles) return state;
+
   const levelConfig = getLevelConfig(state.currentLevel);
   const availableSlots =
     levelConfig.simultaneousCircles - state.activeCircleIds.length;
 
   if (availableSlots <= 0) return state;
+
+  isActivatingCircles = true;
 
   const selectedIds = getRandomCircleIds(
     state.config.circleCount,
@@ -280,7 +283,10 @@ export const activateRotationCircles = (
     state.activeCircleIds,
   );
 
-  if (selectedIds.length === 0) return state;
+  if (selectedIds.length === 0) {
+    isActivatingCircles = false;
+    return state;
+  }
 
   // Determine red circles
   const whiteCirclesNeeded = Math.max(
@@ -318,14 +324,14 @@ export const activateRotationCircles = (
         isDecoy: redIds.includes(circle.id),
       };
     }
-
     return circle;
   });
 
-  // Call callback AFTER state is updated to ensure proper timing
+  // Call callback AFTER state is updated
   setTimeout(() => {
     onCirclesActivated(selectedIds, redIds);
-  }, 50); // Small delay to ensure circles are visually active first
+    isActivatingCircles = false;
+  }, 50);
 
   return {
     ...state,
@@ -335,11 +341,22 @@ export const activateRotationCircles = (
   };
 };
 
+// Race condition fix: Added debouncing for click handling
+const clickDebounceMap = new Map<number, number>();
+const CLICK_DEBOUNCE_TIME = 100; // milliseconds
+
 export const handleRotationCircleClick = (
   state: RotationGameState,
   clickedCircleId: number,
   clickTime: number = Date.now(),
 ): { newState: RotationGameState; result: "correct" | "wrong" | "decoy" } => {
+  // Debounce rapid clicks on the same circle
+  const lastClickTime = clickDebounceMap.get(clickedCircleId) || 0;
+  if (clickTime - lastClickTime < CLICK_DEBOUNCE_TIME) {
+    return { newState: state, result: "wrong" };
+  }
+  clickDebounceMap.set(clickedCircleId, clickTime);
+
   const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
 
   if (!clickedCircle) {
@@ -450,24 +467,22 @@ export const getRotationDeathCause = (
   if (stats.decoyHits > 0) return "decoy_hit";
   if (stats.wrongHits > 0) return "wrong_click";
   if (stats.missedCircles > 0) return "miss";
-
   return "timeout";
 };
 
 export const createRotationGameResult = (
   state: RotationGameState,
 ): RotationGameResult => {
-  // Унифицированная формула расчёта очков
-  const timeScore = Math.floor(state.stats.survivalTime / 1000); // Время в секундах
-  const levelScore = state.currentLevel; // Достигнутый уровень
-  const hitsScore = state.stats.correctHits; // Количество попаданий
+  const timeScore = Math.floor(state.stats.survivalTime / 1000);
+  const levelScore = state.currentLevel;
+  const hitsScore = state.stats.correctHits;
 
   const finalScore = timeScore + levelScore + hitsScore;
   const deathCause = getRotationDeathCause(state.stats);
 
   return {
     mode: GameMode.ROTATION,
-    score: finalScore, // Единая система очков
+    score: finalScore,
     duration: Math.floor(state.stats.survivalTime / 1000),
     survivalTime: state.stats.survivalTime,
     maxLevelReached: state.currentLevel,
@@ -478,8 +493,14 @@ export const createRotationGameResult = (
   };
 };
 
+// Race condition fix: Enhanced cleanup with proper timeout clearing
 export const cleanupRotationGame = (state: RotationGameState): void => {
-  state.circleTimeouts.forEach((timeout) => clearTimeout(timeout));
+  // Clear all timeouts atomically
+  state.circleTimeouts.forEach((timeout) => {
+    if (timeout) clearTimeout(timeout);
+  });
+  state.circleTimeouts.clear();
+
   if (state.activationTimeout) {
     clearTimeout(state.activationTimeout);
   }
@@ -489,6 +510,12 @@ export const cleanupRotationGame = (state: RotationGameState): void => {
   if (state.rotationAnimationFrame) {
     cancelAnimationFrame(state.rotationAnimationFrame);
   }
+
+  // Reset activation mutex
+  isActivatingCircles = false;
+
+  // Clear click debounce map
+  clickDebounceMap.clear();
 };
 
 export const formatRotationTime = (milliseconds: number): string => {
