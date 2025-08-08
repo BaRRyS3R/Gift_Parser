@@ -253,14 +253,14 @@ export default function GameGrid({
 
     // ОПТИМИЗИРОВАНО: Уменьшенная временная блокировка только для предотвращения bounce-эффекта
     const lastClick = lastClickTimeRef.current.get(circleId) || 0;
-    if (currentTime - lastClick < 100) { // Уменьшено до 100ms для быстрого геймплея
+    if (currentTime - lastClick < 50) { // Уменьшено до 100ms для быстрого геймплея
       return;
     }
 
     // ОПТИМИЗИРОВАНО: Более короткая проверка глобальной блокировки
     if (processedTouchesRef.current.has(circleId)) {
       const touchStartTime = touchStartTimeRef.current.get(circleId) || 0;
-      if (currentTime - touchStartTime < 150) { // Короткая блокировка только для текущего касания
+      if (currentTime - touchStartTime < 50) { // Короткая блокировка только для текущего касания
         return;
       }
     }
@@ -278,7 +278,7 @@ export default function GameGrid({
     // ОПТИМИЗИРОВАНО: Короткая блокировка только для предотвращения bounce
     setTimeout(() => {
       processedTouchesRef.current.delete(circleId);
-    }, 150); // Уменьшено до 150ms для обеспечения быстрого геймплея
+    }, 50); // Уменьшено до 150ms для обеспечения быстрого геймплея
   };
 
   const handleTouchEnd = (circleId: number, event: React.TouchEvent) => {
@@ -315,11 +315,11 @@ export default function GameGrid({
     const lastClick = lastClickTimeRef.current.get(circleId) || 0;
 
     // ИСПРАВЛЕНО: Проверяем не только touch время, но и последний клик
-    if (touchTime && currentTime - touchTime < 200) {
+    if (touchTime && currentTime - touchTime < 100) {
       return;
     }
 
-    if (currentTime - lastClick < 200) {
+    if (currentTime - lastClick < 100) {
       return;
     }
 
