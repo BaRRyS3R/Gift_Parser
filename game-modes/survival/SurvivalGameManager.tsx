@@ -665,19 +665,19 @@ export default function SurvivalGameManager() {
         />
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom">
-        <div className="px-6 py-4">
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom game-panel-stable">
+        <div className="px-6 py-4 game-panel-content">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 game-panel-item">
               <Zap className="text-orange-400" size={18} />
-              <span className="text-lg font-bold text-orange-400">
+              <span className="text-lg font-bold text-orange-400 game-level-display">
                 {t("common.level")} {gameState.currentLevel}/15
               </span>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 game-panel-item">
               <Clock className="text-white" size={18} />
-              <span className="text-lg font-bold text-white">
+              <span className="text-lg font-bold text-white game-time-display">
                 {formatSurvivalTime(gameState.stats.survivalTime)}
               </span>
             </div>

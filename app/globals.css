@@ -919,3 +919,38 @@ body {
   transform: translateY(100%);
   opacity: 0;
 }
+
+/* Стабилизация нижней панели игры */
+.game-panel-stable {
+  contain: layout style paint;
+  will-change: contents;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+.game-panel-content {
+  contain: layout;
+  min-height: 72px;
+  /* Фиксированная высота */
+}
+
+.game-time-display {
+  font-variant-numeric: tabular-nums;
+  font-family: 'Courier New', monospace;
+  min-width: 120px;
+  /* Фиксированная ширина для времени */
+  text-align: right;
+  contain: layout style;
+}
+
+.game-level-display {
+  font-variant-numeric: tabular-nums;
+  min-width: 80px;
+  /* Фиксированная ширина для уровня */
+  contain: layout style;
+}
+
+.game-panel-item {
+  contain: layout;
+  flex-shrink: 0;
+}
