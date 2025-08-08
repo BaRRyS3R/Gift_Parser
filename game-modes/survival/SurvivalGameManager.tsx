@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Версия с полным логированием игрового процесса
+// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with comprehensive logging
 
 "use client";
 
@@ -11,10 +11,10 @@ import {
   Target,
   RotateCcw,
   ArrowLeft,
-  FileText,
   Copy,
-  Eye,
-  EyeOff,
+  FileText,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -28,15 +28,14 @@ import {
   cleanupSurvivalGame,
   getLevelConfig,
   formatSurvivalTime,
-  handleCircleTimeout,
-  scheduleActivation,
-  SurvivalGameStateWithLogger,
 } from "./SurvivalGameLogic";
 
 import { useUser } from "@/hooks/useUser";
 import { GameState } from "@/types/game-modes/common";
-import { SurvivalGameResult } from "@/types/game-modes/survival";
-import { LogEventType } from "@/types/game-logging";
+import {
+  SurvivalGameState,
+  SurvivalGameResult,
+} from "@/types/game-modes/survival";
 import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
 
@@ -60,171 +59,12 @@ const initialSaveStatus: SaveStatus = {
 
 const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
 
-// Компонент для отображения логов игры
-interface GameLogViewerProps {
-  gameState: SurvivalGameStateWithLogger;
-  gameResult: SurvivalGameResult | null;
-}
-
-function GameLogViewer({ gameState, gameResult }: GameLogViewerProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
-  const t = useT();
-
-  const handleCopyLog = async () => {
-    try {
-      const logExport = gameState.logger.exportLog();
-      const logText = `=== CIRCUSLE SURVIVAL MODE DEBUG LOG ===
-Session ID: ${logExport.sessionId}
-Start Time: ${logExport.startTime}
-End Time: ${logExport.endTime}
-Total Duration: ${logExport.totalDuration}ms (${(logExport.totalDuration / 1000).toFixed(3)}s)
-
-=== GAME SUMMARY ===
-Total Events: ${logExport.summary.totalEvents}
-Circles Activated: ${logExport.summary.circlesActivated}
-Circles Clicked Correctly: ${logExport.summary.circlesClickedCorrectly}
-Circles Timed Out: ${logExport.summary.circlesTimedOut}
-Average Reaction Time: ${logExport.summary.averageReactionTime.toFixed(3)}ms
-Level Changes: ${logExport.summary.levelChanges}
-Errors: ${logExport.summary.errors}
-
-${gameResult ? `=== FINAL RESULTS ===
-Final Score: ${gameResult.score}
-Max Level Reached: ${gameResult.maxLevelReached}
-Survival Time: ${gameResult.survivalTime}ms
-Death Cause: ${gameResult.deathCause}
-Correct Hits: ${gameResult.correctHits}
-Perfect Streak: ${gameResult.perfectStreak}
-
-` : ''}=== DETAILED EVENT LOG ===
-${gameState.logger.getFormattedLog()}
-
-=== END OF LOG ===`;
-
-      await navigator.clipboard.writeText(logText);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch (error) {
-      console.error("Failed to copy log to clipboard:", error);
-    }
-  };
-
-  const logSummary = gameState.logger.exportLog().summary;
-
-  return (
-    <div className="bg-gray-900/30 backdrop-blur-sm border border-gray-600/30 rounded-xl p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <FileText className="text-gray-400" size={18} />
-          <h3 className="text-sm font-bold text-gray-300">
-            {t("debug.gameLog")}
-          </h3>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            className="px-3 py-1 bg-blue-600/20 border border-blue-500/40 text-blue-400 rounded text-xs hover:bg-blue-600/30 transition-colors flex items-center space-x-1"
-            onClick={handleCopyLog}
-          >
-            <Copy size={12} />
-            <span>{copySuccess ? t("debug.copied") : t("debug.copyLog")}</span>
-          </button>
-          <button
-            className="px-3 py-1 bg-gray-600/20 border border-gray-500/40 text-gray-400 rounded text-xs hover:bg-gray-600/30 transition-colors flex items-center space-x-1"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? <EyeOff size={12} /> : <Eye size={12} />}
-            <span>{isExpanded ? t("debug.hide") : t("debug.show")}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Краткая сводка всегда видна */}
-      <div className="grid grid-cols-3 gap-3 text-xs">
-        <div className="text-center space-y-1">
-          <div className="text-gray-500">{t("debug.events")}</div>
-          <div className="text-white font-bold">{logSummary.totalEvents}</div>
-        </div>
-        <div className="text-center space-y-1">
-          <div className="text-gray-500">{t("debug.activated")}</div>
-          <div className="text-green-400 font-bold">{logSummary.circlesActivated}</div>
-        </div>
-        <div className="text-center space-y-1">
-          <div className="text-gray-500">{t("debug.avgReaction")}</div>
-          <div className="text-yellow-400 font-bold">
-            {logSummary.averageReactionTime.toFixed(0)}ms
-          </div>
-        </div>
-      </div>
-
-      {/* Развернутый лог */}
-      {isExpanded && (
-        <div className="space-y-3">
-          <div className="border-t border-gray-600/30 pt-3">
-            <h4 className="text-xs font-bold text-gray-400 mb-2">
-              {t("debug.recentEvents")} ({gameState.logger.entries.length})
-            </h4>
-            <div className="bg-black/40 rounded p-2 max-h-48 overflow-y-auto">
-              <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
-                {gameState.logger.entries
-                  .slice(-20) // Показываем последние 20 событий
-                  .map((entry, index) => {
-                    const timeStr = (entry.relativeTime / 1000).toFixed(3).padStart(8);
-                    const typeStr = entry.type.padEnd(20);
-                    let dataStr = JSON.stringify(entry.data);
-                    
-                    // Укорачиваем длинные строки
-                    if (dataStr.length > 100) {
-                      dataStr = dataStr.substring(0, 97) + "...";
-                    }
-                    
-                    return `[${timeStr}s] ${typeStr} ${dataStr}`;
-                  })
-                  .join('\n')}
-              </pre>
-            </div>
-          </div>
-
-          {logSummary.errors > 0 && (
-            <div className="border-t border-red-600/30 pt-3">
-              <h4 className="text-xs font-bold text-red-400 mb-2">
-                {t("debug.errors")} ({logSummary.errors})
-              </h4>
-              <div className="bg-red-900/20 border border-red-600/30 rounded p-2">
-                <div className="text-xs text-red-300">
-                  {gameState.logger.entries
-                    .filter(entry => entry.type === LogEventType.ERROR_OCCURRED)
-                    .slice(-3) // Показываем последние 3 ошибки
-                    .map((entry, index) => (
-                      <div key={index} className="mb-1">
-                        [{(entry.relativeTime / 1000).toFixed(3)}s] {JSON.stringify(entry.data)}
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {copySuccess && (
-        <div className="text-center">
-          <div className="inline-flex items-center space-x-1 px-2 py-1 bg-green-600/20 border border-green-500/40 text-green-400 rounded text-xs">
-            <span>✓</span>
-            <span>{t("debug.logCopied")}</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
   const router = useRouter();
   const t = useT();
 
-  const [gameState, setGameState] = useState<SurvivalGameStateWithLogger>(
+  const [gameState, setGameState] = useState<SurvivalGameState>(
     initializeSurvivalGameState(),
   );
   const [showCircles, setShowCircles] = useState(false);
@@ -234,9 +74,14 @@ export default function SurvivalGameManager() {
 
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
-  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
+  const [lastActivationTimestamp, setLastActivationTimestamp] =
+    useState<number>(0);
 
-  const gameStateRef = useRef<SurvivalGameStateWithLogger>(gameState);
+  // State for log export functionality
+  const [isLogVisible, setIsLogVisible] = useState(false);
+  const [logCopyStatus, setLogCopyStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
+
+  const gameStateRef = useRef<SurvivalGameState>(gameState);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -249,6 +94,9 @@ export default function SurvivalGameManager() {
 
       tg.BackButton.show();
       tg.BackButton.onClick(() => {
+        gameState.logger?.log('BACK_BUTTON_CLICKED', { 
+          fromTelegram: true 
+        }, 'SurvivalGameManager');
         router.push("/game");
       });
 
@@ -257,7 +105,7 @@ export default function SurvivalGameManager() {
         tg.BackButton.offClick(() => {});
       };
     }
-  }, [router]);
+  }, [router, gameState.logger]);
 
   // Auto-start game on component mount
   useEffect(() => {
@@ -269,6 +117,11 @@ export default function SurvivalGameManager() {
   }, []);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
+    gameStateRef.current.logger?.log('HAPTIC_FEEDBACK_TRIGGERED', { 
+      type,
+      telegramAvailable: !!window.Telegram?.WebApp?.HapticFeedback 
+    }, 'SurvivalGameManager');
+
     if (
       typeof window !== "undefined" &&
       window.Telegram?.WebApp?.HapticFeedback
@@ -282,7 +135,16 @@ export default function SurvivalGameManager() {
     (newScore: number) => {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
-        setIsNewBestScore(newScore > previousBest);
+        const isNewBest = newScore > previousBest;
+
+        gameStateRef.current.logger?.log('BEST_SCORE_CHECK', {
+          newScore,
+          previousBest,
+          isNewBest,
+          userHasPreviousScore: user.survival_best_score !== undefined
+        }, 'SurvivalGameManager');
+
+        setIsNewBestScore(isNewBest);
       }
     },
     [user],
@@ -290,6 +152,12 @@ export default function SurvivalGameManager() {
 
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
+      gameStateRef.current.logger?.log('SAVE_GAME_RESULT_STARTED', {
+        score: result.score,
+        survivalTime: result.survivalTime,
+        maxLevelReached: result.maxLevelReached
+      }, 'SurvivalGameManager');
+
       setSaveStatus((prev) => ({
         ...prev,
         isLoading: true,
@@ -309,6 +177,11 @@ export default function SurvivalGameManager() {
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
 
+        gameStateRef.current.logger?.log('SAVE_ATTEMPT', {
+          attemptNumber: attemptCount,
+          maxAttempts: 3
+        }, 'SurvivalGameManager');
+
         try {
           const response = await makeAuthenticatedRequest("/api/game/save", {
             method: "POST",
@@ -325,6 +198,11 @@ export default function SurvivalGameManager() {
             throw new Error(responseData.error || "Failed to save game result");
           }
 
+          gameStateRef.current.logger?.log('SAVE_SUCCESS', {
+            attemptNumber: attemptCount,
+            responseData
+          }, 'SurvivalGameManager');
+
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
@@ -332,6 +210,12 @@ export default function SurvivalGameManager() {
             error: null,
           }));
         } catch (error) {
+          gameStateRef.current.logger?.log('SAVE_ATTEMPT_FAILED', {
+            attemptNumber: attemptCount,
+            error: error?.toString(),
+            willRetry: attemptCount < 3
+          }, 'SurvivalGameManager');
+
           attemptCount++;
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
@@ -346,6 +230,11 @@ export default function SurvivalGameManager() {
       try {
         await attemptSave();
       } catch (error) {
+        gameStateRef.current.logger?.log('SAVE_FINAL_FAILURE', {
+          error: error?.toString(),
+          totalAttempts: attemptCount - 1
+        }, 'SurvivalGameManager');
+
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
@@ -360,6 +249,13 @@ export default function SurvivalGameManager() {
 
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
+      gameStateRef.current.logger?.log('GAME_END_TRIGGERED', {
+        cause,
+        currentLevel: gameStateRef.current.currentLevel,
+        survivalTime: gameStateRef.current.stats.survivalTime,
+        correctHits: gameStateRef.current.stats.correctHits
+      }, 'SurvivalGameManager');
+
       setGameState((prev) => {
         const finalState = updateSurvivalLevel(prev, Date.now());
 
@@ -387,6 +283,7 @@ export default function SurvivalGameManager() {
         const result = createSurvivalGameResult(finalGameState);
 
         checkForNewBestScore(result.score);
+
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -400,18 +297,27 @@ export default function SurvivalGameManager() {
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
-    if (!currentState.isActive || currentState.gameState !== GameState.PLAYING)
+    if (!currentState.isActive || currentState.gameState !== GameState.PLAYING) {
+      currentState.logger?.log('ACTIVATION_SCHEDULING_SKIPPED', {
+        isActive: currentState.isActive,
+        gameState: currentState.gameState
+      }, 'SurvivalGameManager');
       return;
+    }
 
-    const levelConfig = getLevelConfig(currentState.currentLevel);
+    const levelConfig = getLevelConfig(currentState.currentLevel, currentState.logger);
     const delay =
       Math.random() *
         (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
-    // Логируем запланированную активацию
-    const updatedState = scheduleActivation(currentState, delay);
-    setGameState(updatedState);
+    currentState.logger?.log('NEXT_ACTIVATION_SCHEDULED', {
+      delay,
+      levelConfig: {
+        activationTimeMin: levelConfig.activationTimeMin,
+        activationTimeMax: levelConfig.activationTimeMax
+      }
+    }, 'SurvivalGameManager');
 
     const timeout = setTimeout(() => {
       if (
@@ -424,6 +330,12 @@ export default function SurvivalGameManager() {
             (circleIds, redCircleIds) => {
               const timestamp = Date.now();
 
+              prev.logger?.log('CIRCLES_ACTIVATION_CALLBACK', {
+                circleIds,
+                redCircleIds,
+                timestamp
+              }, 'SurvivalGameManager');
+
               setActivatedCircles(circleIds);
               setLastActivationTimestamp(timestamp);
 
@@ -432,13 +344,18 @@ export default function SurvivalGameManager() {
               }, 450);
             },
             (circleId, wasDecoy) => {
+              prev.logger?.log('CIRCLE_TIMEOUT_CALLBACK', {
+                circleId,
+                wasDecoy,
+                willEndGame: !wasDecoy
+              }, 'SurvivalGameManager');
+
               if (!wasDecoy) {
                 endGame("miss");
               } else {
-                setGameState((current) => {
-                  const timeoutState = handleCircleTimeout(current, circleId, wasDecoy);
-                  return deactivateSurvivalCircle(timeoutState, circleId, "timeout");
-                });
+                setGameState((current) =>
+                  deactivateSurvivalCircle(current, circleId),
+                );
                 scheduleNextActivation();
               }
             },
@@ -458,22 +375,40 @@ export default function SurvivalGameManager() {
 
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
-      if (gameStateRef.current.gameState !== GameState.PLAYING) return;
+      const currentState = gameStateRef.current;
+      
+      if (currentState.gameState !== GameState.PLAYING) {
+        currentState.logger?.log('CIRCLE_CLICK_IGNORED', {
+          circleId,
+          gameState: currentState.gameState,
+          reason: 'game_not_playing'
+        }, 'SurvivalGameManager');
+        return;
+      }
 
       const clickTime = Date.now();
       const { newState, result } = handleSurvivalCircleClick(
-        gameStateRef.current,
+        currentState,
         circleId,
         clickTime,
       );
 
+      currentState.logger?.log('CIRCLE_CLICK_PROCESSED', {
+        circleId,
+        result,
+        clickTime,
+        gameTime: clickTime - (currentState.gameStartTime || clickTime)
+      }, 'SurvivalGameManager');
+
       if (result === "correct") {
         triggerHapticFeedback("success");
-        
-        // Мгновенная деактивация без анимации
-        const deactivatedState = deactivateSurvivalCircle(newState, circleId, "clicked");
-        setGameState(deactivatedState);
-        
+        setGameState(newState);
+
+        setTimeout(() => {
+          setGameState((current) =>
+            deactivateSurvivalCircle(current, circleId),
+          );
+        }, 300);
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");
@@ -486,24 +421,42 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
-    setGameState(initializeSurvivalGameState());
+    const newGameState = initializeSurvivalGameState();
+    
+    newGameState.logger?.log('GAME_START_REQUESTED', {
+      timestamp: Date.now()
+    }, 'SurvivalGameManager');
+
+    setGameState(newGameState);
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
     setIsNewBestScore(false);
+    setIsLogVisible(false);
+    setLogCopyStatus("idle");
 
     setTimeout(() => {
       setShowCircles(true);
+      newGameState.logger?.log('CIRCLES_SHOWN', {}, 'SurvivalGameManager');
     }, 100);
 
     setTimeout(() => {
-      setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
+      setGameState((prev) => {
+        const updatedState = { ...prev, gameState: GameState.PLAYING };
+        updatedState.logger?.log('GAME_STARTED', {
+          gameState: GameState.PLAYING
+        }, 'SurvivalGameManager');
+        return updatedState;
+      });
 
       const levelInterval = setInterval(() => {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
+            current.logger?.log('LEVEL_UPDATE_INTERVAL_STOPPED', {
+              reason: 'game_not_active_or_playing'
+            }, 'SurvivalGameManager');
             return current;
           }
 
@@ -523,8 +476,48 @@ export default function SurvivalGameManager() {
   }, [scheduleNextActivation]);
 
   const handleBackToGames = useCallback(() => {
+    gameState.logger?.log('BACK_TO_GAMES_CLICKED', {}, 'SurvivalGameManager');
     router.push("/game");
-  }, [router]);
+  }, [router, gameState.logger]);
+
+  const handleLogExport = useCallback(async () => {
+    if (!gameResult?.gameLog) return;
+
+    setLogCopyStatus("copying");
+    
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(gameResult.gameLog);
+        setLogCopyStatus("copied");
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = gameResult.gameLog;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          document.execCommand('copy');
+          setLogCopyStatus("copied");
+        } catch (error) {
+          setLogCopyStatus("failed");
+        }
+        
+        document.body.removeChild(textArea);
+      }
+    } catch (error) {
+      setLogCopyStatus("failed");
+    }
+
+    // Reset status after 2 seconds
+    setTimeout(() => {
+      setLogCopyStatus("idle");
+    }, 2000);
+  }, [gameResult?.gameLog]);
 
   useEffect(() => {
     return () => {
@@ -558,6 +551,19 @@ export default function SurvivalGameManager() {
       causeKeyMapping.timeout;
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
+  };
+
+  const getCopyButtonText = () => {
+    switch (logCopyStatus) {
+      case "copying":
+        return "Copying...";
+      case "copied":
+        return "Copied!";
+      case "failed":
+        return "Copy Failed";
+      default:
+        return "Copy Debug Log";
+    }
   };
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
@@ -634,8 +640,46 @@ export default function SurvivalGameManager() {
             </div>
           </div>
 
-          {/* Компонент просмотра логов */}
-          <GameLogViewer gameState={gameState} gameResult={gameResult} />
+          {/* Debug Log Section */}
+          {gameResult.gameLog && (
+            <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-600/30 rounded-xl p-4 space-y-3">
+              <button
+                onClick={() => setIsLogVisible(!isLogVisible)}
+                className="w-full flex items-center justify-between text-gray-300 hover:text-white transition-colors"
+              >
+                <div className="flex items-center space-x-2">
+                  <FileText size={16} />
+                  <span className="text-sm font-medium">Debug Log ({gameResult.gameLog.split('\n').length - 4} events)</span>
+                </div>
+                {isLogVisible ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+              
+              {isLogVisible && (
+                <div className="space-y-3">
+                  <div className="bg-black/50 rounded-lg p-3 max-h-48 overflow-y-auto">
+                    <pre className="text-xs text-gray-300 whitespace-pre-wrap font-mono">
+                      {gameResult.gameLog}
+                    </pre>
+                  </div>
+                  
+                  <button
+                    onClick={handleLogExport}
+                    disabled={logCopyStatus === "copying"}
+                    className={`w-full flex items-center justify-center space-x-2 py-2 px-4 rounded-lg text-sm transition-all duration-200 ${
+                      logCopyStatus === "copied"
+                        ? "bg-green-600/20 border border-green-500/30 text-green-300"
+                        : logCopyStatus === "failed"
+                        ? "bg-red-600/20 border border-red-500/30 text-red-300"
+                        : "bg-gray-600/20 border border-gray-500/30 text-gray-300 hover:bg-gray-600/30"
+                    }`}
+                  >
+                    <Copy size={14} />
+                    <span>{getCopyButtonText()}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {(saveStatus.isLoading ||
             saveStatus.error ||

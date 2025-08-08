@@ -302,7 +302,7 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset scrollable-page">
+    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {isExploding && (
         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
           <ConfettiExplosion

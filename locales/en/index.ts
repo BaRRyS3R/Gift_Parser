@@ -20,11 +20,8 @@ import { seasons } from "./seasons";
 import { levels } from "./levels";
 import { memes } from "./memes";
 import { tournaments } from "./tournaments";
-import { debug } from "./debug";
 
 export const en = {
-
-  debug,
   // Common UI elements
   common,
 

@@ -1,6 +1,7 @@
-// src/types/game-modes/survival.ts - Обновлено для точного учета времени
+// src/types/game-modes/survival.ts - Updated with game logger integration
 
 import { BaseGameResult, GameState, GameMode, Circle } from "./common";
+import { GameLogger } from "@/utils/gameLogger";
 
 export interface SurvivalGameConfig {
   id: string;
@@ -45,6 +46,7 @@ export interface SurvivalGameResult extends BaseGameResult {
   perfectStreak: number;
   correctHits: number;
   deathCause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+  gameLog?: string; // ADDED: Game log for debugging
 }
 
 export interface SurvivalGameState {
@@ -60,4 +62,5 @@ export interface SurvivalGameState {
   levelUpdateInterval: NodeJS.Timeout | null;
   isActive: boolean;
   gameStartTime?: number; // ДОБАВЛЕНО: время начала игры в основном состоянии
+  logger?: GameLogger; // ADDED: Game logger instance
 }

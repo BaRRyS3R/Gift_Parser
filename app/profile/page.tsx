@@ -136,7 +136,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset scrollable-page">
+    <div className="min-h-screen bg-black text-white safe-area-inset-bottom px-4 safe-area-inset">
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-widest text-white animate-fade-in">
