@@ -1,4 +1,4 @@
-// src/types/game-modes/survival.ts - Обновлено для точного учета времени
+// src/types/game-modes/survival.ts - Обновлено с защитой от race condition
 
 import { BaseGameResult, GameState, GameMode, Circle } from "./common";
 
@@ -35,7 +35,7 @@ export interface SurvivalGameStats {
   perfectStreak: number;
   totalReactionTime: number;
   hitCount: number;
-  gameStartTime?: number; // ДОБАВЛЕНО: время начала игры для точного расчета
+  gameStartTime?: number; // время начала игры для точного расчета
 }
 
 export interface SurvivalGameResult extends BaseGameResult {
@@ -59,5 +59,7 @@ export interface SurvivalGameState {
   activationTimeout: NodeJS.Timeout | null;
   levelUpdateInterval: NodeJS.Timeout | null;
   isActive: boolean;
-  gameStartTime?: number; // ДОБАВЛЕНО: время начала игры в основном состоянии
+  gameStartTime?: number; // время начала игры в основном состоянии
+  // NEW: Защита от race condition - отслеживание времени активации кругов
+  circleActivationTimes?: Map<number, number>;
 }

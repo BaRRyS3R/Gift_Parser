@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Полная версия с обновленными результатами
+// src/game-modes/survival/SurvivalGameManager.tsx - Исправлено с защитой от race condition
 
 "use client";
 
@@ -74,6 +74,9 @@ export default function SurvivalGameManager() {
     useState<number>(0);
 
   const gameStateRef = useRef<SurvivalGameState>(gameState);
+  
+  // NEW: Track pending click operations to prevent race conditions
+  const pendingClicksRef = useRef<Map<number, number>>(new Map());
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -292,11 +295,28 @@ export default function SurvivalGameManager() {
     }));
   }, [endGame]);
 
+  // NEW: Enhanced circle click handler with race condition protection
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
 
       const clickTime = Date.now();
+      
+      // NEW: Check if we already have a pending click for this circle
+      const pendingClickTime = pendingClicksRef.current.get(circleId);
+      if (pendingClickTime && (clickTime - pendingClickTime) < 200) {
+        // Ignore duplicate clicks within 200ms
+        return;
+      }
+      
+      // NEW: Record this click as pending
+      pendingClicksRef.current.set(circleId, clickTime);
+      
+      // NEW: Get the current circle state at the exact moment of click
+      const currentCircle = gameStateRef.current.circles.find(c => c.id === circleId);
+      const wasActiveAtClick = currentCircle?.isActive && !currentCircle?.isAnimating;
+      
+      // NEW: Enhanced validation - check both current state and activation timing
       const { newState, result } = handleSurvivalCircleClick(
         gameStateRef.current,
         circleId,
@@ -311,12 +331,17 @@ export default function SurvivalGameManager() {
           setGameState((current) =>
             deactivateSurvivalCircle(current, circleId),
           );
+          // NEW: Clean up pending click tracking
+          pendingClicksRef.current.delete(circleId);
         }, 300);
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
+        pendingClicksRef.current.delete(circleId);
         endGame("decoy_hit");
       } else {
         triggerHapticFeedback("error");
+        pendingClicksRef.current.delete(circleId);
+        
         endGame("wrong_click");
       }
     },
@@ -324,12 +349,16 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
-    setGameState(initializeSurvivalGameState());
+    const newGameState = initializeSurvivalGameState();
+    setGameState(newGameState);
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
     setIsNewBestScore(false);
+    
+    // NEW: Clear pending clicks tracking
+    pendingClicksRef.current.clear();
 
     setTimeout(() => {
       setShowCircles(true);
@@ -368,6 +397,8 @@ export default function SurvivalGameManager() {
   useEffect(() => {
     return () => {
       cleanupSurvivalGame(gameStateRef.current);
+      // NEW: Clean up pending clicks on unmount
+      pendingClicksRef.current.clear();
     };
   }, []);
 
@@ -450,8 +481,6 @@ export default function SurvivalGameManager() {
                   {t("game.modes.survival.results.correctHits")}
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {" "}
-                  {/* Изменен цвет на белый */}
                   {gameResult.correctHits}
                 </div>
               </div>
@@ -460,8 +489,6 @@ export default function SurvivalGameManager() {
                   {t("game.modes.survival.results.survivalTime")}
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {" "}
-                  {/* Изменен цвет на белый */}
                   {formatSurvivalTime(gameResult.survivalTime)}
                 </div>
               </div>

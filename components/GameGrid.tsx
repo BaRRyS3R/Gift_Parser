@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Updated with fast activation pulse effects
+// src/components/GameGrid.tsx - Исправлено с защитой от сдвига и race condition
 
 "use client";
 
@@ -14,13 +14,20 @@ interface GameGridProps {
   // Props for activation pulse notifications
   onActivatedCircles?: number[]; // Array of circle IDs that were just activated
   lastActivationTimestamp?: number; // Timestamp to trigger re-render when activations occur
-  gameMode?: "reaction" | "survival" | "physics"; // NEW: Game mode for styling differences
+  gameMode?: "reaction" | "survival" | "physics"; // Game mode for styling differences
 }
 
 interface ActivePulse {
   circleId: number;
   isRed: boolean;
   timestamp: number;
+}
+
+// NEW: Interface for tracking click states to prevent race condition
+interface ClickState {
+  circleId: number;
+  clickTime: number;
+  wasActiveAtClick: boolean;
 }
 
 // Utility function to determine grid dimensions based on circle count
@@ -56,14 +63,17 @@ export default function GameGrid({
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
 
+  // NEW: Track click states to prevent race condition
+  const clickStateRef = useRef<Map<number, ClickState>>(new Map());
+
   // State for dynamic sizing
   const [circleSize, setCircleSize] = useState(40);
   const [gapSize, setGapSize] = useState(4);
 
-  // NEW: State for tracking active activation pulses
+  // State for tracking active activation pulses
   const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
 
-  // NEW: Effect to handle activation pulses
+  // Effect to handle activation pulses
   useEffect(() => {
     if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
       // Create new pulses for activated circles
@@ -204,17 +214,27 @@ export default function GameGrid({
     }
   };
 
-  // Touch event handlers for mobile compatibility
+  // NEW: Enhanced touch event handlers with race condition protection
   const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
     if (!isGameActive) return;
 
-    // Prevent event from bubbling to background click handler
+    // Prevent all default behaviors and bubbling
     event.preventDefault();
     event.stopPropagation();
 
     const currentTime = Date.now();
+    const circle = circles.find((c) => c.id === circleId);
 
     touchStartTimeRef.current.set(circleId, currentTime);
+
+    // NEW: Record click state at touch start for race condition protection
+    if (circle) {
+      clickStateRef.current.set(circleId, {
+        circleId,
+        clickTime: currentTime,
+        wasActiveAtClick: circle.isActive && !circle.isAnimating,
+      });
+    }
 
     if (!processedTouchesRef.current.has(circleId)) {
       processedTouchesRef.current.add(circleId);
@@ -222,14 +242,16 @@ export default function GameGrid({
 
       setTimeout(() => {
         processedTouchesRef.current.delete(circleId);
-      }, 100);
+        clickStateRef.current.delete(circleId);
+      }, 200);
     }
   };
 
   const handleTouchEnd = (circleId: number, event: React.TouchEvent) => {
-    // Prevent event from bubbling to background click handler
+    // Prevent all default behaviors and bubbling
     event.preventDefault();
     event.stopPropagation();
+
     touchStartTimeRef.current.delete(circleId);
   };
 
@@ -243,10 +265,17 @@ export default function GameGrid({
       return;
     }
 
-    // Prevent event from bubbling to background click handler
+    // Prevent all default behaviors and bubbling
     event.preventDefault();
     event.stopPropagation();
+
     onCircleClick(circleId);
+  };
+
+  // NEW: Enhanced touch move handler to prevent accidental scrolling
+  const handleTouchMove = (event: React.TouchEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   const getInteractionProps = (circle: Circle) => {
@@ -258,13 +287,21 @@ export default function GameGrid({
           circle.isActive && !circle.isAnimating
             ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
             : "all 0.3s ease-out",
-        touchAction: "manipulation",
-      },
+        touchAction: "none" as const, // Prevent all touch gestures
+        userSelect: "none" as const, // Prevent text selection
+        WebkitUserSelect: "none" as const, // Prevent text selection on WebKit
+        WebkitTouchCallout: "none" as const, // Prevent callout on iOS
+        MozUserSelect: "none" as const, // Prevent text selection on Firefox
+        msUserSelect: "none" as const, // Prevent text selection on IE/Edge
+      } as React.CSSProperties,
       onTouchStart: (event: React.TouchEvent) =>
         handleTouchStart(circle.id, event),
       onTouchEnd: (event: React.TouchEvent) => handleTouchEnd(circle.id, event),
+      onTouchMove: handleTouchMove, // Prevent scroll on touch move
       onClick: (event: React.MouseEvent) => handleClick(circle.id, event),
       onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
+      // Additional event handlers to prevent unwanted interactions
+      onDragStart: (event: React.DragEvent) => event.preventDefault(),
     };
   };
 
@@ -285,7 +322,7 @@ export default function GameGrid({
     );
   };
 
-  // NEW: Fast activation pulse effect (single burst on activation)
+  // Fast activation pulse effect (single burst on activation)
   const renderActivationPulse = (circle: Circle) => {
     const activePulse = activePulses.find(
       (pulse) => pulse.circleId === circle.id,
@@ -326,7 +363,17 @@ export default function GameGrid({
   const { maxWidth, maxHeight } = getContainerMaxDimensions();
 
   return (
-    <div className="flex items-center justify-center min-h-[400px] p-4">
+    <div
+      className="flex items-center justify-center min-h-[400px] p-4"
+      // NEW: Container-level scroll prevention
+      style={{
+        touchAction: "none",
+        overscrollBehavior: "none",
+        WebkitOverflowScrolling: "touch",
+      }}
+      onTouchMove={(e) => e.preventDefault()}
+      onTouchStart={(e) => e.preventDefault()}
+    >
       <div
         className="grid justify-items-center items-center"
         style={{
@@ -338,7 +385,15 @@ export default function GameGrid({
           WebkitTouchCallout: "none",
           maxWidth,
           maxHeight,
+          // NEW: Fixed positioning to prevent movement
+          position: "relative",
+          touchAction: "none",
+          overscrollBehavior: "none",
         }}
+        // NEW: Grid-level scroll prevention
+        onTouchMove={(e) => e.preventDefault()}
+        onTouchStart={(e) => e.preventDefault()}
+        onScroll={(e) => e.preventDefault()}
       >
         {circles.map((circle) => {
           const circleStyleConfig = getCircleStyles(circle);
@@ -353,16 +408,18 @@ export default function GameGrid({
               style={{
                 ...circleStyleConfig.style,
                 ...getInteractionProps(circle).style,
-              }}
+              } as React.CSSProperties}
               type="button"
               onClick={getInteractionProps(circle).onClick}
               onContextMenu={getInteractionProps(circle).onContextMenu}
               onTouchEnd={getInteractionProps(circle).onTouchEnd}
               onTouchStart={getInteractionProps(circle).onTouchStart}
+              onTouchMove={getInteractionProps(circle).onTouchMove}
+              onDragStart={getInteractionProps(circle).onDragStart}
             >
               {/* Existing continuous pulse effect */}
               {renderPulseEffect(circle)}
-              {/* NEW: Fast activation pulse effect */}
+              {/* Fast activation pulse effect */}
               {renderActivationPulse(circle)}
               {/* Debug info for development */}
               {process.env.NODE_ENV === "development" && circle.isActive && (

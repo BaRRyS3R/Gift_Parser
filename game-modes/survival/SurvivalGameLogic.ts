@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameLogic.ts - Исправлено для точного учета времени
+// src/game-modes/survival/SurvivalGameLogic.ts - Исправлено с защитой от race condition
 
 import {
   SurvivalGameConfig,
@@ -187,7 +187,7 @@ export const initializeSurvivalGameState = (): SurvivalGameState => {
       perfectStreak: 0,
       totalReactionTime: 0,
       hitCount: 0,
-      gameStartTime, // ДОБАВЛЕНО: точное время начала игры
+      gameStartTime,
     },
     circles: createSurvivalCircleGrid(SURVIVAL_CONFIG.circleCount),
     currentLevel: 1,
@@ -197,7 +197,9 @@ export const initializeSurvivalGameState = (): SurvivalGameState => {
     activationTimeout: null,
     levelUpdateInterval: null,
     isActive: true,
-    gameStartTime, // ДОБАВЛЕНО: также в основное состояние
+    gameStartTime,
+    // NEW: Track circle activation timestamps to prevent race condition
+    circleActivationTimes: new Map<number, number>(),
   };
 };
 
@@ -207,15 +209,14 @@ export const getLevelConfig = (level: number): SurvivalLevelConfig => {
   return SURVIVAL_LEVELS[clampedLevel - 1];
 };
 
-// ИЗМЕНЕНО: теперь использует реальное время вместо deltaTime
 export const updateSurvivalLevel = (
   state: SurvivalGameState,
-  currentTime?: number, // ДОБАВЛЕНО: опциональный параметр для текущего времени
+  currentTime?: number,
 ): SurvivalGameState => {
   if (!state.isActive || !state.gameStartTime) return state;
 
   const now = currentTime || Date.now();
-  const actualSurvivalTime = now - state.gameStartTime; // ТОЧНОЕ время выживания
+  const actualSurvivalTime = now - state.gameStartTime;
   const newTimeInCurrentLevel =
     actualSurvivalTime -
     (state.currentLevel - 1) * state.config.intensityIncreaseInterval * 1000;
@@ -231,7 +232,7 @@ export const updateSurvivalLevel = (
       timeInCurrentLevel: 0,
       stats: {
         ...state.stats,
-        survivalTime: actualSurvivalTime, // ТОЧНОЕ время
+        survivalTime: actualSurvivalTime,
         currentLevel: state.currentLevel + 1,
       },
     };
@@ -242,7 +243,7 @@ export const updateSurvivalLevel = (
     timeInCurrentLevel: newTimeInCurrentLevel,
     stats: {
       ...state.stats,
-      survivalTime: actualSurvivalTime, // ТОЧНОЕ время
+      survivalTime: actualSurvivalTime,
     },
   };
 };
@@ -306,9 +307,17 @@ export const activateSurvivalCircles = (
   const newActiveCircleIds = [...state.activeCircleIds, ...selectedIds];
   const newCircleTimeouts = new Map(state.circleTimeouts);
 
+  // NEW: Track activation timestamps to prevent race condition
+  const newCircleActivationTimes = new Map(state.circleActivationTimes);
+  const activationTime = Date.now();
+
   // Set timeouts for each circle
   selectedIds.forEach((circleId) => {
     const isDecoy = redIds.includes(circleId);
+
+    // NEW: Record activation time
+    newCircleActivationTimes.set(circleId, activationTime);
+
     const timeout = setTimeout(() => {
       onCircleTimeout(circleId, isDecoy);
     }, levelConfig.circleActiveTime);
@@ -334,9 +343,13 @@ export const activateSurvivalCircles = (
     ...state,
     activeCircleIds: newActiveCircleIds,
     circleTimeouts: newCircleTimeouts,
+    circleActivationTimes: newCircleActivationTimes, // NEW
     circles: newCircles,
   };
 };
+
+// NEW: Enhanced grace period for click validation
+const CLICK_VALIDATION_GRACE_PERIOD = 150; // milliseconds
 
 export const handleSurvivalCircleClick = (
   state: SurvivalGameState,
@@ -352,7 +365,15 @@ export const handleSurvivalCircleClick = (
   // ОБНОВЛЯЕМ время выживания при каждом клике
   const updatedState = updateSurvivalLevel(state, clickTime);
 
-  if (clickedCircle.isActive && !clickedCircle.isAnimating) {
+  // NEW: Enhanced validation with grace period for race condition protection
+  const circleActivationTime = state.circleActivationTimes?.get(clickedCircleId);
+  const isWithinGracePeriod = circleActivationTime &&
+    (clickTime - circleActivationTime) <= CLICK_VALIDATION_GRACE_PERIOD;
+
+  // NEW: Check if circle was recently active (within grace period) even if not currently active
+  const wasRecentlyActive = isWithinGracePeriod && state.activeCircleIds.includes(clickedCircleId);
+
+  if ((clickedCircle.isActive && !clickedCircle.isAnimating) || wasRecentlyActive) {
     if (clickedCircle.isDecoy) {
       // Red circle clicked - game over
       return {
@@ -422,6 +443,10 @@ export const deactivateSurvivalCircle = (
     newCircleTimeouts.delete(circleId);
   }
 
+  // NEW: Clean up activation time tracking
+  const newCircleActivationTimes = new Map(state.circleActivationTimes);
+  newCircleActivationTimes.delete(circleId);
+
   const newCircles = state.circles.map((circle) =>
     circle.id === circleId
       ? { ...circle, isActive: false, isAnimating: false, isDecoy: false }
@@ -432,6 +457,7 @@ export const deactivateSurvivalCircle = (
     ...state,
     activeCircleIds: newActiveCircleIds,
     circleTimeouts: newCircleTimeouts,
+    circleActivationTimes: newCircleActivationTimes, // NEW
     circles: newCircles,
   };
 };
@@ -472,7 +498,7 @@ export const createSurvivalGameResult = (
     mode: GameMode.SURVIVAL,
     score: finalScore,
     duration: Math.floor(finalState.stats.survivalTime / 1000),
-    survivalTime: finalState.stats.survivalTime, // ТОЧНОЕ время в миллисекундах
+    survivalTime: finalState.stats.survivalTime,
     maxLevelReached: finalState.currentLevel,
     perfectStreak: finalState.stats.perfectStreak,
     correctHits: finalState.stats.correctHits,
