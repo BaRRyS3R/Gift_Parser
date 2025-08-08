@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Исправлено с защитой от сдвига и race condition
+// src/components/GameGrid.tsx - Комплексное исправление для iPhone и Android
 
 "use client";
 
@@ -23,7 +23,7 @@ interface ActivePulse {
   timestamp: number;
 }
 
-// NEW: Interface for tracking click states to prevent race condition
+// Interface for tracking click states to prevent race condition
 interface ClickState {
   circleId: number;
   clickTime: number;
@@ -62,9 +62,13 @@ export default function GameGrid({
   const { cols, rows } = getGridDimensions(circles.length);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
-
-  // NEW: Track click states to prevent race condition
+  
+  // Track click states to prevent race condition
   const clickStateRef = useRef<Map<number, ClickState>>(new Map());
+
+  // NEW: References for comprehensive scroll prevention
+  const mainContainerRef = useRef<HTMLDivElement>(null);
+  const gridContainerRef = useRef<HTMLDivElement>(null);
 
   // State for dynamic sizing
   const [circleSize, setCircleSize] = useState(40);
@@ -72,6 +76,99 @@ export default function GameGrid({
 
   // State for tracking active activation pulses
   const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
+
+  // NEW: Comprehensive scroll prevention for all containers
+  useEffect(() => {
+    const preventScroll = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    const preventTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    const preventWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    // Apply to main container
+    const mainContainer = mainContainerRef.current;
+    const gridContainer = gridContainerRef.current;
+
+    if (mainContainer) {
+      // Comprehensive event prevention for main container
+      mainContainer.addEventListener('touchmove', preventTouchMove, { passive: false });
+      mainContainer.addEventListener('touchstart', preventScroll, { passive: false });
+      mainContainer.addEventListener('wheel', preventWheel, { passive: false });
+      mainContainer.addEventListener('scroll', preventScroll, { passive: false });
+      
+      // NEW: Additional iOS-specific events
+      mainContainer.addEventListener('gesturestart', preventScroll, { passive: false });
+      mainContainer.addEventListener('gesturechange', preventScroll, { passive: false });
+      mainContainer.addEventListener('gestureend', preventScroll, { passive: false });
+    }
+
+    if (gridContainer) {
+      // Apply same protections to grid container
+      gridContainer.addEventListener('touchmove', preventTouchMove, { passive: false });
+      gridContainer.addEventListener('touchstart', preventScroll, { passive: false });
+      gridContainer.addEventListener('wheel', preventWheel, { passive: false });
+      gridContainer.addEventListener('scroll', preventScroll, { passive: false });
+      
+      // iOS-specific gesture prevention
+      gridContainer.addEventListener('gesturestart', preventScroll, { passive: false });
+      gridContainer.addEventListener('gesturechange', preventScroll, { passive: false });
+      gridContainer.addEventListener('gestureend', preventScroll, { passive: false });
+    }
+
+    // NEW: Document-level prevention for the most aggressive protection
+    if (isGameActive) {
+      document.addEventListener('touchmove', preventTouchMove, { passive: false });
+      document.addEventListener('wheel', preventWheel, { passive: false });
+      
+      // Prevent iOS Safari specific gestures
+      document.addEventListener('gesturestart', preventScroll, { passive: false });
+      document.addEventListener('gesturechange', preventScroll, { passive: false });
+      document.addEventListener('gestureend', preventScroll, { passive: false });
+    }
+
+    return () => {
+      // Cleanup all event listeners
+      if (mainContainer) {
+        mainContainer.removeEventListener('touchmove', preventTouchMove);
+        mainContainer.removeEventListener('touchstart', preventScroll);
+        mainContainer.removeEventListener('wheel', preventWheel);
+        mainContainer.removeEventListener('scroll', preventScroll);
+        mainContainer.removeEventListener('gesturestart', preventScroll);
+        mainContainer.removeEventListener('gesturechange', preventScroll);
+        mainContainer.removeEventListener('gestureend', preventScroll);
+      }
+
+      if (gridContainer) {
+        gridContainer.removeEventListener('touchmove', preventTouchMove);
+        gridContainer.removeEventListener('touchstart', preventScroll);
+        gridContainer.removeEventListener('wheel', preventWheel);
+        gridContainer.removeEventListener('scroll', preventScroll);
+        gridContainer.removeEventListener('gesturestart', preventScroll);
+        gridContainer.removeEventListener('gesturechange', preventScroll);
+        gridContainer.removeEventListener('gestureend', preventScroll);
+      }
+
+      if (isGameActive) {
+        document.removeEventListener('touchmove', preventTouchMove);
+        document.removeEventListener('wheel', preventWheel);
+        document.removeEventListener('gesturestart', preventScroll);
+        document.removeEventListener('gesturechange', preventScroll);
+        document.removeEventListener('gestureend', preventScroll);
+      }
+    };
+  }, [isGameActive]);
 
   // Effect to handle activation pulses
   useEffect(() => {
@@ -214,7 +311,7 @@ export default function GameGrid({
     }
   };
 
-  // NEW: Enhanced touch event handlers with race condition protection
+  // Enhanced touch event handlers with race condition protection
   const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
     if (!isGameActive) return;
 
@@ -227,7 +324,7 @@ export default function GameGrid({
 
     touchStartTimeRef.current.set(circleId, currentTime);
 
-    // NEW: Record click state at touch start for race condition protection
+    // Record click state at touch start for race condition protection
     if (circle) {
       clickStateRef.current.set(circleId, {
         circleId,
@@ -251,7 +348,7 @@ export default function GameGrid({
     // Prevent all default behaviors and bubbling
     event.preventDefault();
     event.stopPropagation();
-
+    
     touchStartTimeRef.current.delete(circleId);
   };
 
@@ -268,11 +365,11 @@ export default function GameGrid({
     // Prevent all default behaviors and bubbling
     event.preventDefault();
     event.stopPropagation();
-
+    
     onCircleClick(circleId);
   };
 
-  // NEW: Enhanced touch move handler to prevent accidental scrolling
+  // Enhanced touch move handler to prevent accidental scrolling
   const handleTouchMove = (event: React.TouchEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -293,6 +390,9 @@ export default function GameGrid({
         WebkitTouchCallout: "none" as const, // Prevent callout on iOS
         MozUserSelect: "none" as const, // Prevent text selection on Firefox
         msUserSelect: "none" as const, // Prevent text selection on IE/Edge
+        // NEW: Additional containment for layout stability
+        contain: "layout style paint" as const,
+        willChange: "transform, opacity" as const,
       } as React.CSSProperties,
       onTouchStart: (event: React.TouchEvent) =>
         handleTouchStart(circle.id, event),
@@ -363,18 +463,27 @@ export default function GameGrid({
   const { maxWidth, maxHeight } = getContainerMaxDimensions();
 
   return (
-    <div
+    <div 
+      ref={mainContainerRef}
       className="flex items-center justify-center min-h-[400px] p-4"
-      // NEW: Container-level scroll prevention
       style={{
+        // NEW: Comprehensive scroll and interaction prevention
         touchAction: "none",
         overscrollBehavior: "none",
         WebkitOverflowScrolling: "touch",
+        overflow: "hidden",
+        position: "relative",
+        // NEW: Layout containment for Android stability
+        contain: "layout style paint",
+        willChange: "auto",
+        // NEW: Prevent any kind of scrolling
+        scrollBehavior: "auto",
+        msOverflowStyle: "none",
+        scrollbarWidth: "none",
       }}
-      onTouchMove={(e) => e.preventDefault()}
-      onTouchStart={(e) => e.preventDefault()}
     >
       <div
+        ref={gridContainerRef}
         className="grid justify-items-center items-center"
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
@@ -385,15 +494,18 @@ export default function GameGrid({
           WebkitTouchCallout: "none",
           maxWidth,
           maxHeight,
-          // NEW: Fixed positioning to prevent movement
+          // NEW: Enhanced positioning and containment
           position: "relative",
           touchAction: "none",
           overscrollBehavior: "none",
+          overflow: "hidden",
+          // NEW: Critical layout stability for Android
+          contain: "layout style paint",
+          isolation: "isolate",
+          // NEW: Force GPU acceleration for smoother performance
+          transform: "translateZ(0)",
+          WebkitTransform: "translateZ(0)",
         }}
-        // NEW: Grid-level scroll prevention
-        onTouchMove={(e) => e.preventDefault()}
-        onTouchStart={(e) => e.preventDefault()}
-        onScroll={(e) => e.preventDefault()}
       >
         {circles.map((circle) => {
           const circleStyleConfig = getCircleStyles(circle);
