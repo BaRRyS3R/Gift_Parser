@@ -1,4 +1,4 @@
-// src/app/leaderboard/page.tsx - Updated with LightRays component instead of Aurora
+// src/app/leaderboard/page.tsx - Полная исправленная версия страницы лидерборда
 
 "use client";
 
@@ -9,7 +9,7 @@ import type {
   SafeRotationLeaderboard,
 } from "@/hooks/modules/useLeaderboard";
 
-// NEW: Season leaderboard interface
+// Season leaderboard interface
 export interface SafeSeasonLeaderboard {
   position: number;
   first_name: string;
@@ -36,7 +36,7 @@ type LeaderboardType =
   | "physics"
   | "rotation";
 
-// LightRays Component - Integrated from seasons page
+// LightRays Component
 interface LightRaysProps {
   className?: string;
   raysColor?: string;
@@ -462,6 +462,13 @@ function LeaderboardPageContent() {
     initializePage();
   }, [fetchLeaderboards]);
 
+  // Debug user data
+  useEffect(() => {
+    if (user) {
+      console.log('[User Data Full]', user);
+    }
+  }, [user]);
+
   const handleTabChange = async (tab: LeaderboardType) => {
     if (tab === activeTab || isTransitioning) return;
 
@@ -488,115 +495,156 @@ function LeaderboardPageContent() {
     }
   }, [leaderboardData, activeTab]);
 
-  // NEW: Get current user data for display
-  // Полностью исправленная версия функции getCurrentUserData в page.tsx
-  // Замените соответствующую часть в useMemo
-
+  // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Get current user data for display
   const getCurrentUserData = useMemo(() => {
     if (!leaderboardData || !user || !telegramUser) return null;
 
     const userPosition = leaderboardData.userRankings[activeTab];
 
-    // Find user data in the current leaderboard
+    // Find user data in the current leaderboard (top 10)
     const userData = getCurrentLeaderboard.find((entry) => entry.isCurrentUser);
 
     // Get user's game count for this mode
     let gamesCount = 0;
     let value = "N/A";
+    let dataSource = 'userObject';
 
-    // Добавляем консольную отладку для диагностики
     console.log(`[Leaderboard Debug] Tab: ${activeTab}`, {
-      user: {
-        reaction_games: user.reaction_games,
-        reaction_best_time: user.reaction_best_time,
-        reaction_best_score: user.reaction_best_score,
-        survival_games: user.survival_games,
-        survival_best_score: user.survival_best_score,
-        physics_games: user.physics_games,
-        physics_best_score: user.physics_best_score,
-        rotation_games: user.rotation_games,
-        rotation_best_score: user.rotation_best_score,
-        total_games: user.total_games,
-        total_score: user.total_score
-      },
       userData,
-      userPosition
+      userPosition,
+      fullLeaderboardLength: leaderboardData[activeTab]?.length
     });
 
     switch (activeTab) {
-      case "season":
-        gamesCount = user.total_games || 0;
-        if (userData) {
-          value = `${(userData as SafeSeasonLeaderboard).total_score}`;
+      case "season": {
+        // Ищем пользователя в полном лидерборде сезона
+        const userInSeasonLeaderboard = leaderboardData.season.find((entry) => entry.isCurrentUser);
+
+        if (userInSeasonLeaderboard) {
+          value = `${userInSeasonLeaderboard.total_score}`;
+          gamesCount = userInSeasonLeaderboard.total_games;
+          dataSource = 'fullLeaderboard';
+        } else if (userData) {
+          const seasonUserData = userData as SafeSeasonLeaderboard;
+          value = `${seasonUserData.total_score}`;
+          gamesCount = user.total_games || 0;
+          dataSource = 'topLeaderboard';
         } else {
+          gamesCount = user.total_games || 0;
           const totalScore = user.total_score || 0;
           if (gamesCount > 0 || totalScore > 0) {
             value = `${totalScore}`;
           }
         }
         break;
+      }
 
-      case "reaction":
-        gamesCount = user.reaction_games || 0;
-        if (userData) {
-          value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
+      case "reaction": {
+        // Ищем пользователя в полном лидерборде реакции
+        const userInReactionLeaderboard = leaderboardData.reaction.find((entry) => entry.isCurrentUser);
+
+        if (userInReactionLeaderboard) {
+          value = `${userInReactionLeaderboard.best_reaction_time}ms`;
+          gamesCount = userInReactionLeaderboard.reaction_games;
+          dataSource = 'fullLeaderboard';
+        } else if (userData) {
+          const reactionUserData = userData as SafeReactionLeaderboard;
+          value = `${reactionUserData.best_reaction_time}ms`;
+          gamesCount = user.reaction_games || 0;
+          dataSource = 'topLeaderboard';
         } else {
+          gamesCount = user.reaction_games || 0;
           const bestTime = user.reaction_best_time;
-          console.log(`[Reaction Debug]`, { gamesCount, bestTime, type: typeof bestTime });
-
           if (gamesCount > 0) {
-            // Более надежная проверка значения времени
             const timeValue = bestTime != null && bestTime > 0 ? bestTime : 0;
             value = `${timeValue}ms`;
           }
         }
         break;
+      }
 
-      case "survival":
-        gamesCount = user.survival_games || 0;
-        if (userData) {
-          value = `${(userData as SafeSurvivalLeaderboard).best_survival_score}`;
+      case "survival": {
+        // Ищем пользователя в полном лидерборде выживания
+        const userInSurvivalLeaderboard = leaderboardData.survival.find((entry) => entry.isCurrentUser);
+
+        if (userInSurvivalLeaderboard) {
+          value = `${userInSurvivalLeaderboard.best_survival_score}`;
+          gamesCount = userInSurvivalLeaderboard.survival_games;
+          dataSource = 'fullLeaderboard';
+        } else if (userData) {
+          const survivalUserData = userData as SafeSurvivalLeaderboard;
+          value = `${survivalUserData.best_survival_score}`;
+          gamesCount = user.survival_games || 0;
+          dataSource = 'topLeaderboard';
         } else {
+          gamesCount = user.survival_games || 0;
           const bestScore = user.survival_best_score || 0;
           if (gamesCount > 0 || bestScore > 0) {
             value = `${bestScore}`;
           }
         }
         break;
+      }
 
-      case "physics":
-        gamesCount = user.physics_games || 0;
-        if (userData) {
-          value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
+      case "physics": {
+        // Ищем пользователя в полном лидерборде физики
+        const userInPhysicsLeaderboard = leaderboardData.physics.find((entry) => entry.isCurrentUser);
+
+        if (userInPhysicsLeaderboard) {
+          value = `${userInPhysicsLeaderboard.best_physics_score}`;
+          gamesCount = userInPhysicsLeaderboard.physics_games;
+          dataSource = 'fullLeaderboard';
+        } else if (userData) {
+          const physicsUserData = userData as SafePhysicsLeaderboard;
+          value = `${physicsUserData.best_physics_score}`;
+          gamesCount = user.physics_games || 0;
+          dataSource = 'topLeaderboard';
         } else {
+          gamesCount = user.physics_games || 0;
           const bestScore = user.physics_best_score || 0;
           if (gamesCount > 0 || bestScore > 0) {
             value = `${bestScore}`;
           }
         }
         break;
+      }
 
-      case "rotation":
-        gamesCount = user.rotation_games || 0;
-        if (userData) {
-          value = `${(userData as SafeRotationLeaderboard).best_rotation_score}`;
+      case "rotation": {
+        // Ищем пользователя в полном лидерборде вращения
+        const userInRotationLeaderboard = leaderboardData.rotation.find((entry) => entry.isCurrentUser);
+
+        if (userInRotationLeaderboard) {
+          value = `${userInRotationLeaderboard.best_rotation_score}`;
+          gamesCount = userInRotationLeaderboard.rotation_games;
+          dataSource = 'fullLeaderboard';
+        } else if (userData) {
+          const rotationUserData = userData as SafeRotationLeaderboard;
+          value = `${rotationUserData.best_rotation_score}`;
+          gamesCount = user.rotation_games || 0;
+          dataSource = 'topLeaderboard';
         } else {
+          gamesCount = user.rotation_games || 0;
           const bestScore = user.rotation_best_score;
-          console.log(`[Rotation Debug]`, { gamesCount, bestScore, type: typeof bestScore });
-
           if (gamesCount > 0) {
-            // Более надежная проверка значения счета
             const scoreValue = bestScore != null && bestScore >= 0 ? bestScore : 0;
             value = `${scoreValue}`;
           }
         }
         break;
+      }
     }
 
     // Проверяем, играл ли пользователь в этот режим
     const hasPlayed = gamesCount > 0 || userData !== undefined || userPosition !== undefined;
 
-    console.log(`[Leaderboard Result]`, { activeTab, gamesCount, value, hasPlayed, userPosition });
+    console.log(`[Leaderboard Result]`, {
+      activeTab,
+      gamesCount,
+      value,
+      hasPlayed,
+      userPosition,
+      dataSource
+    });
 
     return {
       name: `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim(),
@@ -608,14 +656,7 @@ function LeaderboardPageContent() {
     };
   }, [leaderboardData, activeTab, user, telegramUser, getCurrentLeaderboard]);
 
-  // ДОПОЛНИТЕЛЬНО: Добавьте эту функцию для отладки в компоненте
-  useEffect(() => {
-    if (user) {
-      console.log('[User Data Full]', user);
-    }
-  }, [user]);
-
-  // NEW: Get full leaderboard starting from position 1
+  // Get full leaderboard starting from position 1
   const getFullLeaderboard = useMemo(() => {
     return getCurrentLeaderboard; // Show all from position 1
   }, [getCurrentLeaderboard]);
@@ -650,7 +691,7 @@ function LeaderboardPageContent() {
     }
   };
 
-  // NEW: Get position-based styling for top-3 (darker gradients, left-to-right)
+  // Get position-based styling for top-3 (darker gradients, left-to-right)
   const getPositionStyling = (position: number) => {
     switch (position) {
       case 1:
@@ -703,7 +744,7 @@ function LeaderboardPageContent() {
 
   return (
     <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
-      {/* Light Rays Background - Replaced Aurora */}
+      {/* Light Rays Background */}
       <div className="absolute inset-0 z-0 h-96">
         <LightRays
           distortion={0.15}
@@ -891,14 +932,14 @@ function LeaderboardPageContent() {
                           <div className="flex items-center space-x-2">
                             <span
                               className={`font-medium truncate ${entry.isCurrentUser
-                                ? "text-white"
-                                : entry.position === 1
-                                  ? "text-yellow-100"
-                                  : entry.position === 2
-                                    ? "text-gray-100"
-                                    : entry.position === 3
-                                      ? "text-amber-100"
-                                      : "text-white/90"
+                                  ? "text-white"
+                                  : entry.position === 1
+                                    ? "text-yellow-100"
+                                    : entry.position === 2
+                                      ? "text-gray-100"
+                                      : entry.position === 3
+                                        ? "text-amber-100"
+                                        : "text-white/90"
                                 }`}
                             >
                               {entry.first_name} {entry.last_name || ""}
@@ -907,8 +948,8 @@ function LeaderboardPageContent() {
                           {entry.username && (
                             <div
                               className={`text-xs truncate ${entry.position <= 3
-                                ? "text-white/60"
-                                : "text-white/50"
+                                  ? "text-white/60"
+                                  : "text-white/50"
                                 }`}
                             >
                               @{entry.username}
@@ -920,20 +961,20 @@ function LeaderboardPageContent() {
                       <div className="text-right flex-shrink-0">
                         <div
                           className={`font-bold text-lg ${entry.position === 1
-                            ? "text-yellow-400"
-                            : entry.position === 2
-                              ? "text-gray-300"
-                              : entry.position === 3
-                                ? "text-amber-500"
-                                : "text-white"
+                              ? "text-yellow-400"
+                              : entry.position === 2
+                                ? "text-gray-300"
+                                : entry.position === 3
+                                  ? "text-amber-500"
+                                  : "text-white"
                             }`}
                         >
                           {getPlayerValue(entry)}
                         </div>
                         <div
                           className={`text-xs ${entry.position <= 3
-                            ? "text-white/60"
-                            : "text-white/50"
+                              ? "text-white/60"
+                              : "text-white/50"
                             }`}
                         >
                           {activeTab === "season"
