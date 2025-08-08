@@ -1,8 +1,10 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Версия с оптимизированной нижней панелью
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed version with stable bottom panel
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef, memo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React from "react";
+
 import {
   Crosshair,
   AlertTriangle,
@@ -53,42 +55,35 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 16; // ~60fps for smooth time updates
+// Reduced update frequency to prevent panel jitter
+const LEVEL_UPDATE_INTERVAL = 100; // Update every 100ms instead of 16ms
 
-// Мемоизированный компонент нижней панели для предотвращения дёргания
-const GameStatusPanel = memo(({ 
-  currentLevel, 
-  survivalTime, 
-  t 
-}: { 
-  currentLevel: number; 
-  survivalTime: number; 
-  t: any; 
-}) => {
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom game-panel-stable">
-      <div className="px-6 py-4 game-panel-content">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2 game-panel-item">
-            <Zap className="text-orange-400" size={18} />
-            <span className="text-lg font-bold text-orange-400 game-level-display">
-              {t("common.level")} {currentLevel}/15
-            </span>
-          </div>
+// Memoized game panel component to prevent unnecessary re-renders
+const GamePanel = React.memo<{
+  level: number;
+  survivalTime: number;
+  t: any;
+}>(({ level, survivalTime, t }) => (
+  <div className="px-6 py-4 game-panel-content">
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center space-x-2 game-panel-item">
+        <Zap className="text-orange-400" size={18} />
+        <span className="text-lg font-bold text-orange-400 game-level-display">
+          {t("common.level")} {level}/15
+        </span>
+      </div>
 
-          <div className="flex items-center space-x-2 game-panel-item">
-            <Clock className="text-white" size={18} />
-            <span className="text-lg font-bold text-white game-time-display">
-              {formatSurvivalTime(survivalTime)}
-            </span>
-          </div>
-        </div>
+      <div className="flex items-center space-x-2 game-panel-item">
+        <Clock className="text-white" size={18} />
+        <span className="text-lg font-bold text-white game-time-display">
+          {formatSurvivalTime(survivalTime)}
+        </span>
       </div>
     </div>
-  );
-});
+  </div>
+));
 
-GameStatusPanel.displayName = 'GameStatusPanel';
+GamePanel.displayName = "GamePanel";
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -103,16 +98,40 @@ export default function SurvivalGameManager() {
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
 
+  // Separate state for survival time to prevent full re-renders
+  const [survivalTime, setSurvivalTime] = useState(0);
+
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
 
+  // State for instant deactivation tracking
+  const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
+
+  // Protection against multiple simultaneous operations
+  const isSchedulingActivationRef = useRef(false);
+  const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<SurvivalGameState>(gameState);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // Separate effect for time updates to prevent full component re-renders
+  useEffect(() => {
+    if (gameState.gameState !== GameState.PLAYING || !gameState.gameStartTime) {
+      return;
+    }
+
+    const timeUpdateInterval = setInterval(() => {
+      const currentTime = Date.now();
+      const newSurvivalTime = currentTime - gameState.gameStartTime;
+      setSurvivalTime(newSurvivalTime);
+    }, 100); // Update time every 100ms
+
+    return () => clearInterval(timeUpdateInterval);
+  }, [gameState.gameState, gameState.gameStartTime]);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -126,7 +145,7 @@ export default function SurvivalGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -146,7 +165,6 @@ export default function SurvivalGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
-
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -155,8 +173,9 @@ export default function SurvivalGameManager() {
     (newScore: number) => {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
+        const isNewBest = newScore > previousBest;
 
-        setIsNewBestScore(newScore > previousBest);
+        setIsNewBestScore(isNewBest);
       }
     },
     [user],
@@ -210,7 +229,6 @@ export default function SurvivalGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
-
             return attemptSave();
           } else {
             throw error;
@@ -233,11 +251,22 @@ export default function SurvivalGameManager() {
     [makeAuthenticatedRequest, t],
   );
 
+  // Enhanced protected endGame function with multiple call prevention
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
-      console.log("Survival game ended:", cause);
+      // Prevent multiple calls to endGame
+      if (isGameEndingRef.current) {
+        return;
+      }
+
+      isGameEndingRef.current = true;
 
       setGameState((prev) => {
+        // Double-check that game isn't already ending
+        if (prev.isGameEnding) {
+          return prev;
+        }
+
         const finalState = updateSurvivalLevel(prev, Date.now());
 
         let updatedStats = { ...finalState.stats };
@@ -258,6 +287,7 @@ export default function SurvivalGameManager() {
           ...finalState,
           gameState: GameState.FINISHED,
           isActive: false,
+          isGameEnding: true,
           stats: updatedStats,
         };
 
@@ -275,56 +305,89 @@ export default function SurvivalGameManager() {
     [handleSaveGameResult, checkForNewBestScore],
   );
 
+  // Enhanced protected scheduleNextActivation with race condition prevention
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
-    if (!currentState.isActive || currentState.gameState !== GameState.PLAYING)
+    // Prevent multiple simultaneous scheduling calls
+    if (isSchedulingActivationRef.current) {
       return;
+    }
+
+    // Enhanced state validation
+    if (!currentState.isActive ||
+      currentState.gameState !== GameState.PLAYING ||
+      currentState.isGameEnding ||
+      isGameEndingRef.current) {
+      return;
+    }
+
+    isSchedulingActivationRef.current = true;
 
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
-      if (
-        gameStateRef.current.isActive &&
-        gameStateRef.current.gameState === GameState.PLAYING
-      ) {
-        setGameState((prev) => {
-          const newState = activateSurvivalCircles(
-            prev,
-            (circleIds, redCircleIds) => {
-              console.log(
-                `Activated circles: ${circleIds.join(", ")}, Red: ${redCircleIds.join(", ")}`,
+      // Reset scheduling flag when timeout executes
+      isSchedulingActivationRef.current = false;
+
+      // Double-check game state when timeout fires
+      if (!gameStateRef.current.isActive ||
+        gameStateRef.current.gameState !== GameState.PLAYING ||
+        gameStateRef.current.isGameEnding ||
+        isGameEndingRef.current) {
+        return;
+      }
+
+      setGameState((prev) => {
+        // Triple-check state inside setState
+        if (!prev.isActive || prev.gameState !== GameState.PLAYING || prev.isGameEnding) {
+          return prev;
+        }
+
+        const newState = activateSurvivalCircles(
+          prev,
+          (circleIds, redCircleIds) => {
+            const timestamp = Date.now();
+
+            setActivatedCircles(circleIds);
+            setLastActivationTimestamp(timestamp);
+
+            setTimeout(() => {
+              setActivatedCircles([]);
+            }, 450);
+          },
+          (circleId, wasDecoy) => {
+            // Check if game is ending before processing timeout
+            if (isGameEndingRef.current || prev.isGameEnding) {
+              return;
+            }
+
+            if (!wasDecoy) {
+              endGame("miss");
+            } else {
+              setGameState((current) =>
+                deactivateSurvivalCircle(current, circleId),
               );
-
-              const timestamp = Date.now();
-
-              setActivatedCircles(circleIds);
-              setLastActivationTimestamp(timestamp);
-
-              setTimeout(() => {
-                setActivatedCircles([]);
-              }, 450);
-            },
-            (circleId, wasDecoy) => {
-              console.log(`Circle ${circleId} timed out (decoy: ${wasDecoy})`);
-
-              if (!wasDecoy) {
-                endGame("miss");
-              } else {
-                setGameState((current) =>
-                  deactivateSurvivalCircle(current, circleId),
-                );
+              // Only schedule next activation if game is still active
+              if (!isGameEndingRef.current && !gameStateRef.current.isGameEnding) {
                 scheduleNextActivation();
               }
-            },
-          );
+            }
+          },
+        );
 
-          return newState;
-        });
+        return newState;
+      });
+
+      // Schedule next activation only if game is still active
+      if (gameStateRef.current.isActive &&
+        gameStateRef.current.gameState === GameState.PLAYING &&
+        !gameStateRef.current.isGameEnding &&
+        !isGameEndingRef.current) {
         scheduleNextActivation();
       }
     }, delay);
@@ -333,30 +396,42 @@ export default function SurvivalGameManager() {
       ...prev,
       activationTimeout: timeout,
     }));
+
+    // Reset scheduling flag after timeout is set
+    setTimeout(() => {
+      isSchedulingActivationRef.current = false;
+    }, 50);
   }, [endGame]);
 
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
-      if (gameStateRef.current.gameState !== GameState.PLAYING) return;
+      const currentState = gameStateRef.current;
 
-      console.log("Survival circle clicked:", circleId);
+      if (currentState.gameState !== GameState.PLAYING || isGameEndingRef.current) {
+        return;
+      }
 
       const clickTime = Date.now();
       const { newState, result } = handleSurvivalCircleClick(
-        gameStateRef.current,
+        currentState,
         circleId,
         clickTime,
       );
 
       if (result === "correct") {
         triggerHapticFeedback("success");
-        setGameState(newState);
 
+        // Add circle to instant deactivation list
+        setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
+
+        // Immediately clear timeout and deactivate circle without animation
+        const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId);
+        setGameState(immediatelyDeactivatedState);
+
+        // Remove from instant deactivation list after short delay
         setTimeout(() => {
-          setGameState((current) =>
-            deactivateSurvivalCircle(current, circleId),
-          );
-        }, 300);
+          setInstantlyDeactivatedCircles((prev) => prev.filter(id => id !== circleId));
+        }, 100);
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");
@@ -369,27 +444,38 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
-    console.log("Starting Survival Game...");
+    // Reset protection flags
+    isGameEndingRef.current = false;
+    isSchedulingActivationRef.current = false;
 
-    setGameState(initializeSurvivalGameState());
+    const newGameState = initializeSurvivalGameState();
+
+    setGameState(newGameState);
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
     setIsNewBestScore(false);
+    setInstantlyDeactivatedCircles([]);
+    setSurvivalTime(0);
 
     setTimeout(() => {
       setShowCircles(true);
     }, 100);
 
     setTimeout(() => {
-      setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
+      setGameState((prev) => {
+        const updatedState = { ...prev, gameState: GameState.PLAYING };
+        return updatedState;
+      });
 
       const levelInterval = setInterval(() => {
         setGameState((current) => {
-          if (!current.isActive || current.gameState !== GameState.PLAYING) {
+          if (!current.isActive ||
+            current.gameState !== GameState.PLAYING ||
+            current.isGameEnding ||
+            isGameEndingRef.current) {
             clearInterval(levelInterval);
-
             return current;
           }
 
@@ -445,6 +531,12 @@ export default function SurvivalGameManager() {
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
+
+  // Memoize panel data to prevent unnecessary calculations
+  const panelData = useMemo(() => ({
+    level: gameState.currentLevel,
+    survivalTime: survivalTime,
+  }), [gameState.currentLevel, survivalTime]);
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
     return (
@@ -523,81 +615,81 @@ export default function SurvivalGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                    <span className="text-sm text-red-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                      <span className="text-sm text-red-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recording")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-red-400/60" size={14} />
-                        <span className="text-xs text-red-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-red-400/20 rounded-full h-1">
-                        <div
-                          className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recording")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.recordedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-red-400/60" size={14} />
+                          <span className="text-xs text-red-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-red-400/20 rounded-full h-1">
+                          <div
+                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.recordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 text-sm">
-                      {t("shop.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 text-sm">
+                        {t("shop.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 text-xs mb-3">
+                      {t("shop.recordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("shop.retrySave")}
+                    </button>
                   </div>
-                  <div className="text-red-400/60 text-xs mb-3">
-                    {t("shop.recordedLocally")}
-                  </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("shop.retrySave")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           <div className="space-y-4">
             <button
@@ -624,15 +716,21 @@ export default function SurvivalGameManager() {
           showCircles={showCircles}
           onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
+          instantlyDeactivatedCircles={instantlyDeactivatedCircles}
         />
       </div>
 
-      {/* Оптимизированная нижняя панель */}
-      <GameStatusPanel 
-        currentLevel={gameState.currentLevel}
-        survivalTime={gameState.stats.survivalTime}
-        t={t}
-      />
+      {/* Fixed height bottom panel to prevent jitter */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom game-panel-stable"
+        style={{ height: "100px" }}
+      >
+        <GamePanel
+          level={panelData.level}
+          survivalTime={panelData.survivalTime}
+          t={t}
+        />
+      </div>
     </div>
   );
 }
