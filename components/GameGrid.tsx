@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Селективная защита от скроллинга с сохранением touch функциональности
+// src/components/GameGrid.tsx - Исправление контейнера и восстановление pulse-эффектов
 
 "use client";
 
@@ -62,7 +62,7 @@ export default function GameGrid({
   const { cols, rows } = getGridDimensions(circles.length);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
-
+  
   // Track click states to prevent race condition
   const clickStateRef = useRef<Map<number, ClickState>>(new Map());
 
@@ -84,7 +84,7 @@ export default function GameGrid({
       if (e.touches.length > 1 || (e.touches.length === 1 && e.type === 'touchmove')) {
         const touch = e.touches[0];
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
-
+        
         // Only prevent if not touching a game circle
         if (!target?.closest('[data-circle-id]')) {
           e.preventDefault();
@@ -148,55 +148,58 @@ export default function GameGrid({
     }
   }, [onActivatedCircles, lastActivationTimestamp, circles]);
 
-  // Calculate adaptive sizes based on screen dimensions
+  // Enhanced adaptive size calculation with proper container sizing
   useEffect(() => {
     const calculateAdaptiveSizes = () => {
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
 
-      // Calculate available space (accounting for UI elements)
-      const availableWidth = screenWidth * 0.9; // 90% of screen width
-      const availableHeight = screenHeight * 0.6; // 60% of screen height (accounting for top/bottom UI)
+      // Calculate available space with more conservative margins for mobile
+      const horizontalMargin = screenWidth < 480 ? 40 : 60; // Increased margins
+      const verticalMargin = screenHeight < 800 ? 120 : 160; // Account for UI elements
+      
+      const availableWidth = screenWidth - horizontalMargin;
+      const availableHeight = screenHeight - verticalMargin;
 
-      // Calculate maximum circle size based on grid dimensions
-      const maxCircleWidthByColumns = (availableWidth - (cols - 1) * 8) / cols; // 8px gap between circles
-      const maxCircleHeightByRows = (availableHeight - (rows - 1) * 8) / rows;
+      // Calculate circle size with proper spacing
+      const effectiveGap = Math.max(4, Math.min(12, screenWidth / 100)); // Responsive gap
+      
+      const maxCircleWidthByColumns = (availableWidth - (cols - 1) * effectiveGap) / cols;
+      const maxCircleHeightByRows = (availableHeight - (rows - 1) * effectiveGap) / rows;
 
-      // Use the smaller dimension to ensure circles fit in both directions
-      const calculatedSize = Math.min(
-        maxCircleWidthByColumns,
-        maxCircleHeightByRows,
-      );
+      // Use smaller dimension to ensure everything fits
+      const baseSize = Math.min(maxCircleWidthByColumns, maxCircleHeightByRows);
 
-      // Apply size constraints based on device type and circle count
+      // Apply size constraints based on circle count and screen size
       let finalSize: number;
       let finalGap: number;
 
-      if (circles.length <= 16) {
-        // Smaller grids can have larger circles
-        finalSize = Math.max(60, Math.min(calculatedSize, 120));
-        finalGap = 8;
+      if (circles.length <= 9) {
+        // Reaction mode - larger circles
+        finalSize = Math.max(80, Math.min(baseSize, 140));
+        finalGap = Math.max(8, effectiveGap);
       } else if (circles.length <= 25) {
-        finalSize = Math.max(48, Math.min(calculatedSize, 80));
-        finalGap = 6;
-      } else if (circles.length <= 48) {
-        // Large grids with moderate circle count
-        finalSize = Math.max(36, Math.min(calculatedSize, 64));
-        finalGap = 4;
+        // Medium grids
+        finalSize = Math.max(50, Math.min(baseSize, 90));
+        finalGap = Math.max(6, effectiveGap);
+      } else if (circles.length <= 36) {
+        // Survival mode grid
+        finalSize = Math.max(38, Math.min(baseSize, 70));
+        finalGap = Math.max(4, effectiveGap);
       } else {
-        // Largest grids need smaller circles
-        finalSize = Math.max(32, Math.min(calculatedSize, 48));
-        finalGap = 4;
+        // Largest grids
+        finalSize = Math.max(32, Math.min(baseSize, 55));
+        finalGap = Math.max(3, effectiveGap);
       }
 
       // Additional adjustments for very small screens
-      if (screenWidth < 400) {
-        finalSize = finalSize * 0.85;
-        finalGap = Math.max(2, finalGap - 2);
+      if (screenWidth < 380) {
+        finalSize = finalSize * 0.9;
+        finalGap = Math.max(2, finalGap - 1);
       }
 
       setCircleSize(Math.floor(finalSize));
-      setGapSize(finalGap);
+      setGapSize(Math.floor(finalGap));
     };
 
     // Calculate on mount and window resize
@@ -341,7 +344,7 @@ export default function GameGrid({
     };
   };
 
-  // Existing continuous pulse effect (unchanged)
+  // RESTORED: Continuous pulse effect for active circles
   const renderPulseEffect = (circle: Circle) => {
     if (!circle.isActive || circle.isAnimating) return null;
 
@@ -350,7 +353,7 @@ export default function GameGrid({
 
     return (
       <div
-        className={`absolute inset-0 rounded-full border-2 ${pulseColor} opacity-50`}
+        className={`absolute inset-0 rounded-full border-2 ${pulseColor} opacity-50 pointer-events-none`}
         style={{
           animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
         }}
@@ -358,7 +361,7 @@ export default function GameGrid({
     );
   };
 
-  // Fast activation pulse effect (single burst on activation)
+  // RESTORED: Fast activation pulse effect (single burst on activation)
   const renderActivationPulse = (circle: Circle) => {
     const activePulse = activePulses.find(
       (pulse) => pulse.circleId === circle.id,
@@ -372,7 +375,6 @@ export default function GameGrid({
     const pulseColor = activePulse.isRed ? "border-red-400" : "border-white";
 
     // Different z-index for different game modes
-    // In survival mode, pulse goes behind circles; in reaction mode, it goes above
     const zIndex = gameMode === "survival" ? -1 : 10;
 
     return (
@@ -385,23 +387,32 @@ export default function GameGrid({
     );
   };
 
-  const getContainerMaxDimensions = () => {
-    // Calculate container dimensions based on circle count and adaptive sizing
-    const containerWidth = circleSize * cols + gapSize * (cols - 1) + 32; // 32px padding
-    const containerHeight = circleSize * rows + gapSize * (rows - 1) + 32;
+  // ENHANCED: Container dimensions calculation with proper padding
+  const getContainerDimensions = () => {
+    // Calculate actual grid dimensions
+    const gridWidth = circleSize * cols + gapSize * (cols - 1);
+    const gridHeight = circleSize * rows + gapSize * (rows - 1);
+    
+    // Add generous padding to prevent clipping
+    const horizontalPadding = Math.max(40, circleSize * 0.3); // At least 40px or 30% of circle size
+    const verticalPadding = Math.max(40, circleSize * 0.3);
+    
+    const containerWidth = gridWidth + (horizontalPadding * 2);
+    const containerHeight = gridHeight + (verticalPadding * 2);
 
     return {
-      maxWidth: `min(95vw, ${containerWidth}px)`,
-      maxHeight: `min(70vh, ${containerHeight}px)`,
+      width: `${containerWidth}px`,
+      height: `${containerHeight}px`,
+      padding: `${verticalPadding}px ${horizontalPadding}px`,
     };
   };
 
-  const { maxWidth, maxHeight } = getContainerMaxDimensions();
+  const containerDimensions = getContainerDimensions();
 
   return (
-    <div
+    <div 
       ref={mainContainerRef}
-      className="flex items-center justify-center min-h-[400px] p-4"
+      className="flex items-center justify-center min-h-screen w-full"
       style={{
         // Selective scroll prevention - maintain touch functionality
         touchAction: "manipulation",
@@ -414,58 +425,74 @@ export default function GameGrid({
       }}
     >
       <div
-        ref={gridContainerRef}
-        className="grid justify-items-center items-center"
+        className="flex items-center justify-center"
         style={{
-          gridTemplateColumns: `repeat(${cols}, 1fr)`,
-          gridTemplateRows: `repeat(${rows}, 1fr)`,
-          gap: `${gapSize}px`,
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          WebkitTouchCallout: "none",
-          maxWidth,
-          maxHeight,
-          // Enhanced positioning and containment
-          position: "relative",
-          touchAction: "manipulation", // Allow taps but prevent pan/zoom
-          overscrollBehavior: "none",
-          overflow: "hidden",
-          // Layout stability
-          contain: "layout style paint",
-          isolation: "isolate",
-          // GPU acceleration for smoother performance
-          transform: "translateZ(0)",
-          WebkitTransform: "translateZ(0)",
+          width: containerDimensions.width,
+          height: containerDimensions.height,
+          padding: containerDimensions.padding,
+          // Ensure container doesn't exceed viewport
+          maxWidth: "100vw",
+          maxHeight: "100vh",
         }}
       >
-        {circles.map((circle) => {
-          const circleStyleConfig = getCircleStyles(circle);
+        <div
+          ref={gridContainerRef}
+          className="grid justify-items-center items-center"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+            gridTemplateRows: `repeat(${rows}, 1fr)`,
+            gap: `${gapSize}px`,
+            userSelect: "none",
+            WebkitUserSelect: "none",
+            WebkitTouchCallout: "none",
+            // Enhanced positioning and containment
+            position: "relative",
+            touchAction: "manipulation", // Allow taps but prevent pan/zoom
+            overscrollBehavior: "none",
+            overflow: "visible", // IMPORTANT: Allow overflow for effects
+            // Layout stability
+            contain: "layout style paint",
+            isolation: "isolate",
+            // GPU acceleration for smoother performance
+            transform: "translateZ(0)",
+            WebkitTransform: "translateZ(0)",
+          }}
+        >
+          {circles.map((circle) => {
+            const circleStyleConfig = getCircleStyles(circle);
 
-          return (
-            <button
-              key={circle.id}
-              aria-label={`Game circle ${circle.id + 1}${circle.isActive ? (circle.isDecoy ? " - trap target" : " - active target") : ""}`}
-              className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
-              data-circle-id={circle.id}
-              disabled={getInteractionProps(circle).disabled}
-              style={{
-                ...circleStyleConfig.style,
-                ...getInteractionProps(circle).style,
-              } as React.CSSProperties}
-              type="button"
-              onClick={getInteractionProps(circle).onClick}
-              onContextMenu={getInteractionProps(circle).onContextMenu}
-              onTouchEnd={getInteractionProps(circle).onTouchEnd}
-              onTouchStart={getInteractionProps(circle).onTouchStart}
-              onDragStart={getInteractionProps(circle).onDragStart}
-            >
-              {/* Existing continuous pulse effect */}
-              {renderPulseEffect(circle)}
-              {/* Fast activation pulse effect */}
-              {renderActivationPulse(circle)}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={circle.id}
+                aria-label={`Game circle ${circle.id + 1}${circle.isActive ? (circle.isDecoy ? " - trap target" : " - active target") : ""}`}
+                className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
+                data-circle-id={circle.id}
+                disabled={getInteractionProps(circle).disabled}
+                style={{
+                  ...circleStyleConfig.style,
+                  ...getInteractionProps(circle).style,
+                }}
+                type="button"
+                onClick={getInteractionProps(circle).onClick}
+                onContextMenu={getInteractionProps(circle).onContextMenu}
+                onTouchEnd={getInteractionProps(circle).onTouchEnd}
+                onTouchStart={getInteractionProps(circle).onTouchStart}
+                onDragStart={getInteractionProps(circle).onDragStart}
+              >
+                {/* RESTORED: Continuous pulse effect */}
+                {renderPulseEffect(circle)}
+                {/* RESTORED: Fast activation pulse effect */}
+                {renderActivationPulse(circle)}
+                {/* Debug info for development */}
+                {circle.isActive && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
+                    {circle.id}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
