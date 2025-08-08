@@ -1,4 +1,4 @@
-/* src/app/globals.css - Fixed container constraints to prevent grid clipping */
+/* src/app/globals.css - Complete file with Cat Easter Egg animations added and Leaderboard animations */
 
 @tailwind base;
 @tailwind components;
@@ -18,49 +18,17 @@
   --background-end-rgb: 0, 0, 0;
 }
 
-/* ============================================= */
-/* FIXED MOBILE DEVICE CONFIGURATIONS */
-/* ============================================= */
-
-/* Global viewport stabilization - UPDATED for proper game display */
-html {
-  height: 100%;
-  height: 100dvh;
-  min-height: 100%;
-  min-height: 100dvh;
-
-  /* Layout stabilization */
-  contain: layout style;
-
-  /* Selective overscroll prevention */
-  overscroll-behavior: none;
-  -webkit-overflow-scrolling: touch;
-
-  /* Allow taps but prevent zoom */
-  touch-action: manipulation;
-
-  /* CRITICAL: Ensure full viewport usage */
-  width: 100%;
-  max-width: 100%;
-}
-
 * {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
 }
 
-/* UPDATED: Remove overflow restrictions that clip game elements */
 html,
 body {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: visible;
-  /* Changed from hidden to visible */
-  overflow-y: visible;
-  /* Allow vertical overflow for game elements */
+  max-width: 100vw;
+  overflow-x: hidden;
   height: 100%;
-  min-height: 100%;
 }
 
 body {
@@ -82,126 +50,10 @@ body {
     "Droid Sans",
     "Helvetica Neue",
     sans-serif;
-
-  /* Body height stabilization */
-  min-height: 100vh;
-  min-height: 100dvh;
-  height: 100%;
-  width: 100%;
-
-  /* Selective overscroll prevention */
-  overscroll-behavior: none;
-  -webkit-overflow-scrolling: touch;
-
-  /* Layout stability */
-  contain: layout style;
-
-  /* GPU acceleration for stability */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-
-  /* Allow touch interactions but prevent text selection */
-  touch-action: manipulation;
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
 .font-bpdots {
   font-family: "BPDots Diamond", monospace;
-}
-
-/* ============================================= */
-/* GAME INTERFACE CONTAINER FIXES */
-/* ============================================= */
-
-/* UPDATED: Game container with proper overflow handling */
-.game-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  /* Allow content overflow while preventing scroll */
-  overflow: visible;
-  /* Changed from hidden to visible */
-  overscroll-behavior: none;
-  -webkit-overflow-scrolling: auto;
-
-  /* Allow touch interactions for game elements */
-  touch-action: manipulation;
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
-
-  /* Layout containment */
-  contain: layout style;
-  /* Removed paint containment to allow overflow */
-  isolation: isolate;
-
-  /* GPU acceleration */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  will-change: auto;
-
-  /* Ensure full space utilization */
-  width: 100%;
-  height: 100%;
-}
-
-/* UPDATED: Game areas with overflow support */
-.game-area,
-.game-grid-container {
-  /* Allow overflow for game elements */
-  overflow: visible !important;
-  /* Changed from hidden to visible */
-  overscroll-behavior: none !important;
-  -webkit-overflow-scrolling: auto !important;
-
-  /* Allow taps but prevent pan/zoom/scroll */
-  touch-action: manipulation !important;
-  pointer-events: auto;
-
-  /* Layout stability without paint containment */
-  contain: layout style;
-  /* Removed paint to allow visual overflow */
-  isolation: isolate;
-
-  /* Prevent text selection but allow touch interactions */
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -webkit-touch-callout: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-
-  /* Ensure full width and height */
-  width: 100%;
-  height: 100%;
-}
-
-/* NEW: Specific styles for main game page containers */
-.min-h-screen {
-  /* Override Tailwind's min-h-screen to allow proper overflow */
-  min-height: 100vh !important;
-  min-height: 100dvh !important;
-  height: auto !important;
-  /* Allow content to determine height */
-  overflow: visible !important;
-}
-
-/* NEW: Flex container fixes for game pages */
-.flex.min-h-screen {
-  overflow: visible !important;
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-
-/* NEW: Center content containers - allow overflow */
-.flex.items-center.justify-center {
-  overflow: visible !important;
-  width: 100%;
-  height: 100%;
 }
 
 /* Basic Animation keyframes */
@@ -217,13 +69,12 @@ body {
   }
 }
 
-/* Leaderboard specific animations */
+/* Leaderboard specific animations - moved from inline styles */
 @keyframes fadeIn {
   from {
     opacity: 0;
     transform: translateY(10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -235,7 +86,6 @@ body {
     opacity: 0;
     transform: translateX(-10px);
   }
-
   to {
     opacity: 1;
     transform: translateX(0);
@@ -302,15 +152,12 @@ body {
   0% {
     transform: translateY(100%);
   }
-
   16.67% {
     transform: translateY(0%);
   }
-
   83.33% {
     transform: translateY(0%);
   }
-
   100% {
     transform: translateY(100%);
   }
@@ -321,22 +168,18 @@ body {
     opacity: 0.8;
     transform: scale(0.9);
   }
-
   16.67% {
     opacity: 1;
     transform: scale(1);
   }
-
   50% {
     opacity: 1;
     transform: scale(1.05);
   }
-
   83.33% {
     opacity: 1;
     transform: scale(1);
   }
-
   100% {
     opacity: 0.8;
     transform: scale(0.9);
@@ -623,7 +466,7 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Video orientation handling */
+/* For portrait orientation - scale video to fill height */
 @media (orientation: portrait) {
   .video-player {
     width: auto;
@@ -632,6 +475,7 @@ body {
   }
 }
 
+/* For landscape orientation */
 @media (orientation: landscape) {
   .video-player {
     width: 100%;
@@ -649,23 +493,14 @@ body {
   .animate-pulse-gentle {
     animation-duration: 1.5s;
   }
-
+  
+  /* Enhanced mobile performance for cat easter egg */
   .cat-easter-egg-container {
     animation-duration: 8s;
   }
-
+  
   .cat-image-container {
     animation-duration: 8s;
-  }
-
-  /* MOBILE: Ensure no clipping on small screens */
-  body {
-    overflow: visible !important;
-  }
-
-  .min-h-screen {
-    overflow: visible !important;
-    height: auto !important;
   }
 }
 
@@ -740,7 +575,7 @@ body {
   animation: spin-counter-clockwise 2s linear infinite;
 }
 
-/* High-performance rotation container */
+/* High-performance rotation container - NEW */
 .high-performance-rotation {
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -751,19 +586,17 @@ body {
   isolation: isolate;
 }
 
-/* Stable container for preventing layout shifts */
+/* Stable container for preventing layout shifts - NEW */
 .stable-container {
   position: relative;
   overflow: visible;
-  /* Allow content overflow */
-  contain: layout style;
-  /* Removed paint containment */
+  contain: layout style paint;
   isolation: isolate;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
 }
 
-/* Enhanced touch optimization - SELECTIVE */
+/* Enhanced touch optimization for larger circles - NEW */
 .touch-optimized {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -773,18 +606,17 @@ body {
   tap-highlight-color: transparent;
 }
 
-/* Performance optimizations for larger circle grids */
+/* Performance optimizations for larger circle grids - NEW */
 .rotation-circle {
   will-change: transform, opacity, scale;
   transform-style: preserve-3d;
   backface-visibility: hidden;
   perspective: 1000px;
-  contain: layout style;
-  /* Removed paint containment */
+  contain: layout style paint;
   isolation: isolate;
 }
 
-/* Smooth transitions for circle state changes */
+/* Smooth transitions for circle state changes - NEW */
 .circle-state-transition {
   transition: background-color 0.2s ease-in-out,
     border-color 0.2s ease-in-out,
@@ -792,12 +624,12 @@ body {
     transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Fast deactivation for immediate feedback */
+/* Fast deactivation for immediate feedback - NEW */
 .circle-deactivate {
   transition: all 75ms cubic-bezier(0.4, 0, 1, 1) !important;
 }
 
-/* Enhanced visual feedback for larger circles */
+/* Enhanced visual feedback for larger circles - NEW */
 .circle-active {
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
 }
@@ -806,7 +638,7 @@ body {
   box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
 }
 
-/* Improved hover states for larger touch targets */
+/* Improved hover states for larger touch targets - NEW */
 .circle-hover {
   transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -819,7 +651,7 @@ body {
   transform: scale(0.95);
 }
 
-/* Container sizing optimizations */
+/* Container sizing optimizations - NEW */
 .expanded-container {
   min-width: 320px;
   min-height: 320px;
@@ -827,7 +659,7 @@ body {
   max-height: 400px;
 }
 
-/* Performance improvements for mobile devices */
+/* Performance improvements for mobile devices - NEW */
 @media (max-width: 768px) {
   .high-performance-rotation {
     transform: translate3d(0, 0, 0);
@@ -844,7 +676,7 @@ body {
   }
 }
 
-/* High refresh rate display optimizations */
+/* High refresh rate display optimizations - NEW */
 @media (min-resolution: 120dpi) {
   .high-performance-rotation {
     contain: strict;
@@ -852,12 +684,11 @@ body {
   }
 
   .rotation-circle {
-    contain: layout style;
-    /* Removed paint containment */
+    contain: layout style paint;
   }
 }
 
-/* Reduced motion accessibility */
+/* Reduced motion accessibility - NEW */
 @media (prefers-reduced-motion: reduce) {
   .circle-state-transition {
     transition-duration: 0.1s;
@@ -867,11 +698,11 @@ body {
   .activation-pulse-red {
     animation-duration: 0.3s;
   }
-
+  
   .cat-easter-egg-container {
     animation-duration: 3s;
   }
-
+  
   .cat-image-container {
     animation: none;
     opacity: 1;
@@ -879,7 +710,7 @@ body {
   }
 }
 
-/* Enhanced visual clarity for larger circles */
+/* Enhanced visual clarity for larger circles - NEW */
 .circle-border-enhanced {
   border-width: 3px;
   border-style: solid;
@@ -889,7 +720,7 @@ body {
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
 }
 
-/* Optimized rendering for better performance */
+/* Optimized rendering for better performance - NEW */
 .gpu-accelerated {
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -900,28 +731,26 @@ body {
   -webkit-perspective: 1000px;
 }
 
-/* Container stability during rapid updates */
+/* Container stability during rapid updates - NEW */
 .layout-stable {
-  contain: layout style;
-  /* Removed paint containment */
+  contain: layout style paint;
   isolation: isolate;
   position: relative;
-  overflow: visible;
-  /* Allow overflow */
+  overflow: hidden;
 }
 
-/* Enhanced touch feedback for mobile - SELECTIVE */
+/* Enhanced touch feedback for mobile - NEW */
 .touch-feedback {
   -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
   tap-highlight-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Smooth opacity transitions */
+/* Smooth opacity transitions - NEW */
 .opacity-transition {
   transition: opacity 0.2s ease-in-out;
 }
 
-/* Enhanced center dot for larger container */
+/* Enhanced center dot for larger container - NEW */
 .center-indicator {
   width: 12px;
   height: 12px;
@@ -930,7 +759,7 @@ body {
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
-/* Larger rotation indicator */
+/* Larger rotation indicator - NEW */
 .rotation-indicator-large {
   width: 32px;
   height: 32px;
@@ -950,14 +779,14 @@ body {
   transform: translateX(-50%);
 }
 
-/* Performance monitoring and debugging */
+/* Performance monitoring and debugging - NEW */
 .performance-monitor {
   contain: strict;
   will-change: transform;
   isolation: isolate;
 }
 
-/* Optimized for different screen densities */
+/* Optimized for different screen densities - NEW */
 @media (-webkit-min-device-pixel-ratio: 2),
 (min-resolution: 192dpi) {
   .circle-border-enhanced {
@@ -972,21 +801,20 @@ body {
   }
 }
 
-/* Rotation grid specific enhancements */
+/* Rotation grid specific enhancements - NEW */
 .rotating-grid {
-  contain: layout style;
-  /* Removed paint containment */
+  contain: layout style paint;
   isolation: isolate;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
 }
 
-/* Level transition effects */
+/* Level transition effects - NEW */
 .level-transition-smooth {
   transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* Circle activation and deactivation states */
+/* Circle activation and deactivation states - NEW */
 .circle-active-enter {
   animation: circle-activate 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -1024,7 +852,7 @@ body {
   }
 }
 
-/* Enhanced pulse effect improvements */
+/* Enhanced pulse effect improvements - NEW */
 .enhanced-pulse {
   animation: enhanced-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
@@ -1043,157 +871,28 @@ body {
   }
 }
 
-/* Instant click response */
+/* Instant click response - NEW */
 .instant-response {
   transition: none !important;
 }
 
-/* Fast deactivation for immediate feedback */
+/* Fast deactivation for immediate feedback - NEW */
 .fast-deactivate {
   transition: all 75ms cubic-bezier(0.4, 0, 1, 1) !important;
 }
 
-/* ============================================= */
-/* ANDROID-SPECIFIC OPTIMIZATIONS */
-/* ============================================= */
-
-/* Bottom navigation stabilization for Android */
-@supports (-webkit-touch-callout: none) {
-  .bottom-navigation {
-    position: fixed !important;
-    bottom: env(safe-area-inset-bottom, 0px);
-
-    /* Layout containment for shift prevention */
-    contain: layout style;
-    isolation: isolate;
-
-    /* GPU acceleration */
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-
-    /* Prevent interaction with system navigation */
-    touch-action: manipulation;
-    overscroll-behavior: none;
-  }
-}
-
-/* Android Chrome specific rules */
-@media screen and (-webkit-min-device-pixel-ratio: 0) {
-  body {
-    min-height: calc(100vh - env(keyboard-inset-height, 0px));
-    height: calc(100vh - env(keyboard-inset-height, 0px));
-    overflow: visible !important;
-    /* Ensure overflow on Android */
-  }
-
-  .game-container {
-    height: calc(100vh - env(keyboard-inset-height, 0px));
-    bottom: env(keyboard-inset-height, 0px);
-    overflow: visible !important;
-  }
-}
-
-/* ============================================= */
-/* IOS-SPECIFIC OPTIMIZATIONS */
-/* ============================================= */
-
-/* iOS Safari gesture blocking - SELECTIVE */
-@supports (-webkit-touch-callout: none) {
-
-  /* Apply selective blocking */
-  .no-select {
-    -webkit-touch-callout: none !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
-  }
-
-  /* Preserve input functionality */
-  input,
-  textarea,
-  [contenteditable] {
-    -webkit-user-select: auto !important;
-    user-select: auto !important;
-    -webkit-touch-callout: default !important;
-  }
-
-  /* Prevent zoom gestures */
-  html {
-    -webkit-text-size-adjust: 100%;
-    -ms-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-  }
-}
-
-/* Safari bounce scroll prevention */
-@supports (-webkit-overflow-scrolling: touch) {
-
-  body,
-  html {
-    -webkit-overflow-scrolling: auto !important;
-    overscroll-behavior-y: none !important;
-    overscroll-behavior-x: none !important;
-  }
-}
-
-/* ============================================= */
-/* ENHANCED NAVIGATION ANIMATIONS */
-/* ============================================= */
-
-/* Stable navigation transitions */
+/* Optimized Navigation Wrapper transitions */
 .nav-smooth-transition {
-  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-
-  /* Layout containment for stability */
-  contain: layout style;
-
-  /* GPU acceleration */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-
-  /* Prevent layout shifts */
-  will-change: transform, opacity;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-show {
-  transform: translateY(0) translateZ(0);
+  transform: translateY(0);
   opacity: 1;
 }
 
 .nav-hide {
-  transform: translateY(100%) translateZ(0);
+  transform: translateY(100%);
   opacity: 0;
-}
-
-/* ============================================= */
-/* LEGACY DEVICE SUPPORT */
-/* ============================================= */
-
-/* Support for older browsers */
-@supports not (contain: layout) {
-
-  .game-container,
-  .game-area,
-  .bottom-navigation {
-    position: relative;
-    overflow: visible;
-    /* Allow overflow for legacy */
-
-    /* Basic scroll protection */
-    -webkit-overflow-scrolling: auto;
-    -webkit-transform: translate3d(0, 0, 0);
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-/* Support for very old iOS versions */
-@supports not (env(safe-area-inset-bottom)) {
-  .bottom-navigation {
-    bottom: 0 !important;
-    padding-bottom: 20px;
-  }
 }
