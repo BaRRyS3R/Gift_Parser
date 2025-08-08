@@ -1,156 +1,196 @@
-// src/utils/gameLogger.ts - Game logging utility implementation
+// src/utils/gameLogger.ts - Comprehensive game logging system
 
-import { nanoid } from "nanoid";
-import { GameLogger, GameLogEntry, GameLogType, GameLogData } from "@/types/game-modes/logging";
+import { GameMode } from "@/types/game-modes/common";
 
-export function createGameLogger(gameStartTime: number = Date.now()): GameLogger {
-  const entries: GameLogEntry[] = [];
+export interface GameLogEntry {
+  timestamp: number;
+  gameTime: number; // Time since game start in ms
+  level: number;
+  event: string;
+  details: Record<string, any>;
+  component: string;
+  userAgent?: string;
+}
 
-  const addEntry = (type: GameLogType, data: GameLogData): void => {
-    const timestamp = Date.now();
-    const entry: GameLogEntry = {
-      id: nanoid(8),
-      timestamp,
-      relativeTime: timestamp - gameStartTime,
-      type,
-      data,
+export interface GameLogContext {
+  gameStartTime: number;
+  currentLevel: number;
+  gameMode: string;
+  deviceInfo: {
+    userAgent: string;
+    platform: string;
+    isMobile: boolean;
+    isIOS: boolean;
+    screenWidth: number;
+    screenHeight: number;
+  };
+}
+
+export class GameLogger {
+  private logs: GameLogEntry[] = [];
+  private context: GameLogContext;
+
+  constructor(gameMode: string) {
+    this.context = {
+      gameStartTime: Date.now(),
+      currentLevel: 1,
+      gameMode,
+      deviceInfo: this.getDeviceInfo(),
     };
-    entries.push(entry);
-  };
 
-  const getFormattedLog = (): string => {
-    if (entries.length === 0) {
-      return "No game events recorded.";
-    }
+    this.log('GAME_INIT', {
+      gameMode,
+      deviceInfo: this.context.deviceInfo,
+    }, 'GameLogger');
+  }
 
-    const lines: string[] = [];
-    lines.push("=== SURVIVAL GAME DEBUG LOG ===");
-    lines.push(`Game Start Time: ${new Date(gameStartTime).toISOString()}`);
-    lines.push(`Total Events: ${entries.length}`);
-    lines.push(`Log Generated: ${new Date().toISOString()}`);
-    lines.push("");
+  private getDeviceInfo() {
+    const userAgent = typeof window !== 'undefined' ? navigator.userAgent : 'unknown';
+    const platform = typeof window !== 'undefined' ? navigator.platform : 'unknown';
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+    
+    return {
+      userAgent,
+      platform,
+      isMobile,
+      isIOS,
+      screenWidth: typeof window !== 'undefined' ? window.innerWidth : 0,
+      screenHeight: typeof window !== 'undefined' ? window.innerHeight : 0,
+    };
+  }
 
-    entries.forEach((entry, index) => {
-      const relativeTimeStr = formatRelativeTime(entry.relativeTime);
-      const timestampStr = new Date(entry.timestamp).toISOString().split('T')[1].split('.')[0];
+  public updateLevel(level: number): void {
+    this.context.currentLevel = level;
+    this.log('LEVEL_CHANGED', { newLevel: level }, 'GameLogger');
+  }
+
+  public log(event: string, details: Record<string, any> = {}, component: string = 'Unknown'): void {
+    const now = Date.now();
+    const gameTime = now - this.context.gameStartTime;
+    
+    const logEntry: GameLogEntry = {
+      timestamp: now,
+      gameTime,
+      level: this.context.currentLevel,
+      event,
+      details: {
+        ...details,
+        // Add iOS-specific debugging info
+        ...(this.context.deviceInfo.isIOS && {
+          iosDebugInfo: {
+            touchSupported: 'ontouchstart' in window,
+            visualViewportSupported: 'visualViewport' in window,
+            safariVersion: this.getSafariVersion(),
+          }
+        })
+      },
+      component,
+      userAgent: this.context.deviceInfo.userAgent,
+    };
+
+    this.logs.push(logEntry);
+
+    // Log to console in production for debugging
+    console.log(`[${component}] ${event}:`, details);
+  }
+
+  private getSafariVersion(): string {
+    const ua = navigator.userAgent;
+    const safariMatch = ua.match(/Version\/(\d+\.?\d*)/);
+    return safariMatch ? safariMatch[1] : 'unknown';
+  }
+
+  public getLogs(): GameLogEntry[] {
+    return [...this.logs];
+  }
+
+  public getFormattedLogs(): string {
+    const header = `=== GAME LOG EXPORT ===
+Game Mode: ${this.context.gameMode}
+Device: ${this.context.deviceInfo.platform}
+iOS: ${this.context.deviceInfo.isIOS}
+User Agent: ${this.context.deviceInfo.userAgent}
+Screen: ${this.context.deviceInfo.screenWidth}x${this.context.deviceInfo.screenHeight}
+Game Duration: ${Date.now() - this.context.gameStartTime}ms
+Total Events: ${this.logs.length}
+
+=== EVENTS ===\n`;
+
+    const events = this.logs.map(log => {
+      const timeFormatted = (log.gameTime / 1000).toFixed(3);
+      const detailsStr = Object.keys(log.details).length > 0 
+        ? ` | ${JSON.stringify(log.details)}` 
+        : '';
       
-      lines.push(`[${index + 1}] ${timestampStr} (+${relativeTimeStr}) ${entry.type}`);
-      
-      // Format data based on log type
-      switch (entry.type) {
-        case GameLogType.GAME_START:
-          const gameStartData = entry.data as any;
-          lines.push(`    Mode: ${gameStartData.gameMode}`);
-          lines.push(`    Config: ${JSON.stringify(gameStartData.config, null, 4).split('\n').map((line, i) => i === 0 ? line : `    ${line}`).join('\n')}`);
-          break;
+      return `[${timeFormatted}s] L${log.level} [${log.component}] ${log.event}${detailsStr}`;
+    }).join('\n');
 
-        case GameLogType.CIRCLE_ACTIVATION:
-          const activationData = entry.data as any;
-          lines.push(`    Activated Circles: [${activationData.circleIds.join(', ')}]`);
-          lines.push(`    Red Circles: [${activationData.redCircleIds.join(', ')}]`);
-          lines.push(`    Total Active: ${activationData.activeCircleCount}`);
-          lines.push(`    Level Config: Lvl ${activationData.levelConfig.level}, Max ${activationData.levelConfig.simultaneousCircles}, Active Time ${activationData.levelConfig.circleActiveTime}ms`);
-          if (Object.keys(activationData.recentlyUsedCircles).length > 0) {
-            lines.push(`    Recently Used: ${JSON.stringify(activationData.recentlyUsedCircles)}`);
-          }
-          break;
+    return header + events + '\n\n=== END LOG ===';
+  }
 
-        case GameLogType.CIRCLE_CLICK:
-          const clickData = entry.data as any;
-          lines.push(`    Circle ID: ${clickData.circleId}`);
-          lines.push(`    Circle State: Active=${clickData.circleState.isActive}, Animating=${clickData.circleState.isAnimating}, Decoy=${clickData.circleState.isDecoy}`);
-          lines.push(`    Game State: ${clickData.gameState}`);
-          lines.push(`    Active Circle IDs: [${clickData.activeCircleIds.join(', ')}]`);
-          lines.push(`    Click Result: ${clickData.result.toUpperCase()}`);
-          if (clickData.reactionTime) {
-            lines.push(`    Reaction Time: ${clickData.reactionTime}ms`);
-          }
-          break;
-
-        case GameLogType.CIRCLE_DEACTIVATION:
-          const deactivationData = entry.data as any;
-          lines.push(`    Circle ID: ${deactivationData.circleId}`);
-          lines.push(`    Reason: ${deactivationData.reason.toUpperCase()}`);
-          lines.push(`    Was Decoy: ${deactivationData.wasDecoy}`);
-          lines.push(`    Active Duration: ${deactivationData.activeTime}ms`);
-          break;
-
-        case GameLogType.CIRCLE_TIMEOUT:
-          const timeoutData = entry.data as any;
-          lines.push(`    Circle ID: ${timeoutData.circleId}`);
-          lines.push(`    Was Decoy: ${timeoutData.wasDecoy}`);
-          lines.push(`    Scheduled Duration: ${timeoutData.scheduledDuration}ms`);
-          break;
-
-        case GameLogType.LEVEL_UP:
-          const levelData = entry.data as any;
-          lines.push(`    Level: ${levelData.previousLevel} → ${levelData.newLevel}`);
-          lines.push(`    Survival Time: ${levelData.survivalTime}ms`);
-          break;
-
-        case GameLogType.GAME_STATE_CHANGE:
-          const stateData = entry.data as any;
-          lines.push(`    State: ${stateData.from} → ${stateData.to}`);
-          if (stateData.reason) {
-            lines.push(`    Reason: ${stateData.reason}`);
-          }
-          break;
-
-        case GameLogType.GAME_END:
-          const endData = entry.data as any;
-          lines.push(`    Cause: ${endData.cause.toUpperCase()}`);
-          lines.push(`    Final Stats: ${JSON.stringify(endData.finalStats, null, 4).split('\n').map((line, i) => i === 0 ? line : `    ${line}`).join('\n')}`);
-          break;
-
-        case GameLogType.ERROR:
-          const errorData = entry.data as any;
-          lines.push(`    ERROR: ${errorData.message}`);
-          lines.push(`    Context: ${JSON.stringify(errorData.context, null, 4).split('\n').map((line, i) => i === 0 ? line : `    ${line}`).join('\n')}`);
-          if (errorData.stack) {
-            lines.push(`    Stack: ${errorData.stack}`);
-          }
-          break;
-
-        default:
-          lines.push(`    Data: ${JSON.stringify(entry.data, null, 2)}`);
+  public exportToClipboard(): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        const logData = this.getFormattedLogs();
+        
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(logData).then(() => {
+            this.log('LOG_COPIED_TO_CLIPBOARD', { size: logData.length }, 'GameLogger');
+            resolve(true);
+          }).catch(() => {
+            this.fallbackCopyToClipboard(logData);
+            resolve(false);
+          });
+        } else {
+          this.fallbackCopyToClipboard(logData);
+          resolve(false);
+        }
+      } catch (error) {
+        this.log('LOG_EXPORT_ERROR', { error: error?.toString() }, 'GameLogger');
+        resolve(false);
       }
-      
-      lines.push("");
     });
+  }
 
-    lines.push("=== END OF LOG ===");
-    return lines.join("\n");
-  };
+  private fallbackCopyToClipboard(text: string): void {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      document.execCommand('copy');
+      this.log('LOG_COPIED_FALLBACK', { size: text.length }, 'GameLogger');
+    } catch (error) {
+      this.log('LOG_COPY_FAILED', { error: error?.toString() }, 'GameLogger');
+    }
+    
+    document.body.removeChild(textArea);
+  }
 
-  const clear = (): void => {
-    entries.length = 0;
-  };
-
-  return {
-    entries,
-    gameStartTime,
-    addEntry,
-    getFormattedLog,
-    clear,
-  };
+  public clear(): void {
+    this.log('LOG_CLEARED', { previousLogCount: this.logs.length }, 'GameLogger');
+    this.logs = [];
+  }
 }
 
-function formatRelativeTime(milliseconds: number): string {
-  if (milliseconds < 1000) {
-    return `${milliseconds}ms`;
-  }
-  
-  const seconds = Math.floor(milliseconds / 1000);
-  const ms = milliseconds % 1000;
-  
-  if (seconds < 60) {
-    return `${seconds}.${ms.toString().padStart(3, '0')}s`;
-  }
-  
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+// Global logger instance
+let globalGameLogger: GameLogger | null = null;
+
+export function initializeGameLogger(gameMode: string): GameLogger {
+  globalGameLogger = new GameLogger(gameMode);
+  return globalGameLogger;
 }
 
-export { GameLogType, type GameLogger, type GameLogEntry, type GameLogData } from "@/types/game-modes/logging";
+export function getGameLogger(): GameLogger | null {
+  return globalGameLogger;
+}
+
+export function clearGameLogger(): void {
+  globalGameLogger = null;
+}
