@@ -308,21 +308,9 @@ export default function SurvivalGameManager() {
       if (result === "correct") {
         triggerHapticFeedback("success");
 
-        // Немедленно очищаем таймаут для предотвращения ложного срабатывания
+        // Немедленно очищаем таймаут и деактивируем круг без анимации
         const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId);
         setGameState(immediatelyDeactivatedState);
-
-        // Затем обновляем визуальное состояние круга с задержкой
-        setTimeout(() => {
-          setGameState((current) => ({
-            ...current,
-            circles: current.circles.map((circle) =>
-              circle.id === circleId
-                ? { ...circle, isAnimating: false, isActive: false }
-                : circle
-            ),
-          }));
-        }, 150);
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");

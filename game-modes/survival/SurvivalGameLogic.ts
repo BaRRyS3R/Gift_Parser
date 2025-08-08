@@ -179,13 +179,13 @@ const cleanupOldEntries = (
 ): Map<number, number> => {
   const currentTime = Date.now();
   const cleanedMap = new Map<number, number>();
-
+  
   recentlyUsedCircles.forEach((timestamp, circleId) => {
     if ((currentTime - timestamp) < maxAge) {
       cleanedMap.set(circleId, timestamp);
     }
   });
-
+  
   return cleanedMap;
 };
 
@@ -278,17 +278,17 @@ const getAvailableCircleIds = (
   cooldownMs: number = SURVIVAL_CONFIG.circleReactivationCooldown
 ): number[] => {
   const currentTime = Date.now();
-
+  
   return Array.from({ length: totalCircles }, (_, i) => i).filter(id => {
     // Исключаем уже активные круги
     if (excludeIds.includes(id)) return false;
-
+    
     // Проверяем, не находится ли круг в периоде временного исключения
     const lastUsedTime = recentlyUsedCircles.get(id);
     if (lastUsedTime && (currentTime - lastUsedTime) < cooldownMs) {
       return false;
     }
-
+    
     return true;
   });
 };
@@ -301,9 +301,9 @@ export const getRandomCircleIds = (
   cooldownMs: number = SURVIVAL_CONFIG.circleReactivationCooldown
 ): number[] => {
   const availableIds = getAvailableCircleIds(
-    totalCircles,
-    excludeIds,
-    recentlyUsedCircles,
+    totalCircles, 
+    excludeIds, 
+    recentlyUsedCircles, 
     cooldownMs
   );
 
@@ -436,15 +436,10 @@ export const handleSurvivalCircleClick = (
         hitCount: updatedState.stats.hitCount + 1,
       };
 
-      const newCircles = updatedState.circles.map((c) =>
-        c.id === clickedCircleId ? { ...c, isAnimating: true } : c,
-      );
-
       return {
         newState: {
           ...updatedState,
           stats: newStats,
-          circles: newCircles,
         },
         result: "correct",
       };
