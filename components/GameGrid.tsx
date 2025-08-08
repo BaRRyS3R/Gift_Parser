@@ -326,9 +326,14 @@ export default function GameGrid({
   const { maxWidth, maxHeight } = getContainerMaxDimensions();
 
   return (
-    <div className="flex items-center justify-center min-h-[400px] p-4">
+    <div
+      className="flex items-center justify-center min-h-[400px] p-4 prevent-scroll"
+      onTouchStart={(e) => e.preventDefault()}
+      onTouchMove={(e) => e.preventDefault()}
+      style={{ touchAction: 'none' }}
+    >
       <div
-        className="grid justify-items-center items-center"
+        className="grid justify-items-center items-center prevent-scroll"
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
@@ -338,7 +343,11 @@ export default function GameGrid({
           WebkitTouchCallout: "none",
           maxWidth,
           maxHeight,
+          touchAction: 'none',
+          overscrollBehavior: 'none',
         }}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.preventDefault()}
       >
         {circles.map((circle) => {
           const circleStyleConfig = getCircleStyles(circle);
