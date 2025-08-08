@@ -12,6 +12,7 @@
   font-display: swap;
 }
 
+
 :root {
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 0, 0, 0;
@@ -29,6 +30,9 @@ body {
   max-width: 100vw;
   overflow-x: hidden;
   height: 100%;
+  overflow: hidden; /* запрет скролла страницы */
+  overscroll-behavior: none; /* запрет резинового перетягивания */
+  touch-action: none; /* запрет жестов прокрутки */
 }
 
 body {
