@@ -417,7 +417,7 @@ export default function SurvivalGameManager() {
                 : circle
             ),
           }));
-        }, 300);
+        }, 150);
       } else if (result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");

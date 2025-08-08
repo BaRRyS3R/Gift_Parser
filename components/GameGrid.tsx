@@ -217,7 +217,7 @@ export default function GameGrid({
       : "opacity-0 transform scale-0";
 
     const animationClasses = circle.isAnimating
-      ? "opacity-0 scale-75 transition-all duration-200"
+      ? "opacity-0 scale-75 transition-all duration-100"
       : "";
 
     // Interactive state styling based on circle type and activity
