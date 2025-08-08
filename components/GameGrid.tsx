@@ -254,23 +254,16 @@ export default function GameGrid({
       disabled: !isGameActive,
       style: {
         transitionDelay: showCircles ? `${circle.id * 12}ms` : "0ms",
-        transition: circle.isActive && !circle.isAnimating
-          ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
-          : "all 0.3s ease-out",
-        touchAction: "manipulation", // Только для кнопок
+        transition:
+          circle.isActive && !circle.isAnimating
+            ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
+            : "all 0.3s ease-out",
+        touchAction: "manipulation",
       },
-      onTouchStart: (event: React.TouchEvent) => {
-        event.stopPropagation(); // Предотвращаем всплытие
-        handleTouchStart(circle.id, event);
-      },
-      onTouchEnd: (event: React.TouchEvent) => {
-        event.stopPropagation(); // Предотвращаем всплытие
-        handleTouchEnd(circle.id, event);
-      },
-      onClick: (event: React.MouseEvent) => {
-        event.stopPropagation(); // Предотвращаем всплытие
-        handleClick(circle.id, event);
-      },
+      onTouchStart: (event: React.TouchEvent) =>
+        handleTouchStart(circle.id, event),
+      onTouchEnd: (event: React.TouchEvent) => handleTouchEnd(circle.id, event),
+      onClick: (event: React.MouseEvent) => handleClick(circle.id, event),
       onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
     };
   };
@@ -333,14 +326,9 @@ export default function GameGrid({
   const { maxWidth, maxHeight } = getContainerMaxDimensions();
 
   return (
-    <div
-      className="flex items-center justify-center min-h-[400px] p-4 prevent-scroll"
-      onTouchStart={(e) => e.preventDefault()}
-      onTouchMove={(e) => e.preventDefault()}
-      style={{ touchAction: 'none' }}
-    >
+    <div className="flex items-center justify-center min-h-[400px] p-4">
       <div
-        className="grid justify-items-center items-center prevent-scroll"
+        className="grid justify-items-center items-center no-drag"
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
@@ -348,13 +336,11 @@ export default function GameGrid({
           userSelect: "none",
           WebkitUserSelect: "none",
           WebkitTouchCallout: "none",
+          touchAction: "none", // <── ключевой момент
+          overscrollBehavior: "none", // <── чтобы убрать резиновое прокручивание
           maxWidth,
           maxHeight,
-          touchAction: 'none',
-          overscrollBehavior: 'none',
         }}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.preventDefault()}
       >
         {circles.map((circle) => {
           const circleStyleConfig = getCircleStyles(circle);

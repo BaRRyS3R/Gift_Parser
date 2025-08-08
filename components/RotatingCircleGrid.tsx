@@ -244,26 +244,17 @@ export default function RotatingCircleGrid({
   };
 
   return (
-    <div
-      className="flex items-center justify-center min-h-[400px] p-2 prevent-scroll"
-      onTouchStart={(e) => e.preventDefault()}
-      onTouchMove={(e) => e.preventDefault()}
-      style={{ touchAction: 'none' }}
-    >
+    <div className="flex items-center justify-center min-h-[400px] p-2">
       <div
         ref={containerRef}
-        className="relative stable-container prevent-scroll"
+        className="relative stable-container"
         style={{
           width: `${containerSize}px`,
           height: `${containerSize}px`,
           userSelect: "none",
           WebkitUserSelect: "none",
           WebkitTouchCallout: "none",
-          touchAction: 'none',
-          overscrollBehavior: 'none',
         }}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchMove={(e) => e.preventDefault()}
       >
         {/* Rotating container */}
         <div
@@ -288,12 +279,13 @@ export default function RotatingCircleGrid({
             return (
               <button
                 key={circle.id}
-                aria-label={`Rotating circle ${circle.id + 1}${circle.isActive
+                aria-label={`Rotating circle ${circle.id + 1}${
+                  circle.isActive
                     ? circle.isDecoy
                       ? " - trap target"
                       : " - active target"
                     : ""
-                  }`}
+                }`}
                 className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none touch-optimized`}
                 data-circle-id={circle.id}
                 disabled={!isGameActive}
