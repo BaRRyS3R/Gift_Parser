@@ -134,8 +134,8 @@ export default function GameGrid({
       const availableHeight = screenHeight * 0.6; // 60% of screen height (accounting for top/bottom UI)
 
       // Calculate maximum circle size based on grid dimensions
-      const maxCircleWidthByColumns = (availableWidth - (cols - 1) * 8) / cols; // 8px gap between circles
-      const maxCircleHeightByRows = (availableHeight - (rows - 1) * 8) / rows;
+      const maxCircleWidthByColumns = (availableWidth - (cols - 1) * 12) / cols; // 8px gap between circles
+      const maxCircleHeightByRows = (availableHeight - (rows - 1) * 12) / rows;
 
       // Use the smaller dimension to ensure circles fit in both directions
       const calculatedSize = Math.min(
@@ -157,7 +157,7 @@ export default function GameGrid({
       } else if (circles.length <= 48) {
         // Large grids with moderate circle count
         finalSize = Math.max(36, Math.min(calculatedSize, 64));
-        finalGap = 4;
+        finalGap = 8;
       } else {
         // Largest grids need smaller circles
         finalSize = Math.max(32, Math.min(calculatedSize, 48));
