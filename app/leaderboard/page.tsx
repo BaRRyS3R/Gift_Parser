@@ -462,12 +462,7 @@ function LeaderboardPageContent() {
     initializePage();
   }, [fetchLeaderboards]);
 
-  // Debug user data
-  useEffect(() => {
-    if (user) {
-      console.log('[User Data Full]', user);
-    }
-  }, [user]);
+
 
   const handleTabChange = async (tab: LeaderboardType) => {
     if (tab === activeTab || isTransitioning) return;
@@ -495,7 +490,7 @@ function LeaderboardPageContent() {
     }
   }, [leaderboardData, activeTab]);
 
-  // ИСПРАВЛЕННАЯ ФУНКЦИЯ: Get current user data for display
+  // Get current user data for display
   const getCurrentUserData = useMemo(() => {
     if (!leaderboardData || !user || !telegramUser) return null;
 
@@ -507,28 +502,18 @@ function LeaderboardPageContent() {
     // Get user's game count for this mode
     let gamesCount = 0;
     let value = "N/A";
-    let dataSource = 'userObject';
-
-    console.log(`[Leaderboard Debug] Tab: ${activeTab}`, {
-      userData,
-      userPosition,
-      fullLeaderboardLength: leaderboardData[activeTab]?.length
-    });
 
     switch (activeTab) {
       case "season": {
-        // Ищем пользователя в полном лидерборде сезона
         const userInSeasonLeaderboard = leaderboardData.season.find((entry) => entry.isCurrentUser);
 
         if (userInSeasonLeaderboard) {
           value = `${userInSeasonLeaderboard.total_score}`;
           gamesCount = userInSeasonLeaderboard.total_games;
-          dataSource = 'fullLeaderboard';
         } else if (userData) {
           const seasonUserData = userData as SafeSeasonLeaderboard;
           value = `${seasonUserData.total_score}`;
           gamesCount = user.total_games || 0;
-          dataSource = 'topLeaderboard';
         } else {
           gamesCount = user.total_games || 0;
           const totalScore = user.total_score || 0;
@@ -540,18 +525,15 @@ function LeaderboardPageContent() {
       }
 
       case "reaction": {
-        // Ищем пользователя в полном лидерборде реакции
         const userInReactionLeaderboard = leaderboardData.reaction.find((entry) => entry.isCurrentUser);
 
         if (userInReactionLeaderboard) {
           value = `${userInReactionLeaderboard.best_reaction_time}ms`;
           gamesCount = userInReactionLeaderboard.reaction_games;
-          dataSource = 'fullLeaderboard';
         } else if (userData) {
           const reactionUserData = userData as SafeReactionLeaderboard;
           value = `${reactionUserData.best_reaction_time}ms`;
           gamesCount = user.reaction_games || 0;
-          dataSource = 'topLeaderboard';
         } else {
           gamesCount = user.reaction_games || 0;
           const bestTime = user.reaction_best_time;
@@ -564,18 +546,15 @@ function LeaderboardPageContent() {
       }
 
       case "survival": {
-        // Ищем пользователя в полном лидерборде выживания
         const userInSurvivalLeaderboard = leaderboardData.survival.find((entry) => entry.isCurrentUser);
 
         if (userInSurvivalLeaderboard) {
           value = `${userInSurvivalLeaderboard.best_survival_score}`;
           gamesCount = userInSurvivalLeaderboard.survival_games;
-          dataSource = 'fullLeaderboard';
         } else if (userData) {
           const survivalUserData = userData as SafeSurvivalLeaderboard;
           value = `${survivalUserData.best_survival_score}`;
           gamesCount = user.survival_games || 0;
-          dataSource = 'topLeaderboard';
         } else {
           gamesCount = user.survival_games || 0;
           const bestScore = user.survival_best_score || 0;
@@ -587,18 +566,15 @@ function LeaderboardPageContent() {
       }
 
       case "physics": {
-        // Ищем пользователя в полном лидерборде физики
         const userInPhysicsLeaderboard = leaderboardData.physics.find((entry) => entry.isCurrentUser);
 
         if (userInPhysicsLeaderboard) {
           value = `${userInPhysicsLeaderboard.best_physics_score}`;
           gamesCount = userInPhysicsLeaderboard.physics_games;
-          dataSource = 'fullLeaderboard';
         } else if (userData) {
           const physicsUserData = userData as SafePhysicsLeaderboard;
           value = `${physicsUserData.best_physics_score}`;
           gamesCount = user.physics_games || 0;
-          dataSource = 'topLeaderboard';
         } else {
           gamesCount = user.physics_games || 0;
           const bestScore = user.physics_best_score || 0;
@@ -610,18 +586,15 @@ function LeaderboardPageContent() {
       }
 
       case "rotation": {
-        // Ищем пользователя в полном лидерборде вращения
         const userInRotationLeaderboard = leaderboardData.rotation.find((entry) => entry.isCurrentUser);
 
         if (userInRotationLeaderboard) {
           value = `${userInRotationLeaderboard.best_rotation_score}`;
           gamesCount = userInRotationLeaderboard.rotation_games;
-          dataSource = 'fullLeaderboard';
         } else if (userData) {
           const rotationUserData = userData as SafeRotationLeaderboard;
           value = `${rotationUserData.best_rotation_score}`;
           gamesCount = user.rotation_games || 0;
-          dataSource = 'topLeaderboard';
         } else {
           gamesCount = user.rotation_games || 0;
           const bestScore = user.rotation_best_score;
@@ -634,17 +607,8 @@ function LeaderboardPageContent() {
       }
     }
 
-    // Проверяем, играл ли пользователь в этот режим
+    // Check if user has played in this mode
     const hasPlayed = gamesCount > 0 || userData !== undefined || userPosition !== undefined;
-
-    console.log(`[Leaderboard Result]`, {
-      activeTab,
-      gamesCount,
-      value,
-      hasPlayed,
-      userPosition,
-      dataSource
-    });
 
     return {
       name: `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim(),
