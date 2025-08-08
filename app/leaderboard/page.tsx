@@ -508,45 +508,58 @@ function LeaderboardPageContent() {
           value = `${(userData as SafeSeasonLeaderboard).total_score}`;
         } else if (user.total_score > 0) {
           value = `${user.total_score}`;
+        } else if (gamesCount > 0) {
+          value = "0";
         }
         break;
+
       case "reaction":
         gamesCount = user.reaction_games;
         if (userData) {
           value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
-        } else if (user.reaction_best_time && user.reaction_best_time > 0) {
-          value = `${user.reaction_best_time}ms`;
+        } else if (gamesCount > 0) {
+          // Если есть игры, показываем лучший результат или 0
+          const bestTime = user.reaction_best_time || 0;
+          value = `${bestTime}ms`;
         }
         break;
+
       case "survival":
         gamesCount = user.survival_games;
         if (userData) {
           value = `${(userData as SafeSurvivalLeaderboard).best_survival_score}`;
         } else if (user.survival_best_score > 0) {
           value = `${user.survival_best_score}`;
+        } else if (gamesCount > 0) {
+          value = "0";
         }
         break;
+
       case "physics":
         gamesCount = user.physics_games;
         if (userData) {
           value = `${(userData as SafePhysicsLeaderboard).best_physics_score}`;
         } else if (user.physics_best_score > 0) {
           value = `${user.physics_best_score}`;
+        } else if (gamesCount > 0) {
+          value = "0";
         }
         break;
+
       case "rotation":
         gamesCount = user.rotation_games;
         if (userData) {
           value = `${(userData as SafeRotationLeaderboard).best_rotation_score}`;
-        } else if (user.rotation_best_score && user.rotation_best_score > 0) {
-          value = `${user.rotation_best_score}`;
+        } else if (gamesCount > 0) {
+          // Если есть игры, показываем лучший результат или 0
+          const bestScore = user.rotation_best_score || 0;
+          value = `${bestScore}`;
         }
         break;
     }
 
     // Fixed: User has played if they have games OR appear in leaderboard OR have a ranking position
-    const hasPlayed =
-      gamesCount > 0 || userData !== undefined || userPosition !== undefined;
+    const hasPlayed = gamesCount > 0 || userData !== undefined || userPosition !== undefined;
 
     return {
       name: `${telegramUser.first_name} ${telegramUser.last_name || ""}`.trim(),
