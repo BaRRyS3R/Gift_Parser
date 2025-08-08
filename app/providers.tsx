@@ -99,11 +99,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
       lastTouchEnd = now;
     };
 
+    const preventGameAreaScroll = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      const gameContainer = target.closest('.prevent-scroll');
+
+      if (gameContainer) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    document.addEventListener('touchmove', preventGameAreaScroll, { passive: false });
     document.addEventListener("touchend", preventZoom, { passive: false });
 
     // Cleanup function
     return () => {
       document.removeEventListener("touchend", preventZoom);
+      document.removeEventListener('touchmove', preventGameAreaScroll);
 
       if (typeof window !== "undefined" && window.Telegram?.WebApp) {
         const tg = window.Telegram.WebApp;

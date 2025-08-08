@@ -254,16 +254,23 @@ export default function GameGrid({
       disabled: !isGameActive,
       style: {
         transitionDelay: showCircles ? `${circle.id * 12}ms` : "0ms",
-        transition:
-          circle.isActive && !circle.isAnimating
-            ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
-            : "all 0.3s ease-out",
-        touchAction: "manipulation",
+        transition: circle.isActive && !circle.isAnimating
+          ? "transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out"
+          : "all 0.3s ease-out",
+        touchAction: "manipulation", // Только для кнопок
       },
-      onTouchStart: (event: React.TouchEvent) =>
-        handleTouchStart(circle.id, event),
-      onTouchEnd: (event: React.TouchEvent) => handleTouchEnd(circle.id, event),
-      onClick: (event: React.MouseEvent) => handleClick(circle.id, event),
+      onTouchStart: (event: React.TouchEvent) => {
+        event.stopPropagation(); // Предотвращаем всплытие
+        handleTouchStart(circle.id, event);
+      },
+      onTouchEnd: (event: React.TouchEvent) => {
+        event.stopPropagation(); // Предотвращаем всплытие
+        handleTouchEnd(circle.id, event);
+      },
+      onClick: (event: React.MouseEvent) => {
+        event.stopPropagation(); // Предотвращаем всплытие
+        handleClick(circle.id, event);
+      },
       onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
     };
   };
