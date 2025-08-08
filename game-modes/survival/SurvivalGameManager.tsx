@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Complete optimized version with bottom positioning
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed bottom positioning for level and time displays
 
 "use client";
 
@@ -672,8 +672,8 @@ export default function SurvivalGameManager() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col text-white relative">
-      {/* Game area - full screen */}
-      <div className="flex-1 flex items-center justify-center">
+      {/* Game area - full screen with proper container structure */}
+      <div className="flex-1 flex items-center justify-center relative">
         <GameGrid
           circles={gameState.circles}
           gameMode="survival"
@@ -686,32 +686,42 @@ export default function SurvivalGameManager() {
         />
       </div>
 
-      {/* Direct text overlays - positioned at bottom left and right */}
-      <div className="fixed bottom-8 left-6 z-10 pointer-events-none">
-        <span
-          ref={levelDisplayRef}
-          className="text-lg font-bold text-orange-400 drop-shadow-lg"
-          style={{
-            fontVariantNumeric: 'tabular-nums',
-            textShadow: '0 2px 4px rgba(0,0,0,0.8)'
-          }}
-        >
-          {t("common.level")} 1/15
-        </span>
-      </div>
+      {/* Fixed bottom overlay container with improved positioning */}
+      <div className="fixed inset-x-0 bottom-0 pointer-events-none z-50">
+        <div className="flex justify-between items-end p-6 pb-8">
+          {/* Level display - bottom left */}
+          <div className="pointer-events-none">
+            <span
+              ref={levelDisplayRef}
+              className="inline-block text-lg font-bold text-orange-400 drop-shadow-lg bg-black/20 px-2 py-1 rounded"
+              style={{
+                fontVariantNumeric: 'tabular-nums',
+                textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                minWidth: '100px',
+                textAlign: 'left'
+              }}
+            >
+              {t("common.level")} 1/15
+            </span>
+          </div>
 
-      <div className="fixed bottom-8 right-6 z-10 pointer-events-none">
-        <span
-          ref={timeDisplayRef}
-          className="text-lg font-bold text-white drop-shadow-lg"
-          style={{
-            fontVariantNumeric: 'tabular-nums',
-            textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-            fontFamily: 'monospace'
-          }}
-        >
-          0.000s
-        </span>
+          {/* Time display - bottom right */}
+          <div className="pointer-events-none">
+            <span
+              ref={timeDisplayRef}
+              className="inline-block text-lg font-bold text-white drop-shadow-lg bg-black/20 px-2 py-1 rounded"
+              style={{
+                fontVariantNumeric: 'tabular-nums',
+                textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                fontFamily: 'monospace',
+                minWidth: '120px',
+                textAlign: 'right'
+              }}
+            >
+              0.000s
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
