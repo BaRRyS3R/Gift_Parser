@@ -1,4 +1,4 @@
-/* src/app/globals.css - Optimized with selective scroll prevention */
+/* src/app/globals.css - Fixed container constraints to prevent grid clipping */
 
 @tailwind base;
 @tailwind components;
@@ -19,10 +19,10 @@
 }
 
 /* ============================================= */
-/* OPTIMIZED MOBILE DEVICE FIXES */
+/* FIXED MOBILE DEVICE CONFIGURATIONS */
 /* ============================================= */
 
-/* Global viewport stabilization for Android - optimized */
+/* Global viewport stabilization - UPDATED for proper game display */
 html {
   height: 100%;
   height: 100dvh;
@@ -38,6 +38,10 @@ html {
 
   /* Allow taps but prevent zoom */
   touch-action: manipulation;
+
+  /* CRITICAL: Ensure full viewport usage */
+  width: 100%;
+  max-width: 100%;
 }
 
 * {
@@ -46,11 +50,17 @@ html {
   margin: 0;
 }
 
+/* UPDATED: Remove overflow restrictions that clip game elements */
 html,
 body {
-  max-width: 100vw;
-  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: visible;
+  /* Changed from hidden to visible */
+  overflow-y: visible;
+  /* Allow vertical overflow for game elements */
   height: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -77,6 +87,7 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   height: 100%;
+  width: 100%;
 
   /* Selective overscroll prevention */
   overscroll-behavior: none;
@@ -101,10 +112,10 @@ body {
 }
 
 /* ============================================= */
-/* GAME INTERFACE OPTIMIZATIONS */
+/* GAME INTERFACE CONTAINER FIXES */
 /* ============================================= */
 
-/* Game container with selective protection */
+/* UPDATED: Game container with proper overflow handling */
 .game-container {
   position: fixed;
   top: 0;
@@ -112,8 +123,9 @@ body {
   right: 0;
   bottom: 0;
 
-  /* Selective scroll prevention */
-  overflow: hidden;
+  /* Allow content overflow while preventing scroll */
+  overflow: visible;
+  /* Changed from hidden to visible */
   overscroll-behavior: none;
   -webkit-overflow-scrolling: auto;
 
@@ -124,37 +136,72 @@ body {
   -webkit-user-select: none;
 
   /* Layout containment */
-  contain: layout style paint;
+  contain: layout style;
+  /* Removed paint containment to allow overflow */
   isolation: isolate;
 
   /* GPU acceleration */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   will-change: auto;
+
+  /* Ensure full space utilization */
+  width: 100%;
+  height: 100%;
 }
 
-/* Optimized protection for game areas */
+/* UPDATED: Game areas with overflow support */
 .game-area,
 .game-grid-container {
-  /* Selective scroll prevention */
-  overflow: hidden;
-  overscroll-behavior: none;
-  -webkit-overflow-scrolling: auto;
+  /* Allow overflow for game elements */
+  overflow: visible !important;
+  /* Changed from hidden to visible */
+  overscroll-behavior: none !important;
+  -webkit-overflow-scrolling: auto !important;
 
   /* Allow taps but prevent pan/zoom/scroll */
-  touch-action: manipulation;
+  touch-action: manipulation !important;
   pointer-events: auto;
 
-  /* Layout stability */
-  contain: layout style paint;
+  /* Layout stability without paint containment */
+  contain: layout style;
+  /* Removed paint to allow visual overflow */
   isolation: isolate;
 
   /* Prevent text selection but allow touch interactions */
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+
+  /* Ensure full width and height */
+  width: 100%;
+  height: 100%;
+}
+
+/* NEW: Specific styles for main game page containers */
+.min-h-screen {
+  /* Override Tailwind's min-h-screen to allow proper overflow */
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  height: auto !important;
+  /* Allow content to determine height */
+  overflow: visible !important;
+}
+
+/* NEW: Flex container fixes for game pages */
+.flex.min-h-screen {
+  overflow: visible !important;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* NEW: Center content containers - allow overflow */
+.flex.items-center.justify-center {
+  overflow: visible !important;
+  width: 100%;
+  height: 100%;
 }
 
 /* Basic Animation keyframes */
@@ -610,6 +657,16 @@ body {
   .cat-image-container {
     animation-duration: 8s;
   }
+
+  /* MOBILE: Ensure no clipping on small screens */
+  body {
+    overflow: visible !important;
+  }
+
+  .min-h-screen {
+    overflow: visible !important;
+    height: auto !important;
+  }
 }
 
 /* Rotation mode specific animations */
@@ -698,7 +755,9 @@ body {
 .stable-container {
   position: relative;
   overflow: visible;
-  contain: layout style paint;
+  /* Allow content overflow */
+  contain: layout style;
+  /* Removed paint containment */
   isolation: isolate;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -707,7 +766,6 @@ body {
 /* Enhanced touch optimization - SELECTIVE */
 .touch-optimized {
   touch-action: manipulation;
-  /* Changed from none to manipulation */
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
@@ -721,7 +779,8 @@ body {
   transform-style: preserve-3d;
   backface-visibility: hidden;
   perspective: 1000px;
-  contain: layout style paint;
+  contain: layout style;
+  /* Removed paint containment */
   isolation: isolate;
 }
 
@@ -793,7 +852,8 @@ body {
   }
 
   .rotation-circle {
-    contain: layout style paint;
+    contain: layout style;
+    /* Removed paint containment */
   }
 }
 
@@ -842,10 +902,12 @@ body {
 
 /* Container stability during rapid updates */
 .layout-stable {
-  contain: layout style paint;
+  contain: layout style;
+  /* Removed paint containment */
   isolation: isolate;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  /* Allow overflow */
 }
 
 /* Enhanced touch feedback for mobile - SELECTIVE */
@@ -912,7 +974,8 @@ body {
 
 /* Rotation grid specific enhancements */
 .rotating-grid {
-  contain: layout style paint;
+  contain: layout style;
+  /* Removed paint containment */
   isolation: isolate;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -1001,7 +1064,7 @@ body {
     bottom: env(safe-area-inset-bottom, 0px);
 
     /* Layout containment for shift prevention */
-    contain: layout style paint;
+    contain: layout style;
     isolation: isolate;
 
     /* GPU acceleration */
@@ -1021,11 +1084,14 @@ body {
   body {
     min-height: calc(100vh - env(keyboard-inset-height, 0px));
     height: calc(100vh - env(keyboard-inset-height, 0px));
+    overflow: visible !important;
+    /* Ensure overflow on Android */
   }
 
   .game-container {
     height: calc(100vh - env(keyboard-inset-height, 0px));
     bottom: env(keyboard-inset-height, 0px);
+    overflow: visible !important;
   }
 }
 
@@ -1114,7 +1180,8 @@ body {
   .game-area,
   .bottom-navigation {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
+    /* Allow overflow for legacy */
 
     /* Basic scroll protection */
     -webkit-overflow-scrolling: auto;
