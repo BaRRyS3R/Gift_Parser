@@ -1,4 +1,4 @@
-/* src/app/globals.css - Complete file with instant deactivation support */
+/* src/app/globals.css - Updated with optimized display positioning */
 
 @tailwind base;
 @tailwind components;
@@ -584,7 +584,7 @@ body {
   animation: spin-counter-clockwise 2s linear infinite;
 }
 
-/* High-performance rotation container - NEW */
+/* High-performance rotation container */
 .high-performance-rotation {
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -595,7 +595,7 @@ body {
   isolation: isolate;
 }
 
-/* Stable container for preventing layout shifts - NEW */
+/* Stable container for preventing layout shifts */
 .stable-container {
   position: relative;
   overflow: visible;
@@ -605,7 +605,7 @@ body {
   -webkit-transform: translateZ(0);
 }
 
-/* Enhanced touch optimization for larger circles - NEW */
+/* Enhanced touch optimization for larger circles */
 .touch-optimized {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -615,7 +615,7 @@ body {
   tap-highlight-color: transparent;
 }
 
-/* Performance optimizations for larger circle grids - NEW */
+/* Performance optimizations for larger circle grids */
 .rotation-circle {
   will-change: transform, opacity, scale;
   transform-style: preserve-3d;
@@ -625,7 +625,7 @@ body {
   isolation: isolate;
 }
 
-/* Smooth transitions for circle state changes - NEW - MODIFIED for instant deactivation support */
+/* Smooth transitions for circle state changes - MODIFIED for instant deactivation support */
 .circle-state-transition {
   transition: background-color 0.2s ease-in-out,
     border-color 0.2s ease-in-out,
@@ -633,12 +633,12 @@ body {
     transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Fast deactivation for immediate feedback - NEW - MODIFIED */
+/* Fast deactivation for immediate feedback - MODIFIED */
 .circle-deactivate {
   transition: all 75ms cubic-bezier(0.4, 0, 1, 1) !important;
 }
 
-/* NEW: Instant deactivation override for successful clicks */
+/* Instant deactivation override for successful clicks */
 .circle-instant-deactivate {
   transition: none !important;
   animation: none !important;
@@ -647,7 +647,7 @@ body {
   pointer-events: none !important;
 }
 
-/* Enhanced visual feedback for larger circles - NEW */
+/* Enhanced visual feedback for larger circles */
 .circle-active {
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
 }
@@ -656,7 +656,7 @@ body {
   box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
 }
 
-/* Improved hover states for larger touch targets - NEW */
+/* Improved hover states for larger touch targets */
 .circle-hover {
   transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -669,7 +669,7 @@ body {
   transform: scale(0.95);
 }
 
-/* Container sizing optimizations - NEW */
+/* Container sizing optimizations */
 .expanded-container {
   min-width: 320px;
   min-height: 320px;
@@ -677,7 +677,7 @@ body {
   max-height: 400px;
 }
 
-/* Performance improvements for mobile devices - NEW */
+/* Performance improvements for mobile devices */
 @media (max-width: 768px) {
   .high-performance-rotation {
     transform: translate3d(0, 0, 0);
@@ -694,7 +694,7 @@ body {
   }
 }
 
-/* High refresh rate display optimizations - NEW */
+/* High refresh rate display optimizations */
 @media (min-resolution: 120dpi) {
   .high-performance-rotation {
     contain: strict;
@@ -706,7 +706,7 @@ body {
   }
 }
 
-/* Reduced motion accessibility - NEW */
+/* Reduced motion accessibility */
 @media (prefers-reduced-motion: reduce) {
   .circle-state-transition {
     transition-duration: 0.1s;
@@ -728,7 +728,7 @@ body {
   }
 }
 
-/* Enhanced visual clarity for larger circles - NEW */
+/* Enhanced visual clarity for larger circles */
 .circle-border-enhanced {
   border-width: 3px;
   border-style: solid;
@@ -738,7 +738,7 @@ body {
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
 }
 
-/* Optimized rendering for better performance - NEW */
+/* Optimized rendering for better performance */
 .gpu-accelerated {
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -749,7 +749,7 @@ body {
   -webkit-perspective: 1000px;
 }
 
-/* Container stability during rapid updates - NEW */
+/* Container stability during rapid updates */
 .layout-stable {
   contain: layout style paint;
   isolation: isolate;
@@ -757,18 +757,18 @@ body {
   overflow: hidden;
 }
 
-/* Enhanced touch feedback for mobile - NEW */
+/* Enhanced touch feedback for mobile */
 .touch-feedback {
   -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
   tap-highlight-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Smooth opacity transitions - NEW */
+/* Smooth opacity transitions */
 .opacity-transition {
   transition: opacity 0.2s ease-in-out;
 }
 
-/* Enhanced center dot for larger container - NEW */
+/* Enhanced center dot for larger container */
 .center-indicator {
   width: 12px;
   height: 12px;
@@ -777,7 +777,7 @@ body {
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
-/* Larger rotation indicator - NEW */
+/* Larger rotation indicator */
 .rotation-indicator-large {
   width: 32px;
   height: 32px;
@@ -797,14 +797,14 @@ body {
   transform: translateX(-50%);
 }
 
-/* Performance monitoring and debugging - NEW */
+/* Performance monitoring and debugging */
 .performance-monitor {
   contain: strict;
   will-change: transform;
   isolation: isolate;
 }
 
-/* Optimized for different screen densities - NEW */
+/* Optimized for different screen densities */
 @media (-webkit-min-device-pixel-ratio: 2),
 (min-resolution: 192dpi) {
   .circle-border-enhanced {
@@ -819,7 +819,7 @@ body {
   }
 }
 
-/* Rotation grid specific enhancements - NEW */
+/* Rotation grid specific enhancements */
 .rotating-grid {
   contain: layout style paint;
   isolation: isolate;
@@ -827,12 +827,12 @@ body {
   -webkit-transform: translateZ(0);
 }
 
-/* Level transition effects - NEW */
+/* Level transition effects */
 .level-transition-smooth {
   transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* Circle activation and deactivation states - NEW - MODIFIED to prevent interference with instant deactivation */
+/* Circle activation and deactivation states - MODIFIED to prevent interference with instant deactivation */
 .circle-active-enter {
   animation: circle-activate 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -875,7 +875,7 @@ body {
   }
 }
 
-/* Enhanced pulse effect improvements - NEW */
+/* Enhanced pulse effect improvements */
 .enhanced-pulse {
   animation: enhanced-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
@@ -894,12 +894,12 @@ body {
   }
 }
 
-/* Instant click response - NEW */
+/* Instant click response */
 .instant-response {
   transition: none !important;
 }
 
-/* Fast deactivation for immediate feedback - NEW */
+/* Fast deactivation for immediate feedback */
 .fast-deactivate {
   transition: all 75ms cubic-bezier(0.4, 0, 1, 1) !important;
 }
@@ -920,37 +920,41 @@ body {
   opacity: 0;
 }
 
-/* Стабилизация нижней панели игры */
-.game-panel-stable {
-  contain: layout style paint;
-  will-change: contents;
+/* REMOVED: All game panel stabilization classes as we no longer use panels */
+
+/* NEW: Game overlay text styling for direct positioned elements */
+.game-overlay-text {
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  contain: layout style;
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
 }
 
-.game-panel-content {
-  contain: layout;
-  min-height: 72px;
-  /* Фиксированная высота */
-}
-
-.game-time-display {
-  font-variant-numeric: tabular-nums;
+.game-time-overlay {
   font-family: 'Courier New', monospace;
   min-width: 120px;
-  /* Фиксированная ширина для времени */
   text-align: right;
-  contain: layout style;
 }
 
-.game-level-display {
-  font-variant-numeric: tabular-nums;
-  min-width: 80px;
-  /* Фиксированная ширина для уровня */
-  contain: layout style;
+.game-level-overlay {
+  min-width: 100px;
+  text-align: left;
 }
 
-.game-panel-item {
-  contain: layout;
-  flex-shrink: 0;
+/* Responsive adjustments for overlay text */
+@media (max-width: 640px) {
+  .game-overlay-text {
+    font-size: 1rem;
+  }
+}
+
+@media (max-height: 600px) {
+  .game-overlay-text {
+    top: 4px !important;
+    font-size: 0.9rem;
+  }
 }
