@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Полная версия с обновленными результатами
+// src/game-modes/survival/SurvivalGameManager.tsx - Обновленная версия с системой временного исключения
 
 "use client";
 
@@ -256,6 +256,8 @@ export default function SurvivalGameManager() {
         gameStateRef.current.gameState === GameState.PLAYING
       ) {
         setGameState((prev) => {
+          // ОБНОВЛЕНО: система автоматически предотвратит повторную активацию 
+          // кругов в течение установленного периода (по умолчанию 2 секунды)
           const newState = activateSurvivalCircles(
             prev,
             (circleIds, redCircleIds) => {
@@ -333,6 +335,7 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
+    // ОБНОВЛЕНО: инициализация включает новую систему временного исключения
     setGameState(initializeSurvivalGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
@@ -355,6 +358,7 @@ export default function SurvivalGameManager() {
             return current;
           }
 
+          // ОБНОВЛЕНО: updateSurvivalLevel теперь также очищает устаревшие записи
           return updateSurvivalLevel(current, Date.now());
         });
       }, LEVEL_UPDATE_INTERVAL);
@@ -459,8 +463,6 @@ export default function SurvivalGameManager() {
                   {t("game.modes.survival.results.correctHits")}
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {" "}
-                  {/* Изменен цвет на белый */}
                   {gameResult.correctHits}
                 </div>
               </div>
@@ -469,8 +471,6 @@ export default function SurvivalGameManager() {
                   {t("game.modes.survival.results.survivalTime")}
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {" "}
-                  {/* Изменен цвет на белый */}
                   {formatSurvivalTime(gameResult.survivalTime)}
                 </div>
               </div>

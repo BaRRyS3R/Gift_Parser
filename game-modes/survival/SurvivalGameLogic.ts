@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameLogic.ts - Исправлено для точного учета времени
+// src/game-modes/survival/SurvivalGameLogic.ts - Исправлено для точного учета времени и предотвращения повторной активации
 
 import {
   SurvivalGameConfig,
@@ -20,6 +20,8 @@ export const SURVIVAL_CONFIG: SurvivalGameConfig = {
   maxIntensityLevel: 15,
   simultaneousCirclesMin: 1,
   simultaneousCirclesMax: 4,
+  circleReactivationCooldown: 2000, // 2 секунды
+  maxHistoryRetention: 5000, // 5 секунд хранения истории
 };
 
 export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
@@ -171,6 +173,22 @@ export const createSurvivalCircleGrid = (count: number): Circle[] => {
   }));
 };
 
+const cleanupOldEntries = (
+  recentlyUsedCircles: Map<number, number>,
+  maxAge: number = SURVIVAL_CONFIG.maxHistoryRetention
+): Map<number, number> => {
+  const currentTime = Date.now();
+  const cleanedMap = new Map<number, number>();
+
+  recentlyUsedCircles.forEach((timestamp, circleId) => {
+    if ((currentTime - timestamp) < maxAge) {
+      cleanedMap.set(circleId, timestamp);
+    }
+  });
+
+  return cleanedMap;
+};
+
 export const initializeSurvivalGameState = (): SurvivalGameState => {
   const gameStartTime = Date.now();
 
@@ -198,6 +216,7 @@ export const initializeSurvivalGameState = (): SurvivalGameState => {
     levelUpdateInterval: null,
     isActive: true,
     gameStartTime, // ДОБАВЛЕНО: также в основное состояние
+    recentlyUsedCircles: new Map<number, number>(), // ДОБАВЛЕНО: система временного исключения
   };
 };
 
@@ -224,11 +243,15 @@ export const updateSurvivalLevel = (
     newTimeInCurrentLevel >= state.config.intensityIncreaseInterval * 1000 &&
     state.currentLevel < state.config.maxIntensityLevel;
 
+  // Очищаем устаревшие записи при обновлении уровня
+  const cleanedRecentlyUsed = cleanupOldEntries(state.recentlyUsedCircles);
+
   if (shouldIncreaseLevel) {
     return {
       ...state,
       currentLevel: state.currentLevel + 1,
       timeInCurrentLevel: 0,
+      recentlyUsedCircles: cleanedRecentlyUsed,
       stats: {
         ...state.stats,
         survivalTime: actualSurvivalTime, // ТОЧНОЕ время
@@ -240,6 +263,7 @@ export const updateSurvivalLevel = (
   return {
     ...state,
     timeInCurrentLevel: newTimeInCurrentLevel,
+    recentlyUsedCircles: cleanedRecentlyUsed,
     stats: {
       ...state.stats,
       survivalTime: actualSurvivalTime, // ТОЧНОЕ время
@@ -247,13 +271,40 @@ export const updateSurvivalLevel = (
   };
 };
 
+const getAvailableCircleIds = (
+  totalCircles: number,
+  excludeIds: number[],
+  recentlyUsedCircles: Map<number, number>,
+  cooldownMs: number = SURVIVAL_CONFIG.circleReactivationCooldown
+): number[] => {
+  const currentTime = Date.now();
+
+  return Array.from({ length: totalCircles }, (_, i) => i).filter(id => {
+    // Исключаем уже активные круги
+    if (excludeIds.includes(id)) return false;
+
+    // Проверяем, не находится ли круг в периоде временного исключения
+    const lastUsedTime = recentlyUsedCircles.get(id);
+    if (lastUsedTime && (currentTime - lastUsedTime) < cooldownMs) {
+      return false;
+    }
+
+    return true;
+  });
+};
+
 export const getRandomCircleIds = (
   totalCircles: number,
   targetCount: number,
   excludeIds: number[] = [],
+  recentlyUsedCircles: Map<number, number> = new Map(),
+  cooldownMs: number = SURVIVAL_CONFIG.circleReactivationCooldown
 ): number[] => {
-  const availableIds = Array.from({ length: totalCircles }, (_, i) => i).filter(
-    (id) => !excludeIds.includes(id),
+  const availableIds = getAvailableCircleIds(
+    totalCircles,
+    excludeIds,
+    recentlyUsedCircles,
+    cooldownMs
   );
 
   const count = Math.min(targetCount, availableIds.length);
@@ -262,7 +313,6 @@ export const getRandomCircleIds = (
   for (let i = 0; i < count; i++) {
     const randomIndex = Math.floor(Math.random() * availableIds.length);
     const selectedId = availableIds.splice(randomIndex, 1)[0];
-
     selectedIds.push(selectedId);
   }
 
@@ -284,9 +334,18 @@ export const activateSurvivalCircles = (
     state.config.circleCount,
     availableSlots,
     state.activeCircleIds,
+    state.recentlyUsedCircles,
+    state.config.circleReactivationCooldown
   );
 
   if (selectedIds.length === 0) return state;
+
+  // Обновляем временные метки для выбранных кругов
+  const currentTime = Date.now();
+  const updatedRecentlyUsed = new Map(state.recentlyUsedCircles);
+  selectedIds.forEach(id => {
+    updatedRecentlyUsed.set(id, currentTime);
+  });
 
   // Determine red circles
   const whiteCirclesNeeded = Math.max(
@@ -335,6 +394,7 @@ export const activateSurvivalCircles = (
     activeCircleIds: newActiveCircleIds,
     circleTimeouts: newCircleTimeouts,
     circles: newCircles,
+    recentlyUsedCircles: updatedRecentlyUsed, // ОБНОВЛЕНО: сохраняем историю активации
   };
 };
 

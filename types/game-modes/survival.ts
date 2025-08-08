@@ -1,18 +1,20 @@
-// src/types/game-modes/survival.ts - Обновлено для точного учета времени
+// src/types/game-modes/survival.ts - Обновленные типы с системой временного исключения
 
-import { BaseGameResult, GameState, GameMode, Circle } from "./common";
+import { Circle, GameState, GameMode } from "./common";
 
 export interface SurvivalGameConfig {
   id: string;
   name: string;
-  circleCount: number; // 49 (7x7)
-  initialActivationTimeMin: number; // 1000ms
-  initialActivationTimeMax: number; // 1800ms
-  initialCircleActiveTime: number; // 2000ms
-  intensityIncreaseInterval: number; // 8 секунд
-  maxIntensityLevel: number; // 15
-  simultaneousCirclesMin: number; // 1
-  simultaneousCirclesMax: number; // 4 на начальном уровне
+  circleCount: number;
+  initialActivationTimeMin: number;
+  initialActivationTimeMax: number;
+  initialCircleActiveTime: number;
+  intensityIncreaseInterval: number;
+  maxIntensityLevel: number;
+  simultaneousCirclesMin: number;
+  simultaneousCirclesMax: number;
+  circleReactivationCooldown: number; // ДОБАВЛЕНО: время блокировки повторной активации
+  maxHistoryRetention: number; // ДОБАВЛЕНО: максимальное время хранения истории
 }
 
 export interface SurvivalLevelConfig {
@@ -35,16 +37,7 @@ export interface SurvivalGameStats {
   perfectStreak: number;
   totalReactionTime: number;
   hitCount: number;
-  gameStartTime?: number; // ДОБАВЛЕНО: время начала игры для точного расчета
-}
-
-export interface SurvivalGameResult extends BaseGameResult {
-  mode: GameMode.SURVIVAL;
-  survivalTime: number;
-  maxLevelReached: number;
-  perfectStreak: number;
-  correctHits: number;
-  deathCause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+  gameStartTime: number;
 }
 
 export interface SurvivalGameState {
@@ -59,5 +52,18 @@ export interface SurvivalGameState {
   activationTimeout: NodeJS.Timeout | null;
   levelUpdateInterval: NodeJS.Timeout | null;
   isActive: boolean;
-  gameStartTime?: number; // ДОБАВЛЕНО: время начала игры в основном состоянии
+  gameStartTime: number;
+  recentlyUsedCircles: Map<number, number>; // ДОБАВЛЕНО: история активации кругов (circleId -> timestamp)
+}
+
+export interface SurvivalGameResult {
+  mode: GameMode;
+  score: number;
+  duration: number;
+  survivalTime: number;
+  maxLevelReached: number;
+  perfectStreak: number;
+  correctHits: number;
+  deathCause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+  createdAt: string;
 }
