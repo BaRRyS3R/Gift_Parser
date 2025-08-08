@@ -148,20 +148,17 @@ export default function GameGrid({
       let finalGap: number;
 
       if (circles.length <= 16) {
-        // Smaller grids can have larger circles
         finalSize = Math.max(60, Math.min(calculatedSize, 120));
-        finalGap = 8;
+        finalGap = 12; // увеличено с 8 до 12
       } else if (circles.length <= 25) {
         finalSize = Math.max(48, Math.min(calculatedSize, 80));
-        finalGap = 6;
+        finalGap = 10; // увеличено с 6 до 10
       } else if (circles.length <= 48) {
-        // Large grids with moderate circle count
         finalSize = Math.max(36, Math.min(calculatedSize, 64));
-        finalGap = 8;
+        finalGap = 8; // увеличено с 4 до 8
       } else {
-        // Largest grids need smaller circles
         finalSize = Math.max(32, Math.min(calculatedSize, 48));
-        finalGap = 4;
+        finalGap = 6; // увеличено с 4 до 6
       }
 
       // Additional adjustments for very small screens
@@ -303,12 +300,12 @@ export default function GameGrid({
 
     if (!processedTouchesRef.current.has(circleId)) {
       processedTouchesRef.current.add(circleId);
-      
+
       logger?.log('TOUCH_CLICK_TRIGGERED', {
         circleId,
         processingDelay: 0
       }, 'GameGrid');
-      
+
       onCircleClick(circleId);
 
       setTimeout(() => {
@@ -326,7 +323,7 @@ export default function GameGrid({
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
-    
+
     const touchStartTime = touchStartTimeRef.current.get(circleId);
     const currentTime = Date.now();
     const touchDuration = touchStartTime ? currentTime - touchStartTime : 0;
@@ -338,7 +335,7 @@ export default function GameGrid({
       touchInfo,
       hadTouchStart: !!touchStartTime
     }, 'GameGrid');
-    
+
     touchStartTimeRef.current.delete(circleId);
   };
 
@@ -382,11 +379,11 @@ export default function GameGrid({
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
-    
+
     logger?.log('CLICK_TRIGGERED', {
       circleId
     }, 'GameGrid');
-    
+
     onCircleClick(circleId);
   };
 

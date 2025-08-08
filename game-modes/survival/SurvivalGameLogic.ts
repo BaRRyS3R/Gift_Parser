@@ -13,7 +13,7 @@ import { GameLogger, initializeGameLogger } from "@/utils/gameLogger";
 export const SURVIVAL_CONFIG: SurvivalGameConfig = {
   id: "survival",
   name: "SURVIVAL MODE",
-  circleCount: 36, // 6x6 grid
+  circleCount: 25, // 6x6 grid
   initialActivationTimeMin: 1000,
   initialActivationTimeMax: 1800,
   initialCircleActiveTime: 2000,
