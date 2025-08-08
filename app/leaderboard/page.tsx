@@ -76,10 +76,10 @@ function LightRays({
 
     return m
       ? [
-          parseInt(m[1], 16) / 255,
-          parseInt(m[2], 16) / 255,
-          parseInt(m[3], 16) / 255,
-        ]
+        parseInt(m[1], 16) / 255,
+        parseInt(m[2], 16) / 255,
+        parseInt(m[3], 16) / 255,
+      ]
       : [1, 1, 1];
   };
 
@@ -514,7 +514,7 @@ function LeaderboardPageContent() {
         gamesCount = user.reaction_games;
         if (userData) {
           value = `${(userData as SafeReactionLeaderboard).best_reaction_time}ms`;
-        } else if (user.reaction_best_time > 0) {
+        } else if (user.reaction_best_time && user.reaction_best_time > 0) {
           value = `${user.reaction_best_time}ms`;
         }
         break;
@@ -538,7 +538,7 @@ function LeaderboardPageContent() {
         gamesCount = user.rotation_games;
         if (userData) {
           value = `${(userData as SafeRotationLeaderboard).best_rotation_score}`;
-        } else if (user.rotation_best_score > 0) {
+        } else if (user.rotation_best_score && user.rotation_best_score > 0) {
           value = `${user.rotation_best_score}`;
         }
         break;
@@ -774,10 +774,9 @@ function LeaderboardPageContent() {
                   key={tab}
                   className={`
                     px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200
-                    ${
-                      activeTab === tab
-                        ? "bg-white/10 text-white border border-white/20"
-                        : "text-white/60 hover:text-white/80 hover:bg-white/5"
+                    ${activeTab === tab
+                      ? "bg-white/10 text-white border border-white/20"
+                      : "text-white/60 hover:text-white/80 hover:bg-white/5"
                     }
                   `}
                   disabled={isTransitioning}
@@ -834,8 +833,7 @@ function LeaderboardPageContent() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
                             <span
-                              className={`font-medium truncate ${
-                                entry.isCurrentUser
+                              className={`font-medium truncate ${entry.isCurrentUser
                                   ? "text-white"
                                   : entry.position === 1
                                     ? "text-yellow-100"
@@ -844,18 +842,17 @@ function LeaderboardPageContent() {
                                       : entry.position === 3
                                         ? "text-amber-100"
                                         : "text-white/90"
-                              }`}
+                                }`}
                             >
                               {entry.first_name} {entry.last_name || ""}
                             </span>
                           </div>
                           {entry.username && (
                             <div
-                              className={`text-xs truncate ${
-                                entry.position <= 3
+                              className={`text-xs truncate ${entry.position <= 3
                                   ? "text-white/60"
                                   : "text-white/50"
-                              }`}
+                                }`}
                             >
                               @{entry.username}
                             </div>
@@ -865,24 +862,22 @@ function LeaderboardPageContent() {
 
                       <div className="text-right flex-shrink-0">
                         <div
-                          className={`font-bold text-lg ${
-                            entry.position === 1
+                          className={`font-bold text-lg ${entry.position === 1
                               ? "text-yellow-400"
                               : entry.position === 2
                                 ? "text-gray-300"
                                 : entry.position === 3
                                   ? "text-amber-500"
                                   : "text-white"
-                          }`}
+                            }`}
                         >
                           {getPlayerValue(entry)}
                         </div>
                         <div
-                          className={`text-xs ${
-                            entry.position <= 3
+                          className={`text-xs ${entry.position <= 3
                               ? "text-white/60"
                               : "text-white/50"
-                          }`}
+                            }`}
                         >
                           {activeTab === "season"
                             ? t("leaderboard.points")
