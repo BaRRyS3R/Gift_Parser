@@ -1,4 +1,4 @@
-// src/components/GameGrid.tsx - Упрощенная версия без анимаций активации
+// src/components/GameGrid.tsx - Версия без анимаций и предварительного показа
 
 "use client";
 
@@ -122,39 +122,41 @@ export default function GameGrid({
       minHeight: `${circleSize}px`,
     };
 
-    const baseClasses =
-      "rounded-full border-2 transition-all duration-200 ease-out relative";
+    // Убираем все transition анимации для мгновенных изменений
+    const baseClasses = "rounded-full border-2 relative";
 
-    // State-based styling for visibility
+    // State-based styling for visibility (только для общего показа/скрытия сетки)
     const visibilityClasses = showCircles
-      ? "opacity-100 transform scale-100"
-      : "opacity-0 transform scale-0";
+      ? "opacity-100"
+      : "opacity-0";
 
     // Interactive state styling based on circle type and activity
     if (circle.isActive) {
       if (circle.isDecoy) {
         // Decoy circles: red coloring with danger indicators
+        // Убираем все анимации и transitions - мгновенное появление/исчезновение
         return {
           className: `${baseClasses} ${visibilityClasses} 
-                      bg-red-500 border-red-400 shadow-lg shadow-red-500/50 scale-110
-                      hover:scale-115 active:scale-95`,
+                      bg-red-500 border-red-400 shadow-lg shadow-red-500/50
+                      hover:scale-105 active:scale-95`,
           style: baseStyles,
         };
       } else {
         // Regular active circles: white coloring with positive indicators
+        // Убираем все анимации и transitions - мгновенное появление/исчезновение
         return {
           className: `${baseClasses} ${visibilityClasses}
-                      bg-white shadow-lg shadow-white/50 border-white scale-110
-                      hover:scale-115 active:scale-95`,
+                      bg-white shadow-lg shadow-white/50 border-white
+                      hover:scale-105 active:scale-95`,
           style: baseStyles,
         };
       }
     } else {
-      // Inactive circles: standard border styling with hover effects
+      // Inactive circles: standard border styling with minimal hover effects
       return {
         className: `${baseClasses} ${visibilityClasses}
-                    bg-transparent border-white/60 hover:border-white hover:scale-105
-                    active:scale-95 hover:shadow-md hover:shadow-white/30`,
+                    bg-transparent border-white/60 hover:border-white/80
+                    active:scale-95`,
         style: baseStyles,
       };
     }
@@ -208,7 +210,7 @@ export default function GameGrid({
     return {
       disabled: !isGameActive,
       style: {
-        transitionDelay: showCircles ? `${circle.id * 12}ms` : "0ms",
+        // Убираем transitionDelay - больше нет постепенного появления
         touchAction: "manipulation",
       },
       onTouchStart: (event: React.TouchEvent) =>
@@ -219,7 +221,7 @@ export default function GameGrid({
     };
   };
 
-  // Simple pulse effect for active circles only
+  // Pulse effect остается только для активных кругов, но без transition
   const renderPulseEffect = (circle: Circle) => {
     if (!circle.isActive) return null;
 
@@ -286,7 +288,7 @@ export default function GameGrid({
               onTouchEnd={getInteractionProps(circle).onTouchEnd}
               onTouchStart={getInteractionProps(circle).onTouchStart}
             >
-              {/* Simple pulse effect for active circles */}
+              {/* Pulse effect только для активных кругов */}
               {renderPulseEffect(circle)}
 
               {/* Debug info for development */}
