@@ -1,9 +1,8 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed version with stable bottom panel
+// src/game-modes/survival/SurvivalGameManager.tsx - Optimized version with direct DOM updates
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import React from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 import {
   Crosshair,
@@ -55,35 +54,7 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
-// Reduced update frequency to prevent panel jitter
-const LEVEL_UPDATE_INTERVAL = 100; // Update every 100ms instead of 16ms
-
-// Memoized game panel component to prevent unnecessary re-renders
-const GamePanel = React.memo<{
-  level: number;
-  survivalTime: number;
-  t: any;
-}>(({ level, survivalTime, t }) => (
-  <div className="px-6 py-4 game-panel-content">
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center space-x-2 game-panel-item">
-        <Zap className="text-orange-400" size={18} />
-        <span className="text-lg font-bold text-orange-400 game-level-display">
-          {t("common.level")} {level}/15
-        </span>
-      </div>
-
-      <div className="flex items-center space-x-2 game-panel-item">
-        <Clock className="text-white" size={18} />
-        <span className="text-lg font-bold text-white game-time-display">
-          {formatSurvivalTime(survivalTime)}
-        </span>
-      </div>
-    </div>
-  </div>
-));
-
-GamePanel.displayName = "GamePanel";
+const LEVEL_UPDATE_INTERVAL = 100; // Update every 100ms
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -98,9 +69,6 @@ export default function SurvivalGameManager() {
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
 
-  // Separate state for survival time to prevent full re-renders
-  const [survivalTime, setSurvivalTime] = useState(0);
-
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
@@ -108,6 +76,11 @@ export default function SurvivalGameManager() {
 
   // State for instant deactivation tracking
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
+
+  // Refs for direct DOM updates - no React re-renders needed
+  const levelElementRef = useRef<HTMLSpanElement>(null);
+  const timeElementRef = useRef<HTMLSpanElement>(null);
+  const timeUpdateIntervalRef = useRef<NodeJS.Timeout>();
 
   // Protection against multiple simultaneous operations
   const isSchedulingActivationRef = useRef(false);
@@ -118,20 +91,45 @@ export default function SurvivalGameManager() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Separate effect for time updates to prevent full component re-renders
-  useEffect(() => {
-    if (gameState.gameState !== GameState.PLAYING || !gameState.gameStartTime) {
-      return;
+  // Direct DOM update function for time display
+  const updateTimeDisplay = useCallback((survivalTime: number) => {
+    if (timeElementRef.current) {
+      timeElementRef.current.textContent = formatSurvivalTime(survivalTime);
+    }
+  }, []);
+
+  // Direct DOM update function for level display
+  const updateLevelDisplay = useCallback((level: number) => {
+    if (levelElementRef.current) {
+      levelElementRef.current.textContent = `${t("common.level")} ${level}/15`;
+    }
+  }, [t]);
+
+  // Start time updates with direct DOM manipulation
+  const startTimeUpdates = useCallback((gameStartTime: number) => {
+    if (timeUpdateIntervalRef.current) {
+      clearInterval(timeUpdateIntervalRef.current);
     }
 
-    const timeUpdateInterval = setInterval(() => {
+    timeUpdateIntervalRef.current = setInterval(() => {
       const currentTime = Date.now();
-      const newSurvivalTime = currentTime - gameState.gameStartTime;
-      setSurvivalTime(newSurvivalTime);
-    }, 100); // Update time every 100ms
+      const survivalTime = currentTime - gameStartTime;
+      updateTimeDisplay(survivalTime);
+    }, 50); // Update every 50ms for smooth time display
+  }, [updateTimeDisplay]);
 
-    return () => clearInterval(timeUpdateInterval);
-  }, [gameState.gameState, gameState.gameStartTime]);
+  // Stop time updates
+  const stopTimeUpdates = useCallback(() => {
+    if (timeUpdateIntervalRef.current) {
+      clearInterval(timeUpdateIntervalRef.current);
+      timeUpdateIntervalRef.current = undefined;
+    }
+  }, []);
+
+  // Update level display when level changes
+  useEffect(() => {
+    updateLevelDisplay(gameState.currentLevel);
+  }, [gameState.currentLevel, updateLevelDisplay]);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -158,6 +156,13 @@ export default function SurvivalGameManager() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Cleanup time updates on unmount
+  useEffect(() => {
+    return () => {
+      stopTimeUpdates();
+    };
+  }, [stopTimeUpdates]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -260,6 +265,7 @@ export default function SurvivalGameManager() {
       }
 
       isGameEndingRef.current = true;
+      stopTimeUpdates();
 
       setGameState((prev) => {
         // Double-check that game isn't already ending
@@ -302,7 +308,7 @@ export default function SurvivalGameManager() {
         return finalGameState;
       });
     },
-    [handleSaveGameResult, checkForNewBestScore],
+    [handleSaveGameResult, checkForNewBestScore, stopTimeUpdates],
   );
 
   // Enhanced protected scheduleNextActivation with race condition prevention
@@ -457,7 +463,6 @@ export default function SurvivalGameManager() {
     setLastActivationTimestamp(0);
     setIsNewBestScore(false);
     setInstantlyDeactivatedCircles([]);
-    setSurvivalTime(0);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -466,6 +471,10 @@ export default function SurvivalGameManager() {
     setTimeout(() => {
       setGameState((prev) => {
         const updatedState = { ...prev, gameState: GameState.PLAYING };
+        
+        // Start time updates when game begins
+        startTimeUpdates(updatedState.gameStartTime);
+        
         return updatedState;
       });
 
@@ -492,7 +501,7 @@ export default function SurvivalGameManager() {
         levelUpdateInterval: levelInterval,
       }));
     }, 800);
-  }, [scheduleNextActivation]);
+  }, [scheduleNextActivation, startTimeUpdates]);
 
   const handleBackToGames = useCallback(() => {
     router.push("/game");
@@ -501,8 +510,9 @@ export default function SurvivalGameManager() {
   useEffect(() => {
     return () => {
       cleanupSurvivalGame(gameStateRef.current);
+      stopTimeUpdates();
     };
-  }, []);
+  }, [stopTimeUpdates]);
 
   const getDeathCauseIcon = (deathCause: string) => {
     switch (deathCause) {
@@ -531,12 +541,6 @@ export default function SurvivalGameManager() {
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
-
-  // Memoize panel data to prevent unnecessary calculations
-  const panelData = useMemo(() => ({
-    level: gameState.currentLevel,
-    survivalTime: survivalTime,
-  }), [gameState.currentLevel, survivalTime]);
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
     return (
@@ -720,16 +724,34 @@ export default function SurvivalGameManager() {
         />
       </div>
 
-      {/* Fixed height bottom panel to prevent jitter */}
-      <div
+      {/* Static panel that never re-renders - only direct DOM updates */}
+      <div 
         className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom game-panel-stable"
         style={{ height: "100px" }}
       >
-        <GamePanel
-          level={panelData.level}
-          survivalTime={panelData.survivalTime}
-          t={t}
-        />
+        <div className="px-6 py-4 game-panel-content">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2 game-panel-item">
+              <Zap className="text-orange-400" size={18} />
+              <span 
+                ref={levelElementRef}
+                className="text-lg font-bold text-orange-400 game-level-display"
+              >
+                {t("common.level")} {gameState.currentLevel}/15
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-2 game-panel-item">
+              <Clock className="text-white" size={18} />
+              <span 
+                ref={timeElementRef}
+                className="text-lg font-bold text-white game-time-display"
+              >
+                0.000s
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
