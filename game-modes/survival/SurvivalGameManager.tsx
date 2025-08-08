@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with comprehensive logging
+// src/game-modes/survival/SurvivalGameManager.tsx - Полная версия с обновленными результатами
 
 "use client";
 
@@ -11,10 +11,6 @@ import {
   Target,
   RotateCcw,
   ArrowLeft,
-  Copy,
-  FileText,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -77,10 +73,6 @@ export default function SurvivalGameManager() {
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
 
-  // State for log export functionality
-  const [isLogVisible, setIsLogVisible] = useState(false);
-  const [logCopyStatus, setLogCopyStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
-
   const gameStateRef = useRef<SurvivalGameState>(gameState);
 
   useEffect(() => {
@@ -94,9 +86,6 @@ export default function SurvivalGameManager() {
 
       tg.BackButton.show();
       tg.BackButton.onClick(() => {
-        gameState.logger?.log('BACK_BUTTON_CLICKED', {
-          fromTelegram: true
-        }, 'SurvivalGameManager');
         router.push("/game");
       });
 
@@ -105,7 +94,7 @@ export default function SurvivalGameManager() {
         tg.BackButton.offClick(() => { });
       };
     }
-  }, [router, gameState.logger]);
+  }, [router]);
 
   // Auto-start game on component mount
   useEffect(() => {
@@ -117,16 +106,12 @@ export default function SurvivalGameManager() {
   }, []);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
-    gameStateRef.current.logger?.log('HAPTIC_FEEDBACK_TRIGGERED', {
-      type,
-      telegramAvailable: !!window.Telegram?.WebApp?.HapticFeedback
-    }, 'SurvivalGameManager');
-
     if (
       typeof window !== "undefined" &&
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
+
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -135,16 +120,8 @@ export default function SurvivalGameManager() {
     (newScore: number) => {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
-        const isNewBest = newScore > previousBest;
 
-        gameStateRef.current.logger?.log('BEST_SCORE_CHECK', {
-          newScore,
-          previousBest,
-          isNewBest,
-          userHasPreviousScore: user.survival_best_score !== undefined
-        }, 'SurvivalGameManager');
-
-        setIsNewBestScore(isNewBest);
+        setIsNewBestScore(newScore > previousBest);
       }
     },
     [user],
@@ -152,12 +129,6 @@ export default function SurvivalGameManager() {
 
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
-      gameStateRef.current.logger?.log('SAVE_GAME_RESULT_STARTED', {
-        score: result.score,
-        survivalTime: result.survivalTime,
-        maxLevelReached: result.maxLevelReached
-      }, 'SurvivalGameManager');
-
       setSaveStatus((prev) => ({
         ...prev,
         isLoading: true,
@@ -177,11 +148,6 @@ export default function SurvivalGameManager() {
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
 
-        gameStateRef.current.logger?.log('SAVE_ATTEMPT', {
-          attemptNumber: attemptCount,
-          maxAttempts: 3
-        }, 'SurvivalGameManager');
-
         try {
           const response = await makeAuthenticatedRequest("/api/game/save", {
             method: "POST",
@@ -198,11 +164,6 @@ export default function SurvivalGameManager() {
             throw new Error(responseData.error || "Failed to save game result");
           }
 
-          gameStateRef.current.logger?.log('SAVE_SUCCESS', {
-            attemptNumber: attemptCount,
-            responseData
-          }, 'SurvivalGameManager');
-
           setSaveStatus((prev) => ({
             ...prev,
             isLoading: false,
@@ -210,16 +171,11 @@ export default function SurvivalGameManager() {
             error: null,
           }));
         } catch (error) {
-          gameStateRef.current.logger?.log('SAVE_ATTEMPT_FAILED', {
-            attemptNumber: attemptCount,
-            error: error?.toString(),
-            willRetry: attemptCount < 3
-          }, 'SurvivalGameManager');
-
           attemptCount++;
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
+
             return attemptSave();
           } else {
             throw error;
@@ -230,11 +186,6 @@ export default function SurvivalGameManager() {
       try {
         await attemptSave();
       } catch (error) {
-        gameStateRef.current.logger?.log('SAVE_FINAL_FAILURE', {
-          error: error?.toString(),
-          totalAttempts: attemptCount - 1
-        }, 'SurvivalGameManager');
-
         setSaveStatus((prev) => ({
           ...prev,
           isLoading: false,
@@ -249,13 +200,6 @@ export default function SurvivalGameManager() {
 
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
-      gameStateRef.current.logger?.log('GAME_END_TRIGGERED', {
-        cause,
-        currentLevel: gameStateRef.current.currentLevel,
-        survivalTime: gameStateRef.current.stats.survivalTime,
-        correctHits: gameStateRef.current.stats.correctHits
-      }, 'SurvivalGameManager');
-
       setGameState((prev) => {
         const finalState = updateSurvivalLevel(prev, Date.now());
 
@@ -297,27 +241,14 @@ export default function SurvivalGameManager() {
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
-    if (!currentState.isActive || currentState.gameState !== GameState.PLAYING) {
-      currentState.logger?.log('ACTIVATION_SCHEDULING_SKIPPED', {
-        isActive: currentState.isActive,
-        gameState: currentState.gameState
-      }, 'SurvivalGameManager');
+    if (!currentState.isActive || currentState.gameState !== GameState.PLAYING)
       return;
-    }
 
-    const levelConfig = getLevelConfig(currentState.currentLevel, currentState.logger);
+    const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
       (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
-
-    currentState.logger?.log('NEXT_ACTIVATION_SCHEDULED', {
-      delay,
-      levelConfig: {
-        activationTimeMin: levelConfig.activationTimeMin,
-        activationTimeMax: levelConfig.activationTimeMax
-      }
-    }, 'SurvivalGameManager');
 
     const timeout = setTimeout(() => {
       if (
@@ -330,12 +261,6 @@ export default function SurvivalGameManager() {
             (circleIds, redCircleIds) => {
               const timestamp = Date.now();
 
-              prev.logger?.log('CIRCLES_ACTIVATION_CALLBACK', {
-                circleIds,
-                redCircleIds,
-                timestamp
-              }, 'SurvivalGameManager');
-
               setActivatedCircles(circleIds);
               setLastActivationTimestamp(timestamp);
 
@@ -344,12 +269,6 @@ export default function SurvivalGameManager() {
               }, 450);
             },
             (circleId, wasDecoy) => {
-              prev.logger?.log('CIRCLE_TIMEOUT_CALLBACK', {
-                circleId,
-                wasDecoy,
-                willEndGame: !wasDecoy
-              }, 'SurvivalGameManager');
-
               if (!wasDecoy) {
                 endGame("miss");
               } else {
@@ -375,30 +294,14 @@ export default function SurvivalGameManager() {
 
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
-      const currentState = gameStateRef.current;
-
-      if (currentState.gameState !== GameState.PLAYING) {
-        currentState.logger?.log('CIRCLE_CLICK_IGNORED', {
-          circleId,
-          gameState: currentState.gameState,
-          reason: 'game_not_playing'
-        }, 'SurvivalGameManager');
-        return;
-      }
+      if (gameStateRef.current.gameState !== GameState.PLAYING) return;
 
       const clickTime = Date.now();
       const { newState, result } = handleSurvivalCircleClick(
-        currentState,
+        gameStateRef.current,
         circleId,
         clickTime,
       );
-
-      currentState.logger?.log('CIRCLE_CLICK_PROCESSED', {
-        circleId,
-        result,
-        clickTime,
-        gameTime: clickTime - (currentState.gameStartTime || clickTime)
-      }, 'SurvivalGameManager');
 
       if (result === "correct") {
         triggerHapticFeedback("success");
@@ -430,42 +333,25 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
-    const newGameState = initializeSurvivalGameState();
-
-    newGameState.logger?.log('GAME_START_REQUESTED', {
-      timestamp: Date.now()
-    }, 'SurvivalGameManager');
-
-    setGameState(newGameState);
+    setGameState(initializeSurvivalGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
     setIsNewBestScore(false);
-    setIsLogVisible(false);
-    setLogCopyStatus("idle");
 
     setTimeout(() => {
       setShowCircles(true);
-      newGameState.logger?.log('CIRCLES_SHOWN', {}, 'SurvivalGameManager');
     }, 100);
 
     setTimeout(() => {
-      setGameState((prev) => {
-        const updatedState = { ...prev, gameState: GameState.PLAYING };
-        updatedState.logger?.log('GAME_STARTED', {
-          gameState: GameState.PLAYING
-        }, 'SurvivalGameManager');
-        return updatedState;
-      });
+      setGameState((prev) => ({ ...prev, gameState: GameState.PLAYING }));
 
       const levelInterval = setInterval(() => {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
-            current.logger?.log('LEVEL_UPDATE_INTERVAL_STOPPED', {
-              reason: 'game_not_active_or_playing'
-            }, 'SurvivalGameManager');
+
             return current;
           }
 
@@ -485,48 +371,8 @@ export default function SurvivalGameManager() {
   }, [scheduleNextActivation]);
 
   const handleBackToGames = useCallback(() => {
-    gameState.logger?.log('BACK_TO_GAMES_CLICKED', {}, 'SurvivalGameManager');
     router.push("/game");
-  }, [router, gameState.logger]);
-
-  const handleLogExport = useCallback(async () => {
-    if (!gameResult?.gameLog) return;
-
-    setLogCopyStatus("copying");
-
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(gameResult.gameLog);
-        setLogCopyStatus("copied");
-      } else {
-        // Fallback for older browsers or non-secure contexts
-        const textArea = document.createElement('textarea');
-        textArea.value = gameResult.gameLog;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-
-        try {
-          document.execCommand('copy');
-          setLogCopyStatus("copied");
-        } catch (error) {
-          setLogCopyStatus("failed");
-        }
-
-        document.body.removeChild(textArea);
-      }
-    } catch (error) {
-      setLogCopyStatus("failed");
-    }
-
-    // Reset status after 2 seconds
-    setTimeout(() => {
-      setLogCopyStatus("idle");
-    }, 2000);
-  }, [gameResult?.gameLog]);
+  }, [router]);
 
   useEffect(() => {
     return () => {
@@ -560,19 +406,6 @@ export default function SurvivalGameManager() {
       causeKeyMapping.timeout;
 
     return t(key as any) || t("game.modes.survival.deathCauses.default");
-  };
-
-  const getCopyButtonText = () => {
-    switch (logCopyStatus) {
-      case "copying":
-        return "Copying...";
-      case "copied":
-        return "Copied!";
-      case "failed":
-        return "Copy Failed";
-      default:
-        return "Copy Debug Log";
-    }
   };
 
   if (gameState.gameState === GameState.FINISHED && gameResult) {
@@ -626,6 +459,8 @@ export default function SurvivalGameManager() {
                   {t("game.modes.survival.results.correctHits")}
                 </div>
                 <div className="text-2xl font-bold text-white">
+                  {" "}
+                  {/* Изменен цвет на белый */}
                   {gameResult.correctHits}
                 </div>
               </div>
@@ -634,6 +469,8 @@ export default function SurvivalGameManager() {
                   {t("game.modes.survival.results.survivalTime")}
                 </div>
                 <div className="text-2xl font-bold text-white">
+                  {" "}
+                  {/* Изменен цвет на белый */}
                   {formatSurvivalTime(gameResult.survivalTime)}
                 </div>
               </div>
@@ -648,46 +485,6 @@ export default function SurvivalGameManager() {
               </div>
             </div>
           </div>
-
-          {/* Debug Log Section */}
-          {gameResult.gameLog && (
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-600/30 rounded-xl p-4 space-y-3">
-              <button
-                onClick={() => setIsLogVisible(!isLogVisible)}
-                className="w-full flex items-center justify-between text-gray-300 hover:text-white transition-colors"
-              >
-                <div className="flex items-center space-x-2">
-                  <FileText size={16} />
-                  <span className="text-sm font-medium">Debug Log ({gameResult.gameLog.split('\n').length - 4} events)</span>
-                </div>
-                {isLogVisible ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </button>
-
-              {isLogVisible && (
-                <div className="space-y-3">
-                  <div className="bg-black/50 rounded-lg p-3 max-h-48 overflow-y-auto">
-                    <pre className="text-xs text-gray-300 whitespace-pre-wrap font-mono">
-                      {gameResult.gameLog}
-                    </pre>
-                  </div>
-
-                  <button
-                    onClick={handleLogExport}
-                    disabled={logCopyStatus === "copying"}
-                    className={`w-full flex items-center justify-center space-x-2 py-2 px-4 rounded-lg text-sm transition-all duration-200 ${logCopyStatus === "copied"
-                        ? "bg-green-600/20 border border-green-500/30 text-green-300"
-                        : logCopyStatus === "failed"
-                          ? "bg-red-600/20 border border-red-500/30 text-red-300"
-                          : "bg-gray-600/20 border border-gray-500/30 text-gray-300 hover:bg-gray-600/30"
-                      }`}
-                  >
-                    <Copy size={14} />
-                    <span>{getCopyButtonText()}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
 
           {(saveStatus.isLoading ||
             saveStatus.error ||

@@ -1,11 +1,10 @@
-// src/components/GameGrid.tsx - Enhanced with comprehensive touch/click logging
+// src/components/GameGrid.tsx - Updated with fast activation pulse effects
 
 "use client";
 
 import { useRef, useState, useEffect } from "react";
 
 import { Circle } from "@/types/game-modes/common";
-import { getGameLogger } from "@/utils/gameLogger";
 
 interface GameGridProps {
   circles: Circle[];
@@ -15,19 +14,12 @@ interface GameGridProps {
   // Props for activation pulse notifications
   onActivatedCircles?: number[]; // Array of circle IDs that were just activated
   lastActivationTimestamp?: number; // Timestamp to trigger re-render when activations occur
-  gameMode?: "reaction" | "survival" | "physics"; // Game mode for styling differences
+  gameMode?: "reaction" | "survival" | "physics"; // NEW: Game mode for styling differences
 }
 
 interface ActivePulse {
   circleId: number;
   isRed: boolean;
-  timestamp: number;
-}
-
-interface TouchEventDetails {
-  touchCount: number;
-  firstTouchX: number;
-  firstTouchY: number;
   timestamp: number;
 }
 
@@ -63,27 +55,15 @@ export default function GameGrid({
   const { cols, rows } = getGridDimensions(circles.length);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
-  const logger = getGameLogger();
 
   // State for dynamic sizing
   const [circleSize, setCircleSize] = useState(40);
   const [gapSize, setGapSize] = useState(4);
 
-  // State for tracking active activation pulses
+  // NEW: State for tracking active activation pulses
   const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
 
-  // Log grid initialization
-  useEffect(() => {
-    logger?.log('GAME_GRID_INITIALIZED', {
-      circleCount: circles.length,
-      gridDimensions: { cols, rows },
-      gameMode,
-      isGameActive,
-      showCircles
-    }, 'GameGrid');
-  }, [circles.length, cols, rows, gameMode, isGameActive, showCircles, logger]);
-
-  // Effect to handle activation pulses
+  // NEW: Effect to handle activation pulses
   useEffect(() => {
     if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
       // Create new pulses for activated circles
@@ -97,11 +77,6 @@ export default function GameGrid({
         };
       });
 
-      logger?.log('ACTIVATION_PULSES_CREATED', {
-        newPulses: newPulses.map(p => ({ circleId: p.circleId, isRed: p.isRed })),
-        timestamp: lastActivationTimestamp
-      }, 'GameGrid');
-
       setActivePulses((prev) => [...prev, ...newPulses]);
 
       // Remove pulses after animation completes (400ms + small buffer)
@@ -111,20 +86,13 @@ export default function GameGrid({
         );
       }, 450);
     }
-  }, [onActivatedCircles, lastActivationTimestamp, circles, logger]);
+  }, [onActivatedCircles, lastActivationTimestamp, circles]);
 
   // Calculate adaptive sizes based on screen dimensions
   useEffect(() => {
     const calculateAdaptiveSizes = () => {
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
-
-      logger?.log('GRID_SIZE_CALCULATION', {
-        screenWidth,
-        screenHeight,
-        circleCount: circles.length,
-        gridDimensions: { cols, rows }
-      }, 'GameGrid');
 
       // Calculate available space (accounting for UI elements)
       const availableWidth = screenWidth * 0.9; // 90% of screen width
@@ -167,21 +135,8 @@ export default function GameGrid({
         finalGap = Math.max(2, finalGap - 2);
       }
 
-      const newCircleSize = Math.floor(finalSize);
-      const newGapSize = finalGap;
-
-      logger?.log('GRID_SIZE_CALCULATED', {
-        calculatedSize,
-        finalSize: newCircleSize,
-        finalGap: newGapSize,
-        maxCircleWidthByColumns,
-        maxCircleHeightByRows,
-        availableWidth,
-        availableHeight
-      }, 'GameGrid');
-
-      setCircleSize(newCircleSize);
-      setGapSize(newGapSize);
+      setCircleSize(Math.floor(finalSize));
+      setGapSize(finalGap);
     };
 
     // Calculate on mount and window resize
@@ -190,7 +145,6 @@ export default function GameGrid({
 
     // Handle orientation changes on mobile devices
     window.addEventListener("orientationchange", () => {
-      logger?.log('ORIENTATION_CHANGE_DETECTED', {}, 'GameGrid');
       setTimeout(calculateAdaptiveSizes, 100);
     });
 
@@ -198,7 +152,7 @@ export default function GameGrid({
       window.removeEventListener("resize", calculateAdaptiveSizes);
       window.removeEventListener("orientationchange", calculateAdaptiveSizes);
     };
-  }, [circles.length, cols, rows, logger]);
+  }, [circles.length, cols, rows]);
 
   const getCircleStyles = (circle: Circle) => {
     const baseStyles = {
@@ -217,7 +171,7 @@ export default function GameGrid({
       : "opacity-0 transform scale-0";
 
     const animationClasses = circle.isAnimating
-      ? "opacity-0 scale-75 transition-all duration-100"
+      ? "opacity-0 scale-75 transition-all duration-10"
       : "";
 
     // Interactive state styling based on circle type and activity
@@ -250,65 +204,25 @@ export default function GameGrid({
     }
   };
 
-  const getBasicTouchInfo = (event: React.TouchEvent): TouchEventDetails => {
-    const firstTouch = event.touches.length > 0 ? event.touches[0] : event.changedTouches[0];
-    return {
-      touchCount: event.touches.length,
-      firstTouchX: firstTouch?.clientX || 0,
-      firstTouchY: firstTouch?.clientY || 0,
-      timestamp: Date.now()
-    };
-  };
-
   // Touch event handlers for mobile compatibility
   const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
-    if (!isGameActive) {
-      logger?.log('TOUCH_START_IGNORED', {
-        circleId,
-        reason: 'game_not_active'
-      }, 'GameGrid');
-      return;
-    }
+    if (!isGameActive) return;
 
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
 
     const currentTime = Date.now();
-    const touchInfo = getBasicTouchInfo(event);
-    const circle = circles.find(c => c.id === circleId);
-
-    logger?.log('TOUCH_START', {
-      circleId,
-      touchInfo,
-      circleState: circle ? {
-        isActive: circle.isActive,
-        isAnimating: circle.isAnimating,
-        isDecoy: circle.isDecoy
-      } : null,
-      gameState: isGameActive
-    }, 'GameGrid');
 
     touchStartTimeRef.current.set(circleId, currentTime);
 
     if (!processedTouchesRef.current.has(circleId)) {
       processedTouchesRef.current.add(circleId);
-      
-      logger?.log('TOUCH_CLICK_TRIGGERED', {
-        circleId,
-        processingDelay: 0
-      }, 'GameGrid');
-      
       onCircleClick(circleId);
 
       setTimeout(() => {
         processedTouchesRef.current.delete(circleId);
       }, 100);
-    } else {
-      logger?.log('TOUCH_START_DUPLICATE', {
-        circleId,
-        reason: 'already_processed'
-      }, 'GameGrid');
     }
   };
 
@@ -316,67 +230,22 @@ export default function GameGrid({
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
-    
-    const touchStartTime = touchStartTimeRef.current.get(circleId);
-    const currentTime = Date.now();
-    const touchDuration = touchStartTime ? currentTime - touchStartTime : 0;
-    const touchInfo = getBasicTouchInfo(event);
-
-    logger?.log('TOUCH_END', {
-      circleId,
-      touchDuration,
-      touchInfo,
-      hadTouchStart: !!touchStartTime
-    }, 'GameGrid');
-    
     touchStartTimeRef.current.delete(circleId);
   };
 
   const handleClick = (circleId: number, event: React.MouseEvent) => {
-    if (!isGameActive) {
-      logger?.log('CLICK_IGNORED', {
-        circleId,
-        reason: 'game_not_active'
-      }, 'GameGrid');
-      return;
-    }
+    if (!isGameActive) return;
 
     const touchTime = touchStartTimeRef.current.get(circleId);
     const currentTime = Date.now();
 
-    logger?.log('CLICK_EVENT', {
-      circleId,
-      timestamp: currentTime,
-      hadRecentTouch: !!touchTime,
-      touchTime,
-      timeSinceTouch: touchTime ? currentTime - touchTime : null,
-      eventDetails: {
-        bubbles: event.bubbles,
-        cancelable: event.cancelable,
-        defaultPrevented: event.defaultPrevented,
-        button: event.button,
-        buttons: event.buttons,
-        clientX: event.clientX,
-        clientY: event.clientY
-      }
-    }, 'GameGrid');
-
     if (touchTime && currentTime - touchTime < 300) {
-      logger?.log('CLICK_IGNORED_RECENT_TOUCH', {
-        circleId,
-        timeSinceTouch: currentTime - touchTime
-      }, 'GameGrid');
       return;
     }
 
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
-    
-    logger?.log('CLICK_TRIGGERED', {
-      circleId
-    }, 'GameGrid');
-    
     onCircleClick(circleId);
   };
 
@@ -395,12 +264,7 @@ export default function GameGrid({
         handleTouchStart(circle.id, event),
       onTouchEnd: (event: React.TouchEvent) => handleTouchEnd(circle.id, event),
       onClick: (event: React.MouseEvent) => handleClick(circle.id, event),
-      onContextMenu: (event: React.MouseEvent) => {
-        event.preventDefault();
-        logger?.log('CONTEXT_MENU_PREVENTED', {
-          circleId: circle.id
-        }, 'GameGrid');
-      },
+      onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
     };
   };
 
@@ -421,7 +285,7 @@ export default function GameGrid({
     );
   };
 
-  // Fast activation pulse effect (single burst on activation)
+  // NEW: Fast activation pulse effect (single burst on activation)
   const renderActivationPulse = (circle: Circle) => {
     const activePulse = activePulses.find(
       (pulse) => pulse.circleId === circle.id,
@@ -461,21 +325,10 @@ export default function GameGrid({
 
   const { maxWidth, maxHeight } = getContainerMaxDimensions();
 
-  logger?.log('GAME_GRID_RENDER', {
-    circleCount: circles.length,
-    activeCircles: circles.filter(c => c.isActive).length,
-    animatingCircles: circles.filter(c => c.isAnimating).length,
-    decoyCircles: circles.filter(c => c.isDecoy).length,
-    isGameActive,
-    showCircles,
-    gridDimensions: { cols, rows, circleSize, gapSize },
-    containerDimensions: { maxWidth, maxHeight }
-  }, 'GameGrid');
-
   return (
     <div className="flex items-center justify-center min-h-[400px] p-4">
       <div
-        className="grid justify-items-center items-center no-drag"
+        className="grid justify-items-center items-center"
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
@@ -483,8 +336,6 @@ export default function GameGrid({
           userSelect: "none",
           WebkitUserSelect: "none",
           WebkitTouchCallout: "none",
-          touchAction: "none",
-          overscrollBehavior: "none",
           maxWidth,
           maxHeight,
         }}
@@ -511,8 +362,14 @@ export default function GameGrid({
             >
               {/* Existing continuous pulse effect */}
               {renderPulseEffect(circle)}
-              {/* Fast activation pulse effect */}
+              {/* NEW: Fast activation pulse effect */}
               {renderActivationPulse(circle)}
+              {/* Debug info for development */}
+              {process.env.NODE_ENV === "development" && circle.isActive && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
+                  {circle.id}
+                </div>
+              )}
             </button>
           );
         })}

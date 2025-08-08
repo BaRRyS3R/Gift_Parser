@@ -1,4 +1,4 @@
-// src/app/ton-shop/page.tsx - Исправления для сброса состояния и кликабельного кошелька с системной кнопкой Telegram
+// src/app/ton-shop/page.tsx - Исправления для сброса состояния и кликабельного кошелька
 
 "use client";
 
@@ -17,6 +17,7 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
+  ArrowLeft,
   ExternalLink,
 } from "lucide-react";
 import { beginCell } from "@ton/core";
@@ -83,33 +84,6 @@ function TONShopContent() {
   });
 
   const initData = searchParams.get("initdata");
-
-  // Telegram WebApp Back Button configuration
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const webApp = window.Telegram.WebApp;
-
-      // Show the back button
-      webApp.BackButton.show();
-
-      // Handle back button click
-      const handleBackClick = () => {
-        if (window.opener) {
-          window.close();
-        } else {
-          webApp.close();
-        }
-      };
-
-      webApp.BackButton.onClick(handleBackClick);
-
-      // Cleanup on unmount
-      return () => {
-        webApp.BackButton.hide();
-        webApp.BackButton.offClick(handleBackClick);
-      };
-    }
-  }, []);
 
   // Component initialization
   useEffect(() => {
@@ -329,11 +303,19 @@ function TONShopContent() {
     setSelectedProduct(null);
   };
 
-  // Открытие кошелька в tonviewer
+  // НОВАЯ ФУНКЦИЯ: Открытие кошелька в tonviewer
   const openWalletViewer = () => {
     const walletViewerUrl = `https://tonviewer.com/${TON_CONFIG.CORPORATE_WALLET}`;
 
     window.open(walletViewerUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const goBack = () => {
+    if (window.opener) {
+      window.close();
+    } else {
+      window.history.back();
+    }
   };
 
   if (isLoading) {
@@ -371,16 +353,28 @@ function TONShopContent() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header Section - Updated without back button */}
+      {/* Header Section */}
       <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-2xl mx-auto px-4 py-4">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-white">
-              {t("shop.tonShop.title")}
-            </h1>
-            <p className="text-white/50 text-xs">
-              {t("shop.tonShop.subtitle")}
-            </p>
+          <div className="flex items-center justify-between">
+            <button
+              className="flex items-center space-x-2 text-white/60 hover:text-white transition-colors"
+              onClick={goBack}
+            >
+              <ArrowLeft size={20} />
+              <span className="text-sm">{t("common.back")}</span>
+            </button>
+
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-white">
+                {t("shop.tonShop.title")}
+              </h1>
+              <p className="text-white/50 text-xs">
+                {t("shop.tonShop.subtitle")}
+              </p>
+            </div>
+
+            <div className="w-16" />
           </div>
         </div>
       </div>
@@ -418,84 +412,84 @@ function TONShopContent() {
           orderState.isPending ||
           orderState.isCompleted ||
           orderState.error) && (
-            <Card className="bg-white/5 border border-white/10">
-              <CardBody className="p-4">
-                {orderState.isCreating && (
+          <Card className="bg-white/5 border border-white/10">
+            <CardBody className="p-4">
+              {orderState.isCreating && (
+                <div className="flex items-center space-x-3">
+                  <Spinner color="white" size="sm" />
+                  <div>
+                    <p className="font-medium text-white">
+                      {t("shop.tonShop.status.creatingOrder")}
+                    </p>
+                    <p className="text-white/60 text-sm">
+                      {t("shop.tonShop.status.preparingPurchase")}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {orderState.isPending && (
+                <div className="flex items-center space-x-3">
+                  <Clock className="text-yellow-400 animate-pulse" size={20} />
+                  <div>
+                    <p className="font-medium text-white">
+                      {t("shop.tonShop.status.processingPayment")}
+                    </p>
+                    <p className="text-white/60 text-sm">
+                      {t("shop.tonShop.status.processingTime")}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {orderState.isCompleted && (
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <Spinner color="white" size="sm" />
+                    <CheckCircle className="text-green-400" size={20} />
                     <div>
                       <p className="font-medium text-white">
-                        {t("shop.tonShop.status.creatingOrder")}
+                        {t("shop.tonShop.status.paymentSuccessful")}
                       </p>
                       <p className="text-white/60 text-sm">
-                        {t("shop.tonShop.status.preparingPurchase")}
+                        {t("shop.tonShop.status.attemptsAdded")}
                       </p>
                     </div>
                   </div>
-                )}
+                  <Button
+                    className="bg-white/10 text-white border border-white/20"
+                    size="sm"
+                    onPress={resetOrderState}
+                  >
+                    {t("shop.tonShop.actions.newPurchase")}
+                  </Button>
+                </div>
+              )}
 
-                {orderState.isPending && (
+              {orderState.error && (
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <Clock className="text-yellow-400 animate-pulse" size={20} />
+                    <AlertCircle className="text-red-400" size={20} />
                     <div>
                       <p className="font-medium text-white">
-                        {t("shop.tonShop.status.processingPayment")}
+                        {t("shop.tonShop.status.paymentError")}
                       </p>
                       <p className="text-white/60 text-sm">
-                        {t("shop.tonShop.status.processingTime")}
+                        {orderState.error}
                       </p>
                     </div>
                   </div>
-                )}
-
-                {orderState.isCompleted && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <CheckCircle className="text-green-400" size={20} />
-                      <div>
-                        <p className="font-medium text-white">
-                          {t("shop.tonShop.status.paymentSuccessful")}
-                        </p>
-                        <p className="text-white/60 text-sm">
-                          {t("shop.tonShop.status.attemptsAdded")}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      className="bg-white/10 text-white border border-white/20"
-                      size="sm"
-                      onPress={resetOrderState}
-                    >
-                      {t("shop.tonShop.actions.newPurchase")}
-                    </Button>
-                  </div>
-                )}
-
-                {orderState.error && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <AlertCircle className="text-red-400" size={20} />
-                      <div>
-                        <p className="font-medium text-white">
-                          {t("shop.tonShop.status.paymentError")}
-                        </p>
-                        <p className="text-white/60 text-sm">
-                          {orderState.error}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      className="bg-white/10 text-white border border-white/20"
-                      size="sm"
-                      onPress={resetOrderState}
-                    >
-                      {t("shop.tonShop.actions.tryAgain")}
-                    </Button>
-                  </div>
-                )}
-              </CardBody>
-            </Card>
-          )}
+                  <Button
+                    className="bg-white/10 text-white border border-white/20"
+                    size="sm"
+                    onPress={resetOrderState}
+                  >
+                    {t("shop.tonShop.actions.tryAgain")}
+                  </Button>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
 
         {/* Products Section */}
         <div className="space-y-3">
@@ -513,7 +507,7 @@ function TONShopContent() {
           ))}
         </div>
 
-        {/* Information Section */}
+        {/* Information Section - ОБНОВЛЕНО */}
         <Card className="bg-white/5 border border-white/10">
           <CardBody className="p-4 text-center">
             <div className="space-y-2 text-sm text-white/60">
@@ -522,7 +516,7 @@ function TONShopContent() {
               <p>{t("shop.tonShop.info.attemptsVisible")}</p>
             </div>
 
-            {/* Кликабельный адрес кошелька */}
+            {/* ИСПРАВЛЕНИЕ: Кликабельный адрес кошелька */}
             <div className="mt-4">
               <p className="text-white/40 text-xs mb-2">
                 {t("shop.tonShop.info.corporateWallet")}:
@@ -577,10 +571,11 @@ function ProductCard({
     <Card
       className={`
                 transition-all duration-200
-                ${isSelected
-          ? "bg-blue-500/10 border-blue-500/30"
-          : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
-        }
+                ${
+                  isSelected
+                    ? "bg-blue-500/10 border-blue-500/30"
+                    : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+                }
                 ${disabled ? "opacity-50" : ""}
             `}
     >
@@ -606,10 +601,11 @@ function ProductCard({
           <div className="ml-4">
             <Button
               className={`
-                                ${isSelected
-                  ? "bg-blue-600 text-white"
-                  : "bg-white/10 text-white border border-white/20"
-                }
+                                ${
+                                  isSelected
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-white/10 text-white border border-white/20"
+                                }
                             `}
               isDisabled={disabled}
               size="sm"
