@@ -503,7 +503,7 @@ function TournamentsPageContent() {
     }
 
     return (
-        <div className="min-h-screen bg-black safe-area-inset-bottom safe-area-inset">
+        <div className="min-h-screen bg-black safe-area-inset-bottom safe-area-inset scrollable-page">
             <div className="px-4 pb-8">
                 {/* Header */}
                 <div className="text-center space-y-3 mb-8 pt-6">

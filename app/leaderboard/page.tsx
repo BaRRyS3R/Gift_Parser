@@ -707,7 +707,7 @@ function LeaderboardPageContent() {
   const currentUserData = getCurrentUserData;
 
   return (
-    <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden">
+    <div className="min-h-screen bg-black text-white safe-area-inset-bottom relative overflow-hidden scrollable-page">
       {/* Light Rays Background */}
       <div className="absolute inset-0 z-0 h-96">
         <LightRays
