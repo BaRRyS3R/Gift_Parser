@@ -58,7 +58,7 @@ export default function GameGrid({
   pendingRedCircles = new Set(),
 }: GameGridProps) {
   const { cols, rows } = getGridDimensions(circles.length);
-
+  
   // ИСПРАВЛЕНО: Улучшенное управление touch событиями для iOS
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
@@ -228,7 +228,7 @@ export default function GameGrid({
     }
   };
 
-  // ИСПРАВЛЕНО: Максимально надежная обработка touch событий для iOS
+  // ИСПРАВЛЕНО: Оптимизированная обработка touch событий для быстрого геймплея
   const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
     if (!isGameActive) return;
 
@@ -240,29 +240,32 @@ export default function GameGrid({
     const touch = event.touches[0]; // Получаем первое касание
     const touchId = touch?.identifier || 0; // Уникальный идентификатор касания
 
-    // НОВОЕ: Проверяем, не является ли это тем же самым касанием
+    // ОПТИМИЗИРОВАНО: Проверяем, не является ли это тем же самым касанием (защита от удержания)
     const existingTouchId = touchIdentifierRef.current.get(circleId);
     if (existingTouchId === touchId && activeTouchesRef.current.has(circleId)) {
       return; // Это повторное срабатывание того же касания
     }
 
-    // НОВОЕ: Блокируем если касание уже активно для этого круга
+    // ОПТИМИЗИРОВАНО: Блокируем если касание уже активно для этого круга
     if (activeTouchesRef.current.has(circleId)) {
       return;
     }
 
-    // Проверяем временную блокировку
+    // ОПТИМИЗИРОВАНО: Уменьшенная временная блокировка только для предотвращения bounce-эффекта
     const lastClick = lastClickTimeRef.current.get(circleId) || 0;
-    if (currentTime - lastClick < 300) { // Увеличили до 300ms для большей надежности
+    if (currentTime - lastClick < 100) { // Уменьшено до 100ms для быстрого геймплея
       return;
     }
 
-    // Проверяем глобальную блокировку обработки
+    // ОПТИМИЗИРОВАНО: Более короткая проверка глобальной блокировки
     if (processedTouchesRef.current.has(circleId)) {
-      return;
+      const touchStartTime = touchStartTimeRef.current.get(circleId) || 0;
+      if (currentTime - touchStartTime < 150) { // Короткая блокировка только для текущего касания
+        return;
+      }
     }
 
-    // НОВОЕ: Регистрируем активное касание
+    // Регистрируем активное касание
     activeTouchesRef.current.add(circleId);
     touchIdentifierRef.current.set(circleId, touchId);
     touchStartTimeRef.current.set(circleId, currentTime);
@@ -272,29 +275,31 @@ export default function GameGrid({
     // Выполняем клик
     onCircleClick(circleId);
 
-    // НОВОЕ: Устанавливаем более длительную блокировку
+    // ОПТИМИЗИРОВАНО: Короткая блокировка только для предотвращения bounce
     setTimeout(() => {
       processedTouchesRef.current.delete(circleId);
-    }, 400); // Увеличили таймаут для большей надежности
+    }, 150); // Уменьшено до 150ms для обеспечения быстрого геймплея
   };
 
   const handleTouchEnd = (circleId: number, event: React.TouchEvent) => {
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
-
-    // НОВОЕ: Очищаем активное касание при завершении
-    activeTouchesRef.current.delete(circleId);
-    touchIdentifierRef.current.delete(circleId);
-    touchStartTimeRef.current.delete(circleId);
+    
+    // ОПТИМИЗИРОВАНО: Немедленная очистка активного касания для возможности быстрого повторного нажатия
+    setTimeout(() => {
+      activeTouchesRef.current.delete(circleId);
+      touchIdentifierRef.current.delete(circleId);
+      touchStartTimeRef.current.delete(circleId);
+    }, 50); // Минимальная задержка для стабильности
   };
 
-  // НОВОЕ: Добавляем обработчик touchcancel для полной очистки
+  // Добавляем обработчик touchcancel для полной очистки
   const handleTouchCancel = (circleId: number, event: React.TouchEvent) => {
     event.preventDefault();
     event.stopPropagation();
-
-    // Очищаем все данные о касании при отмене
+    
+    // Немедленная очистка при отмене касания
     activeTouchesRef.current.delete(circleId);
     touchIdentifierRef.current.delete(circleId);
     touchStartTimeRef.current.delete(circleId);
@@ -321,7 +326,7 @@ export default function GameGrid({
     // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
-
+    
     lastClickTimeRef.current.set(circleId, currentTime);
     onCircleClick(circleId);
   };
@@ -433,12 +438,13 @@ export default function GameGrid({
           return (
             <button
               key={circle.id}
-              aria-label={`Game circle ${circle.id + 1}${isCircleEffectivelyActive(circle)
+              aria-label={`Game circle ${circle.id + 1}${
+                isCircleEffectivelyActive(circle)
                   ? isCircleEffectivelyRed(circle)
                     ? " - trap target"
                     : " - active target"
                   : ""
-                }`}
+              }`}
               className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
               data-circle-id={circle.id}
               disabled={interactionProps.disabled}
@@ -456,7 +462,7 @@ export default function GameGrid({
               {renderPulseEffect(circle)}
               {/* Fast activation pulse effect */}
               {renderActivationPulse(circle)}
-
+              
             </button>
           );
         })}
