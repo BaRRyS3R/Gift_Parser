@@ -1,8 +1,9 @@
-// src/components/GameGrid.tsx - Removed logging while preserving touch/click functionality and instant deactivation support
+// src/components/GameGrid.tsx - Optimized version with stable memoization
 
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import React from "react";
 
 import { Circle } from "@/types/game-modes/common";
 
@@ -52,7 +53,61 @@ const getGridDimensions = (circleCount: number) => {
   }
 };
 
-export default function GameGrid({
+// Custom comparison function for React.memo
+const arePropsEqual = (prevProps: GameGridProps, nextProps: GameGridProps) => {
+  // Quick reference check for arrays
+  if (prevProps.circles === nextProps.circles &&
+    prevProps.onActivatedCircles === nextProps.onActivatedCircles &&
+    prevProps.instantlyDeactivatedCircles === nextProps.instantlyDeactivatedCircles) {
+    // Check primitive values
+    return (
+      prevProps.isGameActive === nextProps.isGameActive &&
+      prevProps.showCircles === nextProps.showCircles &&
+      prevProps.lastActivationTimestamp === nextProps.lastActivationTimestamp &&
+      prevProps.gameMode === nextProps.gameMode &&
+      prevProps.onCircleClick === nextProps.onCircleClick
+    );
+  }
+
+  // Deep comparison for circles if references differ
+  if (prevProps.circles.length !== nextProps.circles.length) {
+    return false;
+  }
+
+  for (let i = 0; i < prevProps.circles.length; i++) {
+    const prev = prevProps.circles[i];
+    const next = nextProps.circles[i];
+
+    if (prev.id !== next.id ||
+      prev.isActive !== next.isActive ||
+      prev.isAnimating !== next.isAnimating ||
+      prev.isDecoy !== next.isDecoy) {
+      return false;
+    }
+  }
+
+  // Check other array props
+  const prevActivated = prevProps.onActivatedCircles || [];
+  const nextActivated = nextProps.onActivatedCircles || [];
+  const prevDeactivated = prevProps.instantlyDeactivatedCircles || [];
+  const nextDeactivated = nextProps.instantlyDeactivatedCircles || [];
+
+  if (prevActivated.length !== nextActivated.length ||
+    prevDeactivated.length !== nextDeactivated.length) {
+    return false;
+  }
+
+  // Check primitive values
+  return (
+    prevProps.isGameActive === nextProps.isGameActive &&
+    prevProps.showCircles === nextProps.showCircles &&
+    prevProps.lastActivationTimestamp === nextProps.lastActivationTimestamp &&
+    prevProps.gameMode === nextProps.gameMode &&
+    prevProps.onCircleClick === nextProps.onCircleClick
+  );
+};
+
+function GameGrid({
   circles,
   onCircleClick,
   isGameActive,
@@ -62,16 +117,27 @@ export default function GameGrid({
   gameMode = "reaction",
   instantlyDeactivatedCircles = [],
 }: GameGridProps) {
-  const { cols, rows } = getGridDimensions(circles.length);
+  const { cols, rows } = useMemo(() => getGridDimensions(circles.length), [circles.length]);
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
 
-  // State for dynamic sizing
+  // State for dynamic sizing - memoized to prevent recalculation
   const [circleSize, setCircleSize] = useState(40);
   const [gapSize, setGapSize] = useState(4);
 
   // State for tracking active activation pulses
   const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
+
+  // Memoized container dimensions calculation
+  const containerDimensions = useMemo(() => {
+    const containerWidth = circleSize * cols + gapSize * (cols - 1) + 32;
+    const containerHeight = circleSize * rows + gapSize * (rows - 1) + 32;
+
+    return {
+      maxWidth: `min(95vw, ${containerWidth}px)`,
+      maxHeight: `min(70vh, ${containerHeight}px)`,
+    };
+  }, [circleSize, cols, gapSize, rows]);
 
   // Effect to handle activation pulses
   useEffect(() => {
@@ -90,16 +156,20 @@ export default function GameGrid({
       setActivePulses((prev) => [...prev, ...newPulses]);
 
       // Remove pulses after animation completes (400ms + small buffer)
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         setActivePulses((prev) =>
           prev.filter((pulse) => pulse.timestamp !== lastActivationTimestamp),
         );
       }, 450);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [onActivatedCircles, lastActivationTimestamp, circles]);
 
   // Calculate adaptive sizes based on screen dimensions
   useEffect(() => {
+    const resizeTimeoutRef = useRef<NodeJS.Timeout>();
+
     const calculateAdaptiveSizes = () => {
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
@@ -151,20 +221,35 @@ export default function GameGrid({
 
     // Calculate on mount and window resize
     calculateAdaptiveSizes();
-    window.addEventListener("resize", calculateAdaptiveSizes);
+
+    const handleResize = () => {
+      // Debounce resize to prevent excessive calculations
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+      resizeTimeoutRef.current = setTimeout(calculateAdaptiveSizes, 100);
+    };
+
+    window.addEventListener("resize", handleResize);
 
     // Handle orientation changes on mobile devices
-    window.addEventListener("orientationchange", () => {
+    const handleOrientationChange = () => {
       setTimeout(calculateAdaptiveSizes, 100);
-    });
+    };
+
+    window.addEventListener("orientationchange", handleOrientationChange);
 
     return () => {
-      window.removeEventListener("resize", calculateAdaptiveSizes);
-      window.removeEventListener("orientationchange", calculateAdaptiveSizes);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleOrientationChange);
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
     };
   }, [circles.length, cols, rows]);
 
-  const getCircleStyles = (circle: Circle) => {
+  // Memoized circle styles function
+  const getCircleStyles = useCallback((circle: Circle) => {
     const baseStyles = {
       width: `${circleSize}px`,
       height: `${circleSize}px`,
@@ -219,31 +304,31 @@ export default function GameGrid({
         style: baseStyles,
       };
     }
-  };
+  }, [circleSize, showCircles, instantlyDeactivatedCircles]);
 
-  const getBasicTouchInfo = (event: React.TouchEvent): TouchEventDetails => {
-    const firstTouch = event.touches.length > 0 ? event.touches[0] : event.changedTouches[0];
-    return {
-      touchCount: event.touches.length,
-      firstTouchX: firstTouch?.clientX || 0,
-      firstTouchY: firstTouch?.clientY || 0,
-      timestamp: Date.now()
-    };
-  };
+  // Optimized touch info extraction
+  const getBasicTouchInfo = useCallback(
+    (event: React.TouchEvent): TouchEventDetails => {
+      const firstTouch = event.touches.length > 0 ? event.touches[0] : event.changedTouches[0];
+      return {
+        touchCount: event.touches.length,
+        firstTouchX: firstTouch?.clientX || 0,
+        firstTouchY: firstTouch?.clientY || 0,
+        timestamp: Date.now()
+      };
+    }, []
+  );
 
-  // Touch event handlers for mobile compatibility
-  const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
+  // Stable touch event handlers
+  const handleTouchStart = useCallback((circleId: number, event: React.TouchEvent) => {
     if (!isGameActive) {
       return;
     }
 
-    // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
 
     const currentTime = Date.now();
-    const touchInfo = getBasicTouchInfo(event);
-
     touchStartTimeRef.current.set(circleId, currentTime);
 
     if (!processedTouchesRef.current.has(circleId)) {
@@ -255,22 +340,15 @@ export default function GameGrid({
         processedTouchesRef.current.delete(circleId);
       }, 100);
     }
-  };
+  }, [isGameActive, onCircleClick]);
 
-  const handleTouchEnd = (circleId: number, event: React.TouchEvent) => {
-    // Prevent event from bubbling to background click handler
+  const handleTouchEnd = useCallback((circleId: number, event: React.TouchEvent) => {
     event.preventDefault();
     event.stopPropagation();
-
-    const touchStartTime = touchStartTimeRef.current.get(circleId);
-    const currentTime = Date.now();
-    const touchDuration = touchStartTime ? currentTime - touchStartTime : 0;
-    const touchInfo = getBasicTouchInfo(event);
-
     touchStartTimeRef.current.delete(circleId);
-  };
+  }, []);
 
-  const handleClick = (circleId: number, event: React.MouseEvent) => {
+  const handleClick = useCallback((circleId: number, event: React.MouseEvent) => {
     if (!isGameActive) {
       return;
     }
@@ -282,14 +360,14 @@ export default function GameGrid({
       return;
     }
 
-    // Prevent event from bubbling to background click handler
     event.preventDefault();
     event.stopPropagation();
 
     onCircleClick(circleId);
-  };
+  }, [isGameActive, onCircleClick]);
 
-  const getInteractionProps = (circle: Circle) => {
+  // Memoized interaction props
+  const getInteractionProps = useCallback((circle: Circle) => {
     return {
       disabled: !isGameActive,
       style: {
@@ -308,10 +386,10 @@ export default function GameGrid({
         event.preventDefault();
       },
     };
-  };
+  }, [isGameActive, showCircles, handleTouchStart, handleTouchEnd, handleClick]);
 
-  // Continuous pulse effect (unchanged but respects instant deactivation)
-  const renderPulseEffect = (circle: Circle) => {
+  // Continuous pulse effect (optimized)
+  const renderPulseEffect = useCallback((circle: Circle) => {
     // Don't render pulse for instantly deactivated circles
     if (instantlyDeactivatedCircles.includes(circle.id)) return null;
     if (!circle.isActive || circle.isAnimating) return null;
@@ -321,16 +399,17 @@ export default function GameGrid({
 
     return (
       <div
+        key={`pulse-${circle.id}`}
         className={`absolute inset-0 rounded-full border-2 ${pulseColor} opacity-50`}
         style={{
           animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
         }}
       />
     );
-  };
+  }, [instantlyDeactivatedCircles]);
 
-  // Fast activation pulse effect (respects instant deactivation)
-  const renderActivationPulse = (circle: Circle) => {
+  // Fast activation pulse effect (optimized)
+  const renderActivationPulse = useCallback((circle: Circle) => {
     // Don't render activation pulse for instantly deactivated circles
     if (instantlyDeactivatedCircles.includes(circle.id)) return null;
 
@@ -346,51 +425,41 @@ export default function GameGrid({
     const pulseColor = activePulse.isRed ? "border-red-400" : "border-white";
 
     // Different z-index for different game modes
-    // In survival mode, pulse goes behind circles; in reaction mode, it goes above
     const zIndex = gameMode === "survival" ? -1 : 10;
 
     return (
       <div
+        key={`activation-pulse-${circle.id}-${activePulse.timestamp}`}
         className={`absolute inset-0 rounded-full border-2 ${pulseColor} ${pulseClass} pointer-events-none`}
         style={{
           zIndex: zIndex,
         }}
       />
     );
-  };
+  }, [instantlyDeactivatedCircles, activePulses, gameMode]);
 
-  const getContainerMaxDimensions = () => {
-    // Calculate container dimensions based on circle count and adaptive sizing
-    const containerWidth = circleSize * cols + gapSize * (cols - 1) + 32; // 32px padding
-    const containerHeight = circleSize * rows + gapSize * (rows - 1) + 32;
-
-    return {
-      maxWidth: `min(95vw, ${containerWidth}px)`,
-      maxHeight: `min(70vh, ${containerHeight}px)`,
-    };
-  };
-
-  const { maxWidth, maxHeight } = getContainerMaxDimensions();
+  // Memoized grid style
+  const gridStyle = useMemo(() => ({
+    gridTemplateColumns: `repeat(${cols}, 1fr)`,
+    gridTemplateRows: `repeat(${rows}, 1fr)`,
+    gap: `${gapSize}px`,
+    userSelect: "none" as const,
+    WebkitUserSelect: "none" as const,
+    WebkitTouchCallout: "none" as const,
+    touchAction: "none" as const,
+    overscrollBehavior: "none" as const,
+    ...containerDimensions,
+  }), [cols, rows, gapSize, containerDimensions]);
 
   return (
     <div className="flex items-center justify-center min-h-[400px] p-4">
       <div
         className="grid justify-items-center items-center no-drag"
-        style={{
-          gridTemplateColumns: `repeat(${cols}, 1fr)`,
-          gridTemplateRows: `repeat(${rows}, 1fr)`,
-          gap: `${gapSize}px`,
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          WebkitTouchCallout: "none",
-          touchAction: "none",
-          overscrollBehavior: "none",
-          maxWidth,
-          maxHeight,
-        }}
+        style={gridStyle}
       >
         {circles.map((circle) => {
           const circleStyleConfig = getCircleStyles(circle);
+          const interactionProps = getInteractionProps(circle);
 
           return (
             <button
@@ -398,16 +467,16 @@ export default function GameGrid({
               aria-label={`Game circle ${circle.id + 1}${circle.isActive ? (circle.isDecoy ? " - trap target" : " - active target") : ""}`}
               className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none`}
               data-circle-id={circle.id}
-              disabled={getInteractionProps(circle).disabled}
+              disabled={interactionProps.disabled}
               style={{
                 ...circleStyleConfig.style,
-                ...getInteractionProps(circle).style,
+                ...interactionProps.style,
               }}
               type="button"
-              onClick={getInteractionProps(circle).onClick}
-              onContextMenu={getInteractionProps(circle).onContextMenu}
-              onTouchEnd={getInteractionProps(circle).onTouchEnd}
-              onTouchStart={getInteractionProps(circle).onTouchStart}
+              onClick={interactionProps.onClick}
+              onContextMenu={interactionProps.onContextMenu}
+              onTouchEnd={interactionProps.onTouchEnd}
+              onTouchStart={interactionProps.onTouchStart}
             >
               {/* Existing continuous pulse effect */}
               {renderPulseEffect(circle)}
@@ -420,3 +489,6 @@ export default function GameGrid({
     </div>
   );
 }
+
+// Export memoized component with custom comparison
+export default React.memo(GameGrid, arePropsEqual);

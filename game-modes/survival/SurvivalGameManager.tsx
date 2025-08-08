@@ -1,8 +1,9 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Optimized version with direct DOM updates
+// src/game-modes/survival/SurvivalGameManager.tsx - Fully optimized version
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React from "react";
 
 import {
   Crosshair,
@@ -54,14 +55,16 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 100; // Update every 100ms
+// Memoized GameGrid to prevent unnecessary re-renders
+const MemoizedGameGrid = React.memo(GameGrid);
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
   const router = useRouter();
   const t = useT();
 
-  const [gameState, setGameState] = useState<SurvivalGameState>(
+  // Split state: static game data and dynamic UI data
+  const [gameLogicState, setGameLogicState] = useState<SurvivalGameState>(
     initializeSurvivalGameState(),
   );
   const [showCircles, setShowCircles] = useState(false);
@@ -69,43 +72,65 @@ export default function SurvivalGameManager() {
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
 
+  // Stable state for GameGrid props - only updates when circles actually change
+  const [stableCircles, setStableCircles] = useState(gameLogicState.circles);
+  const [stableIsGameActive, setStableIsGameActive] = useState(false);
+
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
-  const [lastActivationTimestamp, setLastActivationTimestamp] =
-    useState<number>(0);
-
-  // State for instant deactivation tracking
+  const [lastActivationTimestamp, setLastActivationTimestamp] = useState<number>(0);
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
 
-  // Refs for direct DOM updates - no React re-renders needed
+  // Refs for direct DOM updates and stable callbacks
   const levelElementRef = useRef<HTMLSpanElement>(null);
   const timeElementRef = useRef<HTMLSpanElement>(null);
   const timeUpdateIntervalRef = useRef<NodeJS.Timeout>();
 
-  // Protection against multiple simultaneous operations
+  // Stable refs to prevent callback recreation
+  const gameStateRef = useRef<SurvivalGameState>(gameLogicState);
+  const stableCallbacksRef = useRef({
+    onCircleClick: null as ((circleId: number) => void) | null,
+    triggerHapticFeedback: null as ((type: "success" | "error") => void) | null,
+    endGame: null as ((cause: "miss" | "wrong_click" | "decoy_hit") => void) | null,
+  });
+
+  // Protection flags
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
-  const gameStateRef = useRef<SurvivalGameState>(gameState);
 
   useEffect(() => {
-    gameStateRef.current = gameState;
-  }, [gameState]);
+    gameStateRef.current = gameLogicState;
+  }, [gameLogicState]);
 
-  // Direct DOM update function for time display
+  // Update stable circles only when they actually change
+  useEffect(() => {
+    if (JSON.stringify(stableCircles) !== JSON.stringify(gameLogicState.circles)) {
+      setStableCircles(gameLogicState.circles);
+    }
+  }, [gameLogicState.circles, stableCircles]);
+
+  // Update stable game active state only when it changes
+  useEffect(() => {
+    const isActive = gameLogicState.gameState === GameState.PLAYING;
+    if (stableIsGameActive !== isActive) {
+      setStableIsGameActive(isActive);
+    }
+  }, [gameLogicState.gameState, stableIsGameActive]);
+
+  // Direct DOM update functions
   const updateTimeDisplay = useCallback((survivalTime: number) => {
     if (timeElementRef.current) {
       timeElementRef.current.textContent = formatSurvivalTime(survivalTime);
     }
   }, []);
 
-  // Direct DOM update function for level display
   const updateLevelDisplay = useCallback((level: number) => {
     if (levelElementRef.current) {
       levelElementRef.current.textContent = `${t("common.level")} ${level}/15`;
     }
   }, [t]);
 
-  // Start time updates with direct DOM manipulation
+  // Time updates with direct DOM manipulation
   const startTimeUpdates = useCallback((gameStartTime: number) => {
     if (timeUpdateIntervalRef.current) {
       clearInterval(timeUpdateIntervalRef.current);
@@ -115,10 +140,9 @@ export default function SurvivalGameManager() {
       const currentTime = Date.now();
       const survivalTime = currentTime - gameStartTime;
       updateTimeDisplay(survivalTime);
-    }, 50); // Update every 50ms for smooth time display
+    }, 50);
   }, [updateTimeDisplay]);
 
-  // Stop time updates
   const stopTimeUpdates = useCallback(() => {
     if (timeUpdateIntervalRef.current) {
       clearInterval(timeUpdateIntervalRef.current);
@@ -128,42 +152,10 @@ export default function SurvivalGameManager() {
 
   // Update level display when level changes
   useEffect(() => {
-    updateLevelDisplay(gameState.currentLevel);
-  }, [gameState.currentLevel, updateLevelDisplay]);
+    updateLevelDisplay(gameLogicState.currentLevel);
+  }, [gameLogicState.currentLevel, updateLevelDisplay]);
 
-  // Setup Telegram WebApp back button
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-
-      tg.BackButton.show();
-      tg.BackButton.onClick(() => {
-        router.push("/game");
-      });
-
-      return () => {
-        tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
-      };
-    }
-  }, [router]);
-
-  // Auto-start game on component mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      startGame();
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Cleanup time updates on unmount
-  useEffect(() => {
-    return () => {
-      stopTimeUpdates();
-    };
-  }, [stopTimeUpdates]);
-
+  // Stable haptic feedback function
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
       typeof window !== "undefined" &&
@@ -174,12 +166,16 @@ export default function SurvivalGameManager() {
     }
   }, []);
 
+  // Store stable callback in ref
+  useEffect(() => {
+    stableCallbacksRef.current.triggerHapticFeedback = triggerHapticFeedback;
+  }, [triggerHapticFeedback]);
+
   const checkForNewBestScore = useCallback(
     (newScore: number) => {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
         const isNewBest = newScore > previousBest;
-
         setIsNewBestScore(isNewBest);
       }
     },
@@ -256,10 +252,9 @@ export default function SurvivalGameManager() {
     [makeAuthenticatedRequest, t],
   );
 
-  // Enhanced protected endGame function with multiple call prevention
+  // Stable endGame function
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
-      // Prevent multiple calls to endGame
       if (isGameEndingRef.current) {
         return;
       }
@@ -267,8 +262,7 @@ export default function SurvivalGameManager() {
       isGameEndingRef.current = true;
       stopTimeUpdates();
 
-      setGameState((prev) => {
-        // Double-check that game isn't already ending
+      setGameLogicState((prev) => {
         if (prev.isGameEnding) {
           return prev;
         }
@@ -300,7 +294,6 @@ export default function SurvivalGameManager() {
         const result = createSurvivalGameResult(finalGameState);
 
         checkForNewBestScore(result.score);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -311,16 +304,18 @@ export default function SurvivalGameManager() {
     [handleSaveGameResult, checkForNewBestScore, stopTimeUpdates],
   );
 
-  // Enhanced protected scheduleNextActivation with race condition prevention
+  // Store stable callback in ref
+  useEffect(() => {
+    stableCallbacksRef.current.endGame = endGame;
+  }, [endGame]);
+
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
-    // Prevent multiple simultaneous scheduling calls
     if (isSchedulingActivationRef.current) {
       return;
     }
 
-    // Enhanced state validation
     if (!currentState.isActive ||
       currentState.gameState !== GameState.PLAYING ||
       currentState.isGameEnding ||
@@ -337,10 +332,8 @@ export default function SurvivalGameManager() {
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
-      // Reset scheduling flag when timeout executes
       isSchedulingActivationRef.current = false;
 
-      // Double-check game state when timeout fires
       if (!gameStateRef.current.isActive ||
         gameStateRef.current.gameState !== GameState.PLAYING ||
         gameStateRef.current.isGameEnding ||
@@ -348,8 +341,7 @@ export default function SurvivalGameManager() {
         return;
       }
 
-      setGameState((prev) => {
-        // Triple-check state inside setState
+      setGameLogicState((prev) => {
         if (!prev.isActive || prev.gameState !== GameState.PLAYING || prev.isGameEnding) {
           return prev;
         }
@@ -358,7 +350,6 @@ export default function SurvivalGameManager() {
           prev,
           (circleIds, redCircleIds) => {
             const timestamp = Date.now();
-
             setActivatedCircles(circleIds);
             setLastActivationTimestamp(timestamp);
 
@@ -367,18 +358,16 @@ export default function SurvivalGameManager() {
             }, 450);
           },
           (circleId, wasDecoy) => {
-            // Check if game is ending before processing timeout
             if (isGameEndingRef.current || prev.isGameEnding) {
               return;
             }
 
             if (!wasDecoy) {
-              endGame("miss");
+              stableCallbacksRef.current.endGame?.("miss");
             } else {
-              setGameState((current) =>
+              setGameLogicState((current) =>
                 deactivateSurvivalCircle(current, circleId),
               );
-              // Only schedule next activation if game is still active
               if (!isGameEndingRef.current && !gameStateRef.current.isGameEnding) {
                 scheduleNextActivation();
               }
@@ -389,7 +378,6 @@ export default function SurvivalGameManager() {
         return newState;
       });
 
-      // Schedule next activation only if game is still active
       if (gameStateRef.current.isActive &&
         gameStateRef.current.gameState === GameState.PLAYING &&
         !gameStateRef.current.isGameEnding &&
@@ -398,17 +386,17 @@ export default function SurvivalGameManager() {
       }
     }, delay);
 
-    setGameState((prev) => ({
+    setGameLogicState((prev) => ({
       ...prev,
       activationTimeout: timeout,
     }));
 
-    // Reset scheduling flag after timeout is set
     setTimeout(() => {
       isSchedulingActivationRef.current = false;
     }, 50);
-  }, [endGame]);
+  }, []);
 
+  // Stable circle click handler
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       const currentState = gameStateRef.current;
@@ -425,38 +413,39 @@ export default function SurvivalGameManager() {
       );
 
       if (result === "correct") {
-        triggerHapticFeedback("success");
+        stableCallbacksRef.current.triggerHapticFeedback?.("success");
 
-        // Add circle to instant deactivation list
         setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
 
-        // Immediately clear timeout and deactivate circle without animation
         const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId);
-        setGameState(immediatelyDeactivatedState);
+        setGameLogicState(immediatelyDeactivatedState);
 
-        // Remove from instant deactivation list after short delay
         setTimeout(() => {
           setInstantlyDeactivatedCircles((prev) => prev.filter(id => id !== circleId));
         }, 100);
       } else if (result === "decoy") {
-        triggerHapticFeedback("error");
-        endGame("decoy_hit");
+        stableCallbacksRef.current.triggerHapticFeedback?.("error");
+        stableCallbacksRef.current.endGame?.("decoy_hit");
       } else {
-        triggerHapticFeedback("error");
-        endGame("wrong_click");
+        stableCallbacksRef.current.triggerHapticFeedback?.("error");
+        stableCallbacksRef.current.endGame?.("wrong_click");
       }
     },
-    [triggerHapticFeedback, endGame],
+    [],
   );
 
+  // Store stable callback in ref
+  useEffect(() => {
+    stableCallbacksRef.current.onCircleClick = handleCircleClickEvent;
+  }, [handleCircleClickEvent]);
+
   const startGame = useCallback(() => {
-    // Reset protection flags
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
     const newGameState = initializeSurvivalGameState();
 
-    setGameState(newGameState);
+    setGameLogicState(newGameState);
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
     setActivatedCircles([]);
@@ -469,17 +458,15 @@ export default function SurvivalGameManager() {
     }, 100);
 
     setTimeout(() => {
-      setGameState((prev) => {
+      setGameLogicState((prev) => {
         const updatedState = { ...prev, gameState: GameState.PLAYING };
-        
-        // Start time updates when game begins
         startTimeUpdates(updatedState.gameStartTime);
-        
         return updatedState;
       });
 
+      // Separate interval for level progression that doesn't affect circles
       const levelInterval = setInterval(() => {
-        setGameState((current) => {
+        setGameLogicState((current) => {
           if (!current.isActive ||
             current.gameState !== GameState.PLAYING ||
             current.isGameEnding ||
@@ -488,15 +475,26 @@ export default function SurvivalGameManager() {
             return current;
           }
 
-          return updateSurvivalLevel(current, Date.now());
+          // Only update level-related data, not circles
+          const updatedState = updateSurvivalLevel(current, Date.now());
+
+          // Preserve circles array reference if it hasn't changed
+          if (JSON.stringify(updatedState.circles) === JSON.stringify(current.circles)) {
+            return {
+              ...updatedState,
+              circles: current.circles, // Keep same reference
+            };
+          }
+
+          return updatedState;
         });
-      }, LEVEL_UPDATE_INTERVAL);
+      }, 200); // Reduced frequency for level updates
 
       setTimeout(() => {
         scheduleNextActivation();
       }, 1000);
 
-      setGameState((prev) => ({
+      setGameLogicState((prev) => ({
         ...prev,
         levelUpdateInterval: levelInterval,
       }));
@@ -506,6 +504,49 @@ export default function SurvivalGameManager() {
   const handleBackToGames = useCallback(() => {
     router.push("/game");
   }, [router]);
+
+  // Memoized props for GameGrid to prevent unnecessary re-renders
+  const gameGridProps = useMemo(() => ({
+    circles: stableCircles,
+    gameMode: "survival" as const,
+    isGameActive: stableIsGameActive,
+    lastActivationTimestamp,
+    showCircles,
+    onActivatedCircles: activatedCircles,
+    onCircleClick: stableCallbacksRef.current.onCircleClick || (() => { }),
+    instantlyDeactivatedCircles,
+  }), [
+    stableCircles,
+    stableIsGameActive,
+    lastActivationTimestamp,
+    showCircles,
+    activatedCircles,
+    instantlyDeactivatedCircles,
+  ]);
+
+  // Setup effects
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => {
+        router.push("/game");
+      });
+
+      return () => {
+        tg.BackButton.hide();
+        tg.BackButton.offClick(() => { });
+      };
+    }
+  }, [router]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startGame();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [startGame]);
 
   useEffect(() => {
     return () => {
@@ -542,7 +583,7 @@ export default function SurvivalGameManager() {
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
 
-  if (gameState.gameState === GameState.FINISHED && gameResult) {
+  if (gameLogicState.gameState === GameState.FINISHED && gameResult) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
         <div className="w-full max-w-md space-y-8 animate-fade-in">
@@ -712,20 +753,10 @@ export default function SurvivalGameManager() {
   return (
     <div className="min-h-screen bg-black flex flex-col text-white">
       <div className="flex-1 flex items-center justify-center">
-        <GameGrid
-          circles={gameState.circles}
-          gameMode="survival"
-          isGameActive={gameState.gameState === GameState.PLAYING}
-          lastActivationTimestamp={lastActivationTimestamp}
-          showCircles={showCircles}
-          onActivatedCircles={activatedCircles}
-          onCircleClick={handleCircleClickEvent}
-          instantlyDeactivatedCircles={instantlyDeactivatedCircles}
-        />
+        <MemoizedGameGrid {...gameGridProps} />
       </div>
 
-      {/* Static panel that never re-renders - only direct DOM updates */}
-      <div 
+      <div
         className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom game-panel-stable"
         style={{ height: "100px" }}
       >
@@ -733,17 +764,17 @@ export default function SurvivalGameManager() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2 game-panel-item">
               <Zap className="text-orange-400" size={18} />
-              <span 
+              <span
                 ref={levelElementRef}
                 className="text-lg font-bold text-orange-400 game-level-display"
               >
-                {t("common.level")} {gameState.currentLevel}/15
+                {t("common.level")} {gameLogicState.currentLevel}/15
               </span>
             </div>
 
             <div className="flex items-center space-x-2 game-panel-item">
               <Clock className="text-white" size={18} />
-              <span 
+              <span
                 ref={timeElementRef}
                 className="text-lg font-bold text-white game-time-display"
               >
