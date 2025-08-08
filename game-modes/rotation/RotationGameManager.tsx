@@ -1,8 +1,8 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Исправлено для устранения race conditions
+// src/game-modes/rotation/RotationGameManager.tsx - Refactored version without attempts logic
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   RotateCcw,
   AlertTriangle,
@@ -66,57 +66,16 @@ export default function RotationGameManager() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<RotationGameResult | null>(null);
 
-  // НОВОЕ: Состояние для pending активаций
-  const [pendingActivations, setPendingActivations] = useState<Set<number>>(new Set());
-  const [pendingRedCircles, setPendingRedCircles] = useState<Set<number>>(new Set());
-
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
 
   const gameStateRef = useRef<RotationGameState>(gameState);
-  const pendingActivationsRef = useRef<Set<number>>(pendingActivations);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
-
-  useEffect(() => {
-    pendingActivationsRef.current = pendingActivations;
-  }, [pendingActivations]);
-
-  // НОВОЕ: Синхронизация pending активаций с реальным состоянием
-  useLayoutEffect(() => {
-    if (pendingActivations.size > 0) {
-      // Проверяем, какие pending активации уже применены в gameState
-      const appliedActivations = Array.from(pendingActivations).filter(
-        (circleId) => gameState.circles.find(c => c.id === circleId)?.isActive
-      );
-
-      if (appliedActivations.length > 0) {
-        setPendingActivations(prev => {
-          const newSet = new Set(prev);
-          appliedActivations.forEach(id => newSet.delete(id));
-          return newSet;
-        });
-      }
-    }
-
-    if (pendingRedCircles.size > 0) {
-      const appliedRedCircles = Array.from(pendingRedCircles).filter(
-        (circleId) => gameState.circles.find(c => c.id === circleId)?.isDecoy
-      );
-
-      if (appliedRedCircles.length > 0) {
-        setPendingRedCircles(prev => {
-          const newSet = new Set(prev);
-          appliedRedCircles.forEach(id => newSet.delete(id));
-          return newSet;
-        });
-      }
-    }
-  }, [gameState.circles, pendingActivations, pendingRedCircles]);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -130,7 +89,7 @@ export default function RotationGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => { });
+        tg.BackButton.offClick(() => {});
       };
     }
   }, [router]);
@@ -150,6 +109,7 @@ export default function RotationGameManager() {
       window.Telegram?.WebApp?.HapticFeedback
     ) {
       const haptic = window.Telegram.WebApp.HapticFeedback;
+
       haptic.notificationOccurred(type);
     }
   }, []);
@@ -202,6 +162,7 @@ export default function RotationGameManager() {
           if (attemptCount <= 3) {
             setSaveStatus((prev) => ({ ...prev, attempt: attemptCount }));
             await new Promise((resolve) => setTimeout(resolve, 1500));
+
             return attemptSave();
           } else {
             throw error;
@@ -256,10 +217,6 @@ export default function RotationGameManager() {
         handleSaveGameResult(result);
         cleanupRotationGame(finalGameState);
 
-        // Очищаем pending активации при завершении игры
-        setPendingActivations(new Set());
-        setPendingRedCircles(new Set());
-
         return finalGameState;
       });
     },
@@ -275,7 +232,7 @@ export default function RotationGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -284,26 +241,11 @@ export default function RotationGameManager() {
         gameStateRef.current.gameState === GameState.PLAYING
       ) {
         setGameState((prev) => {
-          // ИСПРАВЛЕНО: Используем новую структуру возврата
-          const { newState, activatedCircleIds, redCircleIds } = activateRotationCircles(
+          const newState = activateRotationCircles(
             prev,
             (circleIds, redCircleIds) => {
               const timestamp = Date.now();
 
-              // НОВОЕ: Немедленно помечаем круги как pending
-              setPendingActivations(prevPending => {
-                const newSet = new Set(prevPending);
-                circleIds.forEach(id => newSet.add(id));
-                return newSet;
-              });
-
-              setPendingRedCircles(prevPending => {
-                const newSet = new Set(prevPending);
-                redCircleIds.forEach(id => newSet.add(id));
-                return newSet;
-              });
-
-              // Визуальные эффекты
               setActivatedCircles(circleIds);
               setLastActivationTimestamp(timestamp);
 
@@ -340,31 +282,15 @@ export default function RotationGameManager() {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
 
       const clickTime = Date.now();
-
-      // ИСПРАВЛЕНО: Передаем pending активации в обработчик клика
       const { newState, result } = handleRotationCircleClick(
         gameStateRef.current,
         circleId,
-        pendingActivationsRef.current,
         clickTime,
       );
 
       if (result === "correct") {
         triggerHapticFeedback("success");
         setGameState(newState);
-
-        // Убираем из pending при успешном клике
-        setPendingActivations(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(circleId);
-          return newSet;
-        });
-
-        setPendingRedCircles(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(circleId);
-          return newSet;
-        });
 
         setTimeout(() => {
           setGameState((current) =>
@@ -391,10 +317,6 @@ export default function RotationGameManager() {
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
 
-    // НОВОЕ: Очищаем pending активации при старте игры
-    setPendingActivations(new Set());
-    setPendingRedCircles(new Set());
-
     setTimeout(() => {
       setShowCircles(true);
     }, 100);
@@ -407,6 +329,7 @@ export default function RotationGameManager() {
         setGameState((current) => {
           if (!current.isActive || current.gameState !== GameState.PLAYING) {
             clearInterval(levelInterval);
+
             return current;
           }
 
@@ -530,76 +453,76 @@ export default function RotationGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-              <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
-                      <span className="text-sm text-orange-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
+            <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                    <span className="text-sm text-orange-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                          : t("save.recordingRotation")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-orange-400/60" size={14} />
-                          <span className="text-xs text-orange-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-orange-400/20 rounded-full h-1">
-                          <div
-                            className="bg-orange-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                        : t("save.recordingRotation")}
+                    </span>
                   </div>
-                )}
 
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.rotationRecordedSuccessfully")}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-orange-400/60" size={14} />
+                        <span className="text-xs text-orange-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-orange-400/20 rounded-full h-1">
+                        <div
+                          className="bg-orange-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.rotationRecordedSuccessfully")}
+                    </span>
+                  </div>
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                      : t("save.synchronized")}
                   </div>
-                )}
+                </div>
+              )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-orange-400 text-sm">
-                        Save failed after {saveStatus.maxAttempts} attempts
-                      </span>
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
-                      onClick={() => handleSaveGameResult(gameResult)}
-                    >
-                      {t("save.retrySave")}
-                    </button>
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-orange-400 text-sm">
+                      Save failed after {saveStatus.maxAttempts} attempts
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <button
+                    className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    {t("save.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-4">
             <button
@@ -627,8 +550,6 @@ export default function RotationGameManager() {
           showCircles={showCircles}
           onActivatedCircles={activatedCircles}
           onCircleClick={handleCircleClickEvent}
-          pendingActivations={pendingActivations}
-          pendingRedCircles={pendingRedCircles}
         />
       </div>
 

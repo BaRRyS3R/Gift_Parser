@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameLogic.ts - Исправлено для устранения race conditions
+// src/game-modes/rotation/RotationGameLogic.ts - Fixed level transitions preserving active circles
 
 import {
   RotationGameConfig,
@@ -180,9 +180,11 @@ export const initializeRotationGameState = (): RotationGameState => {
 
 export const getLevelConfig = (level: number): RotationLevelConfig => {
   const clampedLevel = Math.max(1, Math.min(level, ROTATION_LEVELS.length));
+
   return ROTATION_LEVELS[clampedLevel - 1];
 };
 
+// Updated function to preserve active circles during level transitions
 export const updateRotationLevel = (
   state: RotationGameState,
   currentTime?: number,
@@ -203,9 +205,10 @@ export const updateRotationLevel = (
     const newLevel = state.currentLevel + 1;
     const levelConfig = getLevelConfig(newLevel);
 
-    // Preserve active circles and their states during level transition
+    // CRITICAL: Preserve active circles and their states during level transition
     const preservedCircles = state.circles.map((circle) => ({
       ...circle,
+      // Keep existing active state and position - DO NOT reset
     }));
 
     return {
@@ -213,12 +216,13 @@ export const updateRotationLevel = (
       currentLevel: newLevel,
       timeInCurrentLevel: 0,
       currentRotationSpeed: levelConfig.rotationSpeed,
-      circles: preservedCircles,
+      circles: preservedCircles, // Preserve all circle states
       stats: {
         ...state.stats,
         survivalTime: actualSurvivalTime,
         currentLevel: newLevel,
       },
+      // Keep existing active circle IDs and timeouts
       activeCircleIds: state.activeCircleIds,
       circleTimeouts: state.circleTimeouts,
     };
@@ -233,6 +237,9 @@ export const updateRotationLevel = (
     },
   };
 };
+
+// Removed problematic updateCirclePositions function that was causing conflicts
+// Positions are now handled entirely by CSS animation
 
 export const getRandomCircleIds = (
   totalCircles: number,
@@ -249,25 +256,23 @@ export const getRandomCircleIds = (
   for (let i = 0; i < count; i++) {
     const randomIndex = Math.floor(Math.random() * availableIds.length);
     const selectedId = availableIds.splice(randomIndex, 1)[0];
+
     selectedIds.push(selectedId);
   }
 
   return selectedIds;
 };
 
-// ИСПРАВЛЕНО: Добавлена поддержка немедленного возврата активированных кругов
 export const activateRotationCircles = (
   state: RotationGameState,
   onCirclesActivated: (circleIds: number[], redCircleIds: number[]) => void,
   onCircleTimeout: (circleId: number, wasDecoy: boolean) => void,
-): { newState: RotationGameState; activatedCircleIds: number[]; redCircleIds: number[] } => {
+): RotationGameState => {
   const levelConfig = getLevelConfig(state.currentLevel);
   const availableSlots =
     levelConfig.simultaneousCircles - state.activeCircleIds.length;
 
-  if (availableSlots <= 0) {
-    return { newState: state, activatedCircleIds: [], redCircleIds: [] };
-  }
+  if (availableSlots <= 0) return state;
 
   const selectedIds = getRandomCircleIds(
     state.config.circleCount,
@@ -275,9 +280,7 @@ export const activateRotationCircles = (
     state.activeCircleIds,
   );
 
-  if (selectedIds.length === 0) {
-    return { newState: state, activatedCircleIds: [], redCircleIds: [] };
-  }
+  if (selectedIds.length === 0) return state;
 
   // Determine red circles
   const whiteCirclesNeeded = Math.max(
@@ -315,29 +318,26 @@ export const activateRotationCircles = (
         isDecoy: redIds.includes(circle.id),
       };
     }
+
     return circle;
   });
 
-  // ИСПРАВЛЕНО: Вызываем колбэк после обновления состояния, используя setTimeout для избежания race condition
+  // Call callback AFTER state is updated to ensure proper timing
   setTimeout(() => {
     onCirclesActivated(selectedIds, redIds);
-  }, 0);
+  }, 50); // Small delay to ensure circles are visually active first
 
-  const newState = {
+  return {
     ...state,
     activeCircleIds: newActiveCircleIds,
     circleTimeouts: newCircleTimeouts,
     circles: newCircles,
   };
-
-  return { newState, activatedCircleIds: selectedIds, redCircleIds: redIds };
 };
 
-// ИСПРАВЛЕНО: Добавлена поддержка pending активаций
 export const handleRotationCircleClick = (
   state: RotationGameState,
   clickedCircleId: number,
-  pendingActivations: Set<number>,
   clickTime: number = Date.now(),
 ): { newState: RotationGameState; result: "correct" | "wrong" | "decoy" } => {
   const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
@@ -348,14 +348,8 @@ export const handleRotationCircleClick = (
 
   const updatedState = updateRotationLevel(state, clickTime);
 
-  // ИСПРАВЛЕНО: Проверяем как активное состояние, так и pending активации
-  const isEffectivelyActive = clickedCircle.isActive || pendingActivations.has(clickedCircleId);
-
-  if (isEffectivelyActive && !clickedCircle.isAnimating) {
-    // Проверяем, является ли круг ловушкой (по состоянию или pending данным)
-    const isEffectivelyDecoy = clickedCircle.isDecoy;
-
-    if (isEffectivelyDecoy) {
+  if (clickedCircle.isActive && !clickedCircle.isAnimating) {
+    if (clickedCircle.isDecoy) {
       // Red circle clicked - game over
       return {
         newState: {

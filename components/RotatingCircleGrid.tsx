@@ -1,4 +1,4 @@
-// src/components/RotatingCircleGrid.tsx - Исправлено для устранения race conditions на iOS
+// src/components/RotatingCircleGrid.tsx - Simplified without pulse effects
 
 "use client";
 
@@ -15,9 +15,6 @@ interface RotatingCircleGridProps {
   radius: number;
   onActivatedCircles?: number[];
   lastActivationTimestamp?: number;
-  // НОВОЕ: Props для pending активаций
-  pendingActivations?: Set<number>; // Круги, которые ожидают активации
-  pendingRedCircles?: Set<number>; // Круги, которые ожидают активации как красные
 }
 
 export default function RotatingCircleGrid({
@@ -26,16 +23,11 @@ export default function RotatingCircleGrid({
   isGameActive,
   showCircles,
   rotationSpeed,
-  pendingActivations = new Set(),
-  pendingRedCircles = new Set(),
 }: RotatingCircleGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rotatingContainerRef = useRef<HTMLDivElement>(null);
-
-  // ИСПРАВЛЕНО: Улучшенное управление touch событиями для iOS
   const touchStartTimeRef = useRef<Map<number, number>>(new Map());
   const processedTouchesRef = useRef<Set<number>>(new Set());
-  const lastClickTimeRef = useRef<Map<number, number>>(new Map());
 
   // Animation state management
   const currentRotationRef = useRef<number>(0);
@@ -44,7 +36,7 @@ export default function RotatingCircleGrid({
   const currentSpeedRef = useRef<number>(rotationSpeed);
   const targetSpeedRef = useRef<number>(rotationSpeed);
 
-  // State for dynamic sizing - optimized without pulse effects
+  // State for dynamic sizing - now optimized without pulse effects
   const [circleSize, setCircleSize] = useState(40);
   const [containerSize, setContainerSize] = useState(350);
   const [effectiveRadius, setEffectiveRadius] = useState(120);
@@ -169,17 +161,7 @@ export default function RotatingCircleGrid({
     [effectiveRadius],
   );
 
-  // ИСПРАВЛЕНО: Улучшенная функция определения активности круга
-  const isCircleEffectivelyActive = (circle: RotationCircle): boolean => {
-    return circle.isActive || pendingActivations.has(circle.id);
-  };
-
-  // ИСПРАВЛЕНО: Улучшенная функция определения цвета круга
-  const isCircleEffectivelyRed = (circle: RotationCircle): boolean => {
-    return circle.isDecoy || pendingRedCircles.has(circle.id);
-  };
-
-  // ИСПРАВЛЕНО: Circle styles with improved pending state detection
+  // Circle styles without shadows but with borders
   const getCircleStyles = (circle: RotationCircle) => {
     const isDeactivating = circle.isAnimating;
 
@@ -196,12 +178,8 @@ export default function RotatingCircleGrid({
 
     const animationClasses = circle.isAnimating ? "opacity-0 scale-50" : "";
 
-    // ИСПРАВЛЕНО: Используем эффективные проверки активности
-    const isEffectivelyActive = isCircleEffectivelyActive(circle);
-    const isEffectivelyRed = isCircleEffectivelyRed(circle);
-
-    if (isEffectivelyActive && !circle.isAnimating) {
-      if (isEffectivelyRed) {
+    if (circle.isActive && !circle.isAnimating) {
+      if (circle.isDecoy) {
         return {
           className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
                       bg-red-500 border-red-400 scale-110
@@ -223,7 +201,7 @@ export default function RotatingCircleGrid({
     }
   };
 
-  // ИСПРАВЛЕНО: Оптимизированная обработка touch событий для iOS
+  // Touch event handlers with immediate response
   const handleTouchStart = (circleId: number, event: React.TouchEvent) => {
     if (!isGameActive) return;
 
@@ -231,26 +209,16 @@ export default function RotatingCircleGrid({
     event.stopPropagation();
 
     const currentTime = Date.now();
-    const lastClick = lastClickTimeRef.current.get(circleId) || 0;
-
-    // ИСПРАВЛЕНО: Увеличенный интервал дебаунсинга для iOS (было 10ms)
-    if (currentTime - lastClick < 150) {
-      return;
-    }
 
     touchStartTimeRef.current.set(circleId, currentTime);
 
     if (!processedTouchesRef.current.has(circleId)) {
       processedTouchesRef.current.add(circleId);
-      lastClickTimeRef.current.set(circleId, currentTime);
-
-      // ИСПРАВЛЕНО: Немедленный вызов без дополнительных задержек
       onCircleClick(circleId);
 
-      // ИСПРАВЛЕНО: Увеличенный таймаут для iOS (было 10ms)
       setTimeout(() => {
         processedTouchesRef.current.delete(circleId);
-      }, 200);
+      }, 10);
     }
   };
 
@@ -260,27 +228,18 @@ export default function RotatingCircleGrid({
     touchStartTimeRef.current.delete(circleId);
   };
 
-  // ИСПРАВЛЕНО: Улучшенная обработка mouse событий
   const handleClick = (circleId: number, event: React.MouseEvent) => {
     if (!isGameActive) return;
 
     const touchTime = touchStartTimeRef.current.get(circleId);
     const currentTime = Date.now();
-    const lastClick = lastClickTimeRef.current.get(circleId) || 0;
 
-    // ИСПРАВЛЕНО: Уменьшенная задержка для touch/click конфликтов (было 200ms)
-    if (touchTime && currentTime - touchTime < 150) {
-      return;
-    }
-
-    if (currentTime - lastClick < 150) {
+    if (touchTime && currentTime - touchTime < 200) {
       return;
     }
 
     event.preventDefault();
     event.stopPropagation();
-
-    lastClickTimeRef.current.set(circleId, currentTime);
     onCircleClick(circleId);
   };
 
@@ -295,8 +254,6 @@ export default function RotatingCircleGrid({
           userSelect: "none",
           WebkitUserSelect: "none",
           WebkitTouchCallout: "none",
-          touchAction: "none", // ИСПРАВЛЕНО: Критично для iOS
-          overscrollBehavior: "none", // ИСПРАВЛЕНО: Убираем резиновое прокручивание
         }}
       >
         {/* Rotating container */}
@@ -322,12 +279,13 @@ export default function RotatingCircleGrid({
             return (
               <button
                 key={circle.id}
-                aria-label={`Rotating circle ${circle.id + 1}${isCircleEffectivelyActive(circle)
-                    ? isCircleEffectivelyRed(circle)
+                aria-label={`Rotating circle ${circle.id + 1}${
+                  circle.isActive
+                    ? circle.isDecoy
                       ? " - trap target"
                       : " - active target"
                     : ""
-                  }`}
+                }`}
                 className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none touch-optimized`}
                 data-circle-id={circle.id}
                 disabled={!isGameActive}
@@ -340,28 +298,16 @@ export default function RotatingCircleGrid({
                   top: "50%",
                   transform: `translate(calc(-50% + ${staticPosition.x}px), calc(-50% + ${staticPosition.y}px))`,
                   transitionDelay: showCircles ? `${circle.id * 25}ms` : "0ms",
-                  touchAction: "manipulation", // ИСПРАВЛЕНО: Оптимизировано для iOS
+                  touchAction: "manipulation",
                   willChange: "transform",
                   backfaceVisibility: "hidden",
-                  userSelect: "none",
-                  WebkitUserSelect: "none",
-                  WebkitTouchCallout: "none",
                 }}
                 type="button"
                 onClick={(event) => handleClick(circle.id, event)}
                 onContextMenu={(event) => event.preventDefault()}
                 onTouchEnd={(event) => handleTouchEnd(circle.id, event)}
                 onTouchStart={(event) => handleTouchStart(circle.id, event)}
-              >
-                {/* Debug info for development */}
-                {process.env.NODE_ENV === "development" &&
-                  (isCircleEffectivelyActive(circle) || circle.isActive) && (
-                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-xs font-mono text-white/60">
-                      {circle.id}
-                      {pendingActivations.has(circle.id) ? "*" : ""}
-                    </div>
-                  )}
-              </button>
+              />
             );
           })}
         </div>
