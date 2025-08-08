@@ -1,6 +1,6 @@
-// src/types/game-modes/survival.ts - Updated with game logger integration and enhanced timing system
+// src/types/game-modes/survival.ts - Updated with race condition protection
 
-import { BaseGameResult, GameState, GameMode, Circle } from "./common";
+import { Circle, GameState, GameMode } from "./common";
 import { GameLogger } from "@/utils/gameLogger";
 
 export interface SurvivalGameConfig {
@@ -14,8 +14,8 @@ export interface SurvivalGameConfig {
   maxIntensityLevel: number;
   simultaneousCirclesMin: number;
   simultaneousCirclesMax: number;
-  circleReactivationCooldown: number; // Time to prevent immediate circle reactivation
-  maxHistoryRetention: number; // Maximum time to retain activation history
+  circleReactivationCooldown: number;
+  maxHistoryRetention: number;
 }
 
 export interface SurvivalLevelConfig {
@@ -38,17 +38,7 @@ export interface SurvivalGameStats {
   perfectStreak: number;
   totalReactionTime: number;
   hitCount: number;
-  gameStartTime: number; // Precise game start timestamp for accurate timing
-}
-
-export interface SurvivalGameResult extends BaseGameResult {
-  mode: GameMode.SURVIVAL;
-  survivalTime: number;
-  maxLevelReached: number;
-  perfectStreak: number;
-  correctHits: number;
-  deathCause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
-  gameLog?: string; // Comprehensive game log for debugging and analysis
+  gameStartTime: number;
 }
 
 export interface SurvivalGameState {
@@ -63,7 +53,22 @@ export interface SurvivalGameState {
   activationTimeout: NodeJS.Timeout | null;
   levelUpdateInterval: NodeJS.Timeout | null;
   isActive: boolean;
-  gameStartTime: number; // Precise game start timestamp in main state
-  recentlyUsedCircles: Map<number, number>; // Circle activation history for cooldown system
-  logger?: GameLogger; // Integrated game logging system
+  gameStartTime: number;
+  recentlyUsedCircles: Map<number, number>;
+  logger?: GameLogger;
+  isGameEnding?: boolean; // NEW: Flag to prevent multiple game endings
+  pendingActivationTimeouts?: Set<NodeJS.Timeout>; // NEW: Track all pending activation timeouts
+}
+
+export interface SurvivalGameResult {
+  mode: GameMode;
+  score: number;
+  duration: number;
+  survivalTime: number;
+  maxLevelReached: number;
+  perfectStreak: number;
+  correctHits: number;
+  deathCause: "miss" | "wrong_click" | "decoy_hit" | "timeout";
+  createdAt: string;
+  gameLog?: string;
 }

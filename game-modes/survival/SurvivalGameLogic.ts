@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameLogic.ts - Enhanced with comprehensive logging and temporal exclusion system
+// src/game-modes/survival/SurvivalGameLogic.ts - Fixed race conditions and cleanup issues
 
 import {
   SurvivalGameConfig,
@@ -22,7 +22,7 @@ export const SURVIVAL_CONFIG: SurvivalGameConfig = {
   simultaneousCirclesMin: 1,
   simultaneousCirclesMax: 4,
   circleReactivationCooldown: 2000, // 2 seconds
-  maxHistoryRetention: 5000, // 5 seconds history retention
+  maxHistoryRetention: 5000, // 5 seconds retention
 };
 
 export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
@@ -164,11 +164,11 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
 ];
 
 export const createSurvivalCircleGrid = (count: number, logger?: GameLogger): Circle[] => {
-  logger?.log('CIRCLE_GRID_CREATED', { 
+  logger?.log('CIRCLE_GRID_CREATED', {
     circleCount: count,
-    gridType: 'survival' 
+    gridType: 'survival'
   }, 'SurvivalGameLogic');
-  
+
   return Array.from({ length: count }, (_, index) => ({
     id: index,
     isActive: false,
@@ -183,13 +183,13 @@ const cleanupOldEntries = (
 ): Map<number, number> => {
   const currentTime = Date.now();
   const cleanedMap = new Map<number, number>();
-  
+
   recentlyUsedCircles.forEach((timestamp, circleId) => {
     if ((currentTime - timestamp) < maxAge) {
       cleanedMap.set(circleId, timestamp);
     }
   });
-  
+
   return cleanedMap;
 };
 
@@ -229,17 +229,19 @@ export const initializeSurvivalGameState = (): SurvivalGameState => {
     gameStartTime,
     recentlyUsedCircles: new Map<number, number>(),
     logger,
+    isGameEnding: false, // NEW: Flag to prevent multiple game endings
+    pendingActivationTimeouts: new Set(), // NEW: Track all pending activation timeouts
   };
 };
 
 export const getLevelConfig = (level: number, logger?: GameLogger): SurvivalLevelConfig => {
   const clampedLevel = Math.max(1, Math.min(level, SURVIVAL_LEVELS.length));
   const config = SURVIVAL_LEVELS[clampedLevel - 1];
-  
-  logger?.log('LEVEL_CONFIG_RETRIEVED', { 
-    requestedLevel: level, 
-    clampedLevel, 
-    config 
+
+  logger?.log('LEVEL_CONFIG_RETRIEVED', {
+    requestedLevel: level,
+    clampedLevel,
+    config
   }, 'SurvivalGameLogic');
 
   return config;
@@ -249,10 +251,12 @@ export const updateSurvivalLevel = (
   state: SurvivalGameState,
   currentTime?: number,
 ): SurvivalGameState => {
-  if (!state.isActive || !state.gameStartTime) {
-    state.logger?.log('LEVEL_UPDATE_SKIPPED', { 
-      isActive: state.isActive, 
-      hasGameStartTime: !!state.gameStartTime 
+  // ENHANCED: Additional state validation
+  if (!state.isActive || !state.gameStartTime || state.isGameEnding) {
+    state.logger?.log('LEVEL_UPDATE_SKIPPED', {
+      isActive: state.isActive,
+      hasGameStartTime: !!state.gameStartTime,
+      isGameEnding: state.isGameEnding
     }, 'SurvivalGameLogic');
     return state;
   }
@@ -272,7 +276,7 @@ export const updateSurvivalLevel = (
   if (shouldIncreaseLevel) {
     const newLevel = state.currentLevel + 1;
     const levelConfig = getLevelConfig(newLevel, state.logger);
-    
+
     state.logger?.updateLevel(newLevel);
     state.logger?.log('LEVEL_INCREASED', {
       previousLevel: state.currentLevel,
@@ -313,15 +317,15 @@ const getAvailableCircleIds = (
   cooldownMs: number = SURVIVAL_CONFIG.circleReactivationCooldown
 ): number[] => {
   const currentTime = Date.now();
-  
+
   return Array.from({ length: totalCircles }, (_, i) => i).filter(id => {
     if (excludeIds.includes(id)) return false;
-    
+
     const lastUsedTime = recentlyUsedCircles.get(id);
     if (lastUsedTime && (currentTime - lastUsedTime) < cooldownMs) {
       return false;
     }
-    
+
     return true;
   });
 };
@@ -335,9 +339,9 @@ export const getRandomCircleIds = (
   logger?: GameLogger,
 ): number[] => {
   const availableIds = getAvailableCircleIds(
-    totalCircles, 
-    excludeIds, 
-    recentlyUsedCircles, 
+    totalCircles,
+    excludeIds,
+    recentlyUsedCircles,
     cooldownMs
   );
 
@@ -368,6 +372,17 @@ export const activateSurvivalCircles = (
   onCirclesActivated: (circleIds: number[], redCircleIds: number[]) => void,
   onCircleTimeout: (circleId: number, wasDecoy: boolean) => void,
 ): SurvivalGameState => {
+  // ENHANCED: Strict state validation before activation
+  if (!state.isActive || state.gameState !== GameState.PLAYING || state.isGameEnding) {
+    state.logger?.log('CIRCLE_ACTIVATION_REJECTED', {
+      isActive: state.isActive,
+      gameState: state.gameState,
+      isGameEnding: state.isGameEnding,
+      reason: 'invalid_game_state'
+    }, 'SurvivalGameLogic');
+    return state;
+  }
+
   const levelConfig = getLevelConfig(state.currentLevel, state.logger);
   const availableSlots = levelConfig.simultaneousCircles - state.activeCircleIds.length;
 
@@ -376,13 +391,15 @@ export const activateSurvivalCircles = (
     levelConfig,
     currentActiveCircles: state.activeCircleIds.length,
     availableSlots,
-    activeCircleIds: [...state.activeCircleIds]
+    activeCircleIds: [...state.activeCircleIds],
+    gameState: state.gameState,
+    isGameEnding: state.isGameEnding
   }, 'SurvivalGameLogic');
 
   if (availableSlots <= 0) {
-    state.logger?.log('CIRCLE_ACTIVATION_SKIPPED', { 
+    state.logger?.log('CIRCLE_ACTIVATION_SKIPPED', {
       reason: 'no_available_slots',
-      availableSlots 
+      availableSlots
     }, 'SurvivalGameLogic');
     return state;
   }
@@ -397,8 +414,8 @@ export const activateSurvivalCircles = (
   );
 
   if (selectedIds.length === 0) {
-    state.logger?.log('CIRCLE_ACTIVATION_FAILED', { 
-      reason: 'no_circles_selected' 
+    state.logger?.log('CIRCLE_ACTIVATION_FAILED', {
+      reason: 'no_circles_selected'
     }, 'SurvivalGameLogic');
     return state;
   }
@@ -433,7 +450,20 @@ export const activateSurvivalCircles = (
 
   selectedIds.forEach((circleId) => {
     const isDecoy = redIds.includes(circleId);
+
+    // ENHANCED: Check game state before setting timeout
     const timeout = setTimeout(() => {
+      // Double-check game state when timeout fires
+      if (!state.isActive || state.isGameEnding) {
+        state.logger?.log('CIRCLE_TIMEOUT_IGNORED', {
+          circleId,
+          reason: 'game_not_active',
+          isActive: state.isActive,
+          isGameEnding: state.isGameEnding
+        }, 'SurvivalGameLogic');
+        return;
+      }
+
       state.logger?.log('CIRCLE_TIMEOUT_TRIGGERED', {
         circleId,
         isDecoy,
@@ -443,7 +473,7 @@ export const activateSurvivalCircles = (
     }, levelConfig.circleActiveTime);
 
     newCircleTimeouts.set(circleId, timeout);
-    
+
     state.logger?.log('CIRCLE_TIMEOUT_SET', {
       circleId,
       isDecoy,
@@ -461,7 +491,7 @@ export const activateSurvivalCircles = (
         isDecoy,
         wasDecoy: circle.isDecoy
       }, 'SurvivalGameLogic');
-      
+
       return {
         ...circle,
         isActive: true,
@@ -501,12 +531,22 @@ export const handleSurvivalCircleClick = (
     } : null,
     currentActiveCircles: [...state.activeCircleIds],
     gameState: state.gameState,
-    isGameActive: state.isActive
+    isGameActive: state.isActive,
+    isGameEnding: state.isGameEnding
   }, 'SurvivalGameLogic');
 
   if (!clickedCircle) {
     state.logger?.log('CIRCLE_CLICK_INVALID', {
       reason: 'circle_not_found',
+      clickedCircleId
+    }, 'SurvivalGameLogic');
+    return { newState: state, result: "wrong" };
+  }
+
+  // ENHANCED: Check if game is ending
+  if (state.isGameEnding) {
+    state.logger?.log('CIRCLE_CLICK_IGNORED', {
+      reason: 'game_ending',
       clickedCircleId
     }, 'SurvivalGameLogic');
     return { newState: state, result: "wrong" };
@@ -528,6 +568,7 @@ export const handleSurvivalCircleClick = (
           ...updatedState,
           gameState: GameState.FINISHED,
           isActive: false,
+          isGameEnding: true, // NEW: Set ending flag
           stats: {
             ...updatedState.stats,
             decoyHits: updatedState.stats.decoyHits + 1,
@@ -572,6 +613,7 @@ export const handleSurvivalCircleClick = (
         ...updatedState,
         gameState: GameState.FINISHED,
         isActive: false,
+        isGameEnding: true, // NEW: Set ending flag
         stats: {
           ...updatedState.stats,
           wrongHits: updatedState.stats.wrongHits + 1,
@@ -587,13 +629,14 @@ export const deactivateSurvivalCircle = (
   circleId: number,
 ): SurvivalGameState => {
   const circle = state.circles.find(c => c.id === circleId);
-  
+
   state.logger?.log('CIRCLE_DEACTIVATION', {
     circleId,
     wasActive: circle?.isActive,
     wasAnimating: circle?.isAnimating,
     wasDecoy: circle?.isDecoy,
-    activeCirclesBefore: [...state.activeCircleIds]
+    activeCirclesBefore: [...state.activeCircleIds],
+    isGameEnding: state.isGameEnding
   }, 'SurvivalGameLogic');
 
   const newActiveCircleIds = state.activeCircleIds.filter((id) => id !== circleId);
@@ -654,7 +697,7 @@ export const getSurvivalDeathCause = (
   logger?: GameLogger,
 ): SurvivalGameResult["deathCause"] => {
   let deathCause: SurvivalGameResult["deathCause"];
-  
+
   if (stats.decoyHits > 0) deathCause = "decoy_hit";
   else if (stats.wrongHits > 0) deathCause = "wrong_click";
   else if (stats.missedCircles > 0) deathCause = "miss";
@@ -707,26 +750,47 @@ export const createSurvivalGameResult = (
   };
 };
 
+// ENHANCED: Comprehensive cleanup function
 export const cleanupSurvivalGame = (state: SurvivalGameState): void => {
   state.logger?.log('GAME_CLEANUP_STARTED', {
     activeTimeouts: state.circleTimeouts.size,
     hasActivationTimeout: !!state.activationTimeout,
-    hasLevelUpdateInterval: !!state.levelUpdateInterval
+    hasLevelUpdateInterval: !!state.levelUpdateInterval,
+    pendingActivationTimeouts: state.pendingActivationTimeouts?.size || 0,
+    isGameEnding: state.isGameEnding
   }, 'SurvivalGameLogic');
 
+  // Set game ending flag to prevent new operations
+  state.isGameEnding = true;
+
+  // Clear all circle timeouts
   state.circleTimeouts.forEach((timeout, circleId) => {
     clearTimeout(timeout);
     state.logger?.log('TIMEOUT_CLEARED', { circleId }, 'SurvivalGameLogic');
   });
-  
+  state.circleTimeouts.clear();
+
+  // Clear activation timeout
   if (state.activationTimeout) {
     clearTimeout(state.activationTimeout);
+    state.activationTimeout = null;
     state.logger?.log('ACTIVATION_TIMEOUT_CLEARED', {}, 'SurvivalGameLogic');
   }
-  
+
+  // Clear level update interval
   if (state.levelUpdateInterval) {
     clearInterval(state.levelUpdateInterval);
+    state.levelUpdateInterval = null;
     state.logger?.log('LEVEL_UPDATE_INTERVAL_CLEARED', {}, 'SurvivalGameLogic');
+  }
+
+  // Clear any pending activation timeouts
+  if (state.pendingActivationTimeouts) {
+    state.pendingActivationTimeouts.forEach((timeoutId) => {
+      clearTimeout(timeoutId);
+    });
+    state.pendingActivationTimeouts.clear();
+    state.logger?.log('PENDING_ACTIVATION_TIMEOUTS_CLEARED', {}, 'SurvivalGameLogic');
   }
 
   state.logger?.log('GAME_CLEANUP_COMPLETED', {}, 'SurvivalGameLogic');

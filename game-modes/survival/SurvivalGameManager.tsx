@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Enhanced with comprehensive logging and debug export functionality
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed race conditions and multiple activations
 
 "use client";
 
@@ -76,7 +76,7 @@ export default function SurvivalGameManager() {
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
-  
+
   // State for instant deactivation tracking
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
 
@@ -84,6 +84,9 @@ export default function SurvivalGameManager() {
   const [isLogVisible, setIsLogVisible] = useState(false);
   const [logCopyStatus, setLogCopyStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
 
+  // NEW: Protection against multiple simultaneous operations
+  const isSchedulingActivationRef = useRef(false);
+  const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<SurvivalGameState>(gameState);
 
   useEffect(() => {
@@ -250,8 +253,20 @@ export default function SurvivalGameManager() {
     [makeAuthenticatedRequest, t],
   );
 
+  // ENHANCED: Protected endGame function with multiple call prevention
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
+      // Prevent multiple calls to endGame
+      if (isGameEndingRef.current) {
+        gameStateRef.current.logger?.log('GAME_END_BLOCKED', {
+          cause,
+          reason: 'already_ending'
+        }, 'SurvivalGameManager');
+        return;
+      }
+
+      isGameEndingRef.current = true;
+
       gameStateRef.current.logger?.log('GAME_END_TRIGGERED', {
         cause,
         currentLevel: gameStateRef.current.currentLevel,
@@ -260,6 +275,14 @@ export default function SurvivalGameManager() {
       }, 'SurvivalGameManager');
 
       setGameState((prev) => {
+        // Double-check that game isn't already ending
+        if (prev.isGameEnding) {
+          prev.logger?.log('GAME_END_DUPLICATE_PREVENTED', {
+            cause
+          }, 'SurvivalGameManager');
+          return prev;
+        }
+
         const finalState = updateSurvivalLevel(prev, Date.now());
 
         let updatedStats = { ...finalState.stats };
@@ -280,6 +303,7 @@ export default function SurvivalGameManager() {
           ...finalState,
           gameState: GameState.FINISHED,
           isActive: false,
+          isGameEnding: true,
           stats: updatedStats,
         };
 
@@ -297,16 +321,33 @@ export default function SurvivalGameManager() {
     [handleSaveGameResult, checkForNewBestScore],
   );
 
+  // ENHANCED: Protected scheduleNextActivation with race condition prevention
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
-    if (!currentState.isActive || currentState.gameState !== GameState.PLAYING) {
-      currentState.logger?.log('ACTIVATION_SCHEDULING_SKIPPED', {
-        isActive: currentState.isActive,
-        gameState: currentState.gameState
+    // Prevent multiple simultaneous scheduling calls
+    if (isSchedulingActivationRef.current) {
+      currentState.logger?.log('ACTIVATION_SCHEDULING_BLOCKED', {
+        reason: 'already_scheduling'
       }, 'SurvivalGameManager');
       return;
     }
+
+    // Enhanced state validation
+    if (!currentState.isActive ||
+      currentState.gameState !== GameState.PLAYING ||
+      currentState.isGameEnding ||
+      isGameEndingRef.current) {
+      currentState.logger?.log('ACTIVATION_SCHEDULING_SKIPPED', {
+        isActive: currentState.isActive,
+        gameState: currentState.gameState,
+        isGameEnding: currentState.isGameEnding,
+        isGameEndingRef: isGameEndingRef.current
+      }, 'SurvivalGameManager');
+      return;
+    }
+
+    isSchedulingActivationRef.current = true;
 
     const levelConfig = getLevelConfig(currentState.currentLevel, currentState.logger);
     const delay =
@@ -323,49 +364,89 @@ export default function SurvivalGameManager() {
     }, 'SurvivalGameManager');
 
     const timeout = setTimeout(() => {
-      if (
-        gameStateRef.current.isActive &&
-        gameStateRef.current.gameState === GameState.PLAYING
-      ) {
-        setGameState((prev) => {
-          const newState = activateSurvivalCircles(
-            prev,
-            (circleIds, redCircleIds) => {
-              const timestamp = Date.now();
+      // Reset scheduling flag when timeout executes
+      isSchedulingActivationRef.current = false;
 
-              prev.logger?.log('CIRCLES_ACTIVATION_CALLBACK', {
-                circleIds,
-                redCircleIds,
-                timestamp
-              }, 'SurvivalGameManager');
+      // Double-check game state when timeout fires
+      if (!gameStateRef.current.isActive ||
+        gameStateRef.current.gameState !== GameState.PLAYING ||
+        gameStateRef.current.isGameEnding ||
+        isGameEndingRef.current) {
+        gameStateRef.current.logger?.log('ACTIVATION_TIMEOUT_CANCELLED', {
+          reason: 'invalid_game_state',
+          isActive: gameStateRef.current.isActive,
+          gameState: gameStateRef.current.gameState,
+          isGameEnding: gameStateRef.current.isGameEnding
+        }, 'SurvivalGameManager');
+        return;
+      }
 
-              setActivatedCircles(circleIds);
-              setLastActivationTimestamp(timestamp);
+      setGameState((prev) => {
+        // Triple-check state inside setState
+        if (!prev.isActive || prev.gameState !== GameState.PLAYING || prev.isGameEnding) {
+          prev.logger?.log('ACTIVATION_CANCELLED_IN_SETSTATE', {
+            reason: 'invalid_state'
+          }, 'SurvivalGameManager');
+          return prev;
+        }
 
-              setTimeout(() => {
-                setActivatedCircles([]);
-              }, 450);
-            },
-            (circleId, wasDecoy) => {
-              prev.logger?.log('CIRCLE_TIMEOUT_CALLBACK', {
+        const newState = activateSurvivalCircles(
+          prev,
+          (circleIds, redCircleIds) => {
+            const timestamp = Date.now();
+
+            prev.logger?.log('CIRCLES_ACTIVATION_CALLBACK', {
+              circleIds,
+              redCircleIds,
+              timestamp
+            }, 'SurvivalGameManager');
+
+            setActivatedCircles(circleIds);
+            setLastActivationTimestamp(timestamp);
+
+            setTimeout(() => {
+              setActivatedCircles([]);
+            }, 450);
+          },
+          (circleId, wasDecoy) => {
+            prev.logger?.log('CIRCLE_TIMEOUT_CALLBACK', {
+              circleId,
+              wasDecoy,
+              willEndGame: !wasDecoy,
+              isGameEnding: isGameEndingRef.current
+            }, 'SurvivalGameManager');
+
+            // Check if game is ending before processing timeout
+            if (isGameEndingRef.current || prev.isGameEnding) {
+              prev.logger?.log('CIRCLE_TIMEOUT_IGNORED', {
                 circleId,
-                wasDecoy,
-                willEndGame: !wasDecoy
+                reason: 'game_ending'
               }, 'SurvivalGameManager');
+              return;
+            }
 
-              if (!wasDecoy) {
-                endGame("miss");
-              } else {
-                setGameState((current) =>
-                  deactivateSurvivalCircle(current, circleId),
-                );
+            if (!wasDecoy) {
+              endGame("miss");
+            } else {
+              setGameState((current) =>
+                deactivateSurvivalCircle(current, circleId),
+              );
+              // Only schedule next activation if game is still active
+              if (!isGameEndingRef.current && !gameStateRef.current.isGameEnding) {
                 scheduleNextActivation();
               }
-            },
-          );
+            }
+          },
+        );
 
-          return newState;
-        });
+        return newState;
+      });
+
+      // Schedule next activation only if game is still active
+      if (gameStateRef.current.isActive &&
+        gameStateRef.current.gameState === GameState.PLAYING &&
+        !gameStateRef.current.isGameEnding &&
+        !isGameEndingRef.current) {
         scheduleNextActivation();
       }
     }, delay);
@@ -374,17 +455,23 @@ export default function SurvivalGameManager() {
       ...prev,
       activationTimeout: timeout,
     }));
+
+    // Reset scheduling flag after timeout is set
+    setTimeout(() => {
+      isSchedulingActivationRef.current = false;
+    }, 50);
   }, [endGame]);
 
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       const currentState = gameStateRef.current;
 
-      if (currentState.gameState !== GameState.PLAYING) {
+      if (currentState.gameState !== GameState.PLAYING || isGameEndingRef.current) {
         currentState.logger?.log('CIRCLE_CLICK_IGNORED', {
           circleId,
           gameState: currentState.gameState,
-          reason: 'game_not_playing'
+          isGameEnding: isGameEndingRef.current,
+          reason: 'game_not_playing_or_ending'
         }, 'SurvivalGameManager');
         return;
       }
@@ -406,11 +493,14 @@ export default function SurvivalGameManager() {
       if (result === "correct") {
         triggerHapticFeedback("success");
 
+        // Add circle to instant deactivation list
         setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
 
+        // Immediately clear timeout and deactivate circle without animation
         const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId);
         setGameState(immediatelyDeactivatedState);
 
+        // Remove from instant deactivation list after short delay
         setTimeout(() => {
           setInstantlyDeactivatedCircles((prev) => prev.filter(id => id !== circleId));
         }, 100);
@@ -426,6 +516,10 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
+    // Reset protection flags
+    isGameEndingRef.current = false;
+    isSchedulingActivationRef.current = false;
+
     const newGameState = initializeSurvivalGameState();
 
     newGameState.logger?.log('GAME_START_REQUESTED', {
@@ -458,10 +552,16 @@ export default function SurvivalGameManager() {
 
       const levelInterval = setInterval(() => {
         setGameState((current) => {
-          if (!current.isActive || current.gameState !== GameState.PLAYING) {
+          if (!current.isActive ||
+            current.gameState !== GameState.PLAYING ||
+            current.isGameEnding ||
+            isGameEndingRef.current) {
             clearInterval(levelInterval);
             current.logger?.log('LEVEL_UPDATE_INTERVAL_STOPPED', {
-              reason: 'game_not_active_or_playing'
+              reason: 'game_not_active_or_playing',
+              isActive: current.isActive,
+              gameState: current.gameState,
+              isGameEnding: current.isGameEnding
             }, 'SurvivalGameManager');
             return current;
           }
@@ -496,6 +596,7 @@ export default function SurvivalGameManager() {
         await navigator.clipboard.writeText(gameResult.gameLog);
         setLogCopyStatus("copied");
       } else {
+        // Fallback for older browsers or non-secure contexts
         const textArea = document.createElement('textarea');
         textArea.value = gameResult.gameLog;
         textArea.style.position = 'fixed';
@@ -518,6 +619,7 @@ export default function SurvivalGameManager() {
       setLogCopyStatus("failed");
     }
 
+    // Reset status after 2 seconds
     setTimeout(() => {
       setLogCopyStatus("idle");
     }, 2000);
@@ -670,10 +772,10 @@ export default function SurvivalGameManager() {
                     onClick={handleLogExport}
                     disabled={logCopyStatus === "copying"}
                     className={`w-full flex items-center justify-center space-x-2 py-2 px-4 rounded-lg text-sm transition-all duration-200 ${logCopyStatus === "copied"
-                        ? "bg-green-600/20 border border-green-500/30 text-green-300"
-                        : logCopyStatus === "failed"
-                          ? "bg-red-600/20 border border-red-500/30 text-red-300"
-                          : "bg-gray-600/20 border border-gray-500/30 text-gray-300 hover:bg-gray-600/30"
+                      ? "bg-green-600/20 border border-green-500/30 text-green-300"
+                      : logCopyStatus === "failed"
+                        ? "bg-red-600/20 border border-red-500/30 text-red-300"
+                        : "bg-gray-600/20 border border-gray-500/30 text-gray-300 hover:bg-gray-600/30"
                       }`}
                   >
                     <Copy size={14} />
