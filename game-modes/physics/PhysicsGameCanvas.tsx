@@ -1,11 +1,30 @@
-// src/game-modes/physics/PhysicsGameCanvas.tsx - Updated implementation without visible boundaries and proper screen positioning
+// src/game-modes/physics/PhysicsGameCanvas.tsx - Добавлена защита от автоматизации через вариации цветов
 
 "use client";
 
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
 
 import { PhysicsGameState } from "@/types/game-modes/physics";
 import { PhysicsCircle } from "@/types/game-modes/common";
+
+// Массив оттенков белого цвета для защиты от автоматизации
+const WHITE_COLOR_VARIANTS = [
+  'rgb(255, 255, 255)',     // Чистый белый
+  'rgb(255, 255, 254)',     // Белый с минимальным оттенком
+  'rgb(254, 255, 255)',     // Белый с оттенком в красном канале
+  'rgb(255, 254, 255)',     // Белый с оттенком в зеленом канале
+  'rgb(254, 254, 255)',     // Белый с двойным оттенком
+  'rgb(255, 254, 254)',     // Белый с оттенками в зеленом и синем
+  'rgb(254, 255, 254)',     // Белый с оттенками в красном и синем
+  'rgb(253, 255, 255)',     // Белый с более заметным оттенком красного
+  'rgb(255, 253, 255)',     // Белый с более заметным оттенком зеленого
+  'rgb(255, 255, 253)',     // Белый с более заметным оттенком синего
+];
+
+// Функция для получения случайного индекса оттенка белого
+const getRandomWhiteVariantIndex = (): number => {
+  return Math.floor(Math.random() * WHITE_COLOR_VARIANTS.length);
+};
 
 interface PhysicsGameCanvasProps {
   gameState: PhysicsGameState;
@@ -23,6 +42,9 @@ export default function PhysicsGameCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
 
+  // State для хранения назначенных оттенков белого для каждого кружка
+  const [circleColorVariants, setCircleColorVariants] = useState<Map<number, number>>(new Map());
+
   // Touch handling refs for preventing multiple touches
   const activeTouchesRef = useRef<
     Map<
@@ -36,6 +58,22 @@ export default function PhysicsGameCanvas({
       }
     >
   >(new Map());
+
+  // Функция для генерации нового оттенка для кружка при активации
+  const generateColorVariantForCircle = (circleId: number): number => {
+    const variantIndex = getRandomWhiteVariantIndex();
+    setCircleColorVariants(prev => new Map(prev).set(circleId, variantIndex));
+    return variantIndex;
+  };
+
+  // Effect для отслеживания активации кружков и назначения им оттенков
+  useEffect(() => {
+    gameState.circles.forEach(circle => {
+      if (circle.isActive && !circle.isDecoy && !circleColorVariants.has(circle.id)) {
+        generateColorVariantForCircle(circle.id);
+      }
+    });
+  }, [gameState.circles, circleColorVariants]);
 
   // Function to get click position relative to canvas
   const getClickPosition = useCallback(
@@ -152,8 +190,8 @@ export default function PhysicsGameCanvas({
 
           // Immediately process the touch
           const syntheticEvent = {
-            preventDefault: () => {},
-            stopPropagation: () => {},
+            preventDefault: () => { },
+            stopPropagation: () => { },
           } as React.MouseEvent;
 
           onCircleClick(clickedCircle.id, syntheticEvent);
@@ -230,8 +268,7 @@ export default function PhysicsGameCanvas({
     [],
   );
 
-  // Main drawing function - no boundary drawing, just circles
-  // Main drawing function - no boundary drawing, just circles
+  // Main drawing function with white color variants support
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
 
@@ -244,7 +281,7 @@ export default function PhysicsGameCanvas({
     // Clear canvas with transparent background
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw circles only - no boundaries
+    // Draw circles with color variants
     gameState.circles.forEach((circle) => {
       // Skip circles that are being deactivated immediately
       if (circle.isAnimating) return;
@@ -260,9 +297,12 @@ export default function PhysicsGameCanvas({
           ctx.lineWidth = 3;
           ctx.globalAlpha = 1;
         } else {
-          // White active circle - fully white when active
-          ctx.fillStyle = "#ffffff";
-          ctx.strokeStyle = "#ffffff";
+          // White active circle with variant color
+          const variantIndex = circleColorVariants.get(circle.id) ?? 0;
+          const whiteVariant = WHITE_COLOR_VARIANTS[variantIndex];
+
+          ctx.fillStyle = whiteVariant;
+          ctx.strokeStyle = whiteVariant;
           ctx.lineWidth = 3;
           ctx.globalAlpha = 1;
         }
@@ -274,6 +314,7 @@ export default function PhysicsGameCanvas({
           ctx.lineWidth = 2;
           ctx.globalAlpha = 0.7;
         } else {
+          // Inactive white circle uses standard white for border
           ctx.fillStyle = "transparent";
           ctx.strokeStyle = "#ffffff";
           ctx.lineWidth = 2;
@@ -293,7 +334,7 @@ export default function PhysicsGameCanvas({
 
       ctx.restore();
     });
-  }, [gameState]);
+  }, [gameState, circleColorVariants]);
 
   // Animation loop
   const animate = useCallback(() => {

@@ -1,10 +1,51 @@
-// src/components/RotatingCircleGrid.tsx - Updated for larger circles with fewer count
+// src/components/RotatingCircleGrid.tsx - Добавлена защита от автоматизации через вариации цветов
 
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
 
 import { RotationCircle } from "@/types/game-modes/rotation";
+
+// Массив оттенков белого цвета для защиты от автоматизации
+const WHITE_COLOR_VARIANTS = [
+  'rgb(255, 255, 255)',     // Чистый белый
+  'rgb(255, 255, 254)',     // Белый с минимальным оттенком
+  'rgb(254, 255, 255)',     // Белый с оттенком в красном канале
+  'rgb(255, 254, 255)',     // Белый с оттенком в зеленом канале
+  'rgb(254, 254, 255)',     // Белый с двойным оттенком
+  'rgb(255, 254, 254)',     // Белый с оттенками в зеленом и синем
+  'rgb(254, 255, 254)',     // Белый с оттенками в красном и синем
+  'rgb(253, 255, 255)',     // Белый с более заметным оттенком красного
+  'rgb(255, 253, 255)',     // Белый с более заметным оттенком зеленого
+  'rgb(255, 255, 253)',     // Белый с более заметным оттенком синего
+];
+
+// Соответствующие оттенки для border цветов
+const WHITE_BORDER_VARIANTS = [
+  'rgb(255, 255, 255)',
+  'rgb(255, 255, 254)',
+  'rgb(254, 255, 255)',
+  'rgb(255, 254, 255)',
+  'rgb(254, 254, 255)',
+  'rgb(255, 254, 254)',
+  'rgb(254, 255, 254)',
+  'rgb(253, 255, 255)',
+  'rgb(255, 253, 255)',
+  'rgb(255, 255, 253)',
+];
+
+// Функция для получения случайного индекса оттенка белого
+const getRandomWhiteVariantIndex = (): number => {
+  return Math.floor(Math.random() * WHITE_COLOR_VARIANTS.length);
+};
+
+// Функция для создания CSS-переменных для конкретного оттенка
+const createWhiteVariantStyle = (variantIndex: number) => {
+  return {
+    '--white-bg': WHITE_COLOR_VARIANTS[variantIndex],
+    '--white-border': WHITE_BORDER_VARIANTS[variantIndex],
+  } as React.CSSProperties;
+};
 
 interface RotatingCircleGridProps {
   circles: RotationCircle[];
@@ -17,12 +58,27 @@ interface RotatingCircleGridProps {
   lastActivationTimestamp?: number;
 }
 
+interface ActivePulse {
+  circleId: number;
+  isRed: boolean;
+  timestamp: number;
+}
+
+interface TouchEventDetails {
+  touchCount: number;
+  firstTouchX: number;
+  firstTouchY: number;
+  timestamp: number;
+}
+
 export default function RotatingCircleGrid({
   circles,
   onCircleClick,
   isGameActive,
   showCircles,
   rotationSpeed,
+  onActivatedCircles = [],
+  lastActivationTimestamp = 0,
 }: RotatingCircleGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rotatingContainerRef = useRef<HTMLDivElement>(null);
@@ -38,9 +94,60 @@ export default function RotatingCircleGrid({
   const isAnimatingRef = useRef<boolean>(false);
 
   // Enhanced sizing for larger circles with fewer count
-  const [circleSize, setCircleSize] = useState(60); // Increased from 40
-  const [containerSize, setContainerSize] = useState(400); // Increased from 350
-  const [effectiveRadius, setEffectiveRadius] = useState(150); // Increased from 120
+  const [circleSize, setCircleSize] = useState(60);
+  const [containerSize, setContainerSize] = useState(400);
+  const [effectiveRadius, setEffectiveRadius] = useState(150);
+
+  // State для хранения назначенных оттенков белого для каждого кружка
+  const [circleColorVariants, setCircleColorVariants] = useState<Map<number, number>>(new Map());
+
+  // State for tracking active activation pulses
+  const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
+
+  // Функция для генерации нового оттенка для кружка при активации
+  const generateColorVariantForCircle = (circleId: number): number => {
+    const variantIndex = getRandomWhiteVariantIndex();
+    setCircleColorVariants(prev => new Map(prev).set(circleId, variantIndex));
+    return variantIndex;
+  };
+
+  // Effect для обновления оттенков при активации новых кружков
+  useEffect(() => {
+    if (onActivatedCircles.length > 0) {
+      onActivatedCircles.forEach(circleId => {
+        // Генерируем новый оттенок только если кружок активирован и это не ловушка
+        const circle = circles.find(c => c.id === circleId);
+        if (circle && circle.isActive && !circle.isDecoy) {
+          generateColorVariantForCircle(circleId);
+        }
+      });
+    }
+  }, [onActivatedCircles, circles]);
+
+  // Effect to handle activation pulses
+  useEffect(() => {
+    if (onActivatedCircles.length > 0 && lastActivationTimestamp > 0) {
+      // Create new pulses for activated circles
+      const newPulses: ActivePulse[] = onActivatedCircles.map((circleId) => {
+        const circle = circles.find((c) => c.id === circleId);
+
+        return {
+          circleId,
+          isRed: circle?.isDecoy || false,
+          timestamp: lastActivationTimestamp,
+        };
+      });
+
+      setActivePulses((prev) => [...prev, ...newPulses]);
+
+      // Remove pulses after animation completes (400ms + small buffer)
+      setTimeout(() => {
+        setActivePulses((prev) =>
+          prev.filter((pulse) => pulse.timestamp !== lastActivationTimestamp),
+        );
+      }, 450);
+    }
+  }, [onActivatedCircles, lastActivationTimestamp, circles]);
 
   // Calculate adaptive sizes optimized for 8 circles instead of 14
   useEffect(() => {
@@ -62,17 +169,17 @@ export default function RotatingCircleGrid({
       // Larger container for fewer circles
       const calculatedContainerSize = Math.max(
         320,
-        Math.min(maxContainerSize, 600), // Increased max size
+        Math.min(maxContainerSize, 600),
       );
 
       // Larger circles since we have fewer of them (8 instead of 14)
       const calculatedCircleSize = Math.max(
-        50, // Increased minimum size
-        Math.min(calculatedContainerSize / 6, 80), // Increased max size and adjusted ratio
+        50,
+        Math.min(calculatedContainerSize / 6, 80),
       );
 
       // Larger radius to accommodate bigger circles
-      const calculatedEffectiveRadius = calculatedContainerSize * 0.42; // Slightly increased multiplier
+      const calculatedEffectiveRadius = calculatedContainerSize * 0.42;
 
       setContainerSize(calculatedContainerSize);
       setCircleSize(calculatedCircleSize);
@@ -169,7 +276,7 @@ export default function RotatingCircleGrid({
     [effectiveRadius],
   );
 
-  // Enhanced circle styles for larger circles
+  // Enhanced circle styles for larger circles with white variants
   const getCircleStyles = (circle: RotationCircle) => {
     const isDeactivating = circle.isAnimating;
 
@@ -178,7 +285,7 @@ export default function RotatingCircleGrid({
       ? "transition-all duration-75 ease-out"
       : "transition-all duration-100 ease-in-out";
 
-    const baseClasses = `absolute rounded-full border-4 ${transitionClass}`; // Increased border width
+    const baseClasses = `absolute rounded-full border-4 ${transitionClass}`;
 
     const visibilityClasses = showCircles
       ? "opacity-100 scale-100"
@@ -192,12 +299,22 @@ export default function RotatingCircleGrid({
           className: `${baseClasses} ${visibilityClasses} ${animationClasses} 
                       bg-red-500 border-red-400 scale-110 shadow-lg shadow-red-500/30
                       hover:scale-115 active:scale-95 cursor-pointer`,
+          style: {},
         };
       } else {
+        // Regular active circles: использование переменного оттенка белого
+        const variantIndex = circleColorVariants.get(circle.id) ?? 0;
+        const whiteVariantStyle = createWhiteVariantStyle(variantIndex);
+
         return {
           className: `${baseClasses} ${visibilityClasses} ${animationClasses}
-                      bg-white border-white scale-110 shadow-lg shadow-white/30
-                      hover:scale-115 active:scale-95 cursor-pointer`,
+                      scale-110 shadow-lg hover:scale-115 active:scale-95 cursor-pointer`,
+          style: {
+            ...whiteVariantStyle,
+            backgroundColor: `var(--white-bg)`,
+            borderColor: `var(--white-border)`,
+            boxShadow: `0 10px 25px -5px ${WHITE_COLOR_VARIANTS[variantIndex]}30, 0 4px 6px -2px ${WHITE_COLOR_VARIANTS[variantIndex]}20`,
+          },
         };
       }
     } else {
@@ -205,6 +322,7 @@ export default function RotatingCircleGrid({
         className: `${baseClasses} ${visibilityClasses} ${animationClasses}
                     bg-transparent border-white/30 hover:border-white/50 hover:scale-105
                     active:scale-95 cursor-pointer`,
+        style: {},
       };
     }
   };
@@ -259,6 +377,71 @@ export default function RotatingCircleGrid({
     onCircleClick(circleId);
   }, [isGameActive, onCircleClick]);
 
+  // Pulse effect для поддержки вариантов цветов
+  const renderPulseEffect = (circle: RotationCircle) => {
+    if (!circle.isActive || circle.isAnimating) return null;
+
+    if (circle.isDecoy) {
+      const pulseColor = "border-red-400";
+      const animationDuration = "1.2s";
+
+      return (
+        <div
+          className={`absolute inset-0 rounded-full border-2 ${pulseColor} opacity-50`}
+          style={{
+            animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
+          }}
+        />
+      );
+    } else {
+      // Для белых кружков используем соответствующий оттенок для пульса
+      const variantIndex = circleColorVariants.get(circle.id) ?? 0;
+      const borderColor = WHITE_BORDER_VARIANTS[variantIndex];
+      const animationDuration = "0.8s";
+
+      return (
+        <div
+          className="absolute inset-0 rounded-full border-2 opacity-50"
+          style={{
+            borderColor: borderColor,
+            animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
+          }}
+        />
+      );
+    }
+  };
+
+  // Fast activation pulse effect
+  const renderActivationPulse = (circle: RotationCircle) => {
+    const activePulse = activePulses.find(
+      (pulse) => pulse.circleId === circle.id,
+    );
+
+    if (!activePulse) return null;
+
+    const pulseClass = activePulse.isRed
+      ? "activation-pulse-red"
+      : "activation-pulse";
+
+    let borderColor: string;
+    if (activePulse.isRed) {
+      borderColor = "rgb(248, 113, 113)"; // border-red-400
+    } else {
+      const variantIndex = circleColorVariants.get(circle.id) ?? 0;
+      borderColor = WHITE_BORDER_VARIANTS[variantIndex];
+    }
+
+    return (
+      <div
+        className={`absolute inset-0 rounded-full border-2 ${pulseClass} pointer-events-none`}
+        style={{
+          zIndex: 10,
+          borderColor: borderColor,
+        }}
+      />
+    );
+  };
+
   return (
     <div className="flex items-center justify-center min-h-[450px] p-2">
       <div
@@ -296,10 +479,10 @@ export default function RotatingCircleGrid({
               <button
                 key={circle.id}
                 aria-label={`Rotating circle ${circle.id + 1}${circle.isActive
-                    ? circle.isDecoy
-                      ? " - trap target"
-                      : " - active target"
-                    : ""
+                  ? circle.isDecoy
+                    ? " - trap target"
+                    : " - active target"
+                  : ""
                   }`}
                 className={`${circleStyleConfig.className} disabled:cursor-not-allowed select-none touch-optimized`}
                 data-circle-id={circle.id}
@@ -312,17 +495,23 @@ export default function RotatingCircleGrid({
                   left: "50%",
                   top: "50%",
                   transform: `translate(calc(-50% + ${staticPosition.x}px), calc(-50% + ${staticPosition.y}px))`,
-                  transitionDelay: showCircles ? `${circle.id * 40}ms` : "0ms", // Adjusted for 8 circles
+                  transitionDelay: showCircles ? `${circle.id * 40}ms` : "0ms",
                   touchAction: "manipulation",
                   willChange: "transform",
                   backfaceVisibility: "hidden",
+                  ...circleStyleConfig.style,
                 }}
                 type="button"
                 onClick={(event) => handleClick(circle.id, event)}
                 onContextMenu={(event) => event.preventDefault()}
                 onTouchEnd={(event) => handleTouchEnd(circle.id, event)}
                 onTouchStart={(event) => handleTouchStart(circle.id, event)}
-              />
+              >
+                {/* Continuous pulse effect */}
+                {renderPulseEffect(circle)}
+                {/* Fast activation pulse effect */}
+                {renderActivationPulse(circle)}
+              </button>
             );
           })}
         </div>
@@ -334,11 +523,11 @@ export default function RotatingCircleGrid({
             left: "50%",
             top: "50%",
             transform: "translate(-50%, -50%)",
-            width: "16px", // Increased from 12px
+            width: "16px",
             height: "16px",
             borderRadius: "50%",
             background: "radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.2) 100%)",
-            boxShadow: "0 0 12px rgba(255, 255, 255, 0.3)", // Enhanced glow
+            boxShadow: "0 0 12px rgba(255, 255, 255, 0.3)",
             pointerEvents: "none",
           }}
         />
