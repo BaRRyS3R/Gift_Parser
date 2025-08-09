@@ -773,11 +773,10 @@ export default function SurvivalGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                isPlayingAgain || playAgainError.show
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-              }`}
+                }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}
             >
@@ -819,15 +818,17 @@ export default function SurvivalGameManager() {
       <div className="fixed inset-x-0 bottom-0 pointer-events-none z-50">
         <div className="flex justify-between items-end p-6 pb-8">
           {/* Level display - bottom left */}
-          <div className="pointer-events-none">
+          <div className="pointer-events-none flex-shrink-0">
             <span
               ref={levelDisplayRef}
               className="inline-block text-lg font-bold text-orange-400 drop-shadow-lg bg-black/20 px-2 py-1 rounded"
               style={{
                 fontVariantNumeric: 'tabular-nums',
+                fontFamily: 'monospace',
                 textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-                minWidth: '100px',
-                textAlign: 'left'
+                minWidth: '110px', // немного больше, чем было
+                textAlign: 'left',
+                display: 'inline-block',
               }}
             >
               {t("common.level")} 1/15
@@ -835,16 +836,17 @@ export default function SurvivalGameManager() {
           </div>
 
           {/* Time display - bottom right */}
-          <div className="pointer-events-none">
+          <div className="pointer-events-none flex-shrink-0">
             <span
               ref={timeDisplayRef}
               className="inline-block text-lg font-bold text-white drop-shadow-lg bg-black/20 px-2 py-1 rounded"
               style={{
                 fontVariantNumeric: 'tabular-nums',
-                textShadow: '0 2px 4px rgba(0,0,0,0.8)',
                 fontFamily: 'monospace',
-                minWidth: '120px',
-                textAlign: 'right'
+                textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                minWidth: '130px', // увеличено для самой длинной строки, например "59:59.999"
+                textAlign: 'right',
+                display: 'inline-block',
               }}
             >
               0.000s
