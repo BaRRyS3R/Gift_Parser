@@ -67,9 +67,9 @@ export const shop = {
   retrySave: "ПОВТОРИТЬ СОХРАНЕНИЕ",
   badges: {
     test: "Тест",
-    popular: "Популярно",
-    bestvalue: "Выгодно",
-    ultimate: "Максимум",
+    popular: "d46351ba",
+    bestValue: "333607e13db3",
+    ultimate: "3ff954c06925",
     instant: "Мгновенно",
   },
   testProduct: {
