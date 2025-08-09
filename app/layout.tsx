@@ -1,4 +1,4 @@
-// src/app/layout.tsx
+// src/app/layout.tsx - Enhanced with global text selection prevention
 
 import type { Metadata } from "next";
 
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "s0mething",
+    title: "Circusle",
   },
   manifest: "/manifest.json",
 };
@@ -60,11 +60,110 @@ export default function RootLayout({
         />
         <meta content="telephone=no" name="format-detection" />
         <meta content="no" name="msapplication-tap-highlight" />
-        {/* Prevent zoom on form inputs */}
+        {/* Enhanced viewport for text selection prevention */}
         <meta
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
           name="viewport"
         />
+
+        {/* Inline styles for immediate text selection prevention */}
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            * {
+              -webkit-user-select: none !important;
+              -moz-user-select: none !important;
+              -ms-user-select: none !important;
+              user-select: none !important;
+              -webkit-touch-callout: none !important;
+              -webkit-tap-highlight-color: transparent !important;
+            }
+            
+            input[type="text"],
+            input[type="email"], 
+            input[type="password"],
+            input[type="search"],
+            input[type="url"],
+            textarea,
+            [contenteditable="true"],
+            .selectable-text {
+              -webkit-user-select: text !important;
+              -moz-user-select: text !important;
+              -ms-user-select: text !important;
+              user-select: text !important;
+              -webkit-touch-callout: default !important;
+            }
+            
+            ::selection {
+              background: transparent !important;
+            }
+            
+            ::-moz-selection {
+              background: transparent !important;
+            }
+          `
+        }} />
+
+        {/* Global event handlers for text selection prevention */}
+        <Script id="text-selection-prevention" strategy="afterInteractive">
+          {`
+            (function() {
+              // Prevent context menu
+              document.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                return false;
+              }, { passive: false });
+              
+              // Prevent text selection
+              document.addEventListener('selectstart', function(e) {
+                if (!e.target.matches('input, textarea, [contenteditable="true"], .selectable-text')) {
+                  e.preventDefault();
+                  return false;
+                }
+              }, { passive: false });
+              
+              // Prevent drag start
+              document.addEventListener('dragstart', function(e) {
+                if (!e.target.matches('input, textarea, [contenteditable="true"], .selectable-text')) {
+                  e.preventDefault();
+                  return false;
+                }
+              }, { passive: false });
+              
+              // Prevent keyboard shortcuts
+              document.addEventListener('keydown', function(e) {
+                const isCtrlA = (e.ctrlKey || e.metaKey) && e.key === 'a';
+                const isF12 = e.key === 'F12';
+                const isCtrlShiftI = (e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I';
+                const isCtrlU = (e.ctrlKey || e.metaKey) && e.key === 'u';
+                
+                if (isCtrlA || isF12 || isCtrlShiftI || isCtrlU) {
+                  e.preventDefault();
+                  return false;
+                }
+              }, { passive: false });
+              
+              // Mobile-specific handlers
+              if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                // Prevent zoom on double tap
+                let lastTouchEnd = 0;
+                document.addEventListener('touchend', function(e) {
+                  const now = new Date().getTime();
+                  if (now - lastTouchEnd <= 300) {
+                    e.preventDefault();
+                  }
+                  lastTouchEnd = now;
+                }, { passive: false });
+                
+                // Prevent long press context menu
+                document.addEventListener('touchstart', function(e) {
+                  if (e.touches.length > 1) {
+                    e.preventDefault();
+                  }
+                }, { passive: false });
+              }
+            })();
+          `}
+        </Script>
       </head>
       <body className={inter.className}>
         <Providers>

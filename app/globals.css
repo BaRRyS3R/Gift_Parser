@@ -1,4 +1,4 @@
-/* src/app/globals.css - Updated with optimized display positioning */
+/* src/app/globals.css - Updated with global text selection prevention */
 
 @tailwind base;
 @tailwind components;
@@ -18,10 +18,61 @@
   --background-end-rgb: 0, 0, 0;
 }
 
+/* GLOBAL TEXT SELECTION PREVENTION */
 * {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+  /* Prevent text selection on all elements */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  /* Prevent touch callout on iOS */
+  -webkit-touch-callout: none;
+  /* Remove tap highlight */
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+}
+
+/* Allow text selection only for input elements */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="url"],
+textarea,
+[contenteditable="true"],
+.selectable-text {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Prevent text selection highlighting */
+::selection {
+  background: transparent;
+}
+
+::-moz-selection {
+  background: transparent;
+}
+
+/* Prevent image dragging */
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
+/* Allow interaction with interactive images */
+img.interactive {
+  pointer-events: auto;
 }
 
 html,
@@ -29,6 +80,12 @@ body {
   max-width: 100vw;
   overflow-x: hidden;
   height: 100%;
+  /* Enhanced mobile optimizations */
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Enhanced touch action */
+  touch-action: manipulation;
 }
 
 body {
@@ -50,6 +107,12 @@ body {
     "Droid Sans",
     "Helvetica Neue",
     sans-serif;
+  /* Ensure body has text selection disabled */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .font-bpdots {
@@ -920,9 +983,7 @@ body {
   opacity: 0;
 }
 
-/* REMOVED: All game panel stabilization classes as we no longer use panels */
-
-/* NEW: Game overlay text styling for direct positioned elements */
+/* Game overlay text styling for direct positioned elements */
 .game-overlay-text {
   font-variant-numeric: tabular-nums;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
