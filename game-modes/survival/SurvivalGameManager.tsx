@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed interface flickering using Rotation approach
+// src/game-modes/survival/SurvivalGameManager.tsx - Simplified with top-centered timer only
 
 "use client";
 
@@ -64,7 +64,7 @@ const initialPlayAgainError: PlayAgainError = {
   redirecting: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 200; // Increased from 100ms to 200ms for stability
+const LEVEL_UPDATE_INTERVAL = 200;
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -234,10 +234,8 @@ export default function SurvivalGameManager() {
     [makeAuthenticatedRequest, t],
   );
 
-  // Enhanced protected endGame function with multiple call prevention
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
-      // Prevent multiple calls to endGame
       if (isGameEndingRef.current) {
         return;
       }
@@ -245,7 +243,6 @@ export default function SurvivalGameManager() {
       isGameEndingRef.current = true;
 
       setGameState((prev) => {
-        // Double-check that game isn't already ending
         if (prev.isGameEnding) {
           return prev;
         }
@@ -288,16 +285,13 @@ export default function SurvivalGameManager() {
     [handleSaveGameResult, checkForNewBestScore],
   );
 
-  // Enhanced protected scheduleNextActivation with race condition prevention
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
-    // Prevent multiple simultaneous scheduling calls
     if (isSchedulingActivationRef.current) {
       return;
     }
 
-    // Enhanced state validation
     if (!currentState.isActive ||
       currentState.gameState !== GameState.PLAYING ||
       currentState.isGameEnding ||
@@ -314,10 +308,8 @@ export default function SurvivalGameManager() {
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
-      // Reset scheduling flag when timeout executes
       isSchedulingActivationRef.current = false;
 
-      // Double-check game state when timeout fires
       if (!gameStateRef.current.isActive ||
         gameStateRef.current.gameState !== GameState.PLAYING ||
         gameStateRef.current.isGameEnding ||
@@ -326,7 +318,6 @@ export default function SurvivalGameManager() {
       }
 
       setGameState((prev) => {
-        // Triple-check state inside setState
         if (!prev.isActive || prev.gameState !== GameState.PLAYING || prev.isGameEnding) {
           return prev;
         }
@@ -344,7 +335,6 @@ export default function SurvivalGameManager() {
             }, 450);
           },
           (circleId, wasDecoy) => {
-            // Check if game is ending before processing timeout
             if (isGameEndingRef.current || prev.isGameEnding) {
               return;
             }
@@ -355,7 +345,6 @@ export default function SurvivalGameManager() {
               setGameState((current) =>
                 deactivateSurvivalCircle(current, circleId),
               );
-              // Only schedule next activation if game is still active
               if (!isGameEndingRef.current && !gameStateRef.current.isGameEnding) {
                 scheduleNextActivation();
               }
@@ -366,7 +355,6 @@ export default function SurvivalGameManager() {
         return newState;
       });
 
-      // Schedule next activation only if game is still active
       if (gameStateRef.current.isActive &&
         gameStateRef.current.gameState === GameState.PLAYING &&
         !gameStateRef.current.isGameEnding &&
@@ -380,7 +368,6 @@ export default function SurvivalGameManager() {
       activationTimeout: timeout,
     }));
 
-    // Reset scheduling flag after timeout is set
     setTimeout(() => {
       isSchedulingActivationRef.current = false;
     }, 50);
@@ -404,14 +391,11 @@ export default function SurvivalGameManager() {
       if (result === "correct") {
         triggerHapticFeedback("success");
 
-        // Add circle to instant deactivation list
         setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
 
-        // Immediately clear timeout and deactivate circle without animation
         const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId);
         setGameState(immediatelyDeactivatedState);
 
-        // Remove from instant deactivation list after short delay
         setTimeout(() => {
           setInstantlyDeactivatedCircles((prev) => prev.filter(id => id !== circleId));
         }, 100);
@@ -427,7 +411,6 @@ export default function SurvivalGameManager() {
   );
 
   const startGame = useCallback(() => {
-    // Reset protection flags
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
@@ -484,10 +467,8 @@ export default function SurvivalGameManager() {
     setIsPlayingAgain(true);
 
     try {
-      // Get current attempts status directly from server
       const currentAttemptsStatus = await fetchAttemptsStatus(true);
 
-      // Use the fresh data from the fetch result, not the hook state
       if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
         setPlayAgainError({
           show: true,
@@ -498,10 +479,8 @@ export default function SurvivalGameManager() {
         return;
       }
 
-      // Consume attempt and verify the operation succeeded
       const consumeResult = await consumeAttempt();
 
-      // Verify that the consume operation was successful
       if (!consumeResult) {
         setPlayAgainError({
           show: true,
@@ -512,7 +491,6 @@ export default function SurvivalGameManager() {
         return;
       }
 
-      // Additional safety check: verify we have valid remaining attempts
       if (consumeResult.attemptsRemaining < 0) {
         setPlayAgainError({
           show: true,
@@ -523,7 +501,6 @@ export default function SurvivalGameManager() {
         return;
       }
 
-      // All checks passed - start new game
       startGame();
     } catch (error) {
       console.error("Error starting new survival game:", error);
@@ -778,8 +755,21 @@ export default function SurvivalGameManager() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col text-white relative">
-      {/* Game area - full screen with proper container structure */}
-      <div className="flex-1 flex items-center justify-center relative">
+      {/* Top-centered timer display */}
+      {gameState.gameState === GameState.PLAYING && (
+        <div className="fixed top-0 left-0 right-0 z-10 pointer-events-none">
+          <div className="flex justify-center pt-8">
+            <div className="bg-black/50 backdrop-blur-sm px-4 py-2 rounded-lg">
+              <span className="text-2xl font-bold text-white font-mono">
+                {formatSurvivalTime(gameState.stats.survivalTime)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Game area - full screen */}
+      <div className="flex-1 flex items-center justify-center">
         <GameGrid
           circles={gameState.circles}
           gameMode="survival"
@@ -790,25 +780,6 @@ export default function SurvivalGameManager() {
           onCircleClick={handleCircleClickEvent}
           instantlyDeactivatedCircles={instantlyDeactivatedCircles}
         />
-      </div>
-
-      {/* Fixed bottom panel using direct state display like RotationGameManager */}
-      <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold text-orange-400">
-                {t("common.level")} {gameState.currentLevel}/15
-              </span>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold text-white">
-                {formatSurvivalTime(gameState.stats.survivalTime)}
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
