@@ -1,4 +1,4 @@
-// src/locales/en/game.ts - Game modes and gameplay (Updated with Rotation)
+// src/locales/en/game.ts - Game modes and gameplay (Updated with play again functionality)
 export const game = {
   modes: {
     title: "MODE",
@@ -39,6 +39,16 @@ export const game = {
         testAgain: "TRY AGAIN",
         backToMenu: "BACK TO MENU",
         noAttemptsLeft: "NO ATTEMPTS LEFT",
+      },
+      playAgain: {
+        button: "AGAIN?",
+        starting: "Starting...",
+        cannotPlay: "Cannot play",
+        noAttempts: "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
+        failedToConsume: "Failed to consume attempt. Please try again later.",
+        error: "Error occurred while starting the game. Please try again later.",
+        autoRedirect: "Automatic redirect to menu in 3 seconds...",
+        redirecting: "Redirecting...",
       },
       ratings: {
         lightning: "Lightning Fast",
@@ -234,4 +244,4 @@ export const game = {
     checkingAttempts: "CHECKING ATTEMPTS...",
     lock: "Lock",
   },
-} as const;
+} as const; 

@@ -1,9 +1,9 @@
-// src/game-modes/reaction/ReactionGameManager.tsx - Refactored version without attempts logic
+// src/game-modes/reaction/ReactionGameManager.tsx - Updated with play again functionality
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Zap, RotateCcw, Target, Clock, ArrowLeft } from "lucide-react";
+import { Zap, RotateCcw, Target, Clock, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -19,6 +19,7 @@ import {
 } from "./ReactionGameLogic";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/modules/useAttempts";
 import { GameState } from "@/types/game-modes/common";
 import {
   ReactionGameState,
@@ -37,6 +38,12 @@ interface SaveStatus {
   skipped: boolean;
 }
 
+interface PlayAgainError {
+  show: boolean;
+  message: string;
+  redirecting: boolean;
+}
+
 const initialSaveStatus: SaveStatus = {
   isLoading: false,
   attempt: 0,
@@ -47,8 +54,19 @@ const initialSaveStatus: SaveStatus = {
   skipped: false,
 };
 
+const initialPlayAgainError: PlayAgainError = {
+  show: false,
+  message: "",
+  redirecting: false,
+};
+
 export default function ReactionGameManager() {
   const { makeAuthenticatedRequest } = useUser();
+  const {
+    canPlay,
+    consumeAttempt,
+    fetchAttemptsStatus,
+  } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -58,6 +76,8 @@ export default function ReactionGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<ReactionGameResult | null>(null);
+  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
+  const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -82,7 +102,7 @@ export default function ReactionGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -95,6 +115,20 @@ export default function ReactionGameManager() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Handle play again error auto-redirect
+  useEffect(() => {
+    if (playAgainError.show && !playAgainError.redirecting) {
+      const timer = setTimeout(() => {
+        setPlayAgainError(prev => ({ ...prev, redirecting: true }));
+        setTimeout(() => {
+          router.push("/game");
+        }, 500);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [playAgainError.show, playAgainError.redirecting, router]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -214,13 +248,11 @@ export default function ReactionGameManager() {
 
   const handleCircleActivated = useCallback(
     (circleId: number) => {
-      // Trigger activation pulse effect
       const timestamp = Date.now();
 
       setActivatedCircles([circleId]);
       setLastActivationTimestamp(timestamp);
 
-      // Clear activation state after pulse animation completes
       setTimeout(() => {
         setActivatedCircles([]);
       }, 450);
@@ -253,17 +285,14 @@ export default function ReactionGameManager() {
     [triggerHapticFeedback, handleSaveGameResult],
   );
 
-  // Handle clicks on background (outside circles)
   const handleBackgroundClickEvent = useCallback(
     (event: React.MouseEvent) => {
       if (gameStateRef.current.gameState !== GameState.PLAYING) return;
 
-      // Check if the click was on a circle element
       const target = event.target as HTMLElement;
       const isCircleClick = target.closest("[data-circle-id]");
 
       if (isCircleClick) {
-        // This click will be handled by handleCircleClickEvent
         return;
       }
 
@@ -288,8 +317,10 @@ export default function ReactionGameManager() {
     setGameState(initializeReactionGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
+    setPlayAgainError(initialPlayAgainError);
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
+    setIsPlayingAgain(false);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -319,9 +350,64 @@ export default function ReactionGameManager() {
     }, 500);
   }, [handleCircleActivated, handleGameTimeout]);
 
-  const handleBackToGames = useCallback(() => {
-    router.push("/game");
-  }, [router]);
+  const handlePlayAgain = useCallback(async () => {
+    if (isPlayingAgain) return;
+
+    setIsPlayingAgain(true);
+
+    try {
+      // Get current attempts status directly from server
+      const currentAttemptsStatus = await fetchAttemptsStatus(true);
+
+      // Use the fresh data from the fetch result, not the hook state
+      if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.reaction.playAgain.noAttempts"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // Consume attempt and verify the operation succeeded
+      const consumeResult = await consumeAttempt();
+
+      // Verify that the consume operation was successful
+      if (!consumeResult) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.reaction.playAgain.failedToConsume"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // Additional safety check: verify we still have the ability to play
+      // (though attemptsRemaining might be 0 after consuming the last attempt)
+      if (consumeResult.attemptsRemaining < 0) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.reaction.playAgain.failedToConsume"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // All checks passed - start new game
+      startGame();
+    } catch (error) {
+      console.error("Error starting new game:", error);
+      setPlayAgainError({
+        show: true,
+        message: t("game.modes.reaction.playAgain.error"),
+        redirecting: false,
+      });
+      setIsPlayingAgain(false);
+    }
+  }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -374,10 +460,6 @@ export default function ReactionGameManager() {
         <div className="w-full max-w-md space-y-8 animate-fade-in">
           <div className="text-center space-y-4">
             <div className="text-6xl mb-4">⚡</div>
-
-            <h1 className="text-4xl font-bold text-white">
-              {t("game.modes.reaction.results.title")}
-            </h1>
 
             <div className="flex items-center justify-center space-x-2">
               <p className="text-lg text-white/80">
@@ -435,102 +517,144 @@ export default function ReactionGameManager() {
             saveStatus.error ||
             saveStatus.isSuccess ||
             saveStatus.skipped) && (
-            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span className="text-sm text-white/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="text-sm text-white/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recordingReaction")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-white/60" size={14} />
-                        <span className="text-xs text-white/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-white/20 rounded-full h-1">
-                        <div
-                          className="bg-white h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recordingReaction")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.savedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-white/60" size={14} />
+                          <span className="text-xs text-white/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-white/20 rounded-full h-1">
+                          <div
+                            className="bg-white h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.savedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.skipped && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-orange-400 text-sm">
-                      {t("save.attemptNotRecorded")}
+                {saveStatus.skipped && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-orange-400 text-sm">
+                        {t("save.attemptNotRecorded")}
+                      </span>
+                    </div>
+                    <div className="text-orange-400/60 text-xs">
+                      {t("save.onlySuccessful")}
+                    </div>
+                  </div>
+                )}
+
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 text-sm">
+                        {t("save.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 text-xs mb-3">
+                      {t("save.recordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("save.retrySave")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+          {/* Play Again Error Display */}
+          {playAgainError.show && (
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center space-x-2 mb-2">
+                  <AlertTriangle className="text-red-400" size={16} />
+                  <span className="text-red-400 text-sm font-bold">
+                    {t("game.modes.reaction.playAgain.cannotPlay")}
+                  </span>
+                </div>
+                <div className="text-red-300/80 text-xs mb-3">
+                  {playAgainError.message}
+                </div>
+                {playAgainError.redirecting ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-white/60 text-xs">
+                      {t("game.modes.reaction.playAgain.redirecting")}
                     </span>
                   </div>
-                  <div className="text-orange-400/60 text-xs">
-                    {t("save.onlySuccessful")}
+                ) : (
+                  <div className="text-white/60 text-xs">
+                    {t("game.modes.reaction.playAgain.autoRedirect")}
                   </div>
-                </div>
-              )}
-
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 text-sm">
-                      {t("save.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
-                    </span>
-                  </div>
-                  <div className="text-red-400/60 text-xs mb-3">
-                    {t("save.recordedLocally")}
-                  </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("save.retrySave")}
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
           <div className="space-y-4">
             <button
-              className="w-full px-6 py-4 bg-transparent border-2 border-white/60 text-white rounded-xl text-lg hover:border-white hover:bg-white/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
-              onClick={handleBackToGames}
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
+                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                  : "border-white/60 text-white hover:border-white hover:bg-white/10 hover:scale-105 active:scale-95"
+                }`}
+              disabled={isPlayingAgain || playAgainError.show}
+              onClick={handlePlayAgain}
             >
-              <ArrowLeft size={20} />
-              <span>BACK НАЗАД</span>
+              {isPlayingAgain ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>{t("game.modes.reaction.playAgain.starting")}</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={20} />
+                  <span>{t("game.modes.reaction.playAgain.button")}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -561,11 +685,10 @@ export default function ReactionGameManager() {
             <div className="flex items-center justify-center space-x-2">
               {getInstructionIcon()}
               <span
-                className={`text-lg font-bold transition-colors duration-300 ${
-                  gameState.activeCircleId !== null
+                className={`text-lg font-bold transition-colors duration-300 ${gameState.activeCircleId !== null
                     ? "text-white animate-pulse"
                     : "text-white/80"
-                }`}
+                  }`}
               >
                 {getInstructionText()}
               </span>

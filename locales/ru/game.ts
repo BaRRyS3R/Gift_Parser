@@ -1,4 +1,4 @@
-// src/locales/ru/game.ts - Game modes and gameplay (Updated with Rotation)
+// src/locales/ru/game.ts - Game modes and gameplay (Updated with play again functionality)
 export const game = {
   modes: {
     title: "МОД",
@@ -41,6 +41,16 @@ export const game = {
         testAgain: "ПОВТОРИТЬ",
         backToMenu: "НАЗАД В МЕНЮ",
         noAttemptsLeft: "НЕТ ПОПЫТОК",
+      },
+      playAgain: {
+        button: "ЕЩЁ?",
+        starting: "Запуск...",
+        cannotPlay: "Нельзя играть",
+        noAttempts: "У вас закончились попытки. Дождитесь автоматического сброса или купите новые в магазине.",
+        failedToConsume: "Не удалось списать попытку. Попробуйте позже.",
+        error: "Произошла ошибка при запуске игры. Попробуйте позже.",
+        autoRedirect: "Автоматический переход в меню через 3 секунды...",
+        redirecting: "Перенаправление...",
       },
       ratings: {
         lightning: "Скорострел",
