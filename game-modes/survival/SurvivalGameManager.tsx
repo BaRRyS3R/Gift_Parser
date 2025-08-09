@@ -31,6 +31,7 @@ import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useAntiCheat } from "@/hooks/security/useAntiCheat";
 import { GameState } from "@/types/game-modes/common";
 import {
+  SurvivalGameState,
   SurvivalGameResult,
 } from "@/types/game-modes/survival";
 import GameGrid from "@/components/GameGrid";
@@ -85,7 +86,7 @@ export default function SurvivalGameManager() {
     makeAuthenticatedRequest,
   });
 
-  const [gameState, setGameState] = useState<SurvivalGameStateWithAntiCheat>(
+  const [gameState, setGameState] = useState<SurvivalGameState>(
     initializeSurvivalGameState(),
   );
   const [showCircles, setShowCircles] = useState(false);
@@ -108,7 +109,7 @@ export default function SurvivalGameManager() {
   // Защита от состояния гонки
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
-  const gameStateRef = useRef<SurvivalGameStateWithAntiCheat>(gameState);
+  const gameStateRef = useRef<SurvivalGameState>(gameState);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -290,7 +291,7 @@ export default function SurvivalGameManager() {
 
       isGameEndingRef.current = true;
 
-      setGameState((prev) => {
+      setGameState((prev: SurvivalGameState) => {
         if (prev.isGameEnding) {
           return prev;
         }
@@ -311,7 +312,7 @@ export default function SurvivalGameManager() {
             break;
         }
 
-        const finalGameState = {
+        const finalGameState: SurvivalGameState = {
           ...finalState,
           gameState: GameState.FINISHED,
           isActive: false,
@@ -365,7 +366,7 @@ export default function SurvivalGameManager() {
         return;
       }
 
-      setGameState((prev) => {
+      setGameState((prev: SurvivalGameState) => {
         if (!prev.isActive || prev.gameState !== GameState.PLAYING || prev.isGameEnding) {
           return prev;
         }
@@ -396,7 +397,7 @@ export default function SurvivalGameManager() {
             if (!wasDecoy) {
               endGame("miss");
             } else {
-              setGameState((current) =>
+              setGameState((current: SurvivalGameState) =>
                 deactivateSurvivalCircle(current, circleId),
               );
               if (!isGameEndingRef.current && !gameStateRef.current.isGameEnding) {
@@ -417,7 +418,7 @@ export default function SurvivalGameManager() {
       }
     }, delay);
 
-    setGameState((prev) => ({
+    setGameState((prev: SurvivalGameState) => ({
       ...prev,
       activationTimeout: timeout,
     }));
@@ -449,13 +450,13 @@ export default function SurvivalGameManager() {
         // Регистрируем успешный клик в анти-чит системе
         antiCheat.recordSuccessfulClick(circleId, clickTime);
 
-        setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
+        setInstantlyDeactivatedCircles((prev: number[]) => [...prev, circleId]);
 
         const immediatelyDeactivatedState = deactivateSurvivalCircle(clickResult.newState, circleId);
         setGameState(immediatelyDeactivatedState);
 
         setTimeout(() => {
-          setInstantlyDeactivatedCircles((prev) => prev.filter(id => id !== circleId));
+          setInstantlyDeactivatedCircles((prev: number[]) => prev.filter(id => id !== circleId));
         }, 100);
       } else if (clickResult.result === "decoy") {
         triggerHapticFeedback("error");
@@ -495,13 +496,13 @@ export default function SurvivalGameManager() {
     }, 100);
 
     setTimeout(() => {
-      setGameState((prev) => {
+      setGameState((prev: SurvivalGameState) => {
         const updatedState = { ...prev, gameState: GameState.PLAYING };
         return updatedState;
       });
 
       const levelInterval = setInterval(() => {
-        setGameState((current) => {
+        setGameState((current: SurvivalGameState) => {
           if (!current.isActive ||
             current.gameState !== GameState.PLAYING ||
             current.isGameEnding ||
@@ -520,7 +521,7 @@ export default function SurvivalGameManager() {
         scheduleNextActivation();
       }, 1000);
 
-      setGameState((prev) => ({
+      setGameState((prev: SurvivalGameState) => ({
         ...prev,
         levelUpdateInterval: levelInterval,
       }));

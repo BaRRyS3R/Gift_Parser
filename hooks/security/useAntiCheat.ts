@@ -8,6 +8,7 @@ import {
     DEFAULT_ANTICHEAT_CONFIG,
     AntiCheatUtils,
     ReportSuspiciousActivityRequest,
+    ReportSuspiciousActivityResponse,
 } from "@/types/security/antiCheat";
 
 interface UseAntiCheatProps {
