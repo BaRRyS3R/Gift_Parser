@@ -268,9 +268,6 @@ export default function SeasonInfoModal({
                           {renderPrizes(seasonData.season.prizes)}
                         </div>
                       </div>
-
-                      {/* Divider */}
-                      <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
                     </>
                   )}
 
