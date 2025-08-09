@@ -209,15 +209,6 @@ export default function MobileOnlyPage(): JSX.Element {
                             <div>
                                 <span className="text-gray-500">Platform:</span> {deviceInfo.platform}
                             </div>
-                            <div>
-                                <span className="text-gray-500">Screen:</span> {deviceInfo.screenInfo.width}x{deviceInfo.screenInfo.height}
-                            </div>
-                            <div>
-                                <span className="text-gray-500">Pixel Ratio:</span> {deviceInfo.screenInfo.pixelRatio}
-                            </div>
-                            <div>
-                                <span className="text-gray-500">Aspect Ratio:</span> {deviceInfo.screenInfo.aspectRatio.toFixed(2)}
-                            </div>
                             {deviceInfo.telegramPlatform && (
                                 <div>
                                     <span className="text-gray-500">Telegram Platform:</span> {deviceInfo.telegramPlatform}

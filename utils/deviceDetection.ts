@@ -1,22 +1,18 @@
-// src/utils/deviceDetection.ts
+// src/utils/deviceDetection.ts - Simplified approach based on Telegram Mini Apps best practices
 export interface DeviceInfo {
     isMobile: boolean;
     isTelegram: boolean;
     isValidMobileTelegram: boolean;
     platform: string;
     userAgent: string;
-    screenInfo: {
-        width: number;
-        height: number;
-        aspectRatio: number;
-        pixelRatio: number;
-    };
     touchSupport: boolean;
     telegramPlatform?: string;
+    telegramVersion?: string;
 }
 
 /**
- * Comprehensive device detection for blocking desktop access
+ * Simplified device detection focused on official Telegram Mini Apps methods
+ * Based on Telegram documentation and community best practices
  */
 export class DeviceDetector {
     private static instance: DeviceDetector;
@@ -30,7 +26,7 @@ export class DeviceDetector {
     }
 
     /**
-     * Detect if device supports touch
+     * Detect if device supports touch (essential for mobile)
      */
     private detectTouchSupport(): boolean {
         if (typeof window === 'undefined') return false;
@@ -44,89 +40,7 @@ export class DeviceDetector {
     }
 
     /**
-     * Detect mobile device through multiple checks
-     */
-    private detectMobileDevice(): boolean {
-        if (typeof window === 'undefined') return false;
-
-        const userAgent = navigator.userAgent.toLowerCase();
-
-        // Mobile user agent patterns
-        const mobilePatterns = [
-            /android/i,
-            /iphone/i,
-            /ipad/i,
-            /ipod/i,
-            /blackberry/i,
-            /windows phone/i,
-            /mobile/i,
-            /webos/i,
-            /opera mini/i,
-            /iemobile/i,
-            /kindle/i,
-            /silk/i,
-            /fennec/i
-        ];
-
-        // Desktop patterns that should be excluded
-        const desktopPatterns = [
-            /windows nt/i,
-            /macintosh/i,
-            /linux/i,
-            /x11/i,
-            /electron/i // Telegram Desktop часто использует Electron
-        ];
-
-        // Check for desktop patterns first
-        const isDesktop = desktopPatterns.some(pattern => pattern.test(userAgent));
-        if (isDesktop) return false;
-
-        // Check for mobile patterns
-        const isMobileUA = mobilePatterns.some(pattern => pattern.test(userAgent));
-
-        // Screen size check (mobile screens are typically smaller)
-        const screenWidth = window.screen.width;
-        const screenHeight = window.screen.height;
-        const maxDimension = Math.max(screenWidth, screenHeight);
-        const minDimension = Math.min(screenWidth, screenHeight);
-
-        // Most mobile devices have max dimension < 1024 and min dimension < 768
-        const isMobileScreen = maxDimension <= 1024 && minDimension <= 768;
-
-        // Aspect ratio check (mobile devices typically have tall aspect ratios)
-        const aspectRatio = maxDimension / minDimension;
-        const isMobileAspectRatio = aspectRatio >= 1.3; // Mobile screens are typically taller
-
-        // Pixel density check (mobile devices often have higher pixel density)
-        const pixelRatio = window.devicePixelRatio || 1;
-        const isHighDensity = pixelRatio >= 1.5;
-
-        // Touch support is essential for mobile
-        const hasTouch = this.detectTouchSupport();
-
-        // Combine multiple checks for more accurate detection
-        return (
-            (isMobileUA || (isMobileScreen && isMobileAspectRatio && hasTouch)) &&
-            hasTouch && // Touch support is mandatory
-            !isDesktop
-        );
-    }
-
-    /**
-     * Check if running in Telegram
-     */
-    private detectTelegram(): boolean {
-        if (typeof window === 'undefined') return false;
-
-        const userAgent = navigator.userAgent.toLowerCase();
-        const hasTelegramInUA = userAgent.includes('telegram');
-        const hasTelegramWebApp = !!(window.Telegram?.WebApp);
-
-        return hasTelegramInUA || hasTelegramWebApp;
-    }
-
-    /**
-     * Get Telegram platform information
+     * Primary method: Use official Telegram WebApp platform detection
      */
     private getTelegramPlatform(): string {
         if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
@@ -137,25 +51,141 @@ export class DeviceDetector {
     }
 
     /**
-     * Validate that this is a legitimate mobile Telegram session
+     * Get Telegram version for additional validation
      */
-    private validateMobileTelegram(): boolean {
-        const isMobile = this.detectMobileDevice();
-        const isTelegram = this.detectTelegram();
-
-        if (!isMobile || !isTelegram) return false;
-
-        // Additional validation for Telegram platform
-        const telegramPlatform = this.getTelegramPlatform();
-        const validMobilePlatforms = ['android', 'ios', 'android_x'];
-
-        // If we have platform info, it must be mobile
-        if (telegramPlatform !== 'unknown') {
-            return validMobilePlatforms.includes(telegramPlatform);
+    private getTelegramVersion(): string {
+        if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
+            return 'unknown';
         }
 
-        // If no platform info, rely on other mobile checks
-        return isMobile && this.detectTouchSupport();
+        return window.Telegram.WebApp.version || 'unknown';
+    }
+
+    /**
+     * Check if running in Telegram environment
+     */
+    private detectTelegram(): boolean {
+        if (typeof window === 'undefined') return false;
+
+        // Method 1: Check for Telegram WebApp object (most reliable)
+        const hasTelegramWebApp = !!(window.Telegram?.WebApp);
+
+        // Method 2: Check for TelegramWebviewProxy (for native apps)
+        // @ts-ignore
+        const hasTelegramProxy = typeof window.TelegramWebviewProxy !== 'undefined';
+
+        // Method 3: Check User Agent for Telegram identifiers
+        const userAgent = navigator.userAgent.toLowerCase();
+        const hasTelegramInUA = userAgent.includes('telegram');
+
+        const isTelegram = hasTelegramWebApp || hasTelegramProxy || hasTelegramInUA;
+
+        console.log('Telegram detection:', {
+            hasTelegramWebApp,
+            hasTelegramProxy,
+            hasTelegramInUA,
+            isTelegram
+        });
+
+        return isTelegram;
+    }
+
+    /**
+     * Simplified mobile detection based on Telegram platform and User Agent
+     */
+    private detectMobileDevice(): boolean {
+        if (typeof window === 'undefined') return false;
+
+        const userAgent = navigator.userAgent.toLowerCase();
+
+        // Primary check: Android devices (always mobile)
+        if (userAgent.includes('android')) {
+            console.log('Device detected as Android (mobile)');
+            return true;
+        }
+
+        // Primary check: iOS devices (always mobile)
+        if (/iphone|ipad|ipod/i.test(userAgent)) {
+            console.log('Device detected as iOS (mobile)');
+            return true;
+        }
+
+        // Check for other mobile indicators in User Agent
+        const mobilePatterns = [
+            /mobile/i,
+            /webos/i,
+            /blackberry/i,
+            /iemobile/i,
+            /windows phone/i,
+            /opera mini/i
+        ];
+
+        const isMobileUA = mobilePatterns.some(pattern => pattern.test(userAgent));
+
+        // Desktop patterns that should explicitly exclude mobile
+        const desktopPatterns = [
+            /windows nt(?!.*mobile)/i,
+            /macintosh(?!.*mobile)/i,
+            /linux(?!.*android)(?!.*mobile)/i,
+            /electron/i
+        ];
+
+        const isDesktop = desktopPatterns.some(pattern => pattern.test(userAgent));
+
+        console.log('Mobile detection results:', {
+            isMobileUA,
+            isDesktop,
+            userAgent: userAgent.substring(0, 100)
+        });
+
+        return isMobileUA && !isDesktop;
+    }
+
+    /**
+     * Validate mobile Telegram session using official platform detection
+     */
+    private validateMobileTelegram(): boolean {
+        const isTelegram = this.detectTelegram();
+
+        if (!isTelegram) {
+            console.log('Not running in Telegram environment');
+            return false;
+        }
+
+        // Get official Telegram platform
+        const telegramPlatform = this.getTelegramPlatform();
+        console.log('Telegram platform detected:', telegramPlatform);
+
+        // Official mobile platforms according to Telegram documentation
+        const validMobilePlatforms = ['android', 'ios', 'android_x'];
+
+        // Check if platform is explicitly mobile
+        if (validMobilePlatforms.includes(telegramPlatform)) {
+            console.log('Valid mobile Telegram platform confirmed');
+            return true;
+        }
+
+        // Explicitly block known desktop platforms
+        const desktopPlatforms = ['tdesktop', 'web', 'macos', 'windows', 'linux'];
+        if (desktopPlatforms.includes(telegramPlatform)) {
+            console.log('Desktop Telegram platform detected, blocking access');
+            return false;
+        }
+
+        // If platform is unknown, fall back to mobile detection + touch support
+        if (telegramPlatform === 'unknown') {
+            console.log('Unknown Telegram platform, using fallback detection');
+            const isMobile = this.detectMobileDevice();
+            const hasTouch = this.detectTouchSupport();
+            const isValid = isMobile && hasTouch;
+
+            console.log('Fallback validation:', { isMobile, hasTouch, isValid });
+            return isValid;
+        }
+
+        // Conservative approach: deny access for unrecognized platforms
+        console.log('Unrecognized platform, denying access as safety measure');
+        return false;
     }
 
     /**
@@ -171,12 +201,6 @@ export class DeviceDetector {
                 isValidMobileTelegram: false,
                 platform: 'unknown',
                 userAgent: '',
-                screenInfo: {
-                    width: 0,
-                    height: 0,
-                    aspectRatio: 0,
-                    pixelRatio: 1
-                },
                 touchSupport: false
             };
         }
@@ -185,24 +209,21 @@ export class DeviceDetector {
         const isTelegram = this.detectTelegram();
         const touchSupport = this.detectTouchSupport();
         const telegramPlatform = this.getTelegramPlatform();
+        const telegramVersion = this.getTelegramVersion();
+        const isValidMobileTelegram = this.validateMobileTelegram();
 
         this.deviceInfo = {
             isMobile,
             isTelegram,
-            isValidMobileTelegram: this.validateMobileTelegram(),
+            isValidMobileTelegram,
             platform: navigator.platform,
             userAgent: navigator.userAgent,
-            screenInfo: {
-                width: window.screen.width,
-                height: window.screen.height,
-                aspectRatio: Math.max(window.screen.width, window.screen.height) /
-                    Math.min(window.screen.width, window.screen.height),
-                pixelRatio: window.devicePixelRatio || 1
-            },
             touchSupport,
-            telegramPlatform
+            telegramPlatform,
+            telegramVersion
         };
 
+        console.log('Final device info:', this.deviceInfo);
         return this.deviceInfo;
     }
 
@@ -211,17 +232,28 @@ export class DeviceDetector {
      */
     isAccessAllowed(): boolean {
         const deviceInfo = this.getDeviceInfo();
-        return deviceInfo.isValidMobileTelegram;
+        const allowed = deviceInfo.isValidMobileTelegram;
+        console.log('Access allowed:', allowed);
+        return allowed;
     }
 
     /**
-     * Get reason for access denial
+     * Get specific reason for access denial
      */
     getAccessDenialReason(): string {
         const deviceInfo = this.getDeviceInfo();
 
         if (!deviceInfo.isTelegram) {
             return 'not_telegram';
+        }
+
+        // Check specific Telegram platform issues
+        if (deviceInfo.telegramPlatform === 'tdesktop') {
+            return 'telegram_desktop';
+        }
+
+        if (deviceInfo.telegramPlatform === 'web') {
+            return 'telegram_web';
         }
 
         if (!deviceInfo.isMobile) {
@@ -232,23 +264,41 @@ export class DeviceDetector {
             return 'no_touch';
         }
 
-        if (deviceInfo.telegramPlatform === 'web' ||
-            deviceInfo.telegramPlatform === 'unknown') {
-            return 'desktop_telegram';
-        }
-
         return 'unknown';
     }
 
     /**
-     * Reset detection cache (useful for testing)
+     * Test Telegram environment by making API call (optional validation)
+     */
+    async testTelegramEnvironment(): Promise<boolean> {
+        if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
+            return false;
+        }
+
+        try {
+            // Alternative: check if WebApp is ready
+            if (window.Telegram.WebApp.ready) {
+                window.Telegram.WebApp.ready();
+                return true;
+            }
+
+            return true; // If WebApp object exists, assume valid environment
+        } catch (error) {
+            console.warn('Telegram environment test failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Reset detection cache
      */
     reset(): void {
         this.deviceInfo = null;
+        console.log('Device detection cache reset');
     }
 }
 
-// Convenience functions for easy usage
+// Convenience functions
 export const deviceDetector = DeviceDetector.getInstance();
 
 export const isAccessAllowed = (): boolean => {
@@ -261,4 +311,9 @@ export const getDeviceInfo = (): DeviceInfo => {
 
 export const getAccessDenialReason = (): string => {
     return deviceDetector.getAccessDenialReason();
+};
+
+// Additional utility for testing Telegram environment
+export const testTelegramEnvironment = async (): Promise<boolean> => {
+    return deviceDetector.testTelegramEnvironment();
 };
