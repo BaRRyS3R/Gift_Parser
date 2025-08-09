@@ -213,7 +213,7 @@ export default function ShopPage() {
       case "attempts_5":
         return { text: "Popular", textKey: "shop.badges.popular" };
       case "attempts_10":
-        return { text: "Best Value", textKey: "shop.badges.bestvalue" };
+        return { text: "Best Value", textKey: "shop.badges.bestValue" };
       case "attempts_100":
         return { text: "Ultimate", textKey: "shop.badges.ultimate" };
       default:
