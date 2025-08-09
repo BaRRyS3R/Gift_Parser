@@ -12,21 +12,8 @@ import { SettingsProvider } from "@/contexts/SettingsContext";
 import { isAccessAllowed, getDeviceInfo, getAccessDenialReason } from "@/utils/deviceDetection";
 
 interface AccessState {
-  isChecking: boolean;
   isAllowed: boolean | null;
   denialReason: string | null;
-}
-
-// Loading component for device verification
-function DeviceVerificationLoader() {
-  return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center">
-      <div className="space-y-4 text-center">
-        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-white text-sm">Verifying device compatibility...</p>
-      </div>
-    </div>
-  );
 }
 
 // Access control wrapper component
@@ -34,7 +21,6 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [accessState, setAccessState] = useState<AccessState>({
-    isChecking: true,
     isAllowed: null,
     denialReason: null
   });
@@ -43,24 +29,19 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
     // Skip access control for the mobile-only page itself
     if (pathname === '/mobile-only') {
       setAccessState({
-        isChecking: false,
         isAllowed: true,
         denialReason: null
       });
       return;
     }
 
-    // Perform device verification with a slight delay to ensure DOM is ready
-    const verifyDevice = async () => {
+    // Perform device verification immediately (no visual loading needed)
+    const verifyDevice = () => {
       try {
-        // Minimal delay for Telegram WebApp initialization (reduced due to simplified detection)
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
         const allowed = isAccessAllowed();
         const reason = allowed ? null : getAccessDenialReason();
-        
+
         setAccessState({
-          isChecking: false,
           isAllowed: allowed,
           denialReason: reason
         });
@@ -72,7 +53,6 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('Device verification error:', error);
         setAccessState({
-          isChecking: false,
           isAllowed: false,
           denialReason: 'verification_error'
         });
@@ -83,23 +63,17 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
     verifyDevice();
   }, [pathname, router]);
 
-  // Show loader while checking device
-  if (accessState.isChecking) {
-    return <DeviceVerificationLoader />;
-  }
-
   // Allow access if verified or on the mobile-only page
   if (accessState.isAllowed || pathname === '/mobile-only') {
     return <>{children}</>;
   }
 
-  // This should not normally be reached due to router.replace above,
-  // but provides a fallback
-  return <DeviceVerificationLoader />;
+  // If access is denied, component will be redirected via router.replace
+  // Allow content to render normally while redirect is processing
+  return <>{children}</>;
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [telegramInitialized, setTelegramInitialized] = useState(false);
 
   useEffect(() => {
     // Initialize Telegram Web App with enhanced fullscreen configuration
@@ -172,15 +146,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
           viewportHeight: tg.viewportHeight,
           viewportStableHeight: tg.viewportStableHeight
         });
-
-        setTelegramInitialized(true);
       } catch (error) {
         console.error("Error initializing Telegram WebApp:", error);
-        setTelegramInitialized(true); // Continue even if initialization fails
       }
     } else {
       console.warn("Telegram WebApp not available");
-      setTelegramInitialized(true);
+
     }
 
     // Enhanced viewport meta tag configuration for fullscreen experience
@@ -240,15 +211,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
     };
   }, []);
-
-  // Show loader until Telegram is initialized
-  if (!telegramInitialized) {
-    return (
-      <NextUIProvider>
-        <DeviceVerificationLoader />
-      </NextUIProvider>
-    );
-  }
 
   return (
     <NextUIProvider>

@@ -19,6 +19,7 @@ const hiddenPaths = [
   "/blocked",
   "/seasons",
   "/ton-shop",
+  "/mobile-only",
 ];
 
 export default function NavigationWrapper() {

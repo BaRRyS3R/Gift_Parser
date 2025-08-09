@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Smartphone, Monitor, AlertTriangle, CheckCircle, XCircle, Info } from 'lucide-react';
+import { Smartphone, ExternalLink, MessageCircle, Users, Bot } from 'lucide-react';
 import { getDeviceInfo, getAccessDenialReason, type DeviceInfo } from '@/utils/deviceDetection';
 
 interface AccessDenialInfo {
@@ -10,13 +10,11 @@ interface AccessDenialInfo {
     title: string;
     description: string;
     icon: JSX.Element;
-    color: string;
 }
 
 export default function MobileOnlyPage(): JSX.Element {
     const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
     const [denialReason, setDenialReason] = useState<string>('unknown');
-    const [showDebugInfo, setShowDebugInfo] = useState<boolean>(false);
 
     useEffect(() => {
         const info = getDeviceInfo();
@@ -30,193 +28,185 @@ export default function MobileOnlyPage(): JSX.Element {
             case 'not_telegram':
                 return {
                     reason,
-                    title: 'Telegram Required',
-                    description: 'This application can only be accessed through Telegram. Please open the app using a Telegram bot or direct link.',
-                    icon: <AlertTriangle size={48} className="text-orange-400" />,
-                    color: 'orange'
+                    title: 'Access via Telegram Required',
+                    description: 'This application is exclusively available through Telegram. Please access it using our official bot or channel links below.',
+                    icon: <Bot size={64} className="text-blue-400" />
                 };
 
             case 'not_mobile':
+            case 'telegram_desktop':
                 return {
                     reason,
                     title: 'Mobile Device Required',
-                    description: 'This application is designed exclusively for mobile devices. Desktop access is not supported.',
-                    icon: <Monitor size={48} className="text-red-400" />,
-                    color: 'red'
+                    description: 'Our application is optimized for mobile experiences. Please access it through Telegram on your mobile device for the best performance and functionality.',
+                    icon: <Smartphone size={64} className="text-cyan-400" />
                 };
 
-            case 'desktop_telegram':
+            case 'telegram_web':
                 return {
                     reason,
                     title: 'Mobile Telegram Required',
-                    description: 'Please use Telegram on your mobile device instead of Telegram Desktop. This ensures the best experience and proper functionality.',
-                    icon: <Smartphone size={48} className="text-blue-400" />,
-                    color: 'blue'
-                };
-
-            case 'no_touch':
-                return {
-                    reason,
-                    title: 'Touch Support Required',
-                    description: 'This application requires touch input capabilities. Please use a mobile device with touch support.',
-                    icon: <XCircle size={48} className="text-red-400" />,
-                    color: 'red'
+                    description: 'For optimal security and performance, please use the Telegram mobile app instead of the web version. Download Telegram on your mobile device and access our bot.',
+                    icon: <Smartphone size={64} className="text-purple-400" />
                 };
 
             default:
                 return {
                     reason,
-                    title: 'Access Restricted',
-                    description: 'This application is only available on mobile devices through Telegram.',
-                    icon: <AlertTriangle size={48} className="text-gray-400" />,
-                    color: 'gray'
+                    title: 'Mobile Access Only',
+                    description: 'This application is designed exclusively for mobile devices through Telegram. Please access it using your mobile phone.',
+                    icon: <Smartphone size={64} className="text-emerald-400" />
                 };
         }
     };
 
     const denialInfo = getDenialInfo(denialReason);
 
-    const formatUserAgent = (ua: string): string => {
-        if (ua.length > 80) {
-            return ua.substring(0, 80) + '...';
+    const links = [
+        {
+            icon: <Bot size={24} className="text-blue-400" />,
+            title: "Open Bot",
+            description: "Start using Circusle",
+            url: "https://t.me/circusle_bot",
+            gradient: "from-blue-500/20 to-cyan-500/20",
+            border: "border-blue-400/30",
+            hover: "hover:border-blue-400/60 hover:shadow-blue-400/20"
+        },
+        {
+            icon: <Users size={24} className="text-purple-400" />,
+            title: "Join Channel",
+            description: "Latest updates & news",
+            url: "https://t.me/Circusle",
+            gradient: "from-purple-500/20 to-pink-500/20",
+            border: "border-purple-400/30",
+            hover: "hover:border-purple-400/60 hover:shadow-purple-400/20"
+        },
+        {
+            icon: <MessageCircle size={24} className="text-emerald-400" />,
+            title: "Support Chat",
+            description: "Get help & assistance",
+            url: "https://t.me/Circusle_chat",
+            gradient: "from-emerald-500/20 to-teal-500/20",
+            border: "border-emerald-400/30",
+            hover: "hover:border-emerald-400/60 hover:shadow-emerald-400/20"
         }
-        return ua;
-    };
+    ];
 
     return (
-        <div className="min-h-screen bg-black flex items-center justify-center p-6">
-            <div className="max-w-md w-full space-y-8">
-                {/* Main Alert */}
-                <div className="text-center space-y-6">
-                    <div className="flex justify-center">
-                        {denialInfo.icon}
-                    </div>
+        <div className="min-h-screen bg-black relative overflow-hidden">
+            {/* Animated Background */}
+            <div className="absolute inset-0">
+                <div className="absolute top-20 left-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse-slow"></div>
+                <div className="absolute bottom-20 right-10 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+            </div>
 
-                    <div className="space-y-3">
-                        <h1 className="text-2xl font-bold text-white">
-                            {denialInfo.title}
-                        </h1>
-                        <p className="text-gray-400 leading-relaxed">
-                            {denialInfo.description}
-                        </p>
-                    </div>
-                </div>
+            {/* Grid Pattern Overlay */}
+            <div className="absolute inset-0 opacity-5">
+                <div className="w-full h-full" style={{
+                    backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
+                    backgroundSize: '50px 50px'
+                }}></div>
+            </div>
 
-                {/* Access Instructions */}
-                <div className="bg-gray-900 rounded-lg p-6 space-y-4">
-                    <div className="flex items-center space-x-2">
-                        <Smartphone size={20} className="text-green-400" />
-                        <h2 className="text-lg font-semibold text-white">How to Access</h2>
-                    </div>
+            <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
+                <div className="max-w-md w-full space-y-8">
 
-                    <ol className="list-decimal list-inside space-y-3 text-gray-300 text-sm">
-                        <li className="flex items-start space-x-2">
-                            <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                            <span>Open Telegram on your <strong>mobile device</strong> (iPhone or Android)</span>
-                        </li>
-                        <li className="flex items-start space-x-2">
-                            <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                            <span>Find our bot or tap the app link shared with you</span>
-                        </li>
-                        <li className="flex items-start space-x-2">
-                            <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                            <span>Launch the application directly within Telegram</span>
-                        </li>
-                    </ol>
-                </div>
-
-                {/* Device Status */}
-                {deviceInfo && (
-                    <div className="bg-gray-900 rounded-lg p-6 space-y-4">
-                        <div className="flex items-center space-x-2">
-                            <Info size={20} className="text-blue-400" />
-                            <h2 className="text-lg font-semibold text-white">Device Status</h2>
-                        </div>
-
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-gray-400">Mobile Device</span>
-                                <div className="flex items-center space-x-2">
-                                    {deviceInfo.isMobile ? (
-                                        <CheckCircle size={16} className="text-green-400" />
-                                    ) : (
-                                        <XCircle size={16} className="text-red-400" />
-                                    )}
-                                    <span className={deviceInfo.isMobile ? "text-green-400" : "text-red-400"}>
-                                        {deviceInfo.isMobile ? "Yes" : "No"}
-                                    </span>
+                    {/* Main Alert Section */}
+                    <div className="text-center space-y-6">
+                        <div className="relative">
+                            <div className="flex justify-center mb-6">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 rounded-full blur-xl"></div>
+                                    <div className="relative bg-black/50 backdrop-blur-sm border border-cyan-400/30 rounded-full p-6">
+                                        {denialInfo.icon}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between">
-                                <span className="text-gray-400">Telegram</span>
-                                <div className="flex items-center space-x-2">
-                                    {deviceInfo.isTelegram ? (
-                                        <CheckCircle size={16} className="text-green-400" />
-                                    ) : (
-                                        <XCircle size={16} className="text-red-400" />
-                                    )}
-                                    <span className={deviceInfo.isTelegram ? "text-green-400" : "text-red-400"}>
-                                        {deviceInfo.isTelegram ? "Yes" : "No"}
-                                    </span>
-                                </div>
+                            <div className="space-y-4">
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-cyan-200 to-white bg-clip-text text-transparent">
+                                    {denialInfo.title}
+                                </h1>
+                                <p className="text-gray-300 leading-relaxed text-lg">
+                                    {denialInfo.description}
+                                </p>
                             </div>
-
-                            <div className="flex items-center justify-between">
-                                <span className="text-gray-400">Touch Support</span>
-                                <div className="flex items-center space-x-2">
-                                    {deviceInfo.touchSupport ? (
-                                        <CheckCircle size={16} className="text-green-400" />
-                                    ) : (
-                                        <XCircle size={16} className="text-red-400" />
-                                    )}
-                                    <span className={deviceInfo.touchSupport ? "text-green-400" : "text-red-400"}>
-                                        {deviceInfo.touchSupport ? "Yes" : "No"}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {deviceInfo.telegramPlatform && (
-                                <div className="flex items-center justify-between">
-                                    <span className="text-gray-400">Platform</span>
-                                    <span className="text-white">{deviceInfo.telegramPlatform}</span>
-                                </div>
-                            )}
                         </div>
                     </div>
-                )}
 
-                {/* Debug Information Toggle */}
-                <div className="text-center">
-                    <button
-                        onClick={() => setShowDebugInfo(!showDebugInfo)}
-                        className="text-gray-500 hover:text-gray-400 text-sm underline"
-                    >
-                        {showDebugInfo ? 'Hide' : 'Show'} Technical Details
-                    </button>
-                </div>
+                    {/* Action Links */}
+                    <div className="space-y-4">
+                        <h2 className="text-xl font-semibold text-center bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-6">
+                            Access Circusle
+                        </h2>
 
-                {/* Debug Information */}
-                {showDebugInfo && deviceInfo && (
-                    <div className="bg-gray-800 rounded-lg p-4 space-y-3">
-                        <h3 className="text-sm font-semibold text-gray-300">Technical Information</h3>
-                        <div className="space-y-2 text-xs text-gray-400 font-mono">
-                            <div>
-                                <span className="text-gray-500">User Agent:</span>
-                                <br />
-                                <span className="break-all">{formatUserAgent(deviceInfo.userAgent)}</span>
-                            </div>
-                            <div>
-                                <span className="text-gray-500">Platform:</span> {deviceInfo.platform}
-                            </div>
-                            {deviceInfo.telegramPlatform && (
-                                <div>
-                                    <span className="text-gray-500">Telegram Platform:</span> {deviceInfo.telegramPlatform}
+                        {links.map((link, index) => (
+                            <a
+                                key={index}
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`group relative block p-6 rounded-2xl bg-gradient-to-r ${link.gradient} border ${link.border} ${link.hover} transition-all duration-300 hover:shadow-lg backdrop-blur-sm`}
+                            >
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex-shrink-0">
+                                        <div className="relative">
+                                            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 rounded-lg blur"></div>
+                                            <div className="relative bg-black/30 backdrop-blur-sm rounded-lg p-3">
+                                                {link.icon}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center space-x-2">
+                                            <h3 className="text-lg font-semibold text-white">
+                                                {link.title}
+                                            </h3>
+                                            <ExternalLink size={16} className="text-gray-400 group-hover:text-white transition-colors" />
+                                        </div>
+                                        <p className="text-gray-400 text-sm">
+                                            {link.description}
+                                        </p>
+                                    </div>
                                 </div>
-                            )}
+
+                                {/* Shimmer Effect */}
+                                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 overflow-hidden rounded-2xl">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                                </div>
+                            </a>
+                        ))}
+                    </div>
+
+                    {/* Footer Message */}
+                    <div className="text-center pt-6">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent h-px"></div>
+                            <p className="text-gray-500 text-sm bg-black px-4 relative">
+                                Experience Circusle on your mobile device
+                            </p>
                         </div>
                     </div>
-                )}
+
+                </div>
+            </div>
+
+            {/* Floating Particles Effect */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {[...Array(6)].map((_, i) => (
+                    <div
+                        key={i}
+                        className="absolute w-2 h-2 bg-white/20 rounded-full animate-float-gentle"
+                        style={{
+                            left: `${Math.random() * 100}%`,
+                            top: `${Math.random() * 100}%`,
+                            animationDelay: `${Math.random() * 3}s`,
+                            animationDuration: `${3 + Math.random() * 2}s`
+                        }}
+                    ></div>
+                ))}
             </div>
         </div>
     );

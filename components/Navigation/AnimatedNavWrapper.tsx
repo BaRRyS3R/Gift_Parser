@@ -13,6 +13,7 @@ const hiddenPaths = [
   "/game/physics",
   "/tournaments",
   "/ton-shop",
+  "/mobile-only",
 ];
 
 export default function NavigationWrapper() {
