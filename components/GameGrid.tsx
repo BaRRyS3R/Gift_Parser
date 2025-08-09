@@ -1,10 +1,51 @@
-// src/components/GameGrid.tsx - Removed logging while preserving touch/click functionality and instant deactivation support
+// src/components/GameGrid.tsx - Добавлена защита от автоматизации через вариации цветов
 
 "use client";
 
 import { useRef, useState, useEffect } from "react";
 
 import { Circle } from "@/types/game-modes/common";
+
+// Массив оттенков белого цвета для защиты от автоматизации
+const WHITE_COLOR_VARIANTS = [
+  'rgb(255, 255, 255)',     // Чистый белый
+  'rgb(255, 255, 254)',     // Белый с минимальным оттенком
+  'rgb(254, 255, 255)',     // Белый с оттенком в красном канале
+  'rgb(255, 254, 255)',     // Белый с оттенком в зеленом канале
+  'rgb(254, 254, 255)',     // Белый с двойным оттенком
+  'rgb(255, 254, 254)',     // Белый с оттенками в зеленом и синем
+  'rgb(254, 255, 254)',     // Белый с оттенками в красном и синем
+  'rgb(253, 255, 255)',     // Белый с более заметным оттенком красного
+  'rgb(255, 253, 255)',     // Белый с более заметным оттенком зеленого
+  'rgb(255, 255, 253)',     // Белый с более заметным оттенком синего
+];
+
+// Соответствующие оттенки для border цветов
+const WHITE_BORDER_VARIANTS = [
+  'rgb(255, 255, 255)',
+  'rgb(255, 255, 254)',
+  'rgb(254, 255, 255)',
+  'rgb(255, 254, 255)',
+  'rgb(254, 254, 255)',
+  'rgb(255, 254, 254)',
+  'rgb(254, 255, 254)',
+  'rgb(253, 255, 255)',
+  'rgb(255, 253, 255)',
+  'rgb(255, 255, 253)',
+];
+
+// Функция для получения случайного индекса оттенка белого
+const getRandomWhiteVariantIndex = (): number => {
+  return Math.floor(Math.random() * WHITE_COLOR_VARIANTS.length);
+};
+
+// Функция для создания CSS-переменных для конкретного оттенка
+const createWhiteVariantStyle = (variantIndex: number) => {
+  return {
+    '--white-bg': WHITE_COLOR_VARIANTS[variantIndex],
+    '--white-border': WHITE_BORDER_VARIANTS[variantIndex],
+  } as React.CSSProperties;
+};
 
 interface GameGridProps {
   circles: Circle[];
@@ -72,6 +113,29 @@ export default function GameGrid({
 
   // State for tracking active activation pulses
   const [activePulses, setActivePulses] = useState<ActivePulse[]>([]);
+
+  // State для хранения назначенных оттенков белого для каждого кружка
+  const [circleColorVariants, setCircleColorVariants] = useState<Map<number, number>>(new Map());
+
+  // Функция для генерации нового оттенка для кружка при активации
+  const generateColorVariantForCircle = (circleId: number): number => {
+    const variantIndex = getRandomWhiteVariantIndex();
+    setCircleColorVariants(prev => new Map(prev).set(circleId, variantIndex));
+    return variantIndex;
+  };
+
+  // Effect для обновления оттенков при активации новых кружков
+  useEffect(() => {
+    if (onActivatedCircles.length > 0) {
+      onActivatedCircles.forEach(circleId => {
+        // Генерируем новый оттенок только если кружок активирован и это не ловушка
+        const circle = circles.find(c => c.id === circleId);
+        if (circle && circle.isActive && !circle.isDecoy) {
+          generateColorVariantForCircle(circleId);
+        }
+      });
+    }
+  }, [onActivatedCircles, circles]);
 
   // Effect to handle activation pulses
   useEffect(() => {
@@ -202,12 +266,20 @@ export default function GameGrid({
           style: baseStyles,
         };
       } else {
-        // Regular active circles: white coloring with positive indicators
+        // Regular active circles: использование переменного оттенка белого
+        const variantIndex = circleColorVariants.get(circle.id) ?? 0;
+        const whiteVariantStyle = createWhiteVariantStyle(variantIndex);
+
         return {
           className: `${baseClasses} ${visibilityClasses} ${animationClasses}
-                      bg-white shadow-lg shadow-white/50 border-white scale-110
-                      hover:scale-115 active:scale-95`,
-          style: baseStyles,
+                      shadow-lg scale-110 hover:scale-115 active:scale-95`,
+          style: {
+            ...baseStyles,
+            ...whiteVariantStyle,
+            backgroundColor: `var(--white-bg)`,
+            borderColor: `var(--white-border)`,
+            boxShadow: `0 10px 25px -5px ${WHITE_COLOR_VARIANTS[variantIndex]}80, 0 4px 6px -2px ${WHITE_COLOR_VARIANTS[variantIndex]}40`,
+          },
         };
       }
     } else {
@@ -310,26 +382,43 @@ export default function GameGrid({
     };
   };
 
-  // Continuous pulse effect (unchanged but respects instant deactivation)
+  // Continuous pulse effect (обновлен для поддержки вариантов цветов)
   const renderPulseEffect = (circle: Circle) => {
     // Don't render pulse for instantly deactivated circles
     if (instantlyDeactivatedCircles.includes(circle.id)) return null;
     if (!circle.isActive || circle.isAnimating) return null;
 
-    const pulseColor = circle.isDecoy ? "border-red-400" : "border-white";
-    const animationDuration = circle.isDecoy ? "1.2s" : "0.8s";
+    if (circle.isDecoy) {
+      const pulseColor = "border-red-400";
+      const animationDuration = "1.2s";
 
-    return (
-      <div
-        className={`absolute inset-0 rounded-full border-2 ${pulseColor} opacity-50`}
-        style={{
-          animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
-        }}
-      />
-    );
+      return (
+        <div
+          className={`absolute inset-0 rounded-full border-2 ${pulseColor} opacity-50`}
+          style={{
+            animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
+          }}
+        />
+      );
+    } else {
+      // Для белых кружков используем соответствующий оттенок для пульса
+      const variantIndex = circleColorVariants.get(circle.id) ?? 0;
+      const borderColor = WHITE_BORDER_VARIANTS[variantIndex];
+      const animationDuration = "0.8s";
+
+      return (
+        <div
+          className="absolute inset-0 rounded-full border-2 opacity-50"
+          style={{
+            borderColor: borderColor,
+            animation: `ping ${animationDuration} cubic-bezier(0, 0, 0.2, 1) infinite`,
+          }}
+        />
+      );
+    }
   };
 
-  // Fast activation pulse effect (respects instant deactivation)
+  // Fast activation pulse effect (обновлен для поддержки вариантов цветов)
   const renderActivationPulse = (circle: Circle) => {
     // Don't render activation pulse for instantly deactivated circles
     if (instantlyDeactivatedCircles.includes(circle.id)) return null;
@@ -343,7 +432,14 @@ export default function GameGrid({
     const pulseClass = activePulse.isRed
       ? "activation-pulse-red"
       : "activation-pulse";
-    const pulseColor = activePulse.isRed ? "border-red-400" : "border-white";
+
+    let borderColor: string;
+    if (activePulse.isRed) {
+      borderColor = "rgb(248, 113, 113)"; // border-red-400
+    } else {
+      const variantIndex = circleColorVariants.get(circle.id) ?? 0;
+      borderColor = WHITE_BORDER_VARIANTS[variantIndex];
+    }
 
     // Different z-index for different game modes
     // In survival mode, pulse goes behind circles; in reaction mode, it goes above
@@ -351,9 +447,10 @@ export default function GameGrid({
 
     return (
       <div
-        className={`absolute inset-0 rounded-full border-2 ${pulseColor} ${pulseClass} pointer-events-none`}
+        className={`absolute inset-0 rounded-full border-2 ${pulseClass} pointer-events-none`}
         style={{
           zIndex: zIndex,
+          borderColor: borderColor,
         }}
       />
     );
