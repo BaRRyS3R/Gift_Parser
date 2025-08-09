@@ -22,6 +22,7 @@ export const config = {
     "/api/tournaments/:path*",
     "/api/seasons/:path*",
     "/api/easter-egg/:path*",
+    "/api/security/:path*",
   ],
 };
 

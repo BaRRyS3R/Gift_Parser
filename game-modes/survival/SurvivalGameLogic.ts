@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameLogic.ts - Removed logging while preserving game functionality
+// src/game-modes/survival/SurvivalGameLogic.ts - Модифицированная версия с интеграцией анти-чит системы
 
 import {
   SurvivalGameConfig,
@@ -9,19 +9,63 @@ import {
 } from "@/types/game-modes/survival";
 import { Circle, GameState, GameMode } from "@/types/game-modes/common";
 
+// Расширенное состояние игры с поддержкой анти-чит системы
+export interface SurvivalGameStateWithAntiCheat extends SurvivalGameState {
+  antiCheat: {
+    circleActivationTimes: Map<number, number>;
+    isEnabled: boolean;
+  };
+}
+
+// Расширенный результат клика с информацией о времени реакции
+export interface SurvivalClickResult {
+  newState: SurvivalGameStateWithAntiCheat;
+  result: "correct" | "wrong" | "decoy";
+  reactionTime?: number;
+  activationTime?: number;
+}
+
+// Утилитарная функция для проверки наличия анти-чит данных
+export function hasAntiCheatData(state: SurvivalGameState): state is SurvivalGameStateWithAntiCheat {
+  return 'antiCheat' in state && state.antiCheat !== undefined;
+}
+
+// Утилитарная функция для создания состояния с анти-чит данными
+export function ensureAntiCheatState(state: SurvivalGameState): SurvivalGameStateWithAntiCheat {
+  if (hasAntiCheatData(state)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    antiCheat: {
+      circleActivationTimes: new Map<number, number>(),
+      isEnabled: SURVIVAL_ANTICHEAT_CONFIG.ENABLE_TRACKING,
+    },
+  };
+}
+
+// Конфигурация анти-чит системы для Survival режима
+export const SURVIVAL_ANTICHEAT_CONFIG = {
+  SUSPICIOUS_REACTION_TIME_MS: 600, // пороговое значение для тестирования
+  ENABLE_TRACKING: true,
+  LOG_SUSPICIOUS_CLICKS: false, // отключено для production
+} as const;
+
+// Все существующие константы остаются без изменений
 export const SURVIVAL_CONFIG: SurvivalGameConfig = {
   id: "survival",
   name: "SURVIVAL MODE",
-  circleCount: 25, // 6x6 grid
+  circleCount: 25,
   initialActivationTimeMin: 1000,
   initialActivationTimeMax: 1800,
   initialCircleActiveTime: 2000,
-  intensityIncreaseInterval: 8, // seconds
+  intensityIncreaseInterval: 8,
   maxIntensityLevel: 15,
   simultaneousCirclesMin: 1,
   simultaneousCirclesMax: 4,
-  circleReactivationCooldown: 2000, // 2 seconds
-  maxHistoryRetention: 5000, // 5 seconds retention
+  circleReactivationCooldown: 2000,
+  maxHistoryRetention: 5000,
 };
 
 export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
@@ -162,6 +206,7 @@ export const SURVIVAL_LEVELS: SurvivalLevelConfig[] = [
   },
 ];
 
+// Существующие функции остаются без изменений
 export const createSurvivalCircleGrid = (count: number): Circle[] => {
   return Array.from({ length: count }, (_, index) => ({
     id: index,
@@ -187,7 +232,8 @@ const cleanupOldEntries = (
   return cleanedMap;
 };
 
-export const initializeSurvivalGameState = (): SurvivalGameState => {
+// Модифицированная функция инициализации с поддержкой анти-чит
+export const initializeSurvivalGameState = (): SurvivalGameStateWithAntiCheat => {
   const gameStartTime = Date.now();
 
   return {
@@ -217,48 +263,52 @@ export const initializeSurvivalGameState = (): SurvivalGameState => {
     recentlyUsedCircles: new Map<number, number>(),
     isGameEnding: false,
     pendingActivationTimeouts: new Set(),
+    antiCheat: {
+      circleActivationTimes: new Map<number, number>(),
+      isEnabled: SURVIVAL_ANTICHEAT_CONFIG.ENABLE_TRACKING,
+    },
   };
 };
 
 export const getLevelConfig = (level: number): SurvivalLevelConfig => {
   const clampedLevel = Math.max(1, Math.min(level, SURVIVAL_LEVELS.length));
   const config = SURVIVAL_LEVELS[clampedLevel - 1];
-
   return config;
 };
 
 export const updateSurvivalLevel = (
   state: SurvivalGameState,
   currentTime?: number,
-): SurvivalGameState => {
-  // Enhanced state validation
-  if (!state.isActive || !state.gameStartTime || state.isGameEnding) {
-    return state;
+): SurvivalGameStateWithAntiCheat => {
+  const stateWithAntiCheat = ensureAntiCheatState(state);
+
+  if (!stateWithAntiCheat.isActive || !stateWithAntiCheat.gameStartTime || stateWithAntiCheat.isGameEnding) {
+    return stateWithAntiCheat;
   }
 
   const now = currentTime || Date.now();
-  const actualSurvivalTime = now - state.gameStartTime;
+  const actualSurvivalTime = now - stateWithAntiCheat.gameStartTime;
   const newTimeInCurrentLevel =
     actualSurvivalTime -
-    (state.currentLevel - 1) * state.config.intensityIncreaseInterval * 1000;
+    (stateWithAntiCheat.currentLevel - 1) * stateWithAntiCheat.config.intensityIncreaseInterval * 1000;
 
   const shouldIncreaseLevel =
-    newTimeInCurrentLevel >= state.config.intensityIncreaseInterval * 1000 &&
-    state.currentLevel < state.config.maxIntensityLevel;
+    newTimeInCurrentLevel >= stateWithAntiCheat.config.intensityIncreaseInterval * 1000 &&
+    stateWithAntiCheat.currentLevel < stateWithAntiCheat.config.maxIntensityLevel;
 
-  const cleanedRecentlyUsed = cleanupOldEntries(state.recentlyUsedCircles);
+  const cleanedRecentlyUsed = cleanupOldEntries(stateWithAntiCheat.recentlyUsedCircles);
 
   if (shouldIncreaseLevel) {
-    const newLevel = state.currentLevel + 1;
+    const newLevel = stateWithAntiCheat.currentLevel + 1;
     const levelConfig = getLevelConfig(newLevel);
 
     return {
-      ...state,
+      ...stateWithAntiCheat,
       currentLevel: newLevel,
       timeInCurrentLevel: 0,
       recentlyUsedCircles: cleanedRecentlyUsed,
       stats: {
-        ...state.stats,
+        ...stateWithAntiCheat.stats,
         survivalTime: actualSurvivalTime,
         currentLevel: newLevel,
       },
@@ -266,11 +316,11 @@ export const updateSurvivalLevel = (
   }
 
   return {
-    ...state,
+    ...stateWithAntiCheat,
     timeInCurrentLevel: newTimeInCurrentLevel,
     recentlyUsedCircles: cleanedRecentlyUsed,
     stats: {
-      ...state.stats,
+      ...stateWithAntiCheat.stats,
       survivalTime: actualSurvivalTime,
     },
   };
@@ -322,37 +372,39 @@ export const getRandomCircleIds = (
   return selectedIds;
 };
 
+// Модифицированная функция активации кругов с записью времени активации
 export const activateSurvivalCircles = (
   state: SurvivalGameState,
   onCirclesActivated: (circleIds: number[], redCircleIds: number[]) => void,
   onCircleTimeout: (circleId: number, wasDecoy: boolean) => void,
-): SurvivalGameState => {
-  // Enhanced state validation before activation
-  if (!state.isActive || state.gameState !== GameState.PLAYING || state.isGameEnding) {
-    return state;
+): SurvivalGameStateWithAntiCheat => {
+  const stateWithAntiCheat = ensureAntiCheatState(state);
+
+  if (!stateWithAntiCheat.isActive || stateWithAntiCheat.gameState !== GameState.PLAYING || stateWithAntiCheat.isGameEnding) {
+    return stateWithAntiCheat;
   }
 
-  const levelConfig = getLevelConfig(state.currentLevel);
-  const availableSlots = levelConfig.simultaneousCircles - state.activeCircleIds.length;
+  const levelConfig = getLevelConfig(stateWithAntiCheat.currentLevel);
+  const availableSlots = levelConfig.simultaneousCircles - stateWithAntiCheat.activeCircleIds.length;
 
   if (availableSlots <= 0) {
-    return state;
+    return stateWithAntiCheat;
   }
 
   const selectedIds = getRandomCircleIds(
-    state.config.circleCount,
+    stateWithAntiCheat.config.circleCount,
     availableSlots,
-    state.activeCircleIds,
-    state.recentlyUsedCircles,
-    state.config.circleReactivationCooldown,
+    stateWithAntiCheat.activeCircleIds,
+    stateWithAntiCheat.recentlyUsedCircles,
+    stateWithAntiCheat.config.circleReactivationCooldown,
   );
 
   if (selectedIds.length === 0) {
-    return state;
+    return stateWithAntiCheat;
   }
 
   const currentTime = Date.now();
-  const updatedRecentlyUsed = new Map(state.recentlyUsedCircles);
+  const updatedRecentlyUsed = new Map(stateWithAntiCheat.recentlyUsedCircles);
   selectedIds.forEach(id => {
     updatedRecentlyUsed.set(id, currentTime);
   });
@@ -367,29 +419,33 @@ export const activateSurvivalCircles = (
   const redIds = actualRedCircles > 0 ? shuffledIds.slice(0, actualRedCircles) : [];
   const whiteIds = selectedIds.filter(id => !redIds.includes(id));
 
-  const newActiveCircleIds = [...state.activeCircleIds, ...selectedIds];
-  const newCircleTimeouts = new Map(state.circleTimeouts);
+  const newActiveCircleIds = [...stateWithAntiCheat.activeCircleIds, ...selectedIds];
+  const newCircleTimeouts = new Map(stateWithAntiCheat.circleTimeouts);
+
+  // Обновляем анти-чит данные - записываем время активации для белых кругов
+  const updatedAntiCheat = { ...stateWithAntiCheat.antiCheat };
+  if (stateWithAntiCheat.antiCheat.isEnabled) {
+    whiteIds.forEach(circleId => {
+      updatedAntiCheat.circleActivationTimes.set(circleId, currentTime);
+    });
+  }
 
   selectedIds.forEach((circleId) => {
     const isDecoy = redIds.includes(circleId);
 
-    // Enhanced check game state before setting timeout
     const timeout = setTimeout(() => {
-      // Double-check game state when timeout fires
-      if (!state.isActive || state.isGameEnding) {
+      if (!stateWithAntiCheat.isActive || stateWithAntiCheat.isGameEnding) {
         return;
       }
-
       onCircleTimeout(circleId, isDecoy);
     }, levelConfig.circleActiveTime);
 
     newCircleTimeouts.set(circleId, timeout);
   });
 
-  const newCircles = state.circles.map((circle) => {
+  const newCircles = stateWithAntiCheat.circles.map((circle) => {
     if (selectedIds.includes(circle.id)) {
       const isDecoy = redIds.includes(circle.id);
-
       return {
         ...circle,
         isActive: true,
@@ -402,31 +458,54 @@ export const activateSurvivalCircles = (
   onCirclesActivated(selectedIds, redIds);
 
   return {
-    ...state,
+    ...stateWithAntiCheat,
     activeCircleIds: newActiveCircleIds,
     circleTimeouts: newCircleTimeouts,
     circles: newCircles,
     recentlyUsedCircles: updatedRecentlyUsed,
+    antiCheat: updatedAntiCheat,
   };
 };
 
+// Модифицированная функция обработки кликов с расчетом времени реакции
 export const handleSurvivalCircleClick = (
   state: SurvivalGameState,
   clickedCircleId: number,
   clickTime: number = Date.now(),
-): { newState: SurvivalGameState; result: "correct" | "wrong" | "decoy" } => {
-  const clickedCircle = state.circles.find((c) => c.id === clickedCircleId);
+): SurvivalClickResult => {
+  const stateWithAntiCheat = ensureAntiCheatState(state);
+  const clickedCircle = stateWithAntiCheat.circles.find((c) => c.id === clickedCircleId);
 
   if (!clickedCircle) {
-    return { newState: state, result: "wrong" };
+    return {
+      newState: stateWithAntiCheat,
+      result: "wrong",
+      reactionTime: undefined,
+      activationTime: undefined,
+    };
   }
 
-  // Enhanced check if game is ending
-  if (state.isGameEnding) {
-    return { newState: state, result: "wrong" };
+  if (stateWithAntiCheat.isGameEnding) {
+    return {
+      newState: stateWithAntiCheat,
+      result: "wrong",
+      reactionTime: undefined,
+      activationTime: undefined,
+    };
   }
 
-  const updatedState = updateSurvivalLevel(state, clickTime);
+  const updatedState = updateSurvivalLevel(stateWithAntiCheat, clickTime);
+
+  // Получаем время активации для анти-чит анализа
+  let reactionTime: number | undefined;
+  let activationTime: number | undefined;
+
+  if (updatedState.antiCheat.isEnabled && clickedCircle.isActive && !clickedCircle.isDecoy) {
+    activationTime = updatedState.antiCheat.circleActivationTimes.get(clickedCircleId);
+    if (activationTime) {
+      reactionTime = clickTime - activationTime;
+    }
+  }
 
   if (clickedCircle.isActive && !clickedCircle.isAnimating) {
     if (clickedCircle.isDecoy) {
@@ -442,6 +521,8 @@ export const handleSurvivalCircleClick = (
           },
         },
         result: "decoy",
+        reactionTime,
+        activationTime,
       };
     } else {
       const newStats = {
@@ -457,6 +538,8 @@ export const handleSurvivalCircleClick = (
           stats: newStats,
         },
         result: "correct",
+        reactionTime,
+        activationTime,
       };
     }
   } else {
@@ -472,16 +555,20 @@ export const handleSurvivalCircleClick = (
         },
       },
       result: "wrong",
+      reactionTime,
+      activationTime,
     };
   }
 };
 
+// Модифицированная функция деактивации с очисткой анти-чит данных
 export const deactivateSurvivalCircle = (
   state: SurvivalGameState,
   circleId: number,
-): SurvivalGameState => {
-  const newActiveCircleIds = state.activeCircleIds.filter((id) => id !== circleId);
-  const newCircleTimeouts = new Map(state.circleTimeouts);
+): SurvivalGameStateWithAntiCheat => {
+  const stateWithAntiCheat = ensureAntiCheatState(state);
+  const newActiveCircleIds = stateWithAntiCheat.activeCircleIds.filter((id) => id !== circleId);
+  const newCircleTimeouts = new Map(stateWithAntiCheat.circleTimeouts);
   const timeout = newCircleTimeouts.get(circleId);
 
   if (timeout) {
@@ -489,20 +576,28 @@ export const deactivateSurvivalCircle = (
     newCircleTimeouts.delete(circleId);
   }
 
-  const newCircles = state.circles.map((circle) =>
+  // Очищаем анти-чит данные для деактивируемого круга
+  const updatedAntiCheat = { ...stateWithAntiCheat.antiCheat };
+  if (stateWithAntiCheat.antiCheat.isEnabled) {
+    updatedAntiCheat.circleActivationTimes.delete(circleId);
+  }
+
+  const newCircles = stateWithAntiCheat.circles.map((circle) =>
     circle.id === circleId
       ? { ...circle, isActive: false, isAnimating: false, isDecoy: false }
       : circle,
   );
 
   return {
-    ...state,
+    ...stateWithAntiCheat,
     activeCircleIds: newActiveCircleIds,
     circleTimeouts: newCircleTimeouts,
     circles: newCircles,
+    antiCheat: updatedAntiCheat,
   };
 };
 
+// Остальные функции остаются без изменений
 export const calculateSurvivalScore = (
   stats: SurvivalGameStats,
   level: number,
@@ -511,7 +606,6 @@ export const calculateSurvivalScore = (
   const levelScore = level;
   const clickScore = stats.correctHits;
   const totalScore = timeScore + levelScore + clickScore;
-
   return totalScore;
 };
 
@@ -531,7 +625,8 @@ export const getSurvivalDeathCause = (
 export const createSurvivalGameResult = (
   state: SurvivalGameState,
 ): SurvivalGameResult => {
-  const finalState = updateSurvivalLevel(state, Date.now());
+  const stateWithAntiCheat = ensureAntiCheatState(state);
+  const finalState = updateSurvivalLevel(stateWithAntiCheat, Date.now());
   const finalScore = calculateSurvivalScore(
     finalState.stats,
     finalState.currentLevel,
@@ -551,35 +646,36 @@ export const createSurvivalGameResult = (
   };
 };
 
-// Enhanced comprehensive cleanup function
+// Модифицированная функция очистки с очисткой анти-чит данных
 export const cleanupSurvivalGame = (state: SurvivalGameState): void => {
-  // Set game ending flag to prevent new operations
-  state.isGameEnding = true;
+  const stateWithAntiCheat = ensureAntiCheatState(state);
+  stateWithAntiCheat.isGameEnding = true;
 
-  // Clear all circle timeouts
-  state.circleTimeouts.forEach((timeout) => {
+  stateWithAntiCheat.circleTimeouts.forEach((timeout) => {
     clearTimeout(timeout);
   });
-  state.circleTimeouts.clear();
+  stateWithAntiCheat.circleTimeouts.clear();
 
-  // Clear activation timeout
-  if (state.activationTimeout) {
-    clearTimeout(state.activationTimeout);
-    state.activationTimeout = null;
+  if (stateWithAntiCheat.activationTimeout) {
+    clearTimeout(stateWithAntiCheat.activationTimeout);
+    stateWithAntiCheat.activationTimeout = null;
   }
 
-  // Clear level update interval
-  if (state.levelUpdateInterval) {
-    clearInterval(state.levelUpdateInterval);
-    state.levelUpdateInterval = null;
+  if (stateWithAntiCheat.levelUpdateInterval) {
+    clearInterval(stateWithAntiCheat.levelUpdateInterval);
+    stateWithAntiCheat.levelUpdateInterval = null;
   }
 
-  // Clear any pending activation timeouts
-  if (state.pendingActivationTimeouts) {
-    state.pendingActivationTimeouts.forEach((timeoutId) => {
+  if (stateWithAntiCheat.pendingActivationTimeouts) {
+    stateWithAntiCheat.pendingActivationTimeouts.forEach((timeoutId) => {
       clearTimeout(timeoutId);
     });
-    state.pendingActivationTimeouts.clear();
+    stateWithAntiCheat.pendingActivationTimeouts.clear();
+  }
+
+  // Очищаем анти-чит данные
+  if (hasAntiCheatData(stateWithAntiCheat) && stateWithAntiCheat.antiCheat.isEnabled) {
+    stateWithAntiCheat.antiCheat.circleActivationTimes.clear();
   }
 };
 

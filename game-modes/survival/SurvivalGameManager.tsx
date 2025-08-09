@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Updated with play again functionality
+// src/game-modes/survival/SurvivalGameManager.tsx - Версия с интегрированной анти-чит системой
 
 "use client";
 
@@ -22,13 +22,15 @@ import {
   cleanupSurvivalGame,
   getLevelConfig,
   formatSurvivalTime,
+  SurvivalGameStateWithAntiCheat,
+  SurvivalClickResult,
 } from "./SurvivalGameLogic";
 
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
+import { useAntiCheat } from "@/hooks/security/useAntiCheat";
 import { GameState } from "@/types/game-modes/common";
 import {
-  SurvivalGameState,
   SurvivalGameResult,
 } from "@/types/game-modes/survival";
 import GameGrid from "@/components/GameGrid";
@@ -64,7 +66,7 @@ const initialPlayAgainError: PlayAgainError = {
   redirecting: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 100; // Reduced from 16ms to 100ms for better performance
+const LEVEL_UPDATE_INTERVAL = 100;
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -75,7 +77,15 @@ export default function SurvivalGameManager() {
   const router = useRouter();
   const t = useT();
 
-  const [gameState, setGameState] = useState<SurvivalGameState>(
+  // Инициализация анти-чит системы
+  const antiCheat = useAntiCheat({
+    gameMode: 'survival',
+    userId: user?.id || '',
+    telegramId: user?.telegram_id || 0,
+    makeAuthenticatedRequest,
+  });
+
+  const [gameState, setGameState] = useState<SurvivalGameStateWithAntiCheat>(
     initializeSurvivalGameState(),
   );
   const [showCircles, setShowCircles] = useState(false);
@@ -85,38 +95,26 @@ export default function SurvivalGameManager() {
   const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
   const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
-  // State for activation pulse effects
+  // Состояние для визуальных эффектов
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
   const [lastActivationTimestamp, setLastActivationTimestamp] =
     useState<number>(0);
-
-  // State for instant deactivation tracking
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
 
-  // Refs for direct DOM text updates without React re-rendering
+  // Ссылки для оптимизации производительности
   const timeDisplayRef = useRef<HTMLSpanElement>(null);
   const levelDisplayRef = useRef<HTMLSpanElement>(null);
 
-  // Protection against multiple simultaneous operations
+  // Защита от состояния гонки
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
-  const gameStateRef = useRef<SurvivalGameState>(gameState);
+  const gameStateRef = useRef<SurvivalGameStateWithAntiCheat>(gameState);
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Function to update display text directly in DOM without React re-rendering
-  const updateDisplayText = useCallback((time: number, level: number) => {
-    if (timeDisplayRef.current) {
-      timeDisplayRef.current.textContent = formatSurvivalTime(time);
-    }
-    if (levelDisplayRef.current) {
-      levelDisplayRef.current.textContent = `${t("common.level")} ${level}/15`;
-    }
-  }, [t]);
-
-  // Setup Telegram WebApp back button
+  // Настройка кнопки "Назад" Telegram WebApp
   useEffect(() => {
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -133,7 +131,7 @@ export default function SurvivalGameManager() {
     }
   }, [router]);
 
-  // Auto-start game on component mount
+  // Автоматический запуск игры
   useEffect(() => {
     const timer = setTimeout(() => {
       startGame();
@@ -142,7 +140,7 @@ export default function SurvivalGameManager() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Handle play again error auto-redirect
+  // Обработка автоматического перенаправления при ошибке повторной игры
   useEffect(() => {
     if (playAgainError.show && !playAgainError.redirecting) {
       const timer = setTimeout(() => {
@@ -156,6 +154,17 @@ export default function SurvivalGameManager() {
     }
   }, [playAgainError.show, playAgainError.redirecting, router]);
 
+  // Обновление отображения времени и уровня
+  const updateDisplayText = useCallback((time: number, level: number) => {
+    if (timeDisplayRef.current) {
+      timeDisplayRef.current.textContent = formatSurvivalTime(time);
+    }
+    if (levelDisplayRef.current) {
+      levelDisplayRef.current.textContent = `${t("common.level")} ${level}/15`;
+    }
+  }, [t]);
+
+  // Тактильная обратная связь
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
       typeof window !== "undefined" &&
@@ -166,18 +175,19 @@ export default function SurvivalGameManager() {
     }
   }, []);
 
+  // Проверка нового рекорда
   const checkForNewBestScore = useCallback(
     (newScore: number) => {
       if (user && user.survival_best_score !== undefined) {
         const previousBest = user.survival_best_score || 0;
         const isNewBest = newScore > previousBest;
-
         setIsNewBestScore(isNewBest);
       }
     },
     [user],
   );
 
+  // Сохранение результатов игры с интеграцией анти-чит системы
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
       setSaveStatus((prev) => ({
@@ -235,6 +245,18 @@ export default function SurvivalGameManager() {
 
       try {
         await attemptSave();
+
+        // После успешного сохранения игры отправляем анти-чит данные
+        try {
+          await antiCheat.endSession({
+            maxLevelReached: result.maxLevelReached,
+            survivalTime: result.survivalTime,
+            finalScore: result.score,
+          });
+        } catch (antiCheatError) {
+          console.warn('[AntiCheat] Failed to submit security data:', antiCheatError);
+          // Не прерываем процесс, так как это shadow система
+        }
       } catch (error) {
         setSaveStatus((prev) => ({
           ...prev,
@@ -243,15 +265,25 @@ export default function SurvivalGameManager() {
           error:
             error instanceof Error ? error.message : t("errors.saveGameResult"),
         }));
+
+        // При ошибке сохранения все равно пытаемся отправить анти-чит данные
+        try {
+          await antiCheat.endSession({
+            maxLevelReached: result.maxLevelReached,
+            survivalTime: result.survivalTime,
+            finalScore: result.score,
+          });
+        } catch (antiCheatError) {
+          console.warn('[AntiCheat] Failed to submit security data after save error:', antiCheatError);
+        }
       }
     },
-    [makeAuthenticatedRequest, t],
+    [makeAuthenticatedRequest, t, antiCheat],
   );
 
-  // Enhanced protected endGame function with multiple call prevention
+  // Завершение игры с защитой от множественных вызовов
   const endGame = useCallback(
     (cause: "miss" | "wrong_click" | "decoy_hit") => {
-      // Prevent multiple calls to endGame
       if (isGameEndingRef.current) {
         return;
       }
@@ -259,7 +291,6 @@ export default function SurvivalGameManager() {
       isGameEndingRef.current = true;
 
       setGameState((prev) => {
-        // Double-check that game isn't already ending
         if (prev.isGameEnding) {
           return prev;
         }
@@ -291,7 +322,6 @@ export default function SurvivalGameManager() {
         const result = createSurvivalGameResult(finalGameState);
 
         checkForNewBestScore(result.score);
-
         setGameResult(result);
         handleSaveGameResult(result);
         cleanupSurvivalGame(finalGameState);
@@ -302,16 +332,14 @@ export default function SurvivalGameManager() {
     [handleSaveGameResult, checkForNewBestScore],
   );
 
-  // Enhanced protected scheduleNextActivation with race condition prevention
+  // Планирование следующей активации с защитой от состояния гонки
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
-    // Prevent multiple simultaneous scheduling calls
     if (isSchedulingActivationRef.current) {
       return;
     }
 
-    // Enhanced state validation
     if (!currentState.isActive ||
       currentState.gameState !== GameState.PLAYING ||
       currentState.isGameEnding ||
@@ -328,10 +356,8 @@ export default function SurvivalGameManager() {
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
-      // Reset scheduling flag when timeout executes
       isSchedulingActivationRef.current = false;
 
-      // Double-check game state when timeout fires
       if (!gameStateRef.current.isActive ||
         gameStateRef.current.gameState !== GameState.PLAYING ||
         gameStateRef.current.isGameEnding ||
@@ -340,7 +366,6 @@ export default function SurvivalGameManager() {
       }
 
       setGameState((prev) => {
-        // Triple-check state inside setState
         if (!prev.isActive || prev.gameState !== GameState.PLAYING || prev.isGameEnding) {
           return prev;
         }
@@ -353,12 +378,17 @@ export default function SurvivalGameManager() {
             setActivatedCircles(circleIds);
             setLastActivationTimestamp(timestamp);
 
+            // Регистрируем активацию белых кругов в анти-чит системе
+            const whiteCircleIds = circleIds.filter(id => !redCircleIds.includes(id));
+            whiteCircleIds.forEach(circleId => {
+              antiCheat.recordCircleActivation(circleId, timestamp);
+            });
+
             setTimeout(() => {
               setActivatedCircles([]);
             }, 450);
           },
           (circleId, wasDecoy) => {
-            // Check if game is ending before processing timeout
             if (isGameEndingRef.current || prev.isGameEnding) {
               return;
             }
@@ -369,7 +399,6 @@ export default function SurvivalGameManager() {
               setGameState((current) =>
                 deactivateSurvivalCircle(current, circleId),
               );
-              // Only schedule next activation if game is still active
               if (!isGameEndingRef.current && !gameStateRef.current.isGameEnding) {
                 scheduleNextActivation();
               }
@@ -380,7 +409,6 @@ export default function SurvivalGameManager() {
         return newState;
       });
 
-      // Schedule next activation only if game is still active
       if (gameStateRef.current.isActive &&
         gameStateRef.current.gameState === GameState.PLAYING &&
         !gameStateRef.current.isGameEnding &&
@@ -394,12 +422,12 @@ export default function SurvivalGameManager() {
       activationTimeout: timeout,
     }));
 
-    // Reset scheduling flag after timeout is set
     setTimeout(() => {
       isSchedulingActivationRef.current = false;
     }, 50);
-  }, [endGame]);
+  }, [endGame, antiCheat]);
 
+  // Обработка кликов по кругам с интеграцией анти-чит системы
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       const currentState = gameStateRef.current;
@@ -409,27 +437,27 @@ export default function SurvivalGameManager() {
       }
 
       const clickTime = Date.now();
-      const { newState, result } = handleSurvivalCircleClick(
+      const clickResult: SurvivalClickResult = handleSurvivalCircleClick(
         currentState,
         circleId,
         clickTime,
       );
 
-      if (result === "correct") {
+      if (clickResult.result === "correct") {
         triggerHapticFeedback("success");
 
-        // Add circle to instant deactivation list
+        // Регистрируем успешный клик в анти-чит системе
+        antiCheat.recordSuccessfulClick(circleId, clickTime);
+
         setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
 
-        // Immediately clear timeout and deactivate circle without animation
-        const immediatelyDeactivatedState = deactivateSurvivalCircle(newState, circleId);
+        const immediatelyDeactivatedState = deactivateSurvivalCircle(clickResult.newState, circleId);
         setGameState(immediatelyDeactivatedState);
 
-        // Remove from instant deactivation list after short delay
         setTimeout(() => {
           setInstantlyDeactivatedCircles((prev) => prev.filter(id => id !== circleId));
         }, 100);
-      } else if (result === "decoy") {
+      } else if (clickResult.result === "decoy") {
         triggerHapticFeedback("error");
         endGame("decoy_hit");
       } else {
@@ -437,11 +465,11 @@ export default function SurvivalGameManager() {
         endGame("wrong_click");
       }
     },
-    [triggerHapticFeedback, endGame],
+    [triggerHapticFeedback, endGame, antiCheat],
   );
 
+  // Запуск игры с инициализацией анти-чит сессии
   const startGame = useCallback(() => {
-    // Reset protection flags
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
@@ -457,7 +485,9 @@ export default function SurvivalGameManager() {
     setInstantlyDeactivatedCircles([]);
     setIsPlayingAgain(false);
 
-    // Initialize display text
+    // Запускаем анти-чит сессию
+    antiCheat.startSession();
+
     updateDisplayText(0, 1);
 
     setTimeout(() => {
@@ -481,10 +511,7 @@ export default function SurvivalGameManager() {
           }
 
           const updatedState = updateSurvivalLevel(current, Date.now());
-
-          // Update display text directly without re-rendering React components
           updateDisplayText(updatedState.stats.survivalTime, updatedState.currentLevel);
-
           return updatedState;
         });
       }, LEVEL_UPDATE_INTERVAL);
@@ -498,18 +525,17 @@ export default function SurvivalGameManager() {
         levelUpdateInterval: levelInterval,
       }));
     }, 800);
-  }, [scheduleNextActivation, updateDisplayText]);
+  }, [scheduleNextActivation, updateDisplayText, antiCheat]);
 
+  // Обработка повторной игры
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
 
     setIsPlayingAgain(true);
 
     try {
-      // Get current attempts status directly from server
       const currentAttemptsStatus = await fetchAttemptsStatus(true);
 
-      // Use the fresh data from the fetch result, not the hook state
       if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
         setPlayAgainError({
           show: true,
@@ -520,10 +546,8 @@ export default function SurvivalGameManager() {
         return;
       }
 
-      // Consume attempt and verify the operation succeeded
       const consumeResult = await consumeAttempt();
 
-      // Verify that the consume operation was successful
       if (!consumeResult) {
         setPlayAgainError({
           show: true,
@@ -534,7 +558,6 @@ export default function SurvivalGameManager() {
         return;
       }
 
-      // Additional safety check: verify we have valid remaining attempts
       if (consumeResult.attemptsRemaining < 0) {
         setPlayAgainError({
           show: true,
@@ -545,7 +568,6 @@ export default function SurvivalGameManager() {
         return;
       }
 
-      // All checks passed - start new game
       startGame();
     } catch (error) {
       console.error("Error starting new survival game:", error);
@@ -558,12 +580,15 @@ export default function SurvivalGameManager() {
     }
   }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
+  // Очистка при размонтировании компонента
   useEffect(() => {
     return () => {
       cleanupSurvivalGame(gameStateRef.current);
+      antiCheat.forceEndSession();
     };
-  }, []);
+  }, [antiCheat]);
 
+  // Вспомогательные функции для отображения результатов
   const getDeathCauseIcon = (deathCause: string) => {
     switch (deathCause) {
       case "miss":
@@ -592,6 +617,7 @@ export default function SurvivalGameManager() {
     return t(key as any) || t("game.modes.survival.deathCauses.default");
   };
 
+  // Отображение экрана результатов
   if (gameState.gameState === GameState.FINISHED && gameResult) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
@@ -662,87 +688,85 @@ export default function SurvivalGameManager() {
             </div>
           </div>
 
-          {/* Save Status Display */}
-          {(saveStatus.isLoading ||
-            saveStatus.error ||
-            saveStatus.isSuccess) && (
-              <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
-                {saveStatus.isLoading && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3">
-                      <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                      <span className="text-sm text-red-300/80">
-                        {saveStatus.showRetryDetails
-                          ? t("save.retrying", {
-                            attempt: saveStatus.attempt,
-                            max: saveStatus.maxAttempts,
-                          })
-                          : t("save.recording")}
-                      </span>
-                    </div>
-
-                    {saveStatus.showRetryDetails && (
-                      <div className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <RotateCcw className="text-red-400/60" size={14} />
-                          <span className="text-xs text-red-400/60">
-                            {t("save.connectionIssue")}
-                          </span>
-                        </div>
-                        <div className="w-full bg-red-400/20 rounded-full h-1">
-                          <div
-                            className="bg-red-400 h-1 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {saveStatus.isSuccess && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-sm text-green-400">
-                        {t("save.recordedSuccessfully")}
-                      </span>
-                    </div>
-                    <div className="text-green-400/60 text-xs">
-                      {saveStatus.attempt > 1
-                        ? t("save.savedAfterRetries", {
-                          attempts: saveStatus.attempt,
+          {/* Отображение статуса сохранения */}
+          {(saveStatus.isLoading || saveStatus.error || saveStatus.isSuccess) && (
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+              {saveStatus.isLoading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                    <span className="text-sm text-red-300/80">
+                      {saveStatus.showRetryDetails
+                        ? t("save.retrying", {
+                          attempt: saveStatus.attempt,
+                          max: saveStatus.maxAttempts,
                         })
-                        : t("save.synchronized")}
-                    </div>
+                        : t("save.recording")}
+                    </span>
                   </div>
-                )}
 
-                {saveStatus.error && !saveStatus.isLoading && (
-                  <div className="text-center">
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <span className="text-red-400 text-sm">
-                        {t("save.saveFailed", {
-                          attempts: saveStatus.maxAttempts,
-                        })}
-                      </span>
+                  {saveStatus.showRetryDetails && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <RotateCcw className="text-red-400/60" size={14} />
+                        <span className="text-xs text-red-400/60">
+                          {t("save.connectionIssue")}
+                        </span>
+                      </div>
+                      <div className="w-full bg-red-400/20 rounded-full h-1">
+                        <div
+                          className="bg-red-400 h-1 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="text-red-400/60 text-xs mb-3">
-                      {t("save.recordedLocally")}
-                    </div>
-                    <button
-                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                      onClick={() => handleSaveGameResult(gameResult)}
-                    >
-                      {t("save.retrySave")}
-                    </button>
+                  )}
+                </div>
+              )}
+
+              {saveStatus.isSuccess && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-sm text-green-400">
+                      {t("save.recordedSuccessfully")}
+                    </span>
                   </div>
-                )}
-              </div>
-            )}
+                  <div className="text-green-400/60 text-xs">
+                    {saveStatus.attempt > 1
+                      ? t("save.savedAfterRetries", {
+                        attempts: saveStatus.attempt,
+                      })
+                      : t("save.synchronized")}
+                  </div>
+                </div>
+              )}
 
-          {/* Play Again Error Display */}
+              {saveStatus.error && !saveStatus.isLoading && (
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <span className="text-red-400 text-sm">
+                      {t("save.saveFailed", {
+                        attempts: saveStatus.maxAttempts,
+                      })}
+                    </span>
+                  </div>
+                  <div className="text-red-400/60 text-xs mb-3">
+                    {t("save.recordedLocally")}
+                  </div>
+                  <button
+                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                    onClick={() => handleSaveGameResult(gameResult)}
+                  >
+                    {t("save.retrySave")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Отображение ошибки повторной игры */}
           {playAgainError.show && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
               <div className="text-center">
@@ -773,11 +797,10 @@ export default function SurvivalGameManager() {
 
           <div className="space-y-4">
             <button
-              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
-                isPlayingAgain || playAgainError.show
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
                   ? "border-gray-600 text-gray-500 cursor-not-allowed"
                   : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
-              }`}
+                }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}
             >
@@ -799,9 +822,9 @@ export default function SurvivalGameManager() {
     );
   }
 
+  // Основной игровой интерфейс
   return (
     <div className="min-h-screen bg-black flex flex-col text-white relative">
-      {/* Game area - full screen with proper container structure */}
       <div className="flex-1 flex items-center justify-center relative">
         <GameGrid
           circles={gameState.circles}
@@ -815,10 +838,8 @@ export default function SurvivalGameManager() {
         />
       </div>
 
-      {/* Fixed bottom overlay container with improved positioning */}
       <div className="fixed inset-x-0 bottom-0 pointer-events-none z-50">
         <div className="flex justify-between items-end p-6 pb-8">
-          {/* Level display - bottom left */}
           <div className="pointer-events-none">
             <span
               ref={levelDisplayRef}
@@ -834,7 +855,6 @@ export default function SurvivalGameManager() {
             </span>
           </div>
 
-          {/* Time display - bottom right */}
           <div className="pointer-events-none">
             <span
               ref={timeDisplayRef}
