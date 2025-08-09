@@ -140,9 +140,9 @@ export const shop = {
     },
 
     badges: {
-      popular: "Popular",
-      bestValue: "Best Value",
-      ultimate: "Ultimate",
+      popular: "d46351ba",
+      bestValue: "333607e13db3",
+      ultimate: "3ff954c06925",
     },
 
     products: {
