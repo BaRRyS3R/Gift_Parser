@@ -26,24 +26,19 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    // Skip access control for the mobile-only page itself
+    // Skip access control entirely for the mobile-only page
     if (pathname === '/mobile-only') {
-      setAccessState({
-        isAllowed: true,
-        denialReason: null
-      });
       return;
     }
 
-    // Perform device verification immediately (no visual loading needed)
+    // Perform device verification only once on mount for non-mobile-only pages
     const verifyDevice = () => {
       try {
         const allowed = isAccessAllowed();
-        const reason = allowed ? null : getAccessDenialReason();
-
+        
         setAccessState({
           isAllowed: allowed,
-          denialReason: reason
+          denialReason: allowed ? null : getAccessDenialReason()
         });
 
         // Redirect to mobile-only page if access is denied
@@ -52,10 +47,6 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Device verification error:', error);
-        setAccessState({
-          isAllowed: false,
-          denialReason: 'verification_error'
-        });
         router.replace('/mobile-only');
       }
     };
@@ -63,18 +54,50 @@ function AccessControlWrapper({ children }: { children: React.ReactNode }) {
     verifyDevice();
   }, [pathname, router]);
 
-  // Allow access if verified or on the mobile-only page
-  if (accessState.isAllowed || pathname === '/mobile-only') {
+  // Always allow mobile-only page to render without checks
+  if (pathname === '/mobile-only') {
     return <>{children}</>;
   }
 
-  // If access is denied, component will be redirected via router.replace
-  // Allow content to render normally while redirect is processing
-  return <>{children}</>;
+  // For other pages, allow access if verified
+  if (accessState.isAllowed) {
+    return <>{children}</>;
+  }
+
+  // Show nothing while verification/redirect is in progress
+  return null;
+}
+
+// Conditional providers wrapper that excludes auth providers for mobile-only page
+function ConditionalProviders({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  
+  // For mobile-only page, skip authentication and access control providers
+  if (pathname === '/mobile-only') {
+    return (
+      <SettingsProvider>
+        <LocalizationProvider>
+          {children}
+        </LocalizationProvider>
+      </SettingsProvider>
+    );
+  }
+  
+  // For all other pages, include full provider stack
+  return (
+    <AccessControlWrapper>
+      <SettingsProvider>
+        <UserProvider>
+          <LocalizationProvider>
+            {children}
+          </LocalizationProvider>
+        </UserProvider>
+      </SettingsProvider>
+    </AccessControlWrapper>
+  );
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-
   useEffect(() => {
     // Initialize Telegram Web App with enhanced fullscreen configuration
     if (typeof window !== "undefined" && window.Telegram?.WebApp) {
@@ -138,7 +161,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           tg.MainButton.hide();
         }
 
-        // Log device and platform information for debugging
         console.log("Telegram WebApp initialized:", {
           platform: tg.platform,
           version: tg.version,
@@ -151,7 +173,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
     } else {
       console.warn("Telegram WebApp not available");
-
     }
 
     // Enhanced viewport meta tag configuration for fullscreen experience
@@ -214,13 +235,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <NextUIProvider>
-      <AccessControlWrapper>
-        <SettingsProvider>
-          <UserProvider>
-            <LocalizationProvider>{children}</LocalizationProvider>
-          </UserProvider>
-        </SettingsProvider>
-      </AccessControlWrapper>
+      <ConditionalProviders>
+        {children}
+      </ConditionalProviders>
     </NextUIProvider>
   );
 }
