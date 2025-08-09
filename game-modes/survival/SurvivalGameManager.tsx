@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Updated with play again functionality
+// src/game-modes/survival/SurvivalGameManager.tsx - Fixed interface flickering while preserving game functionality
 
 "use client";
 
@@ -93,10 +93,6 @@ export default function SurvivalGameManager() {
   // State for instant deactivation tracking
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
 
-  // Refs for direct DOM text updates without React re-rendering
-  const timeDisplayRef = useRef<HTMLSpanElement>(null);
-  const levelDisplayRef = useRef<HTMLSpanElement>(null);
-
   // Protection against multiple simultaneous operations
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
@@ -105,16 +101,6 @@ export default function SurvivalGameManager() {
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
-
-  // Function to update display text directly in DOM without React re-rendering
-  const updateDisplayText = useCallback((time: number, level: number) => {
-    if (timeDisplayRef.current) {
-      timeDisplayRef.current.textContent = formatSurvivalTime(time);
-    }
-    if (levelDisplayRef.current) {
-      levelDisplayRef.current.textContent = `${t("common.level")} ${level}/15`;
-    }
-  }, [t]);
 
   // Setup Telegram WebApp back button
   useEffect(() => {
@@ -457,9 +443,6 @@ export default function SurvivalGameManager() {
     setInstantlyDeactivatedCircles([]);
     setIsPlayingAgain(false);
 
-    // Initialize display text
-    updateDisplayText(0, 1);
-
     setTimeout(() => {
       setShowCircles(true);
     }, 100);
@@ -481,10 +464,6 @@ export default function SurvivalGameManager() {
           }
 
           const updatedState = updateSurvivalLevel(current, Date.now());
-
-          // Update display text directly without re-rendering React components
-          updateDisplayText(updatedState.stats.survivalTime, updatedState.currentLevel);
-
           return updatedState;
         });
       }, LEVEL_UPDATE_INTERVAL);
@@ -498,7 +477,7 @@ export default function SurvivalGameManager() {
         levelUpdateInterval: levelInterval,
       }));
     }, 800);
-  }, [scheduleNextActivation, updateDisplayText]);
+  }, [scheduleNextActivation]);
 
   const handlePlayAgain = useCallback(async () => {
     if (isPlayingAgain) return;
@@ -814,43 +793,21 @@ export default function SurvivalGameManager() {
         />
       </div>
 
-      {/* Fixed bottom overlay container with improved positioning */}
-      <div className="fixed inset-x-0 bottom-0 pointer-events-none z-50">
-        <div className="flex justify-between items-end p-6 pb-8">
-          {/* Level display - bottom left */}
-          <div className="pointer-events-none flex-shrink-0">
-            <span
-              ref={levelDisplayRef}
-              className="inline-block text-lg font-bold text-orange-400 drop-shadow-lg bg-black/20 px-2 py-1 rounded"
-              style={{
-                fontVariantNumeric: 'tabular-nums',
-                fontFamily: 'monospace',
-                textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-                minWidth: '110px', // немного больше, чем было
-                textAlign: 'left',
-                display: 'inline-block',
-              }}
-            >
-              {t("common.level")} 1/15
-            </span>
-          </div>
+      {/* Fixed bottom panel with stable React state display */}
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-lg font-bold text-orange-400">
+                {t("common.level")} {gameState.currentLevel}/15
+              </span>
+            </div>
 
-          {/* Time display - bottom right */}
-          <div className="pointer-events-none flex-shrink-0">
-            <span
-              ref={timeDisplayRef}
-              className="inline-block text-lg font-bold text-white drop-shadow-lg bg-black/20 px-2 py-1 rounded"
-              style={{
-                fontVariantNumeric: 'tabular-nums',
-                fontFamily: 'monospace',
-                textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-                minWidth: '130px', // увеличено для самой длинной строки, например "59:59.999"
-                textAlign: 'right',
-                display: 'inline-block',
-              }}
-            >
-              0.000s
-            </span>
+            <div className="flex items-center space-x-2">
+              <span className="text-lg font-bold text-white">
+                {formatSurvivalTime(gameState.stats.survivalTime)}
+              </span>
+            </div>
           </div>
         </div>
       </div>
