@@ -1,8 +1,8 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed interface flickering while preserving game functionality
+// src/game-modes/survival/SurvivalGameManager.tsx - Updated with inline throttling for stable UI
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 import {
   Crosshair,
@@ -64,7 +64,44 @@ const initialPlayAgainError: PlayAgainError = {
   redirecting: false,
 };
 
-const LEVEL_UPDATE_INTERVAL = 100; // Reduced from 16ms to 100ms for better performance
+const LEVEL_UPDATE_INTERVAL = 100;
+
+// Custom hook for throttled values
+const useThrottledValue = <T,>(value: T, delay: number): T => {
+  const [throttledValue, setThrottledValue] = useState<T>(value);
+  const lastUpdateRef = useRef<number>(0);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastUpdateRef.current;
+
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    if (timeSinceLastUpdate >= delay) {
+      // Update immediately if enough time has passed
+      setThrottledValue(value);
+      lastUpdateRef.current = now;
+    } else {
+      // Schedule update for later
+      timeoutRef.current = setTimeout(() => {
+        setThrottledValue(value);
+        lastUpdateRef.current = Date.now();
+      }, delay - timeSinceLastUpdate);
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [value, delay]);
+
+  return throttledValue;
+};
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
@@ -92,6 +129,15 @@ export default function SurvivalGameManager() {
 
   // State for instant deactivation tracking
   const [instantlyDeactivatedCircles, setInstantlyDeactivatedCircles] = useState<number[]>([]);
+
+  // Throttled values for stable UI display
+  const throttledLevel = useThrottledValue(gameState.currentLevel, 300); // Update level max every 300ms
+  const throttledSurvivalTime = useThrottledValue(gameState.stats.survivalTime, 150); // Update time max every 150ms
+
+  // Memoized formatted time to prevent unnecessary recalculations
+  const formattedTime = useMemo(() => {
+    return formatSurvivalTime(throttledSurvivalTime);
+  }, [throttledSurvivalTime]);
 
   // Protection against multiple simultaneous operations
   const isSchedulingActivationRef = useRef(false);
@@ -793,19 +839,35 @@ export default function SurvivalGameManager() {
         />
       </div>
 
-      {/* Fixed bottom panel with stable React state display */}
+      {/* Fixed bottom panel with throttled values for stable display */}
       <div className="fixed bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm border-t border-red-400/30 safe-area-inset-bottom">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold text-orange-400">
-                {t("common.level")} {gameState.currentLevel}/15
+              <span
+                className="text-lg font-bold text-orange-400"
+                style={{
+                  fontVariantNumeric: 'tabular-nums',
+                  transform: 'translateZ(0)',
+                  minWidth: '120px'
+                }}
+              >
+                {t("common.level")} {throttledLevel}/15
               </span>
             </div>
 
             <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold text-white">
-                {formatSurvivalTime(gameState.stats.survivalTime)}
+              <span
+                className="text-lg font-bold text-white"
+                style={{
+                  fontVariantNumeric: 'tabular-nums',
+                  fontFamily: 'monospace',
+                  transform: 'translateZ(0)',
+                  minWidth: '120px',
+                  textAlign: 'right'
+                }}
+              >
+                {formattedTime}
               </span>
             </div>
           </div>
