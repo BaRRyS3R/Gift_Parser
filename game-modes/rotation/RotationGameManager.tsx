@@ -1,4 +1,4 @@
-// src/game-modes/rotation/RotationGameManager.tsx - Refactored version without attempts logic
+// src/game-modes/rotation/RotationGameManager.tsx - Updated with play again functionality
 
 "use client";
 
@@ -26,6 +26,7 @@ import {
 } from "./RotationGameLogic";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/modules/useAttempts";
 import { GameState } from "@/types/game-modes/common";
 import {
   RotationGameState,
@@ -43,6 +44,12 @@ interface SaveStatus {
   showRetryDetails: boolean;
 }
 
+interface PlayAgainError {
+  show: boolean;
+  message: string;
+  redirecting: boolean;
+}
+
 const initialSaveStatus: SaveStatus = {
   isLoading: false,
   attempt: 0,
@@ -52,10 +59,20 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
+const initialPlayAgainError: PlayAgainError = {
+  show: false,
+  message: "",
+  redirecting: false,
+};
+
 const LEVEL_UPDATE_INTERVAL = 100; // Update level/time every 100ms
 
 export default function RotationGameManager() {
   const { makeAuthenticatedRequest } = useUser();
+  const {
+    consumeAttempt,
+    fetchAttemptsStatus,
+  } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -65,6 +82,8 @@ export default function RotationGameManager() {
   const [showCircles, setShowCircles] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<RotationGameResult | null>(null);
+  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
+  const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -89,7 +108,7 @@ export default function RotationGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -102,6 +121,20 @@ export default function RotationGameManager() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Handle play again error auto-redirect
+  useEffect(() => {
+    if (playAgainError.show && !playAgainError.redirecting) {
+      const timer = setTimeout(() => {
+        setPlayAgainError(prev => ({ ...prev, redirecting: true }));
+        setTimeout(() => {
+          router.push("/game");
+        }, 500);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [playAgainError.show, playAgainError.redirecting, router]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -232,7 +265,7 @@ export default function RotationGameManager() {
     const levelConfig = getLevelConfig(currentState.currentLevel);
     const delay =
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin) +
       levelConfig.activationTimeMin;
 
     const timeout = setTimeout(() => {
@@ -314,8 +347,10 @@ export default function RotationGameManager() {
     setGameState(initialState);
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
+    setPlayAgainError(initialPlayAgainError);
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
+    setIsPlayingAgain(false);
 
     setTimeout(() => {
       setShowCircles(true);
@@ -348,9 +383,63 @@ export default function RotationGameManager() {
     }, 800);
   }, [scheduleNextActivation]);
 
-  const handleBackToGames = useCallback(() => {
-    router.push("/game");
-  }, [router]);
+  const handlePlayAgain = useCallback(async () => {
+    if (isPlayingAgain) return;
+
+    setIsPlayingAgain(true);
+
+    try {
+      // Get current attempts status directly from server
+      const currentAttemptsStatus = await fetchAttemptsStatus(true);
+
+      // Use the fresh data from the fetch result, not the hook state
+      if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.rotation.playAgain.noAttempts"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // Consume attempt and verify the operation succeeded
+      const consumeResult = await consumeAttempt();
+
+      // Verify that the consume operation was successful
+      if (!consumeResult) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.rotation.playAgain.failedToConsume"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // Additional safety check: verify we have valid remaining attempts
+      if (consumeResult.attemptsRemaining < 0) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.rotation.playAgain.failedToConsume"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // All checks passed - start new game
+      startGame();
+    } catch (error) {
+      console.error("Error starting new rotation game:", error);
+      setPlayAgainError({
+        show: true,
+        message: t("game.modes.rotation.playAgain.error"),
+        redirecting: false,
+      });
+      setIsPlayingAgain(false);
+    }
+  }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -392,10 +481,6 @@ export default function RotationGameManager() {
         <div className="w-full max-w-md space-y-8 animate-fade-in">
           <div className="text-center space-y-4">
             <div className="text-6xl mb-4">🌀</div>
-
-            <h1 className="text-4xl font-bold text-orange-400">
-              {t("game.modes.rotation.results.title")}
-            </h1>
 
             <div className="bg-orange-500/20 border border-orange-400/30 rounded-lg p-3">
               <div className="flex items-center justify-center space-x-2">
@@ -453,84 +538,128 @@ export default function RotationGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-            <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
-                    <span className="text-sm text-orange-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-orange-500/10 backdrop-blur-sm border border-orange-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                      <span className="text-sm text-orange-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recordingRotation")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-orange-400/60" size={14} />
-                        <span className="text-xs text-orange-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-orange-400/20 rounded-full h-1">
-                        <div
-                          className="bg-orange-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recordingRotation")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.rotationRecordedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-orange-400/60" size={14} />
+                          <span className="text-xs text-orange-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-orange-400/20 rounded-full h-1">
+                          <div
+                            className="bg-orange-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.rotationRecordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-orange-400 text-sm">
-                      Save failed after {saveStatus.maxAttempts} attempts
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-orange-400 text-sm">
+                        {t("save.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("save.retrySave")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+          {/* Play Again Error Display */}
+          {playAgainError.show && (
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center space-x-2 mb-2">
+                  <AlertTriangle className="text-red-400" size={16} />
+                  <span className="text-red-400 text-sm font-bold">
+                    {t("game.modes.rotation.playAgain.cannotPlay")}
+                  </span>
+                </div>
+                <div className="text-red-300/80 text-xs mb-3">
+                  {playAgainError.message}
+                </div>
+                {playAgainError.redirecting ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-white/60 text-xs">
+                      {t("game.modes.rotation.playAgain.redirecting")}
                     </span>
                   </div>
-                  <button
-                    className="px-3 py-1 bg-orange-400/20 border border-orange-400/30 text-orange-300 rounded text-xs hover:bg-orange-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("save.retrySave")}
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="text-white/60 text-xs">
+                    {t("game.modes.rotation.playAgain.autoRedirect")}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           <div className="space-y-4">
             <button
-              className="w-full px-6 py-4 bg-transparent border-2 border-orange-400/60 text-orange-300 rounded-xl text-lg hover:border-orange-400 hover:bg-orange-500/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
-              onClick={handleBackToGames}
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
+                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                  : "border-orange-400/60 text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 hover:scale-105 active:scale-95"
+                }`}
+              disabled={isPlayingAgain || playAgainError.show}
+              onClick={handlePlayAgain}
             >
-              <ArrowLeft size={20} />
-              <span>{t("game.modes.buttonBack")}</span>
+              {isPlayingAgain ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                  <span>{t("game.modes.rotation.playAgain.starting")}</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={20} />
+                  <span>{t("game.modes.rotation.playAgain.button")}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -564,7 +693,6 @@ export default function RotationGameManager() {
             </div>
 
             <div className="flex items-center space-x-2">
-              <Clock className="text-white" size={18} />
               <span className="text-lg font-bold text-white">
                 {formatRotationTime(gameState.stats.survivalTime)}
               </span>

@@ -489,7 +489,6 @@ export default function ReactionGameManager() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-3 bg-white/20 rounded-lg border border-white/30">
-                <Target className="text-white mx-auto mb-1" size={16} />
                 <div className="text-xl font-bold text-white">
                   {gameResult.score}
                 </div>

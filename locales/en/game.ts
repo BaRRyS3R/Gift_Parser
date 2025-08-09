@@ -105,6 +105,16 @@ export const game = {
         escapeToMenu: "BACK TO MENU",
         starting: "STARTING...",
       },
+      playAgain: {
+        button: "SURVIVE AGAIN?",
+        starting: "Starting survival...",
+        cannotPlay: "Cannot play",
+        noAttempts: "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
+        failedToConsume: "Failed to consume attempt. Please try again later.",
+        error: "Error occurred while starting survival game. Please try again later.",
+        autoRedirect: "Automatic redirect to menu in 3 seconds...",
+        redirecting: "Redirecting...",
+      },
       deathCauses: {
         miss: "Circle faded. And you.. )) No negativity.",
         wrongClick:
@@ -159,6 +169,16 @@ export const game = {
         backToMenu: "BACK TO MENU",
         levelsCompleted: "LEVELS COMPLETED",
       },
+      playAgain: {
+        button: "MORE PHYSICS?",
+        starting: "Starting experiment...",
+        cannotPlay: "Cannot play",
+        noAttempts: "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
+        failedToConsume: "Failed to consume attempt. Please try again later.",
+        error: "Error occurred while starting physics experiment. Please try again later.",
+        autoRedirect: "Automatic redirect to menu in 3 seconds...",
+        redirecting: "Redirecting...",
+      },
       deathCauses: {
         mistakes: "So many mistakes... Just like your life.",
         escapedCircles: "Circles escaped the container. Getting away from you.",
@@ -200,6 +220,16 @@ export const game = {
         spinAgain: "SPIN AGAIN",
         escapeToMenu: "BACK TO MENU",
         starting: "SPINNING UP...",
+      },
+      playAgain: {
+        button: "SPIN AGAIN?",
+        starting: "Spinning up...",
+        cannotPlay: "Cannot play",
+        noAttempts: "You're out of attempts. Wait for automatic reset or buy new ones in the shop.",
+        failedToConsume: "Failed to consume attempt. Please try again later.",
+        error: "Error occurred while starting rotation experiment. Please try again later.",
+        autoRedirect: "Automatic redirect to menu in 3 seconds...",
+        redirecting: "Redirecting...",
       },
       deathCauses: {
         miss: "Circle disappeared while you were thinking where to click. Slow reflexes.",
@@ -244,4 +274,4 @@ export const game = {
     checkingAttempts: "CHECKING ATTEMPTS...",
     lock: "Lock",
   },
-} as const; 
+} as const;

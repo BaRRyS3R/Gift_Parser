@@ -1,4 +1,4 @@
-// src/game-modes/physics/PhysicsGameManager.tsx - Localized version
+// src/game-modes/physics/PhysicsGameManager.tsx - Updated with play again functionality
 
 "use client";
 
@@ -31,6 +31,7 @@ import {
 import PhysicsGameCanvas from "./PhysicsGameCanvas";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/modules/useAttempts";
 import { useGame } from "@/hooks/modules/useGame";
 import { GameState } from "@/types/game-modes/common";
 import {
@@ -48,6 +49,12 @@ interface SaveStatus {
   showRetryDetails: boolean;
 }
 
+interface PlayAgainError {
+  show: boolean;
+  message: string;
+  redirecting: boolean;
+}
+
 const initialSaveStatus: SaveStatus = {
   isLoading: false,
   attempt: 0,
@@ -57,9 +64,19 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
+const initialPlayAgainError: PlayAgainError = {
+  show: false,
+  message: "",
+  redirecting: false,
+};
+
 export default function PhysicsGameManager() {
   const { makeAuthenticatedRequest } = useUser();
   const { saveGameResult } = useGame(makeAuthenticatedRequest);
+  const {
+    consumeAttempt,
+    fetchAttemptsStatus,
+  } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -69,6 +86,8 @@ export default function PhysicsGameManager() {
   const [showCanvas, setShowCanvas] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<PhysicsGameResult | null>(null);
+  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
+  const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
   const gameStateRef = useRef<PhysicsGameState>(gameState);
   const engineUpdateRef = useRef<number>();
@@ -89,7 +108,7 @@ export default function PhysicsGameManager() {
 
       return () => {
         tg.BackButton.hide();
-        tg.BackButton.offClick(() => {});
+        tg.BackButton.offClick(() => { });
       };
     }
   }, [router]);
@@ -102,6 +121,20 @@ export default function PhysicsGameManager() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Handle play again error auto-redirect
+  useEffect(() => {
+    if (playAgainError.show && !playAgainError.redirecting) {
+      const timer = setTimeout(() => {
+        setPlayAgainError(prev => ({ ...prev, redirecting: true }));
+        setTimeout(() => {
+          router.push("/game");
+        }, 500);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [playAgainError.show, playAgainError.redirecting, router]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -254,7 +287,7 @@ export default function PhysicsGameManager() {
     const delay =
       levelConfig.activationTimeMin +
       Math.random() *
-        (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
+      (levelConfig.activationTimeMax - levelConfig.activationTimeMin);
 
     const timeout = setTimeout(() => {
       if (
@@ -265,7 +298,7 @@ export default function PhysicsGameManager() {
           const updatedState = updatePhysicsLevel(prev);
           const newState = activateRandomCircles(
             updatedState,
-            (circleIds, decoyIds) => {},
+            (circleIds, decoyIds) => { },
             (circleId, wasDecoy) => {
               if (!wasDecoy) {
                 // Missed white circle - count as mistake
@@ -349,6 +382,8 @@ export default function PhysicsGameManager() {
     setGameState(initializePhysicsGameState());
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
+    setPlayAgainError(initialPlayAgainError);
+    setIsPlayingAgain(false);
 
     setTimeout(() => {
       setShowCanvas(true);
@@ -369,9 +404,63 @@ export default function PhysicsGameManager() {
     }, 800);
   }, [scheduleNextActivation, updatePhysicsEngine]);
 
-  const handleBackToGames = useCallback(() => {
-    router.push("/game");
-  }, [router]);
+  const handlePlayAgain = useCallback(async () => {
+    if (isPlayingAgain) return;
+
+    setIsPlayingAgain(true);
+
+    try {
+      // Get current attempts status directly from server
+      const currentAttemptsStatus = await fetchAttemptsStatus(true);
+
+      // Use the fresh data from the fetch result, not the hook state
+      if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.physics.playAgain.noAttempts"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // Consume attempt and verify the operation succeeded
+      const consumeResult = await consumeAttempt();
+
+      // Verify that the consume operation was successful
+      if (!consumeResult) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.physics.playAgain.failedToConsume"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // Additional safety check: verify we have valid remaining attempts
+      if (consumeResult.attemptsRemaining < 0) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.physics.playAgain.failedToConsume"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // All checks passed - start new game
+      startGame();
+    } catch (error) {
+      console.error("Error starting new physics game:", error);
+      setPlayAgainError({
+        show: true,
+        message: t("game.modes.physics.playAgain.error"),
+        redirecting: false,
+      });
+      setIsPlayingAgain(false);
+    }
+  }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
   // Cleanup on component unmount
   useEffect(() => {
@@ -426,10 +515,6 @@ export default function PhysicsGameManager() {
         <div className="w-full max-w-md space-y-8 animate-fade-in">
           <div className="text-center space-y-4">
             <div className="text-6xl mb-4">⚗️</div>
-
-            <h1 className="text-4xl font-bold text-purple-400">
-              {t("game.modes.physics.results.title")}
-            </h1>
 
             <div className="bg-purple-500/20 border border-purple-400/30 rounded-lg p-3">
               <div className="flex items-center justify-center space-x-2">
@@ -487,89 +572,131 @@ export default function PhysicsGameManager() {
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
-            <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
-              {saveStatus.isLoading && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center space-x-3">
-                    <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
-                    <span className="text-sm text-purple-300/80">
-                      {saveStatus.showRetryDetails
-                        ? t("save.retrying", {
+              <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-400/30 rounded-xl p-4">
+                {saveStatus.isLoading && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                      <span className="text-sm text-purple-300/80">
+                        {saveStatus.showRetryDetails
+                          ? t("save.retrying", {
                             attempt: saveStatus.attempt,
                             max: saveStatus.maxAttempts,
                           })
-                        : t("save.recording")}
-                    </span>
-                  </div>
-
-                  {saveStatus.showRetryDetails && (
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <RotateCcw className="text-purple-400/60" size={14} />
-                        <span className="text-xs text-purple-400/60">
-                          {t("save.connectionIssue")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-purple-400/20 rounded-full h-1">
-                        <div
-                          className="bg-purple-400 h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
-                          }}
-                        />
-                      </div>
+                          : t("save.recordingPhysics")}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {saveStatus.isSuccess && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-sm text-green-400">
-                      {t("save.recordedSuccessfully")}
-                    </span>
+                    {saveStatus.showRetryDetails && (
+                      <div className="text-center">
+                        <div className="flex items-center justify-center space-x-2 mb-2">
+                          <RotateCcw className="text-purple-400/60" size={14} />
+                          <span className="text-xs text-purple-400/60">
+                            {t("save.connectionIssue")}
+                          </span>
+                        </div>
+                        <div className="w-full bg-purple-400/20 rounded-full h-1">
+                          <div
+                            className="bg-purple-400 h-1 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(saveStatus.attempt / saveStatus.maxAttempts) * 100}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-green-400/60 text-xs">
-                    {saveStatus.attempt > 1
-                      ? t("save.savedAfterRetries", {
+                )}
+
+                {saveStatus.isSuccess && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-sm text-green-400">
+                        {t("save.physicsRecordedSuccessfully")}
+                      </span>
+                    </div>
+                    <div className="text-green-400/60 text-xs">
+                      {saveStatus.attempt > 1
+                        ? t("save.savedAfterRetries", {
                           attempts: saveStatus.attempt,
                         })
-                      : t("save.synchronized")}
+                        : t("save.synchronized")}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {saveStatus.error && !saveStatus.isLoading && (
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-red-400 text-sm">
-                      {t("save.saveFailed", {
-                        attempts: saveStatus.maxAttempts,
-                      })}
+                {saveStatus.error && !saveStatus.isLoading && (
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 mb-2">
+                      <span className="text-red-400 text-sm">
+                        {t("save.saveFailed", {
+                          attempts: saveStatus.maxAttempts,
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-red-400/60 text-xs mb-3">
+                      {t("save.recordedLocally")}
+                    </div>
+                    <button
+                      className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
+                      onClick={() => handleSaveGameResult(gameResult)}
+                    >
+                      {t("save.retrySave")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+          {/* Play Again Error Display */}
+          {playAgainError.show && (
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center space-x-2 mb-2">
+                  <AlertTriangle className="text-red-400" size={16} />
+                  <span className="text-red-400 text-sm font-bold">
+                    {t("game.modes.physics.playAgain.cannotPlay")}
+                  </span>
+                </div>
+                <div className="text-red-300/80 text-xs mb-3">
+                  {playAgainError.message}
+                </div>
+                {playAgainError.redirecting ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-white/60 text-xs">
+                      {t("game.modes.physics.playAgain.redirecting")}
                     </span>
                   </div>
-                  <div className="text-red-400/60 text-xs mb-3">
-                    {t("save.recordedLocally")}
+                ) : (
+                  <div className="text-white/60 text-xs">
+                    {t("game.modes.physics.playAgain.autoRedirect")}
                   </div>
-                  <button
-                    className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
-                    onClick={() => handleSaveGameResult(gameResult)}
-                  >
-                    {t("save.retrySave")}
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
           <div className="space-y-4">
             <button
-              className="w-full px-6 py-4 bg-transparent border-2 border-purple-400/60 text-purple-300 rounded-xl text-lg hover:border-purple-400 hover:bg-purple-500/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
-              onClick={handleBackToGames}
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
+                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                  : "border-purple-400/60 text-purple-300 hover:border-purple-400 hover:bg-purple-500/10 hover:scale-105 active:scale-95"
+                }`}
+              disabled={isPlayingAgain || playAgainError.show}
+              onClick={handlePlayAgain}
             >
-              <ArrowLeft size={20} />
-              <span>{t("game.modes.physics.results.backToMenu")}</span>
+              {isPlayingAgain ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                  <span>{t("game.modes.physics.playAgain.starting")}</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={20} />
+                  <span>{t("game.modes.physics.playAgain.button")}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -609,7 +736,6 @@ export default function PhysicsGameManager() {
             </div>
 
             <div className="flex items-center space-x-2">
-              <Clock className="text-white" size={18} />
               <span className="text-lg font-bold text-white">
                 {formatPhysicsTime(gameState.stats.gameTime)}
               </span>

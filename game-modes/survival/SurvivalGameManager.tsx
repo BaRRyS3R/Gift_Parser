@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Fixed bottom positioning for level and time displays
+// src/game-modes/survival/SurvivalGameManager.tsx - Updated with play again functionality
 
 "use client";
 
@@ -25,6 +25,7 @@ import {
 } from "./SurvivalGameLogic";
 
 import { useUser } from "@/hooks/useUser";
+import { useAttempts } from "@/hooks/modules/useAttempts";
 import { GameState } from "@/types/game-modes/common";
 import {
   SurvivalGameState,
@@ -42,6 +43,12 @@ interface SaveStatus {
   showRetryDetails: boolean;
 }
 
+interface PlayAgainError {
+  show: boolean;
+  message: string;
+  redirecting: boolean;
+}
+
 const initialSaveStatus: SaveStatus = {
   isLoading: false,
   attempt: 0,
@@ -51,10 +58,20 @@ const initialSaveStatus: SaveStatus = {
   showRetryDetails: false,
 };
 
+const initialPlayAgainError: PlayAgainError = {
+  show: false,
+  message: "",
+  redirecting: false,
+};
+
 const LEVEL_UPDATE_INTERVAL = 100; // Reduced from 16ms to 100ms for better performance
 
 export default function SurvivalGameManager() {
   const { makeAuthenticatedRequest, user } = useUser();
+  const {
+    consumeAttempt,
+    fetchAttemptsStatus,
+  } = useAttempts(makeAuthenticatedRequest);
   const router = useRouter();
   const t = useT();
 
@@ -65,6 +82,8 @@ export default function SurvivalGameManager() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSaveStatus);
   const [gameResult, setGameResult] = useState<SurvivalGameResult | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
+  const [playAgainError, setPlayAgainError] = useState<PlayAgainError>(initialPlayAgainError);
+  const [isPlayingAgain, setIsPlayingAgain] = useState(false);
 
   // State for activation pulse effects
   const [activatedCircles, setActivatedCircles] = useState<number[]>([]);
@@ -122,6 +141,20 @@ export default function SurvivalGameManager() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Handle play again error auto-redirect
+  useEffect(() => {
+    if (playAgainError.show && !playAgainError.redirecting) {
+      const timer = setTimeout(() => {
+        setPlayAgainError(prev => ({ ...prev, redirecting: true }));
+        setTimeout(() => {
+          router.push("/game");
+        }, 500);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [playAgainError.show, playAgainError.redirecting, router]);
 
   const triggerHapticFeedback = useCallback((type: "success" | "error") => {
     if (
@@ -417,10 +450,12 @@ export default function SurvivalGameManager() {
     setGameState(newGameState);
     setGameResult(null);
     setSaveStatus(initialSaveStatus);
+    setPlayAgainError(initialPlayAgainError);
     setActivatedCircles([]);
     setLastActivationTimestamp(0);
     setIsNewBestScore(false);
     setInstantlyDeactivatedCircles([]);
+    setIsPlayingAgain(false);
 
     // Initialize display text
     updateDisplayText(0, 1);
@@ -465,9 +500,63 @@ export default function SurvivalGameManager() {
     }, 800);
   }, [scheduleNextActivation, updateDisplayText]);
 
-  const handleBackToGames = useCallback(() => {
-    router.push("/game");
-  }, [router]);
+  const handlePlayAgain = useCallback(async () => {
+    if (isPlayingAgain) return;
+
+    setIsPlayingAgain(true);
+
+    try {
+      // Get current attempts status directly from server
+      const currentAttemptsStatus = await fetchAttemptsStatus(true);
+
+      // Use the fresh data from the fetch result, not the hook state
+      if (!currentAttemptsStatus || !currentAttemptsStatus.canPlay) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.survival.playAgain.noAttempts"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // Consume attempt and verify the operation succeeded
+      const consumeResult = await consumeAttempt();
+
+      // Verify that the consume operation was successful
+      if (!consumeResult) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.survival.playAgain.failedToConsume"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // Additional safety check: verify we have valid remaining attempts
+      if (consumeResult.attemptsRemaining < 0) {
+        setPlayAgainError({
+          show: true,
+          message: t("game.modes.survival.playAgain.failedToConsume"),
+          redirecting: false,
+        });
+        setIsPlayingAgain(false);
+        return;
+      }
+
+      // All checks passed - start new game
+      startGame();
+    } catch (error) {
+      console.error("Error starting new survival game:", error);
+      setPlayAgainError({
+        show: true,
+        message: t("game.modes.survival.playAgain.error"),
+        redirecting: false,
+      });
+      setIsPlayingAgain(false);
+    }
+  }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
   useEffect(() => {
     return () => {
@@ -509,10 +598,6 @@ export default function SurvivalGameManager() {
         <div className="w-full max-w-md space-y-8 animate-fade-in">
           <div className="text-center space-y-4">
             <div className="text-6xl mb-4">💀</div>
-
-            <h1 className="text-4xl font-bold text-red-400">
-              {t("game.modes.survival.results.title")}
-            </h1>
 
             <div className="bg-red-500/20 border border-red-400/30 rounded-lg p-3">
               <div className="flex items-center justify-center space-x-2">
@@ -577,6 +662,7 @@ export default function SurvivalGameManager() {
             </div>
           </div>
 
+          {/* Save Status Display */}
           {(saveStatus.isLoading ||
             saveStatus.error ||
             saveStatus.isSuccess) && (
@@ -637,32 +723,75 @@ export default function SurvivalGameManager() {
                   <div className="text-center">
                     <div className="flex items-center justify-center space-x-2 mb-2">
                       <span className="text-red-400 text-sm">
-                        {t("shop.saveFailed", {
+                        {t("save.saveFailed", {
                           attempts: saveStatus.maxAttempts,
                         })}
                       </span>
                     </div>
                     <div className="text-red-400/60 text-xs mb-3">
-                      {t("shop.recordedLocally")}
+                      {t("save.recordedLocally")}
                     </div>
                     <button
                       className="px-3 py-1 bg-red-400/20 border border-red-400/30 text-red-300 rounded text-xs hover:bg-red-400/30 transition-colors"
                       onClick={() => handleSaveGameResult(gameResult)}
                     >
-                      {t("shop.retrySave")}
+                      {t("save.retrySave")}
                     </button>
                   </div>
                 )}
               </div>
             )}
 
+          {/* Play Again Error Display */}
+          {playAgainError.show && (
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/30 rounded-xl p-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center space-x-2 mb-2">
+                  <AlertTriangle className="text-red-400" size={16} />
+                  <span className="text-red-400 text-sm font-bold">
+                    {t("game.modes.survival.playAgain.cannotPlay")}
+                  </span>
+                </div>
+                <div className="text-red-300/80 text-xs mb-3">
+                  {playAgainError.message}
+                </div>
+                {playAgainError.redirecting ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-white/60 text-xs">
+                      {t("game.modes.survival.playAgain.redirecting")}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-white/60 text-xs">
+                    {t("game.modes.survival.playAgain.autoRedirect")}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
             <button
-              className="w-full px-6 py-4 bg-transparent border-2 border-red-400/60 text-red-300 rounded-xl text-lg hover:border-red-400 hover:bg-red-500/10 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
-              onClick={handleBackToGames}
+              className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${
+                isPlayingAgain || playAgainError.show
+                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                  : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
+              }`}
+              disabled={isPlayingAgain || playAgainError.show}
+              onClick={handlePlayAgain}
             >
-              <ArrowLeft size={20} />
-              <span>{t("game.modes.buttonBack")}</span>
+              {isPlayingAgain ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                  <span>{t("game.modes.survival.playAgain.starting")}</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={20} />
+                  <span>{t("game.modes.survival.playAgain.button")}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
