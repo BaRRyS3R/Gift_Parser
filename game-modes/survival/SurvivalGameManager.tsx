@@ -1,4 +1,4 @@
-// src/game-modes/survival/SurvivalGameManager.tsx - Simplified with top-centered timer only
+// src/game-modes/survival/SurvivalGameManager.tsx - Complete integration with Shadow Security System (Fixed)
 
 "use client";
 
@@ -26,13 +26,16 @@ import {
 
 import { useUser } from "@/hooks/useUser";
 import { useAttempts } from "@/hooks/modules/useAttempts";
-import { GameState } from "@/types/game-modes/common";
+import { GameState, GameMode } from "@/types/game-modes/common";
 import {
   SurvivalGameState,
   SurvivalGameResult,
 } from "@/types/game-modes/survival";
 import GameGrid from "@/components/GameGrid";
 import { useT } from "@/contexts/LocalizationContext";
+
+// SHADOW SECURITY: Import shadow security system
+import { ShadowSecurityManager } from "@/lib/security/ShadowSecurityManager";
 
 interface SaveStatus {
   isLoading: boolean;
@@ -97,6 +100,9 @@ export default function SurvivalGameManager() {
   const isSchedulingActivationRef = useRef(false);
   const isGameEndingRef = useRef(false);
   const gameStateRef = useRef<SurvivalGameState>(gameState);
+
+  // SHADOW SECURITY: Add shadow security manager ref
+  const shadowSecurityRef = useRef<ShadowSecurityManager | null>(null);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -164,6 +170,7 @@ export default function SurvivalGameManager() {
     [user],
   );
 
+  // SHADOW SECURITY: Enhanced save game result function to include suspicious activity submission
   const handleSaveGameResult = useCallback(
     async (result: SurvivalGameResult) => {
       setSaveStatus((prev) => ({
@@ -174,6 +181,55 @@ export default function SurvivalGameManager() {
         isSuccess: false,
         showRetryDetails: false,
       }));
+
+      // SHADOW SECURITY: Process and submit suspicious activity data
+      const processSuspiciousActivity = async () => {
+        // FIXED: Proper null check for shadowSecurityRef.current
+        if (!shadowSecurityRef.current || !user) {
+          return;
+        }
+
+        try {
+          const suspiciousActivityData = shadowSecurityRef.current.generateSuspiciousActivityData(
+            user.telegram_id,
+            Date.now()
+          );
+
+          if (suspiciousActivityData) {
+            console.log(
+              `Shadow Security: Submitting suspicious activity data for user ${user.telegram_id}: ` +
+              `${suspiciousActivityData.suspiciousClicksCount}/${suspiciousActivityData.totalClicks} suspicious clicks`
+            );
+
+            // Submit suspicious activity in parallel with game result
+            const suspiciousActivityResponse = await makeAuthenticatedRequest(
+              "/api/security/suspicious-activity",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ suspiciousActivity: suspiciousActivityData }),
+              }
+            );
+
+            if (!suspiciousActivityResponse.ok) {
+              const errorData = await suspiciousActivityResponse.json().catch(() => ({}));
+              console.warn(
+                `Shadow Security: Failed to submit suspicious activity data: ${errorData.error || 'Unknown error'}. ` +
+                "Continuing with game save."
+              );
+            } else {
+              console.log("Shadow Security: Successfully submitted suspicious activity data");
+            }
+          } else {
+            console.log("Shadow Security: No suspicious activity detected, no submission needed");
+          }
+        } catch (error) {
+          console.warn("Shadow Security: Error processing suspicious activity data:", error);
+          // Don't fail the entire game save process due to security tracking issues
+        }
+      };
 
       let attemptCount = 1;
 
@@ -186,8 +242,16 @@ export default function SurvivalGameManager() {
         }
 
         try {
+          // SHADOW SECURITY: Process suspicious activity before saving game result (only on first attempt)
+          if (attemptCount === 1) {
+            await processSuspiciousActivity();
+          }
+
           const response = await makeAuthenticatedRequest("/api/game/save", {
             method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
             body: JSON.stringify({ gameResult: result }),
           });
 
@@ -231,7 +295,7 @@ export default function SurvivalGameManager() {
         }));
       }
     },
-    [makeAuthenticatedRequest, t],
+    [makeAuthenticatedRequest, t, user],
   );
 
   const endGame = useCallback(
@@ -241,6 +305,12 @@ export default function SurvivalGameManager() {
       }
 
       isGameEndingRef.current = true;
+
+      // SHADOW SECURITY: Clean up any pending circle activations when game ends
+      // FIXED: Proper null check for shadowSecurityRef.current
+      if (shadowSecurityRef.current) {
+        shadowSecurityRef.current.cleanupAllPendingActivations();
+      }
 
       setGameState((prev) => {
         if (prev.isGameEnding) {
@@ -285,6 +355,7 @@ export default function SurvivalGameManager() {
     [handleSaveGameResult, checkForNewBestScore],
   );
 
+  // SHADOW SECURITY: Enhanced scheduleNextActivation with security tracking
   const scheduleNextActivation = useCallback(() => {
     const currentState = gameStateRef.current;
 
@@ -327,6 +398,17 @@ export default function SurvivalGameManager() {
           (circleIds, redCircleIds) => {
             const timestamp = Date.now();
 
+            // SHADOW SECURITY: Record activation times for white circles only
+            // FIXED: Proper null check for shadowSecurityRef.current
+            if (shadowSecurityRef.current) {
+              circleIds.forEach(circleId => {
+                const isWhiteCircle = !redCircleIds.includes(circleId);
+                if (isWhiteCircle) {
+                  shadowSecurityRef.current!.recordCircleActivation(circleId, timestamp);
+                }
+              });
+            }
+
             setActivatedCircles(circleIds);
             setLastActivationTimestamp(timestamp);
 
@@ -337,6 +419,12 @@ export default function SurvivalGameManager() {
           (circleId, wasDecoy) => {
             if (isGameEndingRef.current || prev.isGameEnding) {
               return;
+            }
+
+            // SHADOW SECURITY: Clean up activation tracking for timed out circles
+            // FIXED: Proper null check for shadowSecurityRef.current
+            if (shadowSecurityRef.current) {
+              shadowSecurityRef.current.cleanupCircleActivation(circleId);
             }
 
             if (!wasDecoy) {
@@ -373,6 +461,7 @@ export default function SurvivalGameManager() {
     }, 50);
   }, [endGame]);
 
+  // SHADOW SECURITY: Enhanced handleCircleClickEvent with security tracking
   const handleCircleClickEvent = useCallback(
     (circleId: number) => {
       const currentState = gameStateRef.current;
@@ -389,6 +478,24 @@ export default function SurvivalGameManager() {
       );
 
       if (result === "correct") {
+        // SHADOW SECURITY: Record successful click on white circle
+        // FIXED: Proper null check for shadowSecurityRef.current
+        if (shadowSecurityRef.current) {
+          const clickedCircle = currentState.circles.find(c => c.id === circleId);
+          if (clickedCircle && clickedCircle.isActive && !clickedCircle.isDecoy) {
+            shadowSecurityRef.current.recordCircleClick(circleId, clickTime);
+
+            // Optional: Log click for debugging (remove in production)
+            if (process.env.NODE_ENV === 'development') {
+              const stats = shadowSecurityRef.current.getCurrentStats();
+              console.log(
+                `Shadow Security: Recorded click on circle ${circleId}. ` +
+                `Total clicks: ${stats.totalClicks}, Suspicious: ${stats.suspiciousClicks}`
+              );
+            }
+          }
+        }
+
         triggerHapticFeedback("success");
 
         setInstantlyDeactivatedCircles((prev) => [...prev, circleId]);
@@ -410,11 +517,25 @@ export default function SurvivalGameManager() {
     [triggerHapticFeedback, endGame],
   );
 
+  // SHADOW SECURITY: Enhanced startGame function with security initialization
   const startGame = useCallback(() => {
     isGameEndingRef.current = false;
     isSchedulingActivationRef.current = false;
 
     const newGameState = initializeSurvivalGameState();
+
+    // SHADOW SECURITY: Initialize shadow security manager for new game
+    shadowSecurityRef.current = new ShadowSecurityManager(
+      GameMode.SURVIVAL,
+      newGameState.gameStartTime
+    );
+
+    // Optional: Log initialization for debugging (remove in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `Shadow Security: Initialized for survival game starting at ${new Date(newGameState.gameStartTime).toISOString()}`
+      );
+    }
 
     setGameState(newGameState);
     setGameResult(null);
@@ -513,9 +634,20 @@ export default function SurvivalGameManager() {
     }
   }, [isPlayingAgain, consumeAttempt, fetchAttemptsStatus, startGame, t]);
 
+  // SHADOW SECURITY: Enhanced cleanup effect
   useEffect(() => {
     return () => {
       cleanupSurvivalGame(gameStateRef.current);
+
+      // SHADOW SECURITY: Cleanup shadow security manager
+      // FIXED: Proper null check for shadowSecurityRef.current
+      if (shadowSecurityRef.current) {
+        if (process.env.NODE_ENV === 'development') {
+          const sessionSummary = shadowSecurityRef.current.getSessionSummary();
+          console.log("Shadow Security: Game session summary:", sessionSummary);
+        }
+        shadowSecurityRef.current.cleanup();
+      }
     };
   }, []);
 
@@ -729,8 +861,8 @@ export default function SurvivalGameManager() {
           <div className="space-y-4">
             <button
               className={`w-full px-6 py-4 bg-transparent border-2 text-lg rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 ${isPlayingAgain || playAgainError.show
-                  ? "border-gray-600 text-gray-500 cursor-not-allowed"
-                  : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
+                ? "border-gray-600 text-gray-500 cursor-not-allowed"
+                : "border-red-400/60 text-red-300 hover:border-red-400 hover:bg-red-500/10 hover:scale-105 active:scale-95"
                 }`}
               disabled={isPlayingAgain || playAgainError.show}
               onClick={handlePlayAgain}
