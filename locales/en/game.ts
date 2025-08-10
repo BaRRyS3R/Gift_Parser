@@ -1,5 +1,18 @@
 // src/locales/en/game.ts - Game modes and gameplay (Updated with play again functionality)
 export const game = {
+  gyroscope: {
+    modal: {
+      title: "GYROSCOPE ACCESS",
+      description: "New game modes require access to device orientation sensor.",
+      requirement: "SYSTEM REQUIREMENT",
+      explanation: "Grant permission to enable advanced game features in future updates.",
+      error: "ERROR",
+      requesting: "REQUESTING PERMISSION...",
+      grantAccess: "GRANT ACCESS",
+      instructions: "Confirm permission in system dialog",
+      required: "REQUIRED FOR NEW MODES",
+    },
+  },
   modes: {
     title: "MODE",
     subtitle: "Choose your challenge",
