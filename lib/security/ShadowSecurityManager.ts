@@ -1,4 +1,4 @@
-// src/lib/security/ShadowSecurityManager.ts - Enhanced with fixed gyroscope monitoring at 3-second intervals
+// src/lib/security/ShadowSecurityManager.ts - Enhanced with detailed debug information and fixed gyroscope monitoring
 
 import { GameMode } from "@/types/game-modes/common";
 import {
@@ -15,7 +15,7 @@ import {
 } from "@/types/security/shadowSecurity";
 
 /**
- * Enhanced Shadow Security Manager with fixed 3-second interval gyroscope monitoring
+ * Enhanced Shadow Security Manager with comprehensive debug information and fixed 3-second interval gyroscope monitoring
  * Operates in stealth mode to detect both suspicious clicking patterns and lack of device movement
  * that may indicate automated/scripted gameplay
  */
@@ -42,6 +42,14 @@ export class ShadowSecurityManager {
         const isIOSDevice = this.detectIOSDevice();
         const shouldEnableGyroscope = !isIOSDevice && (gyroscopeConfig?.enabled !== false);
 
+        console.log("=== SECURITY DEBUG: ShadowSecurityManager Constructor ===", {
+            gameMode,
+            gameStartTime,
+            isIOSDevice,
+            shouldEnableGyroscope,
+            providedConfig: gyroscopeConfig
+        });
+
         // Initialize gyroscope configuration with conditional enabling
         this.gyroscopeConfig = {
             sensitivityThreshold: ShadowSecurityManager.DEFAULT_GYROSCOPE_SENSITIVITY,
@@ -52,6 +60,8 @@ export class ShadowSecurityManager {
             ...gyroscopeConfig,
             enabled: shouldEnableGyroscope // Force override to ensure iOS devices have gyroscope disabled
         };
+
+        console.log("=== SECURITY DEBUG: Final Gyroscope Config ===", this.gyroscopeConfig);
 
         // Initialize shadow security state with iOS-aware gyroscope monitoring
         this.state = {
@@ -74,6 +84,8 @@ export class ShadowSecurityManager {
             }
         };
 
+        console.log("=== SECURITY DEBUG: Initial Security State ===", this.state);
+
         // Log device detection and gyroscope decision with detailed info
         if (isIOSDevice) {
             console.log("Shadow Security: iOS device detected - gyroscope monitoring disabled for performance optimization", {
@@ -90,6 +102,7 @@ export class ShadowSecurityManager {
 
         // IMPORTANT: Only initialize gyroscope monitoring if explicitly enabled AND not iOS device
         if (this.gyroscopeConfig.enabled && !isIOSDevice) {
+            console.log("=== SECURITY DEBUG: Starting gyroscope initialization ===");
             this.initializeGyroscopeMonitoring();
         } else if (isIOSDevice) {
             console.log("Shadow Security: Skipping gyroscope initialization for iOS device optimization");
@@ -146,7 +159,9 @@ export class ShadowSecurityManager {
      */
     private async initializeGyroscopeMonitoring(): Promise<void> {
         try {
+            console.log("=== SECURITY DEBUG: Detecting gyroscope capability ===");
             const capability = await this.detectGyroscopeCapability();
+            console.log("=== SECURITY DEBUG: Gyroscope capability result ===", capability);
 
             this.state.gyroscopeMonitoring.permissionGranted = capability.permissionGranted;
             this.state.gyroscopeMonitoring.dataAvailable = capability.dataAvailable;
@@ -154,25 +169,30 @@ export class ShadowSecurityManager {
             if (!capability.isSupported) {
                 this.state.gyroscopeMonitoring.errorReason = GyroscopeErrorReason.NOT_SUPPORTED;
                 this.state.gyroscopeMonitoring.enabled = false;
+                console.log("=== SECURITY DEBUG: Gyroscope not supported ===");
                 return;
             }
 
             if (!capability.permissionGranted) {
                 this.state.gyroscopeMonitoring.errorReason = GyroscopeErrorReason.PERMISSION_DENIED;
                 this.state.gyroscopeMonitoring.enabled = false;
+                console.log("=== SECURITY DEBUG: Gyroscope permission denied ===");
                 return;
             }
 
             if (!capability.dataAvailable) {
                 this.state.gyroscopeMonitoring.errorReason = GyroscopeErrorReason.DATA_UNAVAILABLE;
                 this.state.gyroscopeMonitoring.enabled = false;
+                console.log("=== SECURITY DEBUG: Gyroscope data unavailable ===");
                 return;
             }
 
             // Start monitoring if all checks pass
+            console.log("=== SECURITY DEBUG: All gyroscope checks passed, starting monitoring ===");
             this.startGyroscopeMonitoring();
         } catch (error) {
             console.warn("Shadow Security: Failed to initialize gyroscope monitoring", error);
+            console.log("=== SECURITY DEBUG: Gyroscope initialization failed ===", error);
             this.state.gyroscopeMonitoring.errorReason = GyroscopeErrorReason.INITIALIZATION_FAILED;
             this.state.gyroscopeMonitoring.enabled = false;
         }
@@ -268,6 +288,8 @@ export class ShadowSecurityManager {
             return;
         }
 
+        console.log("=== SECURITY DEBUG: Starting gyroscope monitoring ===");
+
         // Set up device orientation event listener for continuous data collection
         this.deviceOrientationListener = (event: DeviceOrientationEvent) => {
             this.currentOrientationData = {
@@ -284,6 +306,7 @@ export class ShadowSecurityManager {
                     beta: event.beta,
                     gamma: event.gamma
                 };
+                console.log("=== SECURITY DEBUG: Baseline orientation data set ===", this.lastOrientationData);
             }
         };
 
@@ -302,6 +325,11 @@ export class ShadowSecurityManager {
      */
     private performGyroscopeMovementCheck(): void {
         if (!this.state.gyroscopeMonitoring.enabled || !this.lastOrientationData || !this.currentOrientationData) {
+            console.log("=== SECURITY DEBUG: Gyroscope check skipped - disabled or no data ===", {
+                enabled: this.state.gyroscopeMonitoring.enabled,
+                hasLastData: !!this.lastOrientationData,
+                hasCurrentData: !!this.currentOrientationData
+            });
             return;
         }
 
@@ -339,7 +367,18 @@ export class ShadowSecurityManager {
             };
         }
 
-        console.log(`Shadow Security: Gyroscope check ${this.state.gyroscopeMonitoring.movementRecords.length}, Movement: ${movementDetected}`);
+        const movementPercentage = this.state.gyroscopeMonitoring.movementRecords.length > 0 
+            ? (this.state.gyroscopeMonitoring.movementRecords.filter(r => r.movementDetected).length / this.state.gyroscopeMonitoring.movementRecords.length) * 100
+            : 0;
+
+        console.log(`=== SECURITY DEBUG: Gyroscope check ${this.state.gyroscopeMonitoring.movementRecords.length} ===`, {
+            movementDetected,
+            movementPercentage: movementPercentage.toFixed(1) + "%",
+            suspiciousThreshold: this.gyroscopeConfig.suspiciousMovementThreshold + "%",
+            isSuspicious: movementPercentage < this.gyroscopeConfig.suspiciousMovementThreshold,
+            currentData: this.currentOrientationData,
+            baselineData: this.lastOrientationData
+        });
     }
 
     /**
@@ -366,9 +405,19 @@ export class ShadowSecurityManager {
         // Check if any axis exceeds the sensitivity threshold
         const threshold = this.gyroscopeConfig.sensitivityThreshold;
 
-        return normalizedAlphaDiff > threshold ||
+        const exceedsThreshold = normalizedAlphaDiff > threshold ||
             betaDiff > threshold ||
             gammaDiff > threshold;
+
+        console.log(`=== SECURITY DEBUG: Movement detection ===`, {
+            alphaDiff: normalizedAlphaDiff.toFixed(2),
+            betaDiff: betaDiff.toFixed(2),
+            gammaDiff: gammaDiff.toFixed(2),
+            threshold,
+            exceedsThreshold
+        });
+
+        return exceedsThreshold;
     }
 
     /**
@@ -380,6 +429,7 @@ export class ShadowSecurityManager {
         }
 
         this.state.circleActivationTimes.set(circleId, timestamp);
+        console.log(`=== SECURITY DEBUG: Circle ${circleId} activated at ${timestamp} ===`);
     }
 
     /**
@@ -392,6 +442,7 @@ export class ShadowSecurityManager {
 
         const activationTime = this.state.circleActivationTimes.get(circleId);
         if (!activationTime) {
+            console.log(`=== SECURITY DEBUG: Click recorded for circle ${circleId} but no activation time found ===`);
             return; // No activation recorded for this circle
         }
 
@@ -407,6 +458,15 @@ export class ShadowSecurityManager {
         };
 
         this.state.clickRecords.push(clickRecord);
+
+        console.log(`=== SECURITY DEBUG: Click recorded ===`, {
+            circleId,
+            reactionTime,
+            isSuspicious,
+            threshold: this.state.suspiciousThreshold,
+            totalClicks: this.state.clickRecords.length,
+            suspiciousClicks: this.state.clickRecords.filter(r => r.isSuspicious).length
+        });
 
         // Clean up activation time
         this.state.circleActivationTimes.delete(circleId);
@@ -443,7 +503,7 @@ export class ShadowSecurityManager {
             ? checkIntervals.reduce((sum, interval) => sum + interval, 0) / checkIntervals.length
             : 0;
 
-        return {
+        const result = {
             totalChecks,
             movementsDetected,
             movementPercentage: Math.round(movementPercentage * 100) / 100,
@@ -452,6 +512,10 @@ export class ShadowSecurityManager {
             checkIntervals: [...checkIntervals],
             averageCheckInterval: Math.round(averageCheckInterval)
         };
+
+        console.log(`=== SECURITY DEBUG: Gyroscope result generated ===`, result);
+
+        return result;
     }
 
     /**
@@ -459,6 +523,12 @@ export class ShadowSecurityManager {
      * iOS devices with disabled gyroscope optimization should not generate any suspicious activity records
      */
     public generateSuspiciousActivityData(telegramId: number, gameEndTime: number): SuspiciousActivityData | null {
+        console.log("=== SECURITY DEBUG: Starting generateSuspiciousActivityData ===", {
+            telegramId,
+            gameEndTime,
+            gyroscopeErrorReason: this.state.gyroscopeMonitoring.errorReason
+        });
+
         // Early return for iOS devices - no suspicious activity tracking
         if (this.state.gyroscopeMonitoring.errorReason === "ios_optimization_disabled") {
             console.log("Shadow Security: iOS device optimization - skipping all suspicious activity tracking");
@@ -468,6 +538,17 @@ export class ShadowSecurityManager {
         const clickRecords = this.state.clickRecords;
         const suspiciousClicks = clickRecords.filter(record => record.isSuspicious);
         const gyroscopeResult = this.generateGyroscopeResult();
+
+        console.log("=== SECURITY DEBUG: Activity analysis ===", {
+            totalClicks: clickRecords.length,
+            suspiciousClicks: suspiciousClicks.length,
+            gyroscopeEnabled: this.state.gyroscopeMonitoring.enabled,
+            gyroscopeChecks: gyroscopeResult.totalChecks,
+            gyroscopeMovements: gyroscopeResult.movementsDetected,
+            gyroscopeMovementPercentage: gyroscopeResult.movementPercentage,
+            gyroscopeSuspicious: gyroscopeResult.isSuspicious,
+            gyroscopeErrorReason: gyroscopeResult.errorReason
+        });
 
         // Check for suspicious activity with multiple criteria
         const hasSuspiciousClicks = suspiciousClicks.length > 0;
@@ -480,6 +561,15 @@ export class ShadowSecurityManager {
             !this.state.gyroscopeMonitoring.enabled &&
             this.state.gyroscopeMonitoring.errorReason !== null &&
             this.state.gyroscopeMonitoring.errorReason !== "ios_optimization_disabled";
+
+        console.log("=== SECURITY DEBUG: Suspicious activity validation ===", {
+            hasSuspiciousClicks,
+            hasSuspiciousGyroscope,
+            hasGyroscopeIssues,
+            gyroscopeConfigEnabled: this.gyroscopeConfig.enabled,
+            gyroscopeStateEnabled: this.state.gyroscopeMonitoring.enabled,
+            shouldGenerate: hasSuspiciousClicks || hasSuspiciousGyroscope || hasGyroscopeIssues
+        });
 
         // Generate data if there are suspicious activities OR gyroscope unavailability/errors (excluding iOS optimization)
         if (!hasSuspiciousClicks && !hasSuspiciousGyroscope && !hasGyroscopeIssues) {
@@ -523,7 +613,10 @@ export class ShadowSecurityManager {
             gameEndTime
         };
 
-        console.log(`Shadow Security: Generated activity data - Clicks: ${hasSuspiciousClicks}, Gyroscope: ${hasSuspiciousGyroscope}, Issues: ${hasGyroscopeIssues}, Movement: ${gyroscopeResult.movementPercentage}%`);
+        console.log(`=== SECURITY DEBUG: Final activity data generated ===`, {
+            activityData,
+            hasSuspiciousActivity: hasAnySuspiciousActivity(activityData)
+        });
 
         return activityData;
     }
@@ -533,6 +626,8 @@ export class ShadowSecurityManager {
      */
     public cleanup(): void {
         this.state.isEnabled = false;
+
+        console.log("=== SECURITY DEBUG: Cleanup started ===");
 
         // Clean up gyroscope monitoring
         if (this.deviceOrientationListener) {
@@ -577,6 +672,33 @@ export class ShadowSecurityManager {
             suspiciousClicks,
             gyroscopeChecks: this.state.gyroscopeMonitoring.movementRecords.length,
             gyroscopeMovements
+        };
+    }
+
+    /**
+     * Get detailed status for comprehensive debugging
+     */
+    public getDetailedStatus(): {
+        isEnabled: boolean;
+        gameMode: string;
+        gameStartTime: number;
+        suspiciousThreshold: number;
+        clickRecords: ClickRecord[];
+        gyroscopeConfig: GyroscopeMonitoringConfig;
+        gyroscopeState: GyroscopeMonitoringState;
+    } {
+        return {
+            isEnabled: this.state.isEnabled,
+            gameMode: this.state.gameMode.toString(),
+            gameStartTime: this.state.gameStartTime,
+            suspiciousThreshold: this.state.suspiciousThreshold,
+            clickRecords: [...this.state.clickRecords],
+            gyroscopeConfig: { ...this.gyroscopeConfig },
+            gyroscopeState: {
+                ...this.state.gyroscopeMonitoring,
+                movementRecords: [...this.state.gyroscopeMonitoring.movementRecords],
+                checkIntervals: [...this.state.gyroscopeMonitoring.checkIntervals]
+            }
         };
     }
 }
