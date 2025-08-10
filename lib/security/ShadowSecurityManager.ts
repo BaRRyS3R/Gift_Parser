@@ -1,4 +1,4 @@
-// src/lib/security/ShadowSecurityManager.ts - Enhanced with gyroscope monitoring capabilities
+// src/lib/security/ShadowSecurityManager.ts - Enhanced with fixed gyroscope monitoring at 3-second intervals
 
 import { GameMode } from "@/types/game-modes/common";
 import {
@@ -15,7 +15,7 @@ import {
 } from "@/types/security/shadowSecurity";
 
 /**
- * Enhanced Shadow Security Manager with gyroscope monitoring capabilities
+ * Enhanced Shadow Security Manager with fixed 3-second interval gyroscope monitoring
  * Operates in stealth mode to detect both suspicious clicking patterns and lack of device movement
  * that may indicate automated/scripted gameplay
  */
@@ -23,15 +23,15 @@ export class ShadowSecurityManager {
     private state: ShadowSecurityState;
     private gyroscopeConfig: GyroscopeMonitoringConfig;
     private deviceOrientationListener: ((event: DeviceOrientationEvent) => void) | null = null;
-    private gyroscopeCheckTimeout: NodeJS.Timeout | null = null;
-    private initialOrientationData: { alpha: number | null; beta: number | null; gamma: number | null } | null = null;
+    private gyroscopeCheckInterval: NodeJS.Timeout | null = null;
+    private currentOrientationData: { alpha: number | null; beta: number | null; gamma: number | null } | null = null;
+    private lastOrientationData: { alpha: number | null; beta: number | null; gamma: number | null } | null = null;
 
     // Configuration constants
     private static readonly DEFAULT_SUSPICIOUS_CLICK_THRESHOLD = 250; // milliseconds
-    private static readonly DEFAULT_GYROSCOPE_SENSITIVITY = 5.0; // degrees - MUCH MORE SENSITIVE than Nebula's 12 degrees
-    private static readonly DEFAULT_GYROSCOPE_SUSPICIOUS_THRESHOLD = 90.0; // percentage - configurable threshold
-    private static readonly DEFAULT_MAX_CHECK_INTERVAL = 5000; // 5 seconds maximum
-    private static readonly DEFAULT_MIN_CHECK_INTERVAL = 3000; // 1 second minimum
+    private static readonly DEFAULT_GYROSCOPE_SENSITIVITY = 1.0; // degrees - MUCH MORE SENSITIVE than Nebula's 12 degrees
+    private static readonly DEFAULT_GYROSCOPE_SUSPICIOUS_THRESHOLD = 10.0; // percentage - configurable threshold
+    private static readonly FIXED_CHECK_INTERVAL = 3000; // Fixed 3 seconds interval
 
     constructor(
         gameMode: GameMode,
@@ -43,8 +43,8 @@ export class ShadowSecurityManager {
             enabled: true,
             sensitivityThreshold: ShadowSecurityManager.DEFAULT_GYROSCOPE_SENSITIVITY,
             suspiciousMovementThreshold: ShadowSecurityManager.DEFAULT_GYROSCOPE_SUSPICIOUS_THRESHOLD,
-            maxCheckInterval: ShadowSecurityManager.DEFAULT_MAX_CHECK_INTERVAL,
-            minCheckInterval: ShadowSecurityManager.DEFAULT_MIN_CHECK_INTERVAL,
+            maxCheckInterval: ShadowSecurityManager.FIXED_CHECK_INTERVAL,
+            minCheckInterval: ShadowSecurityManager.FIXED_CHECK_INTERVAL,
             requirePermissionCheck: false, // We assume permission is already granted from the game page
             ...gyroscopeConfig
         };
@@ -197,111 +197,85 @@ export class ShadowSecurityManager {
     }
 
     /**
-     * Start gyroscope monitoring with random interval checking
+     * Start gyroscope monitoring with fixed 3-second interval checking
      */
     private startGyroscopeMonitoring(): void {
         if (!this.state.gyroscopeMonitoring.enabled) {
             return;
         }
 
-        // Set up device orientation event listener
+        // Set up device orientation event listener for continuous data collection
         this.deviceOrientationListener = (event: DeviceOrientationEvent) => {
-            this.handleDeviceOrientationEvent(event);
+            this.currentOrientationData = {
+                alpha: event.alpha,
+                beta: event.beta,
+                gamma: event.gamma
+            };
+
+            // Store initial data as baseline if not set
+            if (!this.lastOrientationData &&
+                (event.alpha !== null || event.beta !== null || event.gamma !== null)) {
+                this.lastOrientationData = {
+                    alpha: event.alpha,
+                    beta: event.beta,
+                    gamma: event.gamma
+                };
+            }
         };
 
         window.addEventListener("deviceorientation", this.deviceOrientationListener);
 
-        // Schedule first check
-        this.scheduleNextGyroscopeCheck();
-    }
-
-    /**
-     * Handle device orientation event data
-     */
-    private handleDeviceOrientationEvent(event: DeviceOrientationEvent): void {
-        // Store initial orientation for baseline comparison
-        if (!this.initialOrientationData &&
-            (event.alpha !== null || event.beta !== null || event.gamma !== null)) {
-            this.initialOrientationData = {
-                alpha: event.alpha,
-                beta: event.beta,
-                gamma: event.gamma
-            };
-        }
-    }
-
-    /**
-     * Schedule the next gyroscope movement check at a random interval
-     */
-    private scheduleNextGyroscopeCheck(): void {
-        if (!this.state.gyroscopeMonitoring.enabled || !this.state.isEnabled) {
-            return;
-        }
-
-        // Calculate random interval between min and max
-        const randomInterval = Math.random() *
-            (this.gyroscopeConfig.maxCheckInterval - this.gyroscopeConfig.minCheckInterval) +
-            this.gyroscopeConfig.minCheckInterval;
-
-        const nextCheckTime = Date.now() + randomInterval;
-        this.state.gyroscopeMonitoring.nextCheckTime = nextCheckTime;
-
-        // Store interval for analysis
-        if (this.state.gyroscopeMonitoring.lastCheckTime > 0) {
-            const actualInterval = Date.now() - this.state.gyroscopeMonitoring.lastCheckTime;
-            this.state.gyroscopeMonitoring.checkIntervals.push(actualInterval);
-        }
-
-        this.gyroscopeCheckTimeout = setTimeout(() => {
+        // Start fixed interval checking every 3 seconds
+        this.gyroscopeCheckInterval = setInterval(() => {
             this.performGyroscopeMovementCheck();
-            this.scheduleNextGyroscopeCheck(); // Schedule next check
-        }, randomInterval);
+        }, ShadowSecurityManager.FIXED_CHECK_INTERVAL);
+
+        console.log("Shadow Security: Gyroscope monitoring started with 3-second intervals");
     }
 
     /**
-     * Perform a gyroscope movement check
+     * Perform a gyroscope movement check comparing current data with baseline
      */
     private performGyroscopeMovementCheck(): void {
-        if (!this.state.gyroscopeMonitoring.enabled || !this.initialOrientationData) {
+        if (!this.state.gyroscopeMonitoring.enabled || !this.lastOrientationData || !this.currentOrientationData) {
             return;
         }
 
         const currentTime = Date.now();
+
+        // Store interval information for analysis
+        if (this.state.gyroscopeMonitoring.lastCheckTime > 0) {
+            const actualInterval = currentTime - this.state.gyroscopeMonitoring.lastCheckTime;
+            this.state.gyroscopeMonitoring.checkIntervals.push(actualInterval);
+        }
+
         this.state.gyroscopeMonitoring.lastCheckTime = currentTime;
 
-        // Get current orientation through a temporary listener
-        let currentOrientation: { alpha: number | null; beta: number | null; gamma: number | null } | null = null;
+        // Detect movement between last baseline and current data
+        const movementDetected = this.detectMovement(this.lastOrientationData, this.currentOrientationData);
 
-        const checkListener = (event: DeviceOrientationEvent) => {
-            currentOrientation = {
-                alpha: event.alpha,
-                beta: event.beta,
-                gamma: event.gamma
-            };
+        // Record movement data
+        const movementRecord: GyroscopeMovementRecord = {
+            timestamp: currentTime,
+            alpha: this.currentOrientationData.alpha,
+            beta: this.currentOrientationData.beta,
+            gamma: this.currentOrientationData.gamma,
+            movementDetected,
+            sensitivityThreshold: this.gyroscopeConfig.sensitivityThreshold
         };
 
-        window.addEventListener("deviceorientation", checkListener);
+        this.state.gyroscopeMonitoring.movementRecords.push(movementRecord);
 
-        // Wait briefly to get current data
-        setTimeout(() => {
-            window.removeEventListener("deviceorientation", checkListener);
+        // Update baseline data for next comparison
+        if (movementDetected) {
+            this.lastOrientationData = {
+                alpha: this.currentOrientationData.alpha,
+                beta: this.currentOrientationData.beta,
+                gamma: this.currentOrientationData.gamma
+            };
+        }
 
-            if (currentOrientation) {
-                const movementDetected = this.detectMovement(this.initialOrientationData!, currentOrientation);
-
-                // Record movement data
-                const movementRecord: GyroscopeMovementRecord = {
-                    timestamp: currentTime,
-                    alpha: currentOrientation.alpha,
-                    beta: currentOrientation.beta,
-                    gamma: currentOrientation.gamma,
-                    movementDetected,
-                    sensitivityThreshold: this.gyroscopeConfig.sensitivityThreshold
-                };
-
-                this.state.gyroscopeMonitoring.movementRecords.push(movementRecord);
-            }
-        }, 100);
+        console.log(`Shadow Security: Gyroscope check ${this.state.gyroscopeMonitoring.movementRecords.length}, Movement: ${movementDetected}`);
     }
 
     /**
@@ -309,18 +283,18 @@ export class ShadowSecurityManager {
      * Uses much higher sensitivity than Nebula verification (1 degree vs 12 degrees)
      */
     private detectMovement(
-        initial: { alpha: number | null; beta: number | null; gamma: number | null },
+        baseline: { alpha: number | null; beta: number | null; gamma: number | null },
         current: { alpha: number | null; beta: number | null; gamma: number | null }
     ): boolean {
-        if (!initial.alpha || !initial.beta || !initial.gamma ||
+        if (!baseline.alpha || !baseline.beta || !baseline.gamma ||
             !current.alpha || !current.beta || !current.gamma) {
             return false;
         }
 
         // Calculate differences for each axis
-        const alphaDiff = Math.abs(current.alpha - initial.alpha);
-        const betaDiff = Math.abs(current.beta - initial.beta);
-        const gammaDiff = Math.abs(current.gamma - initial.gamma);
+        const alphaDiff = Math.abs(current.alpha - baseline.alpha);
+        const betaDiff = Math.abs(current.beta - baseline.beta);
+        const gammaDiff = Math.abs(current.gamma - baseline.gamma);
 
         // Normalize alpha difference for 0-360 wraparound
         const normalizedAlphaDiff = Math.min(alphaDiff, 360 - alphaDiff);
@@ -418,19 +392,23 @@ export class ShadowSecurityManager {
 
     /**
      * Generate comprehensive suspicious activity data for server submission
-     * Only call this when suspicious activity is detected or at game end
+     * Now triggers with minimum 1 gyroscope check or any suspicious clicks
      */
     public generateSuspiciousActivityData(telegramId: number, gameEndTime: number): SuspiciousActivityData | null {
         const clickRecords = this.state.clickRecords;
         const suspiciousClicks = clickRecords.filter(record => record.isSuspicious);
         const gyroscopeResult = this.generateGyroscopeResult();
 
-        // Only generate data if there's suspicious activity (clicks OR gyroscope)
+        // Check for suspicious activity with lowered threshold for gyroscope checks
         const hasSuspiciousClicks = suspiciousClicks.length > 0;
-        const hasSuspiciousGyroscope = this.state.gyroscopeMonitoring.enabled && gyroscopeResult.isSuspicious;
+        const hasSuspiciousGyroscope = this.state.gyroscopeMonitoring.enabled &&
+            gyroscopeResult.totalChecks >= 1 && // Minimum 1 check required
+            gyroscopeResult.isSuspicious;
 
+        // Always generate data if there are any suspicious activities OR if gyroscope monitoring detected low movement
         if (!hasSuspiciousClicks && !hasSuspiciousGyroscope) {
-            return null; // No suspicious activity detected
+            console.log("Shadow Security: No suspicious activity detected - skipping submission");
+            return null;
         }
 
         // Calculate click statistics
@@ -469,10 +447,7 @@ export class ShadowSecurityManager {
             gameEndTime
         };
 
-        // Verify that the data qualifies as suspicious before returning
-        if (!hasAnySuspiciousActivity(activityData)) {
-            return null;
-        }
+        console.log(`Shadow Security: Generated activity data - Clicks: ${hasSuspiciousClicks}, Gyroscope: ${hasSuspiciousGyroscope}, Movement: ${gyroscopeResult.movementPercentage}%`);
 
         return activityData;
     }
@@ -489,9 +464,9 @@ export class ShadowSecurityManager {
             this.deviceOrientationListener = null;
         }
 
-        if (this.gyroscopeCheckTimeout) {
-            clearTimeout(this.gyroscopeCheckTimeout);
-            this.gyroscopeCheckTimeout = null;
+        if (this.gyroscopeCheckInterval) {
+            clearInterval(this.gyroscopeCheckInterval);
+            this.gyroscopeCheckInterval = null;
         }
 
         // Clear all recorded data
@@ -499,6 +474,8 @@ export class ShadowSecurityManager {
         this.state.circleActivationTimes.clear();
         this.state.gyroscopeMonitoring.movementRecords = [];
         this.state.gyroscopeMonitoring.checkIntervals = [];
+
+        console.log("Shadow Security: Cleanup completed");
     }
 
     /**
