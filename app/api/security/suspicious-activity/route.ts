@@ -1,4 +1,4 @@
-// src/app/api/security/suspicious-activity/route.ts - Complete API endpoint for submitting suspicious activity
+// src/app/api/security/suspicious-activity/route.ts - Fixed API endpoint for submitting suspicious activity
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -13,7 +13,7 @@ import { shadowSecurityService } from "@/lib/server/shadowSecurityService";
 /**
  * POST /api/security/suspicious-activity
  * Submit suspicious activity data for security analysis
- * This endpoint receives aggregated data about suspicious clicking patterns
+ * This endpoint receives aggregated data about suspicious clicking patterns and gyroscope monitoring
  * and stores it in the database for administrative review
  */
 export async function POST(
@@ -157,8 +157,8 @@ export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
 }
 
 /**
- * Comprehensive validation of suspicious activity data
- * Ensures data integrity and logical consistency before database storage
+ * Fixed validation of suspicious activity data
+ * Now properly handles both click-based and gyroscope-based suspicious activity
  * @param data - The suspicious activity data to validate
  * @returns Validation result with success status and error message if applicable
  */
@@ -243,6 +243,78 @@ function validateSuspiciousActivityData(data: SuspiciousActivityData): {
         };
     }
 
+    // Validate gyroscope monitoring fields
+    if (typeof data.gyroscopeEnabled !== "boolean") {
+        return {
+            isValid: false,
+            error: "Invalid gyroscope enabled flag - must be a boolean",
+        };
+    }
+
+    if (typeof data.gyroscopePermissionGranted !== "boolean") {
+        return {
+            isValid: false,
+            error: "Invalid gyroscope permission granted flag - must be a boolean",
+        };
+    }
+
+    if (typeof data.gyroscopeDataAvailable !== "boolean") {
+        return {
+            isValid: false,
+            error: "Invalid gyroscope data available flag - must be a boolean",
+        };
+    }
+
+    if (typeof data.totalGyroscopeChecks !== "number" || data.totalGyroscopeChecks < 0) {
+        return {
+            isValid: false,
+            error: "Invalid total gyroscope checks - must be a non-negative number",
+        };
+    }
+
+    if (typeof data.gyroscopeMovementsDetected !== "number" || data.gyroscopeMovementsDetected < 0) {
+        return {
+            isValid: false,
+            error: "Invalid gyroscope movements detected - must be a non-negative number",
+        };
+    }
+
+    if (typeof data.gyroscopeMovementPercentage !== "number" || data.gyroscopeMovementPercentage < 0 || data.gyroscopeMovementPercentage > 100) {
+        return {
+            isValid: false,
+            error: "Invalid gyroscope movement percentage - must be between 0 and 100",
+        };
+    }
+
+    if (typeof data.gyroscopeSuspicious !== "boolean") {
+        return {
+            isValid: false,
+            error: "Invalid gyroscope suspicious flag - must be a boolean",
+        };
+    }
+
+    // Validate gyroscope data consistency
+    if (data.gyroscopeMovementsDetected > data.totalGyroscopeChecks) {
+        return {
+            isValid: false,
+            error: "Gyroscope movements detected cannot exceed total checks",
+        };
+    }
+
+    // Validate gyroscope movement percentage calculation
+    if (data.totalGyroscopeChecks > 0) {
+        const calculatedPercentage = (data.gyroscopeMovementsDetected / data.totalGyroscopeChecks) * 100;
+        const providedPercentage = data.gyroscopeMovementPercentage;
+
+        // Allow small rounding differences (0.1%)
+        if (Math.abs(calculatedPercentage - providedPercentage) > 0.1) {
+            return {
+                isValid: false,
+                error: "Gyroscope movement percentage calculation mismatch",
+            };
+        }
+    }
+
     // Validate timestamps
     if (typeof data.gameStartTime !== "number" || data.gameStartTime <= 0) {
         return {
@@ -300,39 +372,78 @@ function validateSuspiciousActivityData(data: SuspiciousActivityData): {
         };
     }
 
-    // Business logic validation: ensure we only process data when there are suspicious clicks
-    if (data.suspiciousClicksCount === 0) {
+    // FIXED: Enhanced business logic validation to accept EITHER suspicious clicks OR suspicious gyroscope activity
+    const hasSuspiciousClicks = data.suspiciousClicksCount > 0;
+    const hasSuspiciousGyroscope = data.gyroscopeEnabled && data.gyroscopeSuspicious;
+
+    if (!hasSuspiciousClicks && !hasSuspiciousGyroscope) {
         return {
             isValid: false,
-            error: "No suspicious activity detected - submission not required for clean games",
+            error: "No suspicious activity detected - neither suspicious clicks nor suspicious gyroscope activity found",
         };
     }
 
-    // Validate that if there are suspicious clicks, there must be total clicks
-    if (data.suspiciousClicksCount > 0 && data.totalClicks === 0) {
+    // Validate click consistency only if there are clicks to validate
+    if (data.totalClicks > 0) {
+        // Validate that minimum reaction time is reasonable for suspicious activity
+        // Since we're flagging <250ms as suspicious, min should typically be quite low if there are suspicious clicks
+        const suspiciousThreshold = 250;
+        if (data.suspiciousClicksCount > 0 && data.minReactionTime >= suspiciousThreshold) {
+            return {
+                isValid: false,
+                error: "Minimum reaction time inconsistent with suspicious activity detection threshold",
+            };
+        }
+
+        // Validate reasonable reaction time bounds (0-10 seconds)
+        const maxReasonableReactionTime = 10000; // 10 seconds
+        if (data.maxReactionTime > maxReasonableReactionTime) {
+            return {
+                isValid: false,
+                error: `Maximum reaction time too high - cannot exceed ${maxReasonableReactionTime}ms`,
+            };
+        }
+    } else if (data.suspiciousClicksCount > 0) {
+        // Cannot have suspicious clicks without total clicks
         return {
             isValid: false,
             error: "Cannot have suspicious clicks without total clicks",
         };
     }
 
-    // Validate reasonable reaction time bounds (0-10 seconds)
-    const maxReasonableReactionTime = 10000; // 10 seconds
-    if (data.maxReactionTime > maxReasonableReactionTime) {
-        return {
-            isValid: false,
-            error: `Maximum reaction time too high - cannot exceed ${maxReasonableReactionTime}ms`,
-        };
-    }
+    // Validate gyroscope consistency only if gyroscope is enabled
+    if (data.gyroscopeEnabled) {
+        if (data.totalGyroscopeChecks === 0 && data.gyroscopeSuspicious) {
+            return {
+                isValid: false,
+                error: "Cannot have suspicious gyroscope activity without any gyroscope checks",
+            };
+        }
 
-    // Validate that minimum reaction time is reasonable for suspicious activity
-    // Since we're flagging <250ms as suspicious, min should typically be quite low
-    const suspiciousThreshold = 250;
-    if (data.suspiciousClicksCount > 0 && data.minReactionTime >= suspiciousThreshold) {
-        return {
-            isValid: false,
-            error: "Minimum reaction time inconsistent with suspicious activity detection threshold",
-        };
+        // Validate gyroscope sensitivity threshold
+        if (typeof data.gyroscopeMinSensitivity !== "number" || data.gyroscopeMinSensitivity <= 0) {
+            return {
+                isValid: false,
+                error: "Invalid gyroscope minimum sensitivity - must be a positive number",
+            };
+        }
+
+        // Validate gyroscope check intervals array
+        if (!Array.isArray(data.gyroscopeCheckIntervals)) {
+            return {
+                isValid: false,
+                error: "Invalid gyroscope check intervals - must be an array",
+            };
+        }
+
+        // Check that intervals make sense for the number of checks
+        const expectedIntervals = Math.max(0, data.totalGyroscopeChecks - 1);
+        if (data.gyroscopeCheckIntervals.length !== expectedIntervals) {
+            return {
+                isValid: false,
+                error: `Invalid gyroscope check intervals count - expected ${expectedIntervals}, got ${data.gyroscopeCheckIntervals.length}`,
+            };
+        }
     }
 
     // All validations passed
